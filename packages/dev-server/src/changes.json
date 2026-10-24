@@ -1,5 +1,31 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "The managed Dockerfile names the real k3s migration step",
+    "detail": "The comment above the migrations COPY in the managed Dockerfile pointed at a release.yml InitContainer that does not exist. It now names the migrate-db initContainer of the infra _app-deploy.yml, and migrate-step.sh for compose hosts. Only the comment changes; the next kumiko-upgrade shows it as a managed-file diff."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "Scaffolded bin/kumiko.ts passes FEATURES from kumiko/schema",
+    "detail": "The scaffolded standalone CLI handed allAppFeatures(appConfig) to runSchemaCli, a raw list without the bundled foundation. It now imports FEATURES from kumiko/schema, which the Schema CLI Features guard requires. Existing apps are not touched."
+  },
+  {
+    "version": "0.390.0",
+    "type": "breaking",
+    "title": "The dev server runs with row level security on",
+    "detail": "runDevApp and createKumikoServer default to rowLevelSecurity \"on\" and run the dev stack as kumiko_app. On boot against a persistent dev database, the stack creates the role and transfers ownership of the database and of the public schema's tables, views and sequences to kumiko_app. The database user in DATABASE_URL needs the right to create roles, which the superuser of a local Postgres has. Code that reads tenant tables through a raw connection without a scope sees no rows in development; the boot does not detect this. runSchemaApply takes rowLevelSecurity, and the managed kumiko/schema.ts exports ROW_LEVEL_SECURITY from appConfig; the managed file updates on the next sync.",
+    "migration": "Pass rowLevelSecurity: \"off\" to runDevApp while fixing code paths without tenant context; the dev database keeps kumiko_app as owner. A server entry written by an older scaffold passes appConfig.rowLevelSecurity to runProdApp by hand once the app turns row level security on. Manual migration, there is no codemod."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Scaffolded dev admin leaves emailVerified to the boot seed",
+    "detail": "The boot seed marks the operator-created admin and the seed shortcut accounts as email-verified, so the scaffolded `bin/server.ts` no longer sets `emailVerified: true` on its own. Self-registered users still go through the verify flow.",
+    "migration": "Optional. Existing apps can drop `emailVerified: true` from `auth.admin` in `bin/server.ts` and `bin/main.ts`; an explicit value still wins over the default."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Scaffolded apps pin Bun 1.4.4",

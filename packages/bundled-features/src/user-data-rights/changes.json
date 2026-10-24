@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "export cleanup stays quiet when metrics are off",
+    "detail": "The cleanup gauges are not registered without metrics, so the job logged \"Gauge not registered\" on every pass."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "User data export and forget cleanup run in system scope",
+    "detail": "runUserExport and runForgetCleanup walk every tenant of a user, so they enter the system scope themselves instead of depending on the caller's scope. A direct call outside a job no longer exports or erases nothing under row level security \"on\"."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "QN constants for the forget-cleanup job and the download-attempt list screen",
+    "detail": "UserDataRightsJobs.runForgetCleanup (\"user-data-rights:job:run-forget-cleanup\") and UserDataRightsScreens.downloadAttemptList (\"user-data-rights:screen:download-attempt-list\") are exported next to the existing QN constants, from the feature barrel and from user-data-rights/web. Use the screen constant in an app's r.nav instead of the literal string."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "QN constants for the export job and the export job list screen",
+    "detail": "UserDataRightsJobs.runExportJobs (\"user-data-rights:job:run-export-jobs\") and UserDataRightsScreens.exportJobList (\"user-data-rights:screen:export-job-list\") are exported next to UserDataRightsQueries and UserDataRightsHandlers, from the feature barrel and from user-data-rights/web. Use the screen constant in an app's r.nav instead of the literal string."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "USER_DATA_RIGHTS_FEATURE is exported from the barrel",

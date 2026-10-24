@@ -1,5 +1,59 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "previewOpenByDefault opens the newest file",
+    "detail": "FileValueList with previewOpenByDefault (renderer format \"file\") now opens only the PDF preview of the newest file instead of the first one. Uploads append their FileRef id, so the newest file is the last id in fileIds."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "DataTable card title is truncated instead of wrapping",
+    "detail": "In the mobile card layout a long title now truncates to one line with its full text on hover, and the row-actions menu no longer shrinks or leaves the viewport next to it. Before, the title wrapped over several lines and could squeeze the menu."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "DataTable resizing: row click in the leftover width, grip named by title",
+    "detail": "With column sizing the actions column absorbs the leftover width, and its cell swallowed every click, so a click on the free area to the right of the last column did not open the row. Only clicks from inside the cell (buttons, menus) stop now; a click on the empty cell reaches the row. The resize grips carry their text as title instead of aria-label, so getByLabel on a column name no longer matches the grip of every column. The accessible name stays, getByRole(\"separator\", { name }) keeps working."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "One tiptap range across the framework packages",
+    "detail": "bundled-features pinned @tiptap/* exactly to 3.31.3 while the renderer asked for ^3.30.5. Apps resolved the renderer's range to a newer patch and kept the exact pin next to it, so their lockfiles held two @tiptap/core and @tiptap/react instances (core 3.31.3 and 3.31.4 in offlot-app, money-horse, publicstatus, phronexsis, show-pony and kumiko-enterprise). Both packages now declare ^3.31.3 for every @tiptap/* dependency, so one resolved version satisfies both; the framework lockfile still resolves 3.31.3."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Table-driven field and input dispatch",
+    "detail": "DefaultInput, renderInput, RenderField and the read-only field text dispatch over tables, and ReferenceInput keeps its query and create state in one hook. Rendered markup and behavior are unchanged."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split list and detail screens into hooks and render functions",
+    "detail": "RenderList, ProjectionListBody and ProjectionDetailBody compose focused hooks and render functions for search, columns, toolbar, queries, actions, header and states. Rendered markup and behavior are unchanged."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split RenderEdit into hooks and per-kind section renderers",
+    "detail": "RenderEdit composes focused hooks and builders for state, form, draft, wizard navigation and submit, and renders sections through per-kind functions. Rendered markup and behavior are unchanged."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split web StackedAreaChart into hooks and render functions",
+    "detail": "StackedAreaChart composes window and tooltip hooks with geometry builders and render functions for the plot, tooltip, brush and chrome. Rendered markup and behavior are unchanged."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split web dashboard, form footer, drawer and data table into hooks and render functions",
+    "detail": "WebDashboardBody, FormFooter, Drawer and DefaultDataTable compose focused hooks and render functions for screen state, header, visibility gates, panel tiles, sticky footer rows, drawer resizing, table state, toolbar, table rows and card views. Rendered markup and behavior are unchanged."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "DataTable view menu, remembered list state and compact density",

@@ -1,5 +1,98 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.390.0
+
+### Patch Changes
+
+- 4b36bd9: The complexity guard now scans .tsx files with the same hard cap of 40 as .ts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Complexity guard covers .tsx with the hard cap of 40
+  detail: The Complexity Check scans .tsx files next to .ts (.test.tsx stays excluded), and conditional JSX counts as a branch. A .tsx function above complexity 40 fails in the repo's own files, regardless of baseline or complexity-budget tag.
+  migration: Run `kumiko-guards guards --write-baseline --guard="Complexity Check"` once on the bump to freeze the .tsx hotspots between 15 and 40, and split every .tsx function above 40 before the bump; the complexity-budget tag and the baseline do not cover it. Measured on 2026-10-23 (function, complexity / lines): offlot-app ComposerWorkspace 129/597 (campaign-composer-screen.tsx) and ComposerPostText 47/289 (composer-post-drawer.tsx); kumiko-enterprise AgentPanelBody 74/634 (agent-panel-body.tsx); phronexsis WorkbenchDashboardScreen 64/653 (workbench-dashboard-screen.tsx); money-horse CreditCalculatorScreen 60/468 (credit-calculator-screen.tsx); solon CockpitDetail 58/462 (inbox-cockpit-screen.tsx). publicstatus, show-pony, kumiko-studio and kumiko-platform have no .tsx function above 40.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: PDF editor actions drop unreachable null checks
+  detail: generatePdf, printOnce and the save path of the PDF template editor no longer check for a missing editor state; the editor only builds its actions once the state is loaded, and the type already excludes null. A new test pins the publishSystem path for a SystemAdmin who holds a clean tenant template.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: One tiptap range across the framework packages
+  detail: bundled-features pinned @tiptap/* exactly to 3.31.3 while the renderer asked for ^3.30.5. Apps resolved the renderer's range to a newer patch and kept the exact pin next to it, so their lockfiles held two @tiptap/core and @tiptap/react instances (core 3.31.3 and 3.31.4 in offlot-app, money-horse, publicstatus, phronexsis, show-pony and kumiko-enterprise). Both packages now declare ^3.31.3 for every @tiptap/* dependency, so one resolved version satisfies both; the framework lockfile still resolves 3.31.3.
+  -->
+- 87271b5: The PDF template editor only uses a template detail whose id matches the row picked for the current scope and locale.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: The PDF editor no longer saves or publishes the previous row after a scope switch
+  detail: When the host scope changed while the editor was open, for example once the SystemAdmin role loaded, the editor kept showing the tenant copy until the system row arrived. Save then wrote the tenant content as the system template, and publish sent the tenant row to publishSystem. The editor now shows the loading state until the detail of the newly picked row has loaded.
+  -->
+- 839325f: Split the PDF, layout and mail editors into state hooks, logic modules and render functions.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Split PDF, layout and mail editors into hooks and render functions
+  detail: PdfTemplateEditor, LayoutEditorBody and MailEditorBody compose focused state hooks, pure logic modules and render functions for chrome, panes and previews. Rendered markup and behavior are unchanged.
+  -->
+- Updated dependencies [38e816b]
+- Updated dependencies [2376b07]
+- Updated dependencies [1a7eebe]
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [4f4ec30]
+- Updated dependencies [86af2d0]
+- Updated dependencies [22f792d]
+- Updated dependencies [84e9d9c]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [454b49d]
+- Updated dependencies [4b36bd9]
+- Updated dependencies [21b70ba]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+- Updated dependencies [febcd93]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [febcd93]
+- Updated dependencies [abef0e6]
+- Updated dependencies [01a611f]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [3131c5c]
+- Updated dependencies [8d06990]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [6d20414]
+- Updated dependencies [f6d230f]
+- Updated dependencies [e0e2dfe]
+- Updated dependencies [8c25e2f]
+- Updated dependencies [d6c1dec]
+- Updated dependencies [22f9f23]
+- Updated dependencies [9cf6cc6]
+- Updated dependencies [6c1151a]
+- Updated dependencies [54cda5b]
+- Updated dependencies [9e6de88]
+- Updated dependencies [a08fc93]
+- Updated dependencies [78654fd]
+- Updated dependencies [c64181f]
+- Updated dependencies [1d392a4]
+- Updated dependencies [276216d]
+- Updated dependencies [5d38d3c]
+- Updated dependencies [dd62f90]
+- Updated dependencies [f5f2fe9]
+- Updated dependencies [a01d30a]
+  - @cosmicdrift/kumiko-bundled-features@0.390.0
+  - @cosmicdrift/kumiko-framework@0.390.0
+  - @cosmicdrift/kumiko-renderer@0.390.0
+  - @cosmicdrift/kumiko-types@0.390.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.390.0
+
 ## 0.389.0
 
 ### Patch Changes

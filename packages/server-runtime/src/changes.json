@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "auth.admin seed admin is email-verified",
+    "detail": "Under emailVerificationMode strict the seeded admin failed login with email_not_verified."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "runProdApp checks the row level security state at boot",
+    "detail": "RunProdAppOptions.rowLevelSecurity (\"off\" by default) sets the mode of every connection; the scaffolded server entry passes appConfig.rowLevelSecurity. With \"on\", boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a table with tenant_id lacks ENABLE, FORCE or one of the two kumiko policies; the message lists the tables. With \"off\", boot fails while any table still has row level security enabled and points to the DISABLE migration that kumiko-schema generate writes."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "demoAdminFromEnv seed account is email-verified",
+    "detail": "Under emailVerificationMode strict the seeded demo admin failed login with email_not_verified."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Wiring tests reset event-sourced tables through resetTestTables",
+    "detail": "The compose-features integration tests clear users, memberships and the event log with resetTestTables instead of deleting projection rows. Nothing changes for apps."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "search \"none\" lets apps without a search backend run the stream-tenant backfill",
+    "detail": "The backfill deferred itself in every process without a search adapter, so apps with a searchable tenant entity but no search backend (for example publicstatus) never moved their legacy tenant streams.",
+    "migration": "Apps without a search backend set `search: \"none\"` on runProdApp and runWorkerApp, otherwise the stream-tenant backfill stays deferred."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "The renderer-web stylesheet fallback checks tailwindcss in node_modules",

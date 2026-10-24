@@ -1,5 +1,177 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.390.0
+
+### Minor Changes
+
+- 454b49d: Feature AST, pattern library and codemods moved to the new package @cosmicdrift/kumiko-feature-ast; kumiko-upgrade heals stale open lines in CHANGELOG.md
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Feature AST, pattern library and codemods moved to @cosmicdrift/kumiko-feature-ast
+  codemod: scripts/codemod/feature-ast-package.ts
+  migration: |
+    Import these names from @cosmicdrift/kumiko-feature-ast instead of @cosmicdrift/kumiko-framework/engine: AddEntityArgs, AddHookArgs, AddRelationArgs, AddWriteHandlerArgs, FeaturePatcher, FeaturePattern, FeaturePatternKind, FormFieldLabel, FormFieldSpec, FormInputType, HandlerHeaderUpdate, ParseError, ParseResult, PatternCategory, PatternChange, PatternChangeIssue, PatternChangesParseResult, PatternFormSchema, PatternId, RenderFeatureFileInput, SourceLocation, PATTERN_LIBRARY, VERSION_HEADER, addPattern, applyChanges, createFeaturePatcher, getPatternSchema, groupByCategory, parseFeatureFile, parsePatternChanges, parseSourceFile, removePattern, renderFeatureFile, renderPattern, replacePattern, updatePattern. Import CodemodOptions, CodemodReport, CodemodResult, FileAnalysis, ParsedHandlerInfo, analyzeFile, analyzeHandlerArrow, convertFile, generatePerformBlock, runCodemod, scanForCandidates from @cosmicdrift/kumiko-feature-ast/codemod instead of @cosmicdrift/kumiko-framework/engine/codemod. Add @cosmicdrift/kumiko-feature-ast to the dependencies of the importing package; the codemod does both. @cosmicdrift/kumiko-framework no longer installs ts-morph.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade --apply and --resolve heal stale open lines in CHANGELOG.md
+  migration: |
+    Every manual migration the upgrade marker lists as resolved gets its status in CHANGELOG.md, including `- [open]` lines in older sections left behind by a resolve with an older CLI.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: improvement
+  title: New package @cosmicdrift/kumiko-feature-ast
+  -->
+  
+  The feature-file AST (parse, patch, render), the pattern library and the upgrade codemods now live in their own package, so the framework and its production images no longer carry ts-morph. The package publishes `.` and the Bun-only `./codemod`.
+- f6d230f: Postgres row level security is on by default, system scopes carry a mandatory reason, and the event write path keeps the caller's tenant scope.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: rowLevelSecurity defaults to "on"
+  migration: |
+    In the app repo, once with the bump: run `kumiko sync-managed --write` (the managed kumiko/schema.ts now reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`), then `kumiko schema generate` and commit the migration. It contains ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table. The schema apply (the migrate init container in production) creates them; there is no manual database step. Without the migration, boot at "on" refuses to start and names the unprotected tables.
+    The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; tools that touch no tenant rows (schema baseline/status, the KMS key store) pass "off" explicitly, and the operator commands backfill-pii, waitlist-migrate, project and consumer run on an enforcing connection in system scope, so they work against both modes.
+    Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot hooks with a db dependency get a system-scoped db at rowLevelSecurity "on"
+  migration: |
+    No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. Anything the anonymousAccess factory builds keeps that db at request time and therefore reads across tenants for anonymous callers: filter by the resolved tenant yourself. In prod, extraContext factories keep the ambient request scope; the test stack and dev still hand them a system-scoped db, so a service that needs cross-tenant reads at request time must scope itself.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runInSystemRowLevelSecurityScope and systemScopedRunner take a reason
+  migration: |
+    Call runInSystemRowLevelSecurityScope("<why this access spans tenants>", fn) and systemScopedRunner(runner, "<reason>"). An empty or whitespace reason throws InternalError; the scope leak assertion names the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: A projection write under a tenant scope can no longer land in another tenant
+  migration: |
+    A command that writes an entity row for another tenant through ctx.db now fails with SQLSTATE 42501; move that write to ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature.
+  detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard internal-subpath-imports
+  detail: Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant job run rows are written in the tenant's scope
+  detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: composeFeatures no longer warns about its own bundled copies
+  detail: Composing the output of a first composeFeatures pass again drops the earlier bundled instances silently; only copies the app supplied itself still warn.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Scoped pool statements pipeline their transaction
+  detail: A pool statement under a row level security scope sends BEGIN, the transaction-local scope, the statement and COMMIT pipelined on one reserved connection instead of waiting for each, which cuts its roundtrips roughly in half. The connection returns to the pool only after COMMIT settled.
+  -->
+
+### Patch Changes
+
+- 9e6de88: Integration tests change event-sourced rows through the event store or the real commands instead of writing projection tables.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tests no longer write event-sourced tables directly
+  detail: Integration tests for users, memberships, tenants and user-data-rights change event-sourced rows through the event store or the real commands and reset them with resetTestTables. seedDestroyingTenant in tenant-lifecycle/testing now writes the status through the event store and throws when the tenant stream does not live on the seed SystemAdmin's tenant. Nothing changes for apps; the packages are only republished.
+  -->
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [38e816b]
+- Updated dependencies [2376b07]
+- Updated dependencies [1a7eebe]
+- Updated dependencies [4d004e0]
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [4f4ec30]
+- Updated dependencies [86af2d0]
+- Updated dependencies [22f792d]
+- Updated dependencies [bb6a947]
+- Updated dependencies [cd2937c]
+- Updated dependencies [aa8319f]
+- Updated dependencies [84e9d9c]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [454b49d]
+- Updated dependencies [4b36bd9]
+- Updated dependencies [21b70ba]
+- Updated dependencies [620f2c2]
+- Updated dependencies [21b70ba]
+- Updated dependencies [c381fed]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+- Updated dependencies [febcd93]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [febcd93]
+- Updated dependencies [abef0e6]
+- Updated dependencies [654a6c6]
+- Updated dependencies [01a611f]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [3131c5c]
+- Updated dependencies [8d06990]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [6d20414]
+- Updated dependencies [f6d230f]
+- Updated dependencies [4d004e0]
+- Updated dependencies [e0e2dfe]
+- Updated dependencies [058eb89]
+- Updated dependencies [de84f0b]
+- Updated dependencies [8c25e2f]
+- Updated dependencies [d6c1dec]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [22f9f23]
+- Updated dependencies [9cf6cc6]
+- Updated dependencies [2376b07]
+- Updated dependencies [6c1151a]
+- Updated dependencies [54cda5b]
+- Updated dependencies [9e6de88]
+- Updated dependencies [a08fc93]
+- Updated dependencies [78654fd]
+- Updated dependencies [c64181f]
+- Updated dependencies [1d392a4]
+- Updated dependencies [276216d]
+- Updated dependencies [5d38d3c]
+- Updated dependencies [dd62f90]
+- Updated dependencies [f5f2fe9]
+- Updated dependencies [a01d30a]
+  - @cosmicdrift/kumiko-server-runtime@0.390.0
+  - @cosmicdrift/kumiko-bundled-features@0.390.0
+  - @cosmicdrift/kumiko-framework@0.390.0
+  - @cosmicdrift/kumiko-renderer@0.390.0
+  - @cosmicdrift/kumiko-feature-ast@0.390.0
+  - @cosmicdrift/kumiko-testing@0.390.0
+  - @cosmicdrift/kumiko-dev-server@0.390.0
+  - @cosmicdrift/kumiko-guards@0.390.0
+
 ## 0.389.0
 
 ### Patch Changes

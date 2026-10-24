@@ -1,5 +1,52 @@
 # @cosmicdrift/kumiko-types
 
+## 0.390.0
+
+### Minor Changes
+
+- 5d7dfe1: HandlerContext drops the boot wiring: services, lifecycle and tenants replace the flat members, and hooks receive the HandlerContext.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext without wiring, hooks receive the HandlerContext
+  codemod: scripts/codemod/ctx-namespaces.ts
+  detail: HandlerContext has 19 members and no longer carries the AppContext wiring. ctx.services holds redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, configEncryption, rateLimit, effectiveFeatures and masterKeyProvider; every key of an app's extraContext that the framework does not know now lives in ctx.services.extensions (it used to sit flat on the context through a spread, invisible to tsc). ctx.lifecycle holds afterCommit and afterRollback (replacing scheduleAfterCommit and scheduleAfterRollback), signal and runPreSave. ctx.tenants holds config (replacing configFor) and writeTarget (replacing forTenant). ctx.obs gains meter, and the flat log, tracer, _tenantId, systemUser and triggeredBy are gone; read ctx.user.tenantId and ctx.obs.log. JobContext no longer extends the shared wiring fields; it gets services and lifecycle.signal and keeps systemUser, triggeredBy and its job fields. All hooks (preSave, postSave, postSaveBatch, preDelete, postDelete, postDeleteBatch, preQuery, postQuery) and the system hook definitions receive the HandlerContext instead of the AppContext, and the batch hooks run on a real handler context built per flush. AppContext stays the flat boot wiring and declares services as never, so a handler or job context can no longer be passed to a function that takes an AppContext. The context of beforeTransaction no longer exposes ctx.systemDb.outsideTransaction, which was a hole next to the denied ctx.db.outsideTransaction. The member-resolution and pre-transaction contexts also drop the notify factories from ctx.services, and member resolution drops _fileProviderResolver, so neither can rebuild the denied notify or file storage. Helpers that took a structural context with an optional flat member read undefined once a handler context stopped carrying it; their shapes now make that a type error: requireSecretsContext, FileProviderContext (createFileProviderForTenant) and MailTransportContext (createTransportForTenant) take a required secrets key (handlers pass { secrets: ctx.services.secrets, user: ctx.user }), and CreateFileRefContext/UploadFileBytesContext read services.files, so a handler or job context passes straight in. bridgeStub accepts a services option.
+  migration: |
+    Run kumiko-upgrade --apply; it runs the ctx-namespaces codemod. It rewrites ctx.redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, effectiveFeatures and the other service members to ctx.services.*, scheduleAfterCommit and scheduleAfterRollback to ctx.lifecycle.afterCommit and afterRollback, signal to ctx.lifecycle.signal, configFor and forTenant to ctx.tenants.config and writeTarget, and hook parameters annotated AppContext to HandlerContext, including context.log to context.obs.log in the hook body. Keys of your extraContext that you read through a cast move to ctx.services.extensions. Listed for manual review: ctx.systemUser, ctx.triggeredBy and ctx._tenantId on a HandlerContext (read ctx.user), a handler or job context passed to a function that takes an AppContext (narrow that parameter to the members it reads), spread literals next to moved members, and a handler or job context passed to a parameter whose structural type reads a moved member (it would read undefined without a type error). Hand-built test contexts take services, lifecycle and tenants from bridgeStub({ services }).
+  -->
+- a01d30a: HandlerContext and JobContext group their members into namespaces: db.outsideTransaction, events, dispatch, auth and obs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext and JobContext use namespaces instead of flat members
+  codemod: scripts/codemod/ctx-namespaces.ts
+  detail: The roughly 40 flat members of HandlerContext are grouped by purpose, with no deprecated aliases. ctx.db.outsideTransaction replaces ctx.dbOutsideTransaction and ctx.outsideTransaction (the property is non-enumerable and sits on the same db object, so TenantDb identity stays intact; it is undefined in the member-resolution and before-transaction phases and in platform-metering tenant mode). ctx.events holds append, unsafeAppend, tryAppend, fetchForWriting, load, archive, restore, isArchived, snapshot and loadWithSnapshot. ctx.dispatch holds query, queryAs, write, writeAs, queryAsMember and queryProjection. ctx.auth holds resolveClaims and resolveActiveMembership. ctx.obs holds log, tracer, metrics and metricsFor, and ctx.obs.log is now always a Logger. JobContext gets the subsets events.append, dispatch.write/writeAs/queryAs/queryAsMember and obs.log/metricsFor. reserveBeforeTransaction and beforeTransaction receive the new ReservationContext and BeforeTransactionContext types, so the surfaces they deny no longer exist on the type. The deprecated _configAccessorFactory alias is removed; use configAccessorFactory. The cap-counter resolvers and the template-resolver PrepareContext now take ReservationContext instead of HandlerContext (type-level break for callers passing a full HandlerContext-typed value to a narrower position, and for wrappers declaring the old type). attachOutsideTransaction(db, outsideDb) from @cosmicdrift/kumiko-framework/engine gives hand-built contexts a db.outsideTransaction; it mutates the passed db with a non-enumerable property (Object.defineProperty) and returns the same object. bridgeStub now accepts log and dispatch options. AppContext stays flat, and the context handed to postSave, preDelete, postDelete and postQuery hooks still reads context.log; a separate hook context follows in a later release.
+  migration: |
+    Run kumiko-upgrade --apply; it runs the ctx-namespaces codemod. It rewrites ctx.dbOutsideTransaction and ctx.outsideTransaction to ctx.db.outsideTransaction, ctx.appendEvent/unsafeAppendEvent/tryAppendEvent/fetchForWriting/loadAggregate/archiveStream/restoreStream/isStreamArchived/snapshotAggregate/loadAggregateWithSnapshot to ctx.events.append/unsafeAppend/tryAppend/fetchForWriting/load/archive/restore/isArchived/snapshot/loadWithSnapshot, ctx.query/queryAs/write/writeAs/queryAsMember/queryProjection to ctx.dispatch.*, ctx.resolveAuthClaims/resolveActiveMembership to ctx.auth.resolveClaims/resolveActiveMembership, and ctx.log/tracer/metrics/metricsFor to ctx.obs.*. Object literals typed as HandlerContext or JobContext (test mocks) are nested the same way. Sites the codemod cannot resolve are listed for manual review: spread literals, untyped receivers, and AppContext reads such as context.log in hooks, which stay as they are. Manual pattern { db: someDb, dbOutsideTransaction: x } becomes db: attachOutsideTransaction(someDb, x). Spread calls such as ...bridgeStub() next to moved members are reworked by hand; pass log/dispatch as bridgeStub options. Rename _configAccessorFactory to configAccessorFactory where you set it on an AppContext.
+  -->
+- be576a7: Jobs append their own events with `ctx.events.append`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Jobs append their own events with ctx.events.append
+  detail: Jobs no longer need escapeHatch or unsafeRaw plus the low-level event-store API to append their own feature's events. The same ownership and schema rules apply as in write handlers, and the append runs in its own transaction together with the inline projections.
+  migration: |
+    JobContext has a new required field events.append. Code that builds a JobContext object by hand (boot seeds, test fixtures) and does not spread bridgeStub() adds an events.append that throws when the code under test never appends. Jobs that appended their own feature's events through escapeHatch or unsafeRaw switch to ctx.events.append({ type, aggregateId, aggregateType, payload }).
+  -->
+- 5ee91c6: Jobs see whether they can still defer with `ctx.canDefer`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Jobs see whether they can still defer (ctx.canDefer)
+  detail: ctx.canDefer is false when the run is inline or the maxDefers budget is used up, so a handler can write its terminal state instead of deferring into an UnrecoverableError. Behaviour of ctx.defer and the maxDefers failure is unchanged.
+  migration: |
+    JobContext has a new required field canDefer. Code that builds a JobContext object by hand (boot seeds, test fixtures) adds `canDefer: false` unless the context really supports ctx.defer. Contexts built by the job runner or cast with `as unknown as JobContext` need no change.
+  -->
+
 ## 0.389.0
 
 ### Minor Changes

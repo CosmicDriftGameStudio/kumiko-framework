@@ -1,5 +1,58 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.390.0
+
+### Patch Changes
+
+- Updated dependencies [38e816b]
+- Updated dependencies [2376b07]
+- Updated dependencies [1a7eebe]
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [4f4ec30]
+- Updated dependencies [86af2d0]
+- Updated dependencies [22f792d]
+- Updated dependencies [84e9d9c]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [454b49d]
+- Updated dependencies [4b36bd9]
+- Updated dependencies [21b70ba]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+- Updated dependencies [febcd93]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [febcd93]
+- Updated dependencies [abef0e6]
+- Updated dependencies [01a611f]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [3131c5c]
+- Updated dependencies [8d06990]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [6d20414]
+- Updated dependencies [f6d230f]
+- Updated dependencies [e0e2dfe]
+- Updated dependencies [8c25e2f]
+- Updated dependencies [d6c1dec]
+- Updated dependencies [22f9f23]
+- Updated dependencies [9cf6cc6]
+- Updated dependencies [6c1151a]
+- Updated dependencies [54cda5b]
+- Updated dependencies [9e6de88]
+- Updated dependencies [a08fc93]
+- Updated dependencies [78654fd]
+- Updated dependencies [c64181f]
+- Updated dependencies [1d392a4]
+- Updated dependencies [276216d]
+- Updated dependencies [5d38d3c]
+- Updated dependencies [dd62f90]
+- Updated dependencies [f5f2fe9]
+- Updated dependencies [a01d30a]
+  - @cosmicdrift/kumiko-bundled-features@0.390.0
+  - @cosmicdrift/kumiko-framework@0.390.0
+  - @cosmicdrift/kumiko-renderer@0.390.0
+  - @cosmicdrift/kumiko-types@0.390.0
+
 ## 0.389.0
 
 ### Patch Changes

@@ -1,5 +1,464 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.390.0
+
+### Minor Changes
+
+- 5d7dfe1: HandlerContext drops the boot wiring: services, lifecycle and tenants replace the flat members, and hooks receive the HandlerContext.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext without wiring, hooks receive the HandlerContext
+  codemod: scripts/codemod/ctx-namespaces.ts
+  detail: HandlerContext has 19 members and no longer carries the AppContext wiring. ctx.services holds redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, configEncryption, rateLimit, effectiveFeatures and masterKeyProvider; every key of an app's extraContext that the framework does not know now lives in ctx.services.extensions (it used to sit flat on the context through a spread, invisible to tsc). ctx.lifecycle holds afterCommit and afterRollback (replacing scheduleAfterCommit and scheduleAfterRollback), signal and runPreSave. ctx.tenants holds config (replacing configFor) and writeTarget (replacing forTenant). ctx.obs gains meter, and the flat log, tracer, _tenantId, systemUser and triggeredBy are gone; read ctx.user.tenantId and ctx.obs.log. JobContext no longer extends the shared wiring fields; it gets services and lifecycle.signal and keeps systemUser, triggeredBy and its job fields. All hooks (preSave, postSave, postSaveBatch, preDelete, postDelete, postDeleteBatch, preQuery, postQuery) and the system hook definitions receive the HandlerContext instead of the AppContext, and the batch hooks run on a real handler context built per flush. AppContext stays the flat boot wiring and declares services as never, so a handler or job context can no longer be passed to a function that takes an AppContext. The context of beforeTransaction no longer exposes ctx.systemDb.outsideTransaction, which was a hole next to the denied ctx.db.outsideTransaction. The member-resolution and pre-transaction contexts also drop the notify factories from ctx.services, and member resolution drops _fileProviderResolver, so neither can rebuild the denied notify or file storage. Helpers that took a structural context with an optional flat member read undefined once a handler context stopped carrying it; their shapes now make that a type error: requireSecretsContext, FileProviderContext (createFileProviderForTenant) and MailTransportContext (createTransportForTenant) take a required secrets key (handlers pass { secrets: ctx.services.secrets, user: ctx.user }), and CreateFileRefContext/UploadFileBytesContext read services.files, so a handler or job context passes straight in. bridgeStub accepts a services option.
+  migration: |
+    Run kumiko-upgrade --apply; it runs the ctx-namespaces codemod. It rewrites ctx.redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, effectiveFeatures and the other service members to ctx.services.*, scheduleAfterCommit and scheduleAfterRollback to ctx.lifecycle.afterCommit and afterRollback, signal to ctx.lifecycle.signal, configFor and forTenant to ctx.tenants.config and writeTarget, and hook parameters annotated AppContext to HandlerContext, including context.log to context.obs.log in the hook body. Keys of your extraContext that you read through a cast move to ctx.services.extensions. Listed for manual review: ctx.systemUser, ctx.triggeredBy and ctx._tenantId on a HandlerContext (read ctx.user), a handler or job context passed to a function that takes an AppContext (narrow that parameter to the members it reads), spread literals next to moved members, and a handler or job context passed to a parameter whose structural type reads a moved member (it would read undefined without a type error). Hand-built test contexts take services, lifecycle and tenants from bridgeStub({ services }).
+  -->
+- a01d30a: HandlerContext and JobContext group their members into namespaces: db.outsideTransaction, events, dispatch, auth and obs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext and JobContext use namespaces instead of flat members
+  codemod: scripts/codemod/ctx-namespaces.ts
+  detail: The roughly 40 flat members of HandlerContext are grouped by purpose, with no deprecated aliases. ctx.db.outsideTransaction replaces ctx.dbOutsideTransaction and ctx.outsideTransaction (the property is non-enumerable and sits on the same db object, so TenantDb identity stays intact; it is undefined in the member-resolution and before-transaction phases and in platform-metering tenant mode). ctx.events holds append, unsafeAppend, tryAppend, fetchForWriting, load, archive, restore, isArchived, snapshot and loadWithSnapshot. ctx.dispatch holds query, queryAs, write, writeAs, queryAsMember and queryProjection. ctx.auth holds resolveClaims and resolveActiveMembership. ctx.obs holds log, tracer, metrics and metricsFor, and ctx.obs.log is now always a Logger. JobContext gets the subsets events.append, dispatch.write/writeAs/queryAs/queryAsMember and obs.log/metricsFor. reserveBeforeTransaction and beforeTransaction receive the new ReservationContext and BeforeTransactionContext types, so the surfaces they deny no longer exist on the type. The deprecated _configAccessorFactory alias is removed; use configAccessorFactory. The cap-counter resolvers and the template-resolver PrepareContext now take ReservationContext instead of HandlerContext (type-level break for callers passing a full HandlerContext-typed value to a narrower position, and for wrappers declaring the old type). attachOutsideTransaction(db, outsideDb) from @cosmicdrift/kumiko-framework/engine gives hand-built contexts a db.outsideTransaction; it mutates the passed db with a non-enumerable property (Object.defineProperty) and returns the same object. bridgeStub now accepts log and dispatch options. AppContext stays flat, and the context handed to postSave, preDelete, postDelete and postQuery hooks still reads context.log; a separate hook context follows in a later release.
+  migration: |
+    Run kumiko-upgrade --apply; it runs the ctx-namespaces codemod. It rewrites ctx.dbOutsideTransaction and ctx.outsideTransaction to ctx.db.outsideTransaction, ctx.appendEvent/unsafeAppendEvent/tryAppendEvent/fetchForWriting/loadAggregate/archiveStream/restoreStream/isStreamArchived/snapshotAggregate/loadAggregateWithSnapshot to ctx.events.append/unsafeAppend/tryAppend/fetchForWriting/load/archive/restore/isArchived/snapshot/loadWithSnapshot, ctx.query/queryAs/write/writeAs/queryAsMember/queryProjection to ctx.dispatch.*, ctx.resolveAuthClaims/resolveActiveMembership to ctx.auth.resolveClaims/resolveActiveMembership, and ctx.log/tracer/metrics/metricsFor to ctx.obs.*. Object literals typed as HandlerContext or JobContext (test mocks) are nested the same way. Sites the codemod cannot resolve are listed for manual review: spread literals, untyped receivers, and AppContext reads such as context.log in hooks, which stay as they are. Manual pattern { db: someDb, dbOutsideTransaction: x } becomes db: attachOutsideTransaction(someDb, x). Spread calls such as ...bridgeStub() next to moved members are reworked by hand; pass log/dispatch as bridgeStub options. Rename _configAccessorFactory to configAccessorFactory where you set it on an AppContext.
+  -->
+- 454b49d: Feature AST, pattern library and codemods moved to the new package @cosmicdrift/kumiko-feature-ast; kumiko-upgrade heals stale open lines in CHANGELOG.md
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Feature AST, pattern library and codemods moved to @cosmicdrift/kumiko-feature-ast
+  codemod: scripts/codemod/feature-ast-package.ts
+  migration: |
+    Import these names from @cosmicdrift/kumiko-feature-ast instead of @cosmicdrift/kumiko-framework/engine: AddEntityArgs, AddHookArgs, AddRelationArgs, AddWriteHandlerArgs, FeaturePatcher, FeaturePattern, FeaturePatternKind, FormFieldLabel, FormFieldSpec, FormInputType, HandlerHeaderUpdate, ParseError, ParseResult, PatternCategory, PatternChange, PatternChangeIssue, PatternChangesParseResult, PatternFormSchema, PatternId, RenderFeatureFileInput, SourceLocation, PATTERN_LIBRARY, VERSION_HEADER, addPattern, applyChanges, createFeaturePatcher, getPatternSchema, groupByCategory, parseFeatureFile, parsePatternChanges, parseSourceFile, removePattern, renderFeatureFile, renderPattern, replacePattern, updatePattern. Import CodemodOptions, CodemodReport, CodemodResult, FileAnalysis, ParsedHandlerInfo, analyzeFile, analyzeHandlerArrow, convertFile, generatePerformBlock, runCodemod, scanForCandidates from @cosmicdrift/kumiko-feature-ast/codemod instead of @cosmicdrift/kumiko-framework/engine/codemod. Add @cosmicdrift/kumiko-feature-ast to the dependencies of the importing package; the codemod does both. @cosmicdrift/kumiko-framework no longer installs ts-morph.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade --apply and --resolve heal stale open lines in CHANGELOG.md
+  migration: |
+    Every manual migration the upgrade marker lists as resolved gets its status in CHANGELOG.md, including `- [open]` lines in older sections left behind by a resolve with an older CLI.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: improvement
+  title: New package @cosmicdrift/kumiko-feature-ast
+  -->
+  
+  The feature-file AST (parse, patch, render), the pattern library and the upgrade codemods now live in their own package, so the framework and its production images no longer carry ts-morph. The package publishes `.` and the Bun-only `./codemod`.
+- be576a7: Jobs append their own events with `ctx.events.append`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Jobs append their own events with ctx.events.append
+  detail: Jobs no longer need escapeHatch or unsafeRaw plus the low-level event-store API to append their own feature's events. The same ownership and schema rules apply as in write handlers, and the append runs in its own transaction together with the inline projections.
+  migration: |
+    JobContext has a new required field events.append. Code that builds a JobContext object by hand (boot seeds, test fixtures) and does not spread bridgeStub() adds an events.append that throws when the code under test never appends. Jobs that appended their own feature's events through escapeHatch or unsafeRaw switch to ctx.events.append({ type, aggregateId, aggregateType, payload }).
+  -->
+- 5ee91c6: Jobs see whether they can still defer with `ctx.canDefer`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Jobs see whether they can still defer (ctx.canDefer)
+  detail: ctx.canDefer is false when the run is inline or the maxDefers budget is used up, so a handler can write its terminal state instead of deferring into an UnrecoverableError. Behaviour of ctx.defer and the maxDefers failure is unchanged.
+  migration: |
+    JobContext has a new required field canDefer. Code that builds a JobContext object by hand (boot seeds, test fixtures) adds `canDefer: false` unless the context really supports ctx.defer. Contexts built by the job runner or cast with `as unknown as JobContext` need no change.
+  -->
+- febcd93: meilisearch is an optional peer dependency
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: meilisearch is an optional peer dependency
+  migration: |
+    Apps that import @cosmicdrift/kumiko-framework/search/meilisearch add meilisearch to their own dependencies (bun add meilisearch@^0.58.0); without it that import fails at boot with a message that names the package. Apps without the Meilisearch adapter need nothing.
+  -->
+- abef0e6: The public subpaths of @cosmicdrift/kumiko-framework export only names that at least one consumer imports; 1236 names without a user are no longer exported.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Framework subpaths no longer export names without a user
+  detail: |
+    A name stays exported from a subpath of @cosmicdrift/kumiko-framework only if at least one consumer outside packages/framework imports it from that subpath (other Kumiko packages, samples, the framework docs, kumiko-enterprise, kumiko-platform, kumiko-studio and the seven apps). Names added since 0.389.0 stay public. 1236 names had no user and are removed from their subpath; 30 of them are deleted together with their code and tests, the rest stay inside the framework as internal modules without a public export. The public-exports baseline keeps the new, smaller surface. Removed names per subpath:
+    ./compliance: AuthorityNotificationDeadline, BundleTier, OVERRIDABLE_PROFILE_KEYS, RetentionSpec, UserNotificationRequiredPolicy, describeDurationSpec, durationSpecToMs
+    ./config: AppClientConfig, AppPortEntry
+    ./es-ops: CreateSeedMigrationContextArgs, EsOperationAppliedBy, EsOperationType, RunPendingSeedMigrationsArgs, RunPendingSeedMigrationsResult, SeedMembershipRow, SeedTemplateResourceFilter, SeedTemplateResourceRow, SeedTenantRow, SeedUserRow
+    ./engine: ActiveMembership, ActiveMembershipRejection, ActiveMembershipResult, AgentExposure, App, AppConfig, AppendEventArgs, AppendEventFn, AssignableFromRole, AuthClaimsFn, AuthClaimsHookDef, BeforeTransactionPhase, BelongsToRelation, BigIntFieldDef, BooleanFieldDef, BuildAppSchemaOptions, BuildManifestOptions, BuiltinQnType, CamelToKebab, CardMetaOverflow, ChangelogType, ClaimKeyDefinition, ClaimKeyHandle, ClaimKeyJsType, ClampInfo, ConcurrencyMode, ConcurrencyModes, ConfigBacking, ConfigDefinition, ConfigFeatureSchema, ConfigKeyAccess, ConfigMask, ConfigSeedDef, ConfigStoredRow, ConfigStoredRowWithSource, ConfigValidateContext, CreateEventDefOptions, CreateSeedOptions, CreateTenantSeedOptions, CreateUserSeedOptions, CustomScreenDefinition, CustomScreenRoute, DashboardChartPanel, DashboardCurrencyFormat, DashboardDateParam, DashboardFeedPanel, DashboardFilterDefinition, DashboardListPanel, DashboardMoneyParam, DashboardPanelDefinition, DashboardPanelVisibility, DashboardProgressListPanel, DashboardProgressTone, DashboardRecordBinding, DashboardRefresh, DashboardRelativeTimeFormat, DashboardRelativeTimeParam, DashboardScreenDefinition, DashboardScreenPanel, DashboardStatGroupPanel, DashboardStatPanel, DashboardText, DashboardTextBlock, DashboardTextPanel, DashboardTextParam, DashboardValueFormat, DateFieldDef, DecimalFieldDef, DerivedFieldDef, DerivedFieldsMap, DerivedValueType, EXTENSION_SELECTOR_HINT_KEY, EditExtensionSection, EditFieldPrefill, EditFieldsSection, EditLayout, EmbeddedListEditSpec, EmitCtx, EntityCrudRegistrar, EntityEditAction, EntityEditActionPlacement, EntityListExpandableRow, EntityObjectDefinition, EntityRef, EntityRelations, EscapeHatchReporter, EscapeHatchTarget, ExpandableRowGrouping, FeatureChangelog, FieldAccess, FieldIconKey, FieldRenderer, FileFieldDef, FilesFieldDef, Findability, FormDerivationScreen, FormWidth, FormatSpec, HANDLER_FIELD_REFERENCES_META_KEY, HandlerFieldPathSegment, HandlerFieldReference, HandlerFieldReferenceAtPath, HandlerFieldReferenceMeta, HasManyRelation, HookDefinition, HookMap, ImageFieldDef, ImagesFieldDef, JobBackoff, JobBackoffStrategy, JobTriggerEvent, KumikoEntityTypeMap, KumikoExtensionName, KumikoHandlerPayloadMap, KumikoHandlerResultMap, ListPaginationMode, ListSortDir, ListSortSpec, LongTextFindability, ManyToManyRelation, MaxPerTenantOptions, MemberReader, MessageKind, MetricSpec, MspErrorPolicy, MultiSelectFieldDef, NameOrRef, NotificationDataFn, NotificationRecipientFn, NotificationTemplateFn, NotifyDeferred, NumberFieldDef, OnDeleteStrategies, OnDeleteStrategy, OpenToAllAccessRule, OpenToAllDeclaration, OpenToAllPersonalData, OwnershipClause, OwnershipRef, OwnershipRule, PagedListRequest, PagedListRowValue, ParentRefDef, ParsedQn, ParsedRefTarget, PersonalAnnotations, PersonalAnnotationsLongText, PersonalAnnotationsNoFind, PersonalSubject, PipelineBuildCtx, PipelineDef, PlatformComponent, PluralForms, PreQueryHookFn, PreparedWriteEvent, ProjectionTable, QnType, QualifiedEventName, QueryHandlerFn, RecordHeaderSpec, RecordHeaderSubtitlePart, RegisterEntityCrudOptions, ResolveOptions, RowActionNavigate, RowActionNavigateBase, RowFieldExtractor, SETTINGS_HUB_WORKSPACE, SUSPEND_SENTINEL, ScreenFilter, ScreenFilterOp, ScreenNavSugar, ScreenSlots, SecretMintConfirmStep, SecretReveal, SecretRevealField, SecretsEditScreenDefinition, SecretsEditSection, SelectFieldDef, SessionUserOrigin, StackBootRequirement, StepBuilder, StepDef, StepFailureStrategy, StepKind, StepListOutcome, StepNamespace, StorageProviderExtensionHooks, StreamHandlerDefinition, StreamHandlerFn, Subscribe, SystemHookName, SystemHookNames, SystemHookPriorities, TENANT_TEARDOWN_STATUSES, TemplateImagesVariableDef, TenantDataExtensionHooks, TenantResourceExtensionHooks, TextFieldDef, TranslationValue, TranslationsDef, TreeActionsHandle, TreeNodeState, UnavailableSelectOption, UnsafeAppendEventFn, UserDataExtensionHooks, UserDataExtensionOptions, WorkflowInput, WorkflowTrigger, applyFormDerivations, availableSelectOptions, buildOwnershipClause, buildTarget, checkWriteFieldOwnership, checkWriteFieldRoles, combineClauses, createApp, createEventDef, createUserSeed, findUnavailableSelectOptions, formDerivationsOfSchema, handlerFieldReferences, isExtensionEditSection, isForbiddenMembershipRole, isFormDerivationInputMode, isPagedQueryHandler, isPrincipalStatusPlugin, isTenantLifecycleStatusPlugin, isWriteFormEditSection, listStepKinds, qualifyTranslationKey, readHandlerFieldReferences, resolveConfigOrParam, resolveName, runValidation, runsInLane, sortEntries, stripForbiddenMembershipRoles, tenantOverrideDenied, userCanCreateFieldRow, userCanReadFieldRow, userCanWriteFieldRow, validateChangelog
+    ./engine/types: AccessRule, ActionFormScreenDefinition, ActiveMembership, ActiveMembershipRejection, ActiveMembershipResult, AgentExposure, AgentHandlerHints, AgentRisk, AggregateStreamHandle, AnyFileFieldDef, AppendEventArgs, AppendEventFn, AuthClaimsContext, AuthClaimsFn, AuthClaimsHookDef, BeforeTransactionPhase, BeforeTransactionResult, BelongsToRelation, BigIntFieldDef, BooleanFieldDef, BootCheckContext, BootCheckFn, BootOptionName, BundledListsOptions, CamelToKebab, ChatSendFailureCode, ClaimKeyDefinition, ClaimKeyHandle, ClaimKeyJsType, ClaimKeyType, ClientDerivedFieldDef, ConcurrencyMode, ConfigAccessor, ConfigAccessorFactory, ConfigBacking, ConfigBounds, ConfigCascade, ConfigCascadeLevel, ConfigComputedContext, ConfigComputedFn, ConfigDefinition, ConfigEditScreenDefinition, ConfigKeyAccess, ConfigKeyDefinition, ConfigKeyHandle, ConfigKeyType, ConfigMask, ConfigResolver, ConfigScope, ConfigSecretsReader, ConfigSeedDef, ConfigStoredRow, ConfigStoredRowWithSource, ConfigValidateContext, ConfigValidateFn, ConfigValue, ConfigValueSource, ConfigValueWithSource, ContentCollectionDefinition, CreateSeedOptions, CreateTenantSeedOptions, CreateUserSeedOptions, CustomScreenDefinition, CustomScreenRoute, DEFAULT_CURRENCIES, DEFAULT_LOCALES, DELIVERY_FAILURE_CODES, DELIVERY_SKIP_REASONS, DashboardChartMarkerKind, DashboardChartPanel, DashboardChartRangeOption, DashboardChartRanges, DashboardCurrencyFormat, DashboardCustomPanel, DashboardDateParam, DashboardFeedPanel, DashboardFilterDefinition, DashboardI18nText, DashboardListPanel, DashboardMoneyParam, DashboardPanelDefinition, DashboardPanelGate, DashboardPanelVisibility, DashboardProgressListPanel, DashboardProgressTone, DashboardRecordBinding, DashboardRefresh, DashboardRelativeTimeFormat, DashboardRelativeTimeParam, DashboardScreenDefinition, DashboardScreenPanel, DashboardStatGroupPanel, DashboardStatPanel, DashboardText, DashboardTextBlock, DashboardTextPanel, DashboardTextParam, DashboardValueFormat, DateFieldDef, DecimalFieldDef, DeclarativeEventMigration, DefaultCurrency, DeleteContext, DeliveryErrorCode, DeliveryFailureCode, DeliverySkipReason, DeriveContext, DerivedFieldDef, DerivedFieldsMap, DerivedValueType, DispatchWriteRef, EditExtensionSection, EditFieldPrefill, EditFieldSpec, EditFieldsSection, EditLayout, EditRelatedListSection, EditSectionSpec, EditWriteFormSection, EmbeddedDerivedCellDef, EmbeddedFieldDef, EmbeddedListEditSpec, EmbeddedSubFieldDef, EntityCrudRegistrar, EntityCrudVerb, EntityDefinition, EntityEditAction, EntityEditActionPlacement, EntityEditScreenDefinition, EntityEventMigration, EntityFieldDefinition, EntityHandlerOptions, EntityHookMap, EntityId, EntityIndexDef, EntityListExpandableRow, EntityListScreenDefinition, EntityLongTextFieldDef, EntityObjectDefinition, EntityProjectionExtension, EntityQueryHandlerOptions, EntityRef, EntityRelations, EntityTextFieldDef, EntityWriteHandlerOptions, EscapeHatchAuditSink, EscapeHatchDeclaration, EscapeHatchKind, EscapeHatchReporter, EscapeHatchTarget, EscapeHatchUseEvent, EventDef, EventMigrationDef, EventPiiFields, EventUpcastCtx, EventUpcastFn, ExpandableRowGrouping, ExtensionOptionsArgs, ExtensionOptionsFor, ExtensionSelectorDef, ExtensionSelectorPanel, FeatureMetricDef, FeatureMetricType, FeatureRegistrar, FetchForWritingArgs, FieldAccess, FieldCondition, FieldDefinition, FieldFormatRegistry, FieldIconKey, FieldRenderer, FieldsMap, FileFieldDef, FilesFieldDef, Findability, FormFieldDerivation, FormWidth, FormatSpec, FromRule, FromRuleKind, HTTP_ERROR_CODE_PATTERN, HandlerRef, HasManyRelation, HookDefinition, HookMap, HookOwner, HookPhase, HookPhases, HttpRouteDefinition, HttpRouteHandler, HttpRouteHandlerDeps, HttpRouteMethod, ImageFieldDef, ImagesFieldDef, JobBackoff, JobBackoffStrategy, JobContext, JobDeferral, JobDefinition, JobHandlerFn, JobRunnerRef, JobTrigger, JobTriggerEvent, JsonbFieldDef, KumikoEntityTypeMap, KumikoEventTypeMap, KumikoExtensionOptionsMap, KumikoHandlerPayloadMap, KumikoHandlerResultMap, LifecycleHookFn, LifecycleHookType, LifecycleResult, ListColumnSpec, ListEmptyStateSpec, ListFacetSpec, ListPaginationMode, ListSortDir, ListSortSpec, ListTableOptions, LocatedTimestampFieldDef, LongTextFieldDef, LongTextFindability, ManyToManyRelation, MaxPerTenantOptions, MemberReader, MetricNavigate, MetricOptions, MetricSpec, MoneyCurrencySource, MoneyFieldDef, MspErrorMode, MspErrorPolicy, MultiSelectFieldDef, MultiStreamApplyFn, MultiStreamProjectionDefinition, NameOrRef, NavDefinition, NavIconKey, NotificationDataFn, NotificationDefinition, NotificationLocalizedTemplate, NotificationRecipientFn, NotificationRecordMapping, NotificationTemplateBody, NotificationTemplateFn, NotificationTemplateMeta, NotifyDeferred, NotifyDelivery, NotifyDeliveryStatus, NotifyDispatched, NotifyFactory, NotifyFn, NotifyJobDispatcher, NotifyOptions, NotifyPriority, NotifyResult, NumberFieldDef, OnDeleteStrategy, OpenToAllAccessRule, OpenToAllDeclaration, OpenToAllPersonalData, OptionsQueryPayload, OptionsQueryPayloadValue, OwnedFn, OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule, ParentRefDef, PayloadBucketNormalization, PayloadRateLimitOption, PersonalAnnotations, PersonalAnnotationsLongText, PersonalAnnotationsNoFind, PersonalSubject, PhasedHook, PlatformComponent, PluralForms, PostDeleteBatchHookFn, PostDeleteHookFn, PostQueryHookFn, PostSaveBatchHookFn, PostSaveHookFn, PreDeleteHookFn, PreQueryHookFn, PreSaveHookFn, PreparedWriteEvent, ProjectionDefinition, ProjectionDetailScreenDefinition, ProjectionListScreenDefinition, ProjectionRowIdOf, ProjectionTable, QualifiedEventName, QueryHandlerDef, QueryHandlerDefinition, QueryHandlerFn, RateLimitDeclaration, RateLimitDisabled, RateLimitOption, RateLimitOptions, RateLimitPer, RecordHeaderSpec, RecordHeaderSubtitlePart, ReferenceDataDef, RegisterEntityCrudOptions, RegistrarExtensionDef, RegistrarExtensionHooks, RegistrarExtensionRegistration, RelationDefinition, ResolvedPiiFlags, ResolvedPiiStance, RetentionDef, RoleAccessPersonalData, RoleAccessRule, RowAction, RowActionNavigate, RowActionNavigateBase, RowActionWriteHandler, RowFieldExtractor, RunIn, SaveContext, ScreenDefinition, ScreenFilter, ScreenFilterOp, ScreenNavSugar, ScreenSlots, SearchPayloadContributorFn, SecretKeyDefinition, SecretKeyHandle, SecretMintConfirmStep, SecretMintScreenDefinition, SecretNamespaceDefinition, SecretNamespaceHandle, SecretNamespaceOptions, SecretOptions, SecretReveal, SecretRevealField, SecretsEditScreenDefinition, SecretsEditSection, SelectFieldDef, SelectOptionTone, SessionUserOrigin, SingleStreamApplyFn, SqlFragment, StackBootRequirement, StoreTableDef, StoreTableEntry, StoreTableOptions, StreamHandlerDef, StreamHandlerDefinition, StreamHandlerFn, Subscribe, TargetRef, TemplateImagesVariableDef, TemplateListVariableDef, TemplateScalarVariableDef, TemplateVariableDef, TemplateVariables, TenantWriteTarget, TimestampFieldDef, ToolbarAction, TransitionMap, TranslationEntry, TranslationKeys, TranslationValue, TranslationsDef, TreeAction, TreeActionDef, TreeActionsHandle, TreeChildrenSubscribe, TreeNode, TreeNodeState, TryAppendEventFn, TryAppendEventResult, TzFieldDef, UiExtensionDef, UiHintOption, UiHints, UnitKey, UnsafeAppendEventFn, ValidationError, ValidationHookFn, WebSocketMessageData, WebSocketRouteConnectDeps, WebSocketSessionHandlers, WhereRuleContext, WorkspaceDefinition, WriteEvent, WriteHandlerDef, WriteHandlerDefinition, WriteHandlerFn, WriteHandlerInput, WriteResult, declaredRateLimitOptions, isAgentVisibleScreen, isDeliveryErrorCode, isExtensionEditSection, isFileField, isFormatSpec, isOpenToAllGranted, isRateLimitDisabled, isRateLimitOption, isSystemTenant, isUiAccessGranted, isUuid, normalizeEditField, normalizeListColumn, parseTenantId, relatedListGroupHeaderLabel, relatedListGroupKey, resolveAgentExposure, resolveName, withResponseData
+    ./env: ComposeEnvSchemaOptions, ComposedEnvShape, EnvError, EnvErrorKind, EnvFieldClass, EnvFieldStatus, KumikoEnvMeta, ParseEnvOptions, buildPulumiSuggestion, camelCase, getDefaultValue, getFieldDescription, pulumiConfigKey
+    ./env/dry-run: DryRunOptions
+    ./errors: AgentReason, AgentReasons, ErrorCtorInput, ErrorLogEntry, ErrorOpts, ErrorResponseBody, FeatureDisabledDetails, FrameworkReason, IdempotentReplayError, InvalidTransitionDetails, MemberReadTimeoutError, NotFoundDetails, PreconditionFailedDetails, PreconditionFailedError, RateLimitDetails, RateLimitUnavailableError, RecordLockedError, UnauthenticatedError, UnconfiguredDetails, UniqueViolationDetails, UnprocessableOpts, ValidationDetails, VersionConflictDetails, buildErrorLog, buildInvalidTransitionDetails, isSubjectErasedConflict, memberResolutionReadOnlyDenied, resolveErrorDocsUrl, serializeError, toKumikoError, toWriteErrorInfo
+    ./db: AppliedMigration, ApplyResult, BaselineResult, BuildEntityTableMetaOptions, CompositePrimaryKeyMeta, CreateDbConnectionOptions, CreateTenantDbOptions, CursorQueryOptions, CursorResult, DbConnectionHandle, DbConnectionOptions, DecodedKeysetCursor, DeleteManyBatchedOptions, DeleteManyBatchedResult, EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow, EntityLifecycleVerb, EntityRow, EventStoreExecutorOptions, ExecutorManagedWriteCapability, FeatureTableSource, GenerateMigrationInput, GenerateMigrationOutput, IncrementCounterOptions, IndexMeta, InnerJoinRow, InnerJoinSpec, InsertOnConflictDoNothingOptions, JoinColumnPair, LocatedTimestampRead, LockGuardOption, Migration, MigrationChecksumMismatchError, OutsideTransactionContext, PgErrorInfo, PgType, ReplayMismatch, ReplayedSchema, ReplayedTable, RetiredFrameworkTable, SYSTEM_SCOPE_CHECK_BRAND, SchemaDiff, SelectQuery, Snapshot, TableColumns, TenantDbGrants, TenantDbMode, UnmanagedTableInput, UpsertOnConflictOptions, WhereOperator, WhereValue, Writable, assertUniqueTableNames, assertValidMigrationName, baselineMigrations, bigint, bigserial, collectReferenceFields, constraintOf, diffReplayAgainstSnapshot, diffSnapshots, encryptEntityFieldValues, enrichRowWithReferences, enrichWithReferences, executeRawQueryRead, fetchAppliedMigrations, findCommentedDropTables, flattenCompoundTypes, flattenLocatedTimestamp, flattenMoney, hasOutsideTransactionDb, instantToDriver, isRetiredFrameworkTable, isTableAlreadyExists, labelListAggregateGroups, loadMigrationsFromDir, moneyAmount, moneyPayloadToMinorUnits, numeric, readMigrationSqlTexts, readRebuildMarker, rebuildTablesFromDiff, rehydrateCompoundTypes, rehydrateLocatedTimestamp, renderMigrationSql, renderTableDdl, replayMigrationsDir, requireOutsideTransactionDb, retiredFrameworkTables, runInSavepoint, runMigrations, snapshotFromMetas, splitSqlStatements, toSnakeCase, toTableName, withoutStatementTimeout, writeRebuildMarker
+    ./event-store: AppendEventInTenantDbOptions, ArchiveStreamArgs, ArchivedStreamError, DeadLetterRow, DeleteRowsWithoutReplayableStreamArgs, EVENTS_PUBSUB_CHANNEL, EventToAppend, EventUpcasters, IdempotentAppendConflictError, LoadAggregateWithSnapshotOptions, LoadAggregateWithSnapshotResult, PiiBackfillBatchOptions, PiiBackfillBatchResult, PiiBackfillFailure, PiiBackfillOptions, PiiBackfillResult, PiiBackfillScanCache, ProvenanceEventInput, RebuildDeadLetterRow, SaveSnapshotArgs, SkippedApply, Snapshot, SnapshotReducer, TransferAggregateStreamsArgs, UpcastOptions, UpcasterErrorPolicy, createRebuildDeadLetterTable, createSnapshotsTable, createUpcasterDeadLetterTable, listDeadLetters, listRebuildDeadLetters, loadAggregateAsOf, loadAggregateWithSnapshot, loadEventsAfterVersion, loadLatestSnapshot, rebuildDeadLetterTable, recordRebuildDeadLetters, recordUpcasterDeadLetter, restoreStream, saveSnapshot, toStoredEvent, upcastStoredEvents
+    ./event-store/admin-api: RawEventToAppend
+    ./pipeline: ACCESS_INVALIDATION_CONSUMER_NAME, AppendDomainEventCoreDeps, ConsumerCursor, ConsumerStatus, ConsumerTransitionRejection, DispatcherPassResult, EntityCache, EntityCacheOptions, EscapeHatchReportWindow, EventConsumer, EventConsumerBatchHandler, EventConsumerHandler, EventDispatcherOptions, FailedWriteResult, LifecycleHooks, MspRebuildDeps, MultiStreamApplyContextDeps, PendingGapEntry, ProjectionProgress, ProjectionStatus, ProjectionStatuses, PruneEventsResult, RebuildResult, ResolveAuthClaimsArgs, SystemHookDef, assertInstructionFieldWriteAllowed, createAccessInvalidationEventConsumer, createEscapeHatchReportWindow, createEventDispatcher, createSearchEventConsumer, createSseBroadcastEventConsumer, fallbackEscapeHatchReporter, isFailedWriteResult, isIrreversibleEntityVerb, reportEscapeHatchUse, selectConsumerCursorForUpdate, withEscapeHatchAuditScope
+    ./api: AuthMiddlewareOptions, AuthSessionChecker, AuthSessionStatus, CachedResponseInit, ClientIpHeaderSource, ExtraRouteEntries, ExtraRouteEntry, ExtraRouteRejectionOptions, ExtraRouteRejectionStatus, HOST_COOKIE_PREFIX, JwtKeyring, JwtPayload, KumikoServer, KumikoServerWebSocket, PostAuthLandingFlow, RedisSseBrokerOptions, RequestContextData, ResolvedSessionCookies, SessionCookieBase, SessionCookieNames, SetTenantCookieOptions, SignatureExtraRoute, SignatureExtraRouteVerifyDeps, SseClient, SseRouteOptions, TENANT_COOKIE_BASE, TenantExists, TenantLifecycleStatusResolver, TenantResolver, UserExtraRoute, WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER, WEBSOCKET_REVALIDATION_FAILURE_LIMIT, WebSocketUpgradeServer, assertValidTrustedProxyHops, authMiddleware, clientIpSourceFromHonoContext, createApiRoutes, createAuthRoutes, createJwtHelper, createSseRoute, deleteTenantCookie, extractSocketAddress, getUser, isHostPrefixedCookieName, isSafeLandingPath, kumikoWebSocketHandler, parseIfNoneMatch, patAllows, qnMatches, requestIdMiddleware, resolveSessionCookieNames, resolveSessionCookies, sessionCheckStatus, sessionCookiesMiddleware
+    ./i18n: DEFAULT_LOCALE, I18n, I18nOptions, pickAcceptLanguage, rankAcceptLanguage, resolveHeaderLocale
+    ./auth: Role
+    ./files: BindPendingFileRefOutcome, CreateFileRefContext, DEFAULT_UPLOAD_SWEEP_GRACE_HOURS, FileAccessDecision, FileContentValidationResult, FileHandle, FileMetadata, FileProviderResolverDeps, FileRef, FileRoutesOptions, FileValidationOptions, MIN_UPLOAD_SWEEP_GRACE_HOURS, PendingFileRefBindTarget, UploadFileBytesContext, UploadMimeTypeResolution, WriteStreamOptions, createFileRoutes, createFileUploadLedger, fileRefStorageDelta, makeFileProviderResolver, parseMaxSize, resolveContentType, resolveUploadMimeType, sweepOrphanedUploads, validateFileContent
+    ./derivatives: DerivativesContextDeps, StoredFileStore, VARIANT_NAME_PATTERN, canonicalJson, createDerivativesContext, isDerivativeKeyOf, listDerivativeKeys, resolveRenderer, specHash
+    ./jobs: JobSubjectValue
+    ./observability: ConsoleProviderOptions, Counter, ESCAPE_HATCH_USED_SIGNAL, EscapeHatchProcessDedup, EscapeHatchReportWindow, Gauge, Histogram, Meter, MetricDefinition, MetricEventHandler, MetricLabels, MetricType, ObservabilityWiring, PrometheusMeter, PrometheusMeterSnapshot, REDACTED, RecordingTracerOptions, STANDARD_METRIC_DEFS, SamplingConfig, SensitiveFilterConfig, SerializedTraceContext, Span, SpanAttributeValue, SpanAttributes, SpanKind, SpanStatus, StartSpanOptions, Tracer, UNATTRIBUTED_ACTOR, buildMetricName, createConsoleProvider, createEscapeHatchProcessDedup, createEscapeHatchReportWindow, createEscapeHatchReporter, createUnboundMetricsHandle, emitDbQuery, emitDispatcherError, emitDispatcherHandler, emitEscapeHatchUse, emitEventConsumerLag, emitEventConsumerPassOutcome, emitEventConsumerPassSkipped, emitEventConsumerPendingGaps, emitEventConsumerRearmExhausted, emitEventDispatcherListenConnected, emitHttpRequest, emitJobLastSuccess, emitJobQueueDepth, fallbackEscapeHatchReporter, flushEscapeHatchAudits, generateSpanId, generateTraceId, getFallbackMeter, getFallbackProvider, getFallbackTracer, observabilityContext, redactAttributes, redactHeaders, redactQueryString, redactValue, registerStandardMetrics, reportEscapeHatchUse, serializeOpenMetrics, serializeSpanContext, shouldRedactAttribute, validateLabelKey, validateMetricName, withEscapeHatchAuditScope, wrapRedisClient
+    ./migrations: ChecksumMismatch, EnqueueProjectionRebuildDeps, EnqueueProjectionRebuildResult, KumikoDriftReport, PendingRebuildRun, PiiEventBackfillOptions, PiiEventBackfillResult, PiiRebuildRun, RunPendingRebuildsOptions, createPendingRebuildsTable, createPiiBackfillStateTable, detectKumikoDrift, formatKumikoDriftReport, pendingRebuildsTable, piiAnnotationFingerprint, piiBackfillStateTable
+    ./entrypoint: AllInOneEntrypointOptions, BaseEntrypointOptions, PgClient, PgListenClient, WorkerEntrypointOptions
+    ./random: ADJECTIVES, AdjNounNameOptions, GenerateUniqueNameOptions, NOUNS, generateAdjNounName, generateNoConfusableId
+    ./redis: CacheSyncBusOverSignalOptions, PubSubSignal, PubSubSignalOptions, RedisCacheSyncBusOptions, ResolvedCacheSyncBus, createCacheSyncBusOverSignal, isTenantConfigSyncMessage, resolveCacheSyncBus
+    ./search: ReindexEntityFailure, ReindexEntityOptions, ReindexEntityResult, SearchDocument, SearchOptions, SearchResult, collectSearchableFieldNames, configureTenantSearchIndex, deriveSearchAdapterConfig
+    ./search/meilisearch: MeilisearchAdapterOptions, meilisearchDocId, meilisearchTenantIndex
+    ./seeding: DEFAULT_SEED_IF_EXISTS, EventStoreSeedExisting, RunEventStoreSeedOptions
+    ./secrets: ContainsSecret, DekCacheOptions, EnvMasterKeyProviderOptions, Envelope, KeyScope, Keyring, SecretAuditContext, SecretKeyRef, assertNoSecretLeak, isSecret
+    ./crypto: ActiveKmsWiring, EncryptPiiOptions, EventPiiCatalog, KekSourceEnv, KekSourceOptions, KeyNotFoundError, KmsHealth, KmsWiringEnv, KmsWiringOptions, KmsWiringRelease, PII_CIPHERTEXT_PREFIX_JSON, PgKmsAdapter, PgKmsAdapterOptions, PgKmsRotationEnv, PlaintextPiiWiring, RECORD_ENTITY_PATTERN, RemoteCryptoKmsAdapter, RequestKmsCache, ResolveSubjectOptions, RewrapOptions, RewrapResult, SubjectDek, SubjectKey, blindIndexFieldName, buildPgKmsOptions, collectSearchableSubjectFields, computeBlindIndexValues, configureEventPiiCatalog, createRequestKmsCache, encryptEventPayloadPii, isLocalKeyKmsAdapter, subjectIdFromKey, subjectKeyForTenant
+    ./logging: LoggerOptions, scrubLogValue
+    ./schema-cli: RunSchemaCliOptions, SchemaCliOut
+    ./consumer-cli: ConsumerCliOut
+    ./upgrade-cli: ManualResolution, UpgradeCliOut, UpgradeMarkerManual, UpgradeMarkerResolvedManual, findCodemodScriptsRoot, findFeatureChangelogFiles, manualEntryId
+    ./internal/request-context: RequestContextData, isAgentToolCallScope, readonlyRequestContext, runWithOrigin, runWithWriteOrigin, setRequestIdentity
+    ./time: Clock, GeoAddress, GeoCoordinates, LocatedTimestampJson, TzContextOptions, createTzContextAsync
+    ./ui-types: BooleanFieldDef, CardColumnRoles, CardRoleColumn, CustomScreenRoute, DashboardChartKind, DashboardChartRangeOption, DashboardChartRanges, DashboardChartTone, DashboardPanelGate, DashboardRecordBinding, DashboardRelativeTimeFormat, DashboardValueFormat, DateFieldDef, EditFieldPrefill, EntityEditActionPlacement, EntityListExpandableRow, EntityListFacetExtraOption, EntityWriteExcludedFields, ExpandableRowGrouping, FieldsOrGroupsSection, FileFieldDef, FilesFieldDef, ImageFieldDef, ImagesFieldDef, ListBadgeTone, ListColumnDisplay, ListRowMetaColumnType, ListRowMetaReference, ListTableDensity, MetricSpec, NumberFieldDef, OpenToAllAccessRule, OpenToAllDeclaration, OpenToAllPersonalData, OptionsQueryPayloadValue, PluralForms, ReferenceLookupSource, RoleAccessPersonalData, RoleAccessRule, ScreenFilter, ScreenFilterOp, SecretReveal, SecretRevealField, SecretsEditSection, SelectFieldDef, SystemReferenceLabel, TreeNode, TreeNodeState, UnavailableSelectOption, cardFileDisplayKind, explicitListScreenId, relatedListGroupHeaderLabel, relatedListGroupKey
+    ./utils: compareByCodepoint, readPositiveIntEnv, stringifyJson, toSnakeCase
+    Deleted with their code (no internal replacement): ./auth Role; ./compliance describeDurationSpec, OVERRIDABLE_PROFILE_KEYS; ./crypto createRequestKmsCache, RequestKmsCache; ./db numeric, SelectQuery; ./engine BuiltinQnType, createUserSeed, HandlerFieldReferenceMeta, KumikoExtensionName, listStepKinds, MessageKind, resolveConfigOrParam, ResolveOptions, StorageProviderExtensionHooks, SystemHookName, UserDataExtensionHooks; ./errors AgentReason, buildErrorLog, ErrorLogEntry; ./observability createUnboundMetricsHandle, redactHeaders, redactQueryString, serializeSpanContext; ./pipeline ConsumerStatus, ProjectionStatus, ProjectionStatuses; ./search configureTenantSearchIndex; ./time createTzContextAsync.
+  migration: |
+    None of the removed names had a user in any Kumiko repository, so no migration is expected. Internal names have no public replacement. The deleted names listed above are gone without a replacement; code that still imports one fails to compile and has to inline the few lines it needs. If you need one back, open an issue.
+  -->
+- c2fd4b3: preQuery hooks were never invoked by the query pipeline; the hook type, its registry storage and `getPreQueryHooks` are removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: preQuery hooks removed
+  detail: |
+    `r.hook({ type: "preQuery", … })` registered a hook that the query pipeline never called. The `preQuery` hook type, `PreQueryHookFn`, the `preQuery` slot of the hook maps and registrar extension hooks, and `registry.getPreQueryHooks` are removed. A `type: "preQuery"` registration is now a type error and throws at feature registration instead of being silently ignored.
+  migration: |
+    No known users. Remove `r.hook({ type: "preQuery", … })` registrations; they never ran. To change a query payload, validate or transform it inside the query handler.
+  -->
+- 8d06990: extraContext factories get the raw db in the test stack and dev, createTenantDb in system mode takes a reason, and a new guard rejects session-level row level security settings.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: extraContext factories get the raw db in the test stack and dev
+  migration: |
+    Services built in extraContext that read across tenants at request time, or that a test calls directly, must scope themselves: createTenantDb({ db, tenantId, mode: "system", reason: "<why>" }). Test code reads through stack.db.
+  detail: The test stack and dev now pass the enforcing pool to extraContext factories, as runProdApp does, so request-time services keep the ambient request scope and a tenant leak shows up in tests instead of only in production.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb mode system requires a reason
+  migration: |
+    Add `reason: "<why this access spans tenants>"` to every createTenantDb({ mode: "system" }) call. The reason must be a non-empty string literal: an empty reason throws InternalError at construction, and the internal-subpath-imports guard rejects a missing, empty or non-literal reason.
+  detail: The system scope a TenantDb opens for its statements now carries that reason, so a scope leak assertion names the call site. Tenant mode takes no reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard rls-session-settings
+  detail: Flags SET and SET SESSION on kumiko.* settings and set_config with is_local false in any source or test string, kumiko.* writes outside rls-scope.ts in non-test code, and a set_config in rls-scope.ts without literal true. A session-level setting survives on a pooled connection and leaks one request's scope into the next.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Export applicationRoleUrlOf from kumiko-testing/stack
+  detail: Use it to boot runProdApp in tests against the app role. It returns the URL of a database as the non-bypass application role with the password of TEST_DATABASE_URL; pair it with createTestDb({ applicationRole: true }).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Signature routes read and write secrets in a system scope
+  detail: With row level security on, verify() and the handler of a signature route (subscription webhooks, mail connect callbacks) read the secrets of a tenant named by the signed request before any tenant scope exists, and failed. deps.secrets now opens the system scope for each secret access only, so plugin code that parses the unauthenticated body stays unscoped.
+  -->
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: The test application role is realigned to the configured password
+  detail: createApplicationRole used to return early when the role existed, so a kumiko_app role with another password made every integration test fail with 28P01. It now runs ALTER ROLE with the configured password and the NOSUPERUSER NOBYPASSRLS attributes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: RLS boot check tells known tables from orphaned ones
+  migration: |
+    assertRowLevelSecurityBootState takes the known tables as a required third argument: pass knownTablesOf(features), both exported from the db subpath.
+  detail: With rowLevelSecurity on, the boot check lists tenant tables without row-level security in two groups. Tables the app schema knows point to kumiko schema generate. Tables no feature declares anymore, including retired framework tables, are named as orphaned and point to dropping them by migration. The check itself stays strict.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: rls-session-settings also scans .sql files
+  detail: Consumer migrations are checked statement by statement for session-level SET kumiko.*, set_config with is_local false and any kumiko.* write.
+  -->
+- 6d20414: Row level security at runtime: connections set the tenant or system scope in every transaction, one rowLevelSecurity value in kumiko.config.ts drives schema tooling and boot, and the test stack and the dev server run with it on.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Connections set the row level security scope in every transaction
+  detail: createDbConnection takes rowLevelSecurity "off" or "on" (default "off", the connection is unchanged). With "on", every statement and transaction sets kumiko.tenant_id and kumiko.scope transaction-locally from the ambient scope. TenantDb sets its tenant, and the system scope for system-mode TenantDbs, global tables and a granted unsafeRaw. Dispatch sets the user's tenant per command, or the system scope for a system-scoped handler. Event store reads and writes use the stream's tenant. Jobs, the event dispatcher, member resolution, migrations, boot seeds, retention, reindex, blind-index cleanup, the PII backfill, projection apply, auth providers and the tenant lifecycle check run in system scope. A statement without a scope sees no tenant rows. The functions that set a scope (runInRowLevelSecurityScope, runInSystemRowLevelSecurityScope, tenantRowLevelSecurityScope, systemScopedRunner) are not part of the public db subpath; framework packages import them from @cosmicdrift/kumiko-framework/internal/row-level-security, which no guard closes to apps yet. App code reaches the system scope through a system-scoped handler, a job or a granted unsafeRaw.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: One rowLevelSecurity value in kumiko.config.ts for schema tooling and runners
+  detail: AppConfig.rowLevelSecurity ("off" by default) is exported by the managed kumiko/schema.ts as ROW_LEVEL_SECURITY. kumiko-schema generate and validate render and check the policies from it, and apply opens its connection in that mode; the CLI has no flag of its own. The API, worker and all-in-one entrypoints take the same option and refuse a context whose connection runs in another mode. unsafePushTables with "on" reads the catalog first and runs no lock and no DDL for a table that already has ENABLE, FORCE and both kumiko policies.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Projection rebuilds run in system scope under row level security
+  detail: The rebuild transaction no longer turns row_security off, so a rebuild works as a NOSUPERUSER NOBYPASSRLS table owner under FORCE. Before the first guard read it locks the live table in SHARE UPDATE EXCLUSIVE mode, which blocks policy DDL and a second rebuild of the same table, and reads the catalog. When row level security is enabled, kumiko_tenant_isolation must exist as a PERMISSIVE policy for ALL commands and PUBLIC and no RESTRICTIVE policy may exist; otherwise the rebuild fails with the table and its policies and leaves the live table untouched. Other permissive policies carry over to the swapped-in table. Multi-stream rebuilds follow the same rule.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp checks the row level security state at boot
+  detail: RunProdAppOptions.rowLevelSecurity ("off" by default) sets the mode of every connection; the scaffolded server entry passes appConfig.rowLevelSecurity. With "on", boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a table with tenant_id lacks ENABLE, FORCE or one of the two kumiko policies; the message lists the tables. With "off", boot fails while any table still has row level security enabled and points to the DISABLE migration that kumiko-schema generate writes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: User data export and forget cleanup run in system scope
+  detail: runUserExport and runForgetCleanup walk every tenant of a user, so they enter the system scope themselves instead of depending on the caller's scope. A direct call outside a job no longer exports or erases nothing under row level security "on".
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: The test stack runs with row level security on as role kumiko_app
+  detail: setupTestStack creates the role kumiko_app (LOGIN NOSUPERUSER NOBYPASSRLS, password taken from TEST_DATABASE_URL) once, makes it owner of the test database and opens every pool as that role with rowLevelSecurity "on"; template databases are built the same way. stack.db runs in system scope and sees every tenant's rows as before. The new stack.unscopedDb is the enforced pool the services use, on which a statement without a scope sees no tenant rows. rowLevelSecurity: "off" in the stack options restores the superuser stack without policies. createTestDb takes applicationRole: true for the same setup.
+  migration: App code that reads or writes tenant tables through a raw connection outside a request, a job or a TenantDb now sees no rows in integration tests. Test code that calls such a path directly runs it inside runInSystemRowLevelSecurityScope or runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantId), ...) from @cosmicdrift/kumiko-testing/helpers. Production code works through a TenantDb for the tenant, a job, a system-scoped handler or a granted unsafeRaw. Tests that need superuser rights on stack.db, such as CREATE EXTENSION, CREATE ROLE or event triggers, open their own connection from TEST_DATABASE_URL or use createTestDb(). Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: The dev server runs with row level security on
+  detail: runDevApp and createKumikoServer default to rowLevelSecurity "on" and run the dev stack as kumiko_app. On boot against a persistent dev database, the stack creates the role and transfers ownership of the database and of the public schema's tables, views and sequences to kumiko_app. The database user in DATABASE_URL needs the right to create roles, which the superuser of a local Postgres has. Code that reads tenant tables through a raw connection without a scope sees no rows in development; the boot does not detect this. runSchemaApply takes rowLevelSecurity, and the managed kumiko/schema.ts exports ROW_LEVEL_SECURITY from appConfig; the managed file updates on the next sync.
+  migration: Pass rowLevelSecurity: "off" to runDevApp while fixing code paths without tenant context; the dev database keeps kumiko_app as owner. A server entry written by an older scaffold passes appConfig.rowLevelSecurity to runProdApp by hand once the app turns row level security on. Manual migration, there is no codemod.
+  -->
+- f6d230f: Postgres row level security is on by default, system scopes carry a mandatory reason, and the event write path keeps the caller's tenant scope.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: rowLevelSecurity defaults to "on"
+  migration: |
+    In the app repo, once with the bump: run `kumiko sync-managed --write` (the managed kumiko/schema.ts now reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`), then `kumiko schema generate` and commit the migration. It contains ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table. The schema apply (the migrate init container in production) creates them; there is no manual database step. Without the migration, boot at "on" refuses to start and names the unprotected tables.
+    The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; tools that touch no tenant rows (schema baseline/status, the KMS key store) pass "off" explicitly, and the operator commands backfill-pii, waitlist-migrate, project and consumer run on an enforcing connection in system scope, so they work against both modes.
+    Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot hooks with a db dependency get a system-scoped db at rowLevelSecurity "on"
+  migration: |
+    No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. Anything the anonymousAccess factory builds keeps that db at request time and therefore reads across tenants for anonymous callers: filter by the resolved tenant yourself. In prod, extraContext factories keep the ambient request scope; the test stack and dev still hand them a system-scoped db, so a service that needs cross-tenant reads at request time must scope itself.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runInSystemRowLevelSecurityScope and systemScopedRunner take a reason
+  migration: |
+    Call runInSystemRowLevelSecurityScope("<why this access spans tenants>", fn) and systemScopedRunner(runner, "<reason>"). An empty or whitespace reason throws InternalError; the scope leak assertion names the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: A projection write under a tenant scope can no longer land in another tenant
+  migration: |
+    A command that writes an entity row for another tenant through ctx.db now fails with SQLSTATE 42501; move that write to ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature.
+  detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard internal-subpath-imports
+  detail: Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant job run rows are written in the tenant's scope
+  detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: composeFeatures no longer warns about its own bundled copies
+  detail: Composing the output of a first composeFeatures pass again drops the earlier bundled instances silently; only copies the app supplied itself still warn.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Scoped pool statements pipeline their transaction
+  detail: A pool statement under a row level security scope sends BEGIN, the transaction-local scope, the statement and COMMIT pipelined on one reserved connection instead of waiting for each, which cuts its roundtrips roughly in half. The connection returns to the pool only after COMMIT settled.
+  -->
+- 22f9f23: The tenant aggregate is now a global systemStream entity: its stream, read row and search bucket live on SYSTEM_TENANT_ID.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: breaking
+  title: Tenant streams and rows live on the system tenant, seed defaults changed
+  detail: Tenants created, renamed or toggled by a SystemAdmin whose session tenant was neither 0001 nor the SYSTEM tenant landed in the event stream, read row and search bucket of that session tenant, so later updates could not find them. The tenant entity is now declared systemStream with tenancy global, so every writer (create, update, enable and disable, request and cancel destruction, the destroy job stages) addresses the stream on SYSTEM_TENANT_ID. seedTenant, seedUser, seedAdmin and seedAdminGuarded default to createSystemUser(SYSTEM_TENANT_ID) and write the tenant to SYSTEM whatever tenant an explicit by acts from; managed-pages and compliance-profiles seeds default to createSystemUser(tenantId). Existing memberships written by an admin of another tenant sit on that admin's stream while read_tenant_memberships.tenant_id carries the member tenant; after the backfill streamTenantId equals tenantId for them. New export backfillTenantStreamTenants from the tenant feature, the boot step runStreamTenantBackfillOnBoot in server-runtime, EsOperationType gains "stream-migration", built on the generic backfillAggregateStreamTenants in shared (backfillUserStreamTenants keeps its signature).
+  migration: |
+    Nothing to run: runProdApp (api, all-in-one) and runWorkerApp search for legacy tenant, membership and user streams on every boot, before the boot seeds respectively before the worker starts, and fix what they find. A boot with nothing left reads only events of other tenants than SYSTEM (plus the membership events) and does no rebuild or reindex. It merges split tenant streams onto SYSTEM_TENANT_ID, moves each membership stream to the tenantId of its payload, moves legacy user streams, removes stale search documents from the old buckets, and where streams moved rebuilds tenant:projection:tenant-entity, tenant:projection:tenant-membership-entity and user:projection:user-entity and reindexes the tenant and user search indexes. Legacy streams written by old pods during a rolling deploy are fixed on the next boot. A row in kumiko_es_operations (stream-tenant-backfill:<user|tenant>:derived-pending) marks a run in progress so that a crash after the moves still gets its rebuild and reindex. Parallel boots are serialized by a Postgres advisory lock; failures are logged (aggregateId, step, error) and retried on the next boot. A process without a search adapter leaves the work to one that has it. Library users can call backfillTenantStreamTenants or backfillUserStreamTenantsWithDerivedState directly. Code that read tenant streams with loadAggregate(db, tenantId, "tenant") or appended tenant events with the tenant id as stream tenant must use SYSTEM_TENANT_ID. Consumer workarounds that wrote tenant streams under a SystemAdmin `by` (for example an executor update with TestUsers.systemAdmin) are no longer needed, because the stream is always SYSTEM. Seeds that relied on the old by default (TestUsers.systemAdmin) now get the system user as audit actor. Apps without a search backend set `search: "none"` on runProdApp and runWorkerApp, otherwise the stream-tenant backfill stays deferred in every process that has no search adapter.
+  -->
+
+### Patch Changes
+
+- 1a7eebe: Parallel writes on one handler transaction no longer abort it, a failed verb leaves no orphan event, invalid date values are a 400, and previewOpenByDefault opens the newest file.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Parallel writes in one handler no longer abort the transaction
+  detail: Bun.SQL does not serialize savepoints on a transaction. A handler that started several executor writes on ctx.db with Promise.all opened overlapping savepoints, the first RELEASE also released its neighbours, and the next one aborted the whole transaction with a 500. runInSavepoint and runInSavepointIfSupported now queue savepoints per transaction (proxy runners over the same transaction share one queue, savepoints opened from inside a running one still nest), and an executor verb on a handler transaction now runs in its own savepoint: when it fails, its event append, projection and hooks roll back together, also when the handler catches the failure, so no event without projection is left behind and a rebuild replays cleanly. Postgres errors 22007 and 22008 (a date or time value the column rejects, such as 2026-02-30) now map to a 400 validation_error instead of a 500, on writes and on query filters.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: previewOpenByDefault opens the newest file
+  detail: FileValueList with previewOpenByDefault (renderer format "file") now opens only the PDF preview of the newest file instead of the first one. Uploads append their FileRef id, so the newest file is the last id in fileIds.
+  -->
+- 21b70ba: New guard that fails when a consumer passes anything but FEATURES from kumiko/schema to runSchemaCli.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Guard for the runSchemaCli feature list
+  detail: The Schema CLI Features guard fails when a consumer's `runSchemaCli` call does not get `features: FEATURES` imported from `kumiko/schema`. `allAppFeatures()` is raw, without the bundled foundation, so the projection rebuild after the migrations failed at deploy with "Feature X requires feature Y" (kumiko-studio, 2026-10-22). The message names the fix. Repos without `kumiko/schema.ts` are skipped, and a manifest exclude cannot hide `bin/kumiko.ts`.
+  migration: Run `bun kumiko check` once on the bump. Measured on 2026-10-23: only show-pony fails (bin/kumiko.ts composes its own list); import `FEATURES` from `../kumiko/schema` there. publicstatus, offlot-app, solon, money-horse, phronexsis and kumiko-studio are clean.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: allAppFeatures documents that its list is raw
+  detail: The JSDoc of allAppFeatures says the list has no bundled foundation and that tooling such as runSchemaCli takes FEATURES from kumiko/schema. Behavior is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Scaffolded bin/kumiko.ts passes FEATURES from kumiko/schema
+  detail: The scaffolded standalone CLI handed allAppFeatures(appConfig) to runSchemaCli, a raw list without the bundled foundation. It now imports FEATURES from kumiko/schema, which the Schema CLI Features guard requires. Existing apps are not touched.
+  -->
+- 01a611f: The job runner passes the credentials and TLS setting from REDIS_URL to its queue and lock connections.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Job runner connects to a password-protected Redis
+  detail: parseRedisOpts kept only host, port and db of REDIS_URL, so BullMQ queues and the sequential lock connected without the password and the app stopped at boot with "Redis not reachable" against a Redis that requires auth. Username, URL-encoded password and rediss:// TLS are now carried over.
+  -->
+- 3131c5c: Row level security DDL behind a `rowLevelSecurity` parameter, and projection rebuilds keep RLS on the table.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Row level security policy DDL behind a rowLevelSecurity parameter
+  detail: renderTableDdl, renderTablesDdl and unsafePushTables accept rowLevelSecurity "off" or "on" (default "off", output unchanged). With "on", every table that has a tenant_id column gets ENABLE and FORCE ROW LEVEL SECURITY plus the policies kumiko_tenant_isolation and kumiko_system_tenant_read, driven by the kumiko.tenant_id and kumiko.scope settings. Tables without tenant_id are left alone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The migration generator writes a row level security section
+  detail: With rowLevelSecurity "on", generateMigration adds a Row level security section for new, changed and recreated tables and a rowLevelSecurity field to the snapshot; switching back to "off" emits the matching DISABLE statements with a warning. Without the option the generated SQL and snapshot are byte-identical to before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Migration replay understands CREATE, ALTER and DROP POLICY
+  detail: The replay behind kumiko-schema validate tracks ENABLE and FORCE ROW LEVEL SECURITY and policy definitions per table, follows table renames, and reports row-level-security-drift when the committed SQL does not produce the policies the snapshot expects (missing, extra, altered or hand-edited) or turns on row level security for a table the snapshot has no spec for. An unparsable policy statement, or a policy or row level security change inside a DO block, fails loudly.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Projection and multi-stream rebuilds no longer abort on tables with row level security
+  detail: The shadow swap used to refuse a live table with RLS flags or policies. It now reads them from the catalog under the swap lock, re-applies them to the swapped-in table and fails the rebuild transaction if the result differs. Before the first read, the rebuild checks that the table's policies let its system scope see every row, so the guards never see too few rows and the swap never drops hidden ones.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Migration replay parses ALTER TABLE ONLY, IF EXISTS and public. prefixes
+  detail: kumiko-schema validate read `ALTER TABLE ONLY "t"` as a change to a table named ONLY and ignored IF EXISTS and a public. prefix; the statement now applies to the named table.
+  -->
+- c2fd4b3: `kumiko schema apply` now adds the missing row-level security (ENABLE/FORCE and policies) to existing framework tables with a tenant column (`kumiko_events`, `kumiko_archived_streams`, `kumiko_snapshots`, the dead-letter tables) when `ROW_LEVEL_SECURITY` is `"on"`. Databases created before row-level security was switched on no longer abort the boot with "tenant tables lack row-level security". `kumiko schema validate` runs the boot's row-level security check against the live database when `DATABASE_URL` is set, and the boot error names `kumiko schema apply` for framework tables. The error-reasons guard no longer reports `grants: { unsafeRaw: { reason } }` and the other escape-hatch grants.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: schema apply heals row-level security on existing framework tables
+  detail: Existing databases got no policies on kumiko_events, kumiko_archived_streams and kumiko_snapshots, so boot failed while schema validate stayed green.
+  -->
+- e0e2dfe: `kumiko-schema generate` now detects primary-key changes.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Schema generator emits primary-key changes
+  detail: A changed primary key (single to composite, reordered columns, renamed constraint) previously produced no migration. The generator now emits DROP CONSTRAINT plus ADD CONSTRAINT with a WARN comment, and managed projections are recreated and replayed.
+  -->
+- 6c1151a: Adds seedRowViaEventStore, a test helper that seeds a row of an event-sourced entity table through the event store.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Seed event-sourced rows through the event store
+  detail: The testing helpers gain seedRowViaEventStore(db, table, values). It takes the same arguments as seedRow, appends a created event through the event-store executor and projects the row, so a rebuild keeps the seeded row. The row's tenantId selects the acting tenant; global entities such as user are seeded without a tenantId, because the executor rejects one on them. It throws for tables that are not event-sourced entity tables, for a non-string id and when the executor rejects the row. To support this, buildEntityTable and r.entity now remember which entity a managed table belongs to; nothing changes for apps.
+  -->
+- 54cda5b: Integration tests seed event-sourced rows through the event store and reset event-sourced tables together with the events table.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Tests seed and reset event-sourced tables through the event store
+  detail: Seeds of user, membership, tenant and other entity rows use seedRowViaEventStore instead of seedRow, so their created events exist. Setup and teardown hooks in the integration tests clear event-sourced tables through resetTestTables instead of raw DELETE statements, and clear the events table in the same call, so a test no longer starts with events whose projection rows are gone. Nothing changes for apps; the packages are only republished.
+  -->
+- 9e6de88: Integration tests change event-sourced rows through the event store or the real commands instead of writing projection tables.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tests no longer write event-sourced tables directly
+  detail: Integration tests for users, memberships, tenants and user-data-rights change event-sourced rows through the event store or the real commands and reset them with resetTestTables. seedDestroyingTenant in tenant-lifecycle/testing now writes the status through the event store and throws when the tenant stream does not live on the seed SystemAdmin's tenant. Nothing changes for apps; the packages are only republished.
+  -->
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+  - @cosmicdrift/kumiko-types@0.390.0
+
 ## 0.389.0
 
 ### Minor Changes

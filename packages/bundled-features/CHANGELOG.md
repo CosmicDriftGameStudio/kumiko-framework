@@ -1,5 +1,349 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.390.0
+
+### Minor Changes
+
+- 2376b07: The user/testing and tenant/testing subpaths export event-store write helpers for users, memberships and tenants and now load under Bun only.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Event-store write helpers for user, membership and tenant tests
+  detail: The user/testing and tenant/testing subpaths export updateUserViaEventStore, softDeleteUserViaEventStore, setMembershipRolesViaEventStore, deleteMembershipViaEventStore and updateTenantViaEventStore. updateTenantViaEventStore addresses the stream of the seed SystemAdmin's tenant by default, where tenants created in tests live. Tests use them to change event-sourced rows through the event store instead of the projection tables. Both subpaths now import @cosmicdrift/kumiko-testing and therefore load under Bun only, like tenant-lifecycle/testing; import user/seeding or tenant/seeding where Node has to load the seed helpers.
+  -->
+- 5d7dfe1: HandlerContext drops the boot wiring: services, lifecycle and tenants replace the flat members, and hooks receive the HandlerContext.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: HandlerContext without wiring, hooks receive the HandlerContext
+  codemod: scripts/codemod/ctx-namespaces.ts
+  detail: HandlerContext has 19 members and no longer carries the AppContext wiring. ctx.services holds redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, configEncryption, rateLimit, effectiveFeatures and masterKeyProvider; every key of an app's extraContext that the framework does not know now lives in ctx.services.extensions (it used to sit flat on the context through a spread, invisible to tsc). ctx.lifecycle holds afterCommit and afterRollback (replacing scheduleAfterCommit and scheduleAfterRollback), signal and runPreSave. ctx.tenants holds config (replacing configFor) and writeTarget (replacing forTenant). ctx.obs gains meter, and the flat log, tracer, _tenantId, systemUser and triggeredBy are gone; read ctx.user.tenantId and ctx.obs.log. JobContext no longer extends the shared wiring fields; it gets services and lifecycle.signal and keeps systemUser, triggeredBy and its job fields. All hooks (preSave, postSave, postSaveBatch, preDelete, postDelete, postDeleteBatch, preQuery, postQuery) and the system hook definitions receive the HandlerContext instead of the AppContext, and the batch hooks run on a real handler context built per flush. AppContext stays the flat boot wiring and declares services as never, so a handler or job context can no longer be passed to a function that takes an AppContext. The context of beforeTransaction no longer exposes ctx.systemDb.outsideTransaction, which was a hole next to the denied ctx.db.outsideTransaction. The member-resolution and pre-transaction contexts also drop the notify factories from ctx.services, and member resolution drops _fileProviderResolver, so neither can rebuild the denied notify or file storage. Helpers that took a structural context with an optional flat member read undefined once a handler context stopped carrying it; their shapes now make that a type error: requireSecretsContext, FileProviderContext (createFileProviderForTenant) and MailTransportContext (createTransportForTenant) take a required secrets key (handlers pass { secrets: ctx.services.secrets, user: ctx.user }), and CreateFileRefContext/UploadFileBytesContext read services.files, so a handler or job context passes straight in. bridgeStub accepts a services option.
+  migration: |
+    Run kumiko-upgrade --apply; it runs the ctx-namespaces codemod. It rewrites ctx.redis, cacheSync, jobRunner, searchAdapter, entityCache, secrets, kms, files, derivatives, configResolver, effectiveFeatures and the other service members to ctx.services.*, scheduleAfterCommit and scheduleAfterRollback to ctx.lifecycle.afterCommit and afterRollback, signal to ctx.lifecycle.signal, configFor and forTenant to ctx.tenants.config and writeTarget, and hook parameters annotated AppContext to HandlerContext, including context.log to context.obs.log in the hook body. Keys of your extraContext that you read through a cast move to ctx.services.extensions. Listed for manual review: ctx.systemUser, ctx.triggeredBy and ctx._tenantId on a HandlerContext (read ctx.user), a handler or job context passed to a function that takes an AppContext (narrow that parameter to the members it reads), spread literals next to moved members, and a handler or job context passed to a parameter whose structural type reads a moved member (it would read undefined without a type error). Hand-built test contexts take services, lifecycle and tenants from bridgeStub({ services }).
+  -->
+- f6d230f: Postgres row level security is on by default, system scopes carry a mandatory reason, and the event write path keeps the caller's tenant scope.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: rowLevelSecurity defaults to "on"
+  migration: |
+    In the app repo, once with the bump: run `kumiko sync-managed --write` (the managed kumiko/schema.ts now reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`), then `kumiko schema generate` and commit the migration. It contains ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table. The schema apply (the migrate init container in production) creates them; there is no manual database step. Without the migration, boot at "on" refuses to start and names the unprotected tables.
+    The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; tools that touch no tenant rows (schema baseline/status, the KMS key store) pass "off" explicitly, and the operator commands backfill-pii, waitlist-migrate, project and consumer run on an enforcing connection in system scope, so they work against both modes.
+    Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot hooks with a db dependency get a system-scoped db at rowLevelSecurity "on"
+  migration: |
+    No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. Anything the anonymousAccess factory builds keeps that db at request time and therefore reads across tenants for anonymous callers: filter by the resolved tenant yourself. In prod, extraContext factories keep the ambient request scope; the test stack and dev still hand them a system-scoped db, so a service that needs cross-tenant reads at request time must scope itself.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runInSystemRowLevelSecurityScope and systemScopedRunner take a reason
+  migration: |
+    Call runInSystemRowLevelSecurityScope("<why this access spans tenants>", fn) and systemScopedRunner(runner, "<reason>"). An empty or whitespace reason throws InternalError; the scope leak assertion names the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: A projection write under a tenant scope can no longer land in another tenant
+  migration: |
+    A command that writes an entity row for another tenant through ctx.db now fails with SQLSTATE 42501; move that write to ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature.
+  detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard internal-subpath-imports
+  detail: Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant job run rows are written in the tenant's scope
+  detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: composeFeatures no longer warns about its own bundled copies
+  detail: Composing the output of a first composeFeatures pass again drops the earlier bundled instances silently; only copies the app supplied itself still warn.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Scoped pool statements pipeline their transaction
+  detail: A pool statement under a row level security scope sends BEGIN, the transaction-local scope, the statement and COMMIT pipelined on one reserved connection instead of waiting for each, which cuts its roundtrips roughly in half. The connection returns to the pool only after COMMIT settled.
+  -->
+- 22f9f23: The tenant aggregate is now a global systemStream entity: its stream, read row and search bucket live on SYSTEM_TENANT_ID.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: breaking
+  title: Tenant streams and rows live on the system tenant, seed defaults changed
+  detail: Tenants created, renamed or toggled by a SystemAdmin whose session tenant was neither 0001 nor the SYSTEM tenant landed in the event stream, read row and search bucket of that session tenant, so later updates could not find them. The tenant entity is now declared systemStream with tenancy global, so every writer (create, update, enable and disable, request and cancel destruction, the destroy job stages) addresses the stream on SYSTEM_TENANT_ID. seedTenant, seedUser, seedAdmin and seedAdminGuarded default to createSystemUser(SYSTEM_TENANT_ID) and write the tenant to SYSTEM whatever tenant an explicit by acts from; managed-pages and compliance-profiles seeds default to createSystemUser(tenantId). Existing memberships written by an admin of another tenant sit on that admin's stream while read_tenant_memberships.tenant_id carries the member tenant; after the backfill streamTenantId equals tenantId for them. New export backfillTenantStreamTenants from the tenant feature, the boot step runStreamTenantBackfillOnBoot in server-runtime, EsOperationType gains "stream-migration", built on the generic backfillAggregateStreamTenants in shared (backfillUserStreamTenants keeps its signature).
+  migration: |
+    Nothing to run: runProdApp (api, all-in-one) and runWorkerApp search for legacy tenant, membership and user streams on every boot, before the boot seeds respectively before the worker starts, and fix what they find. A boot with nothing left reads only events of other tenants than SYSTEM (plus the membership events) and does no rebuild or reindex. It merges split tenant streams onto SYSTEM_TENANT_ID, moves each membership stream to the tenantId of its payload, moves legacy user streams, removes stale search documents from the old buckets, and where streams moved rebuilds tenant:projection:tenant-entity, tenant:projection:tenant-membership-entity and user:projection:user-entity and reindexes the tenant and user search indexes. Legacy streams written by old pods during a rolling deploy are fixed on the next boot. A row in kumiko_es_operations (stream-tenant-backfill:<user|tenant>:derived-pending) marks a run in progress so that a crash after the moves still gets its rebuild and reindex. Parallel boots are serialized by a Postgres advisory lock; failures are logged (aggregateId, step, error) and retried on the next boot. A process without a search adapter leaves the work to one that has it. Library users can call backfillTenantStreamTenants or backfillUserStreamTenantsWithDerivedState directly. Code that read tenant streams with loadAggregate(db, tenantId, "tenant") or appended tenant events with the tenant id as stream tenant must use SYSTEM_TENANT_ID. Consumer workarounds that wrote tenant streams under a SystemAdmin `by` (for example an executor update with TestUsers.systemAdmin) are no longer needed, because the stream is always SYSTEM. Seeds that relied on the old by default (TestUsers.systemAdmin) now get the system user as audit actor. Apps without a search backend set `search: "none"` on runProdApp and runWorkerApp, otherwise the stream-tenant backfill stays deferred in every process that has no search adapter.
+  -->
+
+### Patch Changes
+
+- 38e816b: isSafeReturnPath has its own light subpath, so pages without the Kumiko runtime can validate return paths.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: isSafeReturnPath has its own light subpath
+  detail: Importing @cosmicdrift/kumiko-bundled-features/auth-email-password/return-path gives isSafeReturnPath, readReturnToFromSearch, RETURN_TO_QUERY_PARAM and MAX_RETURN_PATH_LENGTH without loading the web barrel, for example in Astro pages that run without the Kumiko runtime.
+  -->
+- c2fd4b3: `wireCustomFieldsUserDataRightsFor` is exported from the custom-fields subpath again.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: wireCustomFieldsUserDataRightsFor is exported from ./custom-fields
+  detail: The helper that adds custom fields to the user-data-rights export is documented as an app call but was missing from the subpath exports. It is exported again together with its options type.
+  -->
+- 22f792d: Dependency security update: happy-dom 21.0.4 (GHSA-834V-8H66-3H79) and undici 7.30.1 (GHSA-XJJ6-F33Q-929C).
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: happy-dom and undici updated for security advisories
+  migration: |
+    Bump @happy-dom/global-registrator (and happy-dom, if listed) to ^21.0.4 in the app's devDependencies; the kumiko-testing peer range is now ^21.0.4. happy-dom 21 is a major release: run the app's DOM test suite after the bump.
+  detail: The happy-dom range for the global registrator and the DOM test setup moves to ^21.0.4 (fixes GHSA-834V-8H66-3H79, incomplete fix for an unsanitized import alias leading to host code execution), undici is pinned to 7.30.1 (fixes GHSA-XJJ6-F33Q-929C, denial of service through an unhandled error on excessive content-encodings).
+  -->
+- 84e9d9c: Template editors report their insert handle from the React commit, so a remounted editor keeps it.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Rail inserts no longer do nothing after the placeholder labels load
+  detail: Inserting a placeholder into the subject, preheader, header chip or footer field could silently do nothing once the placeholder labels had loaded, because the replaced editor unregistered the handle of its remounted successor. The editors now report their handle from the React commit instead of tiptap's create and destroy callbacks.
+  -->
+- c2fd4b3: The export cleanup job no longer logs "Gauge not registered" when metrics are switched off.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: export cleanup stays quiet when metrics are off
+  detail: The cleanup gauges are not registered without metrics, so the job logged "Gauge not registered" on every pass.
+  -->
+- 4b36bd9: The complexity guard now scans .tsx files with the same hard cap of 40 as .ts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Complexity guard covers .tsx with the hard cap of 40
+  detail: The Complexity Check scans .tsx files next to .ts (.test.tsx stays excluded), and conditional JSX counts as a branch. A .tsx function above complexity 40 fails in the repo's own files, regardless of baseline or complexity-budget tag.
+  migration: Run `kumiko-guards guards --write-baseline --guard="Complexity Check"` once on the bump to freeze the .tsx hotspots between 15 and 40, and split every .tsx function above 40 before the bump; the complexity-budget tag and the baseline do not cover it. Measured on 2026-10-23 (function, complexity / lines): offlot-app ComposerWorkspace 129/597 (campaign-composer-screen.tsx) and ComposerPostText 47/289 (composer-post-drawer.tsx); kumiko-enterprise AgentPanelBody 74/634 (agent-panel-body.tsx); phronexsis WorkbenchDashboardScreen 64/653 (workbench-dashboard-screen.tsx); money-horse CreditCalculatorScreen 60/468 (credit-calculator-screen.tsx); solon CockpitDetail 58/462 (inbox-cockpit-screen.tsx). publicstatus, show-pony, kumiko-studio and kumiko-platform have no .tsx function above 40.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: PDF editor actions drop unreachable null checks
+  detail: generatePdf, printOnce and the save path of the PDF template editor no longer check for a missing editor state; the editor only builds its actions once the state is loaded, and the type already excludes null. A new test pins the publishSystem path for a SystemAdmin who holds a clean tenant template.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: One tiptap range across the framework packages
+  detail: bundled-features pinned @tiptap/* exactly to 3.31.3 while the renderer asked for ^3.30.5. Apps resolved the renderer's range to a newer patch and kept the exact pin next to it, so their lockfiles held two @tiptap/core and @tiptap/react instances (core 3.31.3 and 3.31.4 in offlot-app, money-horse, publicstatus, phronexsis, show-pony and kumiko-enterprise). Both packages now declare ^3.31.3 for every @tiptap/* dependency, so one resolved version satisfies both; the framework lockfile still resolves 3.31.3.
+  -->
+- c2fd4b3: nodemailer is raised to 10.2.1; the workspace overrides lift ip-address to 10.7.4 and fast-copy to 4.2.0 for open advisories.
+  
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: fix
+  title: nodemailer 10.2.1 fixes the address-parser advisories
+  detail: nodemailer 10.0.13 mis-parsed quoted semicolons, angle brackets and nested comments in addresses (GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h, GHSA-8c8m-p3m8-cjg8). The dependency is now 10.2.1, and the overrides for ip-address (10.7.4) and fast-copy (4.2.0) remove the remaining audit findings.
+  -->
+- febcd93: Placeholder inserts keep working after a line editor remounts
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Placeholder inserts keep working after a line editor remounts
+  detail: When a placeholder line editor (subject, preheader, header chip, footer note) remounted (labels arriving from the async validate query, or a new external value), TipTap could destroy the replaced editor after the new one was created. Its late null report then removed the live handle and placeholder inserts into that field did nothing. A null from a superseded editor is now ignored.
+  -->
+- 6d20414: Row level security at runtime: connections set the tenant or system scope in every transaction, one rowLevelSecurity value in kumiko.config.ts drives schema tooling and boot, and the test stack and the dev server run with it on.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Connections set the row level security scope in every transaction
+  detail: createDbConnection takes rowLevelSecurity "off" or "on" (default "off", the connection is unchanged). With "on", every statement and transaction sets kumiko.tenant_id and kumiko.scope transaction-locally from the ambient scope. TenantDb sets its tenant, and the system scope for system-mode TenantDbs, global tables and a granted unsafeRaw. Dispatch sets the user's tenant per command, or the system scope for a system-scoped handler. Event store reads and writes use the stream's tenant. Jobs, the event dispatcher, member resolution, migrations, boot seeds, retention, reindex, blind-index cleanup, the PII backfill, projection apply, auth providers and the tenant lifecycle check run in system scope. A statement without a scope sees no tenant rows. The functions that set a scope (runInRowLevelSecurityScope, runInSystemRowLevelSecurityScope, tenantRowLevelSecurityScope, systemScopedRunner) are not part of the public db subpath; framework packages import them from @cosmicdrift/kumiko-framework/internal/row-level-security, which no guard closes to apps yet. App code reaches the system scope through a system-scoped handler, a job or a granted unsafeRaw.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: One rowLevelSecurity value in kumiko.config.ts for schema tooling and runners
+  detail: AppConfig.rowLevelSecurity ("off" by default) is exported by the managed kumiko/schema.ts as ROW_LEVEL_SECURITY. kumiko-schema generate and validate render and check the policies from it, and apply opens its connection in that mode; the CLI has no flag of its own. The API, worker and all-in-one entrypoints take the same option and refuse a context whose connection runs in another mode. unsafePushTables with "on" reads the catalog first and runs no lock and no DDL for a table that already has ENABLE, FORCE and both kumiko policies.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Projection rebuilds run in system scope under row level security
+  detail: The rebuild transaction no longer turns row_security off, so a rebuild works as a NOSUPERUSER NOBYPASSRLS table owner under FORCE. Before the first guard read it locks the live table in SHARE UPDATE EXCLUSIVE mode, which blocks policy DDL and a second rebuild of the same table, and reads the catalog. When row level security is enabled, kumiko_tenant_isolation must exist as a PERMISSIVE policy for ALL commands and PUBLIC and no RESTRICTIVE policy may exist; otherwise the rebuild fails with the table and its policies and leaves the live table untouched. Other permissive policies carry over to the swapped-in table. Multi-stream rebuilds follow the same rule.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp checks the row level security state at boot
+  detail: RunProdAppOptions.rowLevelSecurity ("off" by default) sets the mode of every connection; the scaffolded server entry passes appConfig.rowLevelSecurity. With "on", boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a table with tenant_id lacks ENABLE, FORCE or one of the two kumiko policies; the message lists the tables. With "off", boot fails while any table still has row level security enabled and points to the DISABLE migration that kumiko-schema generate writes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: User data export and forget cleanup run in system scope
+  detail: runUserExport and runForgetCleanup walk every tenant of a user, so they enter the system scope themselves instead of depending on the caller's scope. A direct call outside a job no longer exports or erases nothing under row level security "on".
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: The test stack runs with row level security on as role kumiko_app
+  detail: setupTestStack creates the role kumiko_app (LOGIN NOSUPERUSER NOBYPASSRLS, password taken from TEST_DATABASE_URL) once, makes it owner of the test database and opens every pool as that role with rowLevelSecurity "on"; template databases are built the same way. stack.db runs in system scope and sees every tenant's rows as before. The new stack.unscopedDb is the enforced pool the services use, on which a statement without a scope sees no tenant rows. rowLevelSecurity: "off" in the stack options restores the superuser stack without policies. createTestDb takes applicationRole: true for the same setup.
+  migration: App code that reads or writes tenant tables through a raw connection outside a request, a job or a TenantDb now sees no rows in integration tests. Test code that calls such a path directly runs it inside runInSystemRowLevelSecurityScope or runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantId), ...) from @cosmicdrift/kumiko-testing/helpers. Production code works through a TenantDb for the tenant, a job, a system-scoped handler or a granted unsafeRaw. Tests that need superuser rights on stack.db, such as CREATE EXTENSION, CREATE ROLE or event triggers, open their own connection from TEST_DATABASE_URL or use createTestDb(). Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: The dev server runs with row level security on
+  detail: runDevApp and createKumikoServer default to rowLevelSecurity "on" and run the dev stack as kumiko_app. On boot against a persistent dev database, the stack creates the role and transfers ownership of the database and of the public schema's tables, views and sequences to kumiko_app. The database user in DATABASE_URL needs the right to create roles, which the superuser of a local Postgres has. Code that reads tenant tables through a raw connection without a scope sees no rows in development; the boot does not detect this. runSchemaApply takes rowLevelSecurity, and the managed kumiko/schema.ts exports ROW_LEVEL_SECURITY from appConfig; the managed file updates on the next sync.
+  migration: Pass rowLevelSecurity: "off" to runDevApp while fixing code paths without tenant context; the dev database keeps kumiko_app as owner. A server entry written by an older scaffold passes appConfig.rowLevelSecurity to runProdApp by hand once the app turns row level security on. Manual migration, there is no codemod.
+  -->
+- 8c25e2f: Session lists and the session detail show the device as text without sessionsClient().
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: fix
+  title: Session screens show the device without sessionsClient()
+  detail: The list, my-sessions and detail screens showed [object Object] in the device column for apps that do not register sessionsClient(). The session queries (user-session:list, user-session:mine, user-session:detail) now return a deviceLabel string such as "Chrome 141 · macOS" next to the unchanged device object, null when the user agent is unknown, and the screens render that field. sessionsClient() only adds the translated "Unknown device" for rows without a label.
+  -->
+- d6c1dec: The sessions integration tests change memberships and user status through handlers or the event-store executor.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: Sessions tests no longer write projection tables directly
+  detail: The sessions integration tests change tenant memberships and user status through the update-member-roles handler or the event-store executor instead of writing into the projection tables. Nothing changes for apps; the package is only republished.
+  -->
+- 9cf6cc6: Revoking one termination no longer resumes a subscription another termination still cancels.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Revoking one termination no longer resumes a subscription another termination still cancels
+  detail: A revocation only resumes the subscription at the provider when no other recorded termination still cancels it. Recording and revoking a termination now run one at a time per tenant, so provider calls can no longer interleave with the event stream.
+  -->
+- 54cda5b: Integration tests seed event-sourced rows through the event store and reset event-sourced tables together with the events table.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Tests seed and reset event-sourced tables through the event store
+  detail: Seeds of user, membership, tenant and other entity rows use seedRowViaEventStore instead of seedRow, so their created events exist. Setup and teardown hooks in the integration tests clear event-sourced tables through resetTestTables instead of raw DELETE statements, and clear the events table in the same call, so a test no longer starts with events whose projection rows are gone. Nothing changes for apps; the packages are only republished.
+  -->
+- 9e6de88: Integration tests change event-sourced rows through the event store or the real commands instead of writing projection tables.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tests no longer write event-sourced tables directly
+  detail: Integration tests for users, memberships, tenants and user-data-rights change event-sourced rows through the event store or the real commands and reset them with resetTestTables. seedDestroyingTenant in tenant-lifecycle/testing now writes the status through the event store and throws when the tenant stream does not live on the seed SystemAdmin's tenant. Nothing changes for apps; the packages are only republished.
+  -->
+- 276216d: Split the tiptap document editor into a model hook, helpers and render functions.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Split DocumentTiptapEditor into a model hook and render functions
+  detail: DocumentTiptapEditor and its insert panel compose a model hook, pure helpers and render functions for toolbar, bubble menu, content and insert fields. Rendered markup and behavior are unchanged.
+  -->
+- dd62f90: user-data-rights exports the forget-cleanup job and the download-attempt list screen QN as constants.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: QN constants for the forget-cleanup job and the download-attempt list screen
+  detail: UserDataRightsJobs.runForgetCleanup ("user-data-rights:job:run-forget-cleanup") and UserDataRightsScreens.downloadAttemptList ("user-data-rights:screen:download-attempt-list") are exported next to the existing QN constants, from the feature barrel and from user-data-rights/web. Use the screen constant in an app's r.nav instead of the literal string.
+  -->
+- f5f2fe9: user-data-rights exports UserDataRightsJobs and UserDataRightsScreens, so apps no longer type the export job and screen QN strings.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: QN constants for the export job and the export job list screen
+  detail: UserDataRightsJobs.runExportJobs ("user-data-rights:job:run-export-jobs") and UserDataRightsScreens.exportJobList ("user-data-rights:screen:export-job-list") are exported next to UserDataRightsQueries and UserDataRightsHandlers, from the feature barrel and from user-data-rights/web. Use the screen constant in an app's r.nav instead of the literal string.
+  -->
+- a01d30a: A workflow run woken by its awaited event resumes on the next tick even when the app clock runs ahead of the database clock.
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: fix
+  title: Woken workflow runs are due on the next resume tick
+  detail: The event subscriber stamped wakeAt with the app clock, while the resume job selects due rows with the database clock. With an app clock ahead of the database, a woken row was not due yet and waited for a later tick. wakeAt is now set with the database clock, like the due-runs query.
+  -->
+- Updated dependencies [1a7eebe]
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [4f4ec30]
+- Updated dependencies [86af2d0]
+- Updated dependencies [22f792d]
+- Updated dependencies [cd2937c]
+- Updated dependencies [aa8319f]
+- Updated dependencies [454b49d]
+- Updated dependencies [4b36bd9]
+- Updated dependencies [21b70ba]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+- Updated dependencies [febcd93]
+- Updated dependencies [abef0e6]
+- Updated dependencies [654a6c6]
+- Updated dependencies [01a611f]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [3131c5c]
+- Updated dependencies [8d06990]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [6d20414]
+- Updated dependencies [f6d230f]
+- Updated dependencies [e0e2dfe]
+- Updated dependencies [22f9f23]
+- Updated dependencies [2376b07]
+- Updated dependencies [6c1151a]
+- Updated dependencies [54cda5b]
+- Updated dependencies [9e6de88]
+- Updated dependencies [a08fc93]
+- Updated dependencies [78654fd]
+- Updated dependencies [c64181f]
+- Updated dependencies [1d392a4]
+- Updated dependencies [5d38d3c]
+  - @cosmicdrift/kumiko-framework@0.390.0
+  - @cosmicdrift/kumiko-renderer@0.390.0
+  - @cosmicdrift/kumiko-types@0.390.0
+  - @cosmicdrift/kumiko-testing@0.390.0
+
 ## 0.389.0
 
 ### Minor Changes
