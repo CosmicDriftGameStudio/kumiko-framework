@@ -83,6 +83,7 @@ import type {
 import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { buildEffectiveFeaturesResolver } from "./boot/shared-boot-steps.ts";
+import type { SearchBackendDeclaration } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import { warnIfRowLevelSecurityOff } from "./boot/warn-row-level-security-off.ts";
 import type { BillingBootOption } from "./boot-options/billing-option.ts";
@@ -413,6 +414,11 @@ export type RunProdAppOptions = {
   readonly bundledLists?: BundledListsOptions;
   /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  /** `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
+   *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
+   *  a process without a search adapter defers the backfill of searchable entities to one that has
+   *  it. Combining `"none"` with a `searchAdapter` fails the boot. Must match the worker process. */
+  readonly search?: SearchBackendDeclaration;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
   /** Ceiling Bun.serve buffers a request body to before any app-level
