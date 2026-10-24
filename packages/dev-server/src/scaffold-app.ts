@@ -554,12 +554,9 @@ function renderServer(appName: string): string {
     { specifier: "../kumiko.config", names: [], defaultName: "appConfig" },
     { specifier: "../src/seed", names: ["seedDemoTasks"] },
   ]);
-  // Dev-only emailVerified skips the login verify gate for the seeded admin;
-  // prod's bin/main.ts leaves it unset because the verify flow must run there.
   const authBlock = renderAdminAuthBlock(appName, [
     'password: "changeme",',
     'displayName: "Admin",',
-    "emailVerified: true,",
   ]);
 
   return `// Dev bootstrap. \`bun --watch bin/server.ts\` (see package.json scripts.dev)

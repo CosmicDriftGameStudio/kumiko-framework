@@ -131,14 +131,14 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).toContain("admin: {");
     expect(main).toContain("memberships:");
     expect(main).toContain("runProdApp");
-    // Prod writer stays untouched — the verify flow must run there.
+    // The boot seed marks the operator-created admin verified, so no app writes emailVerified.
     expect(main).not.toContain("emailVerified");
   });
 
-  test("bin/server.ts seeds the admin as emailVerified: true so login doesn't 422", async () => {
+  test("bin/server.ts leaves emailVerified to the boot seed", async () => {
     await scaffoldApp({ name: "my-notes", destination: appRoot });
     const dev = readFileSync(join(appRoot, "bin/server.ts"), "utf-8");
     expect(dev).toContain("admin: {");
-    expect(dev).toContain("emailVerified: true,");
+    expect(dev).not.toContain("emailVerified");
   });
 });
