@@ -280,6 +280,14 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     invalidate();
   }
 
+  function runSeedField(field: string, value: unknown): void {
+    // skip: touched field keeps the user's input, a seed must not overwrite it
+    if (!Object.is(values[field], initial[field])) return;
+    initial = { ...initial, [field]: value };
+    values = { ...values, [field]: value };
+    invalidate();
+  }
+
   // Stale-submit-safe rebase. Difference to runRebase: the baseline is
   // taken from the values that were actually SENT to the server, not
   // from `values` at the moment the server replied. If the user typed
@@ -354,6 +362,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     },
     rebase: runRebase,
     rebaseFields: runRebaseFields,
+    seedField: runSeedField,
     setCtx(nextCtx) {
       // Cast back to TCtx: setCtx's public signature takes unknown so
       // callers don't need to plumb generics. If conditions depend on ctx

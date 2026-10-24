@@ -20,6 +20,9 @@ export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];
   readonly onChange: (val: unknown) => void;
+  /** Seeds an empty optionsQuery select with the query's default row as a baseline
+   *  value (not a change). Only set where that is wanted (actionForm). */
+  readonly onSuggest?: (value: string) => void;
   /** Relevant only for type:"reference": the feature name for the lookup
    *  query QN (`<feature>:query:<refEntity>:list`). Other field types
    *  ignore this prop. */
@@ -126,6 +129,7 @@ export function RenderField({
   field,
   issues,
   onChange,
+  onSuggest,
   featureName,
   labelAppendix,
   fieldAppendix,
@@ -163,6 +167,7 @@ export function RenderField({
     id,
     hasError: issues !== undefined && issues.length > 0,
     onChange,
+    ...(onSuggest !== undefined && { onSuggest }),
     Input,
     appLocale,
     Banner,

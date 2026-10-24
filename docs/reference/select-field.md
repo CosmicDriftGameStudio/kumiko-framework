@@ -64,7 +64,7 @@ model: createTenantConfig("select", {
 }),
 ```
 
-- Die Query liefert `{ rows: { value: string; label: string; description?: string; group?: string; default?: boolean }[] }`. Labels und Beschreibungen erscheinen unübersetzt so, wie die Query sie liefert. Die erste Zeile mit `default: true` wird vorgewählt, solange das Feld leer ist; ein gesetzter Wert wird nie ersetzt.
+- Die Query liefert `{ rows: { value: string; label: string; description?: string; group?: string; default?: boolean }[] }`. Labels und Beschreibungen erscheinen unübersetzt so, wie die Query sie liefert. Nur in einer actionForm: die erste Zeile mit `default: true` füllt ein leeres Feld wie ein Prefill vor (keine Änderung, kein Verwerfen-Dialog); mit `submitPrefilled` lässt sich der Vorschlag unverändert absenden. Ändert ein Geschwisterfeld die Payload und fällt der alte Wert aus den Zeilen, ersetzt der Vorschlag ihn. In configEdit gibt es keine Vorauswahl; ein gesetzter Wert wird nie ersetzt.
 - `options` bleibt leer. Statische `options` und `optionsQuery` am selben Feld sind ein Boot-Fehler, ebenso `optionsQueryPayload` ohne `optionsQuery` und eine leere QN.
 - `optionsQueryPayload` wird bei jedem Aufruf mitgeschickt. Ein Wert ist entweder fest (`string`, `number`, `boolean`) oder `{ field: "<name>" }`, dann nimmt der Renderer den aktuellen Wert dieses Feldes derselben Form (siehe „Abhängige Optionen“).
 - Ohne `display` rendert das Feld ein Dropdown, damit die Darstellung nach dem Laden nicht umspringt. Ein gespeicherter Wert, der nicht im Ergebnis steht, bleibt mit seinem Rohwert sichtbar.

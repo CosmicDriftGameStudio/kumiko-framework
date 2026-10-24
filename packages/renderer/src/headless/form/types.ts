@@ -171,6 +171,10 @@ export type FormController<TValues extends FormValues> = {
   // subset of the form.
   rebaseFields(fields: readonly string[]): void;
 
+  // Sets baseline and value of one untouched field together, like a prefill:
+  // no change, not dirty. No-op once the field differs from its baseline.
+  seedField(field: string, value: unknown): void;
+
   // Swap the external context threaded into field-condition predicates.
   // Rare — most conditionals depend on values, not ctx — but needed when
   // e.g. the user switches tenant mid-form and visibility rules key off
