@@ -22,7 +22,12 @@
 // reflects the stream move.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { asRawClient, transaction, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  toPostgresArrayLiteral,
+  transaction,
+  unsafeReadRetrying,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 export type StreamTenantTarget =
@@ -50,6 +55,10 @@ export type StreamBackfillOptions = {
   // Runs per candidate before its events move; a throw skips the aggregate
   // and lands in `failed` (search cleanup must not be lost by a move).
   readonly beforeMove?: (candidate: StreamBackfillCandidate) => Promise<void>;
+  // Restricts the candidate scan to events on these tenants, which lets Postgres use
+  // events_tenant_type_idx instead of grouping every event of the type. Streams on a tenant
+  // outside the list are not found; omit it for the full scan.
+  readonly scanTenantIds?: readonly string[];
 };
 
 type CandidateRow = {
@@ -103,6 +112,11 @@ async function readCandidateRows(
            ORDER BY e2."id" ASC LIMIT 1)`;
   const params: unknown[] = [options.aggregateType];
   if (options.target.kind === "system") params.push(SYSTEM_TENANT_ID);
+  let scanSql = "";
+  if (options.scanTenantIds) {
+    params.push(toPostgresArrayLiteral(options.scanTenantIds));
+    scanSql = ` AND e."tenant_id" = ANY($${params.length}::uuid[])`;
+  }
   // An aggregate whose earliest event has no payload tenant yields a NULL
   // target and is reported as failed instead of being silently skipped.
   return unsafeReadRetrying<CandidateRow>(
@@ -111,7 +125,7 @@ async function readCandidateRows(
             ${targetSql} AS target_tenant_id,
             array_agg(DISTINCT e."tenant_id"::text) AS source_tenant_ids
        FROM "kumiko_events" e
-      WHERE e."aggregate_type" = $1
+      WHERE e."aggregate_type" = $1${scanSql}
       GROUP BY e."aggregate_id"
      HAVING bool_or(e."tenant_id"::text IS DISTINCT FROM ${targetSql})`,
     params,

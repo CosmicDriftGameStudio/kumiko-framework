@@ -89,6 +89,7 @@ export type BootedWorkerProcess = {
   readonly registry: Registry;
   readonly features: readonly FeatureDefinition[];
   readonly envSource: Record<string, string | undefined>;
+  readonly extraContext: Record<string, unknown>;
   readonly entrypoint: WorkerEntrypoint;
   /** ctx.secrets as wired into the entrypoint (auto-wired when the secrets
    *  feature is mounted and a master key exists, or from `extraContext`). */
@@ -326,6 +327,7 @@ export async function bootWorkerProcess(
     registry,
     features,
     envSource,
+    extraContext,
     entrypoint,
     ...(isSecretsContext(extraContext["secrets"]) && { secrets: extraContext["secrets"] }),
     ...(bootCrypto.configCipher && { configCipher: bootCrypto.configCipher }),

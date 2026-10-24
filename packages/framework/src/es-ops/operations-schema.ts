@@ -9,11 +9,10 @@ import { index, integer, table as pgTable, sql, text, timestamp } from "../db/di
 import { type DbConnection, tableExists } from "../db/index.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 
-export type EsOperationType = "seed-migration";
+export type EsOperationType = "seed-migration" | "stream-migration";
 // Extensions — append here when implemented:
 // | "projection-rebuild"
 // | "event-replay"
-// | "stream-migration"
 // | "aggregate-rebuild"
 // | "archived-stream-purge"
 

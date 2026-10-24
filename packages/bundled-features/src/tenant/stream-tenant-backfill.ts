@@ -2,19 +2,21 @@
 // `tenant` became a systemStream/global entity. Those streams, read rows and
 // search docs sit on whichever tenant the acting admin's session carried.
 //
-// Run once right after deploying the fixed framework. Idempotent: a second run
-// finds nothing left to move.
+// Runs at boot (server-runtime) and can be called by hand. Idempotent: a second
+// run finds nothing left to move.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
-import { reindexEntity, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import {
   backfillAggregateStreamTenants,
-  type StreamBackfillFailure,
+  createSearchBucketCleanup,
+  type DerivedStateMode,
+  rebuildAndReindex,
   type StreamBackfillResult,
-} from "../shared/stream-tenant-backfill.ts";
+  type StreamBackfillStepFailure,
+  stepFailures,
+} from "../shared/index.ts";
 
 const TENANT_AGGREGATE = "tenant";
 const MEMBERSHIP_AGGREGATE = "tenant-membership";
@@ -24,90 +26,79 @@ const MEMBERSHIP_PROJECTION = "tenant:projection:tenant-membership-entity";
 export type TenantStreamBackfillResult = {
   readonly tenants: StreamBackfillResult;
   readonly memberships: StreamBackfillResult;
+  // Tenants for which at least one stale search doc bucket was cleaned.
   readonly searchDocsRemoved: number;
   readonly projectionsRebuilt: readonly string[];
   readonly reindexedTenants: number;
   // Per-step failures across the whole run; step names the failing stage.
-  readonly failures: ReadonlyArray<StreamBackfillFailure & { readonly step: string }>;
+  readonly failures: readonly StreamBackfillStepFailure[];
 };
 
 export type TenantStreamBackfillDeps = {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly searchAdapter?: SearchAdapter;
+  readonly derived?: DerivedStateMode;
+  readonly scanTenantIds?: readonly string[];
 };
 
 export async function backfillTenantStreamTenants(
   deps: TenantStreamBackfillDeps,
 ): Promise<TenantStreamBackfillResult> {
-  const { db, registry, searchAdapter } = deps;
-  const failures: Array<StreamBackfillFailure & { step: string }> = [];
-  let searchDocsRemoved = 0;
+  const { db, registry, searchAdapter, derived = "if-moved", scanTenantIds } = deps;
+  const scan = scanTenantIds ? { scanTenantIds } : {};
+  const searchCleanup = createSearchBucketCleanup(searchAdapter, TENANT_AGGREGATE);
 
   const tenants = await backfillAggregateStreamTenants(db, {
     aggregateType: TENANT_AGGREGATE,
     target: { kind: "system" },
-    beforeMove: async (candidate) => {
-      if (!searchAdapter) return;
-      for (const oldTenantId of candidate.sourceTenantIds) {
-        if (oldTenantId === candidate.targetTenantId) continue;
-        const items = [{ entityType: TENANT_AGGREGATE, entityId: candidate.aggregateId }];
-        if (searchAdapter.removeBatch) {
-          await searchAdapter.removeBatch(oldTenantId, items);
-        } else {
-          await searchAdapter.remove(oldTenantId, TENANT_AGGREGATE, candidate.aggregateId);
-        }
-        searchDocsRemoved++;
-      }
-    },
+    beforeMove: searchCleanup.beforeMove,
+    ...scan,
   });
-  for (const f of tenants.failed) failures.push({ ...f, step: "tenant-streams" });
-
   const memberships = await backfillAggregateStreamTenants(db, {
     aggregateType: MEMBERSHIP_AGGREGATE,
     target: { kind: "payload-tenant" },
+    ...scan,
   });
-  for (const f of memberships.failed) failures.push({ ...f, step: "membership-streams" });
+  const failures: StreamBackfillStepFailure[] = [
+    ...stepFailures("tenant-streams", tenants.failed),
+    ...stepFailures("membership-streams", memberships.failed),
+  ];
 
-  const projectionsRebuilt: string[] = [];
-  for (const projection of [TENANT_PROJECTION, MEMBERSHIP_PROJECTION]) {
-    try {
-      await rebuildProjection(projection, { db, registry });
-      projectionsRebuilt.push(projection);
-    } catch (e) {
-      failures.push({ aggregateId: projection, step: "rebuild", error: messageOf(e) });
-    }
+  const moved = tenants.aggregatesMigrated + memberships.aggregatesMigrated > 0;
+  if (!moved && derived === "if-moved") {
+    return emptyDerived({ tenants, memberships, searchCleanup, failures });
   }
 
-  let reindexedTenants = 0;
-  if (searchAdapter) {
-    try {
-      const reindex = await reindexEntity(
-        db,
-        registry,
-        searchAdapter,
-        TENANT_AGGREGATE,
-        SYSTEM_TENANT_ID,
-      );
-      reindexedTenants = reindex.indexedRows;
-      for (const f of reindex.failures) {
-        failures.push({ aggregateId: f.entityId, step: "reindex", error: f.reason });
-      }
-    } catch (e) {
-      failures.push({ aggregateId: TENANT_AGGREGATE, step: "reindex", error: messageOf(e) });
-    }
-  }
-
+  const rebuilt = await rebuildAndReindex({
+    db,
+    registry,
+    ...(searchAdapter && { searchAdapter }),
+    projections: [TENANT_PROJECTION, MEMBERSHIP_PROJECTION],
+    searchEntity: TENANT_AGGREGATE,
+  });
   return {
     tenants,
     memberships,
-    searchDocsRemoved,
-    projectionsRebuilt,
-    reindexedTenants,
-    failures,
+    searchDocsRemoved: searchCleanup.cleanedAggregates(),
+    projectionsRebuilt: rebuilt.projectionsRebuilt,
+    reindexedTenants: rebuilt.reindexedRows,
+    failures: [...failures, ...rebuilt.failures],
   };
 }
 
-function messageOf(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+function emptyDerived(args: {
+  readonly tenants: StreamBackfillResult;
+  readonly memberships: StreamBackfillResult;
+  readonly searchCleanup: { readonly cleanedAggregates: () => number };
+  readonly failures: readonly StreamBackfillStepFailure[];
+}): TenantStreamBackfillResult {
+  return {
+    tenants: args.tenants,
+    memberships: args.memberships,
+    searchDocsRemoved: args.searchCleanup.cleanedAggregates(),
+    projectionsRebuilt: [],
+    reindexedTenants: 0,
+    failures: args.failures,
+  };
 }

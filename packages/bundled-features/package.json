@@ -110,6 +110,7 @@
     "./auth-email-password/web": "./src/auth-email-password/web/index.ts",
     "./shared/single-use-token-store": "./src/shared/single-use-token-store.ts",
     "./shared/signed-token": "./src/shared/signed-token.ts",
+    "./shared/stream-tenant-backfill": "./src/shared/stream-tenant-backfill.ts",
     "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
     "./shared/mail-template-body": "./src/shared/mail-template-body.ts",
     "./delivery": "./src/delivery/index.ts",
@@ -542,6 +543,10 @@
       "./shared/signed-token": {
         "types": "./dist/shared/signed-token.d.ts",
         "default": "./dist/shared/signed-token.js"
+      },
+      "./shared/stream-tenant-backfill": {
+        "types": "./dist/shared/stream-tenant-backfill.d.ts",
+        "default": "./dist/shared/stream-tenant-backfill.js"
       },
       "./shared/row-bound-grant": {
         "types": "./dist/shared/row-bound-grant.d.ts",

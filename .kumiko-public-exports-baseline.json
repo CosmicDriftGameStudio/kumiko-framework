@@ -1376,6 +1376,7 @@
         "isUniqueViolation",
         "jsonb",
         "labelListAggregateGroups",
+        "listEventTenantIds",
         "loadMigrationsFromDir",
         "loadSnapshotJson",
         "moneyAmount",
@@ -1434,6 +1435,7 @@
         "upsertByPk",
         "upsertOnConflict",
         "uuid",
+        "withSessionAdvisoryLock",
         "withoutStatementTimeout",
         "writeRebuildMarker",
         "writeSnapshotJson"
@@ -1747,6 +1749,7 @@
         "qnMatches",
         "requestContext",
         "requestIdMiddleware",
+        "resolveBaseDbAndSearchAdapter",
         "resolveSessionCookieNames",
         "resolveSessionCookies",
         "sessionCheckStatus",
@@ -3744,7 +3747,9 @@
         "UserQueries",
         "UserStatus",
         "UserStreamBackfillResult",
+        "UserStreamBackfillWithDerivedStateResult",
         "backfillUserStreamTenants",
+        "backfillUserStreamTenantsWithDerivedState",
         "createUserFeature",
         "isPrincipalBlocked",
         "isPrincipalRowBlocked",
@@ -3982,6 +3987,14 @@
         "peekTokenSubject",
         "signToken",
         "verifyToken"
+      ],
+      "./shared/stream-tenant-backfill": [
+        "StreamBackfillCandidate",
+        "StreamBackfillFailure",
+        "StreamBackfillOptions",
+        "StreamBackfillResult",
+        "StreamTenantTarget",
+        "backfillAggregateStreamTenants"
       ],
       "./shared/row-bound-grant": [
         "AnchorCommit",

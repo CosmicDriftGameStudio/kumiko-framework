@@ -182,7 +182,7 @@ describe("backfillTenantStreamTenants", () => {
     expect(result.failures).toEqual([]);
     expect(result.tenants.aggregatesMigrated).toBe(3);
     expect(result.memberships.aggregatesMigrated).toBe(2);
-    expect(result.searchDocsRemoved).toBe(4);
+    expect(result.searchDocsRemoved).toBe(3);
     expect(result.reindexedTenants).toBe(3);
 
     for (const id of [TENANT_ALPHA, TENANT_BETA, TENANT_GAMMA]) {
