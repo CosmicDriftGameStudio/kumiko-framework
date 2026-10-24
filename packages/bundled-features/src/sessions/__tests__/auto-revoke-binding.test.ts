@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
-  type AppContext,
   dedupeFeatures,
+  type HandlerContext,
   type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
@@ -23,13 +23,13 @@ const passwordChange: SaveContext = {
   isNew: false,
 };
 
-// @cast-boundary test fixture — the hook never touches AppContext
-const appContext = {} as unknown as AppContext;
+// @cast-boundary test fixture — the hook never touches the context
+const hookContext = {} as unknown as HandlerContext;
 
 function userPostSaveHook(feature: ReturnType<typeof createSessionsFeature>) {
   const hook = feature.entityHooks?.postSave?.["user"]?.[0];
   if (!hook) throw new Error("sessions feature did not register the user postSave hook");
-  return (ctx: SaveContext) => hook.fn(ctx, appContext);
+  return (ctx: SaveContext) => hook.fn(ctx, hookContext);
 }
 
 describe("sessions auto-revoke binding", () => {

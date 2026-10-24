@@ -28,7 +28,7 @@ export type PreSaveRunner = (
 
 // Cross-tenant verbs on a foreign row (create: into the target tenant's stream): stream, event tenant and PII key follow the row's tenant
 // while the acting user stays the operator. Honored on a system-mode db or a tenant-mode db bound
-// to exactly that tenant (ctx.forTenant). update/delete/restore: must equal the loaded row's
+// to exactly that tenant (ctx.tenants.writeTarget). update/delete/restore: must equal the loaded row's
 // tenant. create: payload.tenantId, if set, must equal it. Anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
 
@@ -194,7 +194,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     /** Per-call SearchAdapter override. When the
      *  executor didn't get a SearchAdapter via Options at build time
      *  (defaultEntityQueryHandler path), the caller (handler) can pass
-     *  one from ctx.searchAdapter here at runtime.
+     *  one from ctx.services.searchAdapter here at runtime.
      *  options.searchAdapter (build-time) wins — the runtime override
      *  is the fallback for the default wrapper. */
     runtimeOptions?: ListRuntimeOptions,

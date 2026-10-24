@@ -80,7 +80,7 @@ export const EXT_STORAGE_PROVIDER = "storageProvider" as const;
  * implementation via `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`;
  * the per-tenant config key `provider` selects one at runtime. The framework
  * resolver (`createFileProviderForTenant`) reads it so upload routes,
- * `ctx.files`, and GDPR jobs all use the same store.
+ * `ctx.services.files`, and GDPR jobs all use the same store.
  *
  * The framework owns this contract to prevent string drift — file-foundation
  * MUST register the extension point and config key under exactly these names.
@@ -110,7 +110,7 @@ export const FILE_STORAGE_PROVIDER_BOOT_SENTINEL = "configured" as const;
  * Renderer-Features (a future `derivatives-*` feature) register via
  * `r.useExtension(EXT_DERIVATIVE_RENDERER, "<mimePattern>", { render })`,
  * where `<mimePattern>` is an exact MIME type (`application/pdf`) or a
- * type-wildcard (`image/*`). `ctx.derivatives.variant(...)` resolves the
+ * type-wildcard (`image/*`). `ctx.services.derivatives.variant(...)` resolves the
  * renderer for a FileRef's MIME type at call time — exact match first,
  * wildcard second.
  *

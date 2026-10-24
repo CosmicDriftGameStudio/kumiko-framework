@@ -625,8 +625,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // JobContext carries ctx.meter (raw), not ctx.obs.metrics — that bound
         // handle only exists on HandlerContext (built per write/query call
         // in dispatch-shared.ts). Build the same handle explicitly here.
-        const exportMetrics = ctx.meter
-          ? createMetricsHandle(ctx.meter, "user-data-rights")
+        const exportMetrics = ctx.obs.meter
+          ? createMetricsHandle(ctx.obs.meter, "user-data-rights")
           : createNoopMetricsHandle();
 
         // Without explicit send*Email options, a mounted mail transport sends the
@@ -636,7 +636,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // The cron runs across tenants, so each mail needs a notify function
         // bound to the recipient's tenant for template overrides and channel
         // configuration.
-        const notifyFactory = ctx._notifyFactory;
+        const notifyFactory = ctx.services._notifyFactory;
         const exportNotifyFor =
           notifyFactory !== undefined && isGdprMailDeliveryAvailable(exportRegistry)
             ? (tenantId: TenantId) => notifyFactory(createSystemUser(tenantId), tenantId)
@@ -673,8 +673,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           // createFileProviderForTenant throws and every export lands on failed.
           buildStorageProvider: makeTenantStorageProviderResolver({
             registry: exportRegistry,
-            configResolver: ctx.configResolver,
-            secrets: ctx.secrets,
+            configResolver: ctx.services.configResolver,
+            secrets: ctx.services.secrets,
             db: exportDb,
             userId: exportUserId,
             handlerName: "user-data-rights:run-export-jobs",
@@ -688,7 +688,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ...(opts.appExportDownloadUrl !== undefined && {
             appExportDownloadUrl: opts.appExportDownloadUrl,
           }),
-          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          escapeHatchAuditSink: ctx.services._escapeHatchAuditSink,
           escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
           metrics: exportMetrics,
@@ -718,7 +718,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const forgetRegistry = ctx.registry;
         const tenantModel = await resolveAppTenantModel({
           registry: forgetRegistry,
-          configResolver: ctx.configResolver,
+          configResolver: ctx.services.configResolver,
           db: forgetDb,
           userId: forgetUserId,
         });
@@ -726,7 +726,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // Without an app callback the default mail goes out when an email channel or a
         // mail transport, plus a mail renderer, are mounted. The user is already erased
         // here, so it bypasses the delivery log: an attempt row would be new personal data.
-        const forgetConfigResolver = ctx.configResolver;
+        const forgetConfigResolver = ctx.services.configResolver;
         const sendDeletionExecutedEmail =
           opts.sendDeletionExecutedEmail ??
           ((isGdprMailDeliveryAvailable(forgetRegistry) ||
@@ -736,11 +736,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
                 {
                   registry: forgetRegistry,
                   db: forgetDb,
-                  ...(ctx.secrets !== undefined && { secrets: ctx.secrets }),
+                  ...(ctx.services.secrets !== undefined && { secrets: ctx.services.secrets }),
                   resolveTransport: makeTenantMailTransportResolver({
                     registry: forgetRegistry,
                     configResolver: forgetConfigResolver,
-                    secrets: ctx.secrets,
+                    secrets: ctx.services.secrets,
                     db: forgetDb,
                     userId: forgetUserId,
                     handlerName: FORGET_CLEANUP_HANDLER_NAME,
@@ -764,19 +764,21 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           registry: forgetRegistry,
           now: T.Now.instant(),
           tenantModel,
-          ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
+          ...(ctx.services.searchAdapter !== undefined && {
+            searchAdapter: ctx.services.searchAdapter,
+          }),
           // Same per-tenant provider resolution as the export cron — forget
           // deletes binaries from the store upload + export use.
           buildStorageProvider: makeTenantStorageProviderResolver({
             registry: forgetRegistry,
-            configResolver: ctx.configResolver,
-            secrets: ctx.secrets,
+            configResolver: ctx.services.configResolver,
+            secrets: ctx.services.secrets,
             db: forgetDb,
             userId: forgetUserId,
             handlerName: FORGET_CLEANUP_HANDLER_NAME,
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
-          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          escapeHatchAuditSink: ctx.services._escapeHatchAuditSink,
           escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
         });

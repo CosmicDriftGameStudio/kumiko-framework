@@ -155,11 +155,11 @@ export function buildDispatchFacet(
       write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
       writeAs: identitySwitch.writeAs,
     } satisfies HandlerDispatch,
-    scheduleFragment: {
-      ...(sinks.hasLiveCommitSink && { scheduleAfterCommit }),
+    commitHooks: {
+      ...(sinks.hasLiveCommitSink && { afterCommit: scheduleAfterCommit }),
       // perCommand and no-tx paths have earlier commands already committed: nothing to compensate on rollback.
       ...(sinks.hasLiveCommitSink &&
-        transactionScope === "inTransaction" && { scheduleAfterRollback }),
+        transactionScope === "inTransaction" && { afterRollback: scheduleAfterRollback }),
     },
   };
 }

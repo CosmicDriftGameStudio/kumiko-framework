@@ -175,7 +175,7 @@ export async function setupChatHarness(
     return {
       db,
       registry: stack.registry,
-      secrets,
+      services: { secrets, extensions: {} },
       ...(jobRunner !== undefined && { jobRunner }),
       systemDb: createSystemDbView(
         createTenantDb({

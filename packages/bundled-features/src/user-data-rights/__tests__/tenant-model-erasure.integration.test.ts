@@ -492,9 +492,6 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
         },
       }),
       registry: stack.registry,
-      configResolver: createConfigResolver({
-        appOverrides: new Map([[TENANT_MODEL_CONFIG_KEY, "single-user"]]),
-      }),
       systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
       triggeredBy: null,
       attempt: 1,
@@ -502,6 +499,11 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
       ...bridgeStub({
+        services: {
+          configResolver: createConfigResolver({
+            appOverrides: new Map([[TENANT_MODEL_CONFIG_KEY, "single-user"]]),
+          }),
+        },
         log: {
           info() {},
           warn() {},

@@ -124,7 +124,7 @@ export async function startDevBackgroundRunners(
     registry: stack.registry,
     db: stack.db,
     // The stack's own AppContext, not a `{ db, registry }` literal: these
-    // runners consume the lanes, and a job reaching for ctx.files /
+    // runners consume the lanes, and a job reaching for ctx.services.files /
     // ctx.notify / ctx.config would otherwise die here while the very same
     // handler works on the request path.
     context: stack.context,

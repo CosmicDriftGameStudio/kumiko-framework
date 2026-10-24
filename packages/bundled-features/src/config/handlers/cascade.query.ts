@@ -59,7 +59,7 @@ export const cascadeQuery = defineQueryHandler({
       query.user.tenantId,
       query.user.id,
       db,
-      ctx.secrets,
+      ctx.services.secrets,
     );
 
     const result: Record<string, ConfigCascade> = {};

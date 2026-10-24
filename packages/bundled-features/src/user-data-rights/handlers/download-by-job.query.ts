@@ -149,8 +149,8 @@ export const downloadByJobQuery = defineQueryHandler({
     // can differ from query.user.tenantId).
     const provider = await makeTenantStorageProviderResolver({
       registry: ctx.registry,
-      configResolver: ctx.configResolver,
-      secrets: ctx.secrets,
+      configResolver: ctx.services.configResolver,
+      secrets: ctx.services.secrets,
       // @cast-boundary db-runner — helpers use only the query API that
       // DbConnection and DbTx share.
       db: runner as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,

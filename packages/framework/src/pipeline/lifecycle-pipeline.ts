@@ -1,7 +1,7 @@
 import type { DbRow } from "../db/connection.ts";
 import type {
-  AppContext,
   DeleteContext,
+  HandlerContext,
   HookPhase,
   PostDeleteBatchHookFn,
   PostDeleteHookFn,
@@ -14,29 +14,25 @@ import type {
 } from "../engine/types/index.ts";
 import { HookPhases } from "../engine/types/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
-import { getFallbackTracer, type Tracer } from "../observability/index.ts";
+import type { Tracer } from "../observability/index.ts";
 import type { EventDedup } from "./event-dedup.ts";
 
-function resolveTracer(context: AppContext): Tracer {
-  return context.tracer ?? getFallbackTracer();
+function resolveTracer(context: HandlerContext): Tracer {
+  return context.obs.tracer;
 }
 
 /**
  * Resolves the effective feature set for the active context's tenant.
  *
- * `_tenantId` is copied from `user.tenantId` when the dispatcher builds the
- * HandlerContext. Legacy call sites without a user (system jobs, boot-time
- * pipeline) leave it undefined; `effectiveFeatures(undefined)` is type-unsafe,
- * so this returns undefined and treats that as "all features on" (registry
+ * Without a wired resolver this returns undefined, which means "all features on" (registry
  * filter hooks accept undefined to skip filtering).
  *
  * This is the single path used by all four lifecycle-hook call sites
  * (preSave, postSave, preDelete, postDelete), keeping tenant scoping
  * consistent.
  */
-function currentEffectiveFeatures(context: AppContext): ReadonlySet<string> | undefined {
-  if (context._tenantId === undefined) return undefined;
-  return context.effectiveFeatures?.(context._tenantId);
+function currentEffectiveFeatures(context: HandlerContext): ReadonlySet<string> | undefined {
+  return context.services.effectiveFeatures?.(context.user.tenantId);
 }
 
 export type SystemHookDef<TFn> = {
@@ -67,7 +63,7 @@ export type LifecycleHooks = {
     changes: Record<string, unknown>,
     previous: Readonly<Record<string, unknown>>,
     isNew: boolean,
-    context: AppContext,
+    context: HandlerContext,
   ): Promise<Record<string, unknown>>;
 
   // Phase-aware: pass "inTransaction" to run only in-tx hooks during a batch
@@ -76,24 +72,24 @@ export type LifecycleHooks = {
   runPostSave(
     handlerName: string,
     result: SaveContext,
-    context: AppContext,
+    context: HandlerContext,
     phase?: HookPhase,
   ): Promise<void>;
 
-  runPreDelete(handlerName: string, payload: DeleteContext, context: AppContext): Promise<void>;
+  runPreDelete(handlerName: string, payload: DeleteContext, context: HandlerContext): Promise<void>;
 
   runPostDelete(
     handlerName: string,
     payload: DeleteContext,
-    context: AppContext,
+    context: HandlerContext,
     phase?: HookPhase,
   ): Promise<void>;
 
   // Fire the batch-level system hooks once per dispatcher batch, after all
   // per-save hooks and the afterCommit flush. Errors are collected + logged,
   // never rethrown — the writes are already committed.
-  runPostSaveBatch(results: readonly SaveContext[], context: AppContext): Promise<void>;
-  runPostDeleteBatch(payloads: readonly DeleteContext[], context: AppContext): Promise<void>;
+  runPostSaveBatch(results: readonly SaveContext[], context: HandlerContext): Promise<void>;
+  runPostDeleteBatch(payloads: readonly DeleteContext[], context: HandlerContext): Promise<void>;
 };
 
 export type LifecycleOptions = {
@@ -123,12 +119,16 @@ export function createLifecycleHooks(
   async function runHookSet<TPayload>(opts: {
     handlerName: string;
     payload: TPayload;
-    context: AppContext;
+    context: HandlerContext;
     entityName: string | undefined;
-    getHandlerHooks: (name: string) => readonly ((p: TPayload, c: AppContext) => Promise<void>)[];
-    getEntityHooks: (name: string) => readonly ((p: TPayload, c: AppContext) => Promise<void>)[];
+    getHandlerHooks: (
+      name: string,
+    ) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
+    getEntityHooks: (
+      name: string,
+    ) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
     systemHookDefs:
-      | readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[]
+      | readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[]
       | undefined;
     phaseLabel: string;
     hookPhase: HookPhase;
@@ -150,7 +150,7 @@ export function createLifecycleHooks(
       if (eventId) {
         const acquired = await eventDedup.tryAcquire(eventId);
         if (!acquired) {
-          opts.context.log?.debug(
+          opts.context.obs.log.debug(
             `${opts.phaseLabel}: skipping ${opts.handlerName} — event ${eventId} already processed (dedup)`,
           );
           return;
@@ -160,7 +160,7 @@ export function createLifecycleHooks(
         // always returns one. Log so we can spot framework/feature bugs where
         // a handler emits a non-standard LifecycleResult and accidentally
         // bypasses dedup.
-        opts.context.log?.warn(
+        opts.context.obs.log.warn(
           `${opts.phaseLabel}: ${opts.handlerName} has no dedup id (payload missing \`id\`) — hook may run multiple times on retry`,
         );
       }
@@ -254,7 +254,7 @@ export function createLifecycleHooks(
     }
 
     if (errors.length > 0) {
-      const logError = createFallbackLogger("lifecycle", opts.context.log);
+      const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
       const msg = `${opts.phaseLabel} errors for ${opts.handlerName}`;
       logError.error(msg, { details: errors.map((e) => `${e.name}: ${e.error}`) });
     }
@@ -358,9 +358,9 @@ export function createLifecycleHooks(
   // Runs batch hooks in parallel. Errors are logged but never rethrown —
   // batch hooks fire after commit, so there's nothing to roll back.
   async function runBatchHooks<TPayload>(opts: {
-    hooks: readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[] | undefined;
+    hooks: readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[] | undefined;
     payload: TPayload;
-    context: AppContext;
+    context: HandlerContext;
     phaseLabel: string;
   }): Promise<void> {
     // skip: no batch hooks registered for this phase
@@ -393,7 +393,7 @@ export function createLifecycleHooks(
     // skip: all batch hooks succeeded, nothing to log
     if (failures.length === 0) return;
 
-    const logError = createFallbackLogger("lifecycle", opts.context.log);
+    const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
     const msg = `${opts.phaseLabel} errors`;
     logError.error(msg, { details: failures.map((f) => `${f.name}: ${f.outcome.reason}`) });
   }

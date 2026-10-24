@@ -13,7 +13,7 @@ File upload plus post-processing hooks.
 ## What it shows
 
 - Declarative `variants` on `createImageField` (file-derivatives)
-- Imperative `ctx.derivatives.variant()` path and the public variant route (`EXT_DERIVATIVE_PUBLIC_PREDICATE`)
+- Imperative `ctx.services.derivatives.variant()` path and the public variant route (`EXT_DERIVATIVE_PUBLIC_PREDICATE`)
 
 ## Source
 
@@ -41,7 +41,7 @@ bun test
 //   1. declarative — GET /api/files/:id/variant/:name resolves a field's
 //      declared variant.
 //   2. imperative — the `set-cover` write-handler calls
-//      ctx.derivatives.variant() directly, with a region-blur.
+//      ctx.services.derivatives.variant() directly, with a region-blur.
 //   3. public route — GET /media/:fileRefId/:variant, default-deny until a
 //      photo is explicitly published.
 
@@ -292,7 +292,7 @@ describe("event emission contract", () => {
 //      resolves + caches the variant behind the auth-gated
 //      `GET /api/files/:id/variant/:name` route, no handler code needed.
 //   2. Imperative — the `set-cover` write-handler calls
-//      `ctx.derivatives.variant()` directly. This is for apps that track
+//      `ctx.services.derivatives.variant()` directly. This is for apps that track
 //      images as their own records (ordering, a chosen cover image) and for
 //      region-blur, whose coordinates are runtime data that can't live in a
 //      static field declaration.
@@ -371,13 +371,13 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
         .optional(),
     }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(
           new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
         );
       }
       const { fileRefId, blurRegion } = event.payload;
-      const result = await ctx.derivatives.variant(
+      const result = await ctx.services.derivatives.variant(
         fileRefId,
         {
           maxEdge: 800,

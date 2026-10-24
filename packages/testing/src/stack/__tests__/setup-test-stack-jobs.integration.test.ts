@@ -1,4 +1,4 @@
-// Drives the manual `ctx.jobRunner.dispatch(...)` path a write handler
+// Drives the manual `ctx.services.jobRunner.dispatch(...)` path a write handler
 // uses directly — distinct from the auto-trigger path covered by
 // entrypoint-job-wiring.integration.test.ts, which reads a different
 // context slot and isn't guaranteed by this test passing.
@@ -22,7 +22,7 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
     handler: async (event, ctx) => {
       // Exact repro: bracket-access, dynamic context extension —
       // not a typed HandlerContext field (mirrors trigger.write.ts).
-      const jobRunner = ctx["jobRunner"] as
+      const jobRunner = ctx.services.jobRunner as
         | { dispatch: (name: string, payload: Record<string, unknown>) => Promise<string> }
         | undefined;
       if (!jobRunner) {
@@ -40,11 +40,11 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
 
 // setupTestStack used to hand jobs a bare
 // `{ db, registry }` context literal — nothing else buildServer's request
-// path gets (tracer/meter, searchAdapter, ...). A job could pass in tests
+// path gets (obs.metricsFor, searchAdapter, ...). A job could pass in tests
 // while reading a field only prod's context has, then break silently on
 // deploy. This job records which fields actually arrived.
 const jobContextFields: Array<{
-  hasTracer: boolean;
+  hasMetricsFor: boolean;
   hasSearchAdapter: boolean;
   hasEffectiveFeatures: boolean;
 }> = [];
@@ -52,9 +52,9 @@ const jobContextFields: Array<{
 const jobContextFeature = defineFeature("jobcontextcheck", (r) => {
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (_payload, context) => {
     jobContextFields.push({
-      hasTracer: context.tracer !== undefined,
-      hasSearchAdapter: context.searchAdapter !== undefined,
-      hasEffectiveFeatures: context.effectiveFeatures !== undefined,
+      hasMetricsFor: context.obs.metricsFor !== undefined,
+      hasSearchAdapter: context.services.searchAdapter !== undefined,
+      hasEffectiveFeatures: context.services.effectiveFeatures !== undefined,
     });
   });
 });
@@ -176,9 +176,9 @@ describe("setupTestStack({ jobs }) job context matches the request-path context"
     // effectiveFeatures deliberately stays OUT of the job/appContext
     // (prod only carries it in dispatcherOptions.effectiveFeatures, consumed
     // by the command-dispatcher) — putting it here would let a job read
-    // `ctx.effectiveFeatures` green in tests and break on deploy.
+    // `ctx.services.effectiveFeatures` green in tests and break on deploy.
     expect(jobContextFields[0]).toEqual({
-      hasTracer: true,
+      hasMetricsFor: true,
       hasSearchAdapter: true,
       hasEffectiveFeatures: false,
     });

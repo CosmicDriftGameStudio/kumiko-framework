@@ -1,6 +1,6 @@
-// Feature-level accessor injected as `ctx.secrets` at boot. Not a HTTP API —
+// Feature-level accessor injected as `ctx.services.secrets` at boot. Not a HTTP API —
 // feature code that needs a plaintext secret (SMTP-connect, Stripe-call, …)
-// pulls it via ctx.secrets.get. Cleartext never crosses the wire.
+// pulls it via ctx.services.secrets.get. Cleartext never crosses the wire.
 //
 // Post-ES pivot: all three ops (get/set/delete) flow through the events-
 // table.
@@ -289,7 +289,7 @@ function buildSecretsContext(
 }
 
 // Wrap an executor-level write failure into a KumikoError so callers of
-// ctx.secrets.set / .delete can still branch on .code / details / i18nKey
+// ctx.services.secrets.set / .delete can still branch on .code / details / i18nKey
 // after it propagates up. Plain `new Error(...)` would have stripped the
 // structured payload the error-contract promises.
 function wrapSetFailure(err: WriteErrorInfo): InternalError {

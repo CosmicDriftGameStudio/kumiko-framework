@@ -316,7 +316,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   test("the registered job handler resolves ctx.systemUser.tenantId and actually cleans up (not runRetentionCleanup called directly)", async () => {
     // cleanup-cron-registration.test.ts only pins job metadata; runRetentionCleanup
     // tests above call it directly, bypassing the handler body entirely — a bug in
-    // the ctx.systemUser?.tenantId ?? ctx._tenantId resolution or the throw-guard
+    // the ctx.systemUser?.tenantId ?? ctx.user.tenantId resolution or the throw-guard
     // would be invisible to both. Invoke the ACTUAL registered handler.
     await seed("read_c7_widget", T1, "expired-via-handler", pastIso);
     await seed("read_c7_widget", T1, "fresh-via-handler", withinIso);

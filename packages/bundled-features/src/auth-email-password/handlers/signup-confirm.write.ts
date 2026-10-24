@@ -146,7 +146,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
       reason: SIGNUP_CONFIRM_PROVISION_REASON,
     },
     handler: async (event, ctx) => {
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "signup-confirm requires ctx.redis for token consumption",
@@ -156,12 +156,12 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
 
       // Token lookup: nonexistent, expired, and already-consumed tokens all
       // collapse to invalid_signup_token to prevent enumeration.
-      const email = await getEmailForSignupToken(ctx.redis, event.payload.token);
+      const email = await getEmailForSignupToken(ctx.services.redis, event.payload.token);
       if (!email) return invalidSignupToken();
 
       // Single-use burn: of two parallel confirmations from different tabs,
       // one succeeds and the other receives invalid_signup_token.
-      const burn = await burnSignupToken(ctx.redis, event.payload.token);
+      const burn = await burnSignupToken(ctx.services.redis, event.payload.token);
       if (burn === "already-used") return invalidSignupToken();
 
       let committed = false;
@@ -229,7 +229,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // Claim BEFORE spending the signup token or the binding below and
         // before `committed` flips: if the claim throws, the `finally` still
         // unburns and the activation link stays retryable.
-        const handoverBinding = await getSignupHandover(ctx.redis, event.payload.token);
+        const handoverBinding = await getSignupHandover(ctx.services.redis, event.payload.token);
         const handover = handoverBinding
           ? await claimBoundHandover(ctx, session, handoverBinding)
           : undefined;
@@ -245,8 +245,8 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
 
         // Drop both token lookup keys; the burn key stays for its remaining
         // TTL as replay protection.
-        await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
-        if (handoverBinding) await deleteSignupHandover(ctx.redis, event.payload.token);
+        await deleteSignupToken(ctx.services.redis, { email, token: event.payload.token });
+        if (handoverBinding) await deleteSignupHandover(ctx.services.redis, event.payload.token);
 
         if (mfaGate !== undefined) {
           committed = true;
@@ -275,10 +275,10 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
           },
         };
       } finally {
-        if (!committed && ctx.redis) {
+        if (!committed && ctx.services.redis) {
           // Release the burn so a retry after a DB hiccup is not blocked.
           // Keep the token lookup keys so the user can click the email link again.
-          await unburnSignupToken(ctx.redis, event.payload.token);
+          await unburnSignupToken(ctx.services.redis, event.payload.token);
         }
       }
     },

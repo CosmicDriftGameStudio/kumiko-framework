@@ -51,7 +51,7 @@ let stack: TestStack;
 let provider: InMemoryFileProvider;
 
 const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
-// ctx.files only accepts keys inside the caller's tenant prefix.
+// ctx.services.files only accepts keys inside the caller's tenant prefix.
 const tenantKey = (path: string) => `${owner.tenantId}/${path}`;
 
 beforeAll(async () => {

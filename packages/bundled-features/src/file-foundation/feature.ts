@@ -4,7 +4,7 @@
 // extension point + the per-tenant `provider` config key. Provider RESOLUTION
 // (createFileProviderForTenant) + the plugin types now live in the framework
 // (packages/framework/src/files/provider-resolver.ts) so the upload routes,
-// `ctx.files` and the GDPR jobs resolve through ONE path — uploads, export and
+// `ctx.services.files` and the GDPR jobs resolve through ONE path — uploads, export and
 // erasure hit the same store by construction. This feature re-exports the moved
 // symbols unchanged so existing imports keep working.
 //

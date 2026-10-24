@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import { createEntity, createRegistry, defineFeature, HookPhases } from "../index.ts";
-import type { AppContext, PostSaveHookFn, SaveContext } from "../types/index.ts";
+import type { PostSaveHookFn, SaveContext } from "../types/index.ts";
+import { stubHandlerContext } from "./handler-context-stub.ts";
 
 const dummySaveContext: SaveContext = {
   kind: "save",
@@ -13,7 +14,7 @@ const dummySaveContext: SaveContext = {
   previous: {},
   isNew: true,
 };
-const dummyAppContext = {} as AppContext;
+const dummyHandlerContext = stubHandlerContext();
 
 // These tests lock in the phase defaults + filtering so the invariants survive
 // refactors. Behavior under test:
@@ -133,12 +134,12 @@ describe("Registry phase filtering", () => {
     // switch.ts), so the stored fn is no longer reference-equal to the
     // original — prove behaviour (calling the original) instead.
     expect(inTxOnly).toHaveLength(1);
-    await inTxOnly[0]?.(dummySaveContext, dummyAppContext);
+    await inTxOnly[0]?.(dummySaveContext, dummyHandlerContext);
     expect(inTxCalls).toEqual([dummySaveContext]);
     expect(afterCalls).toEqual([]);
 
     expect(afterOnly).toHaveLength(1);
-    await afterOnly[0]?.(dummySaveContext, dummyAppContext);
+    await afterOnly[0]?.(dummySaveContext, dummyHandlerContext);
     expect(afterCalls).toEqual([dummySaveContext]);
 
     expect(all).toHaveLength(2);
@@ -188,12 +189,12 @@ describe("Registry phase filtering", () => {
     const afterHooks = registry.getEntityPostSaveHooks("thing", HookPhases.afterCommit);
 
     expect(inTxHooks).toHaveLength(1);
-    await inTxHooks[0]?.(dummySaveContext, dummyAppContext);
+    await inTxHooks[0]?.(dummySaveContext, dummyHandlerContext);
     expect(inTxCalls).toEqual([dummySaveContext]);
     expect(afterCalls).toEqual([]);
 
     expect(afterHooks).toHaveLength(1);
-    await afterHooks[0]?.(dummySaveContext, dummyAppContext);
+    await afterHooks[0]?.(dummySaveContext, dummyHandlerContext);
     expect(afterCalls).toEqual([dummySaveContext]);
 
     expect(registry.getEntityPostSaveHooks("thing")).toHaveLength(2);

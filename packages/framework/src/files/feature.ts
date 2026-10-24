@@ -75,7 +75,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       handler: async (_payload, ctx) => {
         await sweepOrphanedUploads({
           db: ctx.db,
-          files: ctx.files,
+          files: ctx.services.files,
           now: ctx.tz.now(),
           graceHours: uploadSweepGraceHours,
           log: ctx.obs.log,

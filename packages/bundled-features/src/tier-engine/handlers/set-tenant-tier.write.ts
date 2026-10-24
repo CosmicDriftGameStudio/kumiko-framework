@@ -14,7 +14,7 @@ import { type TierAssignmentSource, TierAssignmentSources } from "../web/constan
 // billing. This is cross-tenant, so it is restricted to SystemAdmin (not
 // TenantAdmin, which would allow free self-upgrades).
 //
-// Cross-tenant mechanics: ctx.forTenant(tenantId) yields a tenant-mode db bound to the target plus
+// Cross-tenant mechanics: ctx.tenants.writeTarget(tenantId) yields a tenant-mode db bound to the target plus
 // the streamTenantId, so the event lands in the target's stream with the operator as actor.
 //
 // `source` defaults to manual and marks the grant so the billing sync skips it; passing
@@ -25,7 +25,7 @@ import { type TierAssignmentSource, TierAssignmentSources } from "../web/constan
 // `tier-assignment:postSave` entity hook, and a per-handler postSave would not
 // fire either because this handler returns no lifecycle result (kind "save").
 // Without an explicit update the feature gate would stay on the old tier, so
-// `opts.onAssigned(tenantId, tier)` runs after commit (ctx.scheduleAfterCommit).
+// `opts.onAssigned(tenantId, tier)` runs after commit (ctx.lifecycle.afterCommit).
 // feature.ts uses it to update its cache and notify the other processes; in
 // storage-only mode without a tierMap it is a no-op.
 
@@ -70,7 +70,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
       // Without a commit sink (unit harness) there is no transaction to wait for.
       const afterCommit = (tenantId: TenantId, tier: string): void => {
         const notify = async (): Promise<void> => opts.onAssigned?.(tenantId, tier);
-        if (ctx.scheduleAfterCommit) ctx.scheduleAfterCommit(notify);
+        if (ctx.lifecycle.afterCommit) ctx.lifecycle.afterCommit(notify);
         else opts.onAssigned?.(tenantId, tier);
       };
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge

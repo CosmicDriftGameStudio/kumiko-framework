@@ -11,7 +11,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine/index
 import type { HandlerContext, NotifyFactory } from "../../engine/types/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
-// ctx.notify / ctx.scheduleAfterCommit across the ctx.dispatch.query bridge: a notify raised inside a
+// ctx.notify / ctx.lifecycle.afterCommit across the ctx.dispatch.query bridge: a notify raised inside a
 // query called from a write handler must wait for that write's commit, and the post-commit
 // context has no commit sink to schedule on.
 
@@ -61,7 +61,7 @@ const notifyFeature = defineFeature("nfy", (r) => {
   r.queryHandler({
     name: "probe:schedule",
     schema: z.object({}),
-    handler: async (_query, ctx) => ({ scheduleType: typeof ctx.scheduleAfterCommit }),
+    handler: async (_query, ctx) => ({ scheduleType: typeof ctx.lifecycle.afterCommit }),
     access: openToAll,
   });
 
@@ -86,7 +86,7 @@ const notifyFeature = defineFeature("nfy", (r) => {
       const effect = async () => {
         effectLog.push("effect-ran");
       };
-      if (ctx.scheduleAfterCommit) ctx.scheduleAfterCommit(effect);
+      if (ctx.lifecycle.afterCommit) ctx.lifecycle.afterCommit(effect);
       else await effect();
       return { isSuccess: true as const, data: {} };
     },
@@ -99,7 +99,7 @@ const notifyFeature = defineFeature("nfy", (r) => {
     handler: async (_result, ctx) => {
       // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
       const handlerCtx = ctx as unknown as HandlerContext;
-      hookScheduleType = typeof handlerCtx.scheduleAfterCommit;
+      hookScheduleType = typeof handlerCtx.lifecycle.afterCommit;
       await handlerCtx.dispatch.write("nfy:write:effect:run", {});
     },
   });

@@ -5,7 +5,7 @@ File upload plus post-processing hooks.
 ## What it shows
 
 - Declarative `variants` on `createImageField` (file-derivatives)
-- Imperative `ctx.derivatives.variant()` path and the public variant route (`EXT_DERIVATIVE_PUBLIC_PREDICATE`)
+- Imperative `ctx.services.derivatives.variant()` path and the public variant route (`EXT_DERIVATIVE_PUBLIC_PREDICATE`)
 
 ## Source
 

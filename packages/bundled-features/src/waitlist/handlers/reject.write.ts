@@ -64,7 +64,7 @@ async function revokeInvitation(
       db,
       { id, version },
       createSystemUser(tenantId),
-      ctx.redis,
+      ctx.services.redis,
     );
     if (cancelled) return cancelled;
   }

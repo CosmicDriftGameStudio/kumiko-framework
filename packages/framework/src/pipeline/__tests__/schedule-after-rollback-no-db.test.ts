@@ -1,5 +1,5 @@
 // Without a DB connection the batch runs sequentially with no transaction; a failed command must
-// still give its ctx.scheduleAfterRollback callbacks a chance to run.
+// still give its ctx.lifecycle.afterRollback callbacks a chance to run.
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
@@ -14,7 +14,7 @@ const feature = defineFeature("nodb", (r) => {
     name: "ok",
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => {
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         rolledBackLabels.push(event.payload.label);
       });
       return { isSuccess: true, data: {} };
@@ -25,7 +25,7 @@ const feature = defineFeature("nodb", (r) => {
     name: "fail",
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => {
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         rolledBackLabels.push(event.payload.label);
       });
       return writeFailure(new UnprocessableError("handler_rejected"));

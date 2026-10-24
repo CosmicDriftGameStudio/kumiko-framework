@@ -24,7 +24,7 @@ export async function mayMailReceipt(
   email: string,
 ): Promise<ReceiptMailVerdict> {
   // skip: no rate limiter wired, nothing to count against
-  if (!ctx.rateLimit) return "allowed";
+  if (!ctx.services.rateLimit) return "allowed";
   try {
     const bucketKey = receiptBucketKey(ctx, email);
     if (bucketKey === undefined) {
@@ -33,7 +33,7 @@ export async function mayMailReceipt(
       );
       return "unavailable";
     }
-    const decision = await ctx.rateLimit.check(bucketKey, {
+    const decision = await ctx.services.rateLimit.check(bucketKey, {
       limit: RECEIPT_MAILS_PER_RECIPIENT,
       windowSeconds: RECEIPT_WINDOW_SECONDS,
     });

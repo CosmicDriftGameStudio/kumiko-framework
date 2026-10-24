@@ -160,8 +160,7 @@ function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
     db: systemModeDb,
     systemDb: createSystemDbView(systemModeDb),
     registry: stack.registry,
-    masterKeyProvider: mutableProvider,
-    configEncryption: cipher,
+    services: { masterKeyProvider: mutableProvider, configEncryption: cipher, extensions: {} },
     obs: { log },
   } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/systemDb/registry/masterKeyProvider/configEncryption/log
 }

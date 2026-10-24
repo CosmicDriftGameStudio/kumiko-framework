@@ -6,10 +6,12 @@ import {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { LEGAL_REQUIRED_BLOCKS, type LegalRequiredBlock } from "../web/constants.ts";
 
-// Only the fields the check reads, so HandlerContext, AppContext or a hand-built
-// object in a unit test all fit.
+// Only the fields the check reads, so a HandlerContext or a hand-built object in a unit test
+// fits.
 export type LegalPagesBootCheckCtx = {
-  readonly templateResolver?: TemplateResolverApi;
+  readonly services: {
+    readonly extensions: { readonly templateResolver?: TemplateResolverApi };
+  };
   readonly obs?: {
     readonly log?: {
       readonly info?: (msg: string) => void;

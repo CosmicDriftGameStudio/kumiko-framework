@@ -215,7 +215,7 @@ export type RunDevAppOptions = {
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
   /** App-level config values, same semantics and merge as RunProdAppOptions["appOverrides"]. */
   readonly appOverrides?: ConfigOverridesInput;
-  /** MasterKeyProvider for the automatically wired `ctx.secrets`. Defaults to
+  /** MasterKeyProvider for the automatically wired `ctx.services.secrets`. Defaults to
    *  `createEnvMasterKeyProvider`; override it for KMS backends. Only relevant
    *  when the secrets feature is mounted. Symmetric with runProdApp. */
   readonly masterKey?: MasterKeyProvider;
@@ -240,7 +240,7 @@ export type RunDevAppOptions = {
    *  role in `access.roles`. */
   readonly anonymousAccess?: CreateKumikoServerOptions["anonymousAccess"];
   /** File-Storage-Provider — aktiviert die Upload-Routes (/api/files) +
-   *  `ctx.files`. Demos: `{ storageProvider: createInMemoryFileProvider() }`. */
+   *  `ctx.services.files`. Demos: `{ storageProvider: createInMemoryFileProvider() }`. */
   readonly files?: CreateKumikoServerOptions["files"];
   /** App-defined HTTP routes, such as /feed.xml and /sitemap.xml. They are
    *  attached to the Hono app before the static-asset path. Symmetric with the

@@ -150,7 +150,7 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       schema: forTenantPayload,
       access: { roles: ["Admin", "SystemAdmin"] },
       beforeTransaction: async (event, ctx) => {
-        const target = ctx.forTenant?.(testTenantId(event.payload.targetTenant));
+        const target = ctx.tenants.writeTarget?.(testTenantId(event.payload.targetTenant));
         if (!target) throw new Error("forTenant is expected in the beforeTransaction phase");
         if (event.payload.write) {
           await noteExecutor.create({ title: "from-phase" }, ctx.user, target.db);
@@ -316,7 +316,7 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
             });
             break;
           case "jobRunner":
-            await ctx.jobRunner?.dispatch?.(`${FEATURE}:job:probe`, {});
+            await ctx.services.jobRunner?.dispatch?.(`${FEATURE}:job:probe`, {});
             break;
         }
         return undefined;

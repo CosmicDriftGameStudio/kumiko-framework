@@ -69,7 +69,7 @@ export type ServerOptions = {
   /** Links the app's own error reasons to its own docs (`docsUrl` in error responses). Framework reasons keep linking to the framework docs. */
   errorDocs?: ErrorDocsConfig;
   // No `files` option: file-storage is wired by mounting `file-foundation` +
-  // a `file-provider-*` feature. Upload routes, ctx.files and the GDPR jobs
+  // a `file-provider-*` feature. Upload routes, ctx.services.files and the GDPR jobs
   // resolve the provider per-tenant through that single source.
   // Upload-route policy (accessGuard/privilegedRoles/maxUploadSize) lives on
   // `createFilesFeature(opts?)`.

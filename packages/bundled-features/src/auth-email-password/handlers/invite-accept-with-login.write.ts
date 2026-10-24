@@ -133,16 +133,16 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     agent: { expose: false },
     // kumiko-lint-ignore complexity-budget reuses login.write.ts's gate chain (lockout/password/email/status/membership/mfa) plus invite-specific branches (email match, already-member check, invitation update, unburn-on-failure) — splitting would scatter gate order across functions without reducing risk
     handler: async (event, ctx) => {
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({ message: "invite-accept-with-login requires ctx.redis" }),
         );
       }
 
-      const invitationId = await getInvitationIdForToken(ctx.redis, event.payload.token);
+      const invitationId = await getInvitationIdForToken(ctx.services.redis, event.payload.token);
       if (!invitationId) return invalidInviteToken();
 
-      const burn = await burnInviteToken(ctx.redis, event.payload.token);
+      const burn = await burnInviteToken(ctx.services.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
       type InvitationRow = {
@@ -256,7 +256,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         );
         if (!updateResult.isSuccess) return updateResult;
 
-        await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
+        await deleteInviteToken(ctx.services.redis, { invitationId, token: event.payload.token });
 
         // buildSessionRoles calls stripForbiddenMembershipRoles internally —
         // a reserved role on an existing membership must never reach the session.
@@ -298,8 +298,8 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           },
         };
       } finally {
-        if (!committed && ctx.redis) {
-          await unburnInviteToken(ctx.redis, event.payload.token);
+        if (!committed && ctx.services.redis) {
+          await unburnInviteToken(ctx.services.redis, event.payload.token);
         }
       }
     },

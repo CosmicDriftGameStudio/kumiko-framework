@@ -1,6 +1,6 @@
 // Search Sample
 // Shows: searchable fields, searchWeight, search via InMemory SearchAdapter.
-// Each handler builds its executor inline so `ctx.searchAdapter` is read fresh
+// Each handler builds its executor inline so `ctx.services.searchAdapter` is read fresh
 // per call — tests swap the adapter between runs.
 
 import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
@@ -38,7 +38,7 @@ export const productFeature = defineFeature("shop", (r) => {
     }),
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(productTable, productEntity, {
-        searchAdapter: ctx.searchAdapter,
+        searchAdapter: ctx.services.searchAdapter,
         entityName: "product",
       });
       return crud.create(event.payload, event.user, ctx.db);
@@ -54,7 +54,7 @@ export const productFeature = defineFeature("shop", (r) => {
     }),
     handler: async (query, ctx) => {
       const crud = createEventStoreExecutor(productTable, productEntity, {
-        searchAdapter: ctx.searchAdapter,
+        searchAdapter: ctx.services.searchAdapter,
         entityName: "product",
       });
       return crud.list(query.payload, query.user, ctx.db);

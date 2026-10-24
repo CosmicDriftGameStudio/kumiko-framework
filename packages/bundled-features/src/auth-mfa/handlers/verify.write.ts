@@ -71,11 +71,11 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // this route sits behind a challenge token from a successful login,
       // but its own secret is still just a short TOTP/recovery code —
       // silently skipping the brute-force cap and single-use burn when
-      // ctx.redis is absent would let a stolen challenge token be guessed
+      // ctx.services.redis is absent would let a stolen challenge token be guessed
       // against unboundedly, and let a recovery code be replayed via a
       // reissued challenge (mfa-verify-attempts.ts's counter is deliberately
       // NOT reset by reissuance, precisely to survive this).
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "verify (mfa) requires ctx.redis for the brute-force cap and single-use burn",
@@ -86,7 +86,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // Per-account brute-force cap — survives challenge-token reissuance
       // on purpose (see mfa-verify-attempts.ts header). Checked BEFORE the
       // TOTP/recovery verify so a locked account can't be guessed against.
-      const state = await getMfaVerifyLockoutState(ctx.redis, userId);
+      const state = await getMfaVerifyLockoutState(ctx.services.redis, userId);
       if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
         const now = Date.now();
         if (state.lockedUntil > now) {
@@ -111,10 +111,10 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // bad code, no detail leak about account state.
       if (!row) return invalidChallengeToken();
 
-      const replay = { redis: ctx.redis, userId };
+      const replay = { redis: ctx.services.redis, userId };
       const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) {
-        await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
+        await recordFailedMfaVerifyAttempt(ctx.services.redis, userId, maxAttempts, lockoutMinutes);
         return invalidTotpCode();
       }
 
@@ -126,7 +126,12 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // is reached, so this burn only needs to guard a DIFFERENT code
       // (recovery, or a still-valid-but-not-yet-burned TOTP step) reused
       // against the same challenge token.
-      const burnResult = await burnToken(ctx.redis, "mfa-challenge", userId, verified.expiresAtMs);
+      const burnResult = await burnToken(
+        ctx.services.redis,
+        "mfa-challenge",
+        userId,
+        verified.expiresAtMs,
+      );
       if (burnResult === "already-used") return invalidChallengeToken();
 
       // Recovery-code use consumes the code — persist the reduced hash-list
@@ -145,7 +150,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
         if (!updateResult.isSuccess) return updateResult;
       }
 
-      await clearMfaVerifyAttempts(ctx.redis, userId);
+      await clearMfaVerifyAttempts(ctx.services.redis, userId);
 
       // Re-derive the full session the way login.write.ts would have, for
       // the SAME tenant the challenge token already committed to (no

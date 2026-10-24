@@ -34,14 +34,18 @@ const featurePostSaveLog: SaveContext[] = [];
 
 // --- Feature definition ---
 
-function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
+function userExecutor({
+  services,
+}: {
+  services: { searchAdapter?: unknown; entityCache?: unknown };
+}) {
   return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
-    ...(ctx.searchAdapter
-      ? { searchAdapter: ctx.searchAdapter as import("../search/index.ts").SearchAdapter }
+    ...(services.searchAdapter
+      ? { searchAdapter: services.searchAdapter as import("../search/index.ts").SearchAdapter }
       : {}),
-    ...(ctx.entityCache
-      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache.ts").EntityCache }
+    ...(services.entityCache
+      ? { entityCache: services.entityCache as import("../pipeline/entity-cache.ts").EntityCache }
       : {}),
   });
 }

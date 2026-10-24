@@ -16,6 +16,7 @@ import {
   createSystemUser,
   defineFeature,
   defineWriteHandler,
+  type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -54,11 +55,21 @@ import {
 } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
-import { createMailFoundationFeature, createTransportForTenant } from "../feature.ts";
+import {
+  createMailFoundationFeature,
+  createTransportForTenant,
+  type MailTransportContext,
+} from "../feature.ts";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 
 const TEST_HANDLER_QN = "mail-test:write:build-transport";
+const mailContextOf = (ctx: HandlerContext): MailTransportContext => ({
+  config: ctx.config,
+  registry: ctx.registry,
+  secrets: ctx.services.secrets,
+  auditUserId: ctx.user.id,
+});
 const testProbeFeature = defineFeature("mail-test", (r) => {
   r.requires({ features: ["config"] });
   r.requires({ features: ["secrets"] });
@@ -68,7 +79,11 @@ const testProbeFeature = defineFeature("mail-test", (r) => {
       schema: z.object({}),
       access: { roles: ["TenantAdmin", "SystemAdmin"] },
       handler: async (event, ctx) => {
-        const transport = await createTransportForTenant(ctx, event.user.tenantId, TEST_HANDLER_QN);
+        const transport = await createTransportForTenant(
+          mailContextOf(ctx),
+          event.user.tenantId,
+          TEST_HANDLER_QN,
+        );
         return {
           isSuccess: true,
           data: { hasSend: typeof transport.send === "function" },
@@ -83,7 +98,7 @@ const testProbeFeature = defineFeature("mail-test", (r) => {
       access: { roles: ["TenantAdmin", "SystemAdmin"] },
       handler: async (event, ctx) => {
         const transport = await createTransportForTenant(
-          ctx,
+          mailContextOf(ctx),
           event.user.tenantId,
           "mail-test:write:send",
         );

@@ -201,7 +201,10 @@ async function buildS3Provider(
 }
 
 async function readSecretAccessKey(ctx: FileProviderContext, tenantId: string): Promise<string> {
-  const secrets = requireSecretsContext(ctx, FEATURE_NAME);
+  const secrets = requireSecretsContext(
+    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
+    FEATURE_NAME,
+  );
   const branded = await secrets.get(tenantId, S3_SECRET_ACCESS_KEY);
   return requireSecretSet(branded, FEATURE_NAME, S3_SECRET_ACCESS_KEY.name).reveal();
 }

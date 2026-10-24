@@ -71,12 +71,12 @@ export function createMfaStatusChecker(opts: {
     }
 
     // ctx.config is bound to the CALLING user's tenant (the anonymous
-    // identity's tenant for login) — wrong tenant here. ctx.configResolver takes tenantId
+    // identity's tenant for login) — wrong tenant here. ctx.services.configResolver takes tenantId
     // explicitly, which is what a pre-session check against the LOGGING-IN
     // user's tenant needs.
     // @cast-boundary engine-payload — "select" config values are validated
     // against the declared `options` at write-time by the config feature.
-    const policy = ((await ctx.configResolver?.get(
+    const policy = ((await ctx.services.configResolver?.get(
       mfaRequiredConfigHandle.name,
       mfaRequiredConfigKey(opts.requiredPolicy),
       tenantId,

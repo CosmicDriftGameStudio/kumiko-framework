@@ -210,7 +210,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-job-runner",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const jobRunner = ctx["jobRunner"] as
+      const jobRunner = ctx.services.jobRunner as
         | { dispatch: (name: string, payload: Record<string, unknown>) => Promise<string> }
         | undefined;
       if (!jobRunner) return { ran: false };
@@ -224,7 +224,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-search-remove",
     schema: z.object({}),
     handler: async (query, ctx) => {
-      await ctx.searchAdapter?.remove(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      await ctx.services.searchAdapter?.remove(query.user.tenantId, "note", PROBE_ENTITY_ID);
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -233,7 +233,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-redis-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      await ctx.redis?.set("queryasmemberprobe:tampered", "1");
+      await ctx.services.redis?.set("queryasmemberprobe:tampered", "1");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -242,7 +242,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-cache-write",
     schema: z.object({}),
     handler: async (query, ctx) => {
-      await ctx.entityCache?.del(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      await ctx.services.entityCache?.del(query.user.tenantId, "note", PROBE_ENTITY_ID);
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -251,9 +251,13 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "reads-search-redis-cache",
     schema: z.object({}),
     handler: async (query, ctx) => {
-      const hits = await ctx.searchAdapter?.search(query.user.tenantId, "anything");
-      const redisValue = await ctx.redis?.get("queryasmemberprobe:absent");
-      const cached = await ctx.entityCache?.get(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      const hits = await ctx.services.searchAdapter?.search(query.user.tenantId, "anything");
+      const redisValue = await ctx.services.redis?.get("queryasmemberprobe:absent");
+      const cached = await ctx.services.entityCache?.get(
+        query.user.tenantId,
+        "note",
+        PROBE_ENTITY_ID,
+      );
       return { hits: hits?.length ?? -1, redisValue: redisValue ?? null, cached: cached ?? null };
     },
     access: { roles: ["Admin", "User"] },

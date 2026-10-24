@@ -35,8 +35,9 @@ import {
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  type AppContext,
+  attachOutsideTransaction,
   createSystemUser,
+  type HandlerContext,
   HookPhases,
   type Registry,
   type SaveContext,
@@ -99,28 +100,29 @@ export type SeedTenantOptions = {
 // care about hooks need no changes).
 export type SeedTenantHooks = {
   readonly registry: Registry;
-  readonly context: AppContext;
+  readonly context: HandlerContext;
 };
 
 function buildSeedHookNotify(
-  context: AppContext,
+  context: HandlerContext,
   scopedUser: SessionUser,
   targetTenantId: TenantId,
   notifyTiming: "deferUntilCommit" | "inline",
-): AppContext["notify"] {
-  const notifyFactory = context._notifyFactory;
+): HandlerContext["notify"] {
+  const { services, lifecycle } = context;
+  const notifyFactory = services._notifyFactory;
   if (!notifyFactory) return context.notify;
-  const notifyAfterCommit = (context._notifyAfterCommitFactory ?? notifyFactory)(
+  const notifyAfterCommit = (services._notifyAfterCommitFactory ?? notifyFactory)(
     scopedUser,
     targetTenantId,
   );
   if (notifyTiming === "inline") return notifyAfterCommit;
   // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
-  const notifyInsideTransaction = (context._notifyInTransactionFactory ?? notifyFactory)(
+  const notifyInsideTransaction = (services._notifyInTransactionFactory ?? notifyFactory)(
     scopedUser,
     targetTenantId,
   );
-  const scheduleAfterCommit = context.scheduleAfterCommit;
+  const scheduleAfterCommit = lifecycle.afterCommit;
   if (!scheduleAfterCommit) return notifyInsideTransaction;
   return createDeferringNotify({
     registry: context.registry,
@@ -129,6 +131,26 @@ function buildSeedHookNotify(
     notifyNow: notifyInsideTransaction,
     scheduleAfterCommit,
   });
+}
+
+type TrialGate = (tenantId: TenantId, featureName: string) => Promise<boolean>;
+
+function isTrialGate(candidate: unknown): candidate is TrialGate {
+  return typeof candidate === "function";
+}
+
+function scopedHasFeature(
+  context: HandlerContext,
+  targetTenantId: TenantId,
+): HandlerContext["hasFeature"] {
+  const features = context.services.effectiveFeatures;
+  // Keep the caller's hasFeature when no effectiveFeatures is wired (always-on apps).
+  if (!features) return context.hasFeature;
+  const trialGate: unknown = Reflect.get(features, "trialGate");
+  return async (featureName) => {
+    if (features(targetTenantId).has(featureName)) return true;
+    return isTrialGate(trialGate) ? trialGate(targetTenantId, featureName) : false;
+  };
 }
 
 // Shared by seedTenant/seedTenantMembership/auth-email-password's
@@ -140,71 +162,43 @@ function buildSeedHookNotify(
 // wired at server-boot and out of reach here).
 //
 // Tenant re-scope: when `targetTenantId` is set we rebuild the
-// tenant-bound pieces of the context (`_tenantId`, `db`, `notify`,
-// `hasFeature`, `user.tenantId`) — a shallow `{ ...ctx, _tenantId }` left
-// closures over the caller's tenant (self-signup is anonymous/system).
-// `query`/`write` bridges still share the caller's identity; hooks that
-// need a full identity switch use `writeAs`/`queryAs`.
+// tenant-bound pieces of the context (`db`, `notify`, `hasFeature`,
+// `user.tenantId`) — a shallow copy left closures over the caller's tenant
+// (self-signup is anonymous/system). `query`/`write` bridges still share the
+// caller's identity; hooks that need a full identity switch use `writeAs`/`queryAs`.
 //
-// afterCommit: when `hooks.context.scheduleAfterCommit` is present
+// afterCommit: when `hooks.context.lifecycle.afterCommit` is present
 // (HandlerContext from a live write), afterCommit hooks are queued onto the
 // dispatcher's sink and flush post-commit. Without a sink (fixture / plain
 // Connection) they still fire immediately — there is no outer TX to wait for.
 // `runner` comes from the caller, which already holds a declared DbRunner —
 // a TenantDb exposes no runner back out to feature code.
 function scopeSeedHookContext(
-  context: AppContext,
+  context: HandlerContext,
   targetTenantId: TenantId,
   runner: DbRunner,
   // The afterCommit sink is snapshotted when it flushes, so a hook scheduled from inside an
   // afterCommit-phase hook would be dropped: that phase must notify inline.
   notifyTiming: "deferUntilCommit" | "inline",
-): AppContext {
+): HandlerContext {
   const db = createTenantDb({
     db: runner,
     tenantId: targetTenantId,
     mode: "system",
     reason: "seed hooks run in the seeded tenant, regardless of the caller's tenant",
-    tracer: context.tracer,
-    meter: context.meter,
-    signal: context.signal,
+    tracer: context.obs.tracer,
+    meter: context.obs.meter,
+    signal: context.lifecycle.signal,
   });
-
-  // HandlerContext carries `user`; AppContext only `systemUser`. Prefer the
-  // live handler user when present so notify/hasFeature keep a real SessionUser.
-  const handlerUser = (context as { user?: SessionUser }).user;
-  const baseUser: SessionUser | undefined = handlerUser ?? context.systemUser;
-  const scopedUser: SessionUser | undefined = baseUser
-    ? { ...baseUser, tenantId: targetTenantId }
-    : undefined;
-
-  const notify = scopedUser
-    ? buildSeedHookNotify(context, scopedUser, targetTenantId, notifyTiming)
-    : context.notify;
-
-  const features = context.effectiveFeatures as
-    | (((tenantId: TenantId) => ReadonlySet<string>) & {
-        trialGate?: (tenantId: TenantId, featureName: string) => Promise<boolean>;
-      })
-    | undefined;
-  const hasFeature = features
-    ? async (featureName: string): Promise<boolean> => {
-        if (features(targetTenantId).has(featureName)) return true;
-        if (!features.trialGate) return false;
-        return features.trialGate(targetTenantId, featureName);
-      }
-    : "hasFeature" in context
-      ? // Keep caller's hasFeature when no effectiveFeatures (always-on apps).
-        (context as { hasFeature?: (n: string) => Promise<boolean> }).hasFeature
-      : undefined;
+  const scopedUser: SessionUser = { ...context.user, tenantId: targetTenantId };
+  const notify = buildSeedHookNotify(context, scopedUser, targetTenantId, notifyTiming);
 
   return {
     ...context,
-    _tenantId: targetTenantId,
-    db,
+    db: attachOutsideTransaction(db, undefined),
     ...(notify !== undefined ? { notify } : {}),
-    ...(scopedUser && "user" in context ? { user: scopedUser } : {}),
-    ...(hasFeature ? { hasFeature } : {}),
+    user: scopedUser,
+    hasFeature: scopedHasFeature(context, targetTenantId),
   };
 }
 
@@ -213,7 +207,7 @@ export async function fireEntityPostSave(
   pseudoType: string,
   entityData: SaveContext,
   // Undefined for tenant-agnostic entities (user has no tenant_id column at
-  // seed time) — keeps hooks.context._tenantId as the caller passed it.
+  // seed time) — keeps hooks.context.user as the caller passed it.
   target?: { readonly tenantId: TenantId; readonly db: DbRunner },
 ): Promise<void> {
   // skip: caller opted out of hooks (existing fixture/test call-sites that
@@ -234,8 +228,8 @@ export async function fireEntityPostSave(
         : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "inline"),
       HookPhases.afterCommit,
     );
-  if (scopedContext.scheduleAfterCommit) {
-    scopedContext.scheduleAfterCommit(runAfterCommit);
+  if (scopedContext.lifecycle.afterCommit) {
+    scopedContext.lifecycle.afterCommit(runAfterCommit);
   } else {
     await runAfterCommit();
   }

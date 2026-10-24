@@ -121,7 +121,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
-    handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
+    handler: async (_event, ctx) => ({ hasKms: ctx.services.kms !== undefined }),
   });
   // SystemAdmin-gated write—the target of the entry:"signature" / `wire` tests:
   // Echoing user.tenantId + roles proves that dispatch runs through the real

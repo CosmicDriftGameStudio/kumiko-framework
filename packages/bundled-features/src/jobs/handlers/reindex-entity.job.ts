@@ -20,7 +20,7 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
       message: "[jobs:reindex-entity] ctx.registry missing — job context requires the registry.",
     });
   }
-  if (!ctx.searchAdapter) {
+  if (!ctx.services.searchAdapter) {
     throw new InternalError({
       message:
         "[jobs:reindex-entity] ctx.searchAdapter missing — mount a search adapter to run this job.",
@@ -29,7 +29,7 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
   // perTenant fan-out — the job-runner enqueues one child run per active
   // tenant with ctx.systemUser scoped to it; a run without one (e.g.
   // misconfigured manual dispatch outside the fan-out) has nothing scoped
-  // to reindex. ctx._tenantId is never populated per-dispatch (only
+  // to reindex. ctx.user.tenantId is never populated per-dispatch (only
   // ctx.systemUser is), so it is not a valid fallback here.
   const tenantId = ctx.systemUser?.tenantId;
   if (tenantId === undefined) {
@@ -48,7 +48,13 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
   const db = ctx.systemDb.unsafeRaw(
     "reindexEntity filters WHERE tenant_id = $1 itself with this job's tenantId",
   );
-  const result = await reindexEntity(db, ctx.registry, ctx.searchAdapter, entity, tenantId);
+  const result = await reindexEntity(
+    db,
+    ctx.registry,
+    ctx.services.searchAdapter,
+    entity,
+    tenantId,
+  );
   ctx.obs.log?.info?.(
     `[jobs:reindex-entity] tenant=${tenantId} reindexed ${entity}: ${result.indexedRows}/${result.scannedRows} rows indexed` +
       `${result.failures.length > 0 ? ` (${result.failures.length} failed)` : ""}`,

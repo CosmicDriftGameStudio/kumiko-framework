@@ -80,7 +80,7 @@ export function createCascadeDeleteHook(
           )
         : ctx.db;
       if (!entityName || !db) {
-        ctx.log?.debug(
+        ctx.obs.log?.debug(
           `cascadeDelete: skipping — ${!entityName ? "no entityName" : "no db"} on payload ${payload.id}`,
         );
         return;

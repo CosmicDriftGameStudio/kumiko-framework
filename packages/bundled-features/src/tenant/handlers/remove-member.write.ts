@@ -148,7 +148,7 @@ export const removeMemberWrite = defineWriteHandler({
       tenantId: event.payload.tenantId,
       actor: event.user,
       streamTenantId,
-      redis: ctx.redis,
+      redis: ctx.services.redis,
     });
     if (cancelFailure !== undefined) return cancelFailure;
 

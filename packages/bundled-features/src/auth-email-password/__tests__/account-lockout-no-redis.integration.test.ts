@@ -1,4 +1,4 @@
-// Degradation test: when ctx.redis is unavailable the login handler must
+// Degradation test: when ctx.services.redis is unavailable the login handler must
 // still work — every lockout check/record becomes a no-op. The feature's
 // contract explicitly allows this: lockout is brute-force hardening, not a
 // login prerequisite. A setup without Redis (dev, minimal deployment, or
@@ -58,7 +58,7 @@ beforeAll(async () => {
     // so setting redis:undefined here overrides it on the handler-facing
     // AppContext. Framework internals (rate-limit, idempotency, eventDedup,
     // entityCache) receive the real redis via separate buildServer wiring
-    // and stay operational — only the handler's ctx.redis is gone.
+    // and stay operational — only the handler's ctx.services.redis is gone.
     extraContext: () => ({
       configResolver: resolver,
       configEncryption: encryption,

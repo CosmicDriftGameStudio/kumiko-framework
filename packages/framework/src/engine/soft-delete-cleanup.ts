@@ -61,11 +61,11 @@ function isGlobalTenancyTable(table: unknown): boolean {
 }
 
 async function resolveGraceDays(
-  ctx: Pick<JobContext, "configResolver">,
+  ctx: Pick<JobContext, "services">,
   tenantId: string,
   db: NonNullable<JobContext["db"]>,
 ): Promise<number> {
-  const resolved = await ctx.configResolver?.get(
+  const resolved = await ctx.services.configResolver?.get(
     SOFT_DELETE_GRACE_DAYS_KEY,
     softDeleteGraceDaysConfig,
     tenantId,
@@ -139,7 +139,7 @@ async function purgeExpiredRows(
   table: PurgeTable,
   where: WhereObject,
   cutoff: Temporal.Instant,
-  ctx: Pick<JobContext, "files" | "obs">,
+  ctx: Pick<JobContext, "services" | "obs">,
   readDb: unknown = writer.db,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
@@ -149,7 +149,7 @@ async function purgeExpiredRows(
       table,
       where,
       expiredBefore: cutoff,
-      files: ctx.files,
+      files: ctx.services.files,
       log: ctx.obs.log,
       forgetRow: (id) => forgetRow(writer, id),
     });

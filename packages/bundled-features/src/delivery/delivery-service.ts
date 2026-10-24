@@ -99,7 +99,7 @@ export type DeliveryServiceOptions = {
   // inline delivery (job-less setups, unit tests).
   readonly jobRunner?: NotifyJobDispatcher;
   // Credentials source for inline-delivered chat channels (webhook URL / bot
-  // token). Jobs get ctx.secrets from the job runner instead.
+  // token). Jobs get ctx.services.secrets from the job runner instead.
   readonly secrets?: SecretsContext;
   // Seals the recipient address inside queued job payloads (tenant scope). Absent means the
   // payload carries the plaintext address.

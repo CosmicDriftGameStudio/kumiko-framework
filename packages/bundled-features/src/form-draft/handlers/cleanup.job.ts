@@ -181,8 +181,8 @@ export async function cleanupDraftsJob(
   ctx: JobContext,
   db: DbConnection,
 ): Promise<void> {
-  const resolved = ctx.configResolver
-    ? await ctx.configResolver.get(
+  const resolved = ctx.services.configResolver
+    ? await ctx.services.configResolver.get(
         FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
         formDraftRetentionDaysConfig,
         SYSTEM_TENANT_ID,
@@ -194,26 +194,26 @@ export async function cleanupDraftsJob(
   // configResolver missing is the legitimate no-config case (r.optionalRequires,
   // see feature.ts) — nothing to warn about there. A resolver that IS wired but
   // returns something unusable means an admin set an invalid value.
-  if (ctx.configResolver && !isValidRetention) {
+  if (ctx.services.configResolver && !isValidRetention) {
     ctx.obs.log?.warn?.(
       `[form-draft:cleanup] configResolver returned invalid retention-days value=${String(resolved)} — falling back to default=${FORM_DRAFT_DEFAULT_RETENTION_DAYS}`,
     );
   }
   const retentionDays = isValidRetention ? resolved : FORM_DRAFT_DEFAULT_RETENTION_DAYS;
 
-  const fileProviderResolver = ctx._fileProviderResolver;
+  const fileProviderResolver = ctx.services._fileProviderResolver;
 
   let deleted = 0;
   const deferred = new Set<string>();
   while (true) {
-    if (ctx.signal?.aborted) break;
+    if (ctx.lifecycle.signal?.aborted) break;
     const batch = await selectStaleDraftsBatch(db, retentionDays, DEFAULT_BATCH_SIZE, [
       ...deferred,
     ]);
     if (batch.length === 0) break;
 
     // Rows span arbitrary tenants (this job sweeps the whole table under
-    // SYSTEM_TENANT_ID, not per-tenant) — ctx.files is resolved for a single
+    // SYSTEM_TENANT_ID, not per-tenant) — ctx.services.files is resolved for a single
     // tenant per job run and would be wrong here, so each row resolves its
     // own tenant's provider via _fileProviderResolver instead. Skipped
     // entirely for rows with no FileRefs in the blob, the common case.

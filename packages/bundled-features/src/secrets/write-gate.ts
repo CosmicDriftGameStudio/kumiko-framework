@@ -77,7 +77,7 @@ export function checkSecretKeyWrite(
   return { ok: true, keyDef };
 }
 
-// The registry surface the value check needs; lets ctx.secrets validate without a full Registry.
+// The registry surface the value check needs; lets ctx.services.secrets validate without a full Registry.
 export type SecretValueSchemaSource = Pick<Registry, "getSecretKey" | "findSecretNamespace">;
 
 // Carries neither the value nor the schema's issues.

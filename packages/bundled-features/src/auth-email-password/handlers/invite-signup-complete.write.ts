@@ -103,16 +103,16 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
       reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,
     },
     handler: async (event, ctx) => {
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({ message: "invite-signup-complete requires ctx.redis" }),
         );
       }
 
-      const invitationId = await getInvitationIdForToken(ctx.redis, event.payload.token);
+      const invitationId = await getInvitationIdForToken(ctx.services.redis, event.payload.token);
       if (!invitationId) return invalidInviteToken();
 
-      const burn = await burnInviteToken(ctx.redis, event.payload.token);
+      const burn = await burnInviteToken(ctx.services.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
       type InvitationRow = {
@@ -216,7 +216,7 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           mergedRoles,
         );
 
-        await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
+        await deleteInviteToken(ctx.services.redis, { invitationId, token: event.payload.token });
 
         if (mfaGate !== undefined) {
           committed = true;
@@ -241,8 +241,8 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           },
         };
       } finally {
-        if (!committed && ctx.redis) {
-          await unburnInviteToken(ctx.redis, event.payload.token);
+        if (!committed && ctx.services.redis) {
+          await unburnInviteToken(ctx.services.redis, event.payload.token);
         }
       }
     },

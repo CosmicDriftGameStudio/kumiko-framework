@@ -332,12 +332,12 @@ export class TemplateNotFoundError extends Error {
 // Single source of truth for "this handler requires template-resolver".
 // Pattern symmetric with requireTextContent.
 export function requireTemplateResolver(
-  ctx: { readonly templateResolver?: TemplateResolverApi } | object,
+  ctx: { readonly services: { readonly extensions: Readonly<Record<string, unknown>> } },
   callerName: string,
 ): TemplateResolverApi {
   // @cast-boundary engine-bridge — templateResolver kommt per extraContext
-  // from App-Bootstrap; the framework container does not know this field on its own.
-  const api = (ctx as { templateResolver?: TemplateResolverApi }).templateResolver;
+  // from App-Bootstrap and lands in services.extensions; the framework does not know its type.
+  const api = ctx.services.extensions["templateResolver"] as TemplateResolverApi | undefined;
   if (!api) {
     throw new InternalError({
       message:

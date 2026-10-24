@@ -3,7 +3,7 @@
 // The contract the framework exposes to hook/handler code: a FileHandle lets
 // you read/write/delete the binary behind a storage key without ever passing
 // the binary through event payloads, job queues, or hook signatures. Events
-// carry the key, hooks reach for `ctx.files.ref(key)` when they actually need
+// carry the key, hooks reach for `ctx.services.files.ref(key)` when they actually need
 // the bytes, and big files stay in the storage layer where they belong.
 //
 // `derive(suffix)` is the primitive for thumbnail/variant keys: it inserts a

@@ -249,7 +249,7 @@ function contextWithObservability(
   return {
     ...context,
     // Same source of truth as buildServer's contextWithObservability
-    // (api/server.ts) — job handlers reading ctx.effectiveFeatures should
+    // (api/server.ts) — job handlers reading ctx.services.effectiveFeatures should
     // see the same resolver as command handlers, not just dispatcherOptions.
     ...(effectiveFeatures && { effectiveFeatures }),
     tracer: observability.tracer,

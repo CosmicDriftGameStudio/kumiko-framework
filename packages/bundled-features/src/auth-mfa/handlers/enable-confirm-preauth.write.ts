@@ -96,11 +96,11 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // endpoint has NO gate before it (access: { roles: ["anonymous"] }, no JWT,
       // no prior challenge-token from a successful login) — its only secret
       // is a 6-digit TOTP code. Silently skipping the brute-force cap and
-      // single-use burn when ctx.redis is absent would let the setup token
+      // single-use burn when ctx.services.redis is absent would let the setup token
       // be guessed against unboundedly until its TTL expires. The route's
       // IP rate limiter is not a substitute: it's IP-scoped and resets on
       // every success.
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message:
@@ -112,7 +112,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // Same guessing surface as /auth/mfa/verify (a short TOTP code) and
       // the same per-userId cap — deliberately shared counter, see
       // mfa-verify-attempts.ts.
-      const state = await getMfaVerifyLockoutState(ctx.redis, userId);
+      const state = await getMfaVerifyLockoutState(ctx.services.redis, userId);
       if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
         const now = Date.now();
         if (state.lockedUntil > now) {
@@ -123,13 +123,18 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
 
       const secret = base32Decode(verify.payload.totpSecretBase32);
       if (verifyTotp(secret, event.payload.code) === false) {
-        await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
+        await recordFailedMfaVerifyAttempt(ctx.services.redis, userId, maxAttempts, lockoutMinutes);
         return invalidTotpCode();
       }
 
       // Burn the setup token on the first successful confirm — same
       // single-use guarantee as enable-confirm.write.ts.
-      const burnResult = await burnToken(ctx.redis, "mfa-setup", userId, verify.expiresAtMs);
+      const burnResult = await burnToken(
+        ctx.services.redis,
+        "mfa-setup",
+        userId,
+        verify.expiresAtMs,
+      );
       if (burnResult === "already-used") return invalidSetupToken();
 
       // "system" mode: no session exists yet, tenantId comes from the
@@ -195,8 +200,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       );
       if (!result.isSuccess) return result;
 
-      // ctx.redis is guaranteed by the fail-closed check above.
-      await clearMfaVerifyAttempts(ctx.redis, userId);
+      // ctx.services.redis is guaranteed by the fail-closed check above.
+      await clearMfaVerifyAttempts(ctx.services.redis, userId);
 
       // Re-derive the full session the way verify.write.ts does — the
       // setupToken only proves "password + new TOTP secret", not roles;

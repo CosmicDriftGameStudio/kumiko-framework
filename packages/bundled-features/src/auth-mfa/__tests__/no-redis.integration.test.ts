@@ -1,5 +1,5 @@
 // verify / enable-confirm / enable-confirm-preauth used to silently
-// skip their brute-force cap and single-use burn when ctx.redis was
+// skip their brute-force cap and single-use burn when ctx.services.redis was
 // unavailable, instead of failing closed. Real HTTP through setupTestStack
 // with redis explicitly unwired (same pattern as
 // auth-email-password/__tests__/account-lockout-no-redis.integration.test.ts),
@@ -85,10 +85,10 @@ afterAll(async () => {
 
 // disable/regenerate-recovery are session-authed and only reachable once
 // MFA is already enabled — but enable-confirm itself now requires
-// ctx.redis, so it can't run against this no-redis stack to seed
+// ctx.services.redis, so it can't run against this no-redis stack to seed
 // the row. Insert the row directly via the same executor.create the
 // handler uses, bypassing the HTTP layer entirely (irrelevant to what
-// this test is pinning: the handler's own ctx.redis gate).
+// this test is pinning: the handler's own ctx.services.redis gate).
 const userMfaExecutor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
 });
@@ -180,7 +180,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
 
   // disable/regenerate-recovery used to keep the
   // old two-factor-authenticate-then-verify flow working even without
-  // ctx.redis (verifyMfaFactor's replay-burn silently no-ops), so an
+  // ctx.services.redis (verifyMfaFactor's replay-burn silently no-ops), so an
   // observed TOTP code could be replayed within the ±1-step window against
   // a session-authed route — unlike verify/enable-confirm-preauth, no
   // guest-token expiry limits the attack window.

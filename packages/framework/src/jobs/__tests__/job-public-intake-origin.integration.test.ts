@@ -21,14 +21,14 @@ import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
-// ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
+// ctx.services.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
 // manual dispatch from a handler/job is a dynamic context extension, same
 // cast as setup-test-stack-jobs.integration.test.ts.
 type ManualDispatchRef = {
   dispatch: (name: string, payload: Record<string, unknown>) => Promise<string>;
 };
-function manualDispatch(ctx: { jobRunner?: unknown }): ManualDispatchRef | undefined {
-  return ctx.jobRunner as ManualDispatchRef | undefined; // @cast-boundary dynamic-key
+function manualDispatch(ctx: { services: { jobRunner?: unknown } }): ManualDispatchRef | undefined {
+  return ctx.services.jobRunner as ManualDispatchRef | undefined; // @cast-boundary dynamic-key
 }
 
 // Records every gated failure a PII-writing job actually raised — the only

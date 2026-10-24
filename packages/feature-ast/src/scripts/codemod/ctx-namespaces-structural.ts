@@ -234,26 +234,20 @@ function spreadBlocker(
   return undefined;
 }
 
-function planLiteralGroup(
+type LiteralGroup = {
+  readonly namespace: string;
+  readonly items: readonly MovedItem<ObjectLiteralElementLike>[];
+  readonly existing: Node | undefined;
+  readonly conflicts: readonly SpreadAssignment[];
+  readonly entries: readonly EntryText[];
+};
+
+function applyLiteralGroup(
   plan: EditPlan,
-  literal: ObjectLiteralExpression,
-  namespace: string,
-  items: readonly MovedItem<ObjectLiteralElementLike>[],
-  spreads: readonly ObjectLiteralElementLike[],
+  { namespace, items, existing, conflicts, entries }: LiteralGroup,
 ): boolean {
   const [first, ...rest] = items;
   if (first === undefined) return false;
-  const entries = items.map(({ node, path }) => literalEntry(plan, node, path));
-  const existing = literal.getProperty(namespace);
-  const conflicts = conflictingSpreads(spreads, namespace);
-  const blocker =
-    conflicts.length > 0
-      ? spreadBlocker(namespace, items, conflicts, existing !== undefined)
-      : undefined;
-  if (blocker !== undefined) {
-    plan.flagManual(first.node, blocker);
-    return false;
-  }
   const nested = Node.isPropertyAssignment(existing) ? existing.getInitializer() : undefined;
   if (existing !== undefined && namespace === "db" && !Node.isObjectLiteralExpression(nested)) {
     plan.flagManual(existing, `${namespace} is already set to a non-literal next to ${first.key}`);
@@ -272,9 +266,37 @@ function planLiteralGroup(
     const spreadTexts = conflicts.map(
       (spread) => `...${spread.getExpression().getText()}.${namespace}`,
     );
-    plan.replaceNode(first.node, wrapNamespace(namespace, withSpreads(spreadTexts, entries)));
+    const withExtensions = namespace === "services" ? [...entries, "extensions: {}"] : entries;
+    plan.replaceNode(
+      first.node,
+      wrapNamespace(namespace, withSpreads(spreadTexts, withExtensions)),
+    );
     for (const item of rest) plan.deleteListItem(item.node);
   }
+  return true;
+}
+
+function planLiteralGroup(
+  plan: EditPlan,
+  literal: ObjectLiteralExpression,
+  namespace: string,
+  items: readonly MovedItem<ObjectLiteralElementLike>[],
+  spreads: readonly ObjectLiteralElementLike[],
+): boolean {
+  const [first] = items;
+  if (first === undefined) return false;
+  const entries = items.map(({ node, path }) => literalEntry(plan, node, path));
+  const existing = literal.getProperty(namespace);
+  const conflicts = conflictingSpreads(spreads, namespace);
+  const blocker =
+    conflicts.length > 0
+      ? spreadBlocker(namespace, items, conflicts, existing !== undefined)
+      : undefined;
+  if (blocker !== undefined) {
+    plan.flagManual(first.node, blocker);
+    return false;
+  }
+  if (!applyLiteralGroup(plan, { namespace, items, existing, conflicts, entries })) return false;
   for (const item of items) {
     plan.recordRewrite(item.node, `object key ${item.key} -> ${describePath(item.path)}`);
   }

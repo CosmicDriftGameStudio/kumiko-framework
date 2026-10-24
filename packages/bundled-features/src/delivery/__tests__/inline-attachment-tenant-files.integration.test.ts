@@ -65,10 +65,10 @@ async function moveFileRowTo(fileRefId: string, tenantId: string): Promise<void>
   ]);
 }
 
-// Job context without a provider resolver: ctx.files is bound to the job's tenant.
+// Job context without a provider resolver: ctx.services.files is bound to the job's tenant.
 function readerWithoutResolver() {
   const jobContext = {
-    files: createFileContext(() => Promise.resolve(provider), jobTenantId),
+    services: { files: createFileContext(() => Promise.resolve(provider), jobTenantId) },
   };
   return createEmailAttachmentReader(stack.db, stack.registry, jobTenantId, undefined, (tenantId) =>
     fileContextForTenant(jobContext, jobTenantId, tenantId),

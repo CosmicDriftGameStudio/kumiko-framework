@@ -1,5 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { HandlerLifecycle } from "./handler-context-services.ts";
 import type {
   ActiveMembershipResult,
   AggregateStreamHandle,
@@ -14,8 +15,8 @@ import type {
 } from "./handlers.ts";
 import type { TenantId } from "./identifiers.ts";
 import type { Logger } from "./logger.ts";
-import type { MetricsHandle, Tracer } from "./observability/index.ts";
-import type { TenantDb } from "./tenant-db-types.ts";
+import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
+import type { TenantDb, UncheckedSystemDb } from "./tenant-db-types.ts";
 
 /**
  * `ctx.db` plus `outsideTransaction`: the same tenant scoping, but never bound to the handler's
@@ -142,6 +143,8 @@ export type HandlerObservability = {
   // For shared/library code: binds to `featureName` instead of the dispatching handler's own
   // feature. Unlike `metrics`, an unregistered metric name here is a silent no-op, not a throw.
   readonly metricsFor: (featureName: string) => MetricsHandle;
+  // Raw OTel meter for infrastructure such as createTenantDb; feature metrics go through `metrics`.
+  readonly meter?: Meter;
 };
 
 // Own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
@@ -151,14 +154,9 @@ export type JobEvents = Pick<HandlerEvents, "append">;
 // until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.
 export type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
 
-export type JobObservability = Pick<HandlerObservability, "log" | "metricsFor">;
+export type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
 
-type PhaseWithoutTransaction =
-  | "events"
-  | "notify"
-  | "scheduleAfterCommit"
-  | "scheduleAfterRollback"
-  | "dispatch";
+type PhaseWithoutTransaction = "events" | "notify" | "dispatch" | "lifecycle";
 
 /**
  * ctx of `reserveBeforeTransaction`: nothing bound to the not-yet-open transaction. Reservations
@@ -169,12 +167,16 @@ export type ReservationContext<TMap extends object = KumikoEventTypeMap> = Omit<
   PhaseWithoutTransaction
 > & {
   readonly dispatch: Omit<HandlerDispatch, "write" | "writeAs">;
+  readonly lifecycle: Omit<HandlerLifecycle, "afterCommit" | "afterRollback">;
 };
 
-/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction db is gone too. */
+/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too. */
 export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = Omit<
   ReservationContext<TMap>,
-  "db"
+  "db" | "systemDb"
 > & {
   readonly db: TenantDb & { readonly outsideTransaction: undefined };
+  readonly systemDb?: Omit<UncheckedSystemDb, "outsideTransaction"> & {
+    readonly outsideTransaction: undefined;
+  };
 };

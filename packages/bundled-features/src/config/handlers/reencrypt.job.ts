@@ -69,7 +69,7 @@ export type ReencryptJobResult = {
 
 export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const payload = rawPayload as ReencryptJobPayload; // @cast-boundary engine-payload
-  const maybeCipher = ctx.configEncryption;
+  const maybeCipher = ctx.services.configEncryption;
   if (!maybeCipher) {
     throw new InternalError({
       message:
@@ -80,7 +80,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   // hoisted function declarations below capture these — pin the narrowed
   // type explicitly so TS keeps it inside the closures
   const cipher: EnvelopeCipher = maybeCipher;
-  const provider = ctx.masterKeyProvider;
+  const provider = ctx.services.masterKeyProvider;
   if (!provider) {
     throw new InternalError({
       message:
@@ -116,7 +116,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
       handler: "config:job:reencrypt",
       tenantId,
       actor: "system",
-      sink: ctx._escapeHatchAuditSink,
+      sink: ctx.services._escapeHatchAuditSink,
       log: ctx.obs.log,
     });
   }
@@ -267,7 +267,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     migrateRow,
     maxFailures,
     deadlineAt: deadline,
-    signal: ctx.signal,
+    signal: ctx.lifecycle.signal,
     onRowError: ({ row }, err) => {
       ctx.obs.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
     },

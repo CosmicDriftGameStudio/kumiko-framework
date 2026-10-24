@@ -165,7 +165,7 @@ export async function renderPdfBeforeTransaction(
   const uploaded = await uploadFileBytesBeforeTransaction(
     {
       db: ctx.db,
-      files: fileContextForTenant(ctx, tenantId, tenantId),
+      services: { files: fileContextForTenant(ctx, tenantId, tenantId) },
       registry: ctx.registry,
       user: ctx.user,
     },

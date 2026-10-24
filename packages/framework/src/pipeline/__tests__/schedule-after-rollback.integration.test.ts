@@ -1,4 +1,4 @@
-// ctx.scheduleAfterRollback over real HTTP: the callback runs when the outermost transaction does
+// ctx.lifecycle.afterRollback over real HTTP: the callback runs when the outermost transaction does
 // not commit, or when the enclosing savepoint rolls back, and never on a plain commit.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -65,7 +65,7 @@ const feature = defineFeature(FEATURE, (r) => {
     schema: payloadSchema,
     handler: async (event, ctx) => {
       const { label } = event.payload;
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         const base = label.replace(`-${REJECTED_MARKER}`, "");
         callbacks.push({ label, outerCommittedAtCall: await outerNoteVisible(base) });
       });
@@ -89,7 +89,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "commit-ok",
     schema: payloadSchema,
     handler: async (event, ctx) => {
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         callbacks.push({ label: event.payload.label, outerCommittedAtCall: false });
       });
       return noteExecutor.create({ title: event.payload.label }, event.user, ctx.db);
@@ -105,7 +105,7 @@ const feature = defineFeature(FEATURE, (r) => {
       const outside = requireOutsideTransactionDb(ctx);
       const { label } = event.payload;
       await runInOwnTransaction(outside, (txDb) => txDb.insertOne(reservationTable, { label }));
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         await runInOwnTransaction(outside, (txDb) => txDb.deleteMany(reservationTable, { label }));
       });
       await ctx.dispatch.write(INNER, { label });
@@ -142,7 +142,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "throwing-callback",
     schema: payloadSchema,
     handler: async (_event, ctx) => {
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         throw new Error("compensation failed");
       });
       return writeFailure(new UnprocessableError("handler_rejected"));

@@ -53,7 +53,7 @@ export type FileDerivativesOptions = {
    *  Without this option, neither the httpRoute NOR the `publicVariant`
    *  query is registered — it is unreachable via the httpRoute path and via
    *  the generic `/api` query dispatch. Existing consumers that only need
-   *  `ctx.derivatives` are unaffected. See {@link PublicVariantResolveApexTenant}
+   *  `ctx.services.derivatives` are unaffected. See {@link PublicVariantResolveApexTenant}
    *  for the in-memory/sync contract. */
   readonly resolveApexTenant?: PublicVariantResolveApexTenant;
   /** Base path of the public variant route. Default "/media". */

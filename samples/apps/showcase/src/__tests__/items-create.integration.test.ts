@@ -268,7 +268,7 @@ test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, lis
 
 test("Tier 2.7e Remote-Combobox: list mit search-Param geht durch die Pipeline ohne Crash", async () => {
   // Pinst die HTTP-Pipeline für search: Zod-Validation, Handler,
-  // executor mit ctx.searchAdapter durchgereicht. Echtes Filter-
+  // executor mit ctx.services.searchAdapter durchgereicht. Echtes Filter-
   // Verhalten ist im executor-Unit-Integrationstest (event-store-
   // executor-list.integration.test.ts) gepinst — dort mit Mock-Adapter,
   // ohne dass der test-stack einen Search-EventConsumer registriert

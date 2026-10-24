@@ -84,7 +84,7 @@ export type {
 //     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
 //
 // For custom logic (default values, business rules, side effects, custom
-// executors with ctx.searchAdapter, ...) write the handler explicitly with
+// executors with ctx.services.searchAdapter, ...) write the handler explicitly with
 // r.writeHandler / r.queryHandler — these helpers cover the standard path only.
 //
 // Note on the `as` casts in the handler bodies: WriteHandlerDef.handler's
@@ -407,7 +407,9 @@ export function defineEntityWriteHandler(
     case "create":
       schema = buildInsertSchema(entity, undefined, excludedFields, { allowCallerId: true });
       handler = async (event, ctx) => {
-        const { runPreSave } = ctx;
+        const {
+          lifecycle: { runPreSave },
+        } = ctx;
         // A caller-chosen id (deterministic-id idempotent creates) is only
         // honored for a system-identity caller (jobs/hooks via
         // createSystemUser) — an HTTP-authenticated end user can never
@@ -432,7 +434,9 @@ export function defineEntityWriteHandler(
         changes: buildUpdateSchema(entity, undefined, excludedFields),
       });
       handler = async (event, ctx) => {
-        const { runPreSave } = ctx;
+        const {
+          lifecycle: { runPreSave },
+        } = ctx;
         const db = dbFor(ctx);
         const submitted = event.payload as UpdatePayload; // @cast-boundary engine-payload
         const payload = {

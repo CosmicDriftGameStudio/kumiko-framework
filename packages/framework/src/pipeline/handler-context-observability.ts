@@ -30,5 +30,5 @@ export function buildObservabilityFacet(scope: HandlerContextScope): {
   // name of its own choosing instead of the dispatching handler's.
   // Unregistered names no-op rather than throw.
   const metricsFor = createMetricsForFactory(meter);
-  return { obs: { log, tracer, metrics, metricsFor } };
+  return { obs: { log, tracer, metrics, metricsFor, ...(meter && { meter }) } };
 }

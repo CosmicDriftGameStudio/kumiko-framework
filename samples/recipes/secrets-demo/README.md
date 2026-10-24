@@ -4,7 +4,7 @@ Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation.
 
 ## What it shows
 
-- `r.secret` + `ctx.secrets.get` (audited reads)
+- `r.secret` + `ctx.services.secrets.get` (audited reads)
 - Charge-style handler that never returns the plaintext key
 
 ## Source

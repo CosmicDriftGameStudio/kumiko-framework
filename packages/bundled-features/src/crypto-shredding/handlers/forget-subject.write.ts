@@ -340,11 +340,11 @@ async function sweepDerivedSubjectData(
 
     // Derived search index still holds plaintext — purge next to the
     // blind-index sweep. No adapter → no-op (apps without search).
-    if (ctx.searchAdapter) {
+    if (ctx.services.searchAdapter) {
       await purgeSearchDocumentsForSubject(
         crossTenantSubjectRunner,
         ctx.registry.features,
-        ctx.searchAdapter,
+        ctx.services.searchAdapter,
         subjectKey,
         subject,
       );

@@ -84,7 +84,7 @@ const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
 // `tenantMembership` entity's postSave hooks (e.g. a Welcome-notification
 // hook) on self-signup too — pins the `fireEntityPostSave` call added at
 // seeding.ts's seedTenantMembership, not just the `user`/`tenant` ones.
-// Also record ctx._tenantId so a shallow-only rescope regresses.
+// Also record ctx.user.tenantId so a shallow-only rescope regresses.
 const tenantMembershipPostSaveFired = { count: 0, seenTenantIds: [] as string[] };
 const tenantMembershipHookVendorFeature = defineFeature(
   "tenant-membership-hook-vendor-test",
@@ -96,9 +96,7 @@ const tenantMembershipHookVendorFeature = defineFeature(
       handler: async (result, context) => {
         if (result.isNew) {
           tenantMembershipPostSaveFired.count++;
-          if (context._tenantId !== undefined) {
-            tenantMembershipPostSaveFired.seenTenantIds.push(String(context._tenantId));
-          }
+          tenantMembershipPostSaveFired.seenTenantIds.push(String(context.user.tenantId));
         }
       },
     });

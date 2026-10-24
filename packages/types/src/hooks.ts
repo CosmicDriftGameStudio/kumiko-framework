@@ -1,5 +1,5 @@
 import type { StoredEvent } from "./event-store-types.ts";
-import type { AppContext } from "./handlers.ts";
+import type { HandlerContext } from "./handlers.ts";
 import type { HookPhase } from "./hook-phase.ts";
 import type { EntityId } from "./identifiers.ts";
 
@@ -48,13 +48,13 @@ export type LifecycleResult = SaveContext | DeleteContext;
 
 export type PreSaveHookFn = (
   changes: Record<string, unknown>,
-  context: AppContext & {
+  context: HandlerContext & {
     readonly previous: Readonly<Record<string, unknown>>;
     readonly isNew: boolean;
   },
 ) => Promise<Record<string, unknown>>;
 
-export type PostSaveHookFn = (result: SaveContext, context: AppContext) => Promise<void>;
+export type PostSaveHookFn = (result: SaveContext, context: HandlerContext) => Promise<void>;
 
 // Batch-variant: called once at the end of a dispatcher batch with every
 // successful SaveContext. The per-save PostSaveHookFn still fires for
@@ -63,21 +63,21 @@ export type PostSaveHookFn = (result: SaveContext, context: AppContext) => Promi
 // index batch-writes, bulk webhook fanout).
 export type PostSaveBatchHookFn = (
   results: readonly SaveContext[],
-  context: AppContext,
+  context: HandlerContext,
 ) => Promise<void>;
 
-export type PreDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
+export type PreDeleteHookFn = (payload: DeleteContext, context: HandlerContext) => Promise<void>;
 
-export type PostDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
+export type PostDeleteHookFn = (payload: DeleteContext, context: HandlerContext) => Promise<void>;
 
 export type PostDeleteBatchHookFn = (
   payloads: readonly DeleteContext[],
-  context: AppContext,
+  context: HandlerContext,
 ) => Promise<void>;
 
 export type PreQueryHookFn = (
   payload: Record<string, unknown>,
-  context: AppContext,
+  context: HandlerContext,
 ) => Promise<Record<string, unknown>>;
 
 // postQuery — fires after query-handler-execute, before field-access-read-filter.
@@ -93,7 +93,7 @@ export type PostQueryHookFn = (
     readonly entityName: string | undefined;
     readonly rows: ReadonlyArray<Record<string, unknown>>;
   },
-  context: AppContext,
+  context: HandlerContext,
 ) => Promise<{ rows: ReadonlyArray<Record<string, unknown>> }>;
 
 export type LifecycleHookFn =

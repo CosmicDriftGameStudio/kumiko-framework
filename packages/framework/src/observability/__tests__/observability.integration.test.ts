@@ -293,9 +293,9 @@ describe("Observability (integration) — Redis wrapper", () => {
       name: "ping",
       schema: z.object({}),
       handler: async (_event, ctx) => {
-        if (!ctx.redis) throw new Error("ctx.redis unavailable");
-        await ctx.redis.set("session:abc123:token", "value");
-        await ctx.redis.get("session:abc123:token");
+        if (!ctx.services.redis) throw new Error("ctx.redis unavailable");
+        await ctx.services.redis.set("session:abc123:token", "value");
+        await ctx.services.redis.get("session:abc123:token");
         return { isSuccess: true, data: { ok: true } };
       },
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

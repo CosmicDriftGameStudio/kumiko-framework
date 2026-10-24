@@ -205,6 +205,13 @@ bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/feature-ast
 Moves the flat `HandlerContext` / `JobContext` members into their namespaces:
 `ctx.appendEvent` -> `ctx.events.append`, `ctx.write` -> `ctx.dispatch.write`,
 `ctx.log` -> `ctx.obs.log`, `ctx.dbOutsideTransaction` -> `ctx.db.outsideTransaction` and so on.
+The wiring members follow: `ctx.redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `entityCache`,
+`secrets`, `kms`, `files`, `derivatives`, `configResolver` and the other injected services move to
+`ctx.services.*`, `scheduleAfterCommit` / `scheduleAfterRollback` to `ctx.lifecycle.afterCommit` /
+`afterRollback`, `signal` to `ctx.lifecycle.signal`, `configFor` / `forTenant` to `ctx.tenants.config` /
+`writeTarget`, and `ctx.meter` to `ctx.obs.meter`. A hook parameter annotated `AppContext` becomes
+`HandlerContext`, and its body is read as a handler context in the same run (`context.log` ->
+`context.obs.log`). An extraContext key read through a cast moves to `ctx.services.extensions`.
 Property accesses, destructuring, mock object literals typed as a context, `Pick` / indexed
 access types and the `ctx` annotation of `beforeTransaction` / `reserveBeforeTransaction`
 (`BeforeTransactionContext` / `ReservationContext`) are rewritten. Idempotent.
@@ -218,7 +225,9 @@ Kumiko context, so `AppContext.log`, the MSP apply context's `appendEvent` or a 
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/ctx-namespaces.ts <dir> [--check | --dry-run | --write] [--no-format] [--tsconfig <path>]
 ```
 
-Reported as `manual`: object literals with a spread next to moved members, destructuring with a
+Reported as `manual`: `systemUser`, `triggeredBy` and `_tenantId` read off a `HandlerContext`, a
+handler or job context passed to a parameter annotated `AppContext`, boot wiring read through a cast
+(`clock`, `geoTzProvider` and similar), object literals with a spread next to moved members, destructuring with a
 default value or rest element, `Omit` of a moved member, a namespace key that is already set to a
 non-literal, a union receiver that maps differently per member, and an unresolved `ctx` / `context`
 receiver. Receivers typed by a hand-written structural type (`{ query: ... }`) are invisible to it

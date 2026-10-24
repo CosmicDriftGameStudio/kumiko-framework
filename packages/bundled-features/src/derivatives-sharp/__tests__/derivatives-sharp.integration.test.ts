@@ -1,5 +1,5 @@
 // Proves the full derive-on-first-use loop through a real sharp render: a
-// write-handler calls ctx.derivatives.variant(), the bytes it stores decode
+// write-handler calls ctx.services.derivatives.variant(), the bytes it stores decode
 // as the promised format/size, and a second call with the same spec hits the
 // cache instead of rendering again.
 
@@ -28,17 +28,17 @@ const variantTestFeature = defineFeature("derivativessharptest", (r) => {
     name: "make-thumb",
     schema: z.object({ fileRefId: z.string() }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives || !ctx.files) {
+      if (!ctx.services.derivatives || !ctx.services.files) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives/ctx.files on write-handler ctx" }),
         );
       }
-      const result = await ctx.derivatives.variant(
+      const result = await ctx.services.derivatives.variant(
         event.payload.fileRefId,
         { maxEdge: 160, fit: "cover", format: "webp" },
         "thumb",
       );
-      const bytes = await ctx.files.ref(result.storageKey).read();
+      const bytes = await ctx.services.files.ref(result.storageKey).read();
       const meta = await imageMetadata(bytes);
       return { isSuccess: true as const, data: { ...result, ...meta } };
     },

@@ -211,11 +211,11 @@ const testFeature = defineFeature("test", (r) => {
     log.child({ probe: true }).info("log-probe-child");
     jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
   });
-  // job-runner must build ctx.files the same way dispatch-shared.ts does for
-  // write-handlers/MSPs — regression guard (ctx.files was never
-  // materialized for jobs, so ctx.files.ref(...).read() threw for every job).
+  // job-runner must build ctx.services.files the same way dispatch-shared.ts does for
+  // write-handlers/MSPs — regression guard (ctx.services.files was never
+  // materialized for jobs, so ctx.services.files.ref(...).read() threw for every job).
   r.job("filesProbe", { trigger: { manual: true } }, async (payload, ctx) => {
-    const content = await ctx.files!.ref(payload["key"] as string).read();
+    const content = await ctx.services.files!.ref(payload["key"] as string).read();
     jobLog.push({
       name: "test:job:files-probe",
       payload: { text: new TextDecoder().decode(content) },
@@ -224,7 +224,7 @@ const testFeature = defineFeature("test", (r) => {
   });
 
   // job-runner must build ctx.notify/ctx.config the same way dispatch-shared.ts
-  // does for write-handlers — regression guard (only ctx.files got
+  // does for write-handlers — regression guard (only ctx.services.files got
   // the same fix; ctx.notify/ctx.config stayed undefined for every job).
   r.job("notifyProbe", { trigger: { manual: true } }, async (payload, ctx) => {
     await ctx.notify!("test-notification", { to: payload["toUserId"] as string });
@@ -356,7 +356,7 @@ describe("scenario 3b: ctx.files resolves through the file provider", () => {
   test("job handler can read back a file via ctx.files.ref(key)", async () => {
     clearLog();
     const provider = createInMemoryFileProvider();
-    // A tenant-less manual dispatch runs as the system tenant, whose ctx.files
+    // A tenant-less manual dispatch runs as the system tenant, whose ctx.services.files
     // only accepts keys under its own prefix.
     const key = `${SYSTEM_TENANT_ID}/probe/hello.txt`;
     await provider.write(key, new TextEncoder().encode("hello from files probe"));

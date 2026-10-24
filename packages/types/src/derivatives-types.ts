@@ -97,7 +97,7 @@ export type VariantResult = {
   readonly rendered: boolean;
 };
 
-// The `ctx.derivatives` service — derive-on-first-use variants of a tracked
+// The `ctx.services.derivatives` service — derive-on-first-use variants of a tracked
 // FileRef. `name` feeds only the readable key-prefix; `spec` determines the
 // content hash, so a spec change always produces a fresh URL instead of
 // silently overwriting what's cached under the old pixels.

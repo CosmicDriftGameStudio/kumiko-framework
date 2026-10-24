@@ -18,7 +18,7 @@
 //   2. **Post-tenant-resolution:** `createPortalSession` +
 //      `cancelSubscription` are called from regular write handlers with
 //      a fully resolved HandlerContext. The plugin can use ctx.config +
-//      ctx.secrets for tenant-specific configuration (e.g. tenant-owned
+//      ctx.services.secrets for tenant-specific configuration (e.g. tenant-owned
 //      customer-id mappings).
 //
 // Foundation uses only the common subset of provider functionality;

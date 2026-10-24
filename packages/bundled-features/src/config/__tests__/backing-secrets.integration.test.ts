@@ -197,9 +197,9 @@ describe("config backing=secrets — read dispatch", () => {
 
 describe("config backing=secrets — fail-loud when secrets unwired", () => {
   // The PR's central safety promise: a backing="secrets" key throws loudly at
-  // request time when ctx.secrets is absent — it never silently degrades into
+  // request time when ctx.services.secrets is absent — it never silently degrades into
   // a config_values write. One write exercises the set.write throw site; the
-  // resolver and reset.write guards share the identical `!ctx.secrets` shape.
+  // resolver and reset.write guards share the identical `!ctx.services.secrets` shape.
   test("set on a backing=secrets key throws internal_error when ctx.secrets is absent", async () => {
     const unwired = await setupTestStack({
       features: [createConfigFeature(), billingFeature],

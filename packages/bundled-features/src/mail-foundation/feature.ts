@@ -64,7 +64,7 @@ export const MAIL_TRANSPORT_EXTENSION = "mailTransport" as const;
  * **Why not the full HandlerContext?** On the worker path (transport builds
  * triggered by r.job, such as the user-data-rights forget/export cron) there
  * is no per-request `config`/`tx`/`actor`; the wrapper builds the per-tenant
- * ConfigAccessor from `ctx.configResolver`. A plugin reading `ctx.tx` or other
+ * ConfigAccessor from `ctx.services.configResolver`. A plugin reading `ctx.tx` or other
  * request-only fields would break the worker path at runtime, and that would
  * only show up with real SMTP in production. Casting
  * `ctx as unknown as HandlerContext` satisfies the compiler but fails at
@@ -82,7 +82,7 @@ export const MAIL_TRANSPORT_EXTENSION = "mailTransport" as const;
 export type MailTransportContext = {
   readonly config?: ConfigAccessor;
   readonly registry?: Registry;
-  readonly secrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
+  readonly secrets: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext | undefined;
   readonly auditUserId?: string | undefined;
 };
 

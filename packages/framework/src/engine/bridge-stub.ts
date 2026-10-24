@@ -4,6 +4,7 @@ import { createNoopMetricsHandle, getFallbackTracer } from "../observability/ind
 import { createTzContext } from "../time/index.ts";
 import { createAnonymousUser } from "./system-user.ts";
 import type {
+  ContextServices,
   HandlerContext,
   HandlerDispatch,
   HandlerObservability,
@@ -38,9 +39,21 @@ export function bridgeStub(opts?: {
   readonly log?: HandlerObservability["log"];
   // Replaces single stubbed bridge calls, so a test can wire e.g. `write` to a real dispatcher.
   readonly dispatch?: Partial<HandlerDispatch>;
+  // Spread order matters at the call site: bridgeStub's own `services` would overwrite one set beside it.
+  readonly services?: Partial<ContextServices>;
 }): Pick<
   HandlerContext,
-  "dispatch" | "events" | "auth" | "obs" | "hasFeature" | "tz" | "locale" | "user"
+  | "dispatch"
+  | "events"
+  | "auth"
+  | "obs"
+  | "hasFeature"
+  | "tz"
+  | "locale"
+  | "user"
+  | "services"
+  | "lifecycle"
+  | "tenants"
 > {
   // ctx.user is a convenience alias for event.user (see HandlerContext
   // docs). Caller code expects the field; bridgeStub hands back a stub with
@@ -91,5 +104,8 @@ export function bridgeStub(opts?: {
     // Same reasoning as tz above — ctx.locale is always-present, not a
     // bridge method. Defaults to DEFAULT_LOCALE.
     locale: DEFAULT_LOCALE,
+    services: { extensions: {}, ...opts?.services },
+    lifecycle: {},
+    tenants: {},
   };
 }

@@ -41,8 +41,10 @@ const fortenantFeature = defineFeature("fortenant", (r) => {
       schema: z.object({ targetTenantId: z.string(), label: z.string() }),
       access: { roles: ["TenantAdmin", "SystemAdmin"] },
       handler: async (event, ctx) => {
-        if (!ctx.forTenant) throw new Error("ctx.forTenant missing");
-        const { db, streamTenantId } = ctx.forTenant(event.payload.targetTenantId as TenantId); // @cast-boundary engine-payload
+        if (!ctx.tenants.writeTarget) throw new Error("ctx.forTenant missing");
+        const { db, streamTenantId } = ctx.tenants.writeTarget(
+          event.payload.targetTenantId as TenantId,
+        ); // @cast-boundary engine-payload
         const created = await noteExecutor.create({ label: event.payload.label }, event.user, db, {
           streamTenantId,
         });
@@ -61,8 +63,8 @@ const fortenantFeature = defineFeature("fortenant", (r) => {
       schema: z.object({ targetTenantId: z.string() }),
       access: { roles: ["SystemAdmin"] },
       handler: async (event, ctx) => {
-        if (!ctx.forTenant) throw new Error("ctx.forTenant missing");
-        const { db } = ctx.forTenant(event.payload.targetTenantId as TenantId); // @cast-boundary engine-payload
+        if (!ctx.tenants.writeTarget) throw new Error("ctx.forTenant missing");
+        const { db } = ctx.tenants.writeTarget(event.payload.targetTenantId as TenantId); // @cast-boundary engine-payload
         const rows = await db.selectMany<{ label: string }>(noteTable);
         return {
           isSuccess: true as const,
@@ -79,7 +81,7 @@ const fortenantFeature = defineFeature("fortenant", (r) => {
   r.queryHandler({
     name: "has-for-tenant",
     schema: z.object({}),
-    handler: async (_query, ctx) => ({ offered: ctx.forTenant !== undefined }),
+    handler: async (_query, ctx) => ({ offered: ctx.tenants.writeTarget !== undefined }),
     access: { roles: ["SystemAdmin"] },
   });
 });

@@ -68,8 +68,8 @@ export function createBillingInfoQueryConfig<TTier extends string>(
       const billingLive = ctx.config
         ? (await ctx.config(STRIPE_BILLING_LIVE_CONFIG_QN)) === true
         : false;
-      const apiKeySet = ctx.secrets
-        ? await ctx.secrets.has(SYSTEM_TENANT_ID, STRIPE_API_KEY_CONFIG_QN)
+      const apiKeySet = ctx.services.secrets
+        ? await ctx.services.secrets.has(SYSTEM_TENANT_ID, STRIPE_API_KEY_CONFIG_QN)
         : false;
 
       const sub = await ctx.db.fetchOne<{

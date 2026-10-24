@@ -133,11 +133,13 @@ export const publicVariantQuery = defineQueryHandler({
     );
     if (!isPublic) return null;
 
-    // ctx.files/ctx.derivatives are optional on HandlerContext (only wired
+    // ctx.services.files/ctx.services.derivatives are optional on HandlerContext (only wired
     // when file-foundation resolved a provider) — narrow via a plain guard,
     // never `!`/`as`, and surface a real config error (not a silent deny)
     // when the feature isn't actually wired.
-    const { files, derivatives } = ctx;
+    const {
+      services: { files, derivatives },
+    } = ctx;
     if (!files || !derivatives) {
       throw new Error(
         "file-derivatives requires ctx.files/ctx.derivatives — is file-foundation mounted?",
@@ -151,7 +153,7 @@ export const publicVariantQuery = defineQueryHandler({
 
     // ponytail: fully buffered (no streaming), +33% over the wire from
     // base64 — HttpRouteHandlerDeps only exposes {app, systemQuery} (no
-    // direct ctx.files access from the Hono handler itself), and the local
+    // direct ctx.services.files access from the Hono handler itself), and the local
     // dev storage provider has no getSignedUrl (a redirect design wouldn't
     // work in dev). Upgrade path: a binary-passthrough dispatcher primitive
     // would be its own, larger issue.

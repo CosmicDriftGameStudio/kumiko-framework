@@ -53,7 +53,7 @@ export const selectedExtensionsQuery = defineQueryHandler({
       query.user.tenantId,
       query.user.id,
       db,
-      ctx.secrets,
+      ctx.services.secrets,
     );
     const selected: Record<string, string> = {};
     for (const [selectorKey, keyDef] of readableSelectors) {

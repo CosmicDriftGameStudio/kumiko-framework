@@ -138,7 +138,7 @@ const feature = defineFeature(FEATURE, (r) => {
       access: { roles: ["Admin", "SystemAdmin"] },
       transaction: "perCommand",
       handler: async (event, ctx) => {
-        const target = ctx.forTenant?.(testTenantId(event.payload.targetTenant));
+        const target = ctx.tenants.writeTarget?.(testTenantId(event.payload.targetTenant));
         if (!target) throw new Error("forTenant is expected in a write handler context");
         await noteExecutor.create({ title: "via-for-tenant" }, ctx.user, target.db);
         return { isSuccess: true as const, data: {} };
@@ -206,7 +206,7 @@ const feature = defineFeature(FEATURE, (r) => {
       access: { roles: ["Admin"] },
       reserveBeforeTransaction: async (event, ctx) => {
         const { title } = titlePayload.parse(event.payload);
-        const target = ctx.forTenant?.(ctx.user.tenantId);
+        const target = ctx.tenants.writeTarget?.(ctx.user.tenantId);
         if (!target) throw new Error("forTenant is expected in a write handler context");
         await noteExecutor.create({ title }, ctx.user, target.db);
         return undefined;

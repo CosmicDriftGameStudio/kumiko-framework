@@ -17,7 +17,7 @@ export function testMailChannelContext(ctx: HandlerContext, user: SessionUser): 
     registry: ctx.registry,
     sseBroker: undefined,
     tenantId: user.tenantId,
-    secrets: ctx.secrets,
+    secrets: ctx.services.secrets,
     config: ctx.config,
     readAttachment: createEmailAttachmentReader(
       ctx.db,

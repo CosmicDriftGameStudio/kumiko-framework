@@ -144,7 +144,7 @@ export function buildHandlerDbFacet(scope: HandlerContextScope) {
 // dispatcher's tenantIdOverride predicate, so no caller reaches more than it could via
 // tenantIdOverride. The foreign db carries no unsafeRaw/globalWrites grant and is tenant mode
 // bound to the target; the executor accepts streamTenantId only on a db bound to that tenant.
-export function buildForTenantFragment(
+export function buildWriteTarget(
   scope: HandlerContextScope,
   exposedDb: TenantDb | undefined,
   readOnlyForTenant: boolean,
@@ -178,10 +178,10 @@ export function buildForTenantFragment(
           };
         }
       : undefined;
-  return { ...(forTenant && { forTenant }) };
+  return forTenant;
 }
 
-// ctx.files resolved per-tenant through file-foundation (lazy — the
+// ctx.services.files resolved per-tenant through file-foundation (lazy — the
 // provider is only resolved when a handle actually does I/O). Boot wires
 // _fileProviderResolver when a file-provider plugin is mounted; falls back
 // to a statically-injected context.files (tests).
@@ -189,7 +189,7 @@ export function buildFileFragment(scope: HandlerContextScope, db: TenantDb | und
   const { context, registry, user } = scope;
   const fileResolver = context._fileProviderResolver;
   const files = fileResolver ? createTenantFileContext(fileResolver, user.tenantId) : context.files;
-  // ctx.derivatives builds on ctx.files (needs a FileContext to read the
+  // ctx.services.derivatives builds on ctx.services.files (needs a FileContext to read the
   // original + write the variant) plus db (to look up the FileRef row) — so
   // it can only be constructed exactly when files+db both resolved; falls
   // back to a statically-injected context.derivatives otherwise (tests).

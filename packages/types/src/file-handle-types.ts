@@ -10,9 +10,9 @@ export type FileHandle = {
   derive(suffix: string): FileHandle;
 };
 
-// The `ctx.files` service — a factory that materialises a FileHandle for a
+// The `ctx.services.files` service — a factory that materialises a FileHandle for a
 // storage key. One per request/event, bound to a single tenant: the provider
-// is resolved per-tenant through file-foundation, so uploads, ctx.files and the
+// is resolved per-tenant through file-foundation, so uploads, ctx.services.files and the
 // GDPR jobs all hit the same store by construction.
 export type FileContext = {
   ref(key: string): FileHandle;

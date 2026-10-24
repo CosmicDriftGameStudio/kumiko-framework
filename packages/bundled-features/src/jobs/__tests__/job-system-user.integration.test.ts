@@ -93,8 +93,7 @@ const billingFeature = defineFeature("billing", (r) => {
             db: attachOutsideTransaction(tenantDb, tenantDb),
             systemDb: createSystemDbView(tenantDb),
             registry: reg,
-            configResolver: ctx["configResolver"] as ConfigResolver,
-            ...bridgeStub(),
+            ...bridgeStub({ services: { configResolver: ctx.services.configResolver } }),
           },
         );
       }
@@ -190,8 +189,7 @@ describe("SYSTEM_USER in jobs", () => {
         db: attachOutsideTransaction(adminTenantDb, adminTenantDb),
         systemDb: createSystemDbView(adminTenantDb),
         registry,
-        configResolver: resolver,
-        ...bridgeStub(),
+        ...bridgeStub({ services: { configResolver: resolver } }),
       },
     );
 

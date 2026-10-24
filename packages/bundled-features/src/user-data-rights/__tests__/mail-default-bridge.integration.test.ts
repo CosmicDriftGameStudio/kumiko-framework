@@ -4,7 +4,7 @@
 // provider=inmemory), with NO per-request `config`.
 //
 // This proves the critical seam: the cron builds the per-tenant mail transport
-// from `ctx.configResolver` (makeTenantMailTransportResolver). A hand-wired
+// from `ctx.services.configResolver` (makeTenantMailTransportResolver). A hand-wired
 // callback or fake resolver would bypass exactly this bridge. The app mounts
 // mail-foundation+transport, so GDPR emails work without callback code.
 

@@ -75,7 +75,7 @@ const seatsFeature = defineFeature("cap-seats-probe", (r) => {
     name: "read-for",
     schema: z.object({ tenantId: z.string() }),
     handler: async (query, ctx) => {
-      const configFor = ctx.configFor;
+      const configFor = ctx.tenants.config;
       if (!configFor) throw new Error("ctx.configFor missing");
       return { value: await configFor(query.payload.tenantId as TenantId)(SEATS_KEY) }; // @cast-boundary test payload
     },

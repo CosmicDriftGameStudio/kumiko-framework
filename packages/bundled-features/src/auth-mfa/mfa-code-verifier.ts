@@ -38,10 +38,10 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
     });
     const row = await findUserMfaRow(scopedDb, { id: userId, tenantId, roles: [] });
     if (!row) return { enrolled: false, ok: false };
-    // Fail closed without ctx.redis, matching disable.write.ts/verify.write.ts —
+    // Fail closed without ctx.services.redis, matching disable.write.ts/verify.write.ts —
     // skipping the TOTP-replay burn would let an observed code be replayed.
-    if (!code || !ctx.redis) return { enrolled: true, ok: false };
-    const verify = await verifyMfaFactor(row, code, { redis: ctx.redis, userId });
+    if (!code || !ctx.services.redis) return { enrolled: true, ok: false };
+    const verify = await verifyMfaFactor(row, code, { redis: ctx.services.redis, userId });
     return { enrolled: true, ok: verify.ok && verify.method === "totp" };
   };
 }

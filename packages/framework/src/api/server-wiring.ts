@@ -111,7 +111,7 @@ export function resolveServerWiring(options: ServerOptions): ServerWiring {
   // Inject tracer + meter into the AppContext so the dispatcher can propagate
   // them into every HandlerContext it builds. Build the per-tenant file-provider
   // resolver once (when a provider plugin is mounted) — the dispatcher uses it
-  // to materialise `ctx.files`, the upload routes + MSP-applies share it. The
+  // to materialise `ctx.services.files`, the upload routes + MSP-applies share it. The
   // resolver reads config + the s3.secretAccessKey secret under SYSTEM identity.
   const contextWithFiles = withFileProviderResolver(options.registry, options.context, cacheSync);
   const fileProviderResolver = contextWithFiles._fileProviderResolver;

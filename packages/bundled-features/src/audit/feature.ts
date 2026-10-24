@@ -93,7 +93,7 @@ export function createAuditFeature(): FeatureDefinition {
           await runEscapeHatchRetention({
             db: ctx.db.unsafeRaw(),
             registry: ctx.registry,
-            configResolver: ctx.configResolver,
+            configResolver: ctx.services.configResolver,
             userId: SYSTEM_USER_ID,
           });
         },

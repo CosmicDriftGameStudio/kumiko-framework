@@ -1,5 +1,5 @@
 // A FileRef created server-side by createFileRefFromBytes is a regular,
-// tracked FileRef: ctx.derivatives renders variants of it with real sharp.
+// tracked FileRef: ctx.services.derivatives renders variants of it with real sharp.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -28,7 +28,7 @@ const generatorFeature = defineFeature("server-created-file-ref-fixture", (r) =>
     name: "generate-and-thumb",
     schema: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(new InternalError({ message: "ctx.derivatives missing" }));
       }
       const png = await sharp({
@@ -47,7 +47,7 @@ const generatorFeature = defineFeature("server-created-file-ref-fixture", (r) =>
         data: new Uint8Array(png),
       });
       if (!created.isSuccess) return created;
-      const variant = await ctx.derivatives.variant(
+      const variant = await ctx.services.derivatives.variant(
         created.data.id,
         { maxEdge: 100, fit: "inside", format: "webp" },
         "thumb",

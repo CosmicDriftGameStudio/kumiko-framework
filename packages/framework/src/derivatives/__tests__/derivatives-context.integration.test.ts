@@ -1,4 +1,4 @@
-// Proves ctx.derivatives actually arrives on BOTH context-building paths
+// Proves ctx.services.derivatives actually arrives on BOTH context-building paths
 // this cut wires it into: the HTTP write-handler path (dispatch-shared.ts
 // buildHandlerContext) and the job path (job-runner.ts handleJob). A unit
 // test on createDerivativesContext alone can't catch a forgotten wiring
@@ -31,12 +31,12 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
     name: "make-variant",
     schema: z.object({ fileRefId: z.string() }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives on write-handler ctx" }),
         );
       }
-      const result = await ctx.derivatives.variant(
+      const result = await ctx.services.derivatives.variant(
         event.payload.fileRefId,
         { maxEdge: 100 },
         "thumb",
@@ -53,13 +53,13 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
     name: "probe-typed-error",
     schema: z.object({ fileRefId: z.string() }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives on write-handler ctx" }),
         );
       }
       try {
-        await ctx.derivatives.variant(event.payload.fileRefId, { maxEdge: 100 }, "thumb");
+        await ctx.services.derivatives.variant(event.payload.fileRefId, { maxEdge: 100 }, "thumb");
         return { isSuccess: true as const, data: { threw: false } };
       } catch (err) {
         return {
@@ -79,10 +79,10 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
 
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload, ctx) => {
     const fileRefId = (payload as { fileRefId: string }).fileRefId;
-    if (!ctx.derivatives) {
+    if (!ctx.services.derivatives) {
       throw new Error("no ctx.derivatives on job ctx");
     }
-    const result = await ctx.derivatives.variant(fileRefId, { maxEdge: 200 }, "card");
+    const result = await ctx.services.derivatives.variant(fileRefId, { maxEdge: 200 }, "card");
     jobResults.push(result);
   });
 });

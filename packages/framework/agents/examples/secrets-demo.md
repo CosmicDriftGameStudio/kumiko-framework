@@ -12,7 +12,7 @@ Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation.
 
 ## What it shows
 
-- `r.secret` + `ctx.secrets.get` (audited reads)
+- `r.secret` + `ctx.services.secrets.get` (audited reads)
 - Charge-style handler that never returns the plaintext key
 
 ## Source
@@ -39,7 +39,7 @@ bun test
 // function calls into framework internals):
 //   1. A TenantAdmin sets a secret over HTTP → DB holds only an envelope.
 //   2. list handler returns a redacted preview, never plaintext.
-//   3. Feature code (ctx.secrets.get) decrypts through the audited wrapper.
+//   3. Feature code (ctx.services.secrets.get) decrypts through the audited wrapper.
 //      Every read writes a tenantSecretRead event to the events-table.
 //   4. The response-guard catches accidental Secret<> leaks: a handler
 //      that tries to return the branded value triggers a 500 at the
@@ -129,7 +129,7 @@ beforeAll(async () => {
     features: [createJobsFeature(), createSecretsFeature(), createBillingFeature(), leakyFeature],
     // Typed masterKeyProvider option: lands in AppContext as a typed field,
     // no Record<string, unknown>-via-extraContext. The rotation job reads
-    // it from ctx.masterKeyProvider directly.
+    // it from ctx.services.masterKeyProvider directly.
     masterKeyProvider: providerRef,
     extraContext: ({ db, registry }) => ({
       // SecretsContext sees the mutable ref — any replace() flips what
@@ -299,7 +299,7 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
 
   test("subsequent ctx.secrets.get after rotation still returns the original plaintext", async () => {
     // Goes through the whole real stack: HTTP → dispatcher → billing
-    // handler → ctx.secrets.get → cached DEK-unwrap with V2 → decrypt.
+    // handler → ctx.services.secrets.get → cached DEK-unwrap with V2 → decrypt.
     // If rotation broke anything, fingerprint would differ or the call
     // would throw.
     const result = await stack.http.writeOk<{ keyFingerprint: string }>(
@@ -328,7 +328,7 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
 ### src/feature.ts
 
 ```ts
-// A miniature "billing" feature that reads a Stripe API key from ctx.secrets
+// A miniature "billing" feature that reads a Stripe API key from ctx.services.secrets
 // and simulates a charge. The point is to show how feature code uses the
 // plaintext secret without ever exposing it to clients — the charge endpoint
 // returns { chargeId } but never the apiKey.
@@ -357,7 +357,10 @@ const chargeWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "User"] },
   handler: async (event, ctx) => {
-    const secrets = requireSecretsContext(ctx, "billing:write:charge");
+    const secrets = requireSecretsContext(
+      { secrets: ctx.services.secrets, user: ctx.user },
+      "billing:write:charge",
+    );
     // requireSecretsContext returned a wrapper that auto-fills the audit
     // context (userId + "billing:write:charge") on every .get — the read
     // lands in tenant_secret_reads without the handler having to remember.

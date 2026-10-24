@@ -9,6 +9,7 @@ import {
 } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
 import {
   createEntity,
   createRegistry,
@@ -18,6 +19,7 @@ import {
 } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
+import { attachOutsideTransaction } from "../attach-outside-transaction.ts";
 import { createCascadeDeleteHook } from "../cascade-handler.ts";
 
 type Table = TableColumns;
@@ -210,7 +212,7 @@ describe("cascade delete: restrict", () => {
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "department",
         },
-        { db: tdb },
+        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
       ),
     ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
   });
@@ -230,7 +232,7 @@ describe("cascade delete: restrict", () => {
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "department",
         },
-        { db: tdb },
+        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
       ),
     ).resolves.toBeUndefined();
   });
@@ -260,7 +262,7 @@ describe("cascade delete: cascade", () => {
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "user",
       },
-      { db: tdb },
+      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
     );
 
     // Sessions should be gone
@@ -296,7 +298,7 @@ describe("cascade delete: manyToMany restrict", () => {
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "user",
         },
-        { db: tdb },
+        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
       ),
     ).rejects.toMatchObject({
       code: "conflict",
@@ -325,7 +327,7 @@ describe("cascade delete: manyToMany restrict", () => {
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "user",
         },
-        { db: tdb },
+        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
       ),
     ).resolves.toBeUndefined();
   });
@@ -365,7 +367,7 @@ describe("cascade delete: manyToMany cascade", () => {
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "user",
       },
-      { db: tdb },
+      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
     );
 
     // Through-records for this user must be gone
@@ -405,7 +407,7 @@ describe("cascade delete: hasMany setNull", () => {
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "team",
       },
-      { db: tdb },
+      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
     );
 
     // Members still exist, but teamId is now null
@@ -435,7 +437,7 @@ describe("cascade delete: hasMany setNull", () => {
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "team",
       },
-      { db: tdb },
+      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
     );
 
     const after = await memberExecutor.list({}, admin, tdb);

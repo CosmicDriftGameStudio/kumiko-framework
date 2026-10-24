@@ -764,14 +764,14 @@ export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState
       featureName,
       fn: async (result, context) => {
         if (!context.notify) {
-          context.log?.debug(
+          context.obs.log?.debug(
             `notification ${qualifiedName}: skipping — no notify function configured on context`,
           );
           return;
         }
         const to = recipient(result);
         if (to === null) {
-          context.log?.debug(
+          context.obs.log?.debug(
             `notification ${qualifiedName}: skipping — recipient resolver returned null for result ${result.id}`,
           );
           return;

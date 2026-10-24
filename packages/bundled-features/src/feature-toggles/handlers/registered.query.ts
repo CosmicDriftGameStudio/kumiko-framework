@@ -43,7 +43,7 @@ export const registeredQuery = defineQueryHandler({
     // The per-tenant signature requires SYSTEM_TENANT_ID; the app resolver
     // returns the union of all tier features. The sentinel convention is
     // documented in DispatcherOptions.effectiveFeatures.
-    const effective = ctx.effectiveFeatures?.(SYSTEM_TENANT_ID);
+    const effective = ctx.services.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
     const rows: Array<{
       id: string;

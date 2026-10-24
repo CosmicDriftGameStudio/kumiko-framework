@@ -479,7 +479,7 @@ export async function loadEventsAfterVersion(
 // The caller may pause / do async work between yields; the next batch is
 // only fetched when consumed.
 //
-// Cancellation: pass `signal` (typically `ctx.signal` from a handler) to
+// Cancellation: pass `signal` (typically `ctx.lifecycle.signal` from a handler) to
 // abort iteration. Checked both at batch boundaries (before the next
 // fetch) AND between yields (so abort lands within one event regardless
 // of batch size). Throws AbortError on the first check after abort;

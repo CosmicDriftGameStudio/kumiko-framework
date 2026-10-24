@@ -94,7 +94,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
               tenantId,
               userId,
               callerFeature: STEP_DISPATCHER_FEATURE,
-              ...(ctx.secrets && { secrets: ctx.secrets }),
+              ...(ctx.services.secrets && { secrets: ctx.services.secrets }),
             }),
         });
       },

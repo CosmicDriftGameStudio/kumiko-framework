@@ -10,10 +10,12 @@ import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type {
+  ContextServices,
   DispatchWriteRef,
   JobContext,
   JobDefinition,
   JobDispatch,
+  JobObservability,
   MemberReader,
   SessionUser,
 } from "../engine/types/index.ts";
@@ -21,6 +23,7 @@ import { InternalError } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { createEscapeHatchReporter, createMetricsForFactory } from "../observability/index.ts";
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
+import { buildContextServices } from "../pipeline/context-services.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
 import { createJobAppendEvent } from "./job-append-event.ts";
@@ -172,7 +175,7 @@ function buildJobDbFacets(
   const { jobDef, tenantId, writeOrigin } = input;
   const personalDataGate = writeOrigin ? buildPersonalDataGate(registry, writeOrigin) : undefined;
   const configDb = context.db as DbConnection | undefined; // @cast-boundary db-operator
-  // Shared by the config accessor and ctx.derivatives below — both need the
+  // Shared by the config accessor and ctx.services.derivatives below — both need the
   // same tenant-scoped db, and building it twice would let the two calls
   // drift apart. Always "system" mode regardless of the job's own
   // systemScope() status (pre-existing, not something this change alters)
@@ -226,20 +229,20 @@ function buildJobServiceFacets(
   facetInput: JobFacetInput,
   tenantScopedDb: TenantDb | undefined,
 ): {
-  files: JobContext["files"];
+  files: JobContext["services"]["files"];
   notify: ReturnType<NonNullable<JobRunnerScope["context"]["_notifyFactory"]>> | undefined;
   config: ConfigAccessor | undefined;
-  derivatives: JobContext["derivatives"];
+  derivatives: JobContext["services"]["derivatives"];
 } {
   const { context, registry } = scope;
   const { input, systemUser } = facetInput;
   const { tenantId } = input;
-  // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
+  // Mirror dispatch-shared.ts buildHandlerContext: ctx.services.files must resolve
   // through the same _fileProviderResolver for jobs as for write-handlers,
-  // otherwise event-triggered jobs silently get an unresolved ctx.files.
+  // otherwise event-triggered jobs silently get an unresolved ctx.services.files.
   const fileResolver = context._fileProviderResolver;
   const files = fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files;
-  // Same buildHandlerContext parity as ctx.files above: ctx.notify/ctx.config
+  // Same buildHandlerContext parity as ctx.services.files above: ctx.notify/ctx.config
   // must resolve for jobs the same way they do for write-handlers, or an
   // app-author job calling ctx.notify(...)/ctx.config(...) hits a TypeError
   // at runtime the write-handler path never would.
@@ -259,7 +262,7 @@ function buildJobServiceFacets(
           secrets: context.secrets,
         })
       : undefined;
-  // Mirror dispatch-shared.ts: ctx.derivatives needs files+db, same
+  // Mirror dispatch-shared.ts: ctx.services.derivatives needs files+db, same
   // tenant-scoped db the config accessor above uses.
   const derivatives =
     files && tenantScopedDb
@@ -334,6 +337,36 @@ function createJobDefer(
   };
 }
 
+function buildJobServices(
+  scope: JobRunnerScope,
+  parts: {
+    readonly files: ContextServices["files"];
+    readonly derivatives: ContextServices["derivatives"];
+    readonly selfRunner: ContextServices["jobRunner"];
+  },
+): ContextServices {
+  const { files, derivatives, selfRunner } = parts;
+  return buildContextServices(scope.context, {
+    ...(files && { files }),
+    ...(derivatives && { derivatives }),
+    // Expose the runner so handlers can chain a follow-up job. Symmetric with
+    // how the command-dispatcher hands write-handlers their jobRunner.
+    ...(selfRunner !== undefined && { jobRunner: selfRunner }),
+  });
+}
+
+function buildJobObservability(
+  scope: JobRunnerScope,
+  log: JobObservability["log"],
+): JobObservability {
+  const { meter } = scope.context;
+  return {
+    log,
+    metricsFor: createMetricsForFactory(meter),
+    ...(meter && { meter }),
+  };
+}
+
 function buildJobContext(
   scope: JobRunnerScope,
   input: JobContextInput,
@@ -366,15 +399,12 @@ function buildJobContext(
   const rawTriggerEvent = rawData["_triggerEvent"];
   const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
   const jobLogger = createJobLogger(input.logs);
-  // Helpers that take the job context as AppContext read a flat `log`; the typed surface is obs.log.
-  const flatLogForAppContextReaders = { log: jobLogger };
   const jobContext: Omit<JobContext, "tz"> = {
     defer: createJobDefer(jobName, bullJob, token),
     canDefer:
       token !== undefined &&
       bullJob.moveToDelayed !== undefined &&
       hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
-    ...scope.context,
     db: jobDb ?? missingDbProxy(jobName),
     events: {
       append: createJobAppendEvent({
@@ -385,8 +415,8 @@ function buildJobContext(
         jobName,
       }),
     },
-    files,
-    derivatives,
+    services: buildJobServices(scope, { files, derivatives, selfRunner }),
+    lifecycle: scope.context.signal ? { signal: scope.context.signal } : {},
     ...(notify !== undefined && { notify }),
     ...(config !== undefined && { config }),
     ...(systemDb && { systemDb }),
@@ -395,15 +425,11 @@ function buildJobContext(
     // workers can reach projections/jobs without the app author duplicating
     // it into `context` (the JobContext contract guarantees `registry`).
     registry: scope.registry,
-    // Expose the runner so handlers can chain a follow-up job. Symmetric with
-    // how the command-dispatcher hands write-handlers their jobRunner.
-    ...(selfRunner !== undefined && { jobRunner: selfRunner }),
     systemUser,
     triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
     attempt,
     finalAttempt,
-    obs: { log: jobLogger, metricsFor: createMetricsForFactory(scope.context.meter) },
-    ...flatLogForAppContextReaders,
+    obs: buildJobObservability(scope, jobLogger),
     ...(triggerName !== undefined && { triggerName }),
     ...(triggerEvent !== undefined && { triggerEvent }),
     dispatch: dispatchFacets,

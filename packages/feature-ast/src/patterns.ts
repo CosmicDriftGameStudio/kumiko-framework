@@ -248,7 +248,7 @@ export type MetricPattern = {
 
 // `r.secret(shortName, options)` — declares a tenant-scoped secret key,
 // qualified to `<feature>:secret:<kebab-short>` via the QN helper. Returns a
-// typed handle for `ctx.secrets.get`, so feature code never retypes the
+// typed handle for `ctx.services.secrets.get`, so feature code never retypes the
 // qualified string — same ergonomics as `r.config` handles.
 export type SecretPattern = {
   readonly kind: "secret";

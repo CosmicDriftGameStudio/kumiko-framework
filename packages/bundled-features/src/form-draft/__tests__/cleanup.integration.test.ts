@@ -70,7 +70,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       // Two providers, keyed by tenant — proves the cleanup job resolves
       // each stale row's OWN tenant rather than reusing a single
-      // job-level ctx.files (which would be bound to SYSTEM_TENANT_ID, the
+      // job-level ctx.services.files (which would be bound to SYSTEM_TENANT_ID, the
       // tenant this system-wide job actually dispatches under).
       _fileProviderResolver: (tenantId: TenantId) =>
         Promise.resolve(tenantId === TENANT_B ? providerB : providerA),

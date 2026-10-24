@@ -43,7 +43,7 @@ r.config({
 
 - **`backing: "secrets"`** — the value lives in the secrets store (envelope
   encryption, KEK rotation, audit-on-read) instead of `config_values`. Set/read/
-  reset dispatch through `ctx.secrets`; the query handlers mask the value while
+  reset dispatch through `ctx.services.secrets`; the query handlers mask the value while
   the owning feature still reads the revealed plaintext via `ctx.config`. Only
   valid for `scope: "system"` — secrets are flat per `(tenant, key)` with no
   cascade, so a tenant override would be incoherent and is rejected at boot.
@@ -82,7 +82,7 @@ await runProdApp({
 ```
 
 Register the `secrets` feature too so its `tenant_secrets` table is migrated;
-the config backing only needs the `ctx.secrets` context shown above.
+the config backing only needs the `ctx.services.secrets` context shown above.
 
 ## Vs. the neighbouring recipes
 

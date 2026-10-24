@@ -15,7 +15,12 @@ interface Case {
   readonly name: string;
   readonly rewrites: number;
   readonly manual: readonly (readonly [number, string])[];
+  // The old context types still carry the flat members, so structural parameters are fine there.
+  readonly manualOld?: readonly (readonly [number, string])[];
 }
+
+const REDIS_MOVED =
+  "a handler or job context is passed to a parameter that reads redis, which moved to services.redis";
 
 const CASES: readonly Case[] = [
   { name: "handler-body", rewrites: 10, manual: [] },
@@ -47,6 +52,38 @@ const CASES: readonly Case[] = [
   },
   { name: "phases-only", rewrites: 2, manual: [] },
   { name: "config-accessor", rewrites: 6, manual: [] },
+  { name: "services", rewrites: 13, manual: [] },
+  {
+    name: "contracts",
+    rewrites: 3,
+    manual: [
+      [18, "clock: boot wiring is no longer exposed on the context"],
+      [22, "systemUser: removed from HandlerContext"],
+      [22, "triggeredBy: removed from HandlerContext"],
+      [22, "_tenantId: removed from HandlerContext, read ctx.user.tenantId"],
+      [26, "a handler or job context is passed to an AppContext parameter"],
+      [27, "a handler or job context is passed to an AppContext parameter"],
+      [48, REDIS_MOVED],
+      [49, REDIS_MOVED],
+      [
+        49,
+        "a handler or job context is passed to a parameter that reads signal, which moved to lifecycle.signal",
+      ],
+    ],
+    manualOld: [
+      [18, "clock: boot wiring is no longer exposed on the context"],
+      [22, "systemUser: removed from HandlerContext"],
+      [22, "triggeredBy: removed from HandlerContext"],
+      [22, "_tenantId: removed from HandlerContext, read ctx.user.tenantId"],
+      [26, "a handler or job context is passed to an AppContext parameter"],
+      [27, "a handler or job context is passed to an AppContext parameter"],
+    ],
+  },
+  {
+    name: "hooks",
+    rewrites: 5,
+    manual: [[7, "a handler or job context is passed to an AppContext parameter"]],
+  },
 ];
 
 const projects = new Map<Shape, Project>();
@@ -90,7 +127,9 @@ describe("ctx-namespaces codemod", () => {
           expect(result.output).toBe(readFileSync(caseFile(testCase.name, "expected"), "utf8"));
           expect(result.rewrites).toHaveLength(testCase.rewrites);
           expect(result.manual.map((site) => [site.line, site.description])).toEqual(
-            testCase.manual.map(([line, reason]) => [line, reason]),
+            (shape === "old" ? (testCase.manualOld ?? testCase.manual) : testCase.manual).map(
+              ([line, reason]) => [line, reason],
+            ),
           );
         });
 
@@ -120,6 +159,23 @@ describe("ctx-namespaces codemod", () => {
     const { output } = runCase("old", "phases-only");
 
     expect(output).not.toContain("HandlerContext");
+  });
+
+  it("rewrites the body of a hook whose AppContext annotation moves to HandlerContext", () => {
+    const { output } = runCase("old", "hooks");
+
+    expect(output).toContain("context: HandlerContext) =>");
+    expect(output).toContain("context: HandlerContext & { readonly isNew: boolean }");
+    expect(output).toContain("context.obs.log");
+    expect(output).toContain("import type { AppContext, HandlerContext }");
+  });
+
+  it("moves a cast read of an unknown member to services.extensions", () => {
+    const { output } = runCase("old", "contracts");
+
+    expect(output).toContain("(ctx.services.extensions as { templateResolver?: Resolver })");
+    expect(output).toContain("(job.services.extensions as { templateResolver?: Resolver })");
+    expect(output).toContain("(ctx as { db?: unknown }).db");
   });
 
   it("adds the phase context types to the import that supplies HandlerContext", () => {

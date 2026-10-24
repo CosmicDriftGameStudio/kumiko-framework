@@ -487,13 +487,13 @@ export type RunProdAppOptions = {
   readonly defaultLocale?: string;
   readonly extraContext?: ExtraContextOption;
   /** MasterKeyProvider replacing the env KEK (`KUMIKO_SECRETS_MASTER_KEY_V<n>`)
-   *  for `ctx.secrets`, encrypted config keys and `encrypted: true` entity
+   *  for `ctx.services.secrets`, encrypted config keys and `encrypted: true` entity
    *  fields. Default: `createEnvMasterKeyProvider`. Use it for KMS backends
    *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
    *  required in the env. */
   readonly masterKey?: MasterKeyProvider;
   /** Subject-key adapter for crypto-shredding (GDPR Art. 17). When set, it is
-   *  exposed to feature code as `ctx.kms`, and boot checks its health so the app
+   *  exposed to feature code as `ctx.services.kms`, and boot checks its health so the app
    *  cannot start against an unreachable KMS. Without an adapter,
    *  crypto-shredding remains disabled. */
   readonly kms?: KmsAdapter;
