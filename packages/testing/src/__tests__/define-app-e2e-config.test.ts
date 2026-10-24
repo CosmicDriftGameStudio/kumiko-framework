@@ -22,8 +22,11 @@ import {
 import {
   defineAppE2eConfig,
   type E2eProject,
+  ISOLATED_E2E_PROJECT_NAME,
+  NON_REAL_SPEC_PATTERN,
   resolveE2eWorkers,
 } from "../e2e/define-app-e2e-config";
+import { screenshotSpecsIgnore } from "../e2e/screenshot-dir";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
 
@@ -520,5 +523,76 @@ describe("resolveE2eWorkers", () => {
   test("defineAppE2eConfig applies the override", () => {
     process.env[E2E_WORKERS_ENV] = "3";
     expect(defineAppE2eConfig({ port: 1 }).workers).toBe(3);
+  });
+});
+
+describe("isolatedSpecs", () => {
+  const isolatedSpec = "**/composer.spec.ts";
+  const defaultRunIgnore = () => [...screenshotSpecsIgnore(), "**/*.real.spec.ts"];
+
+  test("without the option or with an empty list the projects stay as before", () => {
+    for (const config of [
+      defineAppE2eConfig({ port: 1 }),
+      defineAppE2eConfig({ port: 1, isolatedSpecs: [] }),
+    ]) {
+      expect(config.projects?.map((project) => project.name)).toEqual(["chromium"]);
+      expect(config.projects?.[0]).not.toHaveProperty("testIgnore");
+    }
+  });
+
+  test("chromium ignores the isolated specs and a separate serial project runs them", () => {
+    const config = defineAppE2eConfig({ port: 1, isolatedSpecs: isolatedSpec });
+    const [chromium, isolated] = config.projects ?? [];
+    expect(chromium?.testIgnore).toEqual([...defaultRunIgnore(), isolatedSpec]);
+    expect(isolated?.name).toBe(ISOLATED_E2E_PROJECT_NAME);
+    expect(isolated?.testMatch).toEqual([isolatedSpec]);
+    expect(isolated?.dependencies).toEqual(["chromium"]);
+    expect(isolated?.workers).toBe(1);
+    expect(isolated?.fullyParallel).toBe(false);
+    expect(isolated?.use?.viewport).toEqual(chromium?.use?.viewport);
+    expect(isolated?.use?.deviceScaleFactor).toBe(chromium?.use?.deviceScaleFactor);
+  });
+
+  test("named app projects keep their own ignore, gain the isolated ones and are awaited", () => {
+    const config = defineAppE2eConfig({
+      port: 1,
+      isolatedSpecs: isolatedSpec,
+      projects: [{ name: "mobile", testIgnore: "**/desktop-only.spec.ts" }],
+    });
+    const mobile = config.projects?.find((project) => project.name === "mobile");
+    expect(mobile?.testIgnore).toEqual([
+      ...defaultRunIgnore(),
+      "**/desktop-only.spec.ts",
+      isolatedSpec,
+    ]);
+    const isolated = config.projects?.at(-1);
+    expect(isolated?.name).toBe(ISOLATED_E2E_PROJECT_NAME);
+    expect(isolated?.dependencies).toEqual(["chromium", "mobile"]);
+  });
+
+  test("an unnamed app project is rejected", () => {
+    expect(() =>
+      defineAppE2eConfig({ port: 1, isolatedSpecs: isolatedSpec, projects: [{ testMatch: "x" }] }),
+    ).toThrow(/isolatedSpecs needs named projects/);
+  });
+
+  test("a real run keeps plain specs out of the isolated project", () => {
+    process.env[REAL_PROVIDERS_ENV] = "1";
+    const config = defineAppE2eConfig({ port: 1, isolatedSpecs: isolatedSpec });
+    const isolated = config.projects?.at(-1);
+    expect(isolated?.testIgnore).toContain(NON_REAL_SPEC_PATTERN);
+    expect(NON_REAL_SPEC_PATTERN.test("x/composer.spec.ts")).toBe(true);
+    expect(NON_REAL_SPEC_PATTERN.test("x/composer.real.spec.ts")).toBe(false);
+  });
+
+  test("--shard is rejected with isolatedSpecs and ignored without", () => {
+    const savedArgv = process.argv;
+    process.argv = [...savedArgv, "--shard=1/2"];
+    try {
+      expect(() => defineAppE2eConfig({ port: 1, isolatedSpecs: isolatedSpec })).toThrow(/--shard/);
+      expect(() => defineAppE2eConfig({ port: 1 })).not.toThrow();
+    } finally {
+      process.argv = savedArgv;
+    }
   });
 });

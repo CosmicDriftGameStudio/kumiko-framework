@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-20
+verified: 2026-10-24
 ---
 
 # The test standard
@@ -126,6 +126,37 @@ them: on a small (1.5-CPU) CI runner, 1/2/4 workers measured 2.6/2.6/2.7 min,
 so the run is already saturated at one worker and more only adds Chromium
 processes. A project that sets its own
 `workers` throws.
+
+### Specs that change app-wide state
+
+All specs of an app run in parallel against one server. A spec that changes
+state every tenant sees, such as a catalog channel or a global setting, can
+break specs running next to it, while both pass on their own. Mark such specs
+with `isolatedSpecs` instead of lowering the workers:
+
+```ts illustration
+export default defineAppE2eConfig({
+  port: 4321,
+  isolatedSpecs: ["**/composer.spec.ts"],
+});
+```
+
+The marked files leave the `chromium` project and every app project and move
+into the `chromium-isolated` project. It starts once all other projects have
+finished and runs its files one after another on a single worker. Without the
+option the config is unchanged.
+
+The isolated project depends on the parallel projects, so Playwright's rules
+for dependencies apply:
+
+- If a spec in a parallel project fails, the isolated project does not run.
+  Fix the parallel failure first.
+- A file or `-g` filter that hits an isolated spec runs the full parallel
+  suite first. Add `--no-deps` to run only the isolated spec.
+- Playwright does not shard dependency projects, so one shard would get every
+  spec. `defineAppE2eConfig` throws when `isolatedSpecs` meets `--shard`.
+- Every app project needs a `name`, because the isolated project waits on it
+  by name.
 
 ## Concurrency
 
