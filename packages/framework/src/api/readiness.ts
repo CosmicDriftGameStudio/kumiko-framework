@@ -54,34 +54,58 @@ export function createReadinessProbe(
   };
 }
 
-async function runOne(check: ReadinessCheck, timeoutMs: number): Promise<ReadinessCheckResult> {
+class TimeoutError extends Error {}
+
+export type TimedRunResult<T> =
+  | { readonly ok: true; readonly value: T; readonly latencyMs: number }
+  | {
+      readonly ok: false;
+      readonly error: unknown;
+      readonly timedOut: boolean;
+      readonly latencyMs: number;
+    };
+
+export async function runWithTimeout<T>(
+  run: () => Promise<T>,
+  timeoutMs: number,
+): Promise<TimedRunResult<T>> {
   const start = performance.now();
+  const elapsedMs = () => Math.round(performance.now() - start);
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await Promise.race([
-      check.run(),
+    const value = await Promise.race([
+      run(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs);
+        timer = setTimeout(
+          () => reject(new TimeoutError(`timeout after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
         // Don't keep the event loop alive on a hung probe during shutdown.
         timer.unref?.();
       }),
     ]);
+    return { ok: true, value, latencyMs: elapsedMs() };
+  } catch (error) {
     return {
-      name: check.name,
-      ok: true,
-      latencyMs: Math.round(performance.now() - start),
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      name: check.name,
       ok: false,
-      latencyMs: Math.round(performance.now() - start),
-      error: message,
+      error,
+      timedOut: error instanceof TimeoutError,
+      latencyMs: elapsedMs(),
     };
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+async function runOne(check: ReadinessCheck, timeoutMs: number): Promise<ReadinessCheckResult> {
+  const result = await runWithTimeout(check.run, timeoutMs);
+  if (result.ok) return { name: check.name, ok: true, latencyMs: result.latencyMs };
+  return {
+    name: check.name,
+    ok: false,
+    latencyMs: result.latencyMs,
+    error: result.error instanceof Error ? result.error.message : String(result.error),
+  };
 }
 
 // --- Standard checks --------------------------------------------------------

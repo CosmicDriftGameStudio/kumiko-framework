@@ -59,6 +59,8 @@ export type {
   PostAuthLandingArgs,
   PostAuthLandingResolver,
 } from "./post-auth-landing.ts";
+export type { TimedRunResult } from "./readiness.ts";
+export { runWithTimeout } from "./readiness.ts";
 export type { RedisSseBroker } from "./redis-sse-broker.ts";
 export {
   createDefaultSseBroker,

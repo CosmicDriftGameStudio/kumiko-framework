@@ -23,6 +23,7 @@ export const QnTypes = {
   secret: "secret",
   screen: "screen",
   nav: "nav",
+  probe: "probe",
 } as const;
 // QnType is string — framework types are predefined, but features can use custom types.
 export type QnType = string;

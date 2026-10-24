@@ -68,6 +68,7 @@ import type {
 } from "./hooks.ts";
 import type { HttpRouteDefinition } from "./http-route.ts";
 import type { ContentCollectionDefinition, NavDefinition } from "./nav.ts";
+import type { ProbeOptions } from "./probe.ts";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
@@ -457,6 +458,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // ergonomics as r.config's handle.
   secret(shortName: string, options: SecretOptions): SecretKeyHandle;
   secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;
+
+  // Declare a live probe the readiness system check runs against the real environment; failure = throw.
+  probe(options: ProbeOptions): void;
 
   // Declare a namespace of runtime-named secret keys. The prefix is
   // "<feature>:<kebab name>." — secrets:write:set/delete accept any key under
