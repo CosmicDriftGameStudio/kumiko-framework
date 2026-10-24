@@ -55,7 +55,6 @@ export function isHookType(value: string): value is LifecycleHookType | "validat
     value === "postSave" ||
     value === "preDelete" ||
     value === "postDelete" ||
-    value === "preQuery" ||
     value === "validation"
   );
 }

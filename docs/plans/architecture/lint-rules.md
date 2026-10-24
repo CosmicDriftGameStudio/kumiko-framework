@@ -214,7 +214,7 @@ Spezialfall von R1, aber mit anderer Fehlermeldung die auf Tables fokussiert. Im
 
 ```ts
 r.queryHandler("foo", schema, async (q, ctx) => {
-  const apiKey = await ctx.secrets.get("stripe.apiKey");
+  const apiKey = await ctx.services.secrets.get("stripe.apiKey");
   return { success: true, apiKey };                          // ❌ Leak
 });
 ```

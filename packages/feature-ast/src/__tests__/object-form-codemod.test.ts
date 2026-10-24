@@ -24,7 +24,7 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "entity", rewrites: 6, manual: 0 },
   { name: "requires", rewrites: 4, manual: 0 },
   { name: "requires-identifier", rewrites: 0, manual: 2 },
-  { name: "hook", rewrites: 8, manual: 0 },
+  { name: "hook", rewrites: 7, manual: 0 },
   { name: "crud", rewrites: 2, manual: 0 },
   { name: "crud-shared-import", rewrites: 1, manual: 0 },
   { name: "registrar-typed-helper", rewrites: 3, manual: 0 },
@@ -105,7 +105,7 @@ describe("object-form codemod behavior", () => {
     const { input } = readFixture("hook");
     const result = transformObjectFormSource(input, "hook.ts");
 
-    expect(result.rewrites.map((site) => site.line)).toEqual([4, 6, 7, 8, 9, 10, 14, 15]);
+    expect(result.rewrites.map((site) => site.line)).toEqual([4, 6, 7, 8, 9, 10, 14]);
   });
 
   it("flags a spread argument and an unresolvable receiver as manual without rewriting", () => {

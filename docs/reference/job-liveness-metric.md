@@ -24,7 +24,7 @@ langlebigen App-Pod laufen und kein CronJob-Objekt erzeugen.
   erst der Versuch, der durchläuft.
 - Deckt alle Trigger ab (cron, event, manual, Boot-Gates) — es gibt nur einen
   Ausführungspfad im Runner.
-- Braucht einen gesetzten `context.meter`. Ohne Meter (z. B. Noop-Setup) wird
+- Braucht einen gesetzten `ctx.obs.meter`. Ohne Meter (z. B. Noop-Setup) wird
   nichts emittiert.
 - Der per-Tenant-Fan-out-Wrapper stempelt nicht; die einzelnen Kind-Jobs tun es
   unter demselben Job-Namen, ohne Tenant-Dimension (Kardinalität). Bei

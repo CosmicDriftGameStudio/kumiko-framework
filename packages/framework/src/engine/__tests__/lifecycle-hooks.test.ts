@@ -30,6 +30,15 @@ describe("lifecycle hook registration", () => {
     expect(Object.keys(feature.hooks?.preSave ?? {})).toContain("user");
   });
 
+  test("a removed hook type (preQuery) is a type error and throws at registration", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        // @ts-expect-error preQuery was never invoked and is no longer a hook type
+        r.hook({ type: "preQuery", target: "user", handler: async (payload) => payload });
+      }),
+    ).toThrow('r.hook({ type: "preQuery", … }) is not a known hook type');
+  });
+
   test("postSave hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
       r.hook({ type: "postSave", target: "user", handler: async () => {} });

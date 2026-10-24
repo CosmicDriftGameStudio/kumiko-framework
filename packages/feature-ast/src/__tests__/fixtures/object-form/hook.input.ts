@@ -11,6 +11,5 @@ export const feature = defineFeature("orders", (r) => {
     phase: "inTransaction",
     escapeHatch: { reason: "cleans foreign rows" },
   });
-  r.hook("preQuery", order, scopeQuery);
   r.hook("postQuery", { allOf: order }, mergeCustomFields);
 });

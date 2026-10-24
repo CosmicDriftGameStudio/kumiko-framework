@@ -67,7 +67,7 @@ Sender-Erasure-Anspruch) ist der Umstieg auf per-Sender-Keys der Pfad.
 ## Bekannte Decke
 
 Wird eine bereits gepurgte Message > Retention-Frist erneut zugestellt, trifft
-der Ingest einen archivierten Stream → `appendEvent` wirft. Für eine
+der Ingest einen archivierten Stream → `ctx.events.append` wirft. Für eine
 Redelivery > 365 Tage nach Erstempfang extrem unwahrscheinlich; das Werfen ist
 das korrekte Verhalten (der Stream ist bewusst versiegelt), nicht ein Bug.
 

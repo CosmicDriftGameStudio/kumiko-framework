@@ -38,7 +38,6 @@ const HOOK_FN_ALIASES: ReadonlySet<string> = new Set([
   "PreDeleteHookFn",
   "PostDeleteHookFn",
   "PostDeleteBatchHookFn",
-  "PreQueryHookFn",
   "PostQueryHookFn",
 ]);
 
