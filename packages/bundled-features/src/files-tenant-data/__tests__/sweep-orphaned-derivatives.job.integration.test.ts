@@ -72,10 +72,10 @@ function makeCtx(
     finalAttempt: true,
     defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     canDefer: false,
-    ...(fileProviderResolver
-      ? { services: { _fileProviderResolver: fileProviderResolver, extensions: {} } }
-      : {}),
-    ...bridgeStub({ log: log }),
+    ...bridgeStub({
+      log,
+      ...(fileProviderResolver && { services: { _fileProviderResolver: fileProviderResolver } }),
+    }),
   };
 }
 

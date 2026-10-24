@@ -86,10 +86,10 @@ const DENIED_SURFACES = [
 // The denial names the namespaced path of the surface the handler reached for.
 const SURFACE_PATHS: Record<(typeof DENIED_SURFACES)[number], string> = {
   writeAs: "dispatch.writeAs",
-  scheduleAfterCommit: "scheduleAfterCommit",
-  scheduleAfterRollback: "scheduleAfterRollback",
+  scheduleAfterCommit: "lifecycle.afterCommit",
+  scheduleAfterRollback: "lifecycle.afterRollback",
   notify: "notify",
-  jobRunner: "jobRunner",
+  jobRunner: "services.jobRunner",
 };
 const deniedSurfacePayload = z.object({ surface: z.enum(DENIED_SURFACES) });
 
@@ -305,10 +305,10 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
             );
             break;
           case "scheduleAfterCommit":
-            await callAbsentSurface(ctx, ["scheduleAfterCommit"], async () => {});
+            await callAbsentSurface(ctx, ["lifecycle", "afterCommit"], async () => {});
             break;
           case "scheduleAfterRollback":
-            await callAbsentSurface(ctx, ["scheduleAfterRollback"], async () => {});
+            await callAbsentSurface(ctx, ["lifecycle", "afterRollback"], async () => {});
             break;
           case "notify":
             await callAbsentSurface(ctx, ["notify"], "before-tx-probe", {
