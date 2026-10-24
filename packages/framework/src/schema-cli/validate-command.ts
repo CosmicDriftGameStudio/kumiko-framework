@@ -5,7 +5,7 @@ import {
   createDbConnection,
   generateMigration,
 } from "../db/index.ts";
-import { knownTablesOf } from "../db/known-table-names.ts";
+import { isLiveFrameworkTable, type KnownTables } from "../db/known-table-names.ts";
 import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
 import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../db/replay-migration-sql.ts";
 
@@ -91,8 +91,14 @@ function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): boolean {
   }
 }
 
+function declaredTablesOf(schemaMod: SchemaMod): KnownTables {
+  const names = new Set(schemaMod.entityMetas.map((meta) => meta.tableName));
+  return { has: (tableName) => names.has(tableName) || isLiveFrameworkTable(tableName) };
+}
+
 // 4. Live row-level security table state — the table half of the boot check. Only with a DATABASE_URL;
-// without one the command stays database-free.
+// without one the command stays database-free. Scoped to the tables kumiko/schema.ts declares plus the
+// framework tables, because a local DATABASE_URL may point at a dev database several apps share.
 async function checkLiveRowLevelSecurity(
   out: SchemaCliOut,
   schemaMod: SchemaMod,
@@ -102,22 +108,21 @@ async function checkLiveRowLevelSecurity(
     out.log("  · row-level security: skipped — set DATABASE_URL to check the live database.");
     return true;
   }
-  let features: ReturnType<typeof featureDefinitionsOf>;
-  try {
-    features = featureDefinitionsOf(schemaMod.features);
-  } catch {
-    // skip: the boot check already reported the unreadable FEATURES export
-    return true;
-  }
-  const knownTables = features === undefined ? { has: () => true } : knownTablesOf(features);
   const { db, close } = createDbConnection({
     url: dbUrl,
     maxConnections: 1,
     rowLevelSecurity: schemaMod.rowLevelSecurity,
   });
   try {
-    await assertRowLevelSecurityTableState(db, schemaMod.rowLevelSecurity, knownTables);
-    out.log("  ✓ row-level security: live database matches the configured mode");
+    await assertRowLevelSecurityTableState(
+      db,
+      schemaMod.rowLevelSecurity,
+      declaredTablesOf(schemaMod),
+      "declared tables",
+    );
+    out.log(
+      "  ✓ row-level security: live database matches the configured mode for this app's tables and the framework tables (tables of other apps sharing the database are not checked)",
+    );
     return true;
   } catch (e) {
     out.err(`  ✗ row-level security: ${describeThrown(e)}`);
