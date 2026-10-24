@@ -3,6 +3,7 @@ import type {
   EscapeHatchDeclaration,
   LifecycleHookType,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { LifecycleHookTypes } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   PayloadRateLimitOption,
   RateLimitDeclaration,
@@ -50,13 +51,7 @@ export function readHeaderValueOrRaw<T>(
 }
 
 export function isHookType(value: string): value is LifecycleHookType | "validation" {
-  return (
-    value === "preSave" ||
-    value === "postSave" ||
-    value === "preDelete" ||
-    value === "postDelete" ||
-    value === "validation"
-  );
+  return value === "validation" || Object.values<string>(LifecycleHookTypes).includes(value);
 }
 
 export function readOptionalPhase(node: Node | undefined): HookPhase | undefined {
