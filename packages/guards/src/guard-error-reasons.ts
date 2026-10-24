@@ -61,8 +61,12 @@ const UNPROC_CALL_NAMES = new Set(["UnprocessableError", "failUnprocessable"]);
 const ACCESS_DECLARATION_NAMES = new Set(["openToAll", "escapeHatch"]);
 
 // Calls whose object-literal argument carries a prose `reason` for an
-// access grant / escape hatch.
-const ACCESS_DECLARATION_CALLS = new Set(["declareEscapeHatch", "withUnsafeRawGrant"]);
+// access grant / escape hatch / system-mode TenantDb.
+const ACCESS_DECLARATION_CALLS = new Set([
+  "declareEscapeHatch",
+  "withUnsafeRawGrant",
+  "createTenantDb",
+]);
 
 interface Violation {
   readonly file: string;

@@ -81,7 +81,12 @@ describe("tenantDbRunner", () => {
 describe("createUncheckedSystemDb(...).unsafeRaw", () => {
   test("resolves to the runner bound at createTenantDb()", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
+    const tdb = createTenantDb({
+      db: runner,
+      tenantId,
+      mode: "system",
+      reason: "test proves a system-mode handle exposes no raw runner",
+    });
     const systemDb = createUncheckedSystemDb(tdb);
     expect(unscopedRunner(systemDb.unsafeRaw("test reason"))).toBe(runner);
   });

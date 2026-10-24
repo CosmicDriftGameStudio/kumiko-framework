@@ -81,7 +81,12 @@ export async function rotateJob(
   function tdbFor(tenantId: TenantId): TenantDb {
     let existing = tdbCache.get(tenantId);
     if (!existing) {
-      existing = createTenantDb({ db, tenantId, mode: "system" });
+      existing = createTenantDb({
+        db,
+        tenantId,
+        mode: "system",
+        reason: "secret key rotation job re-encrypts secrets of every tenant",
+      });
       tdbCache.set(tenantId, existing);
     }
     return existing;

@@ -201,7 +201,12 @@ describe("TenantDb.aggregate — tenant isolation", () => {
   });
 
   test("system mode aggregates across tenants", async () => {
-    const systemDb = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "system" });
+    const systemDb = createTenantDb({
+      db: stack.db,
+      tenantId: tenantA,
+      mode: "system",
+      reason: "test aggregates across tenants in system mode",
+    });
     expect(await systemDb.aggregate(itemsTable, { measure: { fn: "count" } })).toEqual([
       { keys: [], value: 6 },
     ]);

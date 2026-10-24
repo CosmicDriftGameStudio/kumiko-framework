@@ -181,7 +181,7 @@ function renderIntegrationTest(): string {
     "});",
     "",
     "afterAll(async () => {",
-    "  await stack.cleanup();",
+    "  await stack?.cleanup();",
     "});",
     "",
     'describe("tasks", () => {',

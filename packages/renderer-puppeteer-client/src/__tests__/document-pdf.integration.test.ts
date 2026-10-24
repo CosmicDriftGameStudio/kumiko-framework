@@ -492,7 +492,12 @@ describe("document-pdf through renderPdfBeforeTransaction and storeRenderedPdf",
         status: "active",
       },
       adminTenantB,
-      createTenantDb({ db: stack.db, tenantId: adminTenantB.tenantId, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: adminTenantB.tenantId,
+        mode: "system",
+        reason: "test seeds system-tenant document templates",
+      }),
     );
     expect(created.isSuccess).toBe(true);
 

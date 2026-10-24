@@ -145,7 +145,12 @@ describe("appendProvenanceEvent", () => {
   });
 
   test('a mode: "system" TenantDb is rejected for a foreign event.tenantId too', async () => {
-    const systemTdb = createTenantDb({ db: testDb.db, tenantId: tenantA, mode: "system" });
+    const systemTdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenantA,
+      mode: "system",
+      reason: "test appends events for a tenant outside a request scope",
+    });
     const event = provenanceEvent({ tenantId: tenantB });
     const before = await countAllEvents();
 

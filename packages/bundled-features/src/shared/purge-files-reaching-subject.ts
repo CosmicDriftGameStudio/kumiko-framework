@@ -206,7 +206,12 @@ export async function purgeFilesReachingSubject(args: {
         }
         const deleteBytes = await storagePromise;
         const systemUser = createSystemUser(tenantId);
-        const tdb = createTenantDb({ db, tenantId, mode: "system" });
+        const tdb = createTenantDb({
+          db,
+          tenantId,
+          mode: "system",
+          reason: "subject erasure purges file refs in every tenant that holds them",
+        });
 
         const outcome = await purgeRowFileRefs({
           db,
@@ -353,7 +358,12 @@ async function purgePendingFileRef(
   const forgotten = await fileRefExecutor.forget(
     { id: fileRefId },
     createSystemUser(tenantId),
-    createTenantDb({ db, tenantId, mode: "system" }),
+    createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "subject erasure purges file refs in every tenant that holds them",
+    }),
   );
   return forgotten.isSuccess
     ? undefined

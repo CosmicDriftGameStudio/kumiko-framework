@@ -727,7 +727,13 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
 // `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
 // @wrapper-known semantic-alias
 function systemTenantDb(db: DbConnection, tenantId: TenantId) {
-  return createTenantDb({ db, tenantId, mode: "system" });
+  return createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason:
+      "export jobs run per user across tenants, requestedFromTenantId keeps the stream identity",
+  });
 }
 
 function buildExportStorageKey(job: JobRow): string {

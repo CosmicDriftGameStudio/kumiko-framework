@@ -53,7 +53,12 @@ export interface RecordDownloadUseArgs {
 export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<void> {
   const { db, tokenId, tokenVersion, tokenUseCount, tenantId, now, ip, userAgent } = args;
   const executor = createSystemUser(tenantId);
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "download audit writes into the token's tenant, outside a request scope",
+  });
 
   await tokenCrud
     .update(
@@ -102,7 +107,12 @@ export interface RecordInvalidAttemptArgs {
 export async function recordInvalidAttempt(args: RecordInvalidAttemptArgs): Promise<void> {
   const { db, tenantId, now } = args;
   const executor = createSystemUser(tenantId);
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "download audit writes into the token's tenant, outside a request scope",
+  });
   await attemptCrud
     .create(
       {

@@ -311,6 +311,7 @@ const systemJobFeature = defineFeature("systemjob", (r) => {
         db: raw,
         tenantId: ctx.systemUser.tenantId,
         mode: "system",
+        reason: "test reads rows written by a public-intake job in any tenant",
       }).insertOne(secretDirectTable, { value: payload["value"] as string });
     } catch (err) {
       recordGatedFailure("systemjob:job:write-systemdb", err);

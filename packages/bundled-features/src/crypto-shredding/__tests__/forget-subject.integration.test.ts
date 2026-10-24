@@ -337,7 +337,12 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
   }
 
   function probeTenantDb() {
-    return createTenantDb({ db: searchStack.db, tenantId: admin.tenantId, mode: "system" });
+    return createTenantDb({
+      db: searchStack.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects subject data across tenants around forget",
+    });
   }
 
   test("forget-subject over HTTP purges userOwned rows from the search index", async () => {
@@ -451,7 +456,12 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
     }).create(
       { ownerId, userNote: "SweepFailureNote" },
       admin,
-      createTenantDb({ db: failingStack.db, tenantId: admin.tenantId, mode: "system" }),
+      createTenantDb({
+        db: failingStack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test seeds and inspects subject data across tenants around forget",
+      }),
     );
     if (!created.isSuccess) throw new Error("create failed");
 
@@ -554,7 +564,12 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
     }).create(
       { ownerId: userId, userNote: "DoorSweepFailureNote" },
       admin,
-      createTenantDb({ db: doorStack.db, tenantId: admin.tenantId, mode: "system" }),
+      createTenantDb({
+        db: doorStack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test seeds and inspects subject data across tenants around forget",
+      }),
     );
     if (!created.isSuccess) throw new Error("create failed");
 
@@ -811,7 +826,12 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const created = await shareLikeProbeExecutor().create(
       { recipientName: "Tommy Recipient" },
       dpoUser,
-      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test seeds and inspects subject data across tenants around forget",
+      }),
     );
     if (!created.isSuccess) throw new Error("create failed");
     const subjectId = String(created.data.id);
@@ -839,7 +859,12 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const created = await shareLikeProbeExecutor().create(
       { recipientName: "Peter Recipient" },
       foreignTenantAuthor,
-      createTenantDb({ db: stack.db, tenantId: TENANT_B, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_B,
+        mode: "system",
+        reason: "test seeds and inspects subject data across tenants around forget",
+      }),
     );
     if (!created.isSuccess) throw new Error("create failed");
     const subjectId = String(created.data.id);

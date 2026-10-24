@@ -98,7 +98,12 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // "system" mode: this handler runs with a guest identity whose own
       // tenantId is meaningless here — the challenge token is the source
       // of truth for which tenant's row to read.
-      const scopedDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId, mode: "system" });
+      const scopedDb = createTenantDb({
+        db: ctx.db.unsafeRaw(),
+        tenantId,
+        mode: "system",
+        reason: "MFA challenge has no session, the tenant comes from the verified challenge token",
+      });
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const row = await findUserMfaRow(scopedDb, scopedUser);
       // MFA got disabled between login and verify (race, or a stale

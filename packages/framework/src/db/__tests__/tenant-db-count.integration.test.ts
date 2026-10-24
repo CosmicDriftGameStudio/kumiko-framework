@@ -89,7 +89,12 @@ describe("TenantDb.count() — tenant mode", () => {
 
 describe("TenantDb.count() — system mode", () => {
   test("counts all rows across every tenant, unfiltered", async () => {
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenantA.tenantId,
+      mode: "system",
+      reason: "test counts across tenants in system mode",
+    });
     const count = await systemDb.count(table);
     expect(count).toBe(5); // A1, A2, A3, B1, Reference
   });

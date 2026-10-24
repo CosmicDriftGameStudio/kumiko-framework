@@ -214,6 +214,7 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
         db: stack.db,
         tenantId,
         mode: "system",
+        reason: "test seeds workflow rows for a named tenant",
         grants: {
           unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
         },

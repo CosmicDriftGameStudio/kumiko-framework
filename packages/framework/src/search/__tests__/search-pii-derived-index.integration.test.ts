@@ -111,7 +111,12 @@ function executor() {
 }
 
 function tenantDb() {
-  return createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
+  return createTenantDb({
+    db: stack.db,
+    tenantId: admin.tenantId,
+    mode: "system",
+    reason: "test reads derived search rows across tenants",
+  });
 }
 
 describe("searchable PII derived index (#1610)", () => {

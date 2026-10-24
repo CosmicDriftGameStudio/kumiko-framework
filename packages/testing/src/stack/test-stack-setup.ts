@@ -5,6 +5,7 @@ import {
   assertRowLevelSecurityBootState,
   type DbConnection,
   type EntityTableMeta,
+  knownTablesOf,
   type RowLevelSecurityMode,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -250,7 +251,11 @@ export async function provisionStackStorage(options: TestStackOptions): Promise<
   // try/catch in setupTestStack, but for setup that runs before that try starts).
   try {
     if (templateDbName === undefined) await buildStackSchema(testDb.db);
-    await assertRowLevelSecurityBootState(testDb.db, rowLevelSecurity);
+    await assertRowLevelSecurityBootState(
+      testDb.db,
+      rowLevelSecurity,
+      knownTablesOf(options.features),
+    );
   } catch (error) {
     await runCleanupsIgnoringErrors([() => testDb.cleanup(), () => testRedis.cleanup()]);
     throw error;
@@ -342,8 +347,8 @@ export async function buildStackServices(
     typeof options.extraContext === "function"
       ? options.extraContext({
           registry,
-          // Services built here are called straight from tests, outside any dispatch scope, like stack.db.
-          db: testCodeDb(options, testDb.db),
+          // The raw pool, as in prod: request-time services keep the ambient request scope, so a tenant leak shows in tests.
+          db: testDb.db,
           sseBroker,
           redis: testRedis.redis,
         })

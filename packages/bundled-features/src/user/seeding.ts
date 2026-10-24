@@ -65,7 +65,12 @@ export async function seedUser(
   // executor.create expects a TenantDb (with an .insert() API). Although
   // User is tenant-agnostic (it has no tenant_id column), the runtime
   // interface requires this wrapper.
-  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
+  });
 
   const existing = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
   // @cast-boundary db-row: users.id is a uuid column (string), and fetchOne
@@ -111,7 +116,12 @@ export async function reconcileSeededUserEmailVerified(
   // @cast-boundary db-row: users.id is a uuid column (string), and fetchOne
   // returns the projection row as Record<string, unknown>.
   const id = existingRow["id"] as string;
-  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
+  });
   const result = await userExecutor.update(
     { id, version: existingRow["version"] as number, changes: { emailVerified: true } },
     by,
@@ -157,7 +167,12 @@ export async function rewriteSeededUserEmail(
     // skip: the stored blind index already matches, a rewrite would only append a no-op event.
     if (indexed) return;
   }
-  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
+  });
   const result = await userExecutor.update({ id, version, changes: { email } }, by, tdb);
   // version_conflict: a concurrent write already changed the row — fine for a seed helper.
   // unique_violation: a duplicate row already holds the blind index; the repair

@@ -211,7 +211,12 @@ async function seedContactRetentionOverride(
       tenantId: author.tenantId,
     },
     by,
-    createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" }),
+    createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test inspects note rows across tenants after forget",
+    }),
   );
   if (!result.isSuccess)
     throw new Error(`seedContactRetentionOverride failed: ${JSON.stringify(result)}`);
@@ -231,7 +236,12 @@ async function addNote(
 }
 
 async function bodyOf(noteId: string): Promise<unknown> {
-  const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+  const tenantDb = createTenantDb({
+    db: stack.db,
+    tenantId: author.tenantId,
+    mode: "system",
+    reason: "test inspects note rows across tenants after forget",
+  });
   return (await noteEntryExecutor.detail({ id: noteId }, author, tenantDb))?.["body"];
 }
 

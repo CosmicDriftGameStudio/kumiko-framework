@@ -58,7 +58,12 @@ afterEach(() => {
 describe("fw#2593 — email unique constraint on the plaintext column (no blind index configured)", () => {
   test("a soft-deleted user's email is reusable when no blind index is configured", async () => {
     const email = "plaintext-soft-deleted@example.com";
-    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads the tenant-agnostic user rows",
+    });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const created = await executor.create(
@@ -107,7 +112,12 @@ describe("fw#2593 — email unique constraint on the plaintext column (no blind 
 
   test("a second live user with the same email is still rejected", async () => {
     const email = "plaintext-live-collision@example.com";
-    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads the tenant-agnostic user rows",
+    });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const first = await executor.create(
@@ -141,7 +151,12 @@ describe("fw#2593 — email unique constraint on the plaintext column (no blind 
 
   test("restoring a soft-deleted user whose email was re-taken fails with unique_violation and changes nothing", async () => {
     const email = "plaintext-restore-conflict@example.com";
-    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads the tenant-agnostic user rows",
+    });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const original = await executor.create(
@@ -178,7 +193,12 @@ describe("fw#2593 — email unique constraint on the plaintext column (no blind 
 
   test("restoring a soft-deleted user succeeds when its email was not re-taken", async () => {
     const email = "plaintext-restore-free@example.com";
-    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads the tenant-agnostic user rows",
+    });
     const systemUser = createSystemUser(SYSTEM_TENANT_ID);
 
     const created = await executor.create(

@@ -270,7 +270,12 @@ describe("seedReferenceData", () => {
     const deleted = await executor.delete(
       { id: String(row?.["id"]) as EntityId },
       systemUser,
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant reference data",
+      }),
     );
     expect(deleted.isSuccess).toBe(true);
 

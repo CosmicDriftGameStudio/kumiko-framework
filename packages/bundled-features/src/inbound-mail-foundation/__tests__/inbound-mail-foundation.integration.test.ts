@@ -402,6 +402,7 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
       db,
       tenantId: admin.tenantId,
       mode: "system",
+      reason: "test reads inbound-mail rows of any tenant",
       grants: {
         unsafeRaw: { reason: "test: hand-built ctx driving ingestMessageHandler directly" },
       },

@@ -37,7 +37,12 @@ async function seedOverride(
   reason = "test-setup",
 ): Promise<void> {
   const by = { ...TestUsers.systemAdmin, tenantId };
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds retention policies for a named tenant",
+  });
   const result = await overrideExecutor.create(
     {
       entityName,

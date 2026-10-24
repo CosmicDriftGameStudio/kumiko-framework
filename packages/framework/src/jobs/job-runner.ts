@@ -138,7 +138,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     if (!handler || !db) return undefined;
     return async () => {
       const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-      const systemModeDb = createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+      const systemModeDb = createTenantDb({
+        db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "system jobs run without tenant scope and read across tenants by design",
+      });
       const reportEscapeHatch = createEscapeHatchReporter({
         handler: ACTIVE_TENANT_IDS_QUERY_NAME,
         tenantId: SYSTEM_TENANT_ID,

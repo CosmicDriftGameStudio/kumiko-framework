@@ -269,7 +269,12 @@ describe("system mode (r.systemScope())", () => {
     await scoped1.insertOne(table, { name: "System-T1" });
     await scoped2.insertOne(table, { name: "System-T2" });
 
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test proves system mode reads and writes across tenants",
+    });
     const rows = await systemDb.selectMany(table);
 
     const tenantIds = new Set(rows.map((r) => r!["tenantId"]));
@@ -278,7 +283,12 @@ describe("system mode (r.systemScope())", () => {
   });
 
   test("insert uses tenantId as default but handler can override", async () => {
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test proves system mode reads and writes across tenants",
+    });
 
     // Without explicit tenantId — uses the default (tenant1)
     const defaultRow = await systemDb.insertOne(table, { name: "SystemDefault" });
@@ -296,7 +306,12 @@ describe("system mode (r.systemScope())", () => {
     // Config feature sets tenantId = null for system-scoped values
     // This requires the column to allow NULL — using systemTable which has no tenantId col,
     // but we can test the spread order logic directly:
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test proves system mode reads and writes across tenants",
+    });
 
     // In scoped mode, tenantId: 77 would be overridden to 1
     const scopedDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
@@ -325,7 +340,12 @@ describe("system mode (r.systemScope())", () => {
     expect(scopedResult).toHaveLength(0);
 
     // Unscoped CAN update tenant 2's row
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test proves system mode reads and writes across tenants",
+    });
     const updated = await systemDb.updateMany(table, { name: "SystemWin" }, { id: id });
     expect(updated[0]!["name"]).toBe("SystemWin");
   });
@@ -336,7 +356,12 @@ describe("system mode (r.systemScope())", () => {
     const id = row!["id"] as string;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test proves system mode reads and writes across tenants",
+    });
     await systemDb.deleteMany(table, { id: id });
 
     // Verify it's gone

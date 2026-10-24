@@ -96,7 +96,12 @@ function makeCapturingLogger(): { log: JobContext["log"]; infoLines: string[] } 
 
 async function seedFileRef(tenantId: TenantId, storageKey: string): Promise<void> {
   const user = TestUsers.systemAdmin;
-  const tdb = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds derivative rows for the sweep job across tenants",
+  });
   const result = await fileRefCrud.create(
     { storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 10 },
     user,
@@ -211,7 +216,12 @@ describe("sweepOrphanedDerivativesJob", () => {
     );
     const rowId = rows[0]?.id;
     expect(rowId).toBeDefined();
-    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA.tenantId, mode: "system" });
+    const tdb = createTenantDb({
+      db: stack.db,
+      tenantId: tenantA.tenantId,
+      mode: "system",
+      reason: "test seeds derivative rows for the sweep job across tenants",
+    });
     if (rowId) {
       const deleteResult = await fileRefCrud.delete({ id: rowId }, TestUsers.systemAdmin, tdb);
       expect(deleteResult.isSuccess).toBe(true);

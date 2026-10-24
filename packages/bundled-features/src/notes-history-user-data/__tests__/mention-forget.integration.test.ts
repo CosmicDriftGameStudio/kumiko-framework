@@ -212,7 +212,12 @@ async function seedContactRetentionOverride(
       tenantId: author.tenantId,
     },
     by,
-    createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" }),
+    createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    }),
   );
   if (!result.isSuccess)
     throw new Error(`seedContactRetentionOverride failed: ${JSON.stringify(result)}`);
@@ -221,7 +226,12 @@ async function seedContactRetentionOverride(
 describe("notes-history mention-forget cascade", () => {
   test("shreds only the note mentioning the forgotten subject, leaves the unmentioned note readable", async () => {
     await seedForgottenSubject();
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -252,7 +262,12 @@ describe("notes-history mention-forget cascade", () => {
   test("host entity retention override (anonymize) still shreds the body", async () => {
     await seedForgottenSubject();
     await seedContactRetentionOverride("anonymize");
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -279,7 +294,12 @@ describe("notes-history mention-forget cascade", () => {
   test("host entity retention override (blockDelete) still shreds the body", async () => {
     await seedForgottenSubject();
     await seedContactRetentionOverride("blockDelete");
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -306,7 +326,12 @@ describe("notes-history mention-forget cascade", () => {
   test("host entity retention override (hardDelete) does not block the shred", async () => {
     await seedForgottenSubject();
     await seedContactRetentionOverride("hardDelete");
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -326,7 +351,12 @@ describe("notes-history mention-forget cascade", () => {
 
   test("duplicate ids in mentions produce exactly one mention row and the note is shredded once", async () => {
     await seedForgottenSubject();
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -358,7 +388,12 @@ describe("notes-history mention-forget cascade", () => {
   test("without a mounted KMS the forget run leaves the mentioned note readable", async () => {
     resetPiiSubjectKmsForTests();
     await seedForgottenSubject();
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -422,7 +457,12 @@ describe("notes-history mention-forget cascade", () => {
       { profileKey: "de-hr-dsgvo-hgb" },
       createTestUser({ id: 2, tenantId: author.tenantId, roles: ["TenantAdmin"] }),
     );
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
@@ -449,7 +489,12 @@ describe("notes-history mention-forget cascade", () => {
 
   test("same invoice host without a compliance profile: the mentioned note is shredded", async () => {
     await seedForgottenSubject();
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: author.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects mention rows across tenants around forget",
+    });
 
     const mentioning = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,

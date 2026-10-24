@@ -514,6 +514,7 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
       db: testDb.db,
       tenantId: TestUsers.systemAdmin.tenantId,
       mode: "system",
+      reason: "test reads system-tenant reference rows through the executor",
     });
     const res = await orderExec.list({ search: "acme" }, TestUsers.systemAdmin, systemDb, {
       searchAdapter,

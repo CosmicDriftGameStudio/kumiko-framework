@@ -9,8 +9,8 @@ import { collectTableMetas, type DbConnection, selectMany } from "@cosmicdrift/k
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  applicationRoleUrlOf,
   setupTestStack,
-  TEST_APPLICATION_ROLE,
   type TestStack,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { runProdApp } from "../run-prod-app.ts";
@@ -37,10 +37,8 @@ let parityStack: TestStack | undefined;
 const stoppers: Array<() => Promise<void>> = [];
 
 function envFor(dbName: string) {
-  const url = new URL(ADMIN_URL.replace(/\/[^/]+$/, `/${dbName}`));
-  url.username = TEST_APPLICATION_ROLE;
   return {
-    DATABASE_URL: url.toString(),
+    DATABASE_URL: applicationRoleUrlOf(ADMIN_URL, dbName),
     REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
     JWT_SECRET: "test-rls-boot-hooks-secret-32-chars!",
     PORT: "0",

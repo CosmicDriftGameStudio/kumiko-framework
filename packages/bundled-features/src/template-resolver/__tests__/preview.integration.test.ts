@@ -333,7 +333,12 @@ describe("template-resolver :: preview query", () => {
         status: "active",
       },
       adminOf(26),
-      createTenantDb({ db: stack.db, tenantId: owner, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: owner,
+        mode: "system",
+        reason: "test seeds system-tenant templates",
+      }),
     );
     expect(created.isSuccess).toBe(true);
     const preview = await stack.http.queryOk<Preview>(
@@ -665,7 +670,12 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
     }).forget(
       { id: attachmentFileRefId },
       createSystemUser(admin.tenantId),
-      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test seeds system-tenant templates",
+      }),
     );
     expect(forgotten.isSuccess).toBe(true);
     const err = await stack.http.writeErr(

@@ -184,6 +184,11 @@ const ENFORCING: Record<string, Violating> = {
     expectedMessage:
       /\[system-scope-reason\] runInSystemRowLevelSecurityScope needs a non-empty string literal reason/,
   },
+  "RLS-Session-Settings Guard": {
+    path: `${PKG}/features/x/scope.ts`,
+    code: `export const q = "${["SET", "SESSION", "kumiko.tenant_id", "=", "'t'"].join(" ")}";`,
+    expectedMessage: /\[rls-session-setting\] SET \/ SET SESSION/,
+  },
   "Admin-API Guard": {
     path: `${PKG}/features/x/admin.ts`,
     code: 'import { appendRaw } from "k";\nexport async function run(ctx: any) { await appendRaw(ctx, { type: "x" }); }',

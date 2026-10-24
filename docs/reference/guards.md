@@ -61,6 +61,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-raw-sql` | Raw-SQL Guard — blocks `.unsafe()` / `asRawClient()` outside allowed paths. | `kumiko-lint-ignore raw-sql` |
 | `guard-renderer-boundaries` | Guard: prevents `@cosmicdrift/kumiko-renderer` (shared, platform-neutral) from touching DOM- or platform-specific APIs. | - |
 | `guard-restricted-symbols` | Guard: finds imports/re-exports of the unscoped stream primitives outside an allowlist. | - |
+| `guard-rls-session-settings` | Guard: row-level-security settings are transaction-local and written in one place. | - |
 | `guard-schema-cli-features` | Guard: a consumer's `runSchemaCli(...)` call must pass `features: FEATURES` imported from `kumiko/schema`. | - |
 | `guard-screen-conventions` | Usability mistakes in screen definitions that are statically decidable and otherwise come back screen by screen: a relatedList section whose rows lead nowhere, a row action labelled "edit" that does something else. | `kumiko-lint-ignore screen-conventions` |
 | `guard-silent-skip` | Guard: finds "silent skip" spots in production code. | - |

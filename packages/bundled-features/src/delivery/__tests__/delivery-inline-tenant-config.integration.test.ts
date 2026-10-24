@@ -30,6 +30,7 @@ import { createTenantSettingsFeature } from "../../tenant-settings/index.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
+import { scopedForTest } from "./scoped-delivery-service.ts";
 
 const transport = createInMemoryTransport();
 
@@ -79,7 +80,7 @@ beforeAll(async () => {
           });
         },
       });
-      deliveryService = ctx.deliveryService;
+      deliveryService = scopedForTest(ctx.deliveryService);
       return {
         ...ctx,
         configResolver: resolver,

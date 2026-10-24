@@ -93,7 +93,12 @@ async function resolveAdminRecipient(
   try {
     return await runInSavepointIfSupported(systemDb.unsafeRaw(SUBMIT_LOCK_REASON), async (sp) => {
       const savepointSystemDb = createSystemDbView(
-        createTenantDb({ db: sp, tenantId, mode: "system" }),
+        createTenantDb({
+          db: sp,
+          tenantId,
+          mode: "system",
+          reason: "waitlist entries are system-tenant rows submitted by an anonymous guest",
+        }),
       );
       return (await opts.notifyRecipient?.({ ...ctx, systemDb: savepointSystemDb })) || null;
     });

@@ -149,7 +149,12 @@ async function seedFileRetentionOverride(
   const result = await overrideExecutor.create(
     { entityName: "fileRef", config: JSON.stringify(config), reason: "test", tenantId },
     by,
-    createTenantDb({ db, tenantId, mode: "system" }),
+    createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "test inspects file rows across tenants after the retention sweep",
+    }),
   );
   if (!result.isSuccess)
     throw new Error(`seedFileRetentionOverride failed: ${JSON.stringify(result)}`);

@@ -48,7 +48,13 @@ export function createMfaStatusChecker(opts: {
       reason:
         "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant, on the caller's handler context; the calling handler declares its own escapeHatch",
     });
-    const scopedDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId, mode: "system" });
+    const scopedDb = createTenantDb({
+      db: ctx.db.unsafeRaw(),
+      tenantId,
+      mode: "system",
+      reason:
+        "login/setup token names the tenant to check, the guest dispatch tenant is meaningless",
+    });
     const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
     const row = await findUserMfaRow(scopedDb, scopedUser);
 

@@ -107,7 +107,12 @@ export async function seedSystemTemplate(
 ): Promise<{ id: string }> {
   const tenantId = SYSTEM_TENANT_ID;
   const by = opts.by ?? createSystemUser(tenantId);
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "system templates live in the system tenant",
+  });
 
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
@@ -408,7 +413,12 @@ export async function seedTextBlock(
   opts: SeedTextBlockOptions,
 ): Promise<{ id: string }> {
   const by = opts.by ?? createSystemUser(opts.tenantId);
-  const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: opts.tenantId,
+    mode: "system",
+    reason: "seeding writes text blocks into an explicitly named tenant",
+  });
 
   const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId: opts.tenantId,

@@ -538,7 +538,12 @@ describe("renderer-mail-html :: layout resolution", () => {
         status: "active",
       },
       createTestUser({ id: tenantNumber, roles: ["TenantAdmin"], tenantId: owner }),
-      createTenantDb({ db: stack.db, tenantId: owner, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: owner,
+        mode: "system",
+        reason: "test seeds system-tenant mail templates",
+      }),
     );
     expect(created.isSuccess).toBe(true);
     return renderMail(owner);
@@ -595,7 +600,12 @@ describe("renderer-mail-html :: layout resolution", () => {
         status: "active",
       },
       createTestUser({ id: userId, roles: ["TenantAdmin"], tenantId: owner }),
-      createTenantDb({ db: stack.db, tenantId: owner, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: owner,
+        mode: "system",
+        reason: "test seeds system-tenant mail templates",
+      }),
     );
     expect(created.isSuccess).toBe(true);
   }

@@ -1,10 +1,10 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { emitDbQuery, type Meter, type Tracer } from "../observability/index.ts";
 import {
   runInRowLevelSecurityScope,
+  type TenantDbModeOptions,
   tenantDbRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
 import { tableNameOf } from "./table-introspection.ts";
@@ -13,9 +13,8 @@ export type TenantDbStatementRunnerOptions = {
   readonly tracer?: Tracer | undefined;
   readonly meter?: Meter | undefined;
   readonly signal?: AbortSignal | undefined;
-  readonly mode: TenantDbMode;
   readonly tenantId: TenantId;
-};
+} & TenantDbModeOptions;
 
 export type TenantDbOperation = "select" | "insert" | "update" | "delete";
 
@@ -24,6 +23,7 @@ export function createTenantDbStatementRunner({
   meter,
   signal,
   mode,
+  reason,
   tenantId,
 }: TenantDbStatementRunnerOptions) {
   return function withDbSpan<T>(
@@ -32,7 +32,11 @@ export function createTenantDbStatementRunner({
     runner: () => Promise<T>,
   ): Promise<T> {
     signal?.throwIfAborted();
-    const scope = tenantDbRowLevelSecurityScope(mode, tenantId, table);
+    const scope = tenantDbRowLevelSecurityScope(
+      mode === "system" ? { mode, reason } : { mode },
+      tenantId,
+      table,
+    );
     const scopedRunner = () => runInRowLevelSecurityScope(scope, runner);
     if (!tracer && !meter) return scopedRunner();
     const tableName = tableNameOf(table);

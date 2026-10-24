@@ -24,6 +24,7 @@ import {
   unauthenticatedResponse,
 } from "./server-routes.ts";
 import type { ServerWiring } from "./server-wiring.ts";
+import { tenantScopedSecrets } from "./tenant-scoped-secrets.ts";
 
 export type PublicApiRequestMatcher = (c: Context) => boolean;
 
@@ -66,7 +67,7 @@ export function mountExtraRoutes(
         app,
         dispatcher,
         registry: options.registry,
-        secrets: context.secrets,
+        secrets: context.secrets && tenantScopedSecrets(context.secrets),
         dispatchSystemWrite,
         dispatchSystemQuery,
         dispatchWriteAs,

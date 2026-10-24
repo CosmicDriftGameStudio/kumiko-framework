@@ -18,7 +18,11 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetTestTables,
+  runInSystemRowLevelSecurityScope,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -198,7 +202,10 @@ describe("run-export-jobs cron-context", () => {
     // jobCtx deliberately replicates the minimal production context (without
     // log/triggeredBy); double-cast at this test boundary because the handler
     // under test never accesses those fields.
-    await job?.handler({}, jobCtx as unknown as JobContext);
+    // The job runs outside a dispatch here, so the mail delivery has no ambient scope of its own.
+    await runInSystemRowLevelSecurityScope("test runs the export job outside the job runner", () =>
+      job?.handler({}, jobCtx as unknown as JobContext),
+    );
 
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;

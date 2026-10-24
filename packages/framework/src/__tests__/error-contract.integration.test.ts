@@ -194,7 +194,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [errorFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
 });
-afterAll(async () => stack.cleanup());
+afterAll(async () => stack?.cleanup());
 beforeEach(async () => {
   stack.events.reset();
   await resetTestTables(stack.db, [itemTable, eventsTable]);

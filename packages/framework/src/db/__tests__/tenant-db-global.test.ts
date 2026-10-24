@@ -405,13 +405,19 @@ describe("unsafeRaw gate inheritance", () => {
       db: driverWithDerivedHandles(),
       tenantId: own,
       mode: "system",
+      reason: "test builds a system-mode handle to compare with tenant mode",
       grants: {
         unsafeRaw: { reason: "test: derived handles keep the gate" },
         personalDataGate: denyingGate,
       },
     });
     const derived = await derive(tdb.unsafeRaw());
-    return createTenantDb({ db: derived, tenantId: own, mode: "system" })
+    return createTenantDb({
+      db: derived,
+      tenantId: own,
+      mode: "system",
+      reason: "test builds a system-mode handle to compare with tenant mode",
+    })
       .insertOne(brandWritable(tenantEntityTable), { name: "x" })
       .then(
         () => "inserted",

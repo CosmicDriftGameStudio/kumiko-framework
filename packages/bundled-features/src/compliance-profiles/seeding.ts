@@ -53,7 +53,12 @@ export async function seedComplianceProfile(
   // user.tenantId must equal opts.tenantId so the Event Store stream
   // and projection remain in the same tenant bucket.
   const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
-  const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: opts.tenantId,
+    mode: "system",
+    reason: "seeding writes the compliance profile into an explicitly named tenant",
+  });
   const overrideJson = opts.override !== undefined ? JSON.stringify(opts.override) : null;
 
   const existing = (await fetchOne(db, tenantComplianceProfileTable, {

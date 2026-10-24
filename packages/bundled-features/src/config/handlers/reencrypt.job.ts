@@ -125,7 +125,12 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   function tdbFor(tenantId: TenantId): TenantDb {
     let existing = tdbCache.get(tenantId);
     if (!existing) {
-      existing = createTenantDb({ db, tenantId, mode: "system" });
+      existing = createTenantDb({
+        db,
+        tenantId,
+        mode: "system",
+        reason: "KEK rotation job re-encrypts config values of every tenant",
+      });
       tdbCache.set(tenantId, existing);
     }
     return existing;
@@ -146,7 +151,12 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   // tenant's writes — sharing it with sdbFor(SYSTEM_TENANT_ID) would make a
   // write-path cache entry double as the scan's ack gate.
   const scanDb = createSystemDbView(
-    createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    createTenantDb({
+      db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "KEK rotation scan enumerates config values across all tenants",
+    }),
     undefined,
     reportEscapeHatchFor(SYSTEM_TENANT_ID),
   );

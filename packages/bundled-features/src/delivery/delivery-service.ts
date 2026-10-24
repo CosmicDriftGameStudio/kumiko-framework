@@ -299,6 +299,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           db: run.db,
           tenantId,
           mode: "system",
+          reason: "delivery fan-out of a systemScope handler resolves recipients across tenants",
           grants: {
             report,
             unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },

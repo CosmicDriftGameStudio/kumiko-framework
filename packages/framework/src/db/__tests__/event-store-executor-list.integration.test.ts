@@ -630,7 +630,12 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
   test("system-mode list: search still uses session tenantId (streamTenantFor)", async () => {
     // Non-systemStream entities are indexed under event.tenantId (= session),
     // even when listed via r.systemScope() — db.mode must not redirect search.
-    const systemTdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId, mode: "system" });
+    const systemTdb = createTenantDb({
+      db: testDb.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test lists rows across tenants through the executor",
+    });
     let searchedTenant: string | undefined;
     const mockAdapter = {
       configure: async () => {},

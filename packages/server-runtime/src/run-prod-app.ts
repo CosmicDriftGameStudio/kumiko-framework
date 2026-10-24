@@ -60,6 +60,7 @@ import type {
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   assertRowLevelSecurityBootState,
+  knownTablesOf,
   type RowLevelSecurityMode,
 } from "@cosmicdrift/kumiko-framework/db";
 import type {
@@ -780,7 +781,11 @@ async function bootProdApp(
     cacheSync: connections.cacheSync,
   });
   await assertProdSchemaCurrent(connections.db, options.migrations, log);
-  await assertRowLevelSecurityBootState(connections.db, config.rowLevelSecurity);
+  await assertRowLevelSecurityBootState(
+    connections.db,
+    config.rowLevelSecurity,
+    knownTablesOf(features),
+  );
   warnIfRowLevelSecurityOff(config.rowLevelSecurity, log);
 
   const requestContext = await buildProdRequestContext(options, config, composed, connections);

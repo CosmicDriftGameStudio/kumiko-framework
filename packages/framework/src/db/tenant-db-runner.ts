@@ -1,9 +1,10 @@
-import type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { DbRunner } from "./connection.ts";
 import {
+  type TenantDbModeOptions,
   tenantDbRowLevelSecurityScope,
   withRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
@@ -21,12 +22,12 @@ export function isDbRunner(value: unknown): value is DbRunner {
 export function bindTenantDbRunner(
   tenantDb: TenantDb,
   runner: DbRunner,
-  mode: TenantDbMode,
+  modeOptions: TenantDbModeOptions,
   tenantId: TenantId,
 ): void {
   tenantDbRunners.set(
     tenantDb,
-    withRowLevelSecurityScope(runner, tenantDbRowLevelSecurityScope(mode, tenantId)),
+    withRowLevelSecurityScope(runner, tenantDbRowLevelSecurityScope(modeOptions, tenantId)),
   );
 }
 

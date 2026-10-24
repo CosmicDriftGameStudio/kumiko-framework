@@ -39,7 +39,12 @@ export async function seedConfigValues<E extends EntityDefinition>(
 
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
   const executor = createEventStoreExecutor(table, entity, { entityName: "config-value" });
-  const tdb = createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "config seeds are system-tenant defaults",
+  });
 
   for (const seed of seeds) {
     const keyDef = registry.getConfigKey(seed.key);

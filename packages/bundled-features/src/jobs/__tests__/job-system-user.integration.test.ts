@@ -84,6 +84,7 @@ const billingFeature = defineFeature("billing", (r) => {
           db: jobDb,
           tenantId: systemUser.tenantId,
           mode: "system",
+          reason: "test inspects rows written by a job under the system user",
         });
         await handler.handler(
           { type: "config:write:set", payload: parsed, user: systemUser },
@@ -177,7 +178,12 @@ describe("SYSTEM_USER in jobs", () => {
     });
 
     const adminUser = TestUsers.admin;
-    const adminTenantDb = createTenantDb({ db, tenantId: adminUser.tenantId, mode: "system" });
+    const adminTenantDb = createTenantDb({
+      db,
+      tenantId: adminUser.tenantId,
+      mode: "system",
+      reason: "test inspects rows written by a job under the system user",
+    });
     const result = await handler.handler(
       { type: ConfigHandlers.set, payload: parsed, user: adminUser },
       {
