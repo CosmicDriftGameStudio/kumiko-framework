@@ -252,6 +252,14 @@ async function runBackfill(
     return { failures: result.failures, aggregatesMigrated: result.streams.aggregatesMigrated };
   }
   const result = await backfillTenantStreamTenants(common);
+  if (result.membershipStreamsArchived.length > 0) {
+    deps.log.warn(
+      "stream tenant backfill (tenant) archived membership streams a replay must not see",
+      {
+        streams: result.membershipStreamsArchived,
+      },
+    );
+  }
   return {
     failures: result.failures,
     aggregatesMigrated: result.tenants.aggregatesMigrated + result.memberships.aggregatesMigrated,

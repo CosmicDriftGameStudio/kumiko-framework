@@ -17,6 +17,11 @@ import {
   type StreamBackfillStepFailure,
   stepFailures,
 } from "../shared/index.ts";
+import {
+  type ArchivedMembershipStream,
+  archiveUnreplayableMembershipStreams,
+} from "./membership-stream-history.ts";
+import { MEMBERSHIP_UNIQUE_INDEX_NAME } from "./membership-table.ts";
 
 const TENANT_AGGREGATE = "tenant";
 const MEMBERSHIP_AGGREGATE = "tenant-membership";
@@ -30,6 +35,7 @@ export type TenantStreamBackfillResult = {
   readonly searchDocsRemoved: number;
   readonly projectionsRebuilt: readonly string[];
   readonly reindexedTenants: number;
+  readonly membershipStreamsArchived: readonly ArchivedMembershipStream[];
   // Per-step failures across the whole run; step names the failing stage.
   readonly failures: readonly StreamBackfillStepFailure[];
 };
@@ -81,6 +87,7 @@ export async function backfillTenantStreamTenants(
     return emptyDerived({ tenants, memberships, searchCleanup, failures });
   }
 
+  const archive = await archiveMembershipStreamsBeforeRebuild(db);
   const rebuilt = await rebuildAndReindex({
     db,
     registry,
@@ -94,7 +101,43 @@ export async function backfillTenantStreamTenants(
     searchDocsRemoved: searchCleanup.cleanedAggregates(),
     projectionsRebuilt: rebuilt.projectionsRebuilt,
     reindexedTenants: rebuilt.reindexedRows,
-    failures: [...failures, ...rebuilt.failures],
+    membershipStreamsArchived: archive.archived,
+    failures: [
+      ...failures,
+      ...archive.failures,
+      ...rebuilt.failures.map(explainMembershipCollision),
+    ],
+  };
+}
+
+async function archiveMembershipStreamsBeforeRebuild(db: DbConnection): Promise<{
+  readonly archived: readonly ArchivedMembershipStream[];
+  readonly failures: readonly StreamBackfillStepFailure[];
+}> {
+  try {
+    return { archived: await archiveUnreplayableMembershipStreams(db), failures: [] };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    return {
+      archived: [],
+      failures: [{ aggregateId: MEMBERSHIP_PROJECTION, step: "rebuild", error }],
+    };
+  }
+}
+
+function explainMembershipCollision(failure: StreamBackfillStepFailure): StreamBackfillStepFailure {
+  if (
+    failure.aggregateId !== MEMBERSHIP_PROJECTION ||
+    !failure.error.includes(MEMBERSHIP_UNIQUE_INDEX_NAME)
+  ) {
+    return failure;
+  }
+  return {
+    ...failure,
+    error:
+      `two membership streams of one (userId, tenantId) pair still replay alive after the boot ` +
+      `archived the colliding streams it found in the event log. The live table is untouched and ` +
+      `the step runs again on the next boot. Cause: ${failure.error}`,
   };
 }
 
@@ -110,6 +153,7 @@ function emptyDerived(args: {
     searchDocsRemoved: args.searchCleanup.cleanedAggregates(),
     projectionsRebuilt: [],
     reindexedTenants: 0,
+    membershipStreamsArchived: [],
     failures: args.failures,
   };
 }
