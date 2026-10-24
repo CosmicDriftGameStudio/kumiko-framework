@@ -261,6 +261,20 @@ function resolveCodemodScriptAt(
   return resolved;
 }
 
+type CodemodLocation = {
+  // Working directory of the codemod subprocess and the fallback search start.
+  readonly repoRoot: string;
+  readonly resolveFrom?: string;
+};
+
+function findCodemodScriptsRootPreferring(
+  resolveFrom: string | undefined,
+  repoRoot: string,
+): string | null {
+  const own = resolveFrom === undefined ? null : findCodemodScriptsRoot(resolveFrom);
+  return own ?? findCodemodScriptsRoot(repoRoot);
+}
+
 export function resolveCodemodScript(
   repoRoot: string,
   codemodField: string | undefined,
@@ -520,7 +534,7 @@ function writePartialMarker(
 async function applyCodemods(
   out: UpgradeCliOut,
   pending: readonly ChangelogEntry[],
-  repoRoot: string,
+  codemodLocation: CodemodLocation,
   targetDir: string,
   dryRun: boolean,
   // Installed version for the zero-pending bootstrap marker — never a
@@ -591,16 +605,19 @@ async function applyCodemods(
     return 0;
   }
 
-  const codemodScriptsRoot = findCodemodScriptsRoot(repoRoot);
+  const { repoRoot, resolveFrom: codemodResolveFrom } = codemodLocation;
+  const codemodScriptsRoot = findCodemodScriptsRootPreferring(codemodResolveFrom, repoRoot);
   if (codemodScriptsRoot === null) {
+    const searched =
+      codemodResolveFrom === undefined ? repoRoot : `${codemodResolveFrom} and ${repoRoot}`;
     out.err(
-      `  ✗ could not locate @cosmicdrift/kumiko-feature-ast/src/scripts/codemod — is @cosmicdrift/kumiko-cli or @cosmicdrift/kumiko-dev-server installed? searched from ${repoRoot} upward`,
+      `  ✗ could not locate @cosmicdrift/kumiko-feature-ast/src/scripts/codemod — is @cosmicdrift/kumiko-cli or @cosmicdrift/kumiko-dev-server installed? searched from ${searched} upward`,
     );
     return 1;
   }
   const ran: UpgradeMarkerCodemod[] = [];
   for (const e of codemodEntries) {
-    const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
+    const scriptPath = resolveCodemodScriptAt(codemodScriptsRoot, e.codemod);
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
       if (!dryRun)
@@ -869,7 +886,7 @@ async function applyPlannedUpgrade(
   out: UpgradeCliOut,
   args: ParsedArgs,
   plan: UpgradePlan,
-  repoRoot: string,
+  codemodLocation: CodemodLocation,
   targetDir: string,
 ): Promise<number> {
   // Marker must reflect what is actually installed under the target (or
@@ -887,7 +904,7 @@ async function applyPlannedUpgrade(
   const code = await applyCodemods(
     out,
     plan.pending,
-    repoRoot,
+    codemodLocation,
     targetDir,
     dryRun,
     markerVersion ?? plan.currentVersion,
@@ -1026,7 +1043,12 @@ export async function runUpgradeCli(
   argv: readonly string[],
   cwd: string,
   out: UpgradeCliOut,
-  options?: { readonly repoRoot?: string },
+  options?: {
+    readonly repoRoot?: string;
+    // The bin's own directory: codemods then come from the feature-ast its own install resolves, not
+    // from whichever copy sits first above the app (a workspace parent may hoist another version).
+    readonly codemodResolveFrom?: string;
+  },
 ): Promise<number> {
   if (argv.includes("--help") || argv.includes("-h")) {
     out.log(UPGRADE_USAGE);
@@ -1051,7 +1073,13 @@ export async function runUpgradeCli(
   const planned = planUpgrade(args, cwd, targetDir);
   if (planned.kind === "error") return failUpgrade(out, ...planned.lines);
   if (getFlag(args, "apply")) {
-    return applyPlannedUpgrade(out, args, planned.value, options?.repoRoot ?? cwd, targetDir);
+    const codemodLocation: CodemodLocation = {
+      repoRoot: options?.repoRoot ?? cwd,
+      ...(options?.codemodResolveFrom !== undefined && {
+        resolveFrom: options.codemodResolveFrom,
+      }),
+    };
+    return applyPlannedUpgrade(out, args, planned.value, codemodLocation, targetDir);
   }
   if (getFlag(args, "json")) return reportUpgradeJson(out, planned.value);
   return reportUpgradeText(out, planned.value, getFlag(args, "verbose"));

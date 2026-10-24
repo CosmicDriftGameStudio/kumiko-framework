@@ -12,7 +12,9 @@ const appCwd = process.env["INIT_CWD"] ?? process.cwd();
 try {
   const { runUpgradeCli } = await import("@cosmicdrift/kumiko-framework/upgrade-cli");
   // Let the event loop drain stdout (piped by guard-upgrade-state) before exit.
-  process.exitCode = await runUpgradeCli(process.argv.slice(2), appCwd, out);
+  process.exitCode = await runUpgradeCli(process.argv.slice(2), appCwd, out, {
+    codemodResolveFrom: import.meta.dir,
+  });
 } catch (error) {
   const message = missingPeerMessage(error);
   if (message === undefined) throw error;

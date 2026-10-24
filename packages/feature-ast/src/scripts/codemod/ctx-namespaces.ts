@@ -106,8 +106,10 @@ function runGroup(
     skipAddingFilesFromTsConfig: true,
   });
   totals.projects += 1;
-  for (const file of files) {
-    const sourceFile = project.addSourceFileAtPath(file);
+  // Receivers are found through references: a structural helper is only recognised as taking a
+  // handler context when its callers in other files are already part of the project.
+  const staged = files.map((file) => ({ file, sourceFile: project.addSourceFileAtPath(file) }));
+  for (const { file, sourceFile } of staged) {
     const before = readFileSync(file, "utf8");
     const result = transformCtxNamespaces(sourceFile);
     reportSites(result.rewrites, "rewritten");

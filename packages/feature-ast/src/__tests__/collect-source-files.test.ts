@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collectSourceFiles } from "../scripts/codemod/collect-source-files.ts";
+import {
+  collectSourceFiles,
+  envWithoutGitRepositoryOverrides,
+} from "../scripts/codemod/collect-source-files.ts";
 
 const isTsFile = (name: string): boolean => /\.tsx?$/.test(name);
 
@@ -30,6 +33,34 @@ describe("collectSourceFiles", () => {
       },
       (root) => {
         expect(collectSourceFiles([root], { isMigratableFile: isTsFile })).toEqual([
+          join(root, "src", "a.ts"),
+        ]);
+      },
+    );
+  });
+
+  it("leaves out files the repository's .gitignore excludes", () => {
+    withTree(
+      (root) => {
+        expect(
+          Bun.spawnSync({
+            cmd: ["git", "init", "-q"],
+            cwd: root,
+            env: envWithoutGitRepositoryOverrides(),
+          }).exitCode,
+        ).toBe(0);
+        writeFileSync(join(root, ".gitignore"), "generated/\n*.local.ts\n");
+        mkdirSync(join(root, "generated"));
+        mkdirSync(join(root, "src"));
+        writeFileSync(join(root, "generated", "client.ts"), "export {};\n");
+        writeFileSync(join(root, "src", "scratch.local.ts"), "export {};\n");
+        writeFileSync(join(root, "src", "a.ts"), "export {};\n");
+      },
+      (root) => {
+        expect(collectSourceFiles([root], { isMigratableFile: isTsFile })).toEqual([
+          join(root, "src", "a.ts"),
+        ]);
+        expect(collectSourceFiles([join(root, "src")], { isMigratableFile: isTsFile })).toEqual([
           join(root, "src", "a.ts"),
         ]);
       },
