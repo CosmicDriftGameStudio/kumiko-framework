@@ -33,7 +33,6 @@ import type {
   PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
-  PreQueryHookFn,
   PreSaveHookFn,
   SearchPayloadContributorFn,
 } from "@cosmicdrift/kumiko-types/hooks";
@@ -248,7 +247,6 @@ export type RegistryState = {
   postSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
   preDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
   postDeleteHooks: Map<string, PhasedHook<PostDeleteHookFn>[]>;
-  preQueryHooks: Map<string, OwnedFn<PreQueryHookFn>[]>;
   postQueryHooks: Map<string, OwnedFn<PostQueryHookFn>[]>;
   entityPostSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
   entityPreDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
@@ -320,7 +318,6 @@ export function createInitialState(): RegistryState {
     postSaveHooks: new Map(),
     preDeleteHooks: new Map(),
     postDeleteHooks: new Map(),
-    preQueryHooks: new Map(),
     postQueryHooks: new Map(),
     entityPostSaveHooks: new Map(),
     entityPreDeleteHooks: new Map(),
@@ -398,7 +395,7 @@ export function filterByPhase<TFn>(
 }
 
 // Same ownership rule as filterByPhase, but for unphased hook lists
-// (preSave, preQuery). Returns the raw fns ready for the lifecycle runner.
+// (preSave, postQuery). Returns the raw fns ready for the lifecycle runner.
 export function filterOwned<TFn>(
   list: readonly OwnedFn<TFn>[] | undefined,
   effectiveFeatures?: ReadonlySet<string>,

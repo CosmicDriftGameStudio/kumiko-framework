@@ -258,11 +258,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         return;
       }
 
-      if (
-        type === LifecycleHookTypes.preSave ||
-        type === LifecycleHookTypes.preQuery ||
-        type === LifecycleHookTypes.postQuery
-      ) {
+      if (type === LifecycleHookTypes.preSave || type === LifecycleHookTypes.postQuery) {
         if (!state.lifecycleHooks[type]) state.lifecycleHooks[type] = {};
         for (const n of names) {
           if (!state.lifecycleHooks[type][n]) state.lifecycleHooks[type][n] = [];
@@ -273,6 +269,13 @@ export function buildUiExtensionsMethods<TName extends string>(
         }
         // skip: pre/post-hooks without phase semantics, stored and done
         return;
+      }
+
+      if (!(type in state.phasedLifecycleHooks)) {
+        throw new Error(
+          `[Feature ${name}] r.hook({ type: "${type}", … }) is not a known hook type ` +
+            "(preQuery hooks were never invoked and have been removed).",
+        );
       }
 
       // Phased storage. preDelete has no phase option (always inTransaction);

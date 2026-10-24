@@ -250,7 +250,7 @@ The form controller passes { requestId } as third argument to dispatcher.write. 
 
 The deprecated outsideTransaction field no longer exists on HandlerContext. ctx.dbOutsideTransaction together with runInOwnTransaction replaces it.
 
-**Migration:** Replace ctx.outsideTransaction(fn) with runInOwnTransaction(requireOutsideTransactionDb(ctx), fn); both are exported from @cosmicdrift/kumiko-framework/db and fn keeps its (db) => Promise signature.
+**Migration:** Replace ctx.outsideTransaction(fn) with runInOwnTransaction(requireOutsideTransactionDb(ctx), fn); both are exported from @cosmicdrift/kumiko-framework/db and fn keeps its (db) => Promise signature. Since #4031 `hasOutsideTransactionDb` and `requireOutsideTransactionDb` are internal and no longer exported from `/db`; narrow `ctx.db.outsideTransaction` directly (`if (ctx.db.outsideTransaction)`).
 
 ### form-draft
 

@@ -34,7 +34,6 @@ import type {
   PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
-  PreQueryHookFn,
   PreSaveHookFn,
   SearchPayloadContributorFn,
 } from "./hooks.ts";
@@ -473,10 +472,6 @@ export type Registry = {
     phase?: HookPhase,
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly PostDeleteHookFn[];
-  getPreQueryHooks(
-    name: string,
-    effectiveFeatures?: ReadonlySet<string>,
-  ): readonly PreQueryHookFn[];
   getPostQueryHooks(
     name: string,
     effectiveFeatures?: ReadonlySet<string>,

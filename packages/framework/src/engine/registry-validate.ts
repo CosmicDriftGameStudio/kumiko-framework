@@ -788,7 +788,6 @@ export function validateLifecycleHookTargets(state: RegistryState): void {
     { map: state.postSaveHooks, phase: "postSave" },
     { map: state.preDeleteHooks, phase: "preDelete" },
     { map: state.postDeleteHooks, phase: "postDelete" },
-    { map: state.preQueryHooks, phase: "preQuery" },
     { map: state.postQueryHooks, phase: "postQuery" },
   ] as const;
 

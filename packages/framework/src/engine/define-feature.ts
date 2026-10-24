@@ -148,7 +148,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       postSave: state.phasedLifecycleHooks.postSave,
       preDelete: state.phasedLifecycleHooks.preDelete,
       postDelete: state.phasedLifecycleHooks.postDelete,
-      preQuery: state.lifecycleHooks["preQuery"] ?? {},
       postQuery: state.lifecycleHooks["postQuery"] ?? {},
       // @cast-boundary engine-bridge — hook registration erases the per-slot
       // signatures to LifecycleHookFn (a union; see the cast in

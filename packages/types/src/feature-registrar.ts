@@ -62,7 +62,6 @@ import type {
   PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
-  PreQueryHookFn,
   PreSaveHookFn,
   SearchPayloadContributorFn,
   ValidationHookFn,
@@ -130,12 +129,6 @@ export type HookDefinition =
       readonly handler: PostDeleteHookFn;
     } & HookEscapeHatch &
       HookPhaseOption)
-  | ({
-      readonly type: "preQuery";
-      readonly target: RefOrRefs;
-      readonly handler: PreQueryHookFn;
-      readonly phase?: never;
-    } & HookEscapeHatch)
   | ({
       readonly type: "postQuery";
       readonly target: HookTarget;

@@ -4,13 +4,7 @@ import type { ConfigScope } from "./config-scope.ts";
 import type { DbConnection } from "./db-connection.ts";
 import type { EntityFieldDefinition, OptionsQueryPayload } from "./fields.ts";
 import type { EscapeHatchDeclaration, JobContext, JobDeferral } from "./handlers.ts";
-import type {
-  PostDeleteHookFn,
-  PostSaveHookFn,
-  PreDeleteHookFn,
-  PreQueryHookFn,
-  PreSaveHookFn,
-} from "./hooks.ts";
+import type { PostDeleteHookFn, PostSaveHookFn, PreDeleteHookFn, PreSaveHookFn } from "./hooks.ts";
 import type { TenantId } from "./identifiers.ts";
 import type { NavIconKey } from "./nav-icon.ts";
 import type { DashboardCustomPanel, DashboardScreenPanel } from "./screen.ts";
@@ -637,7 +631,6 @@ export type RegistrarExtensionHooks = {
   readonly postSave?: PostSaveHookFn;
   readonly preDelete?: PreDeleteHookFn;
   readonly postDelete?: PostDeleteHookFn;
-  readonly preQuery?: PreQueryHookFn;
 };
 
 export type UiExtensionDef = {

@@ -134,7 +134,6 @@ describe("lifecycle hooks in registry", () => {
     expect(registry.getPostSaveHooks("test:write:user")).toEqual([]);
     expect(registry.getPreDeleteHooks("test:write:user")).toEqual([]);
     expect(registry.getPostDeleteHooks("test:write:user")).toEqual([]);
-    expect(registry.getPreQueryHooks("test:query:user")).toEqual([]);
   });
 });
 
