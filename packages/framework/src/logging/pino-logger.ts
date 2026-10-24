@@ -1,5 +1,6 @@
 import pino, { type DestinationStream } from "pino";
-import { observabilityContext } from "../observability/index.ts";
+import { observabilityContext } from "../observability/context.ts";
+
 import { requestLogFields } from "./request-log-fields.ts";
 import type { Logger } from "./types.ts";
 

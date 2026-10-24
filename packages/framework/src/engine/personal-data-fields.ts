@@ -1,6 +1,7 @@
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import type { OwnershipMap, OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
 import { ANONYMOUS_ROLE } from "./system-user.ts";
 import type { EntityDefinition, ResolvedPiiFlags } from "./types/fields.ts";
-import type { AccessRule, OwnershipMap, OwnershipRule } from "./types/index.ts";
 
 // Personal-data annotation check mirrors pii-retention.ts's hasAnonymizableSubjectField,
 // minus tenantOwned: a tenant-scoped field isn't an individual's personal data in the

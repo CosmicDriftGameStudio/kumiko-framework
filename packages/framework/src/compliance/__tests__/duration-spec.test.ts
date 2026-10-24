@@ -6,12 +6,7 @@
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import {
-  addDurationSpec,
-  describeDurationSpec,
-  durationSpecToMs,
-  subtractRetentionSpec,
-} from "../duration-spec.ts";
+import { addDurationSpec, durationSpecToMs, subtractRetentionSpec } from "../duration-spec.ts";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
@@ -57,20 +52,6 @@ describe("addDurationSpec", () => {
     const tHours = addDurationSpec(t0, { hours: 6 });
     const tDaysDefault = addDurationSpec(t0, { days: 30 });
     expect(tHours.epochMilliseconds).not.toBe(tDaysDefault.epochMilliseconds);
-  });
-});
-
-describe("describeDurationSpec", () => {
-  test("days mit Pluralisierung", () => {
-    expect(describeDurationSpec({ days: 30 })).toBe("30 days");
-    expect(describeDurationSpec({ days: 1 })).toBe("1 day");
-    expect(describeDurationSpec({ days: 0 })).toBe("0 days");
-  });
-
-  test("hours mit Pluralisierung", () => {
-    expect(describeDurationSpec({ hours: 72 })).toBe("72 hours");
-    expect(describeDurationSpec({ hours: 1 })).toBe("1 hour");
-    expect(describeDurationSpec({ hours: 0 })).toBe("0 hours");
   });
 });
 

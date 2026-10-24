@@ -1,3 +1,10 @@
+import type {
+  EditFieldSpec,
+  EditLayout,
+  ListColumnSpec,
+  RowAction,
+  ToolbarAction,
+} from "@cosmicdrift/kumiko-types/screen";
 import {
   isEditLayoutScreen,
   isFieldsEditSection,
@@ -5,14 +12,7 @@ import {
   normalizeListColumn,
   sectionFieldSpecs,
 } from "../screen-helpers.ts";
-import type {
-  EditFieldSpec,
-  EditLayout,
-  FeatureDefinition,
-  ListColumnSpec,
-  RowAction,
-  ToolbarAction,
-} from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 const FUNCTION_DROPPED_HINT =
   "functions are dropped by JSON.stringify when the screen config reaches the client " +

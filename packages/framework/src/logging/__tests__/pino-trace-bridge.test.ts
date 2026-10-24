@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createConsoleProvider } from "../../observability/index.ts";
+import { createConsoleProvider } from "../../observability/console-provider.ts";
+
 import { mergeTraceFields } from "../pino-logger.ts";
 
 // The Pino trace-bridge hook is verified by directly exercising the helper

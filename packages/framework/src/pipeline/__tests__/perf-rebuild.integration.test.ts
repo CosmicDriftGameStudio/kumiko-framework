@@ -9,6 +9,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { asRawClient } from "../../db/query.ts";
@@ -18,7 +19,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";

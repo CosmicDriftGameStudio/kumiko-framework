@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { EditRelatedListSection, ListColumnSpec } from "@cosmicdrift/kumiko-types/screen";
 import { defineFeature } from "../../define-feature.ts";
 import {
   createEntity,
@@ -6,7 +7,7 @@ import {
   createSelectField,
   createTextField,
 } from "../../factories.ts";
-import type { EditRelatedListSection, ListColumnSpec } from "../../types/index.ts";
+
 import { collectCardMetaOverflow, validateCardMetaOverflow } from "../card-meta-overflow.ts";
 
 const text = () => createTextField({ personal: false, reason: "test_fixture" });

@@ -5,7 +5,9 @@
 // parsing, DB-connection handling, exit codes, output formatting.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { type ConsumerCliOut, runConsumerCli } from "../consumer-cli.ts";
+import { runConsumerCli } from "../consumer-cli.ts";
+import type { ConsumerCliOut } from "../consumer-cli-internals.ts";
+
 import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
 import { insertConsumerIfAbsent, markConsumerRebuildFailed } from "../db/queries/event-consumer.ts";
 import { asRawClient } from "../db/query.ts";

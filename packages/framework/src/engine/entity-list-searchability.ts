@@ -1,6 +1,7 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { parseQn } from "./qualified-name.ts";
-import type { EntityDefinition, QueryHandlerDef } from "./types/index.ts";
 
 // Mirrors buildSearchableSortableCaches (registry-validate.ts): a `search`
 // payload only matches text fields, embedded sub-fields and references that

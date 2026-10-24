@@ -1,7 +1,9 @@
+import type { ConfigSeedDef } from "@cosmicdrift/kumiko-types/config";
 import { v5 as uuidv5 } from "uuid";
 import type { EntityDefinition } from "../engine/index.ts";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.ts";
-import type { ConfigSeedDef, Registry } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import type { DbConnection } from "./connection.ts";
 import { createEventStoreExecutor } from "./event-store-executor.ts";

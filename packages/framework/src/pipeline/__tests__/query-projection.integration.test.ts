@@ -11,6 +11,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
+import type { ProjectionTable } from "@cosmicdrift/kumiko-types/projection";
 import * as z from "zod";
 import {
   integer as pgInteger,
@@ -28,7 +30,7 @@ import {
   defineFeature,
   defineProjectionQueryHandler,
 } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent, ProjectionTable } from "../../engine/types/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({

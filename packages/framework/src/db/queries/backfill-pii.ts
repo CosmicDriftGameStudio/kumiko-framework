@@ -58,6 +58,7 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { quoteIdent } from "../../crypto/ciphertext-pattern.ts";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
@@ -87,7 +88,8 @@ import {
   resolveSubjectForField,
   SubjectResolutionError,
 } from "../../crypto/subject-resolver.ts";
-import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.ts";
+import type { Registry, TenantId } from "../../engine/types/index.ts";
+
 import type { DbRunner } from "../connection.ts";
 import { resolveTableName } from "../entity-table-meta.ts";
 import { asRawClient } from "../query.ts";

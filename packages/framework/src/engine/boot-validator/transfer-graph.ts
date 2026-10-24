@@ -1,10 +1,11 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { parseRefTargetEntityName } from "../parse-ref-target.ts";
 import {
   findOverDeepTransferChain,
   MAX_TRANSFER_DEPTH,
   resolveTransferAdjacency,
 } from "../transfer-adjacency.ts";
-import type { EntityDefinition, FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // --- Transfer-graph boot validation ---
 //

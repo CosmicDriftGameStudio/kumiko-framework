@@ -8,7 +8,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import type { EntityId } from "../../engine/types/index.ts";
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
+
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {

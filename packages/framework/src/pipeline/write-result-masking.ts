@@ -1,5 +1,7 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { maskWriteOnlyFields } from "../engine/field-access.ts";
-import type { EntityDefinition, WriteResult } from "../engine/types/index.ts";
+
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import { isLifecycleResult } from "./dispatcher-utils.ts";
 

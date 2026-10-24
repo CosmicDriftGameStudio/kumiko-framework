@@ -40,41 +40,6 @@ export function mergeSensitiveConfig(
   };
 }
 
-function lowercaseSet(names: readonly string[]): ReadonlySet<string> {
-  return new Set(names.map((n) => n.toLowerCase()));
-}
-
-export function redactHeaders(
-  headers: Readonly<Record<string, string>>,
-  config: SensitiveFilterConfig,
-): Record<string, string> {
-  const redacted = lowercaseSet(config.redactedHeaders);
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    out[key] = redacted.has(key.toLowerCase()) ? REDACTED : value;
-  }
-  return out;
-}
-
-// Redact sensitive query params in a URL or query string. Returns a new URL
-// string with the same shape — path, fragment, and ordering preserved.
-export function redactQueryString(input: string, config: SensitiveFilterConfig): string {
-  const redacted = lowercaseSet(config.redactedQueryParams);
-  // URL wants absolute; handle both absolute and path-only forms.
-  const hasScheme = /^[a-z][a-z0-9+\-.]*:/i.test(input);
-  const base = hasScheme ? undefined : "http://_internal";
-  const url = base ? new URL(input, base) : new URL(input);
-  for (const key of Array.from(url.searchParams.keys())) {
-    if (redacted.has(key.toLowerCase())) {
-      url.searchParams.set(key, REDACTED);
-    }
-  }
-  if (!hasScheme) {
-    return `${url.pathname}${url.search}${url.hash}`;
-  }
-  return url.toString();
-}
-
 // Check a single attribute key against the redaction patterns.
 // Used by the Span implementation when setAttribute is called.
 export function shouldRedactAttribute(key: string, config: SensitiveFilterConfig): boolean {

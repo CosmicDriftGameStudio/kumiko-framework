@@ -6,12 +6,15 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { insertOne } from "../../db/query.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
-import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.ts";
+
+import { createPrometheusMeter } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
+
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
@@ -37,7 +40,7 @@ const auditEvents: EscapeHatchUseEvent[] = [];
 
 async function probe(
   job: string,
-  reads: import("../../engine/types/index.ts").JobContext["crossTenantReads"],
+  reads: import("@cosmicdrift/kumiko-types/handlers").JobContext["crossTenantReads"],
 ): Promise<void> {
   if (!reads) {
     outcomes.push({ job, hasReads: false });

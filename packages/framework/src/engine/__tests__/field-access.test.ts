@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { checkWriteFieldRoles, filterReadFields } from "../field-access.ts";
-import type { EntityDefinition } from "../types/index.ts";
 
 const entity: EntityDefinition = {
   fields: {

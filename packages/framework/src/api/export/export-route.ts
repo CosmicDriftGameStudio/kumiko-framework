@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import * as z from "zod";
 import type { Registry } from "../../engine/types/index.ts";
-import { toKumikoError } from "../../errors/index.ts";
-import { createI18n, DEFAULT_LOCALE } from "../../i18n/index.ts";
+import { toKumikoError } from "../../errors/to-kumiko-error.ts";
+
+import { createI18n } from "../../i18n/index.ts";
+import { DEFAULT_LOCALE } from "../../i18n/request-locale.ts";
+
 import type { Dispatcher } from "../../pipeline/dispatcher.ts";
 import { isValidIanaTimeZone } from "../../time/index.ts";
 import { Routes } from "../api-constants.ts";

@@ -2,8 +2,9 @@
 // locatedTimestamp fields. No database or stack, only data transformation.
 
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createEntity, createLocatedTimestampField, createTextField } from "../../engine/index.ts";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+
 import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp.ts";
 
 const orderEntity: EntityDefinition = createEntity({

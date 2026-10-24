@@ -1,3 +1,9 @@
+import type {
+  AccessRule,
+  QueryHandlerDef,
+  StreamHandlerDef,
+  WriteHandlerDef,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchGrantsProblem, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { reasonProblem } from "../escape-hatch-reason.ts";
 import {
@@ -6,13 +12,8 @@ import {
   personalFieldNames,
 } from "../personal-data-fields.ts";
 import { ANONYMOUS_ROLE } from "../system-user.ts";
-import type {
-  AccessRule,
-  FeatureDefinition,
-  QueryHandlerDef,
-  StreamHandlerDef,
-  WriteHandlerDef,
-} from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import { collectZodObjectKeys } from "./zod-shape.ts";
 
 type HandlerKind = "write" | "query" | "stream";

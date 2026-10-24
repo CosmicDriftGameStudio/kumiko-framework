@@ -1,13 +1,14 @@
 // words.ts invariant tests.
 //
 // Protects the slug word lists from faulty edits (duplicates,
+import { ADJECTIVES, NOUNS } from "../words.ts";
+
 // uppercase letters, hyphens, garbage entries). Deliberately NOT tied to
 // the outdated inline comments ("150 × 150", "4-8 Buchstaben") —
 // there are actually more words and additional lengths; these tests cover
 // the genuine hard invariants and the documented minimum diversity.
 
 import { describe, expect, test } from "bun:test";
-import { ADJECTIVES, NOUNS } from "../index.ts";
 
 const LISTS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["ADJECTIVES", ADJECTIVES],

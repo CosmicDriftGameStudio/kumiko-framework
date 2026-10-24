@@ -11,6 +11,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient } from "../../db/query.ts";
@@ -18,7 +19,6 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
-import type { EntityDefinition } from "../types/index.ts";
 
 const hostAccess: NonNullable<EntityDefinition["access"]> = {
   read: {

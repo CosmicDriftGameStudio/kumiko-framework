@@ -1,10 +1,13 @@
 // The app's single config file (kumiko.config.ts). Type-only imports keep it
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
+
+import type { BundledListsOptions } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
-import type { BundledListsOptions, FeatureDefinition } from "../engine/types/index.ts";
+import type { FeatureDefinition } from "../engine/types/index.ts";
+import type { AppClientConfig, AppPortEntry } from "./internals.ts";
 
 export type AppInfraPorts = {
   readonly postgres?: number;
@@ -23,12 +26,6 @@ export type AppPorts = {
    *  of several apps never share a Meilisearch or Postgres. */
   readonly infra?: AppInfraPorts;
 };
-
-export type AppClientConfig = {
-  /** Client bundle entry files, relative to the app root (e.g. "src/client.tsx"). */
-  readonly entries: readonly string[];
-};
-
 /** The boot-validator options an app owns; `env` and the cipher are injected by the runners. */
 export type AppValidateBootOptions = Pick<
   ValidateBootOptions,
@@ -64,8 +61,6 @@ const INFRA_PORT_NAMES = [
 ] as const satisfies readonly (keyof AppInfraPorts)[];
 
 export type AppPortRole = "dev" | "e2e" | (typeof INFRA_PORT_NAMES)[number];
-
-export type AppPortEntry = { readonly role: AppPortRole; readonly port: number };
 
 /** Every port the app claims, in a stable order. */
 export function listAppPorts(ports: AppPorts): readonly AppPortEntry[] {

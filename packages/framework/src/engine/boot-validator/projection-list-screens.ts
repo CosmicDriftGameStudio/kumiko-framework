@@ -1,15 +1,16 @@
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  EditRelatedListSection,
+  ProjectionListScreenDefinition,
+} from "@cosmicdrift/kumiko-types/screen";
 import {
   isListQueryWithoutSearchableFields,
   resolveEntityBehindListQuery,
 } from "../entity-list-searchability.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import { isEditLayoutScreen } from "../screen-helpers.ts";
-import type {
-  EditRelatedListSection,
-  FeatureDefinition,
-  ProjectionListScreenDefinition,
-  QueryHandlerDef,
-} from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
 import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
 import { findEntity } from "./parent-ref.ts";

@@ -1,4 +1,6 @@
-import type { AccessRule, OwnershipMap, Registry } from "../engine/types/index.ts";
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import type { OwnershipMap } from "@cosmicdrift/kumiko-types/ownership";
+import type { Registry } from "../engine/types/index.ts";
 
 // Access rules of the query handlers that let a role read an entity (the
 // handler's own entity or one it declares via liveEntities). A live signal

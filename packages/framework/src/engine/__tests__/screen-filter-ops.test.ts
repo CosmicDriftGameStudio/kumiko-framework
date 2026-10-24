@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { ScreenFilterOp } from "@cosmicdrift/kumiko-types/screen";
 import { createDecimalField, createMoneyField, createNumberField } from "../factories.ts";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts";
-import type { ScreenFilterOp } from "../types/index.ts";
 
 const COMPARABLE: ScreenFilterOp[] = ["eq", "ne", "lt", "gt", "lte", "gte", "in"];
 

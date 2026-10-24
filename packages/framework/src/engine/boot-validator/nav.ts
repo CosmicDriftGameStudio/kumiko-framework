@@ -2,15 +2,13 @@
 // validation in index.ts — thematically adjacent to ownership.ts, kept
 // here since this is a structural move, not a semantic reorg).
 
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
-import type {
-  AccessRule,
-  FeatureDefinition,
-  NavDefinition,
-  WorkspaceDefinition,
-} from "../types/index.ts";
-import { isOpenToAllGranted } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 

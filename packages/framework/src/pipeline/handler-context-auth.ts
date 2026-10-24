@@ -1,5 +1,7 @@
+import type { MemberReader } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { HandlerAuth, MemberReader, SessionUser } from "../engine/types/index.ts";
+import type { HandlerAuth, SessionUser } from "../engine/types/index.ts";
+
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
 import { resolveAuthClaimsFn } from "./dispatch-shared.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";

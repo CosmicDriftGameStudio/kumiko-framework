@@ -1,14 +1,15 @@
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
 import type { UnavailableSelectOption } from "../engine/screen-helpers.ts";
-import type { EntityId } from "../engine/types/index.ts";
+import type { UnprocessableOpts } from "../errors/classes.ts";
 import {
   VersionConflictError as FrameworkVersionConflict,
   UnprocessableError,
-  type UnprocessableOpts,
   type WriteFailure,
   writeFailure,
 } from "../errors/index.ts";
+
 import type { StoredEvent } from "../event-store/index.ts";
 import {
   hasLiveProjectionsForEvent,

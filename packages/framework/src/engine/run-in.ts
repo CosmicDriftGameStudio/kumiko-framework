@@ -1,4 +1,6 @@
 // runIn lane-routing helpers. Tiny module on purpose: both buildServer
+import type { RunIn } from "@cosmicdrift/kumiko-types/config";
+
 // (MSP-consumer filter) and the boot-validator (coverage check)
 // need the same resolution rule, and duplicating it in two places
 // invites drift — when the default changes, one site gets updated and
@@ -17,9 +19,6 @@
 // processLane describes the CURRENT process's role:
 //   - "api" / "worker" — single-role deploy, filter strictly.
 //   - "both"           — all-in-one, no filtering (one process does it all).
-
-import type { RunIn } from "./types/index.ts";
-
 // Does a consumer with `runIn` want to run on a process of the given lane?
 export function runsInLane(runIn: RunIn | undefined, processLane: RunIn): boolean {
   if (processLane === "both") return true;

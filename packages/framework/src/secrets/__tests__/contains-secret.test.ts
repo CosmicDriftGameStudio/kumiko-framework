@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { DashboardText } from "@cosmicdrift/kumiko-types/screen";
+import type { ContainsSecret } from "@cosmicdrift/kumiko-types/secrets-types";
 import * as z from "zod";
 import { defineQueryHandler } from "../../engine/define-handler.ts";
-import type { DashboardI18nText, DashboardText, TenantId } from "../../engine/index.ts";
-import { type ContainsSecret, createSecret, type Secret } from "../index.ts";
+import type { DashboardI18nText, TenantId } from "../../engine/index.ts";
+import { createSecret, type Secret } from "../index.ts";
 
 // R6 is a COMPILE-TIME guard. The type-level assertions below are the real
 // coverage — they are checked by tsc (the bun runtime strips types without

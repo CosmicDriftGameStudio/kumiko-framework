@@ -1,3 +1,4 @@
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
@@ -6,7 +7,8 @@ import {
   normalizeListColumn,
   resolveNavParentScreen,
 } from "../screen-helpers.ts";
-import type { FeatureDefinition, NavDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import type {
   EditRelatedListSection,
   ListColumnSpec,

@@ -1,7 +1,9 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.ts";
-import type { EntityDefinition, SessionUser } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import type { Table } from "./event-store-executor-context.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";

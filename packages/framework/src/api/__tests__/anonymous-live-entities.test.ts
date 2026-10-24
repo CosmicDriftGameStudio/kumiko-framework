@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { createRegistry } from "../../engine/registry.ts";
-import type { AccessRule } from "../../engine/types/index.ts";
+
 import { collectAnonymousLiveEntities } from "../anonymous-live-entities.ts";
 
 const entityOnTable = (table: string) =>

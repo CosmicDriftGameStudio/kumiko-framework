@@ -3,7 +3,9 @@ import {
   type EscapeHatchReporter,
   escapeHatchFor,
 } from "@cosmicdrift/kumiko-types/handlers";
-import { type RequestContextData, requestContext } from "../api/request-context.ts";
+import { requestContext } from "../api/request-context.ts";
+import type { RequestContextData } from "../api/request-context-internals.ts";
+
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import type {
   AppContext,
@@ -13,7 +15,8 @@ import type {
   SessionUser,
 } from "../engine/types/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
-import { createEscapeHatchReporter } from "../observability/index.ts";
+import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
+
 import type { ContextServiceOverrides } from "./context-services.ts";
 import {
   type DispatchContext,

@@ -1,11 +1,12 @@
 import type { HandlerObservability } from "../engine/types/index.ts";
 import { createFallbackFullLogger } from "../logging/utils.ts";
+import { getFallbackTracer } from "../observability/fallback.ts";
 import {
   createMetricsForFactory,
   createMetricsHandle,
   createNoopMetricsHandle,
-  getFallbackTracer,
 } from "../observability/index.ts";
+
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 
 export function buildObservabilityFacet(scope: HandlerContextScope): {

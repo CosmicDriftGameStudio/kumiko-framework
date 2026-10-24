@@ -1,13 +1,13 @@
-import * as z from "zod";
-import { InternalError } from "../errors/index.ts";
 import type {
-  Registry,
   TemplateImagesVariableDef,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,
   TemplateVariables,
-} from "./types/index.ts";
+} from "@cosmicdrift/kumiko-types/config";
+import * as z from "zod";
+import { InternalError } from "../errors/index.ts";
+import type { Registry } from "./types/index.ts";
 
 type CommonOptions = { readonly label?: string; readonly required?: boolean };
 

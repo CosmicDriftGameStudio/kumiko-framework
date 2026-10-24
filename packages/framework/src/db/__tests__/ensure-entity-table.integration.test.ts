@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 import { asRawClient } from "../query.ts";
 import { unsafeCreateEntityTable, unsafeEnsureEntityTable } from "../table-push.ts";
 

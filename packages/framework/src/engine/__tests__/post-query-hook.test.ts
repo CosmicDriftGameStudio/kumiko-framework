@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { PostQueryHookFn } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index.ts";
-import type { PostQueryHookFn } from "../types/index.ts";
+
 import { stubHandlerContext } from "./handler-context-stub.ts";
 
 // The hooks under test never read context (they only transform rows), so a

@@ -1,4 +1,6 @@
 import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
+import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-types/event-type-map";
+import type { WriteEvent, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
@@ -10,7 +12,7 @@ import type {
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./types/define-handler.ts";
-import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types/index.ts";
+import type { HandlerContext } from "./types/index.ts";
 
 export type {
   QueryHandlerDefinition,

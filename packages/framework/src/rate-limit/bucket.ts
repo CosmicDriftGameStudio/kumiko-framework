@@ -2,8 +2,9 @@ import { createHmac } from "node:crypto";
 import type {
   PayloadBucketNormalization,
   RateLimitOption,
-  SessionUser,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/handlers";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import { derivePurposeSecret } from "../secrets/derive-purpose-secret.ts";
 
 // Build the Redis bucket key for a handler-level rate limit. Format:

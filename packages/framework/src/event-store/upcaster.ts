@@ -1,5 +1,7 @@
+import type { EventUpcastCtx, EventUpcastFn } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../db/index.ts";
-import type { EventUpcastCtx, EventUpcastFn, TenantId } from "../engine/types/index.ts";
+import type { TenantId } from "../engine/types/index.ts";
+
 import type { StoredEvent } from "./event-store.ts";
 import { recordUpcasterDeadLetter } from "./upcaster-dead-letter.ts";
 

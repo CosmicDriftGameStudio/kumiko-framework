@@ -16,6 +16,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
 import { asRawClient } from "../db/query.ts";
 import {
   createEntity,
@@ -24,7 +25,8 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "../engine/index.ts";
-import type { OwnershipRule, SessionUser, WhereRule } from "../engine/types/index.ts";
+import type { SessionUser, WhereRule } from "../engine/types/index.ts";
+
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 
 const ownerWhereRule: WhereRule = {

@@ -1,4 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type {
+  ConfigEditScreenDefinition,
+  EntityEditScreenDefinition,
+  EntityListScreenDefinition,
+} from "@cosmicdrift/kumiko-types/screen";
 import {
   ACTION_FORM_ENTITY,
   CONFIG_EDIT_ENTITY,
@@ -11,11 +16,6 @@ import {
   WRITE_FORM_SECTION_ENTITY,
 } from "../../i18n/required-surface-keys.ts";
 import { i18nKey } from "../i18n-key.ts";
-import type {
-  ConfigEditScreenDefinition,
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
-} from "../types/index.ts";
 
 describe("requiredKeysFromScreen", () => {
   test("entityList emits screen title + column field labels", () => {

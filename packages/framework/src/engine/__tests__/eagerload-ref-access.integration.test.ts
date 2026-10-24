@@ -8,10 +8,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 import { createEntity, createTextField } from "../factories.ts";
 import { defineFeature } from "../index.ts";
-import type { EntityDefinition, SessionUser } from "../types/index.ts";
+import type { SessionUser } from "../types/index.ts";
 
 const propertyAccess: NonNullable<EntityDefinition["access"]> = {
   read: {

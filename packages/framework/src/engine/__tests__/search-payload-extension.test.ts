@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import type { SearchPayloadContributorFn } from "@cosmicdrift/kumiko-types/hooks";
 import { buildSearchDocument } from "../../pipeline/system-hooks.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
-import type { SearchPayloadContributorFn } from "../types/index.ts";
 
 // Search-Payload-Extension registers per-entity contributors that
 // enrich the search-index doc during `buildSearchDocument`. Tests pin:

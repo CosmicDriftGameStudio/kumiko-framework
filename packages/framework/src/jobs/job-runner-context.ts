@@ -1,7 +1,12 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
-import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
+import type { ConfigAccessor, JobDefinition } from "@cosmicdrift/kumiko-types/config";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import type {
+  DispatchWriteRef,
+  JobContext,
+  MemberReader,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection, DbRow } from "../db/connection.ts";
 import { createCrossTenantReads } from "../db/cross-tenant-reads.ts";
@@ -11,17 +16,16 @@ import { createDerivativesContext } from "../derivatives/derivatives-context.ts"
 import { createSystemUser } from "../engine/system-user.ts";
 import type {
   ContextServices,
-  DispatchWriteRef,
-  JobContext,
-  JobDefinition,
   JobDispatch,
   JobObservability,
-  MemberReader,
   SessionUser,
 } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
-import { createEscapeHatchReporter, createMetricsForFactory } from "../observability/index.ts";
+import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
+import { createMetricsForFactory } from "../observability/index.ts";
+
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { buildContextServices } from "../pipeline/context-services.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";

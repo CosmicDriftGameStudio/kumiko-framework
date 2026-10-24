@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import {
   findRequiredLocaleGaps,
@@ -11,7 +12,7 @@ import { defineFeature } from "../../define-feature.ts";
 import { i18nKey } from "../../i18n-key.ts";
 import { createRegistry } from "../../registry.ts";
 import { isFieldsEditSection } from "../../screen-helpers.ts";
-import type { ConfigEditScreenDefinition } from "../../types/index.ts";
+
 import { validateBoot } from "../index.ts";
 
 // Mirrors packages/bundled-features/src/config/i18n.ts — the audience-parent

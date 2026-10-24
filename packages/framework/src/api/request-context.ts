@@ -1,8 +1,5 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
-import type { ErrorDocsConfig } from "../errors/docs-url.ts";
 import { generateId } from "../utils/index.ts";
+import { type RequestContextData, storage } from "./request-context-internals.ts";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
 // event-dispatcher when it runs an MSP-apply, so ctx.events.append downstream
@@ -25,57 +22,6 @@ import { generateId } from "../utils/index.ts";
 //                   strips it before executing so a disconnect can't abort
 //                   a transaction mid-commit. Undefined for non-HTTP
 //                   entry-points (jobs, MSP-applies) and inside write batches.
-export type RequestContextData = {
-  readonly requestId: string;
-  readonly correlationId: string;
-  readonly causationId?: string;
-  readonly signal?: AbortSignal;
-  // App-level error docs mapping, read when an error response is serialized.
-  readonly errorDocs?: ErrorDocsConfig;
-  // Client IP for per-IP rate limiting (L1, L2, L3 with per: "ip*").
-  // Populated by requestIdMiddleware via the shared trustedProxyHops-aware
-  // resolver (see api/client-ip.ts) — never skipped
-  // for an HTTP request, falls back to "unknown" rather than leaving this
-  // undefined. Undefined only for non-HTTP entry points (jobs, MSP).
-  readonly ip?: string;
-  // Raw User-Agent header — audit trails (download tokens, GDPR export
-  // access) want it alongside `ip`. Undefined for non-HTTP entry points.
-  readonly userAgent?: string;
-  // Client-declared active UI locale (BCP-47), resolved once from
-  // X-Locale / Accept-Language by requestIdMiddleware — see
-  // request-locale.ts. Undefined when neither header carried a valid tag;
-  // callers fall back further (dispatch-shared.ts's ctx.locale chain).
-  readonly locale?: string;
-  // Attribution of the currently executing scope: the feature that
-  // owns it and the qualified name of the handler / MSP-consumer / job
-  // inside it. event-store.append() reads both and stamps them onto every
-  // event written under this scope.
-  readonly feature?: string;
-  readonly handler?: string;
-  // Resolved after authentication, so mutable: the store is created before the user is known.
-  tenantId?: string;
-  userId?: string;
-  // performance.now() at request entry, so a failing request can report how
-  // long it ran. Monotonic — a wall-clock step cannot make it negative.
-  readonly startedAt?: number;
-  // Only ever a gated origin. Read by job enqueue and event-store.append();
-  // dispatch roots never narrow from it, only jobs inherit explicitly.
-  readonly writeOrigin?: WriteOrigin;
-  // The handler directly invoked by the dispatcher (not a nested ctx.dispatch.write/
-  // writeAs target) — nested dispatches inherit it unchanged, so the
-  // irreversible-operation gate always sees the outermost caller's risk.
-  readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
-  // Rate-limit bucket keys already charged by this entry dispatch. Nested
-  // ctx.dispatch.query/queryAs/write calls share the entry's set, so one request costs
-  // one token per bucket however many handlers it fans out to.
-  readonly chargedRateLimitBuckets?: Set<string>;
-  // Set by the agent-tools dispatch and inherited by every nested dispatch, so an
-  // LLM-driven call can never pick up ctx.crossTenantReads, however deep it is nested.
-  readonly agentToolCall?: true;
-};
-
-const storage = new AsyncLocalStorage<RequestContextData>();
-
 export const requestContext = {
   run<T>(data: RequestContextData, fn: () => T): T {
     return storage.run(data, fn);
@@ -89,53 +35,12 @@ export const requestContext = {
     return generateId();
   },
 };
-
-export function setRequestIdentity(identity: { tenantId: string; userId?: string }): void {
-  const store = storage.getStore();
-  // skip: outside a request scope there is no log context to enrich
-  if (!store) return;
-  store.tenantId = identity.tenantId;
-  if (identity.userId !== undefined) store.userId = identity.userId;
-}
-
 // Public view: `run` would let a caller replace the request scope (entryHandler,
 // writeOrigin), so only the read side is exposed through the /api barrel.
-export const readonlyRequestContext: Pick<typeof requestContext, "get"> = {
-  get: requestContext.get,
-};
-
 // Enter a scope that attributes every event written inside it. Keeps the
 // surrounding request's ids so correlation survives, and mints fresh ones
 // when there is no surrounding request (job-runner, event-dispatcher) —
 // requestId/correlationId are mandatory, `get()` may be undefined.
-export function runWithOrigin<T>(
-  origin: {
-    readonly feature?: string;
-    readonly handler?: string;
-    readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
-  },
-  fn: () => T,
-): T {
-  const current = requestContext.get();
-  const requestId = current?.requestId ?? requestContext.generateId();
-  return requestContext.run(
-    {
-      ...current,
-      requestId,
-      correlationId: current?.correlationId ?? requestId,
-      feature: origin.feature,
-      handler: origin.handler,
-      // The outermost dispatch wins — a nested ctx.dispatch.write/writeAs must not
-      // overwrite the entry handler that the irreversible-operation gate reads.
-      entryHandler: current?.entryHandler ?? origin.entryHandler,
-      chargedRateLimitBuckets: current?.entryHandler
-        ? current.chargedRateLimitBuckets
-        : new Set<string>(),
-    },
-    fn,
-  );
-}
-
 // Clears entryHandler so the next dispatch inside fn becomes the new entry, letting
 // the irreversible-operation gate see the invoked tool handler instead of the
 // surrounding turn/approve handler. Reserved for dispatchToolCall, so it also marks
@@ -156,26 +61,4 @@ export function runAsAgentToolCallEntry<T>(fn: () => T): T {
   );
 }
 
-export function isAgentToolCallScope(): boolean {
-  return requestContext.get()?.agentToolCall === true;
-}
-
 // An ungated origin never mints a scope: seeds and boot writes keep their missing context.
-export function runWithWriteOrigin<T>(origin: WriteOrigin, fn: () => T): T {
-  const current = requestContext.get();
-  if (!isPersonalDataGated(origin)) {
-    if (!current?.writeOrigin) return fn();
-    const { writeOrigin: _writeOrigin, ...rest } = current;
-    return requestContext.run(rest, fn);
-  }
-  const requestId = current?.requestId ?? requestContext.generateId();
-  return requestContext.run(
-    {
-      ...current,
-      requestId,
-      correlationId: current?.correlationId ?? requestId,
-      writeOrigin: origin,
-    },
-    fn,
-  );
-}

@@ -8,9 +8,10 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import type { PostQueryHookFn } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
-import type { PostQueryHookFn } from "../../engine/types/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Fixture entity ---

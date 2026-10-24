@@ -1,13 +1,14 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
-import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import type {
   EntityDefinition,
-  EntityRelations,
   FieldDefinition,
   FieldsMap,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/fields";
+import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
+
 import { toSnakeCase } from "../utils/case.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";

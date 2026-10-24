@@ -10,7 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
 import { asRawClient } from "../db/query.ts";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import type { SchemaCliOut } from "../schema-cli/shared.ts";
+import { runSchemaCli } from "../schema-cli.ts";
+
 import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 let testDb: BunTestDb;

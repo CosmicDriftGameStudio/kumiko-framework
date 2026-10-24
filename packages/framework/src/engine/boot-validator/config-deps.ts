@@ -1,7 +1,8 @@
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import { isEncryptedAtRest } from "../config-helpers.ts";
-import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 

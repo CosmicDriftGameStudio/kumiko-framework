@@ -1,23 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { createEmbeddedListField, fieldToZod } from "../../engine/index.ts";
+import { resolveErrorDocsUrl } from "../docs-url.ts";
 import {
   AccessDeniedError,
-  buildErrorLog,
   ConflictError,
   FrameworkReasons,
   InternalError,
   isKumikoError,
-  KumikoError,
   NotFoundError,
-  resolveErrorDocsUrl,
-  serializeError,
   UnconfiguredError,
   UnprocessableError,
   ValidationError,
   VersionConflictError,
   validationErrorFromZod,
 } from "../index.ts";
+import { serializeError } from "../serialize.ts";
 
 describe("KumikoError: abstract base", () => {
   test("sets i18nKey, details, name from subclass, and preserves cause chain", () => {
@@ -473,38 +471,6 @@ describe("serializeError", () => {
     expect(body.error).not.toHaveProperty("requestId");
   });
 });
-
-describe("buildErrorLog", () => {
-  test("includes cause chain and stack for forensics (not exposed to client)", () => {
-    const inner = new Error("redis_connection_refused");
-    const wrap = new InternalError({ cause: inner });
-    const log = buildErrorLog(wrap);
-    expect(log).toMatchObject({
-      name: "InternalError",
-      code: "internal_error",
-      httpStatus: 500,
-      cause: { name: "Error", message: "redis_connection_refused" },
-    });
-    expect(log.stack).toContain("InternalError");
-  });
-
-  test("non-Error causes are represented as NonError entry", () => {
-    const wrap = new KumikoErrorStub({ cause: "literal-string-thrown" as unknown as Error });
-    const log = buildErrorLog(wrap);
-    expect(log.cause).toMatchObject({ name: "NonError", message: "literal-string-thrown" });
-  });
-});
-
-// Minimal concrete KumikoError used only for the non-Error cause test above —
-// avoids creating a dedicated class in production code just to cover the
-// serializeCause fallback path.
-class KumikoErrorStub extends KumikoError {
-  readonly code = "stub";
-  readonly httpStatus = 500;
-  constructor(opts: { cause: Error }) {
-    super({ message: "stub", i18nKey: "stub", cause: opts.cause });
-  }
-}
 
 describe("UnconfiguredError", () => {
   test("docsUrl uses stable unconfigured slug, not the freestext message", () => {

@@ -2,6 +2,8 @@
 //
 // Pin the type-level enforcement so a refactor that re-adds sortable/
 // searchable/filterable to LongTextFieldDef breaks the build instead of
+import type { LongTextFieldDef } from "@cosmicdrift/kumiko-types/fields";
+
 // silently degrading the field's semantics.
 //
 // longText is a dedicated field type for source code, markdown, and blog
@@ -10,7 +12,6 @@
 
 import { describe, expect, expectTypeOf, test } from "bun:test";
 import { createLongTextField } from "../factories.ts";
-import type { LongTextFieldDef } from "../types/index.ts";
 
 // =============================================================================
 // Runtime shape

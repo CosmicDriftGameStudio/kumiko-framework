@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { requestContext, setRequestIdentity } from "../../api/request-context.ts";
+import { requestContext } from "../../api/request-context.ts";
+import { setRequestIdentity } from "../../api/request-context-internals.ts";
+
 import { createLogger } from "../pino-logger.ts";
 import { scrubLogText } from "../scrub.ts";
 

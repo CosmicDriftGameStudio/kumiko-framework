@@ -1,7 +1,9 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import { emitDbQuery, type Meter, type Tracer } from "../observability/index.ts";
+import { emitDbQuery } from "../observability/standard-metrics.ts";
+
 import {
   runInRowLevelSecurityScope,
   type TenantDbModeOptions,

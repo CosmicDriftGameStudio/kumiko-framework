@@ -5,9 +5,11 @@
 // hands the entity over keeps booting.
 
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
-import type { EntityDefinition, FeatureDefinition } from "../../types/index.ts";
+import type { FeatureDefinition } from "../../types/index.ts";
+
 import { MAX_TRANSFER_DEPTH, validateTransferGraph } from "../transfer-graph.ts";
 
 const textField = () => createTextField({ personal: false, reason: "technical_reference" });

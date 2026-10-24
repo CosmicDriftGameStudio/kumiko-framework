@@ -1,13 +1,16 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
+import type { JobDeferral } from "@cosmicdrift/kumiko-types/handlers";
 import { UnrecoverableError } from "bullmq";
 import { requestContext } from "../api/request-context.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { qnScope } from "../engine/qualified-name.ts";
-import type { JobDeferral } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import { scrubLogText } from "../logging/index.ts";
-import { emitJobLastSuccess, withEscapeHatchAuditScope } from "../observability/index.ts";
+import { withEscapeHatchAuditScope } from "../observability/escape-hatch-report.ts";
+import { emitJobLastSuccess } from "../observability/standard-metrics.ts";
+
 import type { JobRun } from "./job-runner-context.ts";
 import {
   DEFAULT_MAX_DEFERS,

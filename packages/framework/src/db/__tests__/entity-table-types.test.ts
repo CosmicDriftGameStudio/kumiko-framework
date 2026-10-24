@@ -8,6 +8,7 @@
 // locatedTimestamp-pair, multiSelect-jsonb-default, idType variation.
 
 import { describe, expect, expectTypeOf, test } from "bun:test";
+import type { FieldsMap } from "@cosmicdrift/kumiko-types/fields";
 import {
   createBooleanField,
   createDateField,
@@ -25,7 +26,7 @@ import {
   createTzField,
   type EntityDefinition,
 } from "../../engine/index.ts";
-import type { FieldsMap } from "../../engine/types/index.ts";
+
 import type { EventStoreExecutor } from "../event-store-executor.ts";
 import type { MoneyRead } from "../money.ts";
 import { buildEntityTable, type EntityRow } from "../table-builder.ts";

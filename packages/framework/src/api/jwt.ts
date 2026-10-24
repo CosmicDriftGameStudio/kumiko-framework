@@ -1,8 +1,9 @@
+import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import * as jose from "jose";
 import type { DbRow } from "../db/connection.ts";
 import { stripReservedTokenRoles } from "../engine/membership-roles.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
-import { parseTenantId } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 
 export type JwtPayload = {

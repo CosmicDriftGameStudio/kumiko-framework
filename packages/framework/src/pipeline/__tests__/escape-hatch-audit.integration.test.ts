@@ -5,11 +5,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.ts";
 import { executeRawQuery } from "../../db/queries/raw-sql.ts";
 import { createSystemUser, defineFeature } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+
 import type { Logger } from "../../logging/types.ts";
 import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";

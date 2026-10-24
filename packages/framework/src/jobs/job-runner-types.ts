@@ -1,10 +1,9 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
+import type { DispatchWriteRef, JobTriggerEvent } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   AppContext,
-  DispatchWriteRef,
   JobRunIn,
-  JobTriggerEvent,
   Registry,
   SessionUser,
   TenantId,

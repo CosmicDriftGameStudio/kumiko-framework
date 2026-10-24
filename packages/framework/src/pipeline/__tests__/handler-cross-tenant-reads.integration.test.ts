@@ -9,12 +9,14 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { runAsAgentToolCallEntry } from "../../api/request-context.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent, HandlerContext } from "../../engine/types/index.ts";
+import type { HandlerContext } from "../../engine/types/index.ts";
+
 import { eventsTable } from "../../event-store/index.ts";
 import {
   DEFAULT_SENSITIVE_CONFIG,

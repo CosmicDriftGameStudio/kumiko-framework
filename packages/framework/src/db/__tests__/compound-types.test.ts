@@ -6,13 +6,13 @@
 //   - Pure operation (does not mutate the input)
 
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import {
   createEntity,
   createLocatedTimestampField,
   createMoneyField,
   createTextField,
 } from "../../engine/index.ts";
-import type { EntityDefinition } from "../../engine/types/index.ts";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "../compound-types.ts";
 
 const mixedEntity: EntityDefinition = createEntity({

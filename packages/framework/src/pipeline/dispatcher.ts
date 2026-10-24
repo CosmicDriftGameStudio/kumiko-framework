@@ -1,6 +1,14 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { runWithWriteOrigin } from "../api/request-context.ts";
+import type {
+  ActiveMembershipResult,
+  DispatchWriteRef,
+  JobRunnerRef,
+  MemberReader,
+  WriteResult,
+} from "@cosmicdrift/kumiko-types/handlers";
+import { runWithWriteOrigin } from "../api/request-context-scopes.ts";
+
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection } from "../db/connection.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
@@ -8,25 +16,17 @@ import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.ts";
 import type { defineTransitions } from "../engine/state-machine.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type {
-  ActiveMembershipResult,
-  AppContext,
-  DispatchWriteRef,
-  JobRunnerRef,
-  MemberReader,
-  Registry,
-  SessionUser,
-  WriteResult,
-} from "../engine/types/index.ts";
+import type { AppContext, Registry, SessionUser } from "../engine/types/index.ts";
+
 import { InternalError, reraiseAsKumikoError } from "../errors/index.ts";
-import { withEscapeHatchAuditScopeStream } from "../observability/escape-hatch-report.ts";
 import {
   createEscapeHatchReportWindow,
-  getFallbackMeter,
-  getFallbackTracer,
-  registerStandardMetrics,
   withEscapeHatchAuditScope,
-} from "../observability/index.ts";
+  withEscapeHatchAuditScopeStream,
+} from "../observability/escape-hatch-report.ts";
+import { getFallbackMeter, getFallbackTracer } from "../observability/fallback.ts";
+import { registerStandardMetrics } from "../observability/standard-metrics.ts";
+
 import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
 import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
@@ -48,7 +48,8 @@ import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./wr
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
 // here keeps imports single-source.
-export type { WriteResult } from "../engine/types/index.ts";
+export type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+
 export type { BatchCommand, BatchResult } from "./dispatch-shared.ts";
 
 export type DispatcherOptions = {

@@ -11,7 +11,9 @@ import { createEntity, createTextField, defineFeature } from "../../engine/index
 import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery.ts";
 import { deliverEvents } from "../../pipeline/event-dispatcher-delivery.ts";
 import { createSearchEventConsumer } from "../../pipeline/system-hooks.ts";
-import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter.ts";
+import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
+import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
+
 import type { SearchAdapter } from "../types.ts";
 
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";

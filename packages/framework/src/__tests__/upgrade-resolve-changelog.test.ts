@@ -2,7 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { manualEntryId, runUpgradeCli } from "../upgrade-cli.ts";
+import { runUpgradeCli } from "../upgrade-cli.ts";
+import { manualEntryId } from "../upgrade-marker-parse.ts";
 
 const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
 

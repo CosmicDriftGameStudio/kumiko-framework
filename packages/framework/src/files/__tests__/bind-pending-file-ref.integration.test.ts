@@ -6,7 +6,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  type BindPendingFileRefOutcome,
   bindPendingFileRef,
   loadPendingFileRef,
   type PendingFileRef,
@@ -30,6 +29,7 @@ import {
 } from "../../engine/index.ts";
 import { ANONYMOUS_ROLE } from "../../engine/system-user.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import type { BindPendingFileRefOutcome } from "../bind-pending-file-refs.ts";
 import { createFilesFeature } from "../feature.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
 import { createLocalProvider } from "../local-provider.ts";

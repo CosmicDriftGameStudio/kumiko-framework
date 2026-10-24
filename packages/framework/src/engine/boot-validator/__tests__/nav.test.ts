@@ -4,11 +4,13 @@ import {
   consoleCallsMentioning,
   withBootValidatorFixture,
 } from "@cosmicdrift/kumiko-testing/helpers";
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import * as z from "zod";
 import { validateBoot } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../index.ts";
-import type { NavDefinition, WorkspaceDefinition } from "../../types/index.ts";
+
 import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.ts";
 import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.ts";
 

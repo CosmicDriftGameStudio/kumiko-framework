@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 import { buildEntityTable } from "../table-builder.ts";
 
 // Entity definitions can arrive untyped (JSON configs, plugins), so the column

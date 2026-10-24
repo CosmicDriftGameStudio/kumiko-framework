@@ -1,6 +1,7 @@
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 import { ANONYMOUS_ROLE } from "./system-user.ts";
-import type { AccessRule, SessionUser } from "./types/index.ts";
-import { isOpenToAllGranted } from "./types/index.ts";
+import type { SessionUser } from "./types/index.ts";
 
 // Default-deny: a handler without an explicit AccessRule is unreachable. To
 // grant access a handler must either list allowed roles or opt into

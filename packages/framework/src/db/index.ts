@@ -9,13 +9,9 @@ export {
   subjectRowExistsInTenant,
 } from "./blind-index-cleanup.ts";
 export { collectTableMetas } from "./collect-table-metas.ts";
-export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.ts";
 export { seedConfigValues } from "./config-seed.ts";
 export type {
-  CreateDbConnectionOptions,
   DbConnection,
-  DbConnectionHandle,
-  DbConnectionOptions,
   DbRow,
   DbRunner,
   DbTx,
@@ -27,21 +23,15 @@ export {
   outsideTransactionPoolOptionsFromEnv,
   serverTimeoutOptionsFromEnv,
 } from "./connection.ts";
-export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor.ts";
 export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
-export type { SchemaTable, SelectQuery, TableColumns } from "./dialect.ts";
+export type { SchemaTable } from "./dialect.ts";
 export {
-  bigint,
-  bigserial,
   boolean,
   extractTableName,
   index,
   instant,
-  instantToDriver,
   integer,
   jsonb,
-  moneyAmount,
-  numeric,
   primaryKey,
   serial,
   sql,
@@ -52,38 +42,23 @@ export {
   uuid,
 } from "./dialect.ts";
 export { instantToTimestamptzParam } from "./driver-value-preparation.ts";
-export type { EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow } from "./eagerload.ts";
-export {
-  collectReferenceFields,
-  enrichRowWithReferences,
-  enrichWithReferences,
-} from "./eagerload.ts";
 export {
   collectEncryptedFieldNames,
   configuredEntityFieldEncryption,
   configureEntityFieldEncryption,
   decryptEntityFieldValues,
-  encryptEntityFieldValues,
 } from "./entity-field-encryption.ts";
 export { entityTableFromRegistry } from "./entity-table-from-registry.ts";
 export type {
-  BuildEntityTableMetaOptions,
   ColumnMeta,
-  CompositePrimaryKeyMeta,
   EntityTableMeta,
-  IndexMeta,
-  PgType,
-  UnmanagedTableInput,
 } from "./entity-table-meta.ts";
 export {
   defineUnmanagedTable,
   deriveEntityTableMeta,
 } from "./entity-table-meta.ts";
 export type {
-  EntityLifecycleVerb,
   EventStoreExecutor,
-  EventStoreExecutorOptions,
-  LockGuardOption,
   WritePurpose,
 } from "./event-store-executor.ts";
 export {
@@ -91,74 +66,31 @@ export {
   entityEventName,
   WritePurposes,
 } from "./event-store-executor.ts";
-export {
-  enumerateFeatureTableSources,
-  type FeatureTableSource,
-} from "./feature-table-sources.ts";
+export { enumerateFeatureTableSources } from "./feature-table-sources.ts";
 export { type KnownTables, knownTablesOf } from "./known-table-names.ts";
-export { answerListAggregate, labelListAggregateGroups } from "./list-aggregate-labels.ts";
+export { answerListAggregate } from "./list-aggregate-labels.ts";
 export {
-  flattenLocatedTimestamp,
-  type LocatedTimestampRead,
-  rehydrateLocatedTimestamp,
-} from "./located-timestamp.ts";
-export {
-  assertUniqueTableNames,
-  assertValidMigrationName,
-  diffSnapshots,
-  type GenerateMigrationInput,
-  type GenerateMigrationOutput,
   generateMigration,
   loadSnapshotJson,
-  renderMigrationSql,
-  type SchemaDiff,
-  type Snapshot,
-  snapshotFromMetas,
   writeSnapshotJson,
 } from "./migrate-generator.ts";
+export { runMigrationsFromDir } from "./migrate-runner.ts";
+export { type MoneyRead, rehydrateMoney } from "./money.ts";
 export {
-  type AppliedMigration,
-  type ApplyResult,
-  type BaselineResult,
-  baselineMigrations,
-  fetchAppliedMigrations,
-  loadMigrationsFromDir,
-  type Migration,
-  MigrationChecksumMismatchError,
-  readMigrationSqlTexts,
-  runMigrations,
-  runMigrationsFromDir,
-  splitSqlStatements,
-} from "./migrate-runner.ts";
-export { flattenMoney, type MoneyRead, moneyPayloadToMinorUnits, rehydrateMoney } from "./money.ts";
-export {
-  constraintOf,
   extractPgError,
-  isTableAlreadyExists,
   isUndefinedTable,
   isUniqueViolation,
-  type PgErrorInfo,
 } from "./pg-error.ts";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 export { readDatabaseNow } from "./queries/database-now.ts";
 export { listEventTenantIds } from "./queries/event-tenants.ts";
 export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
-export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
+export { executeRawQuery } from "./queries/raw-sql.ts";
 export { withSessionAdvisoryLock } from "./queries/session-advisory-lock.ts";
 export type {
-  DeleteManyBatchedOptions,
-  DeleteManyBatchedResult,
-  IncrementCounterOptions,
-  InnerJoinRow,
-  InnerJoinSpec,
-  InsertOnConflictDoNothingOptions,
-  JoinColumnPair,
   JsonTextMatch,
   SelectOptions,
-  UpsertOnConflictOptions,
   WhereObject,
-  WhereOperator,
-  WhereValue,
 } from "./query.ts";
 export {
   aggregateWhere,
@@ -173,7 +105,6 @@ export {
   insertOnConflictDoNothing,
   insertOne,
   requireEntityTableMeta,
-  runInSavepoint,
   runInSavepointIfSupported,
   runnerCanBeginTransaction,
   selectInnerJoin,
@@ -184,57 +115,29 @@ export {
   upsertByPk,
   upsertOnConflict,
 } from "./query.ts";
-export {
-  readRebuildMarker,
-  rebuildTablesFromDiff,
-  writeRebuildMarker,
-} from "./rebuild-marker.ts";
 export { seedReferenceData } from "./reference-data.ts";
-export { renderTableDdl, renderTablesDdl } from "./render-ddl.ts";
+export { renderTablesDdl } from "./render-ddl.ts";
 export { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "./render-rls-ddl.ts";
-export {
-  diffReplayAgainstSnapshot,
-  type ReplayedSchema,
-  type ReplayedTable,
-  type ReplayMismatch,
-  replayMigrationsDir,
-} from "./replay-migration-sql.ts";
-export {
-  findCommentedDropTables,
-  isRetiredFrameworkTable,
-  type RetiredFrameworkTable,
-  retiredFrameworkTables,
-} from "./retired-framework-tables.ts";
 export { assertRowLevelSecurityBootState } from "./row-level-security-boot-check.ts";
 export { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
 export type { RowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { assertNoActiveRowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
 export { scopeTenantDbToTenant } from "./scope-tenant-db-to-tenant.ts";
-export { withoutStatementTimeout } from "./statement-timeout.ts";
 export {
   buildBaseColumns,
   buildEntityTable,
   declareGlobalTenancy,
-  type EntityRow,
   type EntityTable,
   type ExecutorManagedRunner,
-  type ExecutorManagedWriteCapability,
   physicalColumnName,
-  toSnakeCase,
-  toTableName,
-  type Writable,
   type WritableSchemaTable,
   type WritableTable,
 } from "./table-builder.ts";
 export { extractTableInfo, type TableInfo } from "./table-info.ts";
 export type {
-  CreateTenantDbOptions,
   ExecutorManagedTenantDb,
-  OutsideTransactionContext,
   TenantDb,
-  TenantDbGrants,
-  TenantDbMode,
   UncheckedSystemDb,
 } from "./tenant-db.ts";
 export {
@@ -242,8 +145,5 @@ export {
   createSystemDbView,
   createTenantDataDestroyDb,
   createTenantDb,
-  hasOutsideTransactionDb,
-  requireOutsideTransactionDb,
-  SYSTEM_SCOPE_CHECK_BRAND,
 } from "./tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

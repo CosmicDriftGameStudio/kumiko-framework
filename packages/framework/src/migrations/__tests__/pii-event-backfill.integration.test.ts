@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { createHash } from "node:crypto";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.ts";
 import {
   configureBlindIndexKey,
@@ -28,12 +29,11 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "../../engine/index.ts";
-import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.ts";
-import {
-  backfillEventPiiEncryption,
-  createSnapshotsTable,
-  saveSnapshot,
-} from "../../event-store/index.ts";
+import type { Registry, TenantId } from "../../engine/types/index.ts";
+
+import { backfillEventPiiEncryption } from "../../event-store/index.ts";
+import { createSnapshotsTable, saveSnapshot } from "../../event-store/snapshot.ts";
+
 import { getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createPendingRebuildsTable } from "../pending-rebuilds.ts";

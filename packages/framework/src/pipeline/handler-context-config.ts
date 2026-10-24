@@ -1,7 +1,8 @@
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { ConfigAccessor } from "../engine/types/index.ts";
+
 import { AccessDeniedError } from "../errors/index.ts";
 import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.ts";
 import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";

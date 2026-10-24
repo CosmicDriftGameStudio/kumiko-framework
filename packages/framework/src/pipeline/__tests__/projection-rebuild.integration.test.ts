@@ -18,6 +18,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
@@ -32,7 +33,7 @@ import {
   defineApply,
   defineFeature,
 } from "../../engine/index.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { archiveStream } from "../../event-store/index.ts";
 import {
   createProjectionStateTable,

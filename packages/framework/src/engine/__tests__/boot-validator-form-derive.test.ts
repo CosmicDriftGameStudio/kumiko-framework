@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import type { FormFieldDerivation } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEmbeddedListField, createTextField } from "../factories.ts";
-import type { FormFieldDerivation } from "../types/index.ts";
+
 import { withFormDerivations } from "../with-form-derivations.ts";
 
 const currency = { kind: "literal", code: "EUR" } as const;

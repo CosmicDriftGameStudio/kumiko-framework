@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type {
+  ConfigEditScreenDefinition,
+  ScreenDefinition,
+} from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.ts";
 import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.ts";
@@ -8,11 +12,7 @@ import { access, createSystemConfig, createTenantConfig } from "../config-helper
 import { defineFeature } from "../define-feature.ts";
 import { selectablePluginIds } from "../extension-selector-plugins.ts";
 import { createRegistry } from "../registry.ts";
-import type {
-  ConfigEditScreenDefinition,
-  FeatureDefinition,
-  ScreenDefinition,
-} from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin", "Admin");
 

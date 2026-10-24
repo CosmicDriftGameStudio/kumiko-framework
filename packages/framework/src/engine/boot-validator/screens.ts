@@ -4,9 +4,11 @@
 // screens-kind-*.ts -> screens-kind-shared.ts -> dashboard/forms/lists -> actions),
 // so there is no same-folder require cycle.
 
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { ScreenKind, ScreenOfKind } from "../screen-kind.ts";
-import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import type {
   ActionFormScreenDefinition,
   CustomScreenDefinition,

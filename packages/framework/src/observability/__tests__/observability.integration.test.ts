@@ -11,10 +11,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
-import type { AppContext, SaveContext } from "../../engine/types/index.ts";
+import type { AppContext } from "../../engine/types/index.ts";
+
 import { createJobRunner } from "../../jobs/index.ts";
 import { createLogger } from "../../logging/pino-logger.ts";
 

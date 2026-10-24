@@ -12,15 +12,15 @@
 // into createApp / setupTestStack alongside their domain features.
 
 import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect.ts";
-import { type DbRunner, entityEventName, executeRawQueryRead } from "../db/index.ts";
+import { type DbRunner, entityEventName } from "../db/index.ts";
 import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.ts";
+import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { incrementCounter } from "../db/query.ts";
 import { defineFeature, qn, type Registry, toKebab } from "../engine/index.ts";
-import {
-  type PendingGapEntry,
-  SHARED_INSTANCE_SENTINEL,
-  selectConsumerCursorForUpdate,
-} from "../pipeline/index.ts";
+import type { PendingGapEntry } from "../pipeline/event-consumer-state.ts";
+import { selectConsumerCursorForUpdate } from "../pipeline/event-dispatcher-delivery.ts";
+import { SHARED_INSTANCE_SENTINEL } from "../pipeline/index.ts";
+
 import { parseJsonOrThrow } from "../utils/index.ts";
 
 const FILE_REF_AGGREGATE_TYPE = "fileRef";

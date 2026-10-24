@@ -1,10 +1,8 @@
+import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { Context, Next } from "hono";
-import {
-  emitHttpRequest,
-  type Meter,
-  observabilityContext,
-  type Tracer,
-} from "../observability/index.ts";
+import { observabilityContext } from "../observability/context.ts";
+import { emitHttpRequest } from "../observability/standard-metrics.ts";
+
 import { getUser } from "./auth-middleware.ts";
 import { requestContext } from "./request-context.ts";
 import { resolveRouteLabel } from "./route-label.ts";

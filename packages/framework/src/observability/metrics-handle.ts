@@ -79,20 +79,6 @@ export function createSafeMetricsHandle(meter: Meter, featureName: string): Metr
 // Fallback for contexts where the feature is unknown (e.g. system-hooks,
 // internal pipeline code). Short names are used verbatim — useful for
 // framework-level usage, but rejected by the Meter unless pre-registered.
-export function createUnboundMetricsHandle(meter: Meter): MetricsHandle {
-  return {
-    inc(name, labels, value) {
-      meter.counter(name).inc(value, labels);
-    },
-    observe(name, value, labels) {
-      meter.histogram(name).observe(value, labels);
-    },
-    set(name, value, labels) {
-      meter.gauge(name).set(value, labels);
-    },
-  };
-}
-
 // Noop fallback used when no provider is configured and for safety in
 // contexts where we can't determine the feature. Every call is a no-op —
 // tests and non-observability-aware features never crash.

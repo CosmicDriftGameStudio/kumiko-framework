@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import type { ConfigSeedDef } from "@cosmicdrift/kumiko-types/config";
 import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
@@ -9,7 +10,8 @@ import {
   createUserConfig,
   SYSTEM_TENANT_ID,
 } from "../../engine/index.ts";
-import type { ConfigSeedDef, Registry } from "../../engine/types/index.ts";
+import type { Registry } from "../../engine/types/index.ts";
+
 import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider.ts";
 import { createEnvelopeCipher } from "../../secrets/envelope-cipher.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";

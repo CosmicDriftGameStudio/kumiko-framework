@@ -16,8 +16,8 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { compareByCodepoint } from "../utils/compare.ts";
 
-import { compareByCodepoint } from "../utils/index.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
 import {
   diffPrimaryKey,

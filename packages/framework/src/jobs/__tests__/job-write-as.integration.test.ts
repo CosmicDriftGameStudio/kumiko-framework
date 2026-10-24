@@ -26,7 +26,8 @@ import {
 } from "../../engine/index.ts";
 import { createWorkerEntrypoint } from "../../entrypoint/index.ts";
 import { createArchivedStreamsTable } from "../../event-store/index.ts";
-import { flushEscapeHatchAudits } from "../../observability/index.ts";
+import { flushEscapeHatchAudits } from "../../observability/escape-hatch-report.ts";
+
 import { createEventConsumerStateTable } from "../../pipeline/index.ts";
 import { createJobRunner } from "../job-runner.ts";
 

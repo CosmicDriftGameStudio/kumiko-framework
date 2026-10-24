@@ -1,12 +1,15 @@
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { isListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRow, DbTx } from "../db/connection.ts";
 import { hasAccess } from "../engine/access.ts";
 import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
 import { filterReadFields } from "../engine/field-access.ts";
-import type { QueryHandlerDef, SessionUser } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import { NotFoundError, validationErrorFromZod } from "../errors/index.ts";
-import { assertNoSecretLeak } from "../secrets/index.ts";
+import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
+
 import { runInDispatchScope } from "./dispatch-scope.ts";
 import {
   buildHandlerContext,

@@ -2,17 +2,20 @@ import { describe, expect, test } from "bun:test";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
-  CustomScreenDefinition,
-  DashboardScreenDefinition,
-  DashboardStatPanel,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
-  RowFieldExtractor,
-  ScreenNavSugar,
   UnitKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  CustomScreenDefinition,
+  DashboardScreenDefinition,
+  DashboardStatPanel,
+  RowFieldExtractor,
+  ScreenNavSugar,
+} from "@cosmicdrift/kumiko-types/screen";
+
 import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surface-keys.ts";
 
 // The engine barrel exported ScreenDefinition (the union) but not

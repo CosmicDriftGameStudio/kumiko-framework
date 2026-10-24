@@ -6,6 +6,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.ts";
 import { selectMany } from "../../db/query.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
@@ -16,7 +17,7 @@ import {
   defineFeature,
   HookPhases,
 } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 
 const OTHER_TENANT_ID = testTenantId(2);

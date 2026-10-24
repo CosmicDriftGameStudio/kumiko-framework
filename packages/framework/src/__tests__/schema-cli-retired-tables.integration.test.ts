@@ -9,7 +9,9 @@ import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.ts";
 import { createDbConnection } from "../db/connection.ts";
 import { tableExists } from "../db/index.ts";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import type { SchemaCliOut } from "../schema-cli/shared.ts";
+import { runSchemaCli } from "../schema-cli.ts";
+
 import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 function captureOut(): { out: SchemaCliOut; log: string[] } {

@@ -24,14 +24,16 @@ import {
   resetPiiSubjectKmsForTests,
 } from "../crypto/pii-field-encryption.ts";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { writeRebuildMarker } from "../db/index.ts";
 import { asRawClient } from "../db/query.ts";
+import { writeRebuildMarker } from "../db/rebuild-marker.ts";
 import { tableExists } from "../db/schema-inspection.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb } from "../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import { createProjectionStateTable } from "../pipeline/index.ts";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import type { SchemaCliOut } from "../schema-cli/shared.ts";
+import { runSchemaCli } from "../schema-cli.ts";
+
 import { TestUsers } from "../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 

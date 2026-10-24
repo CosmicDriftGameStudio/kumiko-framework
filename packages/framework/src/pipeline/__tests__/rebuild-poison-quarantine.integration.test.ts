@@ -21,6 +21,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import * as z from "zod";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
@@ -28,7 +29,7 @@ import { asRawClient } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineApply, defineFeature } from "../../engine/index.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { append } from "../../event-store/index.ts";
 import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter.ts";
 import {

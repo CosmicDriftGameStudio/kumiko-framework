@@ -2,6 +2,11 @@ import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { EnqueuedTaskPromise, Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
 import { importOptionalPeer } from "../utils/import-optional-peer.ts";
+import {
+  type MeilisearchAdapterOptions,
+  meilisearchDocId,
+  meilisearchTenantIndex,
+} from "./meilisearch-adapter-internals.ts";
 import { MEILISEARCH_PEER } from "./meilisearch-peer.ts";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.ts";
 
@@ -88,22 +93,9 @@ function isIndexNotFound(err: unknown): boolean {
   return errorCodeOf(cause) === ErrorStatusCode.INDEX_NOT_FOUND;
 }
 
-export type MeilisearchAdapterOptions = {
-  url: string;
-  apiKey: string;
-  indexPrefix?: string;
-};
-
 // Exported for unit tests (index-name / primary-key shape) without a live Meili.
-export function meilisearchTenantIndex(prefix: string, tenantId: TenantId): string {
-  return `${prefix}t${tenantId}`;
-}
-
 // Meilisearch primary-key-ids: alphanumerics, `-`, `_`. UUIDs contain `-` —
 // legal. Replace anything else just in case callers pass unexpected shapes.
-export function meilisearchDocId(entityType: string, entityId: EntityId): string {
-  return `${entityType}_${String(entityId).replace(/[^0-9A-Za-z_-]/g, "_")}`;
-}
 
 export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): SearchAdapter {
   const client = new Meilisearch({ host: options.url, apiKey: options.apiKey });

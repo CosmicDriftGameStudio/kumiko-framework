@@ -1,6 +1,8 @@
+import type { LifecycleResult } from "@cosmicdrift/kumiko-types/hooks";
 import type { DbRunner } from "../db/index.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
-import type { LifecycleResult, Registry } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import { inEventStreamScope } from "../event-store/stream-scope.ts";

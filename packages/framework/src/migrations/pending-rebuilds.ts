@@ -21,11 +21,9 @@ import type { Registry } from "../engine/types/index.ts";
 import type { JobRunner } from "../jobs/index.ts";
 import type { Logger } from "../logging/types.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
-import {
-  type RebuildResult,
-  rebuildMultiStreamProjection,
-  rebuildProjection,
-} from "../pipeline/index.ts";
+import { rebuildMultiStreamProjection, rebuildProjection } from "../pipeline/index.ts";
+import type { RebuildResult } from "../pipeline/projection-rebuild.ts";
+
 import { buildProjectionTableIndex } from "./projection-table-index.ts";
 
 export const pendingRebuildsTable = pgTable("kumiko_pending_rebuilds", {

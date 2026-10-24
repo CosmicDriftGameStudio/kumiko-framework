@@ -6,12 +6,10 @@ import {
   runInCapturedRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
-import {
-  AccessDeniedError,
-  InternalError,
-  MemberReadTimeoutError,
-  memberResolutionReadOnlyDenied,
-} from "../errors/index.ts";
+import { MemberReadTimeoutError } from "../errors/classes.ts";
+import { AccessDeniedError, InternalError } from "../errors/index.ts";
+import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
+
 import { type DispatchContext, resolveDbSource } from "./dispatch-shared.ts";
 
 const PG_READ_ONLY_SQLSTATE = "25006";

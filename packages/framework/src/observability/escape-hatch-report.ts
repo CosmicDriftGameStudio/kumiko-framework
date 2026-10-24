@@ -5,8 +5,9 @@ import type {
   EscapeHatchReporter,
   EscapeHatchTarget,
   EscapeHatchUseEvent,
-  TenantId,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/handlers";
+import type { TenantId } from "../engine/types/index.ts";
+
 import type { Logger } from "../logging/types.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { emitEscapeHatchUse } from "./standard-metrics.ts";

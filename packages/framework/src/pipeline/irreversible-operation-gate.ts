@@ -1,6 +1,9 @@
-import { type RequestContextData, requestContext } from "../api/request-context.ts";
-import type { EntityDefinition } from "../engine/types/index.ts";
-import { AccessDeniedError, type FrameworkReason, FrameworkReasons } from "../errors/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { requestContext } from "../api/request-context.ts";
+import type { RequestContextData } from "../api/request-context-internals.ts";
+
+import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import type { FrameworkReason } from "../errors/reasons.ts";
 
 type EntryHandler = NonNullable<RequestContextData["entryHandler"]>;
 

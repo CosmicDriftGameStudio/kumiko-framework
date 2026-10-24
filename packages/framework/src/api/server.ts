@@ -1,6 +1,8 @@
+import type { RunIn } from "@cosmicdrift/kumiko-types/config";
 import { Hono } from "hono";
 import type { PgListenClient } from "../db/connection.ts";
-import type { AppContext, Registry, RunIn } from "../engine/types/index.ts";
+import type { AppContext, Registry } from "../engine/types/index.ts";
+
 import type { ErrorDocsConfig } from "../errors/docs-url.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";

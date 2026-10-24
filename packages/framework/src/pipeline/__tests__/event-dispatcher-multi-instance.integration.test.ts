@@ -31,14 +31,11 @@ import { insertMany } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
 import { eventsTable, type StoredEvent } from "../../event-store/index.ts";
-import {
-  createEventDispatcher,
-  type EventConsumer,
-  type EventDispatcher,
-  getConsumerState,
-} from "../../pipeline/index.ts";
+import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
 
 // --- Fixture ---
 

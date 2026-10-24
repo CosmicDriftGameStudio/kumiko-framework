@@ -1,12 +1,14 @@
+import type { TenantWriteTarget } from "@cosmicdrift/kumiko-types/handlers";
 import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
-import { isAgentToolCallScope } from "../api/request-context.ts";
+import { isAgentToolCallScope } from "../api/request-context-scopes.ts";
+
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { mayOverrideTenant } from "../engine/cross-tenant.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { TenantWriteTarget } from "../engine/types/index.ts";
+
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { attachOutsideTransaction } from "./attach-outside-transaction.ts";

@@ -1,9 +1,11 @@
+import type { AppendEventArgs } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { requestContext } from "../api/request-context.ts";
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
 import type { DbRunner } from "../db/connection.ts";
 import { qnScope, toKebab } from "../engine/qualified-name.ts";
-import type { AppendEventArgs, Registry, TenantId } from "../engine/types/index.ts";
+import type { Registry, TenantId } from "../engine/types/index.ts";
+
 import { InternalError, validationErrorFromZod } from "../errors/index.ts";
 import { isStreamArchived } from "../event-store/archive.ts";
 import { ArchivedStreamError } from "../event-store/errors.ts";

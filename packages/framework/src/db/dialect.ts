@@ -41,7 +41,6 @@ export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema
 // these from drizzle-orm/pg-core. SelectQuery is no longer a meaningful
 // shape (no chain builder); TableColumns is the new SchemaTable union.
 export type TableColumns<_T = unknown> = SchemaTable;
-export type SelectQuery = unknown;
 
 function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {
   return t.startsWith("numeric(");
@@ -256,12 +255,6 @@ export function timestamp(
 
 // numeric → text (we don't currently use Decimal); kept for compat with
 // legacy schema imports that won't actually instantiate at runtime.
-export function numeric(
-  name: string,
-  _opts?: { precision?: number; scale?: number },
-): ColumnBuilder<string> {
-  return buildColumn<string>(name, "text");
-}
 
 export function instant(
   name: string,

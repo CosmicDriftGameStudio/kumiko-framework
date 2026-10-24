@@ -163,16 +163,6 @@ export type UserDataDeleteHook = (
   ctx: UserDataHookCtx,
   strategy: UserDataDeleteStrategy,
 ) => Promise<UserDataDeleteHookResult>;
-
-/**
- * Full hook table for EXT_USER_DATA. Export-only is a legitimate partial
- * contract, so registrations are typed by `UserDataExtensionOptions`.
- */
-export interface UserDataExtensionHooks {
-  readonly export: UserDataExportHook;
-  readonly delete: UserDataDeleteHook;
-}
-
 // At least one hook is required: an empty bag would silently register neither export nor forget.
 export type UserDataExtensionOptions = (
   | { readonly export: UserDataExportHook; readonly delete?: UserDataDeleteHook }

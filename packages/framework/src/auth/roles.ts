@@ -34,9 +34,3 @@ export const ROLES = {
   SystemAdmin: "SystemAdmin",
   Member: "Member",
 } as const;
-
-/**
- * Union of all known role names for compile-time checks of
- * handler access rules and ownership maps.
- */
-export type Role = (typeof ROLES)[keyof typeof ROLES];

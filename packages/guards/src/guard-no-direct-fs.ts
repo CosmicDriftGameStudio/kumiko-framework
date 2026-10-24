@@ -92,7 +92,7 @@ const ALLOWLIST: readonly AllowEntry[] = [
   { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/migrations\/kumiko-drift\.ts$/ },
   { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/schema-cli(\.ts|\/[^/]+\.ts)$/ },
   // same CLI-tooling pattern as schema-cli.ts — repo-tree/node_modules walking for the upgrade command, not app-level file storage
-  { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/upgrade-cli\.ts$/ },
+  { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/upgrade-cli(-internals)?\.ts$/ },
   { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/es-ops\/runner\.ts$/ },
   { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/db\/migrate-generator\.ts$/ },
   { repo: "kumiko-framework", pattern: /^packages\/framework\/src\/db\/migrate-runner\.ts$/ },

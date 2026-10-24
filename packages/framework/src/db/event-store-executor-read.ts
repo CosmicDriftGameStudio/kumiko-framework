@@ -1,6 +1,7 @@
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { extractTableInfo } from "../db/table-info.ts";
-import type { EntityId } from "../engine/types/index.ts";
+
 import { getStreamVersion } from "../event-store/index.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";

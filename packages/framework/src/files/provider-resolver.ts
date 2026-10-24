@@ -13,6 +13,7 @@
 // (moved here from there) so existing imports keep working.
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
+import type { ConfigAccessor, ConfigAccessorFactory } from "@cosmicdrift/kumiko-types/config";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { DbConnection } from "../db/connection.ts";
@@ -23,7 +24,8 @@ import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
 } from "../engine/extension-names.ts";
 import { SYSTEM_USER_ID } from "../engine/system-user.ts";
-import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
 import type { SecretsContext } from "../secrets/index.ts";

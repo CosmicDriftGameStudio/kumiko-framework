@@ -1,8 +1,10 @@
 // Workspace validation.
 
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
-import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // --- Workspace validation ---
 //

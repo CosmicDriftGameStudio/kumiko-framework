@@ -1,5 +1,3 @@
-import type { ConfigScope } from "./constants.ts";
-import { SYSTEM_ROLE } from "./system-user.ts";
 import type {
   ConfigBacking,
   ConfigBounds,
@@ -12,9 +10,10 @@ import type {
   ConfigValue,
   CreateSeedOptions,
   CreateTenantSeedOptions,
-  CreateUserSeedOptions,
-  OptionsQueryPayload,
-} from "./types/index.ts";
+} from "@cosmicdrift/kumiko-types/config";
+import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
+import type { ConfigScope } from "./constants.ts";
+import { SYSTEM_ROLE } from "./system-user.ts";
 
 // A key backed by "secrets" is at-rest encrypted by the secrets store itself
 // (MasterKeyProvider), even without an explicit `encrypted: true` — callers
@@ -221,15 +220,3 @@ export function createTenantSeed(
 // User-scope seed. Both tenantId AND userId are required — the resolver
 // matches against the user's actual tenantId, so a seed under
 // SYSTEM_TENANT_ID would never resolve.
-export function createUserSeed(
-  opts: CreateSeedOptions,
-  options: CreateUserSeedOptions,
-): ConfigSeedDef {
-  return {
-    value: opts.value,
-    scope: "user",
-    key: "",
-    tenantId: options.tenantId,
-    userId: options.userId,
-  };
-}

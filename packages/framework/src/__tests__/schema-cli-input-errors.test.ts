@@ -10,7 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import type { SchemaCliOut } from "../schema-cli/shared.ts";
+import { runSchemaCli } from "../schema-cli.ts";
 
 function captureOut(): { out: SchemaCliOut; log: string[]; err: string[] } {
   const log: string[] = [];

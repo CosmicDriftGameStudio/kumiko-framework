@@ -4,11 +4,13 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { NotifyFactory } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
-import type { HandlerContext, NotifyFactory } from "../../engine/types/index.ts";
+import type { HandlerContext } from "../../engine/types/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // ctx.notify / ctx.lifecycle.afterCommit across the ctx.dispatch.query bridge: a notify raised inside a

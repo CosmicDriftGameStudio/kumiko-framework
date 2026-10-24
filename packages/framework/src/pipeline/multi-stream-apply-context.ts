@@ -1,8 +1,10 @@
 import type { DerivativesContext } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type { AppendEventArgs } from "@cosmicdrift/kumiko-types/handlers";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { SecretsContext } from "@cosmicdrift/kumiko-types/secrets-types";
 import type { DbRunner } from "../db/connection.ts";
-import type { AppendEventArgs, Registry, TenantId } from "../engine/types/index.ts";
+import type { Registry, TenantId } from "../engine/types/index.ts";
+
 import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.ts";
 import { upcastStoredEvents } from "../event-store/upcaster.ts";
 import type { FileContext } from "../files/file-handle.ts";

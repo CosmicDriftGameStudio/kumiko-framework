@@ -120,8 +120,6 @@ export const ConsumerStatuses = {
   dead: "dead",
   disabled: "disabled",
 } as const;
-export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStatuses];
-
 // Idempotent bootstrap. Called by setupTestStack + production boot path —
 // same pattern as createProjectionStateTable / createEventsTable. If the
 // table is already present (second stack in the same test DB, prod boot

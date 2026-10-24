@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
+import type { ActiveMembershipResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { PostSaveHookFn, SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import {
   createGatedIdentitySwitch,
@@ -9,7 +11,7 @@ import {
 } from "../../pipeline/system-identity-switch.ts";
 import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.ts";
 import type { TenantId } from "../types/identifiers.ts";
-import type { ActiveMembershipResult, PostSaveHookFn, SaveContext } from "../types/index.ts";
+
 import { stubHandlerContextWith } from "./handler-context-stub.ts";
 
 // r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.

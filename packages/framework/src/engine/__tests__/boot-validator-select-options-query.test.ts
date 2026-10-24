@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { createSystemConfig, createTenantConfig } from "../config-helpers.ts";
 import { defineFeature } from "../define-feature.ts";
-import type { ConfigKeyDefinition } from "../types/index.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

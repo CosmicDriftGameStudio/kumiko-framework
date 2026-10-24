@@ -1,4 +1,6 @@
-import type { AuthClaimsContext, AuthClaimsHookDef, SessionUser } from "../engine/types/index.ts";
+import type { AuthClaimsContext, AuthClaimsHookDef } from "@cosmicdrift/kumiko-types/handlers";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import type { Logger } from "../logging/types.ts";
 
 // Shape the dispatcher (or a test harness) has to hand in: a way to build the

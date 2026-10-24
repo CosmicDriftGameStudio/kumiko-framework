@@ -20,6 +20,8 @@
 //      before writing — loadById() for update/delete/forget, db.fetchOne() for
 //      restore — so the aggregateId is already tenant-validated on arrival.
 //   2. create sets tenantId explicitly from event.tenantId, never derived from
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 //      the TenantDb wrapper default.
 // The missing TenantDb wrapper in this function is therefore not a hole.
 //
@@ -57,7 +59,6 @@ import {
 } from "../crypto/pii-field-encryption.ts";
 import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.ts";
 import { deleteMany, insertOne, updateMany } from "../db/query.ts";
-import type { EntityDefinition } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";

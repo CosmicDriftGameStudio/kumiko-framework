@@ -10,16 +10,15 @@
 
 import type * as z from "zod";
 import { zodShape } from "./_zod-introspect.ts";
+import type { DryRunOptions } from "./dry-run-internals.ts";
 import {
   type ComposedEnvSchema,
   classifyField,
-  type EnvFieldClass,
   type EnvFieldInspection,
-  getDefaultValue,
-  getFieldDescription,
-  pulumiConfigKey,
   readKumikoMeta,
 } from "./index.ts";
+import type { EnvFieldClass } from "./internals.ts";
+import { getDefaultValue, getFieldDescription, pulumiConfigKey } from "./internals.ts";
 
 export type DryRunMode = "human" | "json" | "pulumi" | "k8s";
 
@@ -44,17 +43,6 @@ export function parseDryRunEnvMode(raw: string | undefined): DryRunEnvMode | und
 export function isDryRunEnvActive(env: Readonly<Record<string, string | undefined>>): boolean {
   return parseDryRunEnvMode(env[DRY_RUN_ENV_VAR]) !== undefined;
 }
-
-export type DryRunOptions = {
-  /** From composeEnvSchema. Drives the per-row feature-attribution. */
-  readonly sources?: Readonly<Record<string, string>>;
-  /** Prefix for `pulumi config set <prefix>…` keys. Default "". */
-  readonly pulumiPrefix?: string;
-  /** k8s Secret name. Default "kumiko-env". */
-  readonly k8sName?: string;
-  /** k8s namespace. Default "default". */
-  readonly k8sNamespace?: string;
-};
 
 type EnvField = {
   readonly name: string;

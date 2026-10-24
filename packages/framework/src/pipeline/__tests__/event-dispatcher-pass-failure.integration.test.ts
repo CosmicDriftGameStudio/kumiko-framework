@@ -22,20 +22,18 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { Gauge, Meter } from "@cosmicdrift/kumiko-types/observability";
 import type { DbTx } from "../../db/connection.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { recordConsumerPassFailure } from "../../db/queries/event-consumer.ts";
 import { asRawClient } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
-import { type Gauge, getFallbackMeter, type Meter } from "../../observability/index.ts";
-import {
-  createEventDispatcher,
-  type EventConsumer,
-  type EventDispatcher,
-  getConsumerState,
-} from "../../pipeline/index.ts";
+import { getFallbackMeter } from "../../observability/fallback.ts";
+import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

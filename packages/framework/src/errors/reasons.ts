@@ -113,5 +113,3 @@ export const AgentReasons = {
   // `agent: { risk: "high" }` handler; `details.handlerQn` names it.
   highRiskNoAlways: "agent.high_risk_no_always",
 } as const;
-
-export type AgentReason = (typeof AgentReasons)[keyof typeof AgentReasons];

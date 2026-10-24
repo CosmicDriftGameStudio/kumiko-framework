@@ -1,5 +1,5 @@
+import type { RegistrarExtensionRegistration } from "@cosmicdrift/kumiko-types/config";
 import type { Registry } from "./types/feature.ts";
-import type { RegistrarExtensionRegistration } from "./types/index.ts";
 
 // Pinned QN of config's selected-extensions query — framework cannot import
 // bundled-features, so a pin test bundled-side keeps it equal to the handler.

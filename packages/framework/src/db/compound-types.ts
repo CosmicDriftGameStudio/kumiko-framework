@@ -5,13 +5,13 @@
 //   - locatedTimestamp: { at, tz, utc } ↔ <name>Utc + <name>Tz
 //   - money: { amount, currency } ↔ <name> + <name>Currency
 //   - (upcoming) address: { street, zip, city } ↔ <name>Street + <name>Zip + <name>City
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 //
 // Instead of nesting every helper in the executor at four different points,
 // this function pipelines all compound-type conversions in one pass. Adding
 // a new compound type requires extending only ONE place (this array), rather
 // than every executor call.
-
-import type { EntityDefinition } from "../engine/types/index.ts";
 import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.ts";
 import { flattenMoney, rehydrateMoney } from "./money.ts";
 

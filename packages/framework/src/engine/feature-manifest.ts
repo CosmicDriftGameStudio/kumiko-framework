@@ -6,7 +6,8 @@
 // imperative factory helpers of bundled features.
 
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
-import { compareByCodepoint } from "../utils/index.ts";
+import { compareByCodepoint } from "../utils/compare.ts";
+
 import { isEncryptedAtRest } from "./config-helpers.ts";
 import { qualifyEntityName } from "./qualified-name.ts";
 import type { Registry, UiHints } from "./types/feature.ts";

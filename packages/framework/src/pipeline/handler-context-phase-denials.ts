@@ -1,5 +1,9 @@
-import type { HandlerContext, JobRunnerRef } from "../engine/types/index.ts";
-import { InternalError, memberResolutionReadOnlyDenied } from "../errors/index.ts";
+import type { JobRunnerRef } from "@cosmicdrift/kumiko-types/handlers";
+import type { HandlerContext } from "../engine/types/index.ts";
+
+import { InternalError } from "../errors/index.ts";
+import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
+
 import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
 
 // Phase denials of the write pipeline: member-resolution, without-transaction and the two

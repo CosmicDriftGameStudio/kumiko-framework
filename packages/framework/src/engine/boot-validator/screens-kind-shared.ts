@@ -2,9 +2,12 @@
 // Dependencies point one way: screens-kind-*.ts -> here ->
 // screens-dashboard/forms/lists -> screens-actions.
 
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { qualifyEntityName } from "../qualified-name.ts";
 import { isWriteFormEditSection, type normalizeListColumn } from "../screen-helpers.ts";
-import type { ConfigKeyDefinition, EntityDefinition, FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import type {
   EditExtensionSection,
   EditFieldsSection,

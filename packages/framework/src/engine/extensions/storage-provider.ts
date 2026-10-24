@@ -5,12 +5,7 @@
 // (does a foreign tenant's file_refs row still
 // reference a key under THIS tenant's storage prefix) reads through the raw
 // `db` runner (e.g. `selectMany(db, …)`) — there is no `ctx.systemDb` here.
-import type {
-  TenantResourceDestroyHook,
-  TenantResourceExtensionHooks,
-  TenantResourceHookCtx,
-} from "./tenant-resource.ts";
+import type { TenantResourceDestroyHook, TenantResourceHookCtx } from "./tenant-resource.ts";
 
 export type StorageProviderHookCtx = TenantResourceHookCtx;
 export type StorageProviderDestroyTenantHook = TenantResourceDestroyHook;
-export type StorageProviderExtensionHooks = TenantResourceExtensionHooks;

@@ -1,5 +1,4 @@
-import type { JobDefinition } from "../engine/types/index.ts";
-
+import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 export const DEFAULT_MAX_PER_TENANT_DEFER_MS = 1_000;
 
 export type ResolvedMaxPerTenant = {

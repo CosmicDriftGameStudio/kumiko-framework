@@ -1,3 +1,4 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import {
   buildOwnershipClause,
   normalizeAccessEntry,
@@ -5,7 +6,8 @@ import {
   shiftParams,
 } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
-import type { EntityDefinition, SessionUser } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import { isListSortAllowed, isSensitiveLabelField } from "./entity-field-encryption.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { Table } from "./event-store-executor-context.ts";

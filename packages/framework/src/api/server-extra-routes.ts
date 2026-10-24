@@ -1,7 +1,9 @@
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type { Registry, WriteResult } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { createFallbackLogger } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { assertUnreachable } from "../utils/index.ts";

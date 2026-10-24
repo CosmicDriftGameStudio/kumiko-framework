@@ -4,8 +4,10 @@
 // single-key ciphertexts (pre-envelope ENCRYPTION_KEY era) readable via
 // the cipher's legacy fallback until re-encrypted.
 
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { collectPiiEncryptedFields } from "../crypto/index.ts";
-import type { EntityDefinition, TenantId } from "../engine/types/index.ts";
+import type { TenantId } from "../engine/types/index.ts";
+
 import { createLogger, type Logger } from "../logging/index.ts";
 import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";

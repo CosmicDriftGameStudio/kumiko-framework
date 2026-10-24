@@ -9,6 +9,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
@@ -27,7 +28,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
-import type { EntityEventMigration } from "../../engine/types/index.ts";
+
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { loadAggregate } from "../index.ts";

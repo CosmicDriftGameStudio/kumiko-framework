@@ -30,14 +30,12 @@ import { asRawClient } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
 import { append } from "../../event-store/index.ts";
-import {
-  createEventDispatcher,
-  type EventConsumer,
-  type EventDispatcher,
-} from "../../pipeline/index.ts";
+import type { EventDispatcher } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
 import { skipPoisonEvent } from "../event-dispatcher-admin.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {

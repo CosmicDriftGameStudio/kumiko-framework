@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AnyFileFieldDef, FieldDefinition } from "../types/index.ts";
-import { isFileField } from "../types/index.ts";
+import type { AnyFileFieldDef, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { isFileField } from "../field-helpers.ts";
 
 describe("isFileField()", () => {
   test("accepts all four file variants", () => {

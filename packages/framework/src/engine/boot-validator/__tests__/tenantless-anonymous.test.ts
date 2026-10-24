@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { WriteHandlerDefinition } from "@cosmicdrift/kumiko-types/define-handler";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
-import type { WriteHandlerDefinition } from "../../types/index.ts";
+
 import { validateHandlerAccess } from "../entity-handler.ts";
 
 type HandlerOverrides = Partial<Pick<WriteHandlerDefinition, "access" | "rateLimit">>;

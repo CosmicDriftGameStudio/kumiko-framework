@@ -3,6 +3,8 @@
 // Contract (see also db/money.ts — the same compound-type pattern):
 //   API form:   { at, tz } | { utc, tz }
 //   DB form:    <name>Utc TIMESTAMPTZ + <name>Tz TEXT
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 //   Read form:  { at, tz, utc }
 //
 // Default `at` view on read: local to the pickup location (`utc` projected into
@@ -13,7 +15,6 @@
 // globalThis, so this crashed with "Temporal is not defined" outside boot
 // paths that install it.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { EntityDefinition } from "../engine/types/index.ts";
 
 // The <name>Utc column uses instant() (see dialect.ts), so Drizzle returns Temporal.Instant.
 // Previously, a PostgreSQL wire-format string "2026-04-15 09:00:00+00" had to be

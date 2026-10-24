@@ -2,10 +2,10 @@
 // validator must refuse every use that reads inside the column.
 
 import { describe, expect, test } from "bun:test";
+import type { EntityIndexDef, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createJsonbField, createTextField } from "../factories.ts";
-import type { EntityIndexDef, FieldDefinition } from "../types/index.ts";
 
 function bootWith(
   fields: Record<string, FieldDefinition>,

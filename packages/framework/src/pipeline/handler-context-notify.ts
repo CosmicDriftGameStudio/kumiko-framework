@@ -1,6 +1,8 @@
+import type { NotifyFn, NotifyJobDispatcher } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection } from "../db/connection.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { NotifyFn, NotifyJobDispatcher, SessionUser } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import type { CommitSinks } from "./handler-context-dispatch.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { createDeferringNotify } from "./notify-scope.ts";

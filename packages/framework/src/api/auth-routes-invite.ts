@@ -3,7 +3,9 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
-import { toKumikoError, toWriteErrorInfo } from "../errors/index.ts";
+import { toKumikoError } from "../errors/to-kumiko-error.ts";
+import { toWriteErrorInfo } from "../errors/write-error-info.ts";
+
 import { Routes } from "./api-constants.ts";
 import { getUser } from "./auth-middleware.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";

@@ -24,18 +24,19 @@
 // The schema route strips features the caller's tenant has switched off
 // (r.toggleable) via stripDisabledFeaturesFromAppSchema.
 
+import type { EntityWriteExcludedFields } from "@cosmicdrift/kumiko-types/screen";
 import { ZodObject, type ZodType } from "zod";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type {
   AppSchema,
   ConfigEditScreenDefinition,
   EntityDefinition,
-  EntityWriteExcludedFields,
   FeatureSchema,
   ProjectionListScreenDefinition,
   ScreenDefinition,
   WorkspaceSchema,
 } from "../ui-types/index.ts";
+
 import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.ts";
 import {
   buildConfigFeatureSchema,

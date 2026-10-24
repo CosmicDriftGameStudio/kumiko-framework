@@ -7,7 +7,8 @@ import {
   type RecordingProvider,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
-import { registerStandardMetrics } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
+
 import { observabilityMiddleware } from "../observability-middleware.ts";
 
 const SECRET = "secret-token-123";

@@ -7,6 +7,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { PreSaveHookFn } from "@cosmicdrift/kumiko-types/hooks";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
@@ -18,7 +19,6 @@ import {
   createTextField,
   createTimestampField,
 } from "../factories.ts";
-import type { PreSaveHookFn } from "../types/index.ts";
 
 const noteEntity = createEntity({
   table: "update_null_clear_notes",

@@ -1,9 +1,11 @@
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.ts";
 import type { EnvelopeCipher } from "../../secrets/envelope-cipher.ts";
 import { dedupeFeatures } from "../dedupe-features.ts";
 import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
-import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import { validateProjectionAllowlist } from "../validate-projection-allowlist.ts";
 import { validateAccessDeclarations } from "./access-declarations.ts";
 import { warnOnUniqueAccessRoles } from "./access-roles.ts";

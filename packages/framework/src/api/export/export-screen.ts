@@ -1,11 +1,8 @@
+import type { ScreenDefinition, ScreenFilter } from "@cosmicdrift/kumiko-types/screen";
 import { hasAccess } from "../../engine/access.ts";
 import { toKebab } from "../../engine/qualified-name.ts";
-import type {
-  Registry,
-  ScreenDefinition,
-  ScreenFilter,
-  SessionUser,
-} from "../../engine/types/index.ts";
+import type { Registry, SessionUser } from "../../engine/types/index.ts";
+
 import { DEFAULT_EXPORT_MAX_ROWS } from "../../engine/types/screen.ts";
 import { AccessDeniedError } from "../../errors/index.ts";
 import { type ExportColumn, resolveExportColumns } from "./export-columns.ts";

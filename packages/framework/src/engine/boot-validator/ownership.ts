@@ -1,3 +1,5 @@
+import type { EmbeddedSubFieldDef } from "@cosmicdrift/kumiko-types/fields";
+import type { ClaimKeyDefinition } from "@cosmicdrift/kumiko-types/handlers";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   type OwnershipMap,
@@ -8,12 +10,8 @@ import {
 } from "../ownership.ts";
 import { SYSTEM_USER_ID } from "../system-user.ts";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
-import type {
-  ClaimKeyDefinition,
-  EmbeddedSubFieldDef,
-  FeatureDefinition,
-  SessionUser,
-} from "../types/index.ts";
+import type { FeatureDefinition, SessionUser } from "../types/index.ts";
+
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.ts";
 
 // --- Ownership rule validation ---

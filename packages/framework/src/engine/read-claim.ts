@@ -1,4 +1,9 @@
-import type { ClaimKeyHandle, ClaimKeyJsType, ClaimKeyType, SessionUser } from "./types/index.ts";
+import type {
+  ClaimKeyHandle,
+  ClaimKeyJsType,
+  ClaimKeyType,
+} from "@cosmicdrift/kumiko-types/handlers";
+import type { SessionUser } from "./types/index.ts";
 
 // Read a feature-declared claim from a SessionUser.
 //

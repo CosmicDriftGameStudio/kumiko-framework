@@ -6,14 +6,10 @@
 // out) entry point, own DB connection) so `kumiko-consumer` ships the same
 // way `kumiko-schema` does.
 
+import type { ConsumerCliOut } from "./consumer-cli-internals.ts";
 import { createDbConnection, dbConnectionOptionsFromEnv } from "./db/connection.ts";
 import { getConsumerState, restartConsumer } from "./pipeline/index.ts";
 import { ensureTemporalPolyfill } from "./time/index.ts";
-
-export type ConsumerCliOut = {
-  readonly log: (line: string) => void;
-  readonly err: (line: string) => void;
-};
 
 type ParsedConsumerCliArgs = {
   readonly sub: string | undefined;

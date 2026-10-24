@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { integer, type SchemaTable, table, uuid } from "../../db/dialect.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";

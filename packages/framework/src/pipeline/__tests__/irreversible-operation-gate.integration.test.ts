@@ -6,12 +6,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { resolveAgentExposure } from "@cosmicdrift/kumiko-types/agent-exposure";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import type { Registry } from "../../engine/types/index.ts";
-import { resolveAgentExposure } from "../../engine/types/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const admin = TestUsers.admin;

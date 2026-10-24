@@ -1,12 +1,9 @@
+import type { BeforeTransactionResult, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { fetchOne, runnerCanBeginTransaction } from "../db/query.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
-import type {
-  BeforeTransactionResult,
-  Registry,
-  SessionUser,
-  WriteResult,
-} from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import {
   FrameworkReasons,
   InternalError,

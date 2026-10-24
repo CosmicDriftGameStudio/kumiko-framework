@@ -3,14 +3,11 @@ import { scheduleTokenExpiry } from "../api/token-expiry-timer.ts";
 import { hasAccess } from "../engine/access.ts";
 import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
 import type { SessionUser } from "../engine/types/index.ts";
-import {
-  AccessDeniedError,
-  memberResolutionReadOnlyDenied,
-  NotFoundError,
-  UnauthenticatedError,
-  validationErrorFromZod,
-} from "../errors/index.ts";
-import { assertNoSecretLeak } from "../secrets/index.ts";
+import { UnauthenticatedError } from "../errors/classes.ts";
+import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors/index.ts";
+import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
+import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
+
 import { dispatchRowLevelSecurityScope, streamInDispatchScope } from "./dispatch-scope.ts";
 import {
   buildHandlerContext,

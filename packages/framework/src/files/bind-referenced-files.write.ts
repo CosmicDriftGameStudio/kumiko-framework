@@ -1,7 +1,10 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import type { TenantDb } from "../db/tenant-db.ts";
+import { isFileField } from "../engine/field-helpers.ts";
 import { defineWriteHandler, SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/index.ts";
-import { type EntityDefinition, isFileField, type Registry } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { ValidationError } from "../errors/index.ts";
 import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";

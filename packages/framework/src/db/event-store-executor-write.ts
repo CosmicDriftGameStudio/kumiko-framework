@@ -1,3 +1,4 @@
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
 import {
@@ -13,26 +14,29 @@ import {
   isRecordLocked,
   isUnchangedValue,
 } from "../engine/screen-helpers.ts";
-import type { EntityId, SessionUser, TenantId } from "../engine/types/index.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import {
+  IdempotentReplayError,
+  PreconditionFailedError,
+  RecordLockedError,
+} from "../errors/classes.ts";
 import {
   AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
-  IdempotentReplayError,
   InternalError,
-  isSubjectErasedConflict,
   NotFoundError,
-  PreconditionFailedError,
-  RecordLockedError,
   UnprocessableError,
   type WriteFailure,
   writeFailure,
 } from "../errors/index.ts";
+import { isSubjectErasedConflict } from "../errors/subject-erased.ts";
+import { IdempotentAppendConflictError as EventStoreIdempotentAppendConflict } from "../event-store/errors.ts";
 import {
   append,
-  IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
 } from "../event-store/index.ts";
+
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,

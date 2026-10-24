@@ -4,11 +4,13 @@
 // a where-rule there boots and only ever denies; the guard fails the boot.
 
 import { describe, expect, test } from "bun:test";
+import type { ClaimKeyDefinition } from "@cosmicdrift/kumiko-types/handlers";
 import { buildEntityTable } from "../../../db/table-builder.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEmbeddedField, createEntity, createTextField } from "../../factories.ts";
 import { tableNameOf } from "../../ownership.ts";
-import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.ts";
+import type { FeatureDefinition } from "../../types/index.ts";
+
 import type { OwnershipMap, WhereRule } from "../../types/ownership.ts";
 import { validateOwnershipRules } from "../ownership.ts";
 

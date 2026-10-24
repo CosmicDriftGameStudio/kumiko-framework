@@ -1,3 +1,37 @@
+import type {
+  ConfigKeyDefinition,
+  ConfigKeyHandle,
+  ConfigKeyType,
+  ConfigSeedDef,
+  JobDefinition,
+  JobHandlerFn,
+  NotificationDataFn,
+  NotificationLocalizedTemplate,
+  NotificationRecipientFn,
+  NotificationRecordMapping,
+  NotificationTemplateBody,
+  NotificationTemplateFn,
+  NotificationTemplateMeta,
+  TemplateVariables,
+  TranslationsDef,
+} from "@cosmicdrift/kumiko-types/config";
+import type {
+  MetricOptions,
+  SecretKeyHandle,
+  SecretNamespaceHandle,
+  SecretNamespaceOptions,
+  SecretOptions,
+} from "@cosmicdrift/kumiko-types/feature";
+import type {
+  AuthClaimsFn,
+  ClaimKeyHandle,
+  ClaimKeyType,
+  DeclarativeEventMigration,
+  EventDef,
+  EventUpcastFn,
+  NameOrRef,
+  QualifiedEventName,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
@@ -9,37 +43,7 @@ import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { requireArgument, splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
 import { QnTypes, qn, toKebab } from "./qualified-name.ts";
-import type {
-  AuthClaimsFn,
-  ClaimKeyHandle,
-  ClaimKeyType,
-  ConfigKeyDefinition,
-  ConfigKeyHandle,
-  ConfigKeyType,
-  ConfigSeedDef,
-  DeclarativeEventMigration,
-  EventDef,
-  EventPiiStance,
-  EventUpcastFn,
-  JobDefinition,
-  JobHandlerFn,
-  MetricOptions,
-  NameOrRef,
-  NotificationDataFn,
-  NotificationLocalizedTemplate,
-  NotificationRecipientFn,
-  NotificationRecordMapping,
-  NotificationTemplateBody,
-  NotificationTemplateFn,
-  NotificationTemplateMeta,
-  QualifiedEventName,
-  SecretKeyHandle,
-  SecretNamespaceHandle,
-  SecretNamespaceOptions,
-  SecretOptions,
-  TemplateVariables,
-  TranslationsDef,
-} from "./types/index.ts";
+import type { EventPiiStance } from "./types/index.ts";
 
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(

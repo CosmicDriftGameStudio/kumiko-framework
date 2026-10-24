@@ -1,4 +1,6 @@
-import type { EntityDefinition, TenantId } from "../engine/types/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { TenantId } from "../engine/types/index.ts";
+
 import { rehydrateCompoundTypes } from "./compound-types.ts";
 import { coerceRow } from "./query.ts";
 import type { TableInfo } from "./table-info.ts";

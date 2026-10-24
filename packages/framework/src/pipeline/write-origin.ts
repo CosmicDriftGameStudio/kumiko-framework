@@ -2,6 +2,7 @@
 // input schema; writes reached via ctx.dispatch.write/writeAs/queryAs, hooks or foreign-feature
 // tables are only visible at the actual write, so the gate runs there at runtime.
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { type PersonalDataGate, tableNameOf } from "../db/tenant-db.ts";
@@ -12,7 +13,8 @@ import {
 } from "../engine/personal-data-fields.ts";
 import { ANONYMOUS_ROLE } from "../engine/system-user.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
-import type { AccessRule, Registry, SessionUser } from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import { AccessDeniedError } from "../errors/index.ts";
 import { FrameworkReasons } from "../errors/reasons.ts";
 import { toSnakeCase } from "../utils/case.ts";

@@ -6,12 +6,13 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent, JobContext } from "@cosmicdrift/kumiko-types/handlers";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import type { DbRunner } from "../../db/connection.ts";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { insertOne, selectMany } from "../../db/query.ts";
 import { createRegistry, defineFeature, type Registry } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent, JobContext } from "../../engine/types/index.ts";
+
 import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { createJobRunner, type JobRunner } from "../job-runner.ts";

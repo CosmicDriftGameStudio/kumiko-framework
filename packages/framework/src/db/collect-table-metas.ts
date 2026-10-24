@@ -3,7 +3,8 @@
 // source so the test-DB push and migrations cannot drift apart again.
 
 import type { FeatureDefinition } from "../engine/types/index.ts";
-import { compareByCodepoint } from "../utils/index.ts";
+import { compareByCodepoint } from "../utils/compare.ts";
+
 import {
   assertBackingTableSuperset,
   deriveEntityTableMeta,

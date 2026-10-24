@@ -1,19 +1,20 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { requestContext, runWithWriteOrigin } from "../api/request-context.ts";
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { DeleteContext, SaveContext } from "@cosmicdrift/kumiko-types/hooks";
+import { requestContext } from "../api/request-context.ts";
+import { runWithWriteOrigin } from "../api/request-context-scopes.ts";
+
 import { transaction } from "../db/query.ts";
-import type {
-  DeleteContext,
-  SaveContext,
-  SessionUser,
-  WriteResult,
-} from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import {
   InternalError,
-  toWriteErrorInfo,
   UnprocessableError,
   type WriteErrorInfo,
   writeFailure,
 } from "../errors/index.ts";
+import { toWriteErrorInfo } from "../errors/write-error-info.ts";
+
 import { createFallbackLogger } from "../logging/utils.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { flushAfterRollback } from "./after-rollback-sink.ts";
