@@ -1,10 +1,11 @@
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { appendDomainEventCore } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
 import { isWithinGracePeriod } from "../../shared/index.ts";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.ts";
-import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants.ts";
+import { DESTRUCTION_CANCELLED_EVENT_QN, TENANT_LIFECYCLE_FEATURE } from "../constants.ts";
 import { invalidateTenantLifecycleGate } from "../lifecycle-gate.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -15,7 +16,7 @@ type TenantLifecycleRow = {
 };
 
 const CANCEL_DESTRUCTION_TENANT_ROW_REASON =
-  "reads the caller's tenant row, whose tenant_id is the creating tenant, not the row's own id";
+  "reads the caller's tenant row (a global row on the system tenant) and appends to the tenant stream on the system tenant";
 
 export const cancelDestructionWrite = defineWriteHandler({
   name: "cancel-destruction",
@@ -29,7 +30,8 @@ export const cancelDestructionWrite = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const row = await fetchOne<TenantLifecycleRow>(ctx.db.unsafeRaw(), tenantTable, {
+    const runner = ctx.db.unsafeRaw();
+    const row = await fetchOne<TenantLifecycleRow>(runner, tenantTable, {
       id: tenantId,
     });
     if (!row) {
@@ -64,12 +66,22 @@ export const cancelDestructionWrite = defineWriteHandler({
     if (!update.isSuccess) return update;
     invalidateTenantLifecycleGate(tenantId);
 
-    await ctx.unsafeAppendEvent({
-      aggregateId: tenantId,
-      aggregateType: "tenant",
-      type: DESTRUCTION_CANCELLED_EVENT_QN,
-      payload: { cancelledBy: event.user.id },
-    });
+    await appendDomainEventCore(
+      {
+        registry: ctx.registry,
+        db: runner,
+        tenantId: SYSTEM_TENANT_ID,
+        userId: String(event.user.id),
+        callSiteLabel: "tenant-lifecycle cancel-destruction",
+        callerFeature: TENANT_LIFECYCLE_FEATURE,
+      },
+      {
+        aggregateId: tenantId,
+        aggregateType: "tenant",
+        type: DESTRUCTION_CANCELLED_EVENT_QN,
+        payload: { cancelledBy: event.user.id },
+      },
+    );
 
     const gracePeriodEnd: string | null = null;
     return {

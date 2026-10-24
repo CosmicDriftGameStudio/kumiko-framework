@@ -41,6 +41,7 @@ import {
   type Registry,
   type SaveContext,
   type SessionUser,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
@@ -48,7 +49,6 @@ import {
   createDeferringNotify,
   createLifecycleHooks,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { assertAssignableMembershipRoles } from "./membership-roles.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 import { tenantEntity, tenantTable } from "./schema/tenant.ts";
@@ -256,16 +256,13 @@ export async function seedTenant(
   options: SeedTenantOptions,
   hooks?: SeedTenantHooks,
 ): Promise<{ id: TenantId }> {
-  const by = options.by ?? TestUsers.systemAdmin;
-  // executor.create expects a TenantDb with an .insert()-API, not the raw
-  // DbConnection. Although the tenant aggregate is not tenant-scoped, the
-  // wrapper is required by the runtime API. by.tenantId is sufficient; unlike
-  // seedTenantMembership, no override semantics are needed.
+  const by = options.by ?? createSystemUser(SYSTEM_TENANT_ID);
+  // The tenant aggregate is global: its row and stream live on SYSTEM_TENANT_ID whatever tenant `by` acts from.
   const tdb = createTenantDb({
     db,
-    tenantId: by.tenantId,
+    tenantId: SYSTEM_TENANT_ID,
     mode: "system",
-    reason: "tenant aggregate is not tenant-scoped, the executor still needs a system-mode handle",
+    reason: "the global tenant aggregate lives on SYSTEM_TENANT_ID whatever tenant the seeding actor acts from",
   });
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });

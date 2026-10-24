@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "generated": "2026-10-23",
+  "generated": "2026-10-24",
   "asOfVersion": "0.389.0",
   "packages": {
     "framework": {
@@ -1269,10 +1269,13 @@
         "OutsideTransactionContext",
         "PgErrorInfo",
         "PgType",
+        "ROW_LEVEL_SECURITY_MODES",
         "ReplayMismatch",
         "ReplayedSchema",
         "ReplayedTable",
         "RetiredFrameworkTable",
+        "RowLevelSecurityMode",
+        "RowLevelSecurityScope",
         "SYSTEM_SCOPE_CHECK_BRAND",
         "SchemaDiff",
         "SchemaTable",
@@ -1302,6 +1305,8 @@
         "asEntityTableMeta",
         "asRawClient",
         "assertExistsIn",
+        "assertNoActiveRowLevelSecurityScope",
+        "assertRowLevelSecurityBootState",
         "assertUniqueTableNames",
         "assertValidMigrationName",
         "baselineMigrations",
@@ -1397,6 +1402,7 @@
         "requireEntityTableMeta",
         "requireOutsideTransactionDb",
         "retiredFrameworkTables",
+        "rowLevelSecurityModeOf",
         "runInOwnTransaction",
         "runInSavepoint",
         "runInSavepointIfSupported",
@@ -2241,6 +2247,15 @@
         "runWithWriteOrigin",
         "setRequestIdentity"
       ],
+      "./internal/row-level-security": [
+        "DEFAULT_ROW_LEVEL_SECURITY_MODE",
+        "appHookScopedRunner",
+        "isRowLevelSecurityViolation",
+        "runInRowLevelSecurityScope",
+        "runInSystemRowLevelSecurityScope",
+        "systemScopedRunner",
+        "tenantRowLevelSecurityScope"
+      ],
       "./internal/stack-support": [
         "AnyDb",
         "Lifecycle",
@@ -2249,6 +2264,7 @@
         "addMissingColumns",
         "addMissingIndexes",
         "columnNamesOf",
+        "createApplicationRole",
         "createDatabase",
         "createDbConnection",
         "createRateLimitResolver",
@@ -2261,6 +2277,8 @@
         "requiredKeysFromFeature",
         "schemaTableName",
         "tableToMeta",
+        "transferDatabaseOwnership",
+        "transferPublicSchemaOwnership",
         "truncateTablesRestartIdentity",
         "unsafeCreateEntityTable",
         "unsafeEnsureEntityTable",
@@ -2269,6 +2287,8 @@
         "validateOwnershipBoot"
       ],
       "./internal/testing": [
+        "ExecutorManagedEntitySource",
+        "executorManagedEntitySourceOf",
         "resetBlindIndexKeyForTests",
         "resetEntityFieldEncryptionCacheForTests",
         "resetEventPiiCatalogForTests",
@@ -3560,8 +3580,10 @@
         "TENANT_MODEL_CONFIG_KEY",
         "USER_DATA_RIGHTS_FEATURE",
         "UserDataRightsHandlers",
+        "UserDataRightsJobs",
         "UserDataRightsOptions",
         "UserDataRightsQueries",
+        "UserDataRightsScreens",
         "UserExportBundle",
         "backfillUserLifecycleEvents",
         "createUserDataRightsFeature",
@@ -3585,7 +3607,9 @@
         "RequestAccountDeletionScreenProps",
         "UserDataRightsClientOptions",
         "UserDataRightsHandlers",
+        "UserDataRightsJobs",
         "UserDataRightsQueries",
+        "UserDataRightsScreens",
         "defaultTranslations",
         "formatDate",
         "makePublicDeletionGate",
@@ -3632,6 +3656,9 @@
         "TenantHandlers",
         "TenantLifecycleStatus",
         "TenantQueries",
+        "TenantStreamBackfillDeps",
+        "TenantStreamBackfillResult",
+        "backfillTenantStreamTenants",
         "cancelPendingInvitation",
         "collectAssignableAppRoles",
         "createTenantFeature",
@@ -3695,9 +3722,13 @@
         "SeedTenantHooks",
         "SeedTenantMembershipOptions",
         "SeedTenantOptions",
+        "deleteMembershipViaEventStore",
         "fireEntityPostSave",
         "seedTenant",
-        "seedTenantMembership"
+        "seedTenantMembership",
+        "setMembershipRolesViaEventStore",
+        "updateInvitationViaEventStore",
+        "updateTenantViaEventStore"
       ],
       "./user": [
         "USER_ANONYMIZED_DISPLAY_NAME",
@@ -3732,7 +3763,9 @@
         "SeedUserOptions",
         "reconcileSeededUserEmailVerified",
         "rewriteSeededUserEmail",
-        "seedUser"
+        "seedUser",
+        "softDeleteUserViaEventStore",
+        "updateUserViaEventStore"
       ],
       "./user-profile": [
         "USER_PROFILE_FEATURE",
@@ -3814,6 +3847,12 @@
         "AuthHandlers",
         "AuthQueries",
         "MIN_HMAC_SECRET_LENGTH"
+      ],
+      "./auth-email-password/return-path": [
+        "MAX_RETURN_PATH_LENGTH",
+        "RETURN_TO_QUERY_PARAM",
+        "isSafeReturnPath",
+        "readReturnToFromSearch"
       ],
       "./auth-email-password/email-templates": [
         "AUTH_MAIL_EN",

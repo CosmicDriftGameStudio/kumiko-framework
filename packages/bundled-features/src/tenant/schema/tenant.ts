@@ -21,6 +21,9 @@ export const tenantEntity = createEntity({
   description:
     "A tenant, the isolated workspace every other record belongs to, holding its key and display name, whether it is enabled, and its destruction-lifecycle state.",
   table: "read_tenants",
+  // Tenant-independent aggregate: stream, row and search bucket live on SYSTEM_TENANT_ID, not on the acting user's tenant.
+  systemStream: true,
+  tenancy: "global",
   // `tenant.id` is the `tenantId` value referenced by every other table as a foreign key.
   // Every `tenantId` column is UUID, so `tenant.id` must also be UUID; otherwise
   // the tenant lookup never finds a match. The default is `gen_random_uuid()`.
@@ -32,7 +35,7 @@ export const tenantEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // Subject is the tenant record itself: tenant events live in the writer's (system) tenant stream, so `personal: "tenant"` would not resolve to this tenant.
+    // Subject is the tenant record itself: the stream lives on SYSTEM_TENANT_ID, so `personal: "tenant"` would not resolve to this tenant.
     name: createTextField({
       required: true,
       maxLength: 200,

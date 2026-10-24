@@ -38,14 +38,14 @@ const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 //     call (event-store.ts, event-store-admin.ts, event-store-transfer.ts).
 //   - db/queries/backfill-pii.ts — the one-time pre-KMS plaintext backfill;
 //     rewrites payload/deletes stale snapshots in place, framework-owned.
-//   - user/db/queries/stream-tenant-backfill.ts — a one-time stream-ownership
+//   - shared/stream-tenant-backfill.ts — a one-time stream-ownership
 //     migration that predates this guard; already carries its own
 //     RAW_SQL_ALLOWLIST entry, kept here for the same reason.
 const ALLOWLIST: readonly RegExp[] = [
   /^packages\/framework\/src\/event-store\//,
   /^packages\/framework\/src\/db\/queries\/event-store.*\.ts$/,
   /^packages\/framework\/src\/db\/queries\/backfill-pii\.ts$/,
-  /^packages\/bundled-features\/src\/user\/db\/queries\/stream-tenant-backfill\.ts$/,
+  /^packages\/bundled-features\/src\/shared\/stream-tenant-backfill\.ts$/,
 ];
 
 const ES_TABLES = "kumiko_events|kumiko_snapshots|kumiko_archived_streams";

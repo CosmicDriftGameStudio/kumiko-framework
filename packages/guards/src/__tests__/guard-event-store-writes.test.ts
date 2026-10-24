@@ -62,9 +62,7 @@ describe("Event-Store-Writes Guard", () => {
 
   test("does not flag the pre-existing pii backfill and stream-tenant-backfill exceptions", () => {
     expect(isAllowed("packages/framework/src/db/queries/backfill-pii.ts")).toBe(true);
-    expect(
-      isAllowed("packages/bundled-features/src/user/db/queries/stream-tenant-backfill.ts"),
-    ).toBe(true);
+    expect(isAllowed("packages/bundled-features/src/shared/stream-tenant-backfill.ts")).toBe(true);
   });
 
   test("isAllowed rejects a feature path that merely mentions event-store in its name", () => {

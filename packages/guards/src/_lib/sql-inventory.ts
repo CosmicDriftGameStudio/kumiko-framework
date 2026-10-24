@@ -81,7 +81,7 @@ export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
   /\/bundled-features\/src\/form-draft\/db\/queries\/owned-file-refs\.ts$/,
   /\/bundled-features\/src\/secrets\/db\/queries\/read\.ts$/,
   /\/bundled-features\/src\/sessions\/db\/queries\/cleanup\.ts$/,
-  /\/bundled-features\/src\/user\/db\/queries\/stream-tenant-backfill\.ts$/,
+  /\/bundled-features\/src\/shared\/stream-tenant-backfill\.ts$/,
   /\/packages\/framework\/src\/engine\/steps\/unsafe-projection-/,
   /(^|\/)samples\/(apps|recipes)\/[^/]+\/src\/db\/queries\//,
   /\/bin\/commands\//,

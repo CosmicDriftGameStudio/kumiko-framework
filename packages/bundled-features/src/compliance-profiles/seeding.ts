@@ -20,12 +20,12 @@ import {
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  runEventStoreSeed,
-  type SeedIfExists,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/seeding";
+  createSystemUser,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 
 import {
   tenantComplianceProfileEntity,
@@ -52,7 +52,7 @@ export async function seedComplianceProfile(
 ): Promise<{ id: string }> {
   // user.tenantId must equal opts.tenantId so the Event Store stream
   // and projection remain in the same tenant bucket.
-  const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
+  const by = opts.by ?? createSystemUser(opts.tenantId);
   const tdb = createTenantDb({
     db,
     tenantId: opts.tenantId,

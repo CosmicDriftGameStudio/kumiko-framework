@@ -57,8 +57,7 @@ export type DestructionStageCtx = {
   // "destroyTenant" hooks) — undefined when no file-provider is wired,
   // which those hooks must treat as "nothing to clean up", not an error.
   readonly fileProviderResolver?: FileProviderResolver;
-  // Derived search docs of the tenant record (its name) live in the writer's
-  // index, not the destroyed tenant's, so the subject-keys stage purges them.
+  // The tenant record's derived search docs (its name) sit in the SYSTEM bucket; the subject-keys stage purges them.
   readonly searchAdapter?: SearchAdapter;
   // Sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); runTenantDataHooks uses them to attribute+audit any
