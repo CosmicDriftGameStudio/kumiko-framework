@@ -175,7 +175,7 @@
     "@types/mailparser": "^3.4.6",
     "@types/qrcode": "^1.5.5",
     "clsx": "^2.1.1",
-    "happy-dom": "^20.11.2",
+    "happy-dom": "^21.0.4",
     "hono": "^4.13.1",
     "imapflow": "^1.7.8",
     "ioredis": "^5.10.1",
