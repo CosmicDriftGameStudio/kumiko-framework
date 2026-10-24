@@ -5,7 +5,7 @@
 The ctx-namespaces codemod rewrites hand-written structural context types declared as a type alias, an interface or an intersection, not only inline ones.
 
 <!-- kumiko-changes
-feature: framework
+feature: feature-ast
 type: fix
 title: ctx-namespaces codemod follows structural context types through aliases and intersections
 codemod: scripts/codemod/ctx-namespaces.ts
