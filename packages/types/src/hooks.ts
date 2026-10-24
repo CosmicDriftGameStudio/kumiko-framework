@@ -75,11 +75,6 @@ export type PostDeleteBatchHookFn = (
   context: HandlerContext,
 ) => Promise<void>;
 
-export type PreQueryHookFn = (
-  payload: Record<string, unknown>,
-  context: HandlerContext,
-) => Promise<Record<string, unknown>>;
-
 // postQuery — fires after query-handler-execute, before field-access-read-filter.
 // Hook receives normalized rows + entityName + can mutate rows (e.g., merge
 // custom-fields, add computed-counts, attach related-data). Mutation result
@@ -101,7 +96,6 @@ export type LifecycleHookFn =
   | PostSaveHookFn
   | PreDeleteHookFn
   | PostDeleteHookFn
-  | PreQueryHookFn
   | PostQueryHookFn;
 
 export type { HookPhase } from "./hook-phase.ts";
@@ -122,7 +116,7 @@ export type PhasedHook<TFn> = {
   readonly phase: HookPhase;
 } & HookOwner;
 
-// Flat (non-phased) hook — preSave, preQuery. Same owner contract, no
+// Flat (non-phased) hook — preSave. Same owner contract, no
 // phase semantics because these hooks run exactly once per handler pass
 // before/around the DB transaction.
 export type OwnedFn<TFn> = {
@@ -141,7 +135,6 @@ export type HookMap = {
   readonly postSave?: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
   readonly preDelete?: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
   readonly postDelete?: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
-  readonly preQuery?: Readonly<Record<string, readonly OwnedFn<PreQueryHookFn>[]>>;
   readonly postQuery?: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
 

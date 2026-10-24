@@ -28,7 +28,7 @@ function buildConfigFor(
         if (targetTenantId === user.tenantId && config) return config;
         if (!isSystemIdentity(user) && !user.roles.includes("SystemAdmin")) {
           throw new AccessDeniedError({
-            message: "ctx.configFor(otherTenant) requires the system role or SystemAdmin",
+            message: "ctx.tenants.config(otherTenant) requires the system role or SystemAdmin",
             details: { reason: "config_for_requires_system_admin" },
           });
         }

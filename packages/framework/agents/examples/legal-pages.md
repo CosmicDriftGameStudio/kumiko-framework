@@ -108,9 +108,9 @@ A one-shot setup routine that runs on first boot or via the CLI:
 // bin/seed-legal.ts
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createDb } from "@cosmicdrift/kumiko-framework/db";
+import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 
-const db = createDb(process.env.DATABASE_URL!);
+const { db } = createDbConnection({ url: process.env.DATABASE_URL! });
 
 await seedTextBlock(db, {
   tenantId: SYSTEM_TENANT_ID,

@@ -78,7 +78,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "verify (mfa) requires ctx.redis for the brute-force cap and single-use burn",
+            message:
+              "verify (mfa) requires ctx.services.redis for the brute-force cap and single-use burn",
           }),
         );
       }

@@ -1,5 +1,5 @@
 import { InternalError } from "../errors/index.ts";
-import type { KnownTables } from "./known-table-names.ts";
+import { isLiveFrameworkTable, type KnownTables } from "./known-table-names.ts";
 import {
   readConnectedRoleAttributes,
   readTablesWithRowLevelSecurityEnabled,
@@ -44,9 +44,17 @@ async function assertAllTenantTablesProtected(db: AnyDb, knownTables: KnownTable
     .filter((entry) => entry.missing.length > 0);
   // skip: every tenant table is protected
   if (incomplete.length === 0) return;
-  const known = incomplete.filter((entry) => knownTables.has(entry.table));
+  const frameworkTables = incomplete.filter((entry) => isLiveFrameworkTable(entry.table));
+  const known = incomplete.filter(
+    (entry) => !isLiveFrameworkTable(entry.table) && knownTables.has(entry.table),
+  );
   const orphaned = incomplete.filter((entry) => !knownTables.has(entry.table));
   const sections = [
+    ...(frameworkTables.length > 0
+      ? [
+          `framework tables without it: ${listingOf(frameworkTables)}. Run \`kumiko schema apply\`: it adds the missing policies to the framework tables (\`kumiko schema generate\` reports no changes for them).`,
+        ]
+      : []),
     ...(known.length > 0
       ? [
           `tables of this app without it: ${listingOf(known)}. Run \`kumiko schema generate\` and apply the migration.`,
@@ -72,7 +80,9 @@ async function assertNoLiveRowLevelSecurity(db: AnyDb): Promise<void> {
   });
 }
 
-export async function assertRowLevelSecurityBootState(
+// Table state only, no role check: the role is a runtime property of the boot connection, so tools
+// that connect with another role (CI, `schema validate`) use this one.
+export async function assertRowLevelSecurityTableState(
   db: AnyDb,
   mode: RowLevelSecurityMode,
   knownTables: KnownTables,
@@ -82,6 +92,14 @@ export async function assertRowLevelSecurityBootState(
     // skip: off-mode check done
     return;
   }
-  await assertEnforcingRole(db);
   await assertAllTenantTablesProtected(db, knownTables);
+}
+
+export async function assertRowLevelSecurityBootState(
+  db: AnyDb,
+  mode: RowLevelSecurityMode,
+  knownTables: KnownTables,
+): Promise<void> {
+  if (mode === "on") await assertEnforcingRole(db);
+  await assertRowLevelSecurityTableState(db, mode, knownTables);
 }

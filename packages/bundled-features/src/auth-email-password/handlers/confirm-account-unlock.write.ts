@@ -43,7 +43,7 @@ export function createConfirmAccountUnlockHandler(opts: ConfirmAccountUnlockOpti
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "account-unlock requires ctx.redis to clear lockout state",
+            message: "account-unlock requires ctx.services.redis to clear lockout state",
           }),
         );
       }

@@ -30,7 +30,7 @@ export function makeTenantStorageProviderResolver(
   return async (tenantId) => {
     if (!ctx.configResolver) {
       throw new InternalError({
-        message: `[${ctx.handlerName}] ctx.configResolver missing — cannot resolve the file provider for tenant ${tenantId}`,
+        message: `[${ctx.handlerName}] ctx.services.configResolver missing — cannot resolve the file provider for tenant ${tenantId}`,
       });
     }
     const config = createConfigAccessor(

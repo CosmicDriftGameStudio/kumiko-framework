@@ -195,6 +195,8 @@ type RebuildDeps = {
   readonly __test_onBuildShadowTable?: () => void;
 };
 
+const TENANT_COLUMN_SUFFIX = ".tenant_id";
+
 // Ops-facing log line for countColumnDrift's result. No-op when clean.
 function warnOnColumnDrift(
   projectionName: string,
@@ -208,11 +210,15 @@ function warnOnColumnDrift(
     sampledIds.size < drift.rowCount
       ? `${drift.rowCount} (sample truncated)`
       : String(drift.rowCount);
+  // A stream-tenant move (boot backfill) changes the stream's tenant, so the replayed row differs only in tenant_id.
+  const onlyTenantColumn = drift.sample.every((s) => s.endsWith(TENANT_COLUMN_SUFFIX));
+  const likelyCause = onlyTenantColumn
+    ? "Expected cause: a stream-tenant move by the boot backfill (the replay carries the new stream tenant)."
+    : "Likely cause: a legacy direct-write predating the row's event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.";
   log.warn(
     `projection "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
       `column values that differ from the freshly-replayed shadow (sample: ${drift.sample.join(", ")}). ` +
-      "Not blocking — replay wins on swap. Likely cause: a legacy direct-write predating the row's " +
-      "event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.",
+      `Not blocking — replay wins on swap. ${likelyCause}`,
   );
 }
 

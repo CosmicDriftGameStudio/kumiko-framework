@@ -105,7 +105,7 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
     handler: async (event, ctx) => {
       if (!ctx.services.redis) {
         return writeFailure(
-          new InternalError({ message: "invite-signup-complete requires ctx.redis" }),
+          new InternalError({ message: "invite-signup-complete requires ctx.services.redis" }),
         );
       }
 

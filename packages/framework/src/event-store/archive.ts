@@ -5,7 +5,7 @@ import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/d
 import { upsertArchivedStream } from "../db/queries/event-store.ts";
 import { deleteMany, fetchOne } from "../db/query.ts";
 import { tableExists } from "../db/schema-inspection.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
 import type { TenantId } from "../engine/types/index.ts";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
@@ -34,7 +34,10 @@ export const archivedStreamsTable = pgTable(
 // guard:dup-ok — intentionale Parallele zu createSnapshotsTable; verschiedene Tabellen-Schemas by design
 export async function createArchivedStreamsTable(db: DbConnection): Promise<void> {
   // skip: table already exists — idempotent boot + test-setup call
-  if (await tableExists(db, "public.kumiko_archived_streams")) return;
+  if (await tableExists(db, "public.kumiko_archived_streams")) {
+    await ensureTableRowLevelSecurity(db, archivedStreamsTable);
+    return;
+  }
   await unsafePushTables(db, { kumikoArchivedStreams: archivedStreamsTable });
 }
 

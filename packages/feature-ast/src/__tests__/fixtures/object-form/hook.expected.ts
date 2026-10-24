@@ -9,6 +9,5 @@ export const feature = defineFeature("orders", (r) => {
   r.hook({ type: "preDelete", target: [order, invoice], handler: guardDelete });
   r.hook({ type: "postDelete", target: { allOf: order }, handler: cleanUp, phase: "inTransaction",
     escapeHatch: { reason: "cleans foreign rows" } });
-  r.hook({ type: "preQuery", target: order, handler: scopeQuery });
   r.hook({ type: "postQuery", target: { allOf: order }, handler: mergeCustomFields });
 });

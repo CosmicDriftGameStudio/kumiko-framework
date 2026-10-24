@@ -20,7 +20,8 @@
  *      (FrameworkReasons.*, <Anything>Reasons.*, TenantErrors.*, etc.).
  *   2. `failUnprocessable(X, ...)` — same rule.
  *   3. Object literals containing `reason: "X"` — same rule for the X.
- *      Skips `openToAll: { reason: "..." }` / `escapeHatch: { reason: "..." }`
+ *      Skips `openToAll: { reason: "..." }` / `escapeHatch: { reason: "..." }` /
+ *      `grants: { unsafeRaw: { reason: "..." } }` (every escape-hatch grant)
  *      and `declareEscapeHatch({ reason: "..." })` — those are prose
  *      access-declaration justifications, enforced instead by
  *      the boot validator and the runtime reasonProblem check.
@@ -34,6 +35,7 @@
  */
 
 import * as path from "node:path";
+import { ESCAPE_HATCH_GRANTS } from "@cosmicdrift/kumiko-types/handlers";
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
@@ -58,7 +60,14 @@ const UNPROC_CALL_NAMES = new Set(["UnprocessableError", "failUnprocessable"]);
 
 // Property names whose `{ reason: "..." }` is a prose access-declaration
 // justification, not an error-reason code.
-const ACCESS_DECLARATION_NAMES = new Set(["openToAll", "escapeHatch"]);
+// `grants: { <grant>: { reason } }` carries the grant names of EscapeHatchDeclaration; deriving them
+// keeps a new grant from being reported as an error code.
+const ACCESS_DECLARATION_NAMES = new Set<string>([
+  "openToAll",
+  "escapeHatch",
+  "unsafeAllTenants",
+  ...ESCAPE_HATCH_GRANTS,
+]);
 
 // Calls whose object-literal argument carries a prose `reason` for an
 // access grant / escape hatch / system-mode TenantDb.

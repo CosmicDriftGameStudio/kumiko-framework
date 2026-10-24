@@ -10,6 +10,8 @@
 // stale rows behind. Failures are logged and retried on the next boot.
 // A process that has no search adapter although the entity is searchable leaves the work to
 // one that has: moving streams without cleaning the old buckets would orphan search docs.
+// An app that declares `search: "none"` has no search backend in any process, so there are no
+// docs to orphan: the step moves and rebuilds, and the reindex stays out.
 
 import { backfillTenantStreamTenants } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { backfillUserStreamTenantsWithDerivedState } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -30,6 +32,9 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { type DatabaseWaitClock, waitUntilDatabaseReachable } from "./wait-for-database.ts";
 
 export const STREAM_TENANT_BACKFILL_LOCK_KEY = 0x73_74_62_66; // 'stbf'
+
+/** Declares that the app has no search backend in any of its processes. */
+export type SearchBackendDeclaration = "none";
 
 export type StreamBackfillPart = "user" | "tenant";
 
@@ -66,6 +71,7 @@ type StepDeps = {
   readonly searchAdapter: SearchAdapter | undefined;
   readonly log: Log;
   readonly scanTenantIds: readonly string[];
+  readonly search: SearchBackendDeclaration | undefined;
 };
 
 export async function runStreamTenantBackfillOnBoot(opts: {
@@ -73,13 +79,20 @@ export async function runStreamTenantBackfillOnBoot(opts: {
   readonly registry: Registry;
   readonly extraContext: object;
   readonly processName: string;
+  /** `"none"`: the app has no search backend. Without it a process lacking a search adapter defers the work. */
+  readonly search?: SearchBackendDeclaration;
   readonly databaseWait?: DatabaseWaitClock;
   readonly log?: Log;
 }): Promise<StreamTenantBackfillOutcome> {
-  const { db, registry, processName } = opts;
+  const { db, registry, processName, search } = opts;
   const log = opts.log ?? createFallbackLogger("stream-tenant-backfill");
   const parts = (["user", "tenant"] as const).filter((part) => registry.features.has(part));
   const { searchAdapter } = resolveBaseDbAndSearchAdapter(opts.extraContext, registry);
+  if (search === "none" && searchAdapter) {
+    throw new Error(
+      `${processName}: \`search: "none"\` declares an app without a search backend, but extraContext provides a searchAdapter. Remove one of the two.`,
+    );
+  }
 
   if (parts.length === 0) return outcomeOf(parts, {}, 0);
 
@@ -95,6 +108,7 @@ export async function runStreamTenantBackfillOnBoot(opts: {
               registry,
               searchAdapter,
               log,
+              search,
               scanTenantIds: await listEventTenantIds(db),
             };
             const outcomes: Partial<Record<StreamBackfillPart, StreamBackfillPartOutcome>> = {};
@@ -126,16 +140,24 @@ async function operationExists(db: DbConnection, id: string): Promise<boolean> {
   return (await fetchOne(db, esOperationsTable, { id })) !== undefined;
 }
 
+// An app declaring `search: "none"` has no docs to orphan, so only apps that may have a backend defer.
+function isDeferredWithoutSearchAdapter(
+  searchable: boolean,
+  deps: Pick<StepDeps, "searchAdapter" | "search">,
+): boolean {
+  return searchable && !deps.searchAdapter && deps.search !== "none";
+}
+
 async function runPart(
   part: StreamBackfillPart,
   deps: StepDeps,
 ): Promise<{ outcome: StreamBackfillPartOutcome; aggregatesMigrated: number }> {
-  const { db, registry, searchAdapter, log } = deps;
+  const { db, registry, log } = deps;
   const entity = part === "user" ? "user" : "tenant";
   const searchable =
     registry.getSearchableFields(entity).length > 0 ||
     registry.getSearchPayloadExtensions(entity).length > 0;
-  const blockedWithoutAdapter = searchable && !searchAdapter;
+  const blockedWithoutAdapter = isDeferredWithoutSearchAdapter(searchable, deps);
   const warnBlocked = () =>
     log.warn(
       `stream tenant backfill (${part}) has work but "${entity}" is searchable and this process has no search adapter; a process with one runs it`,

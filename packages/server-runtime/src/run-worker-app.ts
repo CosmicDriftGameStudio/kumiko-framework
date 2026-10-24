@@ -43,7 +43,10 @@ import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
-import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
+import {
+  runStreamTenantBackfillOnBoot,
+  type SearchBackendDeclaration,
+} from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
@@ -98,6 +101,11 @@ export type WorkerWireDeps = SystemWireDeps & {
 export type RunWorkerAppOptions = {
   /** Row level security mode of every connection; pass appConfig.rowLevelSecurity. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  /** `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
+   *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
+   *  a process without a search adapter defers the backfill of searchable entities to one that has
+   *  it. Combining `"none"` with a `searchAdapter` fails the boot. Must match the API process. */
+  readonly search?: SearchBackendDeclaration;
   /** App-specific features — same array as in the API/all-in-one process,
    *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];
@@ -235,6 +243,7 @@ async function backfillThenStartMetrics(
     registry: boot.registry,
     extraContext: boot.extraContext,
     processName: "runWorkerApp",
+    ...(options.search && { search: options.search }),
     ...(options.databaseWait && { databaseWait: options.databaseWait }),
   });
   return options.metrics ? startWorkerMetricsServer(options.metrics, boot.entrypoint) : undefined;

@@ -21,7 +21,7 @@ import {
 import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store.ts";
 import { selectMany } from "../db/query.ts";
 import { tableExists } from "../db/schema-inspection.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { isStreamArchived } from "./archive.ts";
@@ -89,6 +89,7 @@ export async function createSnapshotsTable(db: DbConnection): Promise<void> {
     // Installs that predate snapshot_version get healed by the same
     // idempotent ensure that `kumiko schema apply` / test-setup already runs.
     await ensureSnapshotVersionColumn(db);
+    await ensureTableRowLevelSecurity(db, snapshotsTable);
     // skip: table already ensured — only the column heal above was needed
     return;
   }

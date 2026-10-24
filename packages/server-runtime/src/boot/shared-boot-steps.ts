@@ -122,7 +122,9 @@ export async function applyStandardBootSeeds(deps: {
   await waitUntilDatabaseReachable(
     async () => {
       if (admin) {
-        await seedAdminGuarded(db, admin);
+        // Operator-created account, not a self-registration: under emailVerificationMode "strict"
+        // an unverified seed admin could never log in. `admin.emailVerified` still overrides.
+        await seedAdminGuarded(db, { emailVerified: true, ...admin });
       }
       for (const seed of shortcutSeeds) {
         await seed(db);

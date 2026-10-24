@@ -111,7 +111,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "signup-request requires ctx.redis for the activation-token store",
+            message: "signup-request requires ctx.services.redis for the activation-token store",
           }),
         );
       }

@@ -90,7 +90,9 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
     handler: async (event, ctx) => {
       if (!ctx.services.derivatives) {
         return writeFailure(
-          new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
+          new InternalError({
+            message: "ctx.services.derivatives missing — is file-derivatives mounted?",
+          }),
         );
       }
       const { fileRefId, blurRegion } = event.payload;

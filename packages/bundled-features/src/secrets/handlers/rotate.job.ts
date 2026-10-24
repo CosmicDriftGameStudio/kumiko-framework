@@ -64,7 +64,7 @@ export async function rotateJob(
   if (!ctx.services.masterKeyProvider) {
     throw new InternalError({
       message:
-        "[secrets:rotate] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
+        "[secrets:rotate] ctx.services.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
   const provider = ctx.services.masterKeyProvider;

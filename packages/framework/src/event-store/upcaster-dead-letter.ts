@@ -24,7 +24,7 @@ import {
   uuid,
 } from "../db/dialect.ts";
 import { tableExists } from "../db/schema-inspection.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
 import type { StoredEvent } from "./event-store.ts";
 
 export const upcasterDeadLetterTable = pgTable(
@@ -58,7 +58,10 @@ export const upcasterDeadLetterTable = pgTable(
 // exercise the quarantine path; production boot uses drizzle-kit push.
 export async function createUpcasterDeadLetterTable(db: DbConnection): Promise<void> {
   // skip: table already exists — bootstrap called from multiple paths
-  if (await tableExists(db, "public.kumiko_upcaster_dead_letters")) return;
+  if (await tableExists(db, "public.kumiko_upcaster_dead_letters")) {
+    await ensureTableRowLevelSecurity(db, upcasterDeadLetterTable);
+    return;
+  }
   await unsafePushTables(db, { kumikoUpcasterDeadLetters: upcasterDeadLetterTable });
 }
 

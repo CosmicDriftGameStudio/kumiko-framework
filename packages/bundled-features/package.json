@@ -184,7 +184,7 @@
     "lucide-react": "^1.14.0",
     "mailparser": "^3.9.32",
     "marked": "^18.0.3",
-    "nodemailer": "^10.0.13",
+    "nodemailer": "^10.2.1",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",

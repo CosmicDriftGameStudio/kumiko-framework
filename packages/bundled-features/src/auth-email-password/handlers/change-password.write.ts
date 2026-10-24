@@ -56,8 +56,8 @@ export const changePasswordWrite = defineWriteHandler({
     const newHash = await hashPassword(event.payload.newPassword);
 
     // The user aggregate is systemStream: its event stream lives on
-    // SYSTEM_TENANT_ID deterministically. Previously scattered streams need the
-    // one-time backfillUserStreamTenants migration.
+    // SYSTEM_TENANT_ID deterministically. Previously scattered streams are moved by the
+    // boot-time stream-tenant backfill (runStreamTenantBackfillOnBoot).
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     // Apply via user feature's update handler — writeAs(system) satisfies

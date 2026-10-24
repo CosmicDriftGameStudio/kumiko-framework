@@ -130,7 +130,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
-    expect(err.message).toContain("requires ctx.redis");
+    expect(err.message).toContain("requires ctx.services.redis");
   });
 
   test("enable-confirm-preauth: fails closed with internal_error instead of skipping the brute-force cap/burn", async () => {
@@ -153,7 +153,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
-    expect(err.message).toContain("requires ctx.redis");
+    expect(err.message).toContain("requires ctx.services.redis");
   });
 
   test("enable-confirm: fails closed with internal_error instead of skipping the single-use burn", async () => {
@@ -175,7 +175,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
-    expect(err.message).toContain("requires ctx.redis");
+    expect(err.message).toContain("requires ctx.services.redis");
   });
 
   // disable/regenerate-recovery used to keep the
@@ -191,7 +191,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     const err = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "123456" }, user);
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
-    expect(err.message).toContain("requires ctx.redis");
+    expect(err.message).toContain("requires ctx.services.redis");
   });
 
   test("regenerate-recovery: fails closed with internal_error instead of skipping TOTP replay protection", async () => {
@@ -205,6 +205,6 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
-    expect(err.message).toContain("requires ctx.redis");
+    expect(err.message).toContain("requires ctx.services.redis");
   });
 });

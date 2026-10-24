@@ -12,8 +12,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
-  createMetricsHandle,
   createNoopMetricsHandle,
+  createSafeMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createConfigAccessor } from "../config/index.ts";
@@ -624,9 +624,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const exportRegistry = ctx.registry;
         // JobContext carries ctx.meter (raw), not ctx.obs.metrics — that bound
         // handle only exists on HandlerContext (built per write/query call
-        // in dispatch-shared.ts). Build the same handle explicitly here.
+        // in dispatch-shared.ts). Build the handle explicitly; the safe variant is a no-op when
+        // metrics are off and the gauges were never registered on the meter.
         const exportMetrics = ctx.obs.meter
-          ? createMetricsHandle(ctx.obs.meter, "user-data-rights")
+          ? createSafeMetricsHandle(ctx.obs.meter, "user-data-rights")
           : createNoopMetricsHandle();
 
         // Without explicit send*Email options, a mounted mail transport sends the

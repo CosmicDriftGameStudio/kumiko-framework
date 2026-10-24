@@ -118,7 +118,10 @@ export {
 export { seedReferenceData } from "./reference-data.ts";
 export { renderTablesDdl } from "./render-ddl.ts";
 export { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "./render-rls-ddl.ts";
-export { assertRowLevelSecurityBootState } from "./row-level-security-boot-check.ts";
+export {
+  assertRowLevelSecurityBootState,
+  assertRowLevelSecurityTableState,
+} from "./row-level-security-boot-check.ts";
 export { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
 export type { RowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { assertNoActiveRowLevelSecurityScope } from "./row-level-security-scope.ts";

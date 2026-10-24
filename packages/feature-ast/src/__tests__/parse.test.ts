@@ -1339,6 +1339,20 @@ defineFeature("f", (r) => {
     expect(fnBody?.raw).toContain("(event, ctx)");
   });
 
+  test("extracts a postQuery hook", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postQuery", "task:list", async ({ rows }) => ({ rows }));
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      hookType: "postQuery",
+      target: "task:list",
+    });
+  });
+
   test("captures the optional phase from the options object", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {

@@ -73,7 +73,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   if (!maybeCipher) {
     throw new InternalError({
       message:
-        "[config:reencrypt] ctx.configEncryption missing — provide a master key " +
+        "[config:reencrypt] ctx.services.configEncryption missing — provide a master key " +
         "(KUMIKO_SECRETS_MASTER_KEY_V<n>) so the boot wires the envelope cipher.",
     });
   }
@@ -84,7 +84,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   if (!provider) {
     throw new InternalError({
       message:
-        "[config:reencrypt] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
+        "[config:reencrypt] ctx.services.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
   if (!ctx.registry) {

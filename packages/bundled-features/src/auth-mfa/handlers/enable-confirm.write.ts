@@ -66,7 +66,8 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "enable-confirm requires ctx.redis for the single-use setup-token burn",
+            message:
+              "enable-confirm requires ctx.services.redis for the single-use setup-token burn",
           }),
         );
       }

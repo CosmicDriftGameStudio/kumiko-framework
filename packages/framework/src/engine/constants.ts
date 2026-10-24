@@ -29,7 +29,6 @@ export const LifecycleHookTypes = {
   postSave: "postSave",
   preDelete: "preDelete",
   postDelete: "postDelete",
-  preQuery: "preQuery",
   postQuery: "postQuery",
 } as const;
 

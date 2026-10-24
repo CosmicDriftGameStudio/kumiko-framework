@@ -17,7 +17,7 @@ import {
   ensureIdempotencyKeyIndex,
   ensureMembershipPayloadTenantIndex,
 } from "../db/queries/event-store.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
 import { createArchivedStreamsTable } from "./archive.ts";
 import { createSnapshotsTable } from "./snapshot.ts";
 import type { EventMetadata } from "./types.ts";
@@ -83,6 +83,8 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
   if (!(await tableExists(db, "public.kumiko_events"))) {
     await unsafePushTables(db, { kumikoEvents: eventsTable });
+  } else {
+    await ensureTableRowLevelSecurity(db, eventsTable);
   }
   // Runs unconditionally (both fresh + already-existing table) so installs
   // that predate the idempotency-key index get healed the same way

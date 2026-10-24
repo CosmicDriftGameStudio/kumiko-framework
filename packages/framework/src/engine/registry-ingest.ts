@@ -311,7 +311,6 @@ export function populateHooks(state: RegistryState, feature: FeatureDefinition):
   mergeHookListQualified(state.postSaveHooks, feature.hooks?.postSave, feature.name, "write");
   mergeHookListQualified(state.preDeleteHooks, feature.hooks?.preDelete, feature.name, "write");
   mergeHookListQualified(state.postDeleteHooks, feature.hooks?.postDelete, feature.name, "write");
-  mergeHookListQualified(state.preQueryHooks, feature.hooks?.preQuery, feature.name, "query");
   mergeHookListQualified(state.postQueryHooks, feature.hooks?.postQuery, feature.name, "query");
 
   // Entity hooks: NOT prefixed, keyed by entity name

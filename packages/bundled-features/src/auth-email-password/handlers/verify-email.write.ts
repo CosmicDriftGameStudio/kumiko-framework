@@ -49,7 +49,8 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
 
       return runConfirmTokenFlow<VerifyEmailData>(ctx, verify.userId, verify.expiresAtMs, {
         purpose: "verify",
-        redisRequiredMessage: "email-verification requires ctx.redis to enforce token single-use",
+        redisRequiredMessage:
+          "email-verification requires ctx.services.redis to enforce token single-use",
         invalidToken: invalidVerificationToken,
         buildChanges: async () => ({ emailVerified: true }),
         successData: { kind: "verified" },

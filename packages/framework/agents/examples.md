@@ -37,7 +37,7 @@
 | `event-sourcing` | Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.events.append + r.projection + r.multiStreamProjection + ctx.events.load (asOf) + ctx.events.archive + ctx.dispatch.queryProjection. | `examples/event-sourcing.md` |
 | `feature-toggles` | Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot. | `examples/feature-toggles.md` |
 | `field-access` | Field-level access control. When entity-level roles aren't granular enough. | `examples/field-access.md` |
-| `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
+| `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.services.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
 | `golden-path` | The smallest complete feature: entity, write handler, event, projection, screen and an integration test. | `examples/golden-path.md` |
 | `host-routing` | createHostRoutingFeature + createHostDispatch — tenant per subdomain, per-host HTML and CSP, locale redirect, shared by runProdApp and the dev server. | `examples/host-routing.md` |
 | `i18n` | Feature-scoped translations. 'Hallo' and 'Hello' in the same app. | `examples/i18n.md` |

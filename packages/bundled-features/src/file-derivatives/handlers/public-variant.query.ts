@@ -142,7 +142,7 @@ export const publicVariantQuery = defineQueryHandler({
     } = ctx;
     if (!files || !derivatives) {
       throw new Error(
-        "file-derivatives requires ctx.files/ctx.derivatives — is file-foundation mounted?",
+        "file-derivatives requires ctx.services.files/ctx.services.derivatives — is file-foundation mounted?",
       );
     }
 

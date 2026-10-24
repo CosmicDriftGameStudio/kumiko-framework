@@ -29,7 +29,6 @@ import type {
   PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
-  PreQueryHookFn,
   PreSaveHookFn,
   SearchPayloadContributorFn,
 } from "@cosmicdrift/kumiko-types/hooks";
@@ -152,13 +151,6 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
       return filterByPhase(state.postDeleteHooks.get(name), phase, effectiveFeatures);
-    },
-
-    getPreQueryHooks(
-      name: string,
-      effectiveFeatures?: ReadonlySet<string>,
-    ): readonly PreQueryHookFn[] {
-      return filterOwned(state.preQueryHooks.get(name), effectiveFeatures);
     },
 
     getPostQueryHooks(

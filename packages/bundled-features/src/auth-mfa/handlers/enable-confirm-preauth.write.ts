@@ -104,7 +104,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         return writeFailure(
           new InternalError({
             message:
-              "enable-confirm-preauth requires ctx.redis for the brute-force cap and single-use burn",
+              "enable-confirm-preauth requires ctx.services.redis for the brute-force cap and single-use burn",
           }),
         );
       }

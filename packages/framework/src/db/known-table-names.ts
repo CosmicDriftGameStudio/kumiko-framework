@@ -8,7 +8,7 @@ import { isRetiredFrameworkTable } from "./retired-framework-tables.ts";
 // boot, not by `schema generate`, so no feature declares them.
 const FRAMEWORK_TABLE_PREFIX = "kumiko_";
 
-function isLiveFrameworkTable(tableName: string): boolean {
+export function isLiveFrameworkTable(tableName: string): boolean {
   return tableName.startsWith(FRAMEWORK_TABLE_PREFIX) && !isRetiredFrameworkTable(tableName);
 }
 

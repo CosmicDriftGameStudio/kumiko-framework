@@ -238,7 +238,7 @@ export type UiHintsPattern = {
 // `r.metric(shortName, options)` — declares a metric under its short name
 // (without the `kumiko_<feature>_` prefix; the framework qualifies it at
 // boot and validates snake_case + type suffix). Runtime usage:
-// `ctx.metrics.inc("created_total", { status: "new" })`.
+// `ctx.obs.metrics.inc("created_total", { status: "new" })`.
 export type MetricPattern = {
   readonly kind: "metric";
   readonly source: SourceLocation;
@@ -461,7 +461,7 @@ export type StreamHandlerPattern = {
 
 // `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
 // (`validation`, `preSave`, `postSave`, `preDelete`, `postDelete`,
-// `preQuery`, `postQuery`) to one or more target handlers, or — for
+// `postQuery`) to one or more target handlers, or — for
 // postSave/preDelete/postDelete/postQuery — to `{ allOf: entityRef }`
 // ("every write/query handler of this entity", replacing the old
 // `r.entityHook(type, entity, fn)`). Post-hooks accept a `phase` option;
@@ -576,7 +576,7 @@ export type MultiStreamProjectionPattern = {
 
 // `r.defineEvent(name, schema, options?)` — registers an event payload
 // shape and returns the qualified `EventDef`, so callers pass `.name` to
-// `ctx.appendEvent` instead of hand-building `<feature>:event:<short>`.
+// `ctx.events.append` instead of hand-building `<feature>:event:<short>`.
 // `options.version` declares the CURRENT schema generation (default 1).
 // `options.migrations` is a step-wise upcast chain — keyed by fromVersion
 // (toVersion is always fromVersion + 1, enforced at registration, so it is

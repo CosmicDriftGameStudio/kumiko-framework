@@ -2,7 +2,7 @@
 
 # files-post-processing
 
-The three ways to generate an image variant: declarative field variants, imperative ctx.derivatives.variant() with region-blur, and the public route behind a default-deny predicate.
+The three ways to generate an image variant: declarative field variants, imperative ctx.services.derivatives.variant() with region-blur, and the public route behind a default-deny predicate.
 
 ## README
 
@@ -178,7 +178,7 @@ describe("entry point 1 — declarative field variant", () => {
   });
 });
 
-describe("entry point 2 — imperative ctx.derivatives.variant() with region-blur", () => {
+describe("entry point 2 — imperative ctx.services.derivatives.variant() with region-blur", () => {
   test("set-cover derives a variant with no field declaration involved, and tracks order", async () => {
     const fileId = await uploadPhoto(null);
 
@@ -373,7 +373,9 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
     handler: async (event, ctx) => {
       if (!ctx.services.derivatives) {
         return writeFailure(
-          new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
+          new InternalError({
+            message: "ctx.services.derivatives missing — is file-derivatives mounted?",
+          }),
         );
       }
       const { fileRefId, blurRegion } = event.payload;

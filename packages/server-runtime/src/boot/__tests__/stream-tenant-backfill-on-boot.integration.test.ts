@@ -117,13 +117,18 @@ afterAll(async () => {
 });
 
 function runStep(
-  opts: { withAdapter?: boolean; log?: ReturnType<typeof createFallbackLogger> } = {},
+  opts: {
+    withAdapter?: boolean;
+    search?: "none";
+    log?: ReturnType<typeof createFallbackLogger>;
+  } = {},
 ) {
   return runStreamTenantBackfillOnBoot({
     db: stack.db,
     registry: stack.registry,
     extraContext: opts.withAdapter === false ? {} : { searchAdapter: stack.search },
     processName: "stream-backfill-test",
+    ...(opts.search && { search: opts.search }),
     ...(opts.log && { log: opts.log }),
   });
 }
@@ -391,6 +396,32 @@ describe("runStreamTenantBackfillOnBoot", () => {
     expect(await operationIds()).toEqual([]);
 
     expect((await runStep()).aggregatesMigrated).toBe(LEGACY_STREAMS);
+  });
+
+  test('an app declaring search: "none" moves the streams without an adapter, and a second boot has nothing left', async () => {
+    await seedLegacyEstate();
+    const quiet = recordingLogger();
+
+    const first = await runStep({ withAdapter: false, search: "none", log: quiet.log });
+
+    expect(first.tenant).toBe("completed");
+    expect(first.aggregatesMigrated).toBe(LEGACY_STREAMS);
+    expect(await streamTenants(TENANT_ALPHA)).toEqual([SYSTEM_TENANT_ID]);
+    expect(await tenantRowTenants()).toEqual(Array(3).fill(SYSTEM_TENANT_ID));
+    expect(quiet.warnings).toEqual([]);
+    expect(await operationIds()).toEqual([]);
+
+    const second = await runStep({ withAdapter: false, search: "none", log: quiet.log });
+    expect(second.aggregatesMigrated).toBe(0);
+    expect(await operationIds()).toEqual([]);
+  });
+
+  test('search: "none" together with a searchAdapter is a configuration error', async () => {
+    await seedLegacyEstate();
+
+    await expect(runStep({ search: "none" })).rejects.toThrow(/search: "none".*searchAdapter/);
+
+    expect(await streamTenants(TENANT_ALPHA)).toEqual([SESSION_TENANT]);
   });
 
   test("a split stream (legacy v1 on the session tenant, later events on SYSTEM) is merged in event order", async () => {

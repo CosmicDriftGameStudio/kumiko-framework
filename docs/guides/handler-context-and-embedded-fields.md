@@ -65,7 +65,7 @@ A handler wrapped in `withCapEnforcement(handler, capResolver)` from `cap-counte
 3. The amount is reserved in its own short, immediately committed write.
 4. If the handler transaction ends without committing (rollback, failure result, failed commit), the dispatcher calls the returned release and gives the amount back.
 
-In the reservation phase the same surfaces are blocked as in `beforeTransaction`: `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `scheduleAfterCommit`, `notify` and the job runner throw an `InternalError`, so the reservation cannot start nested commands.
+In the reservation phase the same surfaces are blocked as in `beforeTransaction`: `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `ctx.lifecycle.afterCommit`, `notify` and `ctx.services.jobRunner` throw an `InternalError`, so the reservation cannot start nested commands.
 
 No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.dispatch.write`, `ctx.dispatch.writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
 
@@ -90,13 +90,13 @@ defineWriteHandler({
 - A failure result or a throw rejects the write before anything is written. Earlier reservations and phase releases of the same batch are released.
 - `release` runs whenever the handler transaction does not commit: failure result, throw, rollback, and a failed commit with unknown outcome. Because the outcome can be unknown, a release must tolerate a commit that actually happened. `uploadFileBytesBeforeTransaction` deletes its bytes only if no `file_refs` row with that storage key exists.
 - A handler with a `beforeTransaction` phase cannot run as a nested `ctx.dispatch.write`; the dispatcher fails it with an `InternalError`, like a capped handler.
-- No transaction is open in the phase. `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `ctx.events.append`, `ctx.events.fetchForWriting`, `scheduleAfterCommit`, `notify` and the job runner throw there. Reads through `ctx.db` work. A write through `ctx.db` or `ctx.systemDb` throws, so do not write in the phase; move it into the handler. `forTenant` and the outside-transaction handles are unavailable.
+- No transaction is open in the phase. `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `ctx.events.append`, `ctx.events.fetchForWriting`, `ctx.lifecycle.afterCommit`, `notify` and `ctx.services.jobRunner` throw there. Reads through `ctx.db` work. A write through `ctx.db` or `ctx.systemDb` throws, so do not write in the phase; move it into the handler. `forTenant` and the outside-transaction handles are unavailable.
 - In an `r.systemScope()` handler `ctx.db` is fail-closed, so the release of `uploadFileBytesBeforeTransaction` cannot check for a committed row and keeps the bytes (logged).
 - A crash between the phase and the commit leaves what the phase uploaded in storage until the `files:job:sweep-orphaned-uploads` job removes it: `uploadFileBytesBeforeTransaction` records the key in the upload ledger first, and the hourly job deletes bytes still unclaimed after `uploadSweepGraceHours` (24 by default). A commit that arrives after the sweep fails with `upload expired`.
 
 ## Handlers without a transaction of their own
 
-Where no transaction is open, `ctx.dispatch.write` and `ctx.dispatch.writeAs` run the target as its own top-level command with its own transaction and afterCommit hooks. This applies to stream handlers, top-level query handlers and handlers that declare `transaction: "perCommand"`. In `beforeTransaction` and `reserveBeforeTransaction` there is no such command: `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `scheduleAfterCommit`, `notify` and the job runner throw an `InternalError` (HTTP 500). In all of these contexts, writes through `ctx.db` (including the entity executor and `db.global()`) and event appends throw; reads work. `ctx.db.outsideTransaction` stays available everywhere except in `beforeTransaction`, and `ctx.db.unsafeRaw()` remains the audited escape hatch. AfterCommit hooks already worked this way and keep their writable `ctx.db`. `runInOwnTransaction(ctx.db, ...)` stays locked in these contexts; use `runInOwnTransaction(ctx.db.outsideTransaction, ...)` for a deliberate own transaction.
+Where no transaction is open, `ctx.dispatch.write` and `ctx.dispatch.writeAs` run the target as its own top-level command with its own transaction and afterCommit hooks. This applies to stream handlers, top-level query handlers and handlers that declare `transaction: "perCommand"`. In `beforeTransaction` and `reserveBeforeTransaction` there is no such command: `ctx.dispatch.write`, `ctx.dispatch.writeAs`, `ctx.lifecycle.afterCommit`, `notify` and `ctx.services.jobRunner` throw an `InternalError` (HTTP 500). In all of these contexts, writes through `ctx.db` (including the entity executor and `db.global()`) and event appends throw; reads work. `ctx.db.outsideTransaction` stays available everywhere except in `beforeTransaction`, and `ctx.db.unsafeRaw()` remains the audited escape hatch. AfterCommit hooks already worked this way and keep their writable `ctx.db`. `runInOwnTransaction(ctx.db, ...)` stays locked in these contexts; use `runInOwnTransaction(ctx.db.outsideTransaction, ...)` for a deliberate own transaction.
 
 ```ts illustration
 defineWriteHandler({
@@ -198,7 +198,7 @@ buckets rows by tenant, then re-verifies each bucket right before writing it
 Both `ctx.db` and `ctx.db.outsideTransaction` are fail-closed on a
 `"system"`-mode **handler**: touching either directly throws, naming the
 guarded `ctx.systemDb` accessor to use instead. System-scoped **jobs** are
-narrower — `JobContext` has no `dbOutsideTransaction` at all, so
+narrower — `JobContext` has no `ctx.db.outsideTransaction` at all, so
 `ctx.systemDb.outsideTransaction` there throws its own "not configured"
 error; jobs only get the top-level `ctx.systemDb` self-checks. Treat `ctx.systemDb`
 as the required entry point for any new or touched `r.systemScope()` handler.

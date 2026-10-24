@@ -96,7 +96,9 @@ export function createInviteAcceptHandler() {
     handler: async (event, ctx) => {
       if (!ctx.services.redis) {
         return writeFailure(
-          new InternalError({ message: "invite-accept requires ctx.redis for token consumption" }),
+          new InternalError({
+            message: "invite-accept requires ctx.services.redis for token consumption",
+          }),
         );
       }
 

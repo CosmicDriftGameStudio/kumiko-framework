@@ -117,6 +117,7 @@ export async function runProdBootSeeds(
         registry: composed.registry,
         extraContext: run.requestContext.extraContext,
         processName: "runProdApp",
+        ...(options.search && { search: options.search }),
         ...(options.databaseWait && { databaseWait: options.databaseWait }),
       });
       await applyStandardBootSeeds({

@@ -48,7 +48,7 @@ export type CreateFileRefInput = {
 // The handler context has no HTTP/job/seed marker to name, so the message states the actual
 // cause: the dispatcher's AppContext carries no file-provider resolver.
 export function filesUnavailableMessage(caller: string): string {
-  return `${caller}: ctx.files is unavailable because no file-provider resolver is wired on this dispatcher context. Mount a file-provider-* feature and build the dispatcher context with withFileProviderResolver (HTTP, job and seed dispatchers each need it)`;
+  return `${caller}: ctx.services.files is unavailable because no file-provider resolver is wired on this dispatcher context. Mount a file-provider-* feature and build the dispatcher context with withFileProviderResolver (HTTP, job and seed dispatchers each need it)`;
 }
 
 // Server-side counterpart of POST /files for handlers/jobs that produce bytes
