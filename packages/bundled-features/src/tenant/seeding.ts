@@ -262,7 +262,8 @@ export async function seedTenant(
     db,
     tenantId: SYSTEM_TENANT_ID,
     mode: "system",
-    reason: "the global tenant aggregate lives on SYSTEM_TENANT_ID whatever tenant the seeding actor acts from",
+    reason:
+      "the global tenant aggregate lives on SYSTEM_TENANT_ID whatever tenant the seeding actor acts from",
   });
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });

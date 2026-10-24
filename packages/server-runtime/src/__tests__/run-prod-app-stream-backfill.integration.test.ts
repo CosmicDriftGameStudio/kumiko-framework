@@ -73,7 +73,12 @@ let testDb: DbConnection;
 let closeTestDb: () => Promise<void>;
 
 async function legacyCreateTenant(id: TenantId, key: string, name: string): Promise<void> {
-  const tdb = createTenantDb({ db: testDb, tenantId: SESSION_TENANT, mode: "system" });
+  const tdb = createTenantDb({
+    db: testDb,
+    tenantId: SESSION_TENANT,
+    mode: "system",
+    reason: "test writes a legacy tenant stream on the acting admin's session tenant",
+  });
   const result = await legacyTenantExecutor.create(
     { id, key, name },
     createSystemUser(SESSION_TENANT),
@@ -158,7 +163,12 @@ afterAll(async () => {
 describe("runProdApp stream tenant backfill", () => {
   test("the first boot moves the legacy streams and writes the markers, later boots move late legacy streams and otherwise do nothing", async () => {
     await legacyCreateTenant(TENANT_ALPHA, "alpha", "Alpha Freight");
-    const membershipTdb = createTenantDb({ db: testDb, tenantId: MEMBER_TENANT, mode: "system" });
+    const membershipTdb = createTenantDb({
+      db: testDb,
+      tenantId: MEMBER_TENANT,
+      mode: "system",
+      reason: "test writes a legacy membership stream on an explicitly named tenant",
+    });
     const membership = await membershipExecutor.create(
       { userId: "legacy-user", tenantId: MEMBER_TENANT, roles: JSON.stringify(["Admin"]) },
       createSystemUser(SESSION_TENANT),

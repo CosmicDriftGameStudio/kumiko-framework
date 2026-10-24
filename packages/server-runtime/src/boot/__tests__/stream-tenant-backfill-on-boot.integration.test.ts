@@ -149,7 +149,12 @@ async function legacyCreateTenant(
   key: string,
   name: string,
 ): Promise<void> {
-  const tdb = createTenantDb({ db: stack.db, tenantId: actorTenant, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: actorTenant,
+    mode: "system",
+    reason: "test writes a legacy tenant stream on the acting admin's session tenant",
+  });
   const result = await legacyTenantExecutor.create(
     { id, key, name },
     createSystemUser(actorTenant),
@@ -163,7 +168,12 @@ async function legacyCreateMembership(
   memberTenant: TenantId,
   userId: string,
 ): Promise<void> {
-  const tdb = createTenantDb({ db: stack.db, tenantId: memberTenant, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: memberTenant,
+    mode: "system",
+    reason: "test writes a legacy membership stream on an explicitly named tenant",
+  });
   const result = await membershipExecutor.create(
     { userId, tenantId: memberTenant, roles: JSON.stringify(["Admin"]) },
     createSystemUser(actorTenant),
