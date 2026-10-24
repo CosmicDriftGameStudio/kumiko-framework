@@ -50,3 +50,17 @@ createTenantDb({ mode: "system", reason: "sweep reads every tenant" });`,
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 });
+
+describe("guard-error-reasons — grants", () => {
+  test.each(["unsafeRaw", "globalWrites", "systemIdentity", "crossTenantReads"])(
+    "does not flag the prose reason of grants.%s",
+    (grant) => {
+      const sf = parse(
+        `declare function createTenantDb(o: unknown): void;
+createTenantDb({ mode: "tenant", grants: { ${grant}: { reason: "scope test with prose" } } });`,
+        "packages/framework/src/x/handler.ts",
+      );
+      expect(guard.run([sf]).violations).toHaveLength(0);
+    },
+  );
+});
