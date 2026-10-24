@@ -22,6 +22,7 @@ import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
+import { resolveSeedShortcuts } from "../../boot-options/seed-shortcuts.ts";
 import { applyStandardBootSeeds } from "../shared-boot-steps.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;
@@ -87,6 +88,34 @@ describe("auth.admin seed under emailVerificationMode strict", () => {
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
     });
+    expect(res.status).toBe(200);
+    expect(typeof (await res.json()).token).toBe("string");
+  });
+
+  test.each([
+    { name: "demoAdminFromEnv", seeds: { demoAdminFromEnv: true }, prefix: "DEMO_ADMIN" },
+    { name: "sysadminFromEnv", seeds: { sysadminFromEnv: true }, prefix: "DEMO_SYSADMIN" },
+  ] as const)("the $name shortcut account logs in", async ({ seeds, prefix }) => {
+    const email = `${prefix.toLowerCase()}@example.com`;
+    const password = `${prefix.toLowerCase()}-pw-1234567`;
+    const shortcutSeeds = resolveSeedShortcuts(
+      { demoTenant: { id: TENANT_ID, key: "demo", name: "Demo" }, ...seeds },
+      {
+        envSource: { [`${prefix}_EMAIL`]: email, [`${prefix}_PASSWORD`]: password },
+        hasAuth: true,
+        hasAuthAdmin: false,
+      },
+    );
+    await applyStandardBootSeeds({
+      db: stack.db,
+      registry: stack.registry,
+      admin: undefined,
+      shortcutSeeds,
+      cipher: undefined,
+      processName: "test",
+    });
+
+    const res = await stack.http.raw("POST", "/api/auth/login", { email, password });
     expect(res.status).toBe(200);
     expect(typeof (await res.json()).token).toBe("string");
   });
