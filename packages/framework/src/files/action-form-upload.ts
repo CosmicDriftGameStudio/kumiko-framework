@@ -1,11 +1,8 @@
+import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
+import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
 import { hasAccess } from "../engine/access.ts";
-import {
-  type ActionFormScreenDefinition,
-  type AnyFileFieldDef,
-  isFileField,
-  type Registry,
-  type SessionUser,
-} from "../engine/types/index.ts";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
 
 // Same character set as the other upload identifiers: the screen QN is stored as the pending
 // upload's entityType and compared by exact match, never interpolated into a storage key.

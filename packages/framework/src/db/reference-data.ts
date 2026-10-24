@@ -1,7 +1,8 @@
+import type { ReferenceDataDef } from "@cosmicdrift/kumiko-types/config";
 import { fetchOne } from "../db/query.ts";
 import type { Registry } from "../engine/index.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type { ReferenceDataDef } from "../engine/types/index.ts";
+
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { reraiseAsKumikoError } from "../errors/index.ts";
 import { getStreamVersion } from "../event-store/event-store.ts";

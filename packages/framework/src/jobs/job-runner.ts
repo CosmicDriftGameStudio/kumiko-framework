@@ -1,3 +1,5 @@
+import type { DispatchWriteRef, JobTriggerEvent } from "@cosmicdrift/kumiko-types/handlers";
+import type { Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { JobsOptions } from "bullmq";
 import { DelayedError, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
@@ -10,25 +12,19 @@ import {
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { bridgeStub } from "../engine/bridge-stub.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type {
-  DispatchWriteRef,
-  JobRunIn,
-  JobTriggerEvent,
-  SessionUser,
-  TenantId,
-} from "../engine/types/index.ts";
+import type { JobRunIn, SessionUser, TenantId } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/index.ts";
-import type { Tracer } from "../observability/index.ts";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   flushEscapeHatchAudits,
-  getFallbackTracer,
-  registerStandardMetrics,
-} from "../observability/index.ts";
+} from "../observability/escape-hatch-report.ts";
+import { getFallbackTracer } from "../observability/fallback.ts";
+import { registerStandardMetrics } from "../observability/standard-metrics.ts";
+
 import { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";

@@ -1,14 +1,12 @@
+import type { RunIn } from "@cosmicdrift/kumiko-types/config";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
+import type { MultiStreamProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection } from "../db/connection.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { runsInLane } from "../engine/run-in.ts";
-import type {
-  AppContext,
-  MultiStreamProjectionDefinition,
-  Registry,
-  RunIn,
-} from "../engine/types/index.ts";
+import type { AppContext, Registry } from "../engine/types/index.ts";
+
 import { createTenantFileContext } from "../files/file-handle.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";

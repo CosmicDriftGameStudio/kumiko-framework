@@ -1,15 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
+import type {
+  EscapeHatchReporter,
+  EscapeHatchTarget,
+  MemberReader,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { unscopedRunner } from "../../db/__tests__/unscoped-runner.ts";
 import type { DbRunner } from "../../db/connection.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine/index.ts";
 import type { TenantId } from "../../engine/types/identifiers.ts";
-import type {
-  EscapeHatchReporter,
-  EscapeHatchTarget,
-  MemberReader,
-  SessionUser,
-} from "../../engine/types/index.ts";
+import type { SessionUser } from "../../engine/types/index.ts";
+
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import { attachOutsideTransaction } from "../attach-outside-transaction.ts";
 import {

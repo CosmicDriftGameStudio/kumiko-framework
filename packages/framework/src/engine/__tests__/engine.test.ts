@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import { hasAccess } from "../access.ts";
 import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers.ts";
+import { createApp } from "../create-app.ts";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler.ts";
 import {
   createBooleanField,
@@ -14,8 +16,8 @@ import {
   createSelectField,
   createTextField,
 } from "../factories.ts";
-import { createApp, createRegistry, defineFeature } from "../index.ts";
-import type { AccessRule } from "../types/index.ts";
+import { createRegistry, defineFeature } from "../index.ts";
+
 import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 
 // --- defineFeature ---

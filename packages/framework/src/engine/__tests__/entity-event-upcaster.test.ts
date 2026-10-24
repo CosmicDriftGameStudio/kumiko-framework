@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
+import type { EventUpcastCtx } from "@cosmicdrift/kumiko-types/handlers";
 import { effectiveSnapshotGeneration } from "../../event-store/snapshot.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
 import { adaptRowTransformToPayload } from "../registry-validate.ts";
-import type { EntityEventMigration, EventUpcastCtx } from "../types/index.ts";
 
 const ctx = {} as EventUpcastCtx;
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });

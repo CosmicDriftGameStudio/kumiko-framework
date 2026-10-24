@@ -1,11 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import {
-  ADJECTIVES,
-  generateAdjNounName,
-  generateNoConfusableId,
-  generateUniqueName,
-  NOUNS,
-} from "../index.ts";
+import { generateAdjNounName, generateNoConfusableId } from "../generate.ts";
+import { generateUniqueName } from "../index.ts";
+import { ADJECTIVES, NOUNS } from "../words.ts";
 
 describe("generateAdjNounName", () => {
   test("default: <adj>-<noun> aus den Standard-Listen", () => {

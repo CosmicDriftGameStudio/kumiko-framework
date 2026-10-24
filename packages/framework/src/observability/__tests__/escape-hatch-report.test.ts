@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
+
 import type { Logger } from "../../logging/types.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import {

@@ -1,10 +1,12 @@
 // ctx.dispatch.queryAsMember — reads a query handler as a stored tenant member. The
 // resolved SessionUser never leaves this module.
 
+import type { MemberReader } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { buildSessionRoles } from "../engine/membership-roles.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { MemberReader, SessionUser } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.ts";
 import {

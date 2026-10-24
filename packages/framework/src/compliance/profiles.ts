@@ -267,31 +267,6 @@ export const SELECTABLE_PROFILE_KEYS = [
   "swiss-dsg",
   "de-hr-dsgvo-hgb",
 ] as const satisfies readonly ComplianceProfileKey[];
-
-/**
- * Top-level `ComplianceProfile` properties that a tenant override may modify.
- * Identity fields (key, region, label, extends) are excluded because
- * overriding them would destroy the profile's identity.
- *
- * This is the single source of truth for:
- *   - the set-profile handler whitelist, which rejects typos
- *   - the snapshot test that guards against drift from the profile's top level
- *
- * When a new top-level property is added to `ComplianceProfile` (for example,
- * `dataSubjectRights` or `crossBorderTransferRules`), it must be added here;
- * otherwise set-profile rejects valid overrides. The snapshot test in
- * profiles.test.ts detects drift in either direction.
- */
-export const OVERRIDABLE_PROFILE_KEYS: ReadonlySet<string> = new Set([
-  "userRights",
-  "notifications",
-  "breach",
-  "auditLog",
-  "subProcessor",
-  "tenantDestroyGracePeriod",
-  "forgetDiscovery",
-]);
-
 // --- Extends-Resolver (deep-merge) ---
 
 type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;

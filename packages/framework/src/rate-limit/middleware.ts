@@ -7,7 +7,9 @@ import {
 } from "../api/client-ip.ts";
 import { requestContext } from "../api/request-context.ts";
 import type { HttpRouteRateLimit } from "../engine/types/http-route.ts";
-import { RateLimitError, serializeError } from "../errors/index.ts";
+import { RateLimitError } from "../errors/index.ts";
+import { serializeError } from "../errors/serialize.ts";
+
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { emitRateLimitFailOpen } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/index.ts";

@@ -36,11 +36,6 @@ export function addDurationSpec(now: Instant, spec: DurationSpec): Instant {
 
 // Human-readable descriptions for logs and error messages. Not localized;
 // operator output is English-only.
-export function describeDurationSpec(spec: DurationSpec): string {
-  if ("days" in spec) return `${spec.days} day${spec.days === 1 ? "" : "s"}`;
-  return `${spec.hours} hour${spec.hours === 1 ? "" : "s"}`;
-}
-
 // Calendar-aware cutoff: months/years are subtracted on a UTC calendar so
 // "24 months" is not approximated as 730 fixed days (leap years, month ends).
 export function subtractRetentionSpec(now: Instant, spec: RetentionSpec): Instant {

@@ -22,7 +22,3 @@ export function defineStep<TArgs, TResult>(def: StepDef<TArgs, TResult>): StepDe
 export function getStep(kind: StepKind): StepDef | undefined {
   return stepRegistry.get(kind);
 }
-
-export function listStepKinds(): readonly StepKind[] {
-  return Array.from(stepRegistry.keys());
-}

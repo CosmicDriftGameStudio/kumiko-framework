@@ -1,3 +1,5 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EditRelatedListSection, ListColumnSpec } from "@cosmicdrift/kumiko-types/screen";
 import {
   CARD_META_MAX,
   cardColumnRoles,
@@ -6,12 +8,7 @@ import {
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
-import type {
-  EditRelatedListSection,
-  EntityDefinition,
-  FeatureDefinition,
-  ListColumnSpec,
-} from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 export type CardMetaOverflow = {
   readonly feature: string;

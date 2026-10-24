@@ -13,13 +13,10 @@ import { createRedisSseBroker } from "../../api/redis-sse-broker.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
-import {
-  createEventDispatcher,
-  createSseBroadcastEventConsumer,
-  getConsumerState,
-  SSE_BROADCAST_CONSUMER_NAME,
-} from "../../pipeline/index.ts";
+import { getConsumerState, SSE_BROADCAST_CONSUMER_NAME } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
+import { createSseBroadcastEventConsumer } from "../system-hooks.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

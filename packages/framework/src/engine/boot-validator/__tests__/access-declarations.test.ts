@@ -1,16 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
+import type { OwnershipMap } from "@cosmicdrift/kumiko-types/ownership";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
 import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../escape-hatch-reason.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import { from } from "../../ownership.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.ts";
-import type {
-  AccessRule,
-  EntityDefinition,
-  OwnershipMap,
-  WriteHandlerDef,
-} from "../../types/index.ts";
+
 import { validateAccessDeclarations } from "../access-declarations.ts";
 
 const noteEntity = createEntity({

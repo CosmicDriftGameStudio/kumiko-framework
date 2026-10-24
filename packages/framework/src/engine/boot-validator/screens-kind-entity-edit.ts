@@ -1,9 +1,10 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import {
   isExtensionEditSection,
   normalizeEditField,
   sectionFieldSpecs,
 } from "../screen-helpers.ts";
-import type { EntityDefinition } from "../types/index.ts";
+
 import type { EditSectionSpec, EntityEditScreenDefinition } from "../types/screen.ts";
 import { validateRedirectTarget } from "./screens-actions.ts";
 import {

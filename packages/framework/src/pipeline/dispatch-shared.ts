@@ -1,9 +1,22 @@
+import { resolveAgentExposure } from "@cosmicdrift/kumiko-types/agent-exposure";
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
+import type {
+  AgentRisk,
+  AuthClaimsContext,
+  JobRunnerRef,
+  PayloadRateLimitOption,
+  RateLimitDeclaration,
+  RateLimitOption,
+  WriteResult,
+} from "@cosmicdrift/kumiko-types/handlers";
+import { declaredRateLimitOptions, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   RateLimitBucketRequest,
   RateLimitResolver,
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
-import { requestContext, runWithOrigin } from "../api/request-context.ts";
+import { requestContext } from "../api/request-context.ts";
+import { runWithOrigin } from "../api/request-context-scopes.ts";
+
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
@@ -13,42 +26,28 @@ import type { defineTransitions } from "../engine/state-machine.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
-  AgentRisk,
   AppContext,
-  AuthClaimsContext,
   BeforeTransactionContext,
   HandlerContext,
-  JobRunnerRef,
-  PayloadRateLimitOption,
-  RateLimitDeclaration,
-  RateLimitOption,
   Registry,
   ReservationContext,
   SessionUser,
-  WriteResult,
 } from "../engine/types/index.ts";
-import {
-  declaredRateLimitOptions,
-  isRateLimitDisabled,
-  resolveAgentExposure,
-} from "../engine/types/index.ts";
+import { RateLimitUnavailableError } from "../errors/classes.ts";
 import {
   FeatureDisabledError,
   InternalError,
   RateLimitError,
-  RateLimitUnavailableError,
   type WriteErrorInfo,
 } from "../errors/index.ts";
+
 import { createFallbackLogger } from "../logging/utils.ts";
-import {
-  createEscapeHatchReporter,
-  type EscapeHatchReportWindow,
-  emitDispatcherError,
-  emitDispatcherHandler,
-  type getFallbackMeter,
-  type getFallbackTracer,
-  observabilityContext,
-} from "../observability/index.ts";
+import { observabilityContext } from "../observability/context.ts";
+import type { EscapeHatchReportWindow } from "../observability/escape-hatch-report.ts";
+import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
+import type { getFallbackMeter, getFallbackTracer } from "../observability/fallback.ts";
+import { emitDispatcherError, emitDispatcherHandler } from "../observability/standard-metrics.ts";
+
 import {
   buildBucketKey,
   buildPayloadBucketKey,

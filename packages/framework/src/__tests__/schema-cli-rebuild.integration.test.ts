@@ -16,16 +16,20 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { integer, table as pgTable, uuid } from "../db/dialect.ts";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { writeRebuildMarker } from "../db/index.ts";
+
 import { asRawClient, selectMany } from "../db/query.ts";
+import { writeRebuildMarker } from "../db/rebuild-marker.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { createEntity, createTextField, defineApply, defineFeature } from "../engine/index.ts";
-import type { ProjectionDefinition } from "../engine/types/index.ts";
+
 import { createProjectionStateTable } from "../pipeline/index.ts";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli.ts";
+import type { SchemaCliOut } from "../schema-cli/shared.ts";
+import { runSchemaCli } from "../schema-cli.ts";
+
 import { TestUsers } from "../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 

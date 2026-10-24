@@ -5,8 +5,6 @@ export const HANDLER_FIELD_REFERENCES_META_KEY = "references";
 
 // `by` names a business key of the target entity instead of its id. The framework only
 // validates that the field exists; resolving key to record is the consumer's query.
-export type HandlerFieldReferenceMeta = string | { readonly entity: string; readonly by?: string };
-
 export type HandlerFieldReference = {
   readonly entity: string;
   // undefined = the value is the record id.

@@ -5,8 +5,9 @@
 // at the boundary (×100 / ÷100). See money.ts's file header for why this exists.
 
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createEntity, createMoneyField, createTextField } from "../../engine/index.ts";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+
 import {
   flattenMoney,
   type MoneyRead,

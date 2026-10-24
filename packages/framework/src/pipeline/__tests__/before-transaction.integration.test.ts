@@ -9,6 +9,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { NotifyFactory } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
@@ -21,7 +22,7 @@ import {
   defineFeature,
   defineWriteHandler,
 } from "../../engine/index.ts";
-import type { NotifyFactory } from "../../engine/types/index.ts";
+
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";

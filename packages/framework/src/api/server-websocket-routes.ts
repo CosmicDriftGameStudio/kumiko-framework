@@ -10,7 +10,9 @@ import {
 } from "./auth-middleware.ts";
 import { type ClientIpResolver, clientIpSourceFromHonoContext } from "./client-ip.ts";
 import { isWebSocketOriginAllowed, normalizeOrigin, rejectOrigin } from "./origin-middleware.ts";
-import { type RequestContextData, requestContext } from "./request-context.ts";
+import { requestContext } from "./request-context.ts";
+import type { RequestContextData } from "./request-context-internals.ts";
+
 import { isMissingOrAnonymousUser, unauthenticatedResponse } from "./server-routes.ts";
 import type { ServerWiring } from "./server-wiring.ts";
 import {

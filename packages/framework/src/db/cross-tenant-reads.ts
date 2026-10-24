@@ -1,5 +1,6 @@
+import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
 import type { CrossTenantReads } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import type { EscapeHatchReporter } from "../engine/types/index.ts";
+
 import { type CreateTenantDbOptions, createTenantDb, type TenantDb } from "./tenant-db.ts";
 
 export function createCrossTenantReads(

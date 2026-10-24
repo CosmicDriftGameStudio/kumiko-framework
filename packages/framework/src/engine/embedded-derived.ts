@@ -1,5 +1,5 @@
+import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.ts";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
  *  sources: "multiply"/"percent" with any missing source → undefined; "sum"/"subtract"

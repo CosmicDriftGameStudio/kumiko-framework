@@ -1,25 +1,25 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
-import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
+import type { ConfigAccessor, JobDefinition } from "@cosmicdrift/kumiko-types/config";
+import type { JobDeferral, JobTriggerEvent } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  Meter,
+  SerializedTraceContext,
+  Tracer,
+} from "@cosmicdrift/kumiko-types/observability";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
 import type { JobsOptions, Queue } from "bullmq";
 import { requestContext } from "../api/request-context.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
-import type {
-  AppContext,
-  JobDeferral,
-  JobDefinition,
-  JobRunIn,
-  JobTriggerEvent,
-} from "../engine/types/index.ts";
+import type { AppContext, JobRunIn } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { isKumikoError } from "../errors/kumiko-error.ts";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { Logger } from "../logging/types.ts";
-import type { Meter, SerializedTraceContext, Tracer } from "../observability/index.ts";
-import { emitJobQueueDepth } from "../observability/index.ts";
+import { emitJobQueueDepth } from "../observability/standard-metrics.ts";
+
 import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.ts";
 import { isPersonalDataGated } from "../pipeline/write-origin.ts";
 import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { NotifyOptions } from "../../engine/types/index.ts";
+import type { NotifyOptions } from "@cosmicdrift/kumiko-types/handlers";
+
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { AfterCommitHook } from "../dispatcher-utils.ts";
 import { createDeferringNotify } from "../notify-scope.ts";

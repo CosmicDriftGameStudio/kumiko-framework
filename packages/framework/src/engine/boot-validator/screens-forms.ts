@@ -1,4 +1,8 @@
-import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
+import type {
+  EntityDefinition,
+  FieldDefinition,
+  OptionsQueryPayload,
+} from "@cosmicdrift/kumiko-types/fields";
 import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { isKebabSegment } from "../qualified-name.ts";
 import type { FieldsOrGroupsSection } from "../screen-helpers.ts";
@@ -8,7 +12,8 @@ import {
   normalizeEditField,
   sectionFieldSpecs,
 } from "../screen-helpers.ts";
-import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,

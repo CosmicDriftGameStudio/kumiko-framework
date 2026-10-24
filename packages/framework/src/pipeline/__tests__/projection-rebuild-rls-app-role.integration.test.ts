@@ -8,6 +8,7 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { extractPgError } from "../../db/pg-error.ts";
@@ -24,7 +25,7 @@ import {
   defineApply,
   defineFeature,
 } from "../../engine/index.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 

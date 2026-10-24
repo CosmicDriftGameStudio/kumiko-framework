@@ -13,13 +13,13 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { insertOne } from "../../db/query.ts";
 import { defineFeature, defineWriteHandler } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { stepsPipeline } from "../pipeline.ts";
-import type { EscapeHatchUseEvent } from "../types/index.ts";
 
 const readFilterTable = table("fw2914_read_filter_items", {
   id: uuid("id").primaryKey().defaultRandom(),

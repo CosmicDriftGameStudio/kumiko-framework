@@ -1,5 +1,6 @@
+import type { ValidationError } from "@cosmicdrift/kumiko-types/hooks";
 import { parseQn, toKebab } from "./qualified-name.ts";
-import type { Registry, ValidationError } from "./types/index.ts";
+import type { Registry } from "./types/index.ts";
 
 export type { ValidationError };
 

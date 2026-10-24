@@ -1,7 +1,8 @@
+import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
 import { type OwnershipClause, shiftParams } from "../engine/ownership.ts";
-import type { EntityDefinition, FieldDefinition } from "../engine/types/index.ts";
+
 import { ValidationError } from "../errors/index.ts";
 import { isListFilterAllowed } from "./entity-field-encryption.ts";
 import { buildFilterWhere, type Table } from "./event-store-executor-context.ts";

@@ -11,6 +11,13 @@
 //   - Field names such as body/text/content without a userOwned annotation.
 //   - blockDelete strategy without anonymize fields.
 //   - userOwned.ownerField targets a reference whose target is not user.
+import type {
+  EntityFieldDefinition,
+  EntityLongTextFieldDef,
+  EntityTextFieldDef,
+  FieldDefinition,
+} from "@cosmicdrift/kumiko-types/fields";
+
 //
 // An allowPlaintext marker suppresses heuristic warnings.
 
@@ -36,12 +43,6 @@ import {
   createTimestampField,
   createTzField,
 } from "../factories.ts";
-import type {
-  EntityFieldDefinition,
-  EntityLongTextFieldDef,
-  EntityTextFieldDef,
-  FieldDefinition,
-} from "../types/index.ts";
 import { plaintextText } from "./plaintext-fields.ts";
 
 // The new personal/find union can no longer express some flag combinations

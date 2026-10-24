@@ -10,7 +10,9 @@ import {
   runInRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
 } from "../../db/row-level-security-scope.ts";
-import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.ts";
+import { MemberReadTimeoutError } from "../../errors/classes.ts";
+import { AccessDeniedError } from "../../errors/index.ts";
+
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DispatchContext } from "../dispatch-shared.ts";
 import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.ts";

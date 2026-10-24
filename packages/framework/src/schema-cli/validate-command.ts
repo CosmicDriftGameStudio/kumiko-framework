@@ -1,11 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import {
-  diffReplayAgainstSnapshot,
-  generateMigration,
-  readMigrationSqlTexts,
-  replayMigrationsDir,
-} from "../db/index.ts";
+import { generateMigration } from "../db/index.ts";
+import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
+import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../db/replay-migration-sql.ts";
+
 import { validateBoot } from "../engine/boot-validator.ts";
 import {
   describeThrown,

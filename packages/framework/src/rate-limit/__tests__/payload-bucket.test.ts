@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { RateLimitPer } from "@cosmicdrift/kumiko-types/handlers";
 import { createAnonymousUser, SYSTEM_TENANT_ID } from "../../engine/index.ts";
-import type { RateLimitPer } from "../../engine/types/index.ts";
+
 import { createHandlerBoundDigest } from "../../pipeline/dispatch-shared.ts";
 import {
   buildBucketKey,

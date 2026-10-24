@@ -7,9 +7,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { asRawClient } from "../../db/query.ts";
 import { createEntity, createTextField, from } from "../../engine/index.ts";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { createEventStoreExecutor } from "../event-store-executor.ts";

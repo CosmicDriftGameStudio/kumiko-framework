@@ -3,7 +3,9 @@ import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
-import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.ts";
+import { createPrometheusMeter } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
+
 import { createJobRunner } from "../job-runner.ts";
 
 let testRedis: TestRedis;

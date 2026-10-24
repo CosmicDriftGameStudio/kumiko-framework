@@ -1,3 +1,4 @@
+import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { LIST_AGGREGATE_MEASURE_KINDS } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
@@ -6,7 +7,7 @@ import {
 } from "../../db/aggregate-sql.ts";
 import { holdsCiphertextOrSecret } from "../../db/entity-field-encryption.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
-import type { EntityDefinition, FieldDefinition } from "../types/index.ts";
+
 import {
   LIST_TABLE_GROUPING_KEYS,
   LIST_TABLE_TOTAL_KEYS,

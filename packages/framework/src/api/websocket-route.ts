@@ -16,7 +16,8 @@ import {
   sessionCheckStatus,
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware.ts";
-import { type RequestContextData, requestContext } from "./request-context.ts";
+import { requestContext } from "./request-context.ts";
+import type { RequestContextData } from "./request-context-internals.ts";
 
 export {
   WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,

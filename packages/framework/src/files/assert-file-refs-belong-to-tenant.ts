@@ -1,4 +1,7 @@
-import { isFileField, type Registry, type SaveContext } from "../engine/types/index.ts";
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { ValidationError } from "../errors/index.ts";
 import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";

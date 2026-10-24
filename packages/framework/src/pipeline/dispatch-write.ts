@@ -1,3 +1,6 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
 import { selectRowForUpdateById } from "../db/queries/entity-read.ts";
 import { asEntityTableMeta, selectMany } from "../db/query.ts";
@@ -6,31 +9,27 @@ import { createTenantDb, hasTenantColumn } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 import { ConfigScopes } from "../engine/constants.ts";
 import { checkWriteFieldOwnership, maskWriteOnlyFields } from "../engine/field-access.ts";
+import { HookPhases } from "../engine/hook-helpers.ts";
 import { defineTransitions, guardTransition } from "../engine/state-machine.ts";
-import type {
-  EntityDefinition,
-  HandlerContext,
-  SaveContext,
-  SessionUser,
-  WriteHandlerDef,
-  WriteResult,
-} from "../engine/types/index.ts";
-import { HookPhases } from "../engine/types/index.ts";
+import type { HandlerContext, SessionUser } from "../engine/types/index.ts";
+
 import {
   AccessDeniedError,
   FrameworkReasons,
   InternalError,
-  memberResolutionReadOnlyDenied,
   NotFoundError,
   ValidationError,
   writeFailure,
 } from "../errors/index.ts";
+import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
+
 import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.ts";
 import { bindPendingFileRefs } from "../files/bind-pending-file-refs.ts";
 import { disposeRemovedFileRefs } from "../files/dispose-removed-file-refs.ts";
 import { loadSaveFileRefs } from "../files/load-save-file-refs.ts";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
-import { assertNoSecretLeak } from "../secrets/index.ts";
+import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
+
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.ts";
 import {
   buildHandlerContext,

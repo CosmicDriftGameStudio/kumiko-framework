@@ -1,7 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { assertUniqueTableNames, loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
+import { loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
+import { assertUniqueTableNames } from "../db/migrate-generator.ts";
+
 import {
   DEFAULT_ROW_LEVEL_SECURITY_MODE,
   ROW_LEVEL_SECURITY_MODES,

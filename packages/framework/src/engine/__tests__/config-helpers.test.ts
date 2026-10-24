@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, test } from "bun:test";
+import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import type { DbRunner } from "../../db/connection.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -8,7 +9,6 @@ import {
   createTenantConfig,
   createUserConfig,
 } from "../config-helpers.ts";
-import type { ConfigKeyDefinition } from "../types/index.ts";
 
 describe("access presets", () => {
   test("access.all", () => {

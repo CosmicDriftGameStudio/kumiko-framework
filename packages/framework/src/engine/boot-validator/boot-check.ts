@@ -1,4 +1,5 @@
-import type { BootCheckContext, FeatureDefinition } from "../types/index.ts";
+import type { BootCheckContext } from "@cosmicdrift/kumiko-types/feature";
+import type { FeatureDefinition } from "../types/index.ts";
 
 // r.bootCheck(fn) lets a feature declare its own mount-invariant instead of
 // relying on framework-internal knowledge (the gdpr-storage.ts guards are

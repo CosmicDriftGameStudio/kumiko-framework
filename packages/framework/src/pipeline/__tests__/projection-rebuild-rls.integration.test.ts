@@ -7,6 +7,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import {
   asProbe,
   createProbeRole,
@@ -29,7 +30,7 @@ import {
   defineApply,
   defineFeature,
 } from "../../engine/index.ts";
-import type { ProjectionDefinition } from "../../engine/types/index.ts";
+
 import { SYSTEM_TENANT_ID } from "../../engine/types/index.ts";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";

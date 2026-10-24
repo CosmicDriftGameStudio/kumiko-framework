@@ -41,14 +41,6 @@ export const projectionStateTable = pgTable(
     statusIdx: index("kumiko_projections_status_idx").on(t.status),
   }),
 );
-
-export const ProjectionStatuses = {
-  idle: "idle",
-  rebuilding: "rebuilding",
-  failed: "failed",
-} as const;
-export type ProjectionStatus = (typeof ProjectionStatuses)[keyof typeof ProjectionStatuses];
-
 // Idempotent table bootstrap. Called by setupTestStack (and createApp once
 // that wires it up) — same pattern as createEventsTable. If the table is
 // already there (second stack in same test DB, production boot after

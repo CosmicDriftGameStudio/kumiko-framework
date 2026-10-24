@@ -3,6 +3,9 @@
 // Allowed operators depend on the field type:
 //   - text/select/multiSelect: equality operators only (eq, ne, in). lt/gt
 //     on strings are usually accidental; authors can simply omit the filter.
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { ScreenFilterOp } from "@cosmicdrift/kumiko-types/screen";
+
 //   - boolean: eq, ne (in/lt/gt are meaningless for a two-value type).
 //   - number/money/decimal/date/timestamp/locatedTimestamp: all 7 operators,
 //     because these fields are naturally comparable.
@@ -11,9 +14,6 @@
 // ("filter with op:lt on a text field" → boot failure). When adding a field
 // type, add it here and set its sortable/filterable flag in the type definition;
 // otherwise the validator rejects the field entirely.
-
-import type { FieldDefinition, ScreenFilterOp } from "./types/index.ts";
-
 const EQUALITY_ONLY = ["eq", "ne", "in"] as const satisfies readonly ScreenFilterOp[];
 const COMPARABLE = [
   "eq",

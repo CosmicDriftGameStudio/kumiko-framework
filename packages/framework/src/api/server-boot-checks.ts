@@ -1,5 +1,7 @@
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.ts";
-import { type AppContext, isFileField, type Registry } from "../engine/types/index.ts";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { AppContext, Registry } from "../engine/types/index.ts";
+
 import type { createFallbackLogger } from "../logging/index.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.ts";
 import { generateId } from "../utils/index.ts";

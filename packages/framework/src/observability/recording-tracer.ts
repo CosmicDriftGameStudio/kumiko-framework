@@ -3,7 +3,6 @@ import { generateSpanId, generateTraceId } from "./ids.ts";
 import { redactAttributes, redactValue, shouldRedactAttribute } from "./sensitive-filter.ts";
 import type {
   SensitiveFilterConfig,
-  SerializedTraceContext,
   Span,
   SpanAttributes,
   SpanAttributeValue,
@@ -178,9 +177,3 @@ export class RecordingTracer implements Tracer {
 }
 
 // Helper to serialize an active Span into the cross-process format.
-export function serializeSpanContext(span: Span): SerializedTraceContext {
-  return {
-    traceId: span.traceId,
-    spanId: span.spanId,
-  };
-}

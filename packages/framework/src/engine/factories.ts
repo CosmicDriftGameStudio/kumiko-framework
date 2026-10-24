@@ -1,5 +1,3 @@
-import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   BigIntFieldDef,
   BooleanFieldDef,
@@ -30,10 +28,12 @@ import type {
   ResolvedPiiFlags,
   RetentionDef,
   SelectFieldDef,
-  TextFieldDef,
   TimestampFieldDef,
   TzFieldDef,
-} from "./types/index.ts";
+} from "@cosmicdrift/kumiko-types/fields";
+import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { TextFieldDef } from "./types/index.ts";
 
 type PersonalOverridesInput = {
   readonly personal?: PersonalSubject | "ref" | false;

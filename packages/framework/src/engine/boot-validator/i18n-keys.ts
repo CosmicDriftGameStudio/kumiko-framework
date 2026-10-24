@@ -1,3 +1,4 @@
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
 import {
   buildEffectiveTranslationKeys,
   featureHasI18nSurface,
@@ -16,7 +17,7 @@ import {
 } from "../build-config-feature-schema.ts";
 import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins.ts";
 import { createRegistry } from "../registry.ts";
-import type { FeatureDefinition, ScreenDefinition } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 
 function isDormantSecretsScreen(screen: ScreenDefinition): boolean {
   return screen.type === "secretsEdit" && screen.dormant === true;

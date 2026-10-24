@@ -8,6 +8,10 @@
 //               MINOR_UNIT_SCALE units for callers that need scale-exact
 //               comparisons (e.g. invoice sums) instead of round-tripping the
 //               float amount through /100·*100.
+
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { DEFAULT_CURRENCIES } from "../engine/field-helpers.ts";
+
 //                `amountMinor` stays as a @deprecated alias of the same
 //               value until the remaining consumers
 //               (renderer/web/primitives/index.tsx,
@@ -32,8 +36,6 @@
 // idiomatic). `<name>Currency` is the additional column.
 
 import { MINOR_UNIT_SCALE, toMinorUnits } from "../engine/minor-units.ts";
-import type { EntityDefinition } from "../engine/types/index.ts";
-import { DEFAULT_CURRENCIES } from "../engine/types/index.ts";
 
 const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 

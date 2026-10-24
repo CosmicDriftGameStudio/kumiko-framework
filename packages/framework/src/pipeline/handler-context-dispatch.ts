@@ -1,7 +1,10 @@
-import { runWithWriteOrigin } from "../api/request-context.ts";
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import { runWithWriteOrigin } from "../api/request-context-scopes.ts";
+
 import type { DbTx } from "../db/connection.ts";
 import { runInSavepoint } from "../db/query.ts";
-import type { HandlerDispatch, SessionUser, WriteResult } from "../engine/types/index.ts";
+import type { HandlerDispatch, SessionUser } from "../engine/types/index.ts";
+
 import { writeFailure } from "../errors/index.ts";
 import {
   type AfterRollbackHook,

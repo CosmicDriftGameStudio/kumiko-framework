@@ -1,14 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  assertValidMigrationName,
-  generateMigration,
-  readMigrationSqlTexts,
-  rebuildTablesFromDiff,
-  writeRebuildMarker,
-  writeSnapshotJson,
-} from "../db/index.ts";
-import { hasNoSchemaChanges } from "../db/migrate-generator.ts";
+import { generateMigration, writeSnapshotJson } from "../db/index.ts";
+import { assertValidMigrationName, hasNoSchemaChanges } from "../db/migrate-generator.ts";
+import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
+import { rebuildTablesFromDiff, writeRebuildMarker } from "../db/rebuild-marker.ts";
 import {
   describeThrown,
   loadPreviousSnapshot,

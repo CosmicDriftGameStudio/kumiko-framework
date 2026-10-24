@@ -1,7 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { ReservationHandle, ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
-import type { SessionUser, WriteHandlerDef } from "../engine/types/index.ts";
-import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.ts";
+import type {
+  ReservationHandle,
+  ReservationRelease,
+  WriteHandlerDef,
+} from "@cosmicdrift/kumiko-types/handlers";
+import type { SessionUser } from "../engine/types/index.ts";
+
+import type { WriteErrorInfo } from "../errors/index.ts";
+import { toWriteErrorInfo } from "../errors/write-error-info.ts";
+
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { BatchCommand, DispatchContext } from "./dispatch-shared.ts";
 import { buildHandlerContext, isMemberResolutionPrincipal } from "./dispatch-shared.ts";

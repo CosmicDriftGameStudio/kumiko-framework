@@ -8,7 +8,8 @@ import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.ts";
 import type { JwtHelper } from "./jwt.ts";
 import { isForeignCookieOrigin } from "./origin-middleware.ts";
-import { setRequestIdentity } from "./request-context.ts";
+import { setRequestIdentity } from "./request-context-internals.ts";
+
 import {
   clearSessionCookies,
   getSessionCookies,

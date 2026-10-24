@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { AccessDeniedError } from "../../errors/index.ts";
 import {
@@ -14,7 +15,7 @@ import {
   defineFeature,
 } from "../index.ts";
 import type { TenantId } from "../types/identifiers.ts";
-import type { SaveContext } from "../types/index.ts";
+
 import { stubHandlerContext, stubHandlerContextWith } from "./handler-context-stub.ts";
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;

@@ -1,11 +1,9 @@
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import type { TenantDb } from "../db/tenant-db.ts";
-import {
-  type FieldDefinition,
-  isFileField,
-  type Registry,
-  type SaveContext,
-  type SessionUser,
-} from "../engine/types/index.ts";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import { reraiseAsKumikoError } from "../errors/index.ts";
 import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";

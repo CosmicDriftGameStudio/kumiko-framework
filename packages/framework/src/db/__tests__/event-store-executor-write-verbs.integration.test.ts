@@ -11,11 +11,12 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { asRawClient, selectMany, transaction } from "../../db/query.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
 import { from } from "../../engine/ownership.ts";
 import { createSystemUser } from "../../engine/system-user.ts";
-import type { EntityId } from "../../engine/types/index.ts";
+
 import { append } from "../../event-store/index.ts";
 import type { EntityCache } from "../../pipeline/entity-cache.ts";
 import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";

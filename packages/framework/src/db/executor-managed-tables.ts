@@ -2,7 +2,8 @@ import type {
   ExecutorManagedWriteCapability,
   Writable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
-import type { EntityDefinition } from "../engine/types/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 import { AccessDeniedError, InternalError } from "../errors/index.ts";
 import { asEntityTableMeta, tableNameOf } from "./table-introspection.ts";
 

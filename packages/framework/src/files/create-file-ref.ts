@@ -1,12 +1,10 @@
+import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
-import {
-  type AnyFileFieldDef,
-  isFileField,
-  type Registry,
-  type SessionUser,
-} from "../engine/types/index.ts";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import { InternalError, type WriteFailure } from "../errors/index.ts";
 import { generateId } from "../utils/index.ts";
 import { isActionFormScreenQn, resolveActionFormFileField } from "./action-form-upload.ts";

@@ -7,7 +7,8 @@ import {
   createClientIpResolver,
   extractSocketAddress,
 } from "./client-ip.ts";
-import { type RequestContextData, requestContext } from "./request-context.ts";
+import { requestContext } from "./request-context.ts";
+import type { RequestContextData } from "./request-context-internals.ts";
 
 // Fallback for the few call-sites that build a RequestContextData without a
 // caller-configured resolver (e.g. an internal system-query mount reached

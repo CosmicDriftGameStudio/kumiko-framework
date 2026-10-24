@@ -2,10 +2,12 @@
 // dropped; ctx.systemDb.outsideTransaction (r.systemScope() handlers) was a second door to the same
 // durable writes and is pinned shut here, next to the surfaces the reservation phase also denies.
 import { describe, expect, test } from "bun:test";
+import type { NotifyFn, NotifyOptions } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../../db/connection.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../../db/tenant-db.ts";
 import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
-import type { HandlerContext, NotifyFn, NotifyOptions } from "../../engine/types/index.ts";
+import type { HandlerContext } from "../../engine/types/index.ts";
+
 import { InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { attachOutsideTransaction } from "../attach-outside-transaction.ts";

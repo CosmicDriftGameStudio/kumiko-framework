@@ -27,17 +27,13 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
 import type { StoredEvent } from "../../event-store/index.ts";
 import type { Logger } from "../../logging/types.ts";
-import {
-  type MetricEvent,
-  RecordingMeter,
-  registerStandardMetrics,
-} from "../../observability/index.ts";
-import {
-  createEventDispatcher,
-  type EventConsumer,
-  type EventDispatcher,
-} from "../../pipeline/index.ts";
+import { type MetricEvent, RecordingMeter } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
+
+import type { EventDispatcher } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

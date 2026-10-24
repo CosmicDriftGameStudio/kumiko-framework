@@ -1,6 +1,7 @@
 // One framework-owned composition of membership / principal-status /
 // tenant-lifecycle checks so login, switch-tenant and MFA completion can't independently drift.
 
+import type { ActiveMembershipResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection } from "../db/connection.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import {
@@ -13,7 +14,8 @@ import {
 import { EXT_PRINCIPAL_STATUS, EXT_TENANT_LIFECYCLE_STATUS } from "../engine/extension-names.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { ActiveMembershipResult, Registry } from "../engine/types/index.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import { type DispatchContext, resolveDbSource } from "./dispatch-shared.ts";

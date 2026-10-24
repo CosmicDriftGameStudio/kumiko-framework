@@ -17,6 +17,8 @@
 //
 // Custom handlers must pass the viewer explicitly so the parentRef gate is
 // never skipped silently.
+
+import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { requestContext } from "../api/request-context.ts";
 import {
   collectPiiSubjectFields,
@@ -33,12 +35,8 @@ import {
 } from "../engine/ownership.ts";
 import { parseRefTargetEntityName } from "../engine/parse-ref-target.ts";
 import { isUuid, SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
-import type {
-  EntityDefinition,
-  FieldDefinition,
-  ReferenceFieldDef,
-  SessionUser,
-} from "../engine/types/index.ts";
+import type { ReferenceFieldDef, SessionUser } from "../engine/types/index.ts";
+
 import { scrubLogValue } from "../logging/scrub.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import {

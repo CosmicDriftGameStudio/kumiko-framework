@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import type {
+  ConfigAccessor,
+  ConfigAccessorFactory,
+  JobDefinition,
+} from "@cosmicdrift/kumiko-types/config";
+import type { NotifyFactory } from "@cosmicdrift/kumiko-types/handlers";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
@@ -8,15 +14,8 @@ import { requestContext } from "../../api/request-context.ts";
 import { unscopedRunnerOf } from "../../db/row-level-security-scope.ts";
 import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
-import type {
-  AppContext,
-  ConfigAccessor,
-  ConfigAccessorFactory,
-  JobDefinition,
-  NotifyFactory,
-  Registry,
-  TenantId,
-} from "../../engine/types/index.ts";
+import type { AppContext, Registry, TenantId } from "../../engine/types/index.ts";
+
 import { SYSTEM_TENANT_ID } from "../../engine/types/index.ts";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";

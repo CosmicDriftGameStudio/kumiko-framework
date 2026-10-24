@@ -1,4 +1,6 @@
-import { baselineMigrations, createDbConnection, loadMigrationsFromDir } from "../db/index.ts";
+import { createDbConnection } from "../db/index.ts";
+import { baselineMigrations, loadMigrationsFromDir } from "../db/migrate-runner.ts";
+
 import {
   describeThrown,
   migrationsDirExistsOrReport,

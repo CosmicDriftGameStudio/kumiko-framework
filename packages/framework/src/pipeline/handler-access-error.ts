@@ -1,6 +1,7 @@
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
-import { AccessDeniedError, type KumikoError, UnauthenticatedError } from "../errors/index.ts";
+import { UnauthenticatedError } from "../errors/classes.ts";
+import { AccessDeniedError, type KumikoError } from "../errors/index.ts";
 
 // Anonymous callers get 401 so a client whose session lapsed (browser dropped
 // the expired auth cookie) can tell "sign in again" apart from "signed in but

@@ -1,8 +1,5 @@
-import {
-  buildInvalidTransitionDetails,
-  FrameworkReasons,
-  UnprocessableError,
-} from "../errors/index.ts";
+import { FrameworkReasons, UnprocessableError } from "../errors/index.ts";
+import { buildInvalidTransitionDetails } from "../errors/transition-details.ts";
 
 /**
  * Type-safe transition graph. Wraps the underlying Map so callers don't

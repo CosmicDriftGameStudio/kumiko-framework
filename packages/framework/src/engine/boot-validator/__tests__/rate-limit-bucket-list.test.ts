@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import * as z from "zod";
-import { defineFeature } from "../../define-feature.ts";
+import type { WriteHandlerDefinition } from "@cosmicdrift/kumiko-types/define-handler";
 import type {
   PayloadRateLimitOption,
   RateLimitDeclaration,
-  WriteHandlerDefinition,
-} from "../../types/index.ts";
+} from "@cosmicdrift/kumiko-types/handlers";
+import * as z from "zod";
+import { defineFeature } from "../../define-feature.ts";
+
 import { validateHandlerAccess } from "../entity-handler.ts";
 
 const ip = { per: "ip", limit: 5, windowSeconds: 60 } as const;

@@ -1,6 +1,8 @@
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { resolveEntityBehindListQuery } from "../entity-list-searchability.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
-import type { FeatureDefinition, QueryHandlerDef } from "../types/index.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import type { ListColumnSpec, ListTableOptions } from "../types/screen.ts";
 import {
   type AggregateFieldInfo,

@@ -41,18 +41,18 @@
 // cursor needed. Without REDIS_URL, the in-memory broker still only
 // reaches clients on the same process.
 
+import type { RunIn } from "@cosmicdrift/kumiko-types/config";
 import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes.ts";
-import type { JwtHelper, JwtKeyring } from "../api/jwt.ts";
+import type { JwtHelper } from "../api/jwt.ts";
 import type { KumikoServer, ServerOptions } from "../api/server.ts";
 import { buildServer } from "../api/server.ts";
 import { withFileProviderResolver } from "../api/server-wiring.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
-import type { PgClient, PgListenClient } from "../db/connection.ts";
-import type { RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
-import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.ts";
-import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.ts";
+import type { AppContext, JobRunIn, Registry } from "../engine/types/index.ts";
+
+import type { JobRunner } from "../jobs/job-runner.ts";
 import { createJobRunner } from "../jobs/job-runner.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import { createLifecycle } from "../lifecycle/index.ts";
@@ -60,45 +60,22 @@ import type { ObservabilityProvider } from "../observability/index.ts";
 import { createNoopProvider } from "../observability/index.ts";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.ts";
 import { dispatcherToWriteRef } from "../pipeline/dispatcher.ts";
-import type { EventDedup, EventDispatcher } from "../pipeline/index.ts";
-import type { LifecycleHooks, SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
+import type { EventDispatcher } from "../pipeline/index.ts";
+
+import type { LifecycleHooks } from "../pipeline/lifecycle-pipeline.ts";
 import { resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
+import type {
+  AllInOneEntrypointOptions,
+  BaseEntrypointOptions,
+  JobsBlock,
+  WorkerEntrypointOptions,
+} from "./internals.ts";
 import { assertEntrypointRowLevelSecurityMode } from "./row-level-security-mode-check.ts";
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.
-export type BaseEntrypointOptions = {
-  readonly registry: Registry;
-  readonly context: AppContext;
-  readonly jwtSecret: string | JwtKeyring;
-  readonly jwtIssuer?: string;
-  readonly observability?: ObservabilityProvider;
-  readonly dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
-  readonly systemHooks?: SystemHooks;
-  readonly eventDedup?: EventDedup;
-  // Optional pre-built lifecycle. If omitted, each factory builds its own.
-  // Pass one in when you want to register caller-specific shutdown hooks
-  // alongside the framework's.
-  readonly lifecycle?: Lifecycle;
-  readonly instanceId?: ServerOptions["instanceId"];
-  /** Must equal the mode of `context.db`; default "off". */
-  readonly rowLevelSecurity?: RowLevelSecurityMode;
-};
-
 // Shape the JobRunner block takes in every entrypoint mode. Extracted so
 // adding a new JobRunnerOption doesn't need three parallel changes.
-type JobsBlock = {
-  readonly redisUrl: string;
-  readonly queueNamePrefix?: string;
-  readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
-  readonly onJobStart?: JobRunnerOptions["onJobStart"];
-  readonly onJobComplete?: JobRunnerOptions["onJobComplete"];
-  readonly onJobFailed?: JobRunnerOptions["onJobFailed"];
-  readonly onJobDeferred?: JobRunnerOptions["onJobDeferred"];
-  readonly onJobQueued?: JobRunnerOptions["onJobQueued"];
-  readonly onJobDropped?: JobRunnerOptions["onJobDropped"];
-};
-
 export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly auth?: AuthRoutesConfig;
   readonly anonymousAccess?: ServerOptions["anonymousAccess"];
@@ -130,17 +107,6 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly trustedProxyHops?: ServerOptions["trustedProxyHops"];
   readonly errorDocs?: ServerOptions["errorDocs"];
 };
-
-export type WorkerEntrypointOptions = BaseEntrypointOptions &
-  JobsBlock & {
-    // Tuning knobs for the event-dispatcher loop. Workers typically set a
-    // pgClient so LISTEN/NOTIFY drops the poll latency from seconds to TCP
-    // round-trip.
-    readonly eventDispatcher?: ServerOptions["eventDispatcher"];
-  };
-
-export type AllInOneEntrypointOptions = ApiEntrypointOptions & WorkerEntrypointOptions;
-
 export type ApiEntrypoint = {
   readonly app: Hono;
   readonly jwt: JwtHelper;
@@ -586,4 +552,3 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
 
 // Re-exported so callers of ServerOptions.eventDispatcher can name the
 // LISTEN client type it references.
-export type { PgClient, PgListenClient };

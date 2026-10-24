@@ -1,8 +1,9 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
   ListAggregateGroup,
   ListAggregateResult,
 } from "@cosmicdrift/kumiko-types/list-aggregate-types";
-import type { EntityDefinition } from "../engine/types/index.ts";
+
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "./eagerload.ts";
 import { enrichWithReferences } from "./eagerload.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";

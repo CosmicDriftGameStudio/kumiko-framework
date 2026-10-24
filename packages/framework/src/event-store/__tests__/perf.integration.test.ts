@@ -24,7 +24,8 @@ import { asRawClient } from "../../db/query.ts";
 import type { TenantId } from "../../engine/types/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { generateId as uuid } from "../../utils/index.ts";
-import { append, loadAggregate, loadAggregateWithSnapshot, saveSnapshot } from "../index.ts";
+import { append, loadAggregate } from "../index.ts";
+import { loadAggregateWithSnapshot, saveSnapshot } from "../snapshot.ts";
 
 const WRITE_P95_BUDGET_MS = 30;
 

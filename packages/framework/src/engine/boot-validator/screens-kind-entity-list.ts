@@ -1,9 +1,10 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
 import { rowMetaFieldNames } from "../../db/table-builder.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
-import type { EntityDefinition } from "../types/index.ts";
+
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
 import { validateEntityListAggregateOptions } from "./entity-list-aggregate-options.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";

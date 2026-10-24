@@ -1,6 +1,7 @@
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { LocalKeyKmsAdapter } from "../crypto/index.ts";
-import type { EntityDefinition } from "../engine/types/index.ts";
+
 import type { EntityCache } from "../pipeline/entity-cache.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";

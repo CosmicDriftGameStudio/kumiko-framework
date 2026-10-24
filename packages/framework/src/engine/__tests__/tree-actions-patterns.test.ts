@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildTarget, createRegistry, defineFeature } from "../index.ts";
+import { buildTarget } from "../build-target.ts";
+import { createRegistry, defineFeature } from "../index.ts";
 
 describe("r.treeActions — registrar slot", () => {
   test("feature without r.treeActions leaves the slot undefined", () => {

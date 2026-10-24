@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import type { ListColumnSpec } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
@@ -10,7 +11,6 @@ import {
   createSelectField,
   createTextField,
 } from "../../factories.ts";
-import type { ListColumnSpec } from "../../types/index.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

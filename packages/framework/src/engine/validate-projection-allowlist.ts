@@ -23,13 +23,15 @@
 // caught by this validator. A future lint-rule will enforce the contract
 // statically; today it lives in this comment + the StepBuilder doc.
 
+import type { WriteEvent } from "@cosmicdrift/kumiko-types/handlers";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { schemaTableName } from "../db/table-introspection.ts";
 import { getStep } from "./define-step.ts";
 import { buildPipelineSteps } from "./pipeline.ts";
-import type { FeatureDefinition, SessionUser, WriteEvent } from "./types/index.ts";
+import type { FeatureDefinition, SessionUser } from "./types/index.ts";
+
 import type { StepInstance } from "./types/step.ts";
 import { walkStepInstances } from "./walk-step-instances.ts";
 

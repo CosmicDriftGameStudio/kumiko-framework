@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { combineClauses, from } from "../../engine/ownership.ts";
-import type { EntityDefinition, SessionUser } from "../../engine/types/index.ts";
+import type { SessionUser } from "../../engine/types/index.ts";
+
 import { buildParentRefClause } from "../parent-ref-clause.ts";
 import { buildEntityTable } from "../table-builder.ts";
 import type { TenantDb } from "../tenant-db.ts";

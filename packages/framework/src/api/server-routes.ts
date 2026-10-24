@@ -1,3 +1,4 @@
+import type { HttpRouteDefinition, HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
 import type { Hono, MiddlewareHandler } from "hono";
 import { createProjectingTenantDb } from "../db/tenant-db.ts";
 import { buildAppSchema } from "../engine/build-app-schema.ts";
@@ -7,12 +8,8 @@ import {
   stripDisabledFeaturesFromAppSchema,
 } from "../engine/strip-disabled-features-from-app-schema.ts";
 import { createAnonymousUser, isAnonymousSessionUser } from "../engine/system-user.ts";
-import type {
-  HttpRouteDefinition,
-  HttpRouteMethod,
-  SessionUser,
-  TenantId,
-} from "../engine/types/index.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+
 import type { FileRoutesOptions } from "../files/file-routes.ts";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.ts";
 import { createRecordReadCheck } from "../files/record-read-check.ts";

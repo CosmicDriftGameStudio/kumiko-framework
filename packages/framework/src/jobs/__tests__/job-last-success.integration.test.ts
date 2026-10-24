@@ -5,11 +5,9 @@ import { buildServer } from "../../api/server.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { TenantId } from "../../engine/types/identifiers.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
-import {
-  createNoopProvider,
-  createPrometheusMeter,
-  registerStandardMetrics,
-} from "../../observability/index.ts";
+import { createNoopProvider, createPrometheusMeter } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
+
 import { createJobRunner, type JobRunnerOptions } from "../job-runner.ts";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";

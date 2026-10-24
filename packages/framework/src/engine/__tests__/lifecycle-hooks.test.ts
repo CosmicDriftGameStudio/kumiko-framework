@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import * as z from "zod";
-import { createEntity, createRegistry, defineFeature } from "../index.ts";
 import type {
   PostSaveHookFn,
   PreDeleteHookFn,
   PreSaveHookFn,
   SaveContext,
-} from "../types/index.ts";
+} from "@cosmicdrift/kumiko-types/hooks";
+import * as z from "zod";
+import { createEntity, createRegistry, defineFeature } from "../index.ts";
+
 import { stubHandlerContext } from "./handler-context-stub.ts";
 
 const stubHandler = async () => ({ isSuccess: true as const, data: null });

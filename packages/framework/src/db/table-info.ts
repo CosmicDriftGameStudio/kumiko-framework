@@ -1,4 +1,4 @@
-import { camelCase as envCamelCase } from "../env/index.ts";
+import { camelCase as envCamelCase } from "../env/internals.ts";
 import type { TableLike } from "./query.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";

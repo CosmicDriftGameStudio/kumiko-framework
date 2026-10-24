@@ -1,5 +1,8 @@
-import type { Registry, TranslationKeys } from "../engine/types/index.ts";
+import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
+import type { Registry } from "../engine/types/index.ts";
+
 import { resolveTranslationValue } from "../ui-types/plural.ts";
+import type { I18n, I18nOptions } from "./internals.ts";
 
 export {
   hasMailTranslationKey,
@@ -11,23 +14,10 @@ export {
 } from "./mail-registry.ts";
 export {
   canonicalizeLocaleTag,
-  DEFAULT_LOCALE,
   isValidLocaleTag,
-  pickAcceptLanguage,
-  rankAcceptLanguage,
   rankPreferredLocales,
-  resolveHeaderLocale,
 } from "./request-locale.ts";
 export { SETTINGS_HUB_I18N } from "./settings-hub-keys.ts";
-
-export type I18nOptions = {
-  defaultLocale: string;
-};
-
-export type I18n = {
-  t(key: string, locale?: string, params?: Readonly<Record<string, unknown>>): string;
-  getAllKeys(): string[];
-};
 
 export function createI18n(registry: Registry, options: I18nOptions): I18n {
   const translations: TranslationKeys = registry.getAllTranslations();

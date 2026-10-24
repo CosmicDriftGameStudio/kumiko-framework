@@ -15,9 +15,6 @@ import type { TenantId } from "./types/identifiers.ts";
 export const SystemHookNames = {
   cascadeDelete: "system:hook:cascade-delete",
 } as const;
-
-export type SystemHookName = (typeof SystemHookNames)[keyof typeof SystemHookNames];
-
 // --- System Hook Priorities ---
 
 export const SystemHookPriorities = {
@@ -25,17 +22,6 @@ export const SystemHookPriorities = {
 } as const;
 
 // --- Message Kinds ---
-
-export const MessageKind = {
-  write: "write",
-  query: "query",
-  command: "command",
-  shared: "shared",
-  broadcast: "broadcast",
-} as const;
-
-export type MessageKind = (typeof MessageKind)[keyof typeof MessageKind];
-
 // --- Lifecycle Hook Types ---
 
 export const LifecycleHookTypes = {

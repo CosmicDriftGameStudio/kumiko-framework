@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { NotificationRecordMapping } from "@cosmicdrift/kumiko-types/config";
 import * as z from "zod";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../index.ts";
 import { createRegistry } from "../registry.ts";
 import { templateVariable } from "../template-variables.ts";
-import type { NotificationRecordMapping } from "../types/index.ts";
 
 const contactEntity = createEntity({
   table: "record_mapping_contacts",

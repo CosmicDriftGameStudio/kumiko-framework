@@ -17,14 +17,15 @@
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import type { Writable } from "@cosmicdrift/kumiko-types/executor-brand";
-import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
 import type {
   EntityDefinition,
   EntityIndexDef,
-  EntityRelations,
   FieldDefinition,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/fields";
+import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
+import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
+import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
+
 import { isSqlExpression } from "./dialect.ts";
 import type {
   BuildEntityTableMetaOptions,

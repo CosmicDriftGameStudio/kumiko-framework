@@ -206,27 +206,6 @@ export const EXT_ASSIGNABLE_ROLE = "assignableRole" as const;
 // Default membership-list query handler name. Accepted coupling, same
 // pattern as FILE_PROVIDER_CONFIG_KEY — the `tenant` feature registers a handler under this literal.
 export const TENANT_MEMBERSHIPS_QUERY = "tenant:query:memberships" as const;
-
-/**
- * Union of standardized extension names for the privacy surface.
- * Not every extension in the system is included — other features can still
- * register their own extension names.
- */
-export type KumikoExtensionName =
-  | typeof EXT_USER_DATA
-  | typeof EXT_TENANT_DATA
-  | typeof EXT_STORAGE_PROVIDER
-  | typeof EXT_SEARCH_ADAPTER
-  | typeof EXT_EXTERNAL_RESOURCE
-  | typeof EXT_INFRA_RESOURCE
-  | typeof EXT_FILE_PROVIDER
-  | typeof EXT_DERIVATIVE_RENDERER
-  | typeof EXT_DERIVATIVE_PUBLIC_PREDICATE
-  | typeof EXT_DERIVATIVE_OVERLAY_RESOLVER
-  | typeof EXT_PRINCIPAL_STATUS
-  | typeof EXT_TENANT_LIFECYCLE_STATUS
-  | typeof EXT_ASSIGNABLE_ROLE;
-
 /** The four `destroyTenant(tenantId, ctx)`-only resource-cleanup extension points. */
 export type TenantResourceExtensionName =
   | typeof EXT_STORAGE_PROVIDER

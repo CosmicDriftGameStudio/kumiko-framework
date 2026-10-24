@@ -1,9 +1,12 @@
+import type { UiHints } from "@cosmicdrift/kumiko-types/feature";
+import type { FeatureRegistrar } from "@cosmicdrift/kumiko-types/feature-registrar";
+import type { HookMap } from "@cosmicdrift/kumiko-types/hooks";
 import { createInitialFeatureBuilderState } from "./feature-builder-state.ts";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
 import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
-import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types/index.ts";
+import type { FeatureDefinition } from "./types/index.ts";
 
 // `TExports` lets the setup callback hand back a typed object that
 // downstream features can import (e.g. `tenantFeature.exports.config`). The

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
+import type { PostSaveHookFn, SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { createEntity, createRegistry, defineFeature, HookPhases } from "../index.ts";
-import type { PostSaveHookFn, SaveContext } from "../types/index.ts";
+
 import { stubHandlerContext } from "./handler-context-stub.ts";
 
 const dummySaveContext: SaveContext = {

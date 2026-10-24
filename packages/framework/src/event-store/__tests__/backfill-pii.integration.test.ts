@@ -19,20 +19,21 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { configureEventPiiCatalog } from "../../crypto/event-pii.ts";
 import {
   configureBlindIndexKey,
   configuredEventPiiCatalog,
-  configureEventPiiCatalog,
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
   encryptPiiValueForSubject,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-  KeyNotFoundError,
-  PgKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
 } from "../../crypto/index.ts";
+import { KeyNotFoundError } from "../../crypto/kms-adapter.ts";
+import { PgKmsAdapter } from "../../crypto/pg-kms-adapter.ts";
+
 import { applyEntityEvent } from "../../db/apply-entity-event.ts";
 import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii.ts";
 import { asRawClient, fetchOne } from "../../db/query.ts";

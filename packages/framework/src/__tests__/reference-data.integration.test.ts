@@ -5,6 +5,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { selectMany } from "../db/query.ts";
 import { seedReferenceData } from "../db/reference-data.ts";
@@ -18,7 +19,8 @@ import {
   type ReferenceDataDef,
 } from "../engine/index.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import { type EntityId, SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+
 import { rebuildProjection } from "../pipeline/index.ts";
 
 const refField = { personal: false, reason: "is_reference_data" } as const;

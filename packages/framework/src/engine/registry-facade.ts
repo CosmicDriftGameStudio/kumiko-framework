@@ -1,48 +1,55 @@
 import type {
-  IncomingRelation,
-  RegistryState,
-  SearchableReferenceField,
-  SortableReferenceField,
-} from "./registry-state.ts";
-import { filterByPhase, filterOwned } from "./registry-state.ts";
+  ConfigKeyDefinition,
+  ConfigSeedDef,
+  ExtensionSelectorPanel,
+  JobDefinition,
+  NotificationDefinition,
+  ReferenceDataDef,
+  RegistrarExtensionDef,
+  RegistrarExtensionRegistration,
+  TranslationKeys,
+} from "@cosmicdrift/kumiko-types/config";
+import type {
+  SecretKeyDefinition,
+  SecretNamespaceDefinition,
+  StoreTableDef,
+} from "@cosmicdrift/kumiko-types/feature";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
-  ConfigKeyDefinition,
-  ConfigSeedDef,
-  EntityDefinition,
-  EntityRelations,
   EventDef,
-  ExtensionSelectorPanel,
-  FeatureDefinition,
+  QueryHandlerDef,
+  StreamHandlerDef,
+  WriteHandlerDef,
+} from "@cosmicdrift/kumiko-types/handlers";
+import type {
   HookPhase,
-  JobDefinition,
-  MultiStreamProjectionDefinition,
-  NavDefinition,
-  NotificationDefinition,
   PostDeleteHookFn,
   PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
   PreSaveHookFn,
-  ProjectionDefinition,
-  QueryHandlerDef,
-  ReferenceDataDef,
-  RegistrarExtensionDef,
-  RegistrarExtensionRegistration,
-  Registry,
-  ScreenDefinition,
   SearchPayloadContributorFn,
-  SecretKeyDefinition,
-  SecretNamespaceDefinition,
-  StoreTableDef,
-  StreamHandlerDef,
-  TranslationKeys,
-  TreeActionDef,
-  WorkspaceDefinition,
-  WriteHandlerDef,
-} from "./types/index.ts";
+} from "@cosmicdrift/kumiko-types/hooks";
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+import type {
+  MultiStreamProjectionDefinition,
+  ProjectionDefinition,
+} from "@cosmicdrift/kumiko-types/projection";
+import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
+import type { TreeActionDef } from "@cosmicdrift/kumiko-types/tree-node";
+import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
+import type {
+  IncomingRelation,
+  RegistryState,
+  SearchableReferenceField,
+  SortableReferenceField,
+} from "./registry-state.ts";
+import { filterByPhase, filterOwned } from "./registry-state.ts";
+import type { FeatureDefinition, Registry } from "./types/index.ts";
 
 // Builds the public Registry surface (64 getters) bound to a specific
 // RegistryState instance — pure move-diff from createRegistry's former

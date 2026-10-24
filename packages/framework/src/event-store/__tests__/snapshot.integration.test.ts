@@ -14,20 +14,14 @@
 // ist strukturell kompatibel (beide haben .unsafe()/.begin()) — kein Cast nötig.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SnapshotReducer } from "@cosmicdrift/kumiko-types/snapshot-types";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { asRawClient } from "../../db/query.ts";
 import type { TenantId } from "../../engine/types/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { generateId as uuid } from "../../utils/index.ts";
-import {
-  append,
-  archiveStream,
-  loadAggregate,
-  loadAggregateWithSnapshot,
-  loadLatestSnapshot,
-  type SnapshotReducer,
-  saveSnapshot,
-} from "../index.ts";
+import { append, archiveStream, loadAggregate } from "../index.ts";
+import { loadAggregateWithSnapshot, loadLatestSnapshot, saveSnapshot } from "../snapshot.ts";
 
 let bun: BunTestDb;
 const tenant = uuid() as TenantId;

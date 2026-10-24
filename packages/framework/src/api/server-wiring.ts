@@ -5,12 +5,10 @@ import type { AppContext, Registry } from "../engine/types/index.ts";
 import { assertSeedModeNotInProduction } from "../event-store/seed-clock.ts";
 import { makeFileProviderResolver } from "../files/provider-resolver.ts";
 import { createFallbackLogger } from "../logging/index.ts";
-import {
-  createNoopProvider,
-  type ObservabilityProvider,
-  registerStandardMetrics,
-  wrapRedisClient,
-} from "../observability/index.ts";
+import { createNoopProvider, type ObservabilityProvider } from "../observability/index.ts";
+import { wrapRedisClient } from "../observability/redis-wrapper.ts";
+import { registerStandardMetrics } from "../observability/standard-metrics.ts";
+
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.ts";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher.ts";

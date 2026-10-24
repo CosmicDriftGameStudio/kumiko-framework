@@ -1,18 +1,19 @@
-import type { ZodType } from "zod";
-import { isPagedQueryHandler } from "../define-handler.ts";
-import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   DashboardPanelVisibility,
   DashboardScreenDefinition,
   DashboardStatPanel,
   EditLayout,
-  FeatureDefinition,
   ListColumnSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
-  QueryHandlerDef,
   ScreenDefinition,
-} from "../types/index.ts";
+} from "@cosmicdrift/kumiko-types/screen";
+import type { ZodType } from "zod";
+import { isPagedQueryHandler } from "../define-handler.ts";
+import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";

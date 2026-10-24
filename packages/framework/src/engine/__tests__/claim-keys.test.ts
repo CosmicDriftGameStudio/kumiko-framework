@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { ClaimKeyHandle } from "@cosmicdrift/kumiko-types/handlers";
 import { createRegistry, defineFeature, readClaim } from "../index.ts";
-import type { ClaimKeyHandle, SessionUser } from "../types/index.ts";
+import type { SessionUser } from "../types/index.ts";
 
 // --- r.claimKey() registration ---
 

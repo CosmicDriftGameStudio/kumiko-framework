@@ -13,6 +13,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import {
   configurePiiSubjectKms,
   encryptPiiFieldValues,
@@ -20,7 +21,7 @@ import {
   isPiiCiphertext,
 } from "../../crypto/index.ts";
 import { createEntity, createTextField, from } from "../../engine/index.ts";
-import type { EntityDefinition } from "../../engine/types/index.ts";
+
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import {
   collectReferenceFields,

@@ -1,6 +1,8 @@
 import { DEFAULT_LOCALE } from "../i18n/request-locale.ts";
 import { createFallbackFullLogger } from "../logging/utils.ts";
-import { createNoopMetricsHandle, getFallbackTracer } from "../observability/index.ts";
+import { getFallbackTracer } from "../observability/fallback.ts";
+import { createNoopMetricsHandle } from "../observability/index.ts";
+
 import { createTzContext } from "../time/index.ts";
 import { createAnonymousUser } from "./system-user.ts";
 import type {

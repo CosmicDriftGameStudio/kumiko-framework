@@ -3,14 +3,11 @@
 // tier (`entry`) up front; buildServer wires the matching guard + deps
 // instead of handing every route a raw db/redis escape hatch.
 
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
 import type { Context, Hono } from "hono";
-import type {
-  HttpRouteMethod,
-  Registry,
-  SessionUser,
-  TenantId,
-  WriteResult,
-} from "../engine/types/index.ts";
+import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
+
 import type { SecretsContext } from "../secrets/index.ts";
 
 export const ExtraRouteEntries = {

@@ -19,10 +19,9 @@ import {
   archiveStream,
   isStreamArchived,
   loadAggregate,
-  loadLatestSnapshot,
-  saveSnapshot,
   transferAggregateStreams,
 } from "../index.ts";
+import { loadLatestSnapshot, saveSnapshot } from "../snapshot.ts";
 
 let bun: BunTestDb;
 const sourceTenant = uuid() as TenantId;

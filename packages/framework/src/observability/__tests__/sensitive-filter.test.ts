@@ -4,58 +4,8 @@ import {
   mergeSensitiveConfig,
   REDACTED,
   redactAttributes,
-  redactHeaders,
-  redactQueryString,
   shouldRedactAttribute,
 } from "../sensitive-filter.ts";
-
-describe("redactHeaders", () => {
-  it("redacts default sensitive headers case-insensitive", () => {
-    const result = redactHeaders(
-      {
-        Authorization: "Bearer abc",
-        Cookie: "session=xyz",
-        "X-API-Key": "secret",
-        "X-Request-ID": "req-123",
-        "Content-Type": "application/json",
-      },
-      DEFAULT_SENSITIVE_CONFIG,
-    );
-    expect(result["Authorization"]).toBe(REDACTED);
-    expect(result["Cookie"]).toBe(REDACTED);
-    expect(result["X-API-Key"]).toBe(REDACTED);
-    expect(result["X-Request-ID"]).toBe("req-123");
-    expect(result["Content-Type"]).toBe("application/json");
-  });
-
-  it("keeps other headers unchanged", () => {
-    const result = redactHeaders({ "user-agent": "Mozilla" }, DEFAULT_SENSITIVE_CONFIG);
-    expect(result["user-agent"]).toBe("Mozilla");
-  });
-});
-
-describe("redactQueryString", () => {
-  it("redacts tokens in path+query form", () => {
-    const result = redactQueryString("/api/callback?token=abc&user=bob", DEFAULT_SENSITIVE_CONFIG);
-    expect(result).toContain(`token=${encodeURIComponent(REDACTED)}`);
-    expect(result).toContain("user=bob");
-  });
-
-  it("handles absolute URLs", () => {
-    const result = redactQueryString(
-      "https://example.com/oauth?access_token=xyz&state=ok",
-      DEFAULT_SENSITIVE_CONFIG,
-    );
-    expect(result).toContain(`access_token=${encodeURIComponent(REDACTED)}`);
-    expect(result).toContain("state=ok");
-  });
-
-  it("preserves path and fragment", () => {
-    const result = redactQueryString("/path/to/thing?password=x#section", DEFAULT_SENSITIVE_CONFIG);
-    expect(result.startsWith("/path/to/thing")).toBe(true);
-    expect(result.endsWith("#section")).toBe(true);
-  });
-});
 
 describe("shouldRedactAttribute + redactAttributes", () => {
   it("matches password-like keys case-insensitive", () => {

@@ -6,6 +6,5 @@ export type {
   JobQueuedMeta,
   JobRunner,
   JobRunnerOptions,
-  JobSubjectValue,
 } from "./job-runner.ts";
 export { createJobRunner, serializeJobSubject } from "./job-runner.ts";

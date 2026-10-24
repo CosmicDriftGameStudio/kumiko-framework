@@ -1,4 +1,4 @@
-import type { EntityDefinition } from "../engine/types/index.ts";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { DbConnection } from "./connection.ts";
 import { pgTypeToSqlType } from "./dialect.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";

@@ -1,6 +1,7 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
 import { isFieldFilterable } from "../screen-filter-ops.ts";
-import type { EntityDefinition } from "../types/index.ts";
+
 import type { EntityListScreenDefinition } from "../types/screen.ts";
 import {
   entityAggregateFieldLookup,

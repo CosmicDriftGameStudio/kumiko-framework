@@ -1,21 +1,17 @@
+import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
+import type { DispatchWriteRef } from "@cosmicdrift/kumiko-types/handlers";
+import type { Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { JobType, Queue } from "bullmq";
 import { UnrecoverableError } from "bullmq";
-import type {
-  AppContext,
-  DispatchWriteRef,
-  JobDefinition,
-  JobRunIn,
-  Registry,
-  TenantId,
-} from "../engine/types/index.ts";
+import type { AppContext, JobRunIn, Registry, TenantId } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import type { createFallbackLogger } from "../logging/index.ts";
 import { scrubLogText } from "../logging/index.ts";
 import type {
   EscapeHatchProcessDedup,
   EscapeHatchReportWindow,
-  Tracer,
-} from "../observability/index.ts";
+} from "../observability/escape-hatch-report.ts";
+
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import {
   handlerPayloadOf,

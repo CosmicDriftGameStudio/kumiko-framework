@@ -1,12 +1,9 @@
+import type { AppendEventArgs, AppendEventFn } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { tenantDbWriteRunner } from "../db/tenant-db-runner.ts";
 import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
-import type {
-  AppendEventArgs,
-  AppendEventFn,
-  Registry,
-  SessionUser,
-} from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import { appendDomainEventCore } from "../pipeline/append-event-core.ts";
 import { asTypedAppendEventFn } from "../pipeline/typed-append-event.ts";

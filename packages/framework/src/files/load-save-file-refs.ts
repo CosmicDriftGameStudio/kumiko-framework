@@ -1,12 +1,10 @@
+import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import { selectMany } from "../db/query.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
-import {
-  isFileField,
-  type Registry,
-  type SaveContext,
-  type SessionUser,
-} from "../engine/types/index.ts";
+import { isFileField } from "../engine/field-helpers.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+
 import { getStreamVersions } from "../event-store/event-store.ts";
 import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";

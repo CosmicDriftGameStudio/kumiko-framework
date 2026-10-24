@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { NotFoundError } from "../classes.ts";
-import { AgentReasons as BarrelAgentReasons } from "../index.ts";
-import { AgentReasons, FrameworkReasons } from "../reasons.ts";
+import { AgentReasons, AgentReasons as BarrelAgentReasons, FrameworkReasons } from "../reasons.ts";
 import { buildInvalidTransitionDetails } from "../transition-details.ts";
 import { reraiseAsKumikoError, toWriteErrorInfo, writeFailure } from "../write-error-info.ts";
 

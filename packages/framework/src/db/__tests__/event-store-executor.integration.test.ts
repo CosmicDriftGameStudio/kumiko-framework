@@ -5,6 +5,7 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import {
   InMemoryKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
@@ -12,9 +13,11 @@ import {
 } from "../../crypto/index.ts";
 import { asRawClient } from "../../db/query.ts";
 import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
-import type { EntityId } from "../../engine/types/index.ts";
+
 import { FrameworkReasons } from "../../errors/index.ts";
-import { append, loadEventsAfterVersion } from "../../event-store/index.ts";
+import { loadEventsAfterVersion } from "../../event-store/event-store.ts";
+import { append } from "../../event-store/index.ts";
+
 import type { EntityCache } from "../../pipeline/entity-cache.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { applyEntityEvent } from "../apply-entity-event.ts";

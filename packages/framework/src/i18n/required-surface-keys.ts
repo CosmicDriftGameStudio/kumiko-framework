@@ -1,12 +1,4 @@
-import { isExplicitDotFormKey } from "../engine/i18n-key.ts";
-import type { FieldsOrGroupsSection } from "../engine/screen-helpers.ts";
-import {
-  isExtensionEditSection,
-  isWriteFormEditSection,
-  normalizeListColumn,
-  sectionFieldSpecs,
-} from "../engine/screen-helpers.ts";
-import type { ScreenKind, ScreenOfKind } from "../engine/screen-kind.ts";
+import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import type {
   DashboardChartPanel,
   DashboardFilterDefinition,
@@ -17,15 +9,24 @@ import type {
   EditRelatedListSection,
   EditWriteFormSection,
   EntityListExpandableRow,
-  FeatureDefinition,
   ListEmptyStateSpec,
-  NavDefinition,
   RowAction,
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-  WorkspaceDefinition,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/screen";
+import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
+import { isExplicitDotFormKey } from "../engine/i18n-key.ts";
+import type { FieldsOrGroupsSection } from "../engine/screen-helpers.ts";
+import {
+  isExtensionEditSection,
+  isWriteFormEditSection,
+  normalizeListColumn,
+  sectionFieldSpecs,
+} from "../engine/screen-helpers.ts";
+import type { ScreenKind, ScreenOfKind } from "../engine/screen-kind.ts";
+import type { FeatureDefinition } from "../engine/types/index.ts";
+
 import type { TranslationValue } from "../ui-types/plural.ts";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */

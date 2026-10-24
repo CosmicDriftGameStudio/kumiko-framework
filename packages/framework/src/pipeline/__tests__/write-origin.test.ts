@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { serializeError } from "../../errors/index.ts";
+import { serializeError } from "../../errors/serialize.ts";
+
 import { publicIntakeRequiredError } from "../write-origin.ts";
 
 describe("publicIntakeRequiredError", () => {

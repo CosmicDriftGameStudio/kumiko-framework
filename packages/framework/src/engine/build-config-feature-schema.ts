@@ -15,6 +15,7 @@
 // ids/refs with "config", so this code consistently uses SHORT ids/parent/screen
 // refs (buildNavRegistrySliceForApp qualifies them itself).
 
+import type { ExtensionSelectorPanel } from "@cosmicdrift/kumiko-types/config";
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
 import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.ts";
 import type { WorkspaceSchema } from "../ui-types/index.ts";
@@ -42,7 +43,7 @@ import type { Registry, SecretKeyDefinition } from "./types/feature.ts";
 import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.ts";
 import type { AccessRule } from "./types/handlers.ts";
 import { isOpenToAllGranted } from "./types/handlers.ts";
-import type { ExtensionSelectorPanel } from "./types/index.ts";
+
 import type { NavDefinition, NavIconKey } from "./types/nav.ts";
 import type {
   ConfigEditScreenDefinition,

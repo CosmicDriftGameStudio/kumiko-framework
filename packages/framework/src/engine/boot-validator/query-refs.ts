@@ -1,12 +1,13 @@
-import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   DashboardScreenDefinition,
   EditLayout,
-  FeatureDefinition,
-  FieldDefinition,
-  QueryHandlerDef,
   ScreenDefinition,
-} from "../types/index.ts";
+} from "@cosmicdrift/kumiko-types/screen";
+import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
+import type { FeatureDefinition } from "../types/index.ts";
+
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 
 const NOT_REGISTERED_SUFFIX =

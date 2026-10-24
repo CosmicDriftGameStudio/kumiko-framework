@@ -20,7 +20,6 @@
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock, TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
-import { ensureTemporalPolyfill } from "./polyfill.ts";
 
 // Back-compat shim: re-exported so existing `from "@cosmicdrift/kumiko-framework/time/tz-context"`
 // imports keep working. Prefer importing from @cosmicdrift/kumiko-types/tz-context directly in
@@ -93,13 +92,4 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       return geoTz.fromAddress(address);
     },
   };
-}
-
-/**
- * Convenience: ensures the polyfill is loaded AND creates the TzContext in
- * one await. Prefer this in boot code.
- */
-export async function createTzContextAsync(options?: TzContextOptions): Promise<TzContext> {
-  await ensureTemporalPolyfill();
-  return createTzContext(options);
 }

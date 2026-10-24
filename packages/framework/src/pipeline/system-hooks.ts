@@ -1,3 +1,6 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { JobRunnerRef } from "@cosmicdrift/kumiko-types/handlers";
+import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   type AccessInvalidationScope,
@@ -5,24 +8,18 @@ import {
   type SseBroker,
 } from "../api/sse-broker.ts";
 import {
-  collectSearchableSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../crypto/index.ts";
+import { collectSearchableSubjectFields } from "../crypto/subject-resolver.ts";
+import { rehydrateCompoundTypes } from "../db/compound-types.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
-import { createTenantDb, entityTableFromRegistry, rehydrateCompoundTypes } from "../db/index.ts";
+import { createTenantDb, entityTableFromRegistry } from "../db/index.ts";
 import { tenantChannel } from "../engine/constants.ts";
-import type {
-  AppContext,
-  EntityDefinition,
-  EntityId,
-  JobRunnerRef,
-  Registry,
-  SessionUser,
-  TenantId,
-} from "../engine/types/index.ts";
+import type { AppContext, Registry, SessionUser, TenantId } from "../engine/types/index.ts";
+
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";

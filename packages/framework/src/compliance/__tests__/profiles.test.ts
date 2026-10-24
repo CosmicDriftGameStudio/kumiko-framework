@@ -10,14 +10,9 @@ import { describe, expect, test } from "bun:test";
 import { complianceProfileOverrideSchema } from "../override-schema.ts";
 import {
   COMPLIANCE_PROFILES,
-  OVERRIDABLE_PROFILE_KEYS,
   resolveComplianceProfile,
   SELECTABLE_PROFILE_KEYS,
 } from "../profiles.ts";
-
-// Identification keys that an override must not modify — they define the
-// profile's identity and are excluded from the drift test.
-const IDENTIFICATION_KEYS = new Set(["key", "region", "label", "extends"]);
 
 describe("COMPLIANCE_PROFILES — Pre-baked", () => {
   test("eu-dsgvo hat alle Required-Felder", () => {
@@ -67,29 +62,6 @@ describe("SELECTABLE_PROFILE_KEYS", () => {
   test('enthält 3 Profile, ohne "minimal-no-region" (kein Production-Default)', () => {
     expect(SELECTABLE_PROFILE_KEYS).toEqual(["eu-dsgvo", "swiss-dsg", "de-hr-dsgvo-hgb"]);
     expect(SELECTABLE_PROFILE_KEYS).not.toContain("minimal-no-region");
-  });
-});
-
-describe("OVERRIDABLE_PROFILE_KEYS — Drift-Guard (S1.8 N2)", () => {
-  // If a new top-level property is added to ComplianceProfile (or one is
-  // removed), OVERRIDABLE_PROFILE_KEYS must be kept in sync; otherwise
-  // set-profile either rejects valid overrides or accepts invalid ones. This
-  // test detects drift in both directions using the fully resolved eu-dsgvo
-  // profile.
-  test("Override-Whitelist matched die uebrigen Top-Level-Keys von eu-dsgvo (minus Identifikations-Felder)", () => {
-    const allTopLevelKeys = new Set(Object.keys(COMPLIANCE_PROFILES["eu-dsgvo"]));
-    for (const idKey of IDENTIFICATION_KEYS) {
-      allTopLevelKeys.delete(idKey);
-    }
-    const expected = [...allTopLevelKeys].sort();
-    const actual = [...OVERRIDABLE_PROFILE_KEYS].sort();
-    expect(actual).toEqual(expected);
-  });
-
-  test("Identifikations-Keys (key, region, label, extends) sind NICHT in OVERRIDABLE_PROFILE_KEYS", () => {
-    for (const idKey of IDENTIFICATION_KEYS) {
-      expect(OVERRIDABLE_PROFILE_KEYS.has(idKey)).toBe(false);
-    }
   });
 });
 

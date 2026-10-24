@@ -1,3 +1,4 @@
+import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
 import { extractPgError } from "../db/pg-error.ts";
 import {
@@ -11,18 +12,17 @@ import {
 } from "../db/row-level-security-scope.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { AppContext } from "../engine/types/index.ts";
-import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.ts";
+import { EVENTS_PUBSUB_CHANNEL } from "../event-store/event-store.ts";
+import type { StoredEvent } from "../event-store/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
+import { getFallbackMeter, getFallbackTracer } from "../observability/fallback.ts";
 import {
   emitEventConsumerPassOutcome,
   emitEventConsumerPassSkipped,
   emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
-  getFallbackMeter,
-  getFallbackTracer,
-  type Meter,
-  type Tracer,
-} from "../observability/index.ts";
+} from "../observability/standard-metrics.ts";
+
 import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.ts";
 import {
   acquireConsumerState,

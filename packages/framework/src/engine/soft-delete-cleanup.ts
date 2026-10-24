@@ -10,6 +10,7 @@
 // in the log; irreversible event-log purging is data-retention's job (pruneEvents), a separate,
 // consumer-lag-guarded path.
 
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
 import { asEntityTableMeta, selectMany, type WhereObject } from "../db/query.ts";
 import { hasFieldProperty } from "../db/table-introspection.ts";
@@ -19,7 +20,7 @@ import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
 import { createSystemUser, SYSTEM_USER_ID } from "./system-user.ts";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.ts";
 import { SYSTEM_TENANT_ID } from "./types/identifiers.ts";
-import type { EntityDefinition, SessionUser } from "./types/index.ts";
+import type { SessionUser } from "./types/index.ts";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes

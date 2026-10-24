@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildTarget, type TreeActionDef } from "../index.ts";
+import { buildTarget } from "../build-target.ts";
+import type { TreeActionDef } from "../index.ts";
 
 // createTreeActionsStub — Test helper for stub features. The
 // `const` generic modifier forces literal inference so action names arrive

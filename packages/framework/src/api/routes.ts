@@ -7,10 +7,13 @@ import {
   AccessDeniedError,
   type KumikoError,
   reraiseAsKumikoError,
-  serializeError,
   ValidationError,
 } from "../errors/index.ts";
-import { createFallbackLogger, scrubLogText, scrubLogValue } from "../logging/index.ts";
+import { serializeError } from "../errors/serialize.ts";
+
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
+import { scrubLogValue } from "../logging/scrub.ts";
+
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { wrapToKumiko } from "../pipeline/dispatcher-utils.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";

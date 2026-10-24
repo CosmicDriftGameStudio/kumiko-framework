@@ -4,12 +4,14 @@
 // actually reads — no monolithic `options` parameter, because these
 // helpers exist to make each step's dependencies visible at the call-site.
 
+import type { Meter } from "@cosmicdrift/kumiko-types/observability";
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DbConnection } from "../db/connection.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
-import type { Meter, PrometheusMeter } from "../observability/index.ts";
-import { serializeOpenMetrics } from "../observability/index.ts";
+import type { PrometheusMeter } from "../observability/prometheus-meter.ts";
+import { serializeOpenMetrics } from "../observability/prometheus-meter.ts";
+
 import type { EventConsumer } from "../pipeline/event-dispatcher.ts";
 import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants.ts";
 import {

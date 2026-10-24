@@ -1,15 +1,16 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { createDbConnection, type DbConnection, tableExists } from "../db/index.ts";
 import {
-  createDbConnection,
-  type DbConnection,
   fetchAppliedMigrations,
-  findCommentedDropTables,
-  isRetiredFrameworkTable,
   loadMigrationsFromDir,
   readMigrationSqlTexts,
-  tableExists,
-} from "../db/index.ts";
+} from "../db/migrate-runner.ts";
+import {
+  findCommentedDropTables,
+  isRetiredFrameworkTable,
+} from "../db/retired-framework-tables.ts";
+
 import {
   describeThrown,
   loadPreviousSnapshot,

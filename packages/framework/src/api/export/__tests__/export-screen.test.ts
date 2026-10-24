@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { ScreenDefinition } from "../../../engine/types/index.ts";
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
+
 import { resolveExportPlan } from "../export-screen.ts";
 
 const screen: ScreenDefinition = {

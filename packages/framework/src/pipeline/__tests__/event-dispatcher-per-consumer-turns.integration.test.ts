@@ -16,13 +16,10 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
-import {
-  createEventDispatcher,
-  type EventConsumer,
-  type EventDispatcher,
-  getConsumerState,
-} from "../../pipeline/index.ts";
+import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import type { EventConsumer } from "../event-dispatcher.ts";
+import { createEventDispatcher } from "../event-dispatcher.ts";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

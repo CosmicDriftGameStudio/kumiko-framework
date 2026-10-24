@@ -1,12 +1,13 @@
-import { assertNotificationVariables } from "../engine/template-variables.ts";
-import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   NotifyDispatched,
   NotifyFn,
   NotifyOptions,
   NotifyResult,
-  Registry,
-} from "../engine/types/index.ts";
+} from "@cosmicdrift/kumiko-types/handlers";
+import { assertNotificationVariables } from "../engine/template-variables.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
+import type { Registry } from "../engine/types/index.ts";
+
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
 import { parseJsonOrThrow } from "../utils/safe-json.ts";
 import type { AfterCommitHook } from "./dispatcher-utils.ts";

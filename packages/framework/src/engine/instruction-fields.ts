@@ -1,5 +1,4 @@
-import type { EntityDefinition } from "./types/index.ts";
-
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 // Shared between the executor gate (payload-presence check on create/update)
 // and the define-time floor (resolveEntityWriteAgentHints) so both read the
 // exact same field set — a divergence here would let one enforce a flag the

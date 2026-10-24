@@ -1,10 +1,11 @@
+import type { NotificationDefinition } from "@cosmicdrift/kumiko-types/config";
 import { resolveTableName } from "../db/entity-table-meta.ts";
-import { buildMetricName, validateMetricName } from "../observability/index.ts";
+import { buildMetricName, validateMetricName } from "../observability/metric-validator.ts";
 import { toKebab } from "./qualified-name.ts";
 import type { RegistryState } from "./registry-state.ts";
 import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.ts";
 import { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.ts";
-import type { FeatureDefinition, NotificationDefinition } from "./types/index.ts";
+import type { FeatureDefinition } from "./types/index.ts";
 
 // Feature registration + entities (globally-unique, physical-table-checked) + relations
 // (additive per entity, duplicate-per-name guarded).

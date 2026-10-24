@@ -22,8 +22,6 @@ import { runStatusCommand } from "./schema-cli/status-command.ts";
 import { runValidateCommand } from "./schema-cli/validate-command.ts";
 import { ensureTemporalPolyfill } from "./time/index.ts";
 
-export type { RunSchemaCliOptions, SchemaCliOut } from "./schema-cli/shared.ts";
-
 const SCHEMA_SUBCOMMANDS = ["generate", "validate", "apply", "baseline", "status"] as const;
 type SchemaSubcommand = (typeof SCHEMA_SUBCOMMANDS)[number];
 

@@ -1,6 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 
-import type { JobDefinition } from "../engine/types/index.ts";
 import { type JobRun, prepareJobRun } from "./job-runner-context.ts";
 import {
   attemptNumberOf,

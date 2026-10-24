@@ -24,9 +24,6 @@ export const QnTypes = {
   screen: "screen",
   nav: "nav",
 } as const;
-
-export type BuiltinQnType = (typeof QnTypes)[keyof typeof QnTypes];
-
 // QnType is string — framework types are predefined, but features can use custom types.
 export type QnType = string;
 

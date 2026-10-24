@@ -1,8 +1,10 @@
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRow } from "../db/connection.ts";
 import { hasAccess } from "../engine/access.ts";
 import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
 import { checkWriteFieldRoles } from "../engine/field-access.ts";
-import type { SessionUser, WriteHandlerDef } from "../engine/types/index.ts";
+import type { SessionUser } from "../engine/types/index.ts";
+
 import { runValidation } from "../engine/validation.ts";
 import {
   AccessDeniedError,

@@ -1,3 +1,4 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { escapeLikePattern } from "../crypto/ciphertext-pattern.ts";
 import {
   buildOwnershipClause,
@@ -6,7 +7,8 @@ import {
   shiftParams,
 } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
-import type { EntityDefinition, SessionUser, TenantId } from "../engine/types/index.ts";
+import type { SessionUser, TenantId } from "../engine/types/index.ts";
+
 import { UnprocessableError } from "../errors/index.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.ts";

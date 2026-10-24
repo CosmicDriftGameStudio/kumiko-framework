@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import type { QueryHandlerDef, WriteHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import {
   createEntityExecutor,
@@ -18,7 +19,7 @@ import { createEntity, createLongTextField, createTextField } from "../factories
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
 // actually re-exported through engine/index.ts.
 import { entityListSchema, resolveAgentExposure } from "../index.ts";
-import type { QueryHandlerDef, WriteHandlerDef } from "../types/index.ts";
+
 import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";

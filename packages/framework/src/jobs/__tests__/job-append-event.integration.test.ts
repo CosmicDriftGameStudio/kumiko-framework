@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import type { UnsafeAppendEventFn } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { insertOne, selectMany } from "../../db/query.ts";
@@ -9,8 +10,8 @@ import {
   createTextField,
   defineFeature,
   type JobContext,
-  type UnsafeAppendEventFn,
 } from "../../engine/index.ts";
+
 import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 

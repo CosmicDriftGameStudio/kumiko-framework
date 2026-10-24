@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import type { FieldsMap } from "@cosmicdrift/kumiko-types/fields";
 import { createLongTextField, createNumberField, createTextField } from "../factories";
-import type { FieldsMap } from "../types";
 
 // The compile-time half of the personal-stance requirement: this file only
 // typechecks while the @ts-expect-error lines stay errors.

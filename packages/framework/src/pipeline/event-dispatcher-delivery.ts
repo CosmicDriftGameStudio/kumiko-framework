@@ -1,6 +1,10 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+
+import type { Meter } from "@cosmicdrift/kumiko-types/observability";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { type RequestContextData, requestContext } from "../api/request-context.ts";
+import { requestContext } from "../api/request-context.ts";
+import type { RequestContextData } from "../api/request-context-internals.ts";
+
 import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
 import {
   insertConsumerIfAbsent,
@@ -20,18 +24,15 @@ import { coerceRow } from "../db/query.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import { qnScope } from "../engine/qualified-name.ts";
 import type { AppContext } from "../engine/types/index.ts";
-import {
-  eventsTable,
-  toStoredEvent as rowToStoredEvent,
-  type StoredEvent,
-} from "../event-store/index.ts";
+import { eventsTable, type StoredEvent } from "../event-store/index.ts";
+import { toStoredEvent as rowToStoredEvent } from "../event-store/row-to-stored-event.ts";
+import { getFallbackMeter } from "../observability/fallback.ts";
 import {
   emitDispatcherError,
   emitEventConsumerLag,
   emitEventConsumerPendingGaps,
-  getFallbackMeter,
-  type Meter,
-} from "../observability/index.ts";
+} from "../observability/standard-metrics.ts";
+
 import {
   ConsumerStatuses,
   eventConsumerStateTable,

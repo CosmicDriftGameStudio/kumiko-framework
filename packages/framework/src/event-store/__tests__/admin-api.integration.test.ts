@@ -14,7 +14,9 @@ import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection } from "../../db/connection.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { generateId as uuid } from "../../utils/index.ts";
-import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api.ts";
+import { appendRaw, appendRawBatch } from "../admin-api.ts";
+import type { RawEventToAppend } from "../admin-api-internals.ts";
+
 import { IdempotentAppendConflictError, VersionConflictError } from "../errors.ts";
 import { append, loadAggregate } from "../event-store.ts";
 import { eventsTable } from "../events-schema.ts";

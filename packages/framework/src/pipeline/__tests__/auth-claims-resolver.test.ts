@@ -1,9 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import type {
-  AuthClaimsContext,
-  AuthClaimsHookDef,
-  SessionUser,
-} from "../../engine/types/index.ts";
+import type { AuthClaimsContext, AuthClaimsHookDef } from "@cosmicdrift/kumiko-types/handlers";
+import type { SessionUser } from "../../engine/types/index.ts";
+
 import type { Logger } from "../../logging/types.ts";
 import { resolveAuthClaims } from "../auth-claims-resolver.ts";
 

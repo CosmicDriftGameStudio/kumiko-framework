@@ -16,11 +16,9 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
-import {
-  ArchivedStreamError,
-  isStreamArchived,
-  loadAggregate as loadAggregateRaw,
-} from "../../event-store/index.ts";
+import { ArchivedStreamError } from "../../event-store/errors.ts";
+import { isStreamArchived, loadAggregate as loadAggregateRaw } from "../../event-store/index.ts";
+
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const itemEntity = createEntity({

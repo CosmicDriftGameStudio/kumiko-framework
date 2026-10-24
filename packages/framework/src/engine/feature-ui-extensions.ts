@@ -1,4 +1,27 @@
+import type {
+  ExtensionSelectorPanel,
+  RegistrarExtensionDef,
+} from "@cosmicdrift/kumiko-types/config";
+import type { BootCheckFn, StoreTableOptions } from "@cosmicdrift/kumiko-types/feature";
+import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
+import type { EscapeHatchDeclaration, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  HookPhase,
+  LifecycleHookFn,
+  PostDeleteHookFn,
+  PostQueryHookFn,
+  PostSaveHookFn,
+  PreDeleteHookFn,
+  SearchPayloadContributorFn,
+  ValidationHookFn,
+} from "@cosmicdrift/kumiko-types/hooks";
+import type {
+  EntityProjectionExtension,
+  MultiStreamProjectionDefinition,
+  ProjectionDefinition,
+} from "@cosmicdrift/kumiko-types/projection";
+import type { TreeActionDef, TreeActionsHandle } from "@cosmicdrift/kumiko-types/tree-node";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT,
@@ -9,37 +32,16 @@ import {
 import type { EntityTableMeta } from "../db/entity-table-meta.ts";
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
+import type { LifecycleHookType } from "./constants.ts";
 import { LifecycleHookTypes } from "./constants.ts";
 import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
+import { HookPhases } from "./hook-helpers.ts";
 import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
 import type { HttpRouteDefinition } from "./types/http-route.ts";
-import type {
-  BootCheckFn,
-  EntityProjectionExtension,
-  EscapeHatchDeclaration,
-  ExtensionSelectorPanel,
-  HookDefinition,
-  HookPhase,
-  LifecycleHookFn,
-  LifecycleHookType,
-  MultiStreamProjectionDefinition,
-  NameOrRef,
-  PostDeleteHookFn,
-  PostQueryHookFn,
-  PostSaveHookFn,
-  PreDeleteHookFn,
-  ProjectionDefinition,
-  RegistrarExtensionDef,
-  SearchPayloadContributorFn,
-  StoreTableOptions,
-  TreeActionDef,
-  TreeActionsHandle,
-  ValidationHookFn,
-} from "./types/index.ts";
-import { HookPhases } from "./types/index.ts";
+
 import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.ts";
 import type { ScreenDefinition } from "./types/screen.ts";
 import type { WorkspaceDefinition } from "./types/workspace.ts";

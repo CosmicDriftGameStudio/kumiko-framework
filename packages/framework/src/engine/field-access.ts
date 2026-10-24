@@ -1,6 +1,7 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { DbRow } from "../db/connection.ts";
 import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.ts";
-import type { EntityDefinition, SessionUser } from "./types/index.ts";
+import type { SessionUser } from "./types/index.ts";
 
 function writeOnlyFieldNames(entity: EntityDefinition): readonly string[] {
   const names: string[] = [];

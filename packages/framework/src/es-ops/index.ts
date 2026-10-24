@@ -8,27 +8,13 @@
 //   - `runProdApp({ seedsDir })`: the framework runs pending migrations at boot
 //   - `bunx kumiko ops seed:new|status|apply` (CLI)
 
-export {
-  type CreateSeedMigrationContextArgs,
-  createSeedMigrationContext,
-} from "./context.ts";
+export { createSeedMigrationContext } from "./context.ts";
 export {
   createEsOperationsTable,
-  type EsOperationAppliedBy,
-  type EsOperationType,
   esOperationsTable,
 } from "./operations-schema.ts";
-export {
-  type RunPendingSeedMigrationsArgs,
-  type RunPendingSeedMigrationsResult,
-  runPendingSeedMigrations,
-} from "./runner.ts";
+export { runPendingSeedMigrations } from "./runner.ts";
 export type {
-  SeedMembershipRow,
   SeedMigration,
   SeedMigrationContext,
-  SeedTemplateResourceFilter,
-  SeedTemplateResourceRow,
-  SeedTenantRow,
-  SeedUserRow,
 } from "./types.ts";

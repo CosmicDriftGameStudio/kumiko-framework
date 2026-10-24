@@ -10,15 +10,11 @@
 //   - GeoTzProvider: optional geo-to-zone adapter (ctx.tz.fromCoordinates/fromAddress)
 
 export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning.ts";
-export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz.ts";
+export type { GeoTzProvider } from "./geo-tz.ts";
 export { isValidIanaTimeZone } from "./iana.ts";
 export { instantToLegacyDate, legacyDateToInstant } from "./legacy-date.ts";
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill.ts";
 export {
-  type Clock,
   createTzContext,
-  createTzContextAsync,
-  type LocatedTimestampJson,
   type TzContext,
-  type TzContextOptions,
 } from "./tz-context.ts";

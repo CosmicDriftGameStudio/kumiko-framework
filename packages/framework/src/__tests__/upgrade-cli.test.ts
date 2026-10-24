@@ -11,15 +11,15 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import {
-  findCodemodScriptsRoot,
-  findFeatureChangelogFiles,
   findFeaturesDirs,
   findPackageChangelogFiles,
-  manualEntryId,
   resolveCodemodScript,
   runUpgradeCli,
-  type UpgradeCliOut,
 } from "../upgrade-cli.ts";
+import type { UpgradeCliOut } from "../upgrade-cli-internals.ts";
+import { findCodemodScriptsRoot, findFeatureChangelogFiles } from "../upgrade-cli-internals.ts";
+
+import { manualEntryId } from "../upgrade-marker-parse.ts";
 
 type MarkerFile = {
   readonly version: string;
