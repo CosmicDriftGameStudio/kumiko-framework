@@ -2,7 +2,7 @@
 
 # lane-routing
 
-runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.appendEvent, verified end-to-end through createAllInOneEntrypoint.
+runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.events.append, verified end-to-end through createAllInOneEntrypoint.
 
 ## README
 
