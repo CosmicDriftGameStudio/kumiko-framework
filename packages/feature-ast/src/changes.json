@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "Codemods skip gitignored files, ctx-namespaces finds structural helpers across files",
+    "detail": "collectSourceFiles, used by the codemods, leaves out files the repository's .gitignore excludes, such as generated output and local worktrees. The ctx-namespaces codemod loads all files of a tsconfig project before rewriting, so a helper with a structural `{ query }` context type is migrated even when its handler caller sits in a file processed later."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "ctx-namespaces codemod follows structural context types through aliases and intersections",
