@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "PDF editor actions drop unreachable null checks",
+    "detail": "generatePdf, printOnce and the save path of the PDF template editor no longer check for a missing editor state; the editor only builds its actions once the state is loaded, and the type already excludes null. A new test pins the publishSystem path for a SystemAdmin who holds a clean tenant template."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "The PDF editor no longer saves or publishes the previous row after a scope switch",
+    "detail": "When the host scope changed while the editor was open, for example once the SystemAdmin role loaded, the editor kept showing the tenant copy until the system row arrived. Save then wrote the tenant content as the system template, and publish sent the tenant row to publishSystem. The editor now shows the loading state until the detail of the newly picked row has loaded."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split PDF, layout and mail editors into hooks and render functions",
+    "detail": "PdfTemplateEditor, LayoutEditorBody and MailEditorBody compose focused state hooks, pure logic modules and render functions for chrome, panes and previews. Rendered markup and behavior are unchanged."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "layout editor scope follows the entry screen",

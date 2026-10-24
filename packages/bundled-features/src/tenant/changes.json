@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Event-store write helpers for user, membership and tenant tests",
+    "detail": "The user/testing and tenant/testing subpaths export updateUserViaEventStore, softDeleteUserViaEventStore, setMembershipRolesViaEventStore, deleteMembershipViaEventStore and updateTenantViaEventStore. updateTenantViaEventStore addresses the stream of the seed SystemAdmin's tenant by default, where tenants created in tests live. Tests use them to change event-sourced rows through the event store instead of the projection tables. Both subpaths now import @cosmicdrift/kumiko-testing and therefore load under Bun only, like tenant-lifecycle/testing; import user/seeding or tenant/seeding where Node has to load the seed helpers."
+  },
+  {
+    "version": "0.390.0",
+    "type": "breaking",
+    "title": "Tenant streams and rows live on the system tenant, seed defaults changed",
+    "detail": "Tenants created, renamed or toggled by a SystemAdmin whose session tenant was neither 0001 nor the SYSTEM tenant landed in the event stream, read row and search bucket of that session tenant, so later updates could not find them. The tenant entity is now declared systemStream with tenancy global, so every writer (create, update, enable and disable, request and cancel destruction, the destroy job stages) addresses the stream on SYSTEM_TENANT_ID. seedTenant, seedUser, seedAdmin and seedAdminGuarded default to createSystemUser(SYSTEM_TENANT_ID) and write the tenant to SYSTEM whatever tenant an explicit by acts from; managed-pages and compliance-profiles seeds default to createSystemUser(tenantId). Existing memberships written by an admin of another tenant sit on that admin's stream while read_tenant_memberships.tenant_id carries the member tenant; after the backfill streamTenantId equals tenantId for them. New export backfillTenantStreamTenants from the tenant feature, the boot step runStreamTenantBackfillOnBoot in server-runtime, EsOperationType gains \"stream-migration\", built on the generic backfillAggregateStreamTenants in shared (backfillUserStreamTenants keeps its signature).",
+    "migration": "Nothing to run: runProdApp (api, all-in-one) and runWorkerApp search for legacy tenant, membership and user streams on every boot, before the boot seeds respectively before the worker starts, and fix what they find. A boot with nothing left reads only events of other tenants than SYSTEM (plus the membership events) and does no rebuild or reindex. It merges split tenant streams onto SYSTEM_TENANT_ID, moves each membership stream to the tenantId of its payload, moves legacy user streams, removes stale search documents from the old buckets, and where streams moved rebuilds tenant:projection:tenant-entity, tenant:projection:tenant-membership-entity and user:projection:user-entity and reindexes the tenant and user search indexes. Legacy streams written by old pods during a rolling deploy are fixed on the next boot. A row in kumiko_es_operations (stream-tenant-backfill:<user|tenant>:derived-pending) marks a run in progress so that a crash after the moves still gets its rebuild and reindex. Parallel boots are serialized by a Postgres advisory lock; failures are logged (aggregateId, step, error) and retried on the next boot. A process without a search adapter leaves the work to one that has it. Library users can call backfillTenantStreamTenants or backfillUserStreamTenantsWithDerivedState directly. Code that read tenant streams with loadAggregate(db, tenantId, \"tenant\") or appended tenant events with the tenant id as stream tenant must use SYSTEM_TENANT_ID. Consumer workarounds that wrote tenant streams under a SystemAdmin `by` (for example an executor update with TestUsers.systemAdmin) are no longer needed, because the stream is always SYSTEM. Seeds that relied on the old by default (TestUsers.systemAdmin) now get the system user as audit actor. Apps without a search backend set `search: \"none\"` on runProdApp and runWorkerApp, otherwise the stream-tenant backfill stays deferred in every process that has no search adapter."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Tests no longer write event-sourced tables directly",
+    "detail": "Integration tests for users, memberships, tenants and user-data-rights change event-sourced rows through the event store or the real commands and reset them with resetTestTables. seedDestroyingTenant in tenant-lifecycle/testing now writes the status through the event store and throws when the tenant stream does not live on the seed SystemAdmin's tenant. Nothing changes for apps; the packages are only republished."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Tenant directory search contract documented",

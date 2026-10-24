@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "Tenant job run rows are written in the tenant's scope",
+    "detail": "With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "readRoles for tenant job status",

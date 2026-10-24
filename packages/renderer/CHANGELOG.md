@@ -1,5 +1,135 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.390.0
+
+### Patch Changes
+
+- 1a7eebe: Parallel writes on one handler transaction no longer abort it, a failed verb leaves no orphan event, invalid date values are a 400, and previewOpenByDefault opens the newest file.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Parallel writes in one handler no longer abort the transaction
+  detail: Bun.SQL does not serialize savepoints on a transaction. A handler that started several executor writes on ctx.db with Promise.all opened overlapping savepoints, the first RELEASE also released its neighbours, and the next one aborted the whole transaction with a 500. runInSavepoint and runInSavepointIfSupported now queue savepoints per transaction (proxy runners over the same transaction share one queue, savepoints opened from inside a running one still nest), and an executor verb on a handler transaction now runs in its own savepoint: when it fails, its event append, projection and hooks roll back together, also when the handler catches the failure, so no event without projection is left behind and a rebuild replays cleanly. Postgres errors 22007 and 22008 (a date or time value the column rejects, such as 2026-02-30) now map to a 400 validation_error instead of a 500, on writes and on query filters.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: previewOpenByDefault opens the newest file
+  detail: FileValueList with previewOpenByDefault (renderer format "file") now opens only the PDF preview of the newest file instead of the first one. Uploads append their FileRef id, so the newest file is the last id in fileIds.
+  -->
+- 4f4ec30: DataTable cards on narrow screens keep the title on one line and the row menu inside the viewport.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: DataTable card title is truncated instead of wrapping
+  detail: In the mobile card layout a long title now truncates to one line with its full text on hover, and the row-actions menu no longer shrinks or leaves the viewport next to it. Before, the title wrapped over several lines and could squeeze the menu.
+  -->
+- 86af2d0: DataTable with resizable columns opens the row on a click in the leftover width, and its resize grips no longer collide with column names in getByLabel.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: DataTable resizing: row click in the leftover width, grip named by title
+  detail: With column sizing the actions column absorbs the leftover width, and its cell swallowed every click, so a click on the free area to the right of the last column did not open the row. Only clicks from inside the cell (buttons, menus) stop now; a click on the empty cell reaches the row. The resize grips carry their text as title instead of aria-label, so getByLabel on a column name no longer matches the grip of every column. The accessible name stays, getByRole("separator", { name }) keeps working.
+  -->
+- 4b36bd9: The complexity guard now scans .tsx files with the same hard cap of 40 as .ts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Complexity guard covers .tsx with the hard cap of 40
+  detail: The Complexity Check scans .tsx files next to .ts (.test.tsx stays excluded), and conditional JSX counts as a branch. A .tsx function above complexity 40 fails in the repo's own files, regardless of baseline or complexity-budget tag.
+  migration: Run `kumiko-guards guards --write-baseline --guard="Complexity Check"` once on the bump to freeze the .tsx hotspots between 15 and 40, and split every .tsx function above 40 before the bump; the complexity-budget tag and the baseline do not cover it. Measured on 2026-10-23 (function, complexity / lines): offlot-app ComposerWorkspace 129/597 (campaign-composer-screen.tsx) and ComposerPostText 47/289 (composer-post-drawer.tsx); kumiko-enterprise AgentPanelBody 74/634 (agent-panel-body.tsx); phronexsis WorkbenchDashboardScreen 64/653 (workbench-dashboard-screen.tsx); money-horse CreditCalculatorScreen 60/468 (credit-calculator-screen.tsx); solon CockpitDetail 58/462 (inbox-cockpit-screen.tsx). publicstatus, show-pony, kumiko-studio and kumiko-platform have no .tsx function above 40.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: PDF editor actions drop unreachable null checks
+  detail: generatePdf, printOnce and the save path of the PDF template editor no longer check for a missing editor state; the editor only builds its actions once the state is loaded, and the type already excludes null. A new test pins the publishSystem path for a SystemAdmin who holds a clean tenant template.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: One tiptap range across the framework packages
+  detail: bundled-features pinned @tiptap/* exactly to 3.31.3 while the renderer asked for ^3.30.5. Apps resolved the renderer's range to a newer patch and kept the exact pin next to it, so their lockfiles held two @tiptap/core and @tiptap/react instances (core 3.31.3 and 3.31.4 in offlot-app, money-horse, publicstatus, phronexsis, show-pony and kumiko-enterprise). Both packages now declare ^3.31.3 for every @tiptap/* dependency, so one resolved version satisfies both; the framework lockfile still resolves 3.31.3.
+  -->
+- 54cda5b: Integration tests seed event-sourced rows through the event store and reset event-sourced tables together with the events table.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Tests seed and reset event-sourced tables through the event store
+  detail: Seeds of user, membership, tenant and other entity rows use seedRowViaEventStore instead of seedRow, so their created events exist. Setup and teardown hooks in the integration tests clear event-sourced tables through resetTestTables instead of raw DELETE statements, and clear the events table in the same call, so a test no longer starts with events whose projection rows are gone. Nothing changes for apps; the packages are only republished.
+  -->
+- a08fc93: Split DefaultInput, renderInput and RenderField into table-driven dispatchers with small per-kind renderers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Table-driven field and input dispatch
+  detail: DefaultInput, renderInput, RenderField and the read-only field text dispatch over tables, and ReferenceInput keeps its query and create state in one hook. Rendered markup and behavior are unchanged.
+  -->
+- 78654fd: Split the list and detail components into hooks and render functions.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Split list and detail screens into hooks and render functions
+  detail: RenderList, ProjectionListBody and ProjectionDetailBody compose focused hooks and render functions for search, columns, toolbar, queries, actions, header and states. Rendered markup and behavior are unchanged.
+  -->
+- c64181f: Split RenderEdit into state hooks, a submit pipeline and per-kind section renderers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Split RenderEdit into hooks and per-kind section renderers
+  detail: RenderEdit composes focused hooks and builders for state, form, draft, wizard navigation and submit, and renders sections through per-kind functions. Rendered markup and behavior are unchanged.
+  -->
+- 1d392a4: Split the web StackedAreaChart into hooks and render functions.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Split web StackedAreaChart into hooks and render functions
+  detail: StackedAreaChart composes window and tooltip hooks with geometry builders and render functions for the plot, tooltip, brush and chrome. Rendered markup and behavior are unchanged.
+  -->
+- 5d38d3c: Split the web dashboard, form footer, drawer and data table into hooks and render functions.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Split web dashboard, form footer, drawer and data table into hooks and render functions
+  detail: WebDashboardBody, FormFooter, Drawer and DefaultDataTable compose focused hooks and render functions for screen state, header, visibility gates, panel tiles, sticky footer rows, drawer resizing, table state, toolbar, table rows and card views. Rendered markup and behavior are unchanged.
+  -->
+- Updated dependencies [1a7eebe]
+- Updated dependencies [5d7dfe1]
+- Updated dependencies [a01d30a]
+- Updated dependencies [454b49d]
+- Updated dependencies [21b70ba]
+- Updated dependencies [be576a7]
+- Updated dependencies [5ee91c6]
+- Updated dependencies [febcd93]
+- Updated dependencies [abef0e6]
+- Updated dependencies [01a611f]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [3131c5c]
+- Updated dependencies [8d06990]
+- Updated dependencies [c2fd4b3]
+- Updated dependencies [6d20414]
+- Updated dependencies [f6d230f]
+- Updated dependencies [e0e2dfe]
+- Updated dependencies [22f9f23]
+- Updated dependencies [6c1151a]
+- Updated dependencies [54cda5b]
+- Updated dependencies [9e6de88]
+  - @cosmicdrift/kumiko-framework@0.390.0
+  - @cosmicdrift/kumiko-types@0.390.0
+
 ## 0.389.0
 
 ### Minor Changes

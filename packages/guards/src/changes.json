@@ -1,5 +1,55 @@
 [
   {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Complexity guard covers .tsx with the hard cap of 40",
+    "detail": "The Complexity Check scans .tsx files next to .ts (.test.tsx stays excluded), and conditional JSX counts as a branch. A .tsx function above complexity 40 fails in the repo's own files, regardless of baseline or complexity-budget tag.",
+    "migration": "Run `kumiko-guards guards --write-baseline --guard=\"Complexity Check\"` once on the bump to freeze the .tsx hotspots between 15 and 40, and split every .tsx function above 40 before the bump; the complexity-budget tag and the baseline do not cover it. Measured on 2026-10-23 (function, complexity / lines): offlot-app ComposerWorkspace 129/597 (campaign-composer-screen.tsx) and ComposerPostText 47/289 (composer-post-drawer.tsx); kumiko-enterprise AgentPanelBody 74/634 (agent-panel-body.tsx); phronexsis WorkbenchDashboardScreen 64/653 (workbench-dashboard-screen.tsx); money-horse CreditCalculatorScreen 60/468 (credit-calculator-screen.tsx); solon CockpitDetail 58/462 (inbox-cockpit-screen.tsx). publicstatus, show-pony, kumiko-studio and kumiko-platform have no .tsx function above 40."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Guard for the runSchemaCli feature list",
+    "detail": "The Schema CLI Features guard fails when a consumer's `runSchemaCli` call does not get `features: FEATURES` imported from `kumiko/schema`. `allAppFeatures()` is raw, without the bundled foundation, so the projection rebuild after the migrations failed at deploy with \"Feature X requires feature Y\" (kumiko-studio, 2026-10-22). The message names the fix. Repos without `kumiko/schema.ts` are skipped, and a manifest exclude cannot hide `bin/kumiko.ts`.",
+    "migration": "Run `bun kumiko check` once on the bump. Measured on 2026-10-23: only show-pony fails (bin/kumiko.ts composes its own list); import `FEATURES` from `../kumiko/schema` there. publicstatus, offlot-app, solon, money-horse, phronexsis and kumiko-studio are clean."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Guard against projection-only writes in framework tests",
+    "detail": "The Test-ES-Row-Writes guard flags updateRows and deleteRows from the testing helpers in framework tests, because they change the projection but not the event log. It only runs in the framework repo; consumer repos are not affected."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Guard against array parameters in .unsafe()",
+    "detail": "The Unsafe Array Param guard warns when a `.unsafe(sql, [...])` parameter list holds an array literal or a spread. Bun.SQL binds such an array as \"a,b\" on Linux, so `ANY($n)` fails only in CI and passes on macOS; pass `toPostgresArrayLiteral(values)` with a `$n::text[]` cast. It is a warning and cannot see array-typed variables. Measured on 2026-10-23: no hit in any consumer repo."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "test-es-row-writes guard covers seedRow and raw SQL on event-sourced tables",
+    "detail": "Besides updateRows/deleteRows, the guard now reports seedRow on an entity table the test file builds with buildEntityTable, and raw DELETE or UPDATE statements on read_ tables, DELETE on kumiko_events and template SQL on eventsTable or such an entity table. Tests that corrupt projections, backdate timestamps or plant legacy rows on purpose are allowlisted per file with a reason. The guard runs in the framework repo only; nothing changes for apps."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "New guard rls-session-settings",
+    "detail": "Flags SET and SET SESSION on kumiko.* settings and set_config with is_local false in any source or test string, kumiko.* writes outside rls-scope.ts in non-test code, and a set_config in rls-scope.ts without literal true. A session-level setting survives on a pooled connection and leaks one request's scope into the next."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "rls-session-settings also scans .sql files",
+    "detail": "Consumer migrations are checked statement by statement for session-level SET kumiko.*, set_config with is_local false and any kumiko.* write."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "New guard internal-subpath-imports",
+    "detail": "Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Guard against hand-made event and membership SQL in tests",

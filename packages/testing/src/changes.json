@@ -1,5 +1,68 @@
 [
   {
+    "version": "0.390.0",
+    "type": "breaking",
+    "title": "happy-dom and undici updated for security advisories",
+    "detail": "The happy-dom range for the global registrator and the DOM test setup moves to ^21.0.4 (fixes GHSA-834V-8H66-3H79, incomplete fix for an unsanitized import alias leading to host code execution), undici is pinned to 7.30.1 (fixes GHSA-XJJ6-F33Q-929C, denial of service through an unhandled error on excessive content-encodings).",
+    "migration": "Bump @happy-dom/global-registrator (and happy-dom, if listed) to ^21.0.4 in the app's devDependencies; the kumiko-testing peer range is now ^21.0.4. happy-dom 21 is a major release: run the app's DOM test suite after the bump."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Run e2e specs that change global app state in an isolated project",
+    "detail": "defineAppE2eConfig takes an isolatedSpecs option with the same pattern form as testMatch. Matching specs are removed from chromium and from every app project and run in a separate chromium-isolated project with one worker, only after all other projects have finished. Apps use it for specs that change state shared across the app, such as creating catalog channels. With isolatedSpecs set, every app project needs a name, and a run with --shard throws because Playwright does not shard dependency projects. Without the option the generated config is unchanged."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "The e2e suites run in two parallel CI shards",
+    "detail": "The framework CI splits the Playwright e2e suites across two runners instead of running them one after another on a single runner. The required e2e check passes only when both shards succeed. Nothing changes for apps; the package is only republished."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "The puppeteer render tests, including the egress guard, run in CI",
+    "detail": "The integration job installs Chrome through the trusted puppeteer postinstall and caches it between runs, so the real render tests no longer skip in CI. Nothing changes for apps; the package is only republished."
+  },
+  {
+    "version": "0.390.0",
+    "type": "breaking",
+    "title": "extraContext factories get the raw db in the test stack and dev",
+    "detail": "The test stack and dev now pass the enforcing pool to extraContext factories, as runProdApp does, so request-time services keep the ambient request scope and a tenant leak shows up in tests instead of only in production.",
+    "migration": "Services built in extraContext that read across tenants at request time, or that a test calls directly, must scope themselves: createTenantDb({ db, tenantId, mode: \"system\", reason: \"<why>\" }). Test code reads through stack.db."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Export applicationRoleUrlOf from kumiko-testing/stack",
+    "detail": "Use it to boot runProdApp in tests against the app role. It returns the URL of a database as the non-bypass application role with the password of TEST_DATABASE_URL; pair it with createTestDb({ applicationRole: true })."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "The test application role is realigned to the configured password",
+    "detail": "createApplicationRole used to return early when the role existed, so a kumiko_app role with another password made every integration test fail with 28P01. It now runs ALTER ROLE with the configured password and the NOSUPERUSER NOBYPASSRLS attributes."
+  },
+  {
+    "version": "0.390.0",
+    "type": "breaking",
+    "title": "The test stack runs with row level security on as role kumiko_app",
+    "detail": "setupTestStack creates the role kumiko_app (LOGIN NOSUPERUSER NOBYPASSRLS, password taken from TEST_DATABASE_URL) once, makes it owner of the test database and opens every pool as that role with rowLevelSecurity \"on\"; template databases are built the same way. stack.db runs in system scope and sees every tenant's rows as before. The new stack.unscopedDb is the enforced pool the services use, on which a statement without a scope sees no tenant rows. rowLevelSecurity: \"off\" in the stack options restores the superuser stack without policies. createTestDb takes applicationRole: true for the same setup.",
+    "migration": "App code that reads or writes tenant tables through a raw connection outside a request, a job or a TenantDb now sees no rows in integration tests. Test code that calls such a path directly runs it inside runInSystemRowLevelSecurityScope or runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantId), ...) from @cosmicdrift/kumiko-testing/helpers. Production code works through a TenantDb for the tenant, a job, a system-scoped handler or a granted unsafeRaw. Tests that need superuser rights on stack.db, such as CREATE EXTENSION, CREATE ROLE or event triggers, open their own connection from TEST_DATABASE_URL or use createTestDb(). Manual migration, there is no codemod."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Test helpers for event-store writes",
+    "detail": "The testing helpers gain updateRowViaEventStore, deleteRowViaEventStore and deleteRowsViaEventStore. They update or delete rows of an event-sourced table through the event-store executor, so the event log and the projection stay in step, instead of writing the projection table directly."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Seed event-sourced rows through the event store",
+    "detail": "The testing helpers gain seedRowViaEventStore(db, table, values). It takes the same arguments as seedRow, appends a created event through the event-store executor and projects the row, so a rebuild keeps the seeded row. The row's tenantId selects the acting tenant; global entities such as user are seeded without a tenantId, because the executor rejects one on them. It throws for tables that are not event-sourced entity tables, for a non-string id and when the executor rejects the row. To support this, buildEntityTable and r.entity now remember which entity a managed table belongs to; nothing changes for apps."
+  },
+  {
     "version": "0.389.0",
     "type": "breaking",
     "title": "captureClosedConnectionError returns a Bun.SQL error",

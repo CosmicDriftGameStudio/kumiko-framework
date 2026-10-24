@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "Rail inserts no longer do nothing after the placeholder labels load",
+    "detail": "Inserting a placeholder into the subject, preheader, header chip or footer field could silently do nothing once the placeholder labels had loaded, because the replaced editor unregistered the handle of its remounted successor. The editors now report their handle from the React commit instead of tiptap's create and destroy callbacks."
+  },
+  {
+    "version": "0.390.0",
+    "type": "fix",
+    "title": "Placeholder inserts keep working after a line editor remounts",
+    "detail": "When a placeholder line editor (subject, preheader, header chip, footer note) remounted (labels arriving from the async validate query, or a new external value), TipTap could destroy the replaced editor after the new one was created. Its late null report then removed the live handle and placeholder inserts into that field did nothing. A null from a superseded editor is now ignored."
+  },
+  {
+    "version": "0.390.0",
+    "type": "improvement",
+    "title": "Split DocumentTiptapEditor into a model hook and render functions",
+    "detail": "DocumentTiptapEditor and its insert panel compose a model hook, pure helpers and render functions for toolbar, bubble menu, content and insert fields. Rendered markup and behavior are unchanged."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "copy-locale reads source files from the owning tenant's storage",
