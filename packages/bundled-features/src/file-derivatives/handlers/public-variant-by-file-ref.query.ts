@@ -52,6 +52,10 @@ export const publicVariantByFileRefQuery = defineQueryHandler({
     const tenant = await fetchOne<TenantGateRow>(db, tenantTable, { id: row.tenantId });
     if (!tenant || !isTenantServingPublicContent(tenant)) return null;
 
-    return ctx.queryAs(createAnonymousUser(row.tenantId), PUBLIC_VARIANT_QN, query.payload);
+    return ctx.dispatch.queryAs(
+      createAnonymousUser(row.tenantId),
+      PUBLIC_VARIANT_QN,
+      query.payload,
+    );
   },
 });

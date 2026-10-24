@@ -37,7 +37,7 @@ const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 const RESTRICTED_SYMBOLS = new Set([
   "getUnscopedAggregateStreamMaxVersion",
   "getUnscopedAggregateStreamTenant",
-  // Appends any event type without the feature-ownership check of ctx.appendEvent and without
+  // Appends any event type without the feature-ownership check of ctx.events.append and without
   // an audited unsafeRaw escape hatch, so new callers need an explicit allowlist entry.
   "appendEventInTenantDb",
   "getStreamVersionInTenantDb",
@@ -52,7 +52,7 @@ const ALLOWLIST = [
   /^packages\/framework\/src\/event-store\/index\.ts$/,
   /^packages\/framework\/src\/event-store\/tenant-db-append\.ts$/,
   /^packages\/bundled-features\/src\/cap-counter\/cap-reservation\.ts$/,
-  // Catch-up of a missing terminal extract event in the caller tenant's own stream; JobContext has no appendEvent.
+  // Catch-up of a missing terminal extract event in the caller tenant's own stream; JobContext has no events.unsafeAppend.
   /^packages\/bundled-features\/src\/document-ingest-foundation\/append-missing-extract-event\.ts$/,
   /^packages\/bundled-features\/src\/user-data-rights-defaults\/hooks\/delivery-attempt\.userdata-hook\.ts$/,
   /^packages\/framework\/src\/db\/tenant-db\.ts$/,
@@ -130,7 +130,7 @@ function findRestrictedSymbolReferences(sf: SourceFile): Violation[] {
 export const guard: AstGuard = {
   name: "Restricted-Symbols Guard",
   scan: SCAN,
-  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. appendEventInTenantDb/getStreamVersionInTenantDb bypass the feature-ownership check of ctx.appendEvent — only framework-internal coordination code may use them. createTenantDataDestroyDb grants direct writes on event-fed tables and belongs to the tenant-destroy stage only. withExecutorManagedWritesForTests is the test-seed seam behind seedRow/deleteRows and must not reach runtime code. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
+  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. appendEventInTenantDb/getStreamVersionInTenantDb bypass the feature-ownership check of ctx.events.append — only framework-internal coordination code may use them. createTenantDataDestroyDb grants direct writes on event-fed tables and belongs to the tenant-destroy stage only. withExecutorManagedWritesForTests is the test-seed seam behind seedRow/deleteRows and must not reach runtime code. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

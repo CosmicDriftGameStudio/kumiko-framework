@@ -106,7 +106,7 @@ beforeAll(async () => {
     // provider through the mounted file-foundation, like production.
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   db = stack.db;

@@ -179,7 +179,7 @@ describe("crypto-shredding :: forget-subject", () => {
   });
 
   // The denial audit event used to be appended via
-  // ctx.unsafeAppendEvent, inside the same tx the denial then rolled back —
+  // ctx.events.unsafeAppend, inside the same tx the denial then rolled back —
   // the store stayed empty even though a cross-tenant probe was denied.
   test("cross-tenant denial (kind=tenant) still leaves an audit event that survives the rollback", async () => {
     const subject = { kind: "tenant", tenantId: TARGET_TENANT_ID } as const;

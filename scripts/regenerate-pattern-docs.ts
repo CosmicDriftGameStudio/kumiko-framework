@@ -998,7 +998,7 @@ const incidentResolved = r.defineEvent("incident.resolved", z.object({ resolutio
   ],
 });
 
-await ctx.appendEvent(incidentResolved, id, { resolution, resolvedAt: new Date() });
+await ctx.events.append(incidentResolved, id, { resolution, resolvedAt: new Date() });
 \`\`\`
 
 **Siehe auch:** Recipe [\`event-sourcing\`](/de/samples/recipes/event-sourcing/)`,
@@ -1015,7 +1015,7 @@ const incidentResolved = r.defineEvent("incident.resolved", z.object({ resolutio
   ],
 });
 
-await ctx.appendEvent(incidentResolved, id, { resolution, resolvedAt: new Date() });
+await ctx.events.append(incidentResolved, id, { resolution, resolvedAt: new Date() });
 \`\`\`
 
 **See also:** Recipe [\`event-sourcing\`](/en/samples/recipes/event-sourcing/)`,

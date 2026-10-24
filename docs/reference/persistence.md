@@ -30,7 +30,7 @@ prefix, `store_` by convention.
 | `dbOutsideTransaction` | Tenant-scoped, own pool, every statement commits alone | Yes |
 | `systemDb` | Only in `r.systemScope()` handlers; cross-tenant access needs `assertTenantMatch` or `acknowledgeCrossTenant`. `systemDb.outsideTransaction` is the matching outside-transaction pair | `outsideTransaction`: yes |
 
-For an atomic write outside the handler transaction, pass `ctx.dbOutsideTransaction` to
+For an atomic write outside the handler transaction, pass `ctx.db.outsideTransaction` to
 `runInOwnTransaction` from `@cosmicdrift/kumiko-framework/db`. The `ctx.outsideTransaction`
 function is a deprecated shortcut for that.
 

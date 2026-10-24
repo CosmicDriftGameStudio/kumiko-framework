@@ -14,7 +14,7 @@ export const DOCUMENT_EXTRACT_AGGREGATE_TYPE = "document-extract";
 
 export const DOCUMENT_INGEST_REQUESTED_EVENT_SHORT = "documentIngest.requested" as const;
 
-// Qualified name — what ctx.unsafeAppendEvent's `type` actually needs
+// Qualified name — what ctx.events.unsafeAppend's `type` actually needs
 // (r.defineEvent registers under qn(toKebab(feature), "event",
 // toKebab(shortName)); appendEvent looks up the registry by QN, not the
 // short name — see MSP-apply "event not registered" error otherwise).

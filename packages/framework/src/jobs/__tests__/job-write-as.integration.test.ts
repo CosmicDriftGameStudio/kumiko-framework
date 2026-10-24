@@ -4,8 +4,8 @@
 // only write as its own systemUser (roles: ["system"]) and every write
 // handler gated on concrete roles was unreachable from a job: the dispatch
 // came back access_denied and the only signal was a failed job. These tests
-// pin both halves — ctx.write against a role-gated handler is still denied,
-// and ctx.writeAs(actor) reaches the same handler and attributes the event
+// pin both halves — ctx.dispatch.write against a role-gated handler is still denied,
+// and ctx.dispatch.writeAs(actor) reaches the same handler and attributes the event
 // to the actor rather than to SYSTEM.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -57,7 +57,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     name: "adminNote",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "write-as-probe-note",
         type: noted.name,
@@ -76,7 +76,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
   });
 
   r.job("writeAsSystem", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const result = await ctx.write("write-as-probe:write:admin-note", {
+    const result = await ctx.dispatch.write("write-as-probe:write:admin-note", {
       note: payload["note"] as string, // @cast-boundary dynamic-key
     });
     recordOutcome(writeOutcomes, result);
@@ -84,7 +84,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
 
   const queryAsSystemWhoamiJob: JobHandlerFn = async (_payload, ctx) => {
     try {
-      const result = (await ctx.queryAs(
+      const result = (await ctx.dispatch.queryAs(
         createSystemUser(ctx.systemUser.tenantId),
         "write-as-probe:query:whoami",
         {},
@@ -114,7 +114,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
       roles: [ROLES.TenantAdmin],
     };
     try {
-      const result = await ctx.writeAs(actor, "write-as-probe:write:admin-note", {
+      const result = await ctx.dispatch.writeAs(actor, "write-as-probe:write:admin-note", {
         note: payload["note"] as string, // @cast-boundary dynamic-key
       });
       recordOutcome(writeAsOutcomes, result);
@@ -139,7 +139,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
 const queryAsSystemScopeProbeFeature = defineFeature("queryAsSystemScopeProbe", (r) => {
   r.systemScope();
   r.job("whoami", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
-    const result = (await ctx.queryAs(
+    const result = (await ctx.dispatch.queryAs(
       createSystemUser(ctx.systemUser.tenantId),
       "write-as-probe:query:whoami",
       {},
@@ -181,7 +181,7 @@ async function notesFor(note: string): Promise<Array<{ created_by: string }>> {
 }
 
 describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)", () => {
-  test("ctx.write is denied — the job's systemUser carries no TenantAdmin role", async () => {
+  test("ctx.dispatch.write is denied — the job's systemUser carries no TenantAdmin role", async () => {
     writeOutcomes.length = 0;
     const worker = createWorkerEntrypoint({
       rowLevelSecurity: "off",
@@ -209,7 +209,7 @@ describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)
     }
   });
 
-  test("ctx.writeAs(actor) commits and attributes the event to the actor", async () => {
+  test("ctx.dispatch.writeAs(actor) commits and attributes the event to the actor", async () => {
     writeAsOutcomes.length = 0;
     const worker = createWorkerEntrypoint({
       rowLevelSecurity: "off",
@@ -312,7 +312,7 @@ describe("JobContext.writeAs is gated by the job's identity-switch grant (#3607)
 });
 
 describe("JobContext.writeAs before attachDispatcher()", () => {
-  test("throws the same not-attached stub ctx.write does", async () => {
+  test("throws the same not-attached stub ctx.dispatch.write does", async () => {
     writeAsFailures.length = 0;
     const runner = createJobRunner({
       registry: createRegistry([writeAsProbeFeature]),
@@ -369,7 +369,7 @@ describe("JobContext.queryAs is gated by the job's identity-switch grant like wr
     }
   }
 
-  test("without a grant ctx.queryAs(createSystemUser(...)) is refused", async () => {
+  test("without a grant ctx.dispatch.queryAs(createSystemUser(...)) is refused", async () => {
     await runQueryAsJob("job-query-as-no-grant", "write-as-probe:job:query-as-system-whoami", [
       writeAsProbeFeature,
     ]);

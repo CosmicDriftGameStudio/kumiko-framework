@@ -50,15 +50,15 @@ const jobExecutions: Array<{ name: string; payload: Record<string, unknown> }> =
 const appFeature = defineFeature("app", (r) => {
   // A job that succeeds and logs
   r.job("syncData", { trigger: { manual: true } }, async (payload, ctx) => {
-    ctx.log?.info("Starting sync...");
+    ctx.obs.log?.info("Starting sync...");
     jobExecutions.push({ name: "app:job:sync-data", payload });
-    ctx.log?.info(`Synced ${Object.keys(payload).length} fields`);
-    ctx.log?.info("Sync complete");
+    ctx.obs.log?.info(`Synced ${Object.keys(payload).length} fields`);
+    ctx.obs.log?.info("Sync complete");
   });
 
   // A job that fails
   r.job("failingImport", { trigger: { manual: true } }, async (_payload, ctx) => {
-    ctx.log?.info("Connecting to import source...");
+    ctx.obs.log?.info("Connecting to import source...");
     throw new Error("import source unreachable");
   });
 
@@ -310,7 +310,7 @@ describe("scenario 4: jobs.detail", () => {
     expect(run.finishedAt).toBeDefined();
   });
 
-  test("detail includes log entries from ctx.log()", async () => {
+  test("detail includes log entries from ctx.obs.log()", async () => {
     const listResult = await query(systemAdmin, JobQueries.list, { jobName: "app:job:sync-data" });
     const runId = listResult.data.rows[0].id;
 

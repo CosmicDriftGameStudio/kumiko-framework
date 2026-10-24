@@ -69,7 +69,7 @@ beforeAll(async () => {
     features: [createConfigFeature(), bootSeedsFeature],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });

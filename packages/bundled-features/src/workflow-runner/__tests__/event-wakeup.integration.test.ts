@@ -125,7 +125,7 @@ const testTriggersFeature = defineFeature("workflow-runner-event-wakeup-test-tri
   registerEventTrigger(r, timeoutWorkflow as unknown as WorkflowDefinition);
 });
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -222,10 +222,10 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
     ),
     registry: stack.registry,
     systemUser,
-    log: noopLogger,
+    obs: { log: noopLogger },
     triggeredBy: null,
     _tenantId: tenantId,
-    write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser),
+    dispatch: { write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser) },
   } as JobContext;
   await job.handler({}, ctx);
 }

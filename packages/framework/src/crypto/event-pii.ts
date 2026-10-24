@@ -1,5 +1,5 @@
 // PII on custom-event payloads. Entity CRUD events get their PII
-// encrypted by the executor; events written via ctx.appendEvent / MSP-apply /
+// encrypted by the executor; events written via ctx.events.append / MSP-apply /
 // low-level append() (delivery attempt-log, jobs run-logger) had no encrypt
 // path at all. `r.defineEvent(name, schema, { piiFields })` declares which
 // payload fields are PII and which payload field names the owning user;

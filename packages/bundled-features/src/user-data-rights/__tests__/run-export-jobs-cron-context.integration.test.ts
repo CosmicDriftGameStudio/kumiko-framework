@@ -196,11 +196,12 @@ describe("run-export-jobs cron-context", () => {
       configResolver,
       _notifyFactory: notifyFactory,
       systemUser: createSystemUser(TENANT),
+      obs: { log: { warn() {} } },
       now: getTemporal().Now.instant(),
     };
     // Before the fix, the wrapper throws "ctx.config is missing".
     // jobCtx deliberately replicates the minimal production context (without
-    // log/triggeredBy); double-cast at this test boundary because the handler
+    // triggeredBy); double-cast at this test boundary because the handler
     // under test never accesses those fields.
     // The job runs outside a dispatch here, so the mail delivery has no ambient scope of its own.
     await runInSystemRowLevelSecurityScope("test runs the export job outside the job runner", () =>

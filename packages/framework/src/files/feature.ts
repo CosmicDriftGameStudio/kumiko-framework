@@ -78,7 +78,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
           files: ctx.files,
           now: ctx.tz.now(),
           graceHours: uploadSweepGraceHours,
-          log: ctx.log,
+          log: ctx.obs.log,
         });
       },
     });

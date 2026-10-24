@@ -152,7 +152,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
       const payload = event.payload as { aggregateId: string; note: string }; // @cast-boundary engine-payload
       // unsafeAppendEvent: this test feature does not augment the event type map,
       // so the strictly typed appendEvent narrows to never here.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: payload.aggregateId,
         aggregateType: "probe",
         type: pingedEvent.name,

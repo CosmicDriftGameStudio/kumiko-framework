@@ -71,7 +71,7 @@ const workflowViewFeature = defineFeature("wfsalted", (r) => {
     name: "run:record",
     schema: z.object({ runId: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RUN_STARTED_TYPE,

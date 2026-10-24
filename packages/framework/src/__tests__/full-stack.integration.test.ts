@@ -47,7 +47,7 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
 }
 
 // Single source of truth for the user-created domain-event name + payload.
-// ctx.appendEvent writes this onto the user aggregate's own stream. The MSP
+// ctx.events.append writes this onto the user aggregate's own stream. The MSP
 // below picks it up via the event-dispatcher after commit.
 let USER_CREATED_EVENT: string;
 
@@ -56,11 +56,11 @@ let USER_CREATED_EVENT: string;
 const domainEventSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
 
 async function emitUserCreated(
-  ctx: Pick<HandlerContext, "unsafeAppendEvent">,
+  ctx: Pick<HandlerContext, "events">,
   id: EntityId,
   email: string,
 ): Promise<void> {
-  await ctx.unsafeAppendEvent({
+  await ctx.events.unsafeAppend({
     aggregateId: String(id),
     aggregateType: "user",
     type: USER_CREATED_EVENT,
@@ -98,7 +98,7 @@ const userFeature = defineFeature("users", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // Variant used by the ctx.appendEvent test block — creates the user AND
+  // Variant used by the ctx.events.append test block — creates the user AND
   // appends a domain event (`users:event:user.created`) to the user's own
   // aggregate stream. Separate from `user:create` so the CRUD-only happy-path
   // tests don't unnecessarily bump the stream version past what the client
@@ -809,16 +809,16 @@ describe("full stack: health", () => {
 });
 
 // =============================================================================
-// ctx.appendEvent — domain events on the user aggregate stream
+// ctx.events.append — domain events on the user aggregate stream
 // =============================================================================
 //
-// ctx.appendEvent writes the event onto the user aggregate's own stream (same
+// ctx.events.append writes the event onto the user aggregate's own stream (same
 // aggregateId as the CRUD row). The event-dispatcher picks it up and delivers
 // to r.multiStreamProjection consumers after commit. Proves the full
 // TX-atomicity: user row + domain event + feature postSave + SSE + search —
 // all commit-or-rollback together.
 
-describe("full stack: ctx.appendEvent via event-dispatcher", () => {
+describe("full stack: ctx.events.append via event-dispatcher", () => {
   // Filter the appended domain-event rows by type AND payload.email — the
   // events table is shared across tests so we pick out just the ones this
   // test appended.

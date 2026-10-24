@@ -51,6 +51,27 @@ const PREPARE_FOR_TENANT = `${FEATURE}:write:prepare-for-tenant`;
 const beforeCalls: string[] = [];
 const generatedIds: { readonly phase: string; readonly handler: string }[] = [];
 const handlerCalls: string[] = [];
+
+// The phase contexts no longer type these surfaces; the runtime still has to deny them, so the
+// probes reach them by path instead of through the type.
+async function callAbsentSurface(
+  ctx: object,
+  path: readonly [string, ...string[]],
+  ...args: readonly unknown[]
+): Promise<void> {
+  let owner: unknown = ctx;
+  let surface: unknown = ctx;
+  for (const key of path) {
+    if (typeof surface !== "object" && typeof surface !== "function") break;
+    if (surface === null) break;
+    owner = surface;
+    surface = Reflect.get(surface, key);
+  }
+  if (typeof surface !== "function") {
+    throw new Error(`ctx.${path.join(".")} is not a function on this context`);
+  }
+  await surface.apply(owner, args);
+}
 const releaseCalls: string[] = [];
 const reservationOutsideHandles: boolean[] = [];
 const reservationOutsideReads: number[] = [];
@@ -62,6 +83,14 @@ const DENIED_SURFACES = [
   "notify",
   "jobRunner",
 ] as const;
+// The denial names the namespaced path of the surface the handler reached for.
+const SURFACE_PATHS: Record<(typeof DENIED_SURFACES)[number], string> = {
+  writeAs: "dispatch.writeAs",
+  scheduleAfterCommit: "scheduleAfterCommit",
+  scheduleAfterRollback: "scheduleAfterRollback",
+  notify: "notify",
+  jobRunner: "jobRunner",
+};
 const deniedSurfacePayload = z.object({ surface: z.enum(DENIED_SURFACES) });
 
 const notifyFactory: NotifyFactory = () => async () => ({ kind: "dispatched", deliveries: [] });
@@ -165,7 +194,9 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       schema: titlePayload,
       access: { roles: ["Admin"] },
       beforeTransaction: async (event, ctx) => {
-        await ctx.write(`${FEATURE}:write:plain-create`, { title: event.payload.title });
+        await callAbsentSurface(ctx, ["dispatch", "write"], `${FEATURE}:write:plain-create`, {
+          title: event.payload.title,
+        });
         return { isSuccess: true as const, data: undefined };
       },
       handler: async () => {
@@ -181,7 +212,9 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       schema: titlePayload,
       access: { roles: ["Admin"] },
       reserveBeforeTransaction: async (_event, ctx) => {
-        await ctx.write(`${FEATURE}:write:plain-create`, { title: "sneaky" });
+        await callAbsentSurface(ctx, ["dispatch", "write"], `${FEATURE}:write:plain-create`, {
+          title: "sneaky",
+        });
         return undefined;
       },
       handler: async () => {
@@ -197,7 +230,7 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       schema: titlePayload,
       access: { roles: ["Admin"] },
       reserveBeforeTransaction: async (_event, ctx) => {
-        await ctx.unsafeAppendEvent({
+        await callAbsentSurface(ctx, ["events", "unsafeAppend"], {
           aggregateId: "00000000-0000-4000-8000-000000000001",
           aggregateType: "note",
           type: "note.created",
@@ -261,16 +294,26 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       reserveBeforeTransaction: async (event, ctx) => {
         switch (deniedSurfacePayload.parse(event.payload).surface) {
           case "writeAs":
-            await ctx.writeAs(event.user, `${FEATURE}:write:plain-create`, { title: "sneaky" });
+            await callAbsentSurface(
+              ctx,
+              ["dispatch", "writeAs"],
+              event.user,
+              `${FEATURE}:write:plain-create`,
+              {
+                title: "sneaky",
+              },
+            );
             break;
           case "scheduleAfterCommit":
-            ctx.scheduleAfterCommit?.(async () => {});
+            await callAbsentSurface(ctx, ["scheduleAfterCommit"], async () => {});
             break;
           case "scheduleAfterRollback":
-            ctx.scheduleAfterRollback?.(async () => {});
+            await callAbsentSurface(ctx, ["scheduleAfterRollback"], async () => {});
             break;
           case "notify":
-            await ctx.notify?.("before-tx-probe", { route: { email: "probe@example.com" } });
+            await callAbsentSurface(ctx, ["notify"], "before-tx-probe", {
+              route: { email: "probe@example.com" },
+            });
             break;
           case "jobRunner":
             await ctx.jobRunner?.dispatch?.(`${FEATURE}:job:probe`, {});
@@ -311,7 +354,7 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       handler: async (event, ctx) => {
         const created = await noteExecutor.create({ title: event.payload.title }, ctx.user, ctx.db);
         if (!created.isSuccess) return created;
-        return ctx.write(PREPARE_OK, { title: event.payload.title });
+        return ctx.dispatch.write(PREPARE_OK, { title: event.payload.title });
       },
     }),
   );
@@ -411,7 +454,7 @@ describe("beforeTransaction", () => {
     expect(await noteTitles()).toEqual([]);
   });
 
-  test("a nested ctx.write to a handler with the phase is rejected and rolls the outer write back", async () => {
+  test("a nested ctx.dispatch.write to a handler with the phase is rejected and rolls the outer write back", async () => {
     const error = await stack.http.writeErr(NESTED_OUTER, { title: "nested" }, admin);
 
     expect(error.httpStatus).toBe(500);
@@ -420,11 +463,11 @@ describe("beforeTransaction", () => {
     expect(await noteTitles()).toEqual([]);
   });
 
-  test("ctx.write inside the phase throws and rejects the write", async () => {
+  test("ctx.dispatch.write inside the phase throws and rejects the write", async () => {
     const error = await stack.http.writeErr(PREPARE_WRITES, { title: "sneaky" }, admin);
 
     expect(error.httpStatus).toBe(500);
-    expect(error.message).toContain("ctx.write is not available before the transaction");
+    expect(error.message).toContain("ctx.dispatch.write is not available before the transaction");
     expect(handlerCalls).toEqual([]);
     expect(await noteTitles()).toEqual([]);
   });
@@ -479,21 +522,21 @@ describe("beforeTransaction", () => {
     expect(await noteTitles()).toEqual([]);
   });
 
-  test("ctx.write inside a reservation throws before either handler runs", async () => {
+  test("ctx.dispatch.write inside a reservation throws before either handler runs", async () => {
     const error = await stack.http.writeErr(RESERVE_WRITES, { title: "sneaky" }, admin);
 
     expect(error.httpStatus).toBe(500);
-    expect(error.message).toContain("ctx.write is not available before the transaction");
+    expect(error.message).toContain("ctx.dispatch.write is not available before the transaction");
     expect(handlerCalls).toEqual([]);
     expect(await noteTitles()).toEqual([]);
   });
 
-  test("ctx.unsafeAppendEvent inside a reservation throws and persists no event", async () => {
+  test("ctx.events.unsafeAppend inside a reservation throws and persists no event", async () => {
     const error = await stack.http.writeErr(RESERVE_APPENDS, { title: "sneaky" }, admin);
 
     expect(error.httpStatus).toBe(500);
     expect(error.message).toContain(
-      "ctx.unsafeAppendEvent is not available before the transaction",
+      "ctx.events.unsafeAppend is not available before the transaction",
     );
     expect(handlerCalls).toEqual([]);
     expect(await selectMany(stack.db, eventsTable, {})).toEqual([]);
@@ -505,7 +548,9 @@ describe("beforeTransaction", () => {
       const error = await stack.http.writeErr(RESERVE_DENIED, { surface }, admin);
 
       expect(error.httpStatus).toBe(500);
-      expect(error.message).toContain(`ctx.${surface} is not available before the transaction`);
+      expect(error.message).toContain(
+        `ctx.${SURFACE_PATHS[surface]} is not available before the transaction`,
+      );
       expect(handlerCalls).toEqual([]);
     },
   );

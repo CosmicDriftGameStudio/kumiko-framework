@@ -9,6 +9,7 @@ import type { TenantId } from "../engine/types/identifiers.ts";
 import type { TenantWriteTarget } from "../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
+import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
 import {
   createSystemScopedDbGuard,
   isMemberResolutionPrincipal,
@@ -101,10 +102,22 @@ export function buildHandlerDbFacet(scope: HandlerContextScope) {
       ? createUncheckedSystemDb(db, rawDbOutsideTransaction, scope.reportEscapeHatch)
       : undefined;
   const crossTenantReads = buildHandlerCrossTenantReads(scope);
+  // Same fail-closed treatment as `exposedDb` — a system handler reaching
+  // ctx.db.outsideTransaction directly would be a second, unguarded door to
+  // the same cross-tenant access ctx.db closes off.
+  const dbOutsideTransaction =
+    isSystem && rawDbOutsideTransaction
+      ? createSystemScopedDbGuard(
+          type,
+          "db.outsideTransaction",
+          "ctx.systemDb.outsideTransaction.assertTenantMatch(...) or " +
+            "ctx.systemDb.outsideTransaction.acknowledgeCrossTenant(...)",
+        )
+      : rawDbOutsideTransaction;
   // Exposed as ctx.db below — the internal `db` above stays the real,
   // working TenantDb for config/derivatives accessors and systemDb
   // construction.
-  const exposedDb =
+  const unattachedExposedDb =
     isSystem && db
       ? createSystemScopedDbGuard(
           type,
@@ -112,25 +125,15 @@ export function buildHandlerDbFacet(scope: HandlerContextScope) {
           "ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...)",
         )
       : db;
-  // Same fail-closed treatment as `exposedDb` — a system handler reaching
-  // ctx.dbOutsideTransaction directly would be a second, unguarded door to
-  // the same cross-tenant access ctx.db closes off above.
-  const dbOutsideTransaction =
-    isSystem && rawDbOutsideTransaction
-      ? createSystemScopedDbGuard(
-          type,
-          "dbOutsideTransaction",
-          "ctx.systemDb.outsideTransaction.assertTenantMatch(...) or " +
-            "ctx.systemDb.outsideTransaction.acknowledgeCrossTenant(...)",
-        )
-      : rawDbOutsideTransaction;
+  const exposedDb = unattachedExposedDb
+    ? attachOutsideTransaction(unattachedExposedDb, dbOutsideTransaction)
+    : undefined;
   return {
     db,
     exposedDb,
     outsideTxSource,
     fragment: {
       db: exposedDb,
-      dbOutsideTransaction,
       ...(systemDb && { systemDb }),
       ...(crossTenantReads && { crossTenantReads }),
     },

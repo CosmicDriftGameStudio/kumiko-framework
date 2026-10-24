@@ -1,7 +1,7 @@
 // r.step.aggregate.appendEvent — write an additional domain-event onto
 // an existing aggregate stream.
 //
-// Wraps ctx.unsafeAppendEvent: the event lands on the named aggregate
+// Wraps ctx.events.unsafeAppend: the event lands on the named aggregate
 // stream in the active TX, downstream projections (multiStreamProjection)
 // fire, audit-trail captures it. Used when a write-handler needs to
 // record a domain event that's NOT one of the auto-generated CRUD
@@ -41,7 +41,7 @@ defineStep<AggregateAppendEventArgs, void>({
     const payload = resolveRequired(args.payload, ctx);
     const headers = resolveOptional(args.headers, ctx);
 
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId,
       aggregateType: args.aggregateType,
       type: args.type,

@@ -19,7 +19,7 @@
 | `chat-channels` | Chat channels. Delivery notifications to Slack, minus the browser tab. | `examples/chat-channels.md` |
 | `compliance-profiles-demo` | Two-tenant demo: EU + Swiss compliance profiles deliver different authority contacts, languages, and grace periods through the same App-code. | `examples/compliance-profiles-demo.md` |
 | `compose-stacks` | compose*Stack helpers for auth, security, GDPR and SaaS billing, and the runProdApp check that names a stack whose boot option is missing. | `examples/compose-stacks.md` |
-| `cross-feature-events` | Feature appends a typed domain event via ctx.appendEvent; a r.multiStreamProjection reacts asynchronously. | `examples/cross-feature-events.md` |
+| `cross-feature-events` | Feature appends a typed domain event via ctx.events.append; a r.multiStreamProjection reacts asynchronously. | `examples/cross-feature-events.md` |
 | `crypto-shredding-hr` | Crypto-shredding: PII fields encrypted per subject key; forgetting the subject erases the key and every field it protected. | `examples/crypto-shredding-hr.md` |
 | `currencies-global` | Shared money fields across tenants. Commas still matter. | `examples/currencies-global.md` |
 | `currencies-per-tenant` | Tenant-scoped money fields. Commas matter. | `examples/currencies-per-tenant.md` |
@@ -34,7 +34,7 @@
 | `encrypted-tenant-config` | Per-tenant secrets via config-key encryption — Stripe-API-key pattern. | `examples/encrypted-tenant-config.md` |
 | `env-composition` | Typed app env from the env blocks bundled features register, plus app-level blocks in extend. | `examples/env-composition.md` |
 | `error-contract` | Typed errors on the wire. With snake_case reasons, because we care. | `examples/error-contract.md` |
-| `event-sourcing` | Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.appendEvent + r.projection + r.multiStreamProjection + ctx.loadAggregate (asOf) + ctx.archiveStream + ctx.queryProjection. | `examples/event-sourcing.md` |
+| `event-sourcing` | Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.events.append + r.projection + r.multiStreamProjection + ctx.events.load (asOf) + ctx.events.archive + ctx.dispatch.queryProjection. | `examples/event-sourcing.md` |
 | `feature-toggles` | Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot. | `examples/feature-toggles.md` |
 | `field-access` | Field-level access control. When entity-level roles aren't granular enough. | `examples/field-access.md` |
 | `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
@@ -43,7 +43,7 @@
 | `i18n` | Feature-scoped translations. 'Hallo' and 'Hello' in the same app. | `examples/i18n.md` |
 | `idempotency` | Same request, same result. Dedupes on request ID. | `examples/idempotency.md` |
 | `inbound-mail-triage` | Inbound-mail consumer pattern: inbound-mail-foundation + in-memory provider, a worker-lane triage job attached to the ingest handler, verified end-to-end through createAllInOneEntrypoint. | `examples/inbound-mail-triage.md` |
-| `lane-routing` | runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.appendEvent, verified end-to-end through createAllInOneEntrypoint. | `examples/lane-routing.md` |
+| `lane-routing` | runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.events.append, verified end-to-end through createAllInOneEntrypoint. | `examples/lane-routing.md` |
 | `ledger-banking` | Bank accounts + transfers on the ledger primitive — balances are pure queries, never stored. | `examples/ledger-banking.md` |
 | `ledger-invoicing` | Accrual invoicing on the ledger primitive — revenue at invoice time, VAT as a liability, receivable cleared on payment. | `examples/ledger-invoicing.md` |
 | `legal-pages` | Auto-rendered Impressum + Datenschutzerklärung pages — template-resolver + legal-pages bundled features wired up with anonymousAccess for DACH-compliance. | `examples/legal-pages.md` |

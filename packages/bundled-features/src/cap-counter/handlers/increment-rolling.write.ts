@@ -71,7 +71,7 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     // unsafeAppendEvent: the strict appendEvent is bound to an app's own event map, which
     // bundled-features cannot see. Schema validation still runs because r.defineEvent
     // registered the schema.
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId,
       aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
       type: ROLLING_INCREMENTED_EVENT_QN,

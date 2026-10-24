@@ -118,7 +118,7 @@ function classifyEnclosing(_ret: ReturnStatement, fn: Node): SkipSite["enclosing
  * Policy: a bare `return;` needs one of the following markers right before it
  * — otherwise it is flagged.
  *
- *   (a) Log call:     ctx.log?.debug(...), logger.debug(...), context.log?.info(...)
+ *   (a) Log call:     ctx.obs.log.debug(...), logger.debug(...), context.log?.info(...)
  *   (b) Skip comment: // skip: <reason>
  *   (c) Throw escape: preceded by a throw (the return is dead code, should go)
  *

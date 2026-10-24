@@ -9,12 +9,12 @@ blocks Kumiko provides.
 | API | Purpose |
 |---|---|
 | `r.defineEvent(name, schema, { version, migrations })` | Event schema with version number + upcaster chain |
-| `ctx.appendEvent({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
+| `ctx.events.append({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
 | `r.projection(...)` | Single-stream read model, inline in the write TX |
 | `r.multiStreamProjection(...)` | Cross-aggregate read model, async via dispatcher |
-| `ctx.loadAggregate(id, { asOf })` | Live aggregation with point-in-time |
-| `ctx.archiveStream(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
-| `ctx.queryProjection(name)` | Tenant-scoped read-model query |
+| `ctx.events.load(id, { asOf })` | Live aggregation with point-in-time |
+| `ctx.events.archive(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
+| `ctx.dispatch.queryProjection(name)` | Tenant-scoped read-model query |
 
 ## Domain
 
@@ -45,7 +45,7 @@ HTTP POST /api/write { type: "showcase:write:invoice:approve", ... }
          ↓
   writeHandler("invoice:approve")
          ↓ TX begin
-         ctx.appendEvent({ type: "showcase:event:invoice-approved", ... })
+         ctx.events.append({ type: "showcase:event:invoice-approved", ... })
          r.projection("invoice-detail")         ← updates status = "approved"
          ↓ TX commit
          (async)

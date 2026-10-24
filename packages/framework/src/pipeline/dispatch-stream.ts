@@ -63,7 +63,7 @@ async function* executeStreamInner(
   const handler = registry.getStreamHandler(type);
   if (!handler) throw new NotFoundError("handler", type);
 
-  // A resolved member principal (ctx.queryAsMember) is read-only — streams
+  // A resolved member principal (ctx.dispatch.queryAsMember) is read-only — streams
   // are excluded the same way executeWriteInner excludes writes.
   if (isMemberResolutionPrincipal(user)) {
     throw memberResolutionReadOnlyDenied();

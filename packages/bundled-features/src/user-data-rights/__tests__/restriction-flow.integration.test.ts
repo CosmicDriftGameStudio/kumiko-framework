@@ -467,7 +467,7 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     expect(revoked.every((s) => s.revokedAt !== null)).toBe(true);
 
     // Cross-tenant privileged revoke uses the low-level append(),
-    // not ctx.unsafeAppendEvent (see revoke-all-for-user.write.ts for why:
+    // not ctx.events.unsafeAppend (see revoke-all-for-user.write.ts for why:
     // the SystemAdmin caller's own tenantId has no relationship to the
     // target user's session tenant). One event, both sids listed.
     const events = await selectMany(stack.db, eventsTable, { type: SESSION_REVOKED_EVENT_QN });

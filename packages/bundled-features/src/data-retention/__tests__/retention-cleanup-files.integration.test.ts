@@ -99,7 +99,7 @@ const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
   r.entity({ name: "c8-anon-doc", ...anonDocEntity });
 });
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -569,14 +569,13 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       }),
       registry: stack.registry,
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
-      log: noopLogger,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
       files: filesCtx(),
-      ...bridgeStub(),
+      ...bridgeStub({ log: noopLogger }),
     };
     await job.handler({}, ctx);
 

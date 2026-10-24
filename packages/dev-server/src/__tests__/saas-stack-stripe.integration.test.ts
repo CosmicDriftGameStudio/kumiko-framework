@@ -116,7 +116,7 @@ beforeAll(async () => {
     extraContext: ({ db, registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       secrets: createSecretsContext({ db, masterKeyProvider, registry }),
     }),
     extraRoutes: [billing.route],

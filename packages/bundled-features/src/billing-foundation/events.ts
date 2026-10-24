@@ -19,7 +19,7 @@ import { CONSENT_LOCALES } from "./web/consumer-protection/consent-locale.ts";
 export const SUBSCRIPTION_AGGREGATE_TYPE = "subscription" as const;
 
 // Event-name constants — short form (for r.defineEvent) and qualified
-// FQN (for ctx.unsafeAppendEvent and projection-apply keys).
+// FQN (for ctx.events.unsafeAppend and projection-apply keys).
 export const SUBSCRIPTION_CREATED_EVENT_SHORT = "subscription-created" as const;
 export const SUBSCRIPTION_UPDATED_EVENT_SHORT = "subscription-updated" as const;
 export const SUBSCRIPTION_CANCELED_EVENT_SHORT = "subscription-canceled" as const;

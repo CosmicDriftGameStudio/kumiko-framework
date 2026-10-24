@@ -1,7 +1,7 @@
 // Cross-Feature Reactions Sample (Marten gold-standard path)
 //
 // Demonstrates the Sprint-E pattern for reacting to events across features:
-// a writeHandler emits a DOMAIN event via `ctx.appendEvent(...)` onto the
+// a writeHandler emits a DOMAIN event via `ctx.events.append(...)` onto the
 // aggregate's own stream, and a `r.multiStreamProjection` picks it up
 // asynchronously through the event-dispatcher.
 //
@@ -9,11 +9,11 @@
 //
 //   1. `r.defineEvent("short-name", zodSchema)` declares the event shape.
 //      Returns a def whose `.name` is the fully-qualified event name —
-//      pass that straight to `ctx.appendEvent` so there's no string to
+//      pass that straight to `ctx.events.append` so there's no string to
 //      hand-type (and no way to emit an unregistered event: appendEvent
 //      rejects at the emit site).
 //
-//   2. `ctx.appendEvent({ aggregateId, aggregateType, type, payload })`
+//   2. `ctx.events.append({ aggregateId, aggregateType, type, payload })`
 //      writes the event onto the aggregate's own stream inside the same
 //      transaction as the business write. Commit both or roll back both —
 //      no lost events, no orphan events. The event carries real
@@ -67,7 +67,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
   r.entity({ name: "pubsub-order", ...orderEntity });
 
   // Define the event shape once. The returned `.name` is the qualified
-  // name ("pubsub-orders:event:order-placed") — pass it to ctx.appendEvent.
+  // name ("pubsub-orders:event:order-placed") — pass it to ctx.events.append.
   const orderPlaced = r.defineEvent(
     "order-placed",
     z.object({ id: z.string(), customer: z.string(), product: z.string() }),

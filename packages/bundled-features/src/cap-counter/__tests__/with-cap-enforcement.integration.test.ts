@@ -107,7 +107,7 @@ const NEWSLETTER_ROLLING_QN = "newsletter:write:send-rolling";
 // TenantAdmin-only probes (access-control gap): the users above carry BOTH
 // TenantAdmin and SystemAdmin, which hid the bug that enforceCapAndMaybeNotify
 // / withCapEnforcement / withRollingCapEnforcement used to dispatch
-// SystemAdmin-only handlers (ctx.write(CapCounterHandlers.increment) etc.) —
+// SystemAdmin-only handlers (ctx.dispatch.write(CapCounterHandlers.increment) etc.) —
 // a plain TenantAdmin caller with no escapeHatch would have gotten
 // access_denied. These handlers carry ONLY TenantAdmin and no escapeHatch,
 // proving the in-process booking helpers (book-cap-usage.ts) work for
@@ -188,7 +188,7 @@ const nestedAtomicCaller: WriteHandlerDef = {
   name: "atomic-slot-nested",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
-  handler: (_event, ctx) => ctx.write(ATOMIC_QN, {}),
+  handler: (_event, ctx) => ctx.dispatch.write(ATOMIC_QN, {}),
 };
 const ATOMIC_NESTED_QN = "newsletter:write:atomic-slot-nested";
 
@@ -675,7 +675,7 @@ describe("withCapEnforcement - atomic reservation", () => {
     expect(atomicBarrier.arrived).toBe(2);
   });
 
-  test("a capped handler reached through a nested ctx.write is rejected instead of running unreserved", async () => {
+  test("a capped handler reached through a nested ctx.dispatch.write is rejected instead of running unreserved", async () => {
     resetAtomicState("ok");
     const user = tenantAdminOnlyFor(2705);
 

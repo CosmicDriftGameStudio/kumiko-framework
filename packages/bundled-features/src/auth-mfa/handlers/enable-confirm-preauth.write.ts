@@ -73,8 +73,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
     escapeHatch: {
       grants: ["systemIdentity", "unsafeRaw"],
       reason:
-        "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.queryAs(SYSTEM, " +
-        "user:findForAuth) and membership via ctx.resolveActiveMembership for the setup token's user. " +
+        "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.dispatch.queryAs(SYSTEM, " +
+        "user:findForAuth) and membership via ctx.auth.resolveActiveMembership for the setup token's user. " +
         "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
         "guest dispatch tenant.",
     },
@@ -159,7 +159,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // existing userId-unique-constraint backstop between the
       // `existing` check above and executor.create() below.
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
-      const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+      const userRow = (await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
       })) as {
         roles?: string | null;
@@ -179,7 +179,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
 
       const globalRoles = parseRoles(userRow?.roles ?? null);
 
-      const active = await ctx.resolveActiveMembership(userId, tenantId);
+      const active = await ctx.auth.resolveActiveMembership(userId, tenantId);
       if (active.kind === "rejected") return invalidSetupToken();
 
       const result = await executor.create(
@@ -219,7 +219,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         ...sessionTimezoneField(userRow?.timezone),
         ...sessionLocaleField(userRow?.locale),
       };
-      const claims = await ctx.resolveAuthClaims(baseSession);
+      const claims = await ctx.auth.resolveClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
 

@@ -108,7 +108,7 @@ export function createRevokeContractTerminationHandler(): WriteHandlerDef {
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof revokeContractTerminationSchema>;
-      const result = await ctx.writeAs(
+      const result = await ctx.dispatch.writeAs(
         createSystemUser(payload.tenantId),
         SubscriptionFoundationHandlers.recordContractTerminationRevocation,
         { requestId: payload.requestId, token: payload.token },
@@ -143,7 +143,7 @@ export function createRecordContractTerminationRevocationHandler(
         isSuccess: true as const,
         data: { outcome: value },
       });
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
@@ -179,7 +179,7 @@ export function createRecordContractTerminationRevocationHandler(
         reasons.push(...(await resumeAtProvider(ctx, subscription)));
       }
       // Re-fetch after the external call, like record-contract-termination.
-      const streamAfterProviderCall = await ctx.fetchForWriting({
+      const streamAfterProviderCall = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });

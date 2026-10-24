@@ -1,5 +1,6 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  BeforeTransactionContext,
   BeforeTransactionResult,
   ConfigAccessor,
   HandlerContext,
@@ -100,7 +101,7 @@ function isAttachmentKey(links: Readonly<Record<string, LinkedResourceEntry>>, k
 // so both receive the target tenant's db and identity.
 function uploadToTenant(
   args: {
-    readonly ctx: HandlerContext;
+    readonly ctx: PrepareContext;
     readonly user: SessionUser;
     readonly tenantId: TenantId;
   },
@@ -119,7 +120,7 @@ function uploadToTenant(
 }
 
 type TenantScope = {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
 };
@@ -133,7 +134,7 @@ function createFileRefFromPrepared(scope: TenantScope, upload: UploadedFileBytes
 }
 
 async function linkImage(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
   readonly row: TemplateResourceRow;
@@ -197,7 +198,7 @@ type ImageTarget = {
 
 // Runs before the upload (reject early, store nothing) and again in the transaction on the fresh row.
 async function checkImageTarget(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly tenantId: TenantId;
   readonly templateId?: string | undefined;
   readonly key?: string | undefined;
@@ -220,7 +221,7 @@ async function checkImageTarget(args: {
 // beforeTransaction half: normalizes the image and uploads it to the target tenant's storage.
 // The caller is responsible for authorization; the function trusts tenantId.
 export async function prepareTemplateResourceBeforeTransaction(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
   readonly bytes: Uint8Array;
@@ -260,6 +261,10 @@ export async function prepareTemplateResourceBeforeTransaction(args: {
   };
 }
 
+// The prepare phase runs before the transaction, so it must not rely on anything the in-transaction
+// context adds (events, dispatch.write).
+export type PrepareContext = HandlerContext | BeforeTransactionContext;
+
 export type Release = () => Promise<void>;
 
 // Tries every release, so one failing delete does not strand the other uploads; the first rejection is rethrown.
@@ -271,13 +276,13 @@ export async function releaseAll(releases: readonly Release[]): Promise<void> {
 
 // Failure paths: a failing release must not replace the upload error the caller needs to see.
 export async function releaseAfterFailure(
-  ctx: HandlerContext,
+  ctx: PrepareContext,
   releases: readonly Release[],
 ): Promise<void> {
   try {
     await releaseAll(releases);
   } catch (releaseError) {
-    ctx.log?.warn("template upload rollback: releasing stored files failed", {
+    ctx.obs.log?.warn("template upload rollback: releasing stored files failed", {
       error: releaseError instanceof Error ? releaseError.message : String(releaseError),
     });
   }
@@ -308,7 +313,7 @@ function sourceUnreadable(): WriteResult<never> {
 // Undefined: the fileRef row exists but its bytes cannot be read, which must not look like a
 // deleted file. The provider is chosen by the tenant of the fileRef, not by the caller's.
 async function readCopySource(
-  ctx: HandlerContext,
+  ctx: PrepareContext,
   fileRefId: string,
 ): Promise<{ contentType: string; bytes: Uint8Array } | null | undefined> {
   try {
@@ -320,7 +325,7 @@ async function readCopySource(
     });
     return found === null ? null : { contentType: found.contentType, bytes: found.content };
   } catch (cause) {
-    ctx.log?.warn("template copy: source file could not be read", {
+    ctx.obs.log?.warn("template copy: source file could not be read", {
       fileRefId,
       errorClass: cause instanceof Error ? cause.name : typeof cause,
     });
@@ -333,7 +338,7 @@ async function readCopySource(
 // attachments. An entry whose source file is gone is left out: it could not be resolved at render
 // time either. A failed or throwing upload releases the ones before it.
 export async function prepareLinkedResourceCopiesBeforeTransaction(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
   readonly resources: Readonly<Record<string, LinkedResourceEntry>>;
@@ -525,7 +530,7 @@ type AttachmentTarget = {
 
 // Runs before the upload (reject early, store nothing) and again in the transaction on the fresh row.
 async function checkAttachmentTarget(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly tenantId: TenantId;
   readonly templateId: string;
   readonly key: string;
@@ -550,7 +555,7 @@ async function checkAttachmentTarget(args: {
 // beforeTransaction half: validates a PDF/PNG/JPEG and uploads it unchanged to the target tenant's
 // storage. With templateId the template is checked first; a bundle import has none yet.
 export async function prepareTemplateAttachmentBeforeTransaction(args: {
-  readonly ctx: HandlerContext;
+  readonly ctx: PrepareContext;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
   readonly bytes: Uint8Array;

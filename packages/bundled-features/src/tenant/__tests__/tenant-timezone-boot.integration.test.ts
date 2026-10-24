@@ -50,7 +50,7 @@ describe("ctx.tz.tenant against the real tenant feature (fw#1648)", () => {
       features: [createConfigFeature(), createTenantFeature(), probeFeature],
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafePushTables(stack.db, { configValuesTable });
@@ -103,7 +103,7 @@ describe("tenant:config:timezone dispatch cache (fw#2462)", () => {
         };
         return {
           configResolver: resolver,
-          _configAccessorFactory: countingFactory,
+          configAccessorFactory: countingFactory,
         };
       },
     });

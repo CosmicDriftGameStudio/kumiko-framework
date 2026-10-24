@@ -56,7 +56,7 @@ export function withFileProviderResolver(
     ...context,
     _fileProviderResolver: makeFileProviderResolver({
       registry,
-      _configAccessorFactory: configAccessorFactoryOf(context),
+      configAccessorFactory: configAccessorFactoryOf(context),
       secrets: context.secrets,
       db: context.db,
       ...(clock ? { now: () => clock.now() } : {}),
@@ -218,7 +218,7 @@ function resolveServerObservability(
   registry: Registry,
 ): ObservabilityProvider {
   // Observability — Noop by default so no call-site needs to null-check.
-  // Every handler/middleware that reaches for ctx.tracer / ctx.metrics gets
+  // Every handler/middleware that reaches for ctx.obs.tracer / ctx.obs.metrics gets
   // a working, zero-cost fallback when no provider is configured.
   const observability = explicitObservability ?? createNoopProvider();
 

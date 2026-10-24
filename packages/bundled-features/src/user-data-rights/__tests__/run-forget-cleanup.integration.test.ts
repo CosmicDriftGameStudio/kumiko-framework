@@ -292,14 +292,14 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
   // no config), rather than the inner runForgetCleanup helper.
   function capturingJobLog() {
     const warns: string[] = [];
-    const log: JobContext["log"] = {
+    const log: JobContext["obs"]["log"] = {
       info() {},
       warn(message: string) {
         warns.push(message);
       },
       error() {},
       debug() {},
-      child(): JobContext["log"] {
+      child(): JobContext["obs"]["log"] {
         return this;
       },
     };
@@ -330,7 +330,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         },
       }),
       registry: stack.registry,
-      log,
+      obs: { log },
       systemUser: createSystemUser(TENANT_A),
     };
     await job?.handler({}, jobCtx as unknown as JobContext);
@@ -341,7 +341,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     expect(row?.email).toContain("anonymized.invalid");
   });
 
-  test("incomplete hooks are written to ctx.log (job-run audit trail, #1572)", async () => {
+  test("incomplete hooks are written to ctx.obs.log (job-run audit trail, #1572)", async () => {
     const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeTruthy();
 
@@ -379,7 +379,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         }),
         registry: stack.registry,
         systemUser: createSystemUser(TENANT_A),
-        log,
+        obs: { log },
       } as unknown as JobContext);
     } finally {
       (userUsage.options as { delete: DeleteHook }).delete = originalUserDelete;

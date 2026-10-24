@@ -157,7 +157,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       } satisfies SessionStoreProvider);
 
       // Custom domain-event for cross-instance access-invalidation.
-      // r.defineEvent registers the schema so ctx.unsafeAppendEvent (revoke,
+      // r.defineEvent registers the schema so ctx.events.unsafeAppend (revoke,
       // revoke-all-others) enforces it at append time. revoke-all-for-user
       // appends via the low-level append() instead (needs to anchor on
       // SYSTEM_TENANT_ID — see that handler for why) — append() does NOT

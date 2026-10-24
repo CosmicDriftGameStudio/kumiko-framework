@@ -55,7 +55,7 @@ export function createDeleteTenantFieldHandler(
       // registered via wireCustomFieldsFor consume it and remove orphaned values
       // from their customFields jsonb. The same transaction makes cleanup atomic.
       if (result.isSuccess) {
-        await ctx.unsafeAppendEvent({
+        await ctx.events.unsafeAppend({
           aggregateId,
           aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
           type: createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name,

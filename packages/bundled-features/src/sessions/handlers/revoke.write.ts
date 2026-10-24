@@ -55,7 +55,7 @@ export const revokeWrite = defineWriteHandler({
       // unmanaged direct-write store, see feature.ts). Own aggregate id per
       // revoke, no predecessor to satisfy, no version_conflict against a
       // concurrent revoke on a different sid.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: generateId(),
         aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
         type: SESSION_REVOKED_EVENT_QN,

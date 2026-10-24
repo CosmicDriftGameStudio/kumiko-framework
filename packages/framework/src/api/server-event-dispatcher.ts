@@ -224,12 +224,12 @@ function buildMultiStreamProjectionConsumer(
         // production. Defensive return for the type-narrowing path.
         return;
       }
-      // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
+      // Saga/process-manager ctx: apply can call ctx.events.append to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
       // MSP qualified names are "<feature>:projection:<short>" — the
       // prefix before the first ":" owns the MSP. Used to reject
-      // cross-feature ctx.appendEvent calls at emit-site.
+      // cross-feature ctx.events.append calls at emit-site.
       const mspOwner = msp.name.split(":")[0];
       const mspFiles = fileProviderResolver
         ? createTenantFileContext(fileProviderResolver, event.tenantId)

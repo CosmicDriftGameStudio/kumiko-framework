@@ -143,7 +143,7 @@ export function createLifecycleHooks(
     // best-effort side-effects like Search Index, SSE broadcast, Audit — a
     // missed hook is preferable to a duplicate notification. Features that
     // need at-least-once semantics must not rely on this path; use
-    // ctx.appendEvent + r.multiStreamProjection instead, which the
+    // ctx.events.append + r.multiStreamProjection instead, which the
     // event-dispatcher retries until the consumer advances.
     if (eventDedup && opts.hookPhase === HookPhases.afterCommit) {
       const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);

@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  attachOutsideTransaction,
   bridgeStub,
   createRegistry,
   createTenantConfig,
@@ -71,7 +72,7 @@ const billingFeature = defineFeature("billing", (r) => {
       const jobDb = ctx.db.unsafeRaw() as DbConnection;
       const reg = ctx["registry"] as Registry;
 
-      ctx.log?.info("Calculating monthly total...");
+      ctx.obs.log?.info("Calculating monthly total...");
       const total = 42000;
 
       const handler = reg.getWriteHandler("config:write:set");
@@ -89,8 +90,7 @@ const billingFeature = defineFeature("billing", (r) => {
         await handler.handler(
           { type: "config:write:set", payload: parsed, user: systemUser },
           {
-            db: tenantDb,
-            dbOutsideTransaction: tenantDb,
+            db: attachOutsideTransaction(tenantDb, tenantDb),
             systemDb: createSystemDbView(tenantDb),
             registry: reg,
             configResolver: ctx["configResolver"] as ConfigResolver,
@@ -99,7 +99,7 @@ const billingFeature = defineFeature("billing", (r) => {
         );
       }
 
-      ctx.log?.info(`Set monthlyTotal to ${total}`);
+      ctx.obs.log?.info(`Set monthlyTotal to ${total}`);
     },
   );
 });
@@ -187,8 +187,7 @@ describe("SYSTEM_USER in jobs", () => {
     const result = await handler.handler(
       { type: ConfigHandlers.set, payload: parsed, user: adminUser },
       {
-        db: adminTenantDb,
-        dbOutsideTransaction: adminTenantDb,
+        db: attachOutsideTransaction(adminTenantDb, adminTenantDb),
         systemDb: createSystemDbView(adminTenantDb),
         registry,
         configResolver: resolver,

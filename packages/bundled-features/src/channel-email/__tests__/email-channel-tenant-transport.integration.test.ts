@@ -175,7 +175,7 @@ beforeAll(async () => {
         tenantConfigFor: (tenantId) => configFor(tenantId),
       });
       deliveryService = ctx.deliveryService;
-      return { ...ctx, secrets, configResolver: resolver, _configAccessorFactory: accessorFactory };
+      return { ...ctx, secrets, configResolver: resolver, configAccessorFactory: accessorFactory };
     },
   });
   await unsafePushTables(stack.db, {
@@ -245,7 +245,7 @@ async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
   if (!redisUrl) throw new Error("REDIS_URL required for the async delivery test");
   const jobRunner = createJobRunner({
     registry: stack.registry,
-    context: { db: stack.db, secrets, _configAccessorFactory: accessorFactory },
+    context: { db: stack.db, secrets, configAccessorFactory: accessorFactory },
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix: `kumiko-email-tenant-transport-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

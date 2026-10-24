@@ -11,7 +11,7 @@ import {
 
 // resolveAuthClaims is the only ctx member gateBuildSession touches.
 const authClaimsCtx = {
-  resolveAuthClaims: async () => ({}),
+  auth: { resolveClaims: async () => ({}) },
 } as unknown as HandlerContext;
 
 function row(over: Partial<AuthUserRow> = {}): AuthUserRow {

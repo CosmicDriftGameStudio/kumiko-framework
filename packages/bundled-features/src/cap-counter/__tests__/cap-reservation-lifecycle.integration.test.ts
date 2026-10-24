@@ -207,7 +207,7 @@ const nestedCaller: WriteHandlerDef = {
   name: "nested-caller",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
-  handler: async (_event, ctx) => ctx.write(ROLLING_QN, {}),
+  handler: async (_event, ctx) => ctx.dispatch.write(ROLLING_QN, {}),
 };
 const NESTED_CALLER_QN = "capgate:write:nested-caller";
 
@@ -521,7 +521,7 @@ describe("withRollingCapEnforcement - reservation lifecycle", () => {
 });
 
 describe("withRollingCapEnforcement - nested write", () => {
-  test("a nested ctx.write of a rolling-capped handler is rejected and books nothing", async () => {
+  test("a nested ctx.dispatch.write of a rolling-capped handler is rejected and books nothing", async () => {
     const tenantNumber = 3406;
 
     const error = await stack.http.writeErr(NESTED_CALLER_QN, {}, userFor(tenantNumber, 1));

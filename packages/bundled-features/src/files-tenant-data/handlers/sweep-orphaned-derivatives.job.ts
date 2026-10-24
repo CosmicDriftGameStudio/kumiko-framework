@@ -58,7 +58,7 @@ export async function sweepOrphanedDerivativesJob(
   const payload = sweepOrphanedDerivativesPayloadSchema.parse(rawPayload ?? {});
   const maybeResolver = ctx._fileProviderResolver;
   if (!maybeResolver) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       "[files-tenant-data:sweep] no _fileProviderResolver wired — nothing to sweep, skipping run",
     );
     return;
@@ -96,7 +96,7 @@ export async function sweepOrphanedDerivativesJob(
         try {
           provider = await resolver(tenantId);
         } catch (err) {
-          ctx.log?.warn?.(
+          ctx.obs.log?.warn?.(
             `[files-tenant-data:sweep] no file provider resolvable for tenant=${tenantId}, skipping: ${err instanceof Error ? err.message : String(err)}`,
           );
           continue;
@@ -105,7 +105,7 @@ export async function sweepOrphanedDerivativesJob(
         try {
           keys = await provider.list(`${tenantId}/`);
         } catch (err) {
-          ctx.log?.warn?.(
+          ctx.obs.log?.warn?.(
             `[files-tenant-data:sweep] provider.list() failed for tenant=${tenantId}, skipping: ${err instanceof Error ? err.message : String(err)}`,
           );
           continue;
@@ -160,13 +160,13 @@ export async function sweepOrphanedDerivativesJob(
     deadlineAt: deadline,
     signal: ctx.signal,
     onRowError: (candidate, err) => {
-      ctx.log?.warn?.(
+      ctx.obs.log?.warn?.(
         `[files-tenant-data:sweep] failed to delete key=${candidate.key} tenant=${candidate.tenantId}: ${err instanceof Error ? err.message : String(err)}`,
       );
     },
   });
 
-  ctx.log?.info?.(
+  ctx.obs.log?.info?.(
     `[files-tenant-data:sweep] complete dryRun=${dryRun} deleted=${outcome.migrated} wouldDelete=${dryRunWouldDelete} skipped=${outcome.skipped} failed=${outcome.failed} batches=${outcome.batchesProcessed} stoppedReason=${outcome.stoppedReason}`,
   );
 }

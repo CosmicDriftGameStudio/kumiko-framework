@@ -1,4 +1,4 @@
-// ctx.queryAsMember in Handler-, Hook- and Job-Context. Real HTTP + a real
+// ctx.dispatch.queryAsMember in Handler-, Hook- and Job-Context. Real HTTP + a real
 // BullMQ worker via setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -171,19 +171,19 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   });
 
   // Target for the read-only-enforcement tests: a query handler reached via
-  // ctx.queryAsMember that tries to write.
+  // ctx.dispatch.queryAsMember that tries to write.
   r.queryHandler({
     name: "tries-write",
     schema: z.object({}),
     handler: async (_query, ctx) =>
-      ctx.write("queryasmemberprobe:write:note:create", { body: "nope" }),
+      ctx.dispatch.write("queryasmemberprobe:write:note:create", { body: "nope" }),
     access: { roles: ["Admin", "User"] },
   });
   r.queryHandler({
     name: "tries-append-event",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "qam-probe",
         type: "queryasmemberprobe:event:nope",
@@ -197,7 +197,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-fetch-for-writing",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const handle = await ctx.fetchForWriting({
+      const handle = await ctx.events.fetchForWriting({
         aggregateId: crypto.randomUUID(),
         aggregateType: "qam-probe",
       });
@@ -298,7 +298,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   r.queryHandler({
     name: "nested-db-write",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.query(TRIES_DB_WRITE_QN, {}),
+    handler: async (_query, ctx) => ctx.dispatch.query(TRIES_DB_WRITE_QN, {}),
     access: { roles: ["Admin", "User"] },
   });
   r.queryHandler({
@@ -340,13 +340,14 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   r.queryHandler({
     name: "nested-raw-select",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.query(TRIES_RAW_SELECT_QN, {}),
+    handler: async (_query, ctx) => ctx.dispatch.query(TRIES_RAW_SELECT_QN, {}),
     access: { roles: ["Admin", "User"] },
   });
   r.queryHandler({
     name: "tries-query-as",
     schema: z.object({}),
-    handler: async (query, ctx) => ctx.queryAs({ ...query.user, origin: undefined }, WHOAMI_QN, {}),
+    handler: async (query, ctx) =>
+      ctx.dispatch.queryAs({ ...query.user, origin: undefined }, WHOAMI_QN, {}),
     access: { roles: ["Admin", "User"] },
     escapeHatch: { reason: "test: query-as identity switch probe" },
   });
@@ -358,7 +359,11 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       payload: z.record(z.string(), z.unknown()).default({}),
     }),
     handler: async (query, ctx) =>
-      ctx.queryAsMember(query.payload.userId, query.payload.targetQn, query.payload.payload),
+      ctx.dispatch.queryAsMember(
+        query.payload.userId,
+        query.payload.targetQn,
+        query.payload.payload,
+      ),
     access: { roles: ["Admin"] },
     escapeHatch: { reason: "test: reads as a stored member via a query caller" },
   });
@@ -373,7 +378,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       payload: z.record(z.string(), z.unknown()).default({}),
     }),
     handler: async (event, ctx) => {
-      const data = await ctx.queryAsMember(
+      const data = await ctx.dispatch.queryAsMember(
         event.payload.userId,
         event.payload.targetQn,
         event.payload.payload,
@@ -391,7 +396,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       payload: z.record(z.string(), z.unknown()).default({}),
     }),
     handler: async (event, ctx) => {
-      const data = await ctx.queryAsMember(
+      const data = await ctx.dispatch.queryAsMember(
         event.payload.userId,
         event.payload.targetQn,
         event.payload.payload,
@@ -404,8 +409,8 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "read-as-member-twice",
     schema: z.object({ userId: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.queryAsMember(event.payload.userId, WHOAMI_QN, {});
-      await ctx.queryAsMember(event.payload.userId, WHOAMI_QN, {});
+      await ctx.dispatch.queryAsMember(event.payload.userId, WHOAMI_QN, {});
+      await ctx.dispatch.queryAsMember(event.payload.userId, WHOAMI_QN, {});
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
@@ -415,8 +420,8 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "read-as-member-two-users",
     schema: z.object({ userIdA: z.string(), userIdB: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.queryAsMember(event.payload.userIdA, WHOAMI_QN, {});
-      await ctx.queryAsMember(event.payload.userIdB, WHOAMI_QN, {});
+      await ctx.dispatch.queryAsMember(event.payload.userIdA, WHOAMI_QN, {});
+      await ctx.dispatch.queryAsMember(event.payload.userIdB, WHOAMI_QN, {});
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
@@ -426,8 +431,8 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "read-as-member-then-write",
     schema: z.object({ userId: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.queryAsMember(event.payload.userId, NOTE_LIST_QN, {});
-      const result = await ctx.write("queryasmemberprobe:write:note:create", {
+      await ctx.dispatch.queryAsMember(event.payload.userId, NOTE_LIST_QN, {});
+      const result = await ctx.dispatch.write("queryasmemberprobe:write:note:create", {
         ownerId: event.payload.userId,
         body: "after-read",
       });
@@ -465,7 +470,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (_result, ctx) => {
       const handlerCtx = ctx as unknown as HandlerContext; // @cast-boundary: hook ctx is AppContext at the type level, but the dispatcher hands it a real HandlerContext at runtime
       try {
-        await handlerCtx.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
+        await handlerCtx.dispatch.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
         hookNoHatchOutcomes.push({ threw: false });
       } catch (err) {
         hookNoHatchOutcomes.push({ threw: true });
@@ -479,7 +484,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     target: "hook-note-b:create",
     handler: async (_result, ctx) => {
       const handlerCtx = ctx as unknown as HandlerContext; // @cast-boundary: same as the hook-note-a probe above
-      const res = await handlerCtx.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
+      const res = await handlerCtx.dispatch.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
       hookWithHatchResults.push(res);
     },
     phase: HookPhases.inTransaction,
@@ -489,7 +494,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   // Jobs stay ungated.
   r.job("noop", { trigger: { manual: true }, retries: 0 }, async () => {});
   r.job("query-as-member-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const result = await ctx.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
+    const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
     jobQueryAsMemberResults.push(result);
   });
 });
@@ -502,7 +507,7 @@ const systemScopeProbeFeature = defineFeature("queryasmembersystemscope", (r) =>
     name: "read-as-member",
     schema: z.object({ userId: z.string() }),
     handler: async (event, ctx) => {
-      const data = await ctx.queryAsMember(event.payload.userId, WHOAMI_QN, {});
+      const data = await ctx.dispatch.queryAsMember(event.payload.userId, WHOAMI_QN, {});
       return { isSuccess: true as const, data };
     },
     access: { roles: ["Admin"] },
@@ -669,7 +674,7 @@ async function readNoteBodies(): Promise<readonly string[]> {
 
 // ── 1. Ownership — reading as a member applies THEIR row filters ──────────
 
-describe("ctx.queryAsMember — ownership rules of the resolved member apply", () => {
+describe("ctx.dispatch.queryAsMember — ownership rules of the resolved member apply", () => {
   test("reading as user A returns only A's rows, reading as B only B's", async () => {
     await createTenant(TENANT_A);
     const userA = await createUser("owner-a@example.com", "pw-long-enough-1");
@@ -696,7 +701,7 @@ describe("ctx.queryAsMember — ownership rules of the resolved member apply", (
 
 // ── 2. whoami parity with a fresh interactive login ────────────────────────
 
-describe("ctx.queryAsMember — resolved SessionUser matches an interactive login", () => {
+describe("ctx.dispatch.queryAsMember — resolved SessionUser matches an interactive login", () => {
   test("no sid, origin member-resolution, roles/claims equal to a fresh HTTP login", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("parity@example.com", "pw-long-enough-3");
@@ -727,7 +732,7 @@ describe("ctx.queryAsMember — resolved SessionUser matches an interactive logi
 
 // ── 3. AccessDenied — same generic error for every rejection reason ───────
 
-describe("ctx.queryAsMember — AccessDenied, same generic error for every rejection cause", () => {
+describe("ctx.dispatch.queryAsMember — AccessDenied, same generic error for every rejection cause", () => {
   const GENERIC_MESSAGE = "not permitted to read as this member";
   const GENERIC_DETAILS = { reason: "member_resolution_denied" };
 
@@ -805,7 +810,7 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
 
 // ── 4. Cache — repeated calls for the same user resolve once ──────────────
 
-describe("ctx.queryAsMember — per-context cache", () => {
+describe("ctx.dispatch.queryAsMember — per-context cache", () => {
   test("two calls for the same user increment the authClaims counter exactly once", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("cached@example.com", "pw-long-enough-8");
@@ -841,7 +846,7 @@ describe("ctx.queryAsMember — per-context cache", () => {
 
 // ── 5. Grant — the same escapeHatch/systemIdentitySwitch gate as SYSTEM queryAs ──
 
-describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
+describe("ctx.dispatch.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
   test("handler without escapeHatch: denied", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("nograte@example.com", "pw-long-enough-9");
@@ -888,7 +893,7 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
     expect((hookWithHatchResults[0] as { id: string }).id).toBe(userId);
   });
 
-  test("job: ctx.queryAsMember works ungated", async () => {
+  test("job: ctx.dispatch.queryAsMember works ungated", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("jobmember@example.com", "pw-long-enough-12");
     await addMembership(userId, TENANT_A);
@@ -929,8 +934,8 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
 
 // ── 6. Read-only enforcement — a queried handler cannot write ─────────────
 
-describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsMember)", () => {
-  test("target query handler calling ctx.write → denied with member_resolution_read_only", async () => {
+describe("ctx.dispatch.queryAsMember — the resolved principal is read-only (no writeAsMember)", () => {
+  test("target query handler calling ctx.dispatch.write → denied with member_resolution_read_only", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("triesWrite@example.com", "pw-long-enough-13");
     await addMembership(userId, TENANT_A);
@@ -940,7 +945,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
-  test("target query handler calling ctx.unsafeAppendEvent → denied with member_resolution_read_only", async () => {
+  test("target query handler calling ctx.events.unsafeAppend → denied with member_resolution_read_only", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("triesAppend@example.com", "pw-long-enough-14");
     await addMembership(userId, TENANT_A);
@@ -986,7 +991,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     expect(result).toMatchObject({ hits: 0, redisValue: null, cached: null });
   });
 
-  test("target query handler calling ctx.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {
+  test("target query handler calling ctx.events.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("triesFetchForWriting@example.com", "pw-long-enough-20");
     await addMembership(userId, TENANT_A);
@@ -996,7 +1001,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
-  test("target query handler calling ctx.queryAs → denied with member_resolution_read_only", async () => {
+  test("target query handler calling ctx.dispatch.queryAs → denied with member_resolution_read_only", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("triesQueryAs@example.com", "pw-long-enough-33");
     await addMembership(userId, TENANT_A);
@@ -1033,7 +1038,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
 // ── 7. Database-level read-only — the resolved principal's Postgres tx is
 //      itself READ ONLY, so even a raw ctx.db/unsafeRaw write is rejected ──
 
-describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)", () => {
+describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY transaction)", () => {
   beforeEach(async () => {
     await resetTestTables(stack.db, [noteTable, guardNoteTable]);
     await seedRow(stack.db, guardNoteTable, { tenantId: TENANT_A, body: "untouched" });
@@ -1241,7 +1246,7 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
-  test("l) nested-raw-select: a ctx.query hop inside a member read stays without a raw handle", async () => {
+  test("l) nested-raw-select: a ctx.dispatch.query hop inside a member read stays without a raw handle", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("nestedrawselect@example.com", "pw-long-enough-40");
     await addMembership(userId, TENANT_A);

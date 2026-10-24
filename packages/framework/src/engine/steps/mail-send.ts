@@ -27,7 +27,7 @@ defineStep<MailSendArgs, void>({
     const subject = resolveRequired(args.subject, ctx);
     const body = resolveRequired(args.body, ctx);
     const from = resolveOptional(args.from, ctx);
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: randomUUID(),
       aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
       type: STEP_DISPATCH_REQUESTED_TYPE,

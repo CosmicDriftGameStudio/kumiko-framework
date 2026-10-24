@@ -267,7 +267,7 @@ beforeAll(async () => {
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");

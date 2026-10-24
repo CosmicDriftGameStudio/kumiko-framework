@@ -84,7 +84,7 @@ const gateFeature = defineFeature("gatetest", (r) => {
     name: "delegate-write-to-forget-high",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) =>
-      ctx.write("gatetest:write:forget-hard-high", { id: event.payload.id }),
+      ctx.dispatch.write("gatetest:write:forget-hard-high", { id: event.payload.id }),
     access: { roles: ["Admin"] },
   });
 
@@ -92,7 +92,7 @@ const gateFeature = defineFeature("gatetest", (r) => {
     name: "delegate-write-as-to-forget-high",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) =>
-      ctx.writeAs(event.user, "gatetest:write:forget-hard-high", { id: event.payload.id }),
+      ctx.dispatch.writeAs(event.user, "gatetest:write:forget-hard-high", { id: event.payload.id }),
     access: { roles: ["Admin"] },
   });
 
@@ -219,8 +219,8 @@ describe("stream entry handlers resolve mid risk", () => {
   });
 });
 
-describe("delegation via ctx.write/writeAs does not inherit the inner handler's risk", () => {
-  test("mid handler delegating via ctx.write to a high forget handler is denied", async () => {
+describe("delegation via ctx.dispatch.write/writeAs does not inherit the inner handler's risk", () => {
+  test("mid handler delegating via ctx.dispatch.write to a high forget handler is denied", async () => {
     const id = await createHard("delegate-write-denied");
     const err = await stack.http.writeErr(
       "gatetest:write:delegate-write-to-forget-high",
@@ -232,7 +232,7 @@ describe("delegation via ctx.write/writeAs does not inherit the inner handler's 
     expect(await hardRowExists(id)).toBe(true);
   });
 
-  test("mid handler delegating via ctx.writeAs to a high forget handler is denied", async () => {
+  test("mid handler delegating via ctx.dispatch.writeAs to a high forget handler is denied", async () => {
     const id = await createHard("delegate-write-as-denied");
     const err = await stack.http.writeErr(
       "gatetest:write:delegate-write-as-to-forget-high",

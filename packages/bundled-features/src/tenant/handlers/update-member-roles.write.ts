@@ -181,7 +181,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // requires, see above).
     const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
     if (revoker) {
-      await ctx.writeAs(
+      await ctx.dispatch.writeAs(
         createSystemUser(targetTenantId),
         REVOKE_ALL_SESSIONS_QN,
         revokeSessionsPayload(event.payload.userId, targetTenantId, event.user),

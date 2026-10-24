@@ -5,7 +5,7 @@ import { FrameworkReasons } from "./reasons.ts";
 export function memberResolutionReadOnlyDenied(cause?: unknown): AccessDeniedError {
   return new AccessDeniedError({
     message:
-      "a resolved member principal (ctx.queryAsMember) cannot write or reach raw SQL — read-only",
+      "a resolved member principal (ctx.dispatch.queryAsMember) cannot write or reach raw SQL — read-only",
     details: { reason: FrameworkReasons.memberResolutionReadOnly },
     ...(cause instanceof Error && { cause }),
   });

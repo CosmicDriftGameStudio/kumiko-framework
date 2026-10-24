@@ -154,7 +154,7 @@ function buildSecretsContext(
         const readId = generateId();
         const metadata: EventMetadata = { userId: auditCtx.userId };
         // Parse against the registered schema so the low-level append
-        // here gets the same validation guarantee as ctx.appendEvent.
+        // here gets the same validation guarantee as ctx.events.append.
         // A payload-shape drift between schema + call-site fails at the
         // source instead of landing on the events-stream.
         const payload = secretReadSchema.parse({

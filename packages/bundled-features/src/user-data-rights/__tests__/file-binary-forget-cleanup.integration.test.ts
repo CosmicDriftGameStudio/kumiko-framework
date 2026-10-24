@@ -89,7 +89,7 @@ beforeAll(async () => {
     ],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   db = stack.db;
@@ -214,21 +214,22 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
       registry: stack.registry,
       configResolver: configResolverForJobCtx,
       systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
-      log: {
-        info() {},
-        warn() {},
-        error() {},
-        debug() {},
-        child(): JobContext["log"] {
-          return this;
-        },
-      },
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({
+        log: {
+          info() {},
+          warn() {},
+          error() {},
+          debug() {},
+          child(): JobContext["obs"]["log"] {
+            return this;
+          },
+        },
+      }),
     };
     await job.handler({}, ctx);
 

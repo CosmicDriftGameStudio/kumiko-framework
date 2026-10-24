@@ -95,7 +95,7 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 const log = createFallbackLogger("tier-engine");
 
 // Event-store executor for direct writes from the auto-default-tier hook.
-// Like tenant/seeding.ts, the hook receives AppContext (not ctx.write), but it
+// Like tenant/seeding.ts, the hook receives AppContext (not ctx.dispatch.write), but it
 // must write atomically with tenant creation in the same transaction. Call the
 // executor directly rather than going through the dispatcher.
 const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
@@ -406,7 +406,7 @@ export function createTierEngineFeature<
 
       // Auto-default-tier-on-tenant-signup: the hook fires inTransaction (atomic
       // with the tenant-create rollback) and writes the tier-assignment via the
-      // direct executor (not ctx.write — the hook has an AppContext). Same
+      // direct executor (not ctx.dispatch.write — the hook has an AppContext). Same
       // pattern as seedTenant in tenant/seeding.ts.
       //
       // **Idempotency:** deterministic aggregate id derived from tenantId. A

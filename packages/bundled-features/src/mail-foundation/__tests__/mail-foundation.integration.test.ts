@@ -151,10 +151,10 @@ beforeAll(async () => {
     extraContext: ({ db, registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      // _configAccessorFactory wires `ctx.config(handle)` for every
+      // configAccessorFactory wires `ctx.config(handle)` for every
       // dispatched handler. Without it createTransportForTenant fails
       // with "ctx.config is missing".
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       secrets: createSecretsContext({ db, masterKeyProvider: providerRef, registry: registry }),
     }),
   });

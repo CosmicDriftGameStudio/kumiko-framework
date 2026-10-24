@@ -1,4 +1,4 @@
-// Issue #1038 — ctx.tryAppendEvent (savepoint-scoped append).
+// Issue #1038 — ctx.events.tryAppend (savepoint-scoped append).
 //
 // Claims pinned here:
 //   1. Happy path: first append on a fresh aggregate succeeds, returns
@@ -36,7 +36,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 
 const TAE_AGGREGATE_TYPE = "taeDoc";
 
-// Marker entity — a plain CRUD write issued right after ctx.tryAppendEvent
+// Marker entity — a plain CRUD write issued right after ctx.events.tryAppend
 // in the same handler/transaction. Its row landing (regardless of whether
 // the append won or lost the race) is the non-poisoning proof.
 const markerEntity = createEntity({
@@ -63,7 +63,7 @@ const tryAppendFeature = defineFeature("tae", (r) => {
     name: "doc:try-append",
     schema: z.object({ aggregateId: z.uuid(), note: z.string() }),
     handler: async (event, ctx) => {
-      const result = await ctx.tryAppendEvent({
+      const result = await ctx.events.tryAppend({
         aggregateId: event.payload.aggregateId,
         aggregateType: TAE_AGGREGATE_TYPE,
         type: appended.name,
@@ -105,7 +105,7 @@ beforeEach(async () => {
   );
 });
 
-describe("Issue #1038 — ctx.tryAppendEvent", () => {
+describe("Issue #1038 — ctx.events.tryAppend", () => {
   test("happy path: first append on a fresh aggregate returns { ok: true, event }", async () => {
     const aggregateId = crypto.randomUUID();
 

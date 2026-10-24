@@ -31,7 +31,9 @@ function chunksOf<T>(items: readonly T[], size: number): T[][] {
 }
 
 type DirectoryQueryContext = {
-  readonly query: (name: string, payload: { ids: string[] }) => Promise<unknown>;
+  readonly dispatch: {
+    readonly query: (name: string, payload: { ids: string[] }) => Promise<unknown>;
+  };
 };
 
 // Looks up only the ids the overrides need, so labels never depend on the directory's default cap.
@@ -42,7 +44,7 @@ async function labelsFor(
 ): Promise<ReadonlyMap<string, string>> {
   const labels = new Map<string, string>();
   for (const chunk of chunksOf([...ids], MAX_LIST_LIMIT)) {
-    const raw = await ctx.query(queryName, { ids: chunk });
+    const raw = await ctx.dispatch.query(queryName, { ids: chunk });
     for (const row of directorySchema.parse(raw).rows) labels.set(row.id, row.label);
   }
   return labels;

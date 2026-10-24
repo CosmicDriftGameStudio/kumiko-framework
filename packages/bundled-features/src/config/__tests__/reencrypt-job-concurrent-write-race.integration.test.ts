@@ -182,7 +182,7 @@ function racyJobCtx(
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: racyCipher,
-    log,
+    obs: { log },
     // Without a sink, the job's escape-hatch reporter warn-logs through `log` and its
     // report is deduped by the framework's process-wide window (escape-hatch-report.ts),
     // so whether the unconditional per-run scan ack reaches `log.warn` here depends on

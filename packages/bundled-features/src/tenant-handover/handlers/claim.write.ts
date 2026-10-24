@@ -92,7 +92,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
           // Own aggregate, decoupled from the transferred root's stream (see
           // events.ts) — a fresh id needs no predecessor version and can't
           // conflict with a concurrent write on the entity it describes.
-          await ctx.unsafeAppendEvent({
+          await ctx.events.unsafeAppend({
             aggregateId: generateId(),
             aggregateType: TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE,
             type: TENANT_HANDOVER_CLAIMED_EVENT_QN,

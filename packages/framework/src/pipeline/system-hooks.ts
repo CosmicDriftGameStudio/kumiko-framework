@@ -526,7 +526,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
 // r.job's `trigger.on` historically only fired via the synchronous
 // write-handler dispatch path (dispatch-write.ts's afterCommitHooks calling
 // jobRunner.handleEvent). Events appended any other way — an
-// r.multiStreamProjection's ctx.unsafeAppendEvent, or a raw
+// r.multiStreamProjection's ctx.events.unsafeAppend, or a raw
 // event-store-executor write (e.g. `files`' fileRef.created) — never
 // reached it, so a job could never trigger on an r.defineEvent-registered
 // event.
@@ -535,7 +535,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
 // committed event off the shared cursor and re-check job triggers. It is
 // scoped EXACTLY to the gap — the write/query-handler-QN skip below is
 // defense-in-depth: no stored event's `type` is a handler QN today (entity
-// events are "entity.verb"; ctx.appendEvent enforces defineEvent-only
+// events are "entity.verb"; ctx.events.append enforces defineEvent-only
 // ownership), but if that ever changes, this consumer must not re-fire a
 // trigger the synchronous dispatch-write.ts path already handled.
 //

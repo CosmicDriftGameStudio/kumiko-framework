@@ -7,7 +7,7 @@
 //
 // **Documented deviation:** the poll was originally intended as an `r.job`
 // cron trigger. JobContext previously had no dispatcher (see
-// run-export-jobs.ts), but now has one (`ctx.write`/`ctx.queryAs`,
+// run-export-jobs.ts), but now has one (`ctx.dispatch.write`/`ctx.dispatch.queryAs`,
 // job-runner.ts). Converting the poll to a cron job is a separate migration
 // because it changes the concurrency model, so this dispatcher contract
 // remains in place. The app owner wires the supervisor in bin/server.ts:

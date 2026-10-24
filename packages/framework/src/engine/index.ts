@@ -1,6 +1,7 @@
 // Public API
 
 export { handlerFieldLabelKey, handlerTitleKey } from "../i18n/required-surface-keys.ts";
+export { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 export { hasAccess } from "./access.ts";
 export {
   isPrincipalStatusPlugin,
@@ -368,6 +369,7 @@ export type {
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,
+  BeforeTransactionContext,
   BeforeTransactionPhase,
   BeforeTransactionResult,
   BelongsToRelation,
@@ -488,7 +490,12 @@ export type {
   Findability,
   FormatSpec,
   FormWidth,
+  HandlerAuth,
   HandlerContext,
+  HandlerDb,
+  HandlerDispatch,
+  HandlerEvents,
+  HandlerObservability,
   HasManyRelation,
   HookDefinition,
   HookMap,
@@ -499,7 +506,10 @@ export type {
   JobContext,
   JobDeferral,
   JobDefinition,
+  JobDispatch,
+  JobEvents,
   JobHandlerFn,
+  JobObservability,
   JobTrigger,
   JobTriggerEvent,
   JsonbFieldDef,
@@ -579,6 +589,7 @@ export type {
   ReferenceDataDef,
   Registry,
   RelationDefinition,
+  ReservationContext,
   ResolvedPiiFlags,
   RetentionDef,
   RoleAccessPersonalData,

@@ -73,7 +73,7 @@ const widgetFeature = defineFeature("reindex-job-test", (r) => {
 let stack: TestStack;
 const admin = TestUsers.admin;
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -136,13 +136,12 @@ describe("reindexEntityJob", () => {
           },
         }),
       ),
-      log: noopLogger,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({ log: noopLogger }),
     };
     await reindexEntityJob({ entity: "widget" }, ctx);
 
@@ -196,13 +195,12 @@ describe("reindexEntityJob", () => {
           },
         }),
       ),
-      log: noopLogger,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({ log: noopLogger }),
     };
     await job.handler({ entity: "widget" }, ctx);
 
@@ -271,13 +269,12 @@ describe("reindexEntityJob", () => {
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
         }),
       ),
-      log: noopLogger,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({ log: noopLogger }),
     };
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(
       /tenant self-check failed/,
@@ -338,13 +335,12 @@ describe("reindexEntityJob under a server statement_timeout", () => {
             },
           }),
         ),
-        log: noopLogger,
         triggeredBy: null,
         attempt: 1,
         finalAttempt: true,
         defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
         canDefer: false,
-        ...bridgeStub(),
+        ...bridgeStub({ log: noopLogger }),
       };
       await reindexEntityJob({ entity: "slow-widget" }, ctx);
     } finally {

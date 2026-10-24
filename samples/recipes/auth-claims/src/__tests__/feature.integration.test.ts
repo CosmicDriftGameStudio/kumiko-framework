@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 // The resolver needs an AuthClaimsContext per hook run. This sample doesn't
-// exercise ctx.db or ctx.queryAs — real features would, and that's the
+// exercise ctx.db or ctx.dispatch.queryAs — real features would, and that's the
 // point of the fresh TenantDb the dispatcher builds. A stub is fine here.
 const stubContext: AuthClaimsContext = {
   db: {} as AuthClaimsContext["db"],

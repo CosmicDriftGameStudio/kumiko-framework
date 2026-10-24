@@ -57,7 +57,7 @@ describe("workflow-engine", () => {
   });
 
   it("webhook-delivery completes with exactly one dispatch request", async () => {
-    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
 
     const result = await startAndRunWorkflow({
       runId: "wf-webhook-delivery-1",
@@ -71,7 +71,7 @@ describe("workflow-engine", () => {
     });
 
     expect(result.outcome).toBe("completed");
-    const dispatchRequests = ctx.unsafeAppendEvent.mock.calls
+    const dispatchRequests = ctx.events.unsafeAppend.mock.calls
       .map(([event]) => event as { type: string; payload: Record<string, unknown> })
       .filter((event) => event.type === STEP_DISPATCH_REQUESTED_TYPE);
     expect(dispatchRequests).toHaveLength(1);
@@ -99,7 +99,7 @@ describe("workflow-engine", () => {
 
 describe("workflow-runner", () => {
   function makeAppendOnlyCtx() {
-    return { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    return { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
   }
 
   it("startAndRunWorkflow writes run.started with Q7 snapshot fingerprint, then runs the pipeline to completion when no suspension", async () => {
@@ -118,15 +118,15 @@ describe("workflow-runner", () => {
     });
 
     expect(result.outcome).toBe("completed");
-    expect(ctx.unsafeAppendEvent).toHaveBeenCalledTimes(2);
-    const started = ctx.unsafeAppendEvent.mock.calls[0]![0] as {
+    expect(ctx.events.unsafeAppend).toHaveBeenCalledTimes(2);
+    const started = ctx.events.unsafeAppend.mock.calls[0]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
     expect(started.type).toBe("kumiko:system:workflow.run-started");
     expect(started.payload["definitionFingerprint"]).toBe(computeDefinitionFingerprint(workflow));
     expect(started.payload["triggerEventType"]).toBe("demo.fired");
-    const completed = ctx.unsafeAppendEvent.mock.calls[1]![0] as { type: string };
+    const completed = ctx.events.unsafeAppend.mock.calls[1]![0] as { type: string };
     expect(completed.type).toBe("kumiko:system:workflow.run-completed");
   });
 
@@ -150,8 +150,8 @@ describe("workflow-runner", () => {
 
     expect(result.outcome).toBe("suspended");
     // run.started + workflow.step.waiting — no run-completed yet
-    expect(ctx.unsafeAppendEvent).toHaveBeenCalledTimes(2);
-    const waiting = ctx.unsafeAppendEvent.mock.calls[1]![0] as {
+    expect(ctx.events.unsafeAppend).toHaveBeenCalledTimes(2);
+    const waiting = ctx.events.unsafeAppend.mock.calls[1]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
@@ -176,14 +176,16 @@ describe("workflow-runner", () => {
       handlerCtx: ctx as never,
     });
 
-    const started = ctx.unsafeAppendEvent.mock.calls[0]![0] as { payload: Record<string, unknown> };
+    const started = ctx.events.unsafeAppend.mock.calls[0]![0] as {
+      payload: Record<string, unknown>;
+    };
     expect(started.payload["idempotencyKey"]).toBe("id:abc");
   });
 });
 
 describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   it("suspends on the first wait, then resume-loop runs it through to completion", async () => {
-    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
     const trigger = {
       aggregateId: "agg_user_42",
       type: "user.signed-up",
@@ -201,16 +203,16 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
 
     expect(result.outcome).toBe("suspended");
     // Calls: run.started, mail.send dispatch-requested, workflow.step.waiting
-    expect(ctx.unsafeAppendEvent).toHaveBeenCalledTimes(3);
-    const startedCall = ctx.unsafeAppendEvent.mock.calls[0]![0] as {
+    expect(ctx.events.unsafeAppend).toHaveBeenCalledTimes(3);
+    const startedCall = ctx.events.unsafeAppend.mock.calls[0]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
-    const mailCall = ctx.unsafeAppendEvent.mock.calls[1]![0] as {
+    const mailCall = ctx.events.unsafeAppend.mock.calls[1]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
-    const waitingCall = ctx.unsafeAppendEvent.mock.calls[2]![0] as {
+    const waitingCall = ctx.events.unsafeAppend.mock.calls[2]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
@@ -246,7 +248,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       definitionFingerprint: waitingCall.payload["definitionFingerprint"] as string,
     };
 
-    const resumeCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const resumeCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
     const count = await runResumeLoop(
       createInMemorySuspendedRunFetcher([suspendedRun]),
       resumeCtx as never,
@@ -257,7 +259,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
     // because userId starts with "active-"), second WAITING for P7D.
     // The run is suspended again before the webhook, so no RUN_COMPLETED
     // yet — this is one resume-cycle, not the whole workflow.
-    const resumeTypes = resumeCtx.unsafeAppendEvent.mock.calls.map(
+    const resumeTypes = resumeCtx.events.unsafeAppend.mock.calls.map(
       (c) => (c[0] as { type: string }).type,
     );
     expect(resumeTypes).toEqual([
@@ -265,14 +267,14 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       "kumiko:system:step.dispatch-requested",
       "kumiko:system:workflow.step.waiting",
     ]);
-    const tipsMail = resumeCtx.unsafeAppendEvent.mock.calls[1]![0] as {
+    const tipsMail = resumeCtx.events.unsafeAppend.mock.calls[1]![0] as {
       payload: { subject: string };
     };
     expect(tipsMail.payload.subject).toBe("Engagement tips");
   });
 
   it("not-engaged path picks the reminder branch", async () => {
-    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
     const trigger = {
       aggregateId: "agg_user_cold",
       type: "user.signed-up",
@@ -285,7 +287,9 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       triggerEventRef: { eventId: "2", aggregateId: trigger.aggregateId, version: 1 },
       handlerCtx: ctx as never,
     });
-    const waiting = ctx.unsafeAppendEvent.mock.calls[2]![0] as { payload: Record<string, unknown> };
+    const waiting = ctx.events.unsafeAppend.mock.calls[2]![0] as {
+      payload: Record<string, unknown>;
+    };
     const suspendedRun: SuspendableRun = {
       runId: "wf-onboarding-cold-1",
       workflowName: "user-onboarding",
@@ -296,10 +300,10 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       triggerEvent: trigger as never,
       definitionFingerprint: waiting.payload["definitionFingerprint"] as string,
     };
-    const resumeCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const resumeCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
     await runResumeLoop(createInMemorySuspendedRunFetcher([suspendedRun]), resumeCtx as never);
 
-    const reminderMail = resumeCtx.unsafeAppendEvent.mock.calls[1]![0] as {
+    const reminderMail = resumeCtx.events.unsafeAppend.mock.calls[1]![0] as {
       payload: { subject: string };
     };
     expect(reminderMail.payload.subject).toBe("Getting started");
@@ -428,7 +432,7 @@ describe("cron-scheduler", () => {
       steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
-    const handlerCtx = { unsafeAppendEvent: mock() };
+    const handlerCtx = { events: { unsafeAppend: mock() } };
     const lastRuns = new Map<string, Temporal.Instant>();
     const now = Temporal.Instant.from("2025-06-01T08:00:00Z");
 
@@ -440,7 +444,7 @@ describe("cron-scheduler", () => {
     );
 
     expect(count).toBe(0);
-    expect(handlerCtx.unsafeAppendEvent).not.toHaveBeenCalled();
+    expect(handlerCtx.events.unsafeAppend).not.toHaveBeenCalled();
   });
 
   it("runDueCronWorkflows runs due workflows through the full start path", async () => {
@@ -450,7 +454,7 @@ describe("cron-scheduler", () => {
       steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
-    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
     const lastRuns = new Map<string, Temporal.Instant>();
     const lastRun = Temporal.Instant.from("2025-05-31T08:00:00Z");
     lastRuns.set("test-daily", lastRun);
@@ -465,10 +469,10 @@ describe("cron-scheduler", () => {
 
     expect(count).toBe(1);
     // run.started + run-completed (no suspension, pipeline returns immediately).
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenCalledTimes(2);
-    const started = handlerCtx.unsafeAppendEvent.mock.calls[0]![0] as Record<string, unknown>;
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenCalledTimes(2);
+    const started = handlerCtx.events.unsafeAppend.mock.calls[0]![0] as Record<string, unknown>;
     expect(started["type"]).toBe("kumiko:system:workflow.run-started");
-    const completed = handlerCtx.unsafeAppendEvent.mock.calls[1]![0] as Record<string, unknown>;
+    const completed = handlerCtx.events.unsafeAppend.mock.calls[1]![0] as Record<string, unknown>;
     expect(completed["type"]).toBe("kumiko:system:workflow.run-completed");
   });
 });
@@ -476,12 +480,12 @@ describe("cron-scheduler", () => {
 describe("resume-loop", () => {
   it("returns 0 when no suspended runs exist", async () => {
     const fetchRuns = createInMemorySuspendedRunFetcher([]);
-    const handlerCtx = { unsafeAppendEvent: mock() };
+    const handlerCtx = { events: { unsafeAppend: mock() } };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
     expect(count).toBe(0);
-    expect(handlerCtx.unsafeAppendEvent).not.toHaveBeenCalled();
+    expect(handlerCtx.events.unsafeAppend).not.toHaveBeenCalled();
   });
 
   it("resumes a suspended run", async () => {
@@ -498,19 +502,19 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
     expect(count).toBe(1);
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenCalledTimes(2);
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenNthCalledWith(1, {
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenCalledTimes(2);
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenNthCalledWith(1, {
       aggregateId: "wf-test-run_123",
       aggregateType: "workflow-run",
       type: "kumiko:system:workflow.step.resumed",
       payload: { stepIndex: 0, retryAttempt: undefined },
     });
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenNthCalledWith(2, {
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenNthCalledWith(2, {
       aggregateId: "wf-test-run_123",
       aggregateType: "workflow-run",
       type: "kumiko:system:workflow.run-completed",
@@ -532,13 +536,13 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
     expect(count).toBe(0);
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenCalledTimes(1);
-    const failed = handlerCtx.unsafeAppendEvent.mock.calls[0]![0] as {
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenCalledTimes(1);
+    const failed = handlerCtx.events.unsafeAppend.mock.calls[0]![0] as {
       type: string;
       payload: Record<string, unknown>;
     };
@@ -562,16 +566,18 @@ describe("resume-loop", () => {
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
     const handlerCtx = {
-      unsafeAppendEvent: mock()
-        .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1))
-        .mockResolvedValue(undefined),
+      events: {
+        unsafeAppend: mock()
+          .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1))
+          .mockResolvedValue(undefined),
+      },
     };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
     expect(count).toBe(0);
-    expect(handlerCtx.unsafeAppendEvent).toHaveBeenCalledTimes(1);
-    expect((handlerCtx.unsafeAppendEvent.mock.calls[0]![0] as { type: string }).type).toBe(
+    expect(handlerCtx.events.unsafeAppend).toHaveBeenCalledTimes(1);
+    expect((handlerCtx.events.unsafeAppend.mock.calls[0]![0] as { type: string }).type).toBe(
       "kumiko:system:workflow.step.resumed",
     );
   });

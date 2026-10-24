@@ -510,7 +510,7 @@ export const INVOICE_EVENTS = {
 // Qualifier used by the reducer to match events from the stream.
 // `<const TShort>` preserves the literal-string at the call-site, so
 // `eventName(INVOICE_EVENTS.sent)` carries `"billing:event:invoice-sent"`
-// as a literal type. That literal is what `ctx.appendEvent({ type, ... })`
+// as a literal type. That literal is what `ctx.events.append({ type, ... })`
 // strict-checks against the augmented `KumikoEventTypeMap`.
 export function eventName<const TShort extends string>(
   short: TShort,
@@ -927,7 +927,7 @@ export async function loadInvoiceState(
   ctx: HandlerContext,
   id: string,
 ): Promise<InvoiceState | null> {
-  const events = await ctx.loadAggregate(id);
+  const events = await ctx.events.load(id);
   if (events.length === 0) return null;
   const state: InvoiceState = { ...initialInvoiceState };
   for (const evt of events) reduceInvoice(state, evt);

@@ -52,7 +52,7 @@ export function createRedisToggleSyncSignal(
     onMessage(listener) {
       signal.onMessage((_channel, payload) => {
         if (!isTogglePayload(payload)) {
-          // biome-ignore lint/suspicious/noConsole: ops-visible fallback — no ctx.log in a raw PubSubSignal handler.
+          // biome-ignore lint/suspicious/noConsole: ops-visible fallback — no ctx.obs.log in a raw PubSubSignal handler.
           console.error(
             `[kumiko:feature-toggles] dropping malformed cache-sync message on "${toggleSyncChannel}"`,
           );

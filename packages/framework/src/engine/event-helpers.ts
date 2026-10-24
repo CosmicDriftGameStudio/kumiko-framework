@@ -1,16 +1,16 @@
 import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers.ts";
 
 // The ctx-surface emitEvent needs. Accepting the narrow shape lets tests or
-// MultiStreamApplyContext-style callers pass their own appendEvent without
+// MultiStreamApplyContext-style callers pass their own events.unsafeAppend without
 // a full HandlerContext. Real handlers just pass `ctx`.
 //
-// Uses unsafeAppendEvent internally because EventDef's TPayload comes from
+// Uses events.unsafeAppend internally because EventDef's TPayload comes from
 // a runtime-defined zod-schema — emitEvent does the type-check itself via
 // the EventDef generic, so it doesn't need the strict KumikoEventTypeMap
-// path. The strict appendEvent is for direct in-handler callsites.
-export type EmitCtx = Pick<HandlerContext, "unsafeAppendEvent">;
+// path. The strict events.append is for direct in-handler callsites.
+export type EmitCtx = { readonly events: Pick<HandlerContext["events"], "unsafeAppend"> };
 
-// Typed wrapper around ctx.appendEvent. Two wins over the raw call:
+// Typed wrapper around ctx.events.append. Two wins over the raw call:
 //
 //   1. The payload is checked against the EventDef's inferred TPayload,
 //      so a Zod-schema mismatch becomes a compile error at the emit site
@@ -26,7 +26,7 @@ export type EmitCtx = Pick<HandlerContext, "unsafeAppendEvent">;
 //
 // aggregateType stays explicit on purpose — the EventDef doesn't know which
 // aggregate owns an event (cross-feature reuse is legal). Use the raw
-// ctx.appendEvent when the event name is computed at runtime.
+// ctx.events.append when the event name is computed at runtime.
 export async function emitEvent<TPayload>(
   ctx: EmitCtx,
   eventDef: EventDef<TPayload>,
@@ -44,7 +44,7 @@ export async function emitEvent<TPayload>(
     payload: args.payload,
     ...(args.headers !== undefined && { headers: args.headers }),
   };
-  await ctx.unsafeAppendEvent(appendArgs);
+  await ctx.events.unsafeAppend(appendArgs);
 }
 
 // Read-side counterpart: narrow a StoredEvent's `payload` (declared as

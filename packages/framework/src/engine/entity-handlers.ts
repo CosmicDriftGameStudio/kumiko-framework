@@ -731,7 +731,7 @@ export function createEntityExecutor<E extends EntityDefinition>(
 //   );
 //
 // For anything more involved (filters, joins, custom shaping), write the
-// query-handler explicitly with ctx.queryProjection or a raw select.
+// query-handler explicitly with ctx.dispatch.queryProjection or a raw select.
 export function defineProjectionQueryHandler(
   name: string,
   projectionQualifiedName: string,
@@ -754,12 +754,12 @@ export function defineProjectionQueryHandler(
   return {
     name,
     schema: z.object({}),
-    // Returns the raw row array — matches ctx.queryProjection's shape so the
-    // helper is a drop-in for the inline `async (_q, ctx) => ctx.queryProjection(...)`
+    // Returns the raw row array — matches ctx.dispatch.queryProjection's shape so the
+    // helper is a drop-in for the inline `async (_q, ctx) => ctx.dispatch.queryProjection(...)`
     // handler. Wrap the result in the caller's handler when you need
     // pagination envelopes or added metadata.
     handler: async (_query, ctx) =>
-      ctx.queryProjection(
+      ctx.dispatch.queryProjection(
         projectionQualifiedName,
         options.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
       ), // @wrapper-known semantic-alias

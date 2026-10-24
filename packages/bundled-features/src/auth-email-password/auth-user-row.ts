@@ -1,4 +1,4 @@
-// Narrow cross-feature query results (ctx.queryAs → Promise<unknown>) into
+// Narrow cross-feature query results (ctx.dispatch.queryAs → Promise<unknown>) into
 // the shape the auth handlers actually read. Replaces a bare
 // `as AuthUserRow | null` at the system boundary — the coding standard
 // requires a TypeGuard in place of unchecked casts from unknown.

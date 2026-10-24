@@ -65,10 +65,13 @@ function defineConsumerWrite(name: string, description: string, transition: Cons
             ? rejected(JobErrors.consumerUnknown, "jobs.errors.consumerUnknown")
             : rejected(JobErrors.consumerWrongStatus, "jobs.errors.consumerWrongStatus");
         }
-        ctx.log?.error(`jobs:write:${name} failed: ${e instanceof Error ? e.message : String(e)}`, {
-          consumer: event.payload.name,
-          instanceId: event.payload.instanceId,
-        });
+        ctx.obs.log?.error(
+          `jobs:write:${name} failed: ${e instanceof Error ? e.message : String(e)}`,
+          {
+            consumer: event.payload.name,
+            instanceId: event.payload.instanceId,
+          },
+        );
         return rejected(JobErrors.consumerTransitionFailed, "jobs.errors.consumerTransitionFailed");
       }
     },

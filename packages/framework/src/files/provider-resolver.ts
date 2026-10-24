@@ -159,7 +159,7 @@ export type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provid
 
 export type FileProviderResolverDeps = {
   readonly registry?: Registry;
-  readonly _configAccessorFactory?: ConfigAccessorFactory;
+  readonly configAccessorFactory?: ConfigAccessorFactory;
   readonly secrets?: SecretsContext;
   readonly db?: DbConnection | TenantDb;
   // Config/secret writes on other pods drop the cached provider; subscriptions live as long as the bus.
@@ -191,13 +191,13 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
     const cached = cache.get(tenantId);
     if (cached) return cached;
     const built = (async () => {
-      if (!deps.registry || !deps._configAccessorFactory || !deps.db) {
+      if (!deps.registry || !deps.configAccessorFactory || !deps.db) {
         throw new Error(
-          "makeFileProviderResolver: registry/_configAccessorFactory/db missing — " +
+          "makeFileProviderResolver: registry/configAccessorFactory/db missing — " +
             "mount the config + file-foundation features and wire context.db",
         );
       }
-      const config = deps._configAccessorFactory({
+      const config = deps.configAccessorFactory({
         user: { id: SYSTEM_USER_ID, tenantId },
         db: deps.db,
         secrets: deps.secrets,

@@ -79,5 +79,5 @@ export async function cleanupJob(
   }
 
   const result: SessionCleanupResult = { deleted, batchesProcessed, stoppedReason };
-  ctx.log?.info?.(`[sessions:cleanup] complete: ${JSON.stringify(result)}`);
+  ctx.obs.log?.info?.(`[sessions:cleanup] complete: ${JSON.stringify(result)}`);
 }

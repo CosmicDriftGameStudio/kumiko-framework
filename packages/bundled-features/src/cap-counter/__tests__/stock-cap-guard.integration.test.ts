@@ -300,7 +300,7 @@ describe("withStockCap resolves the tier limit through ctx.config", () => {
         const resolver = createConfigResolver();
         return {
           configResolver: resolver,
-          _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+          configAccessorFactory: createConfigAccessorFactory(registry, resolver),
         };
       },
     });

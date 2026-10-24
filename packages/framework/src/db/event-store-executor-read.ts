@@ -107,7 +107,7 @@ export function createReadVerbs(
         encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
       );
 
-      // Stream version is authoritative (see detail()): ctx.appendEvent bumps the
+      // Stream version is authoritative (see detail()): ctx.events.append bumps the
       // stream without touching row.version, so the raw row version would hand
       // clients a stale optimistic-lock base. Rows without events keep theirs.
       const rows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
@@ -161,7 +161,7 @@ export function createReadVerbs(
       const idWhere = idFilter(payload.id);
 
       // Stream-version authoritative (same policy as update/Block 0):
-      // ctx.appendEvent (lifecycle-writes like incident:post-update) bumps
+      // ctx.events.append (lifecycle-writes like incident:post-update) bumps
       // the stream WITHOUT touching row.version — a detail-read that hands
       // out the stale row.version dooms the next CRUD update built on it
       // (entityEdit loads detail.version as its optimistic-lock base) to a

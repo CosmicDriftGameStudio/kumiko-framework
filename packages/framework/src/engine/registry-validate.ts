@@ -587,7 +587,7 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
   // 'e') would silently never fire. Valid apply-keys are the auto-generated
   // CRUD types per source entity PLUS every domain event registered via
   // r.defineEvent — an apply-handler for a domain event is how a projection
-  // reacts to ctx.appendEvent writes on the same aggregate stream.
+  // reacts to ctx.events.append writes on the same aggregate stream.
   const allDomainEventNames = new Set(state.eventMap.keys());
   for (const [projName, projDef] of state.projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
@@ -620,7 +620,7 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
       }
     }
     // Domain events are valid apply-keys for any projection. They arrive via
-    // ctx.appendEvent on a specific aggregate — the runtime matches by event
+    // ctx.events.append on a specific aggregate — the runtime matches by event
     // type, so a projection can observe domain events whose aggregate matches
     // one of its declared sources.
     for (const domainEvt of allDomainEventNames) validEventTypes.add(domainEvt);
@@ -1019,7 +1019,7 @@ export function computeHasRateLimitedHandler(state: RegistryState): void {
 export function publishEventPiiCatalog(state: RegistryState): void {
   // Publish the event-PII catalog: append() — the single write funnel
   // into kumiko_events — encrypts catalogued payload fields regardless of
-  // which path produced the event (ctx.appendEvent, MSP-apply, low-level
+  // which path produced the event (ctx.events.append, MSP-apply, low-level
   // append in delivery/jobs loggers).
   //
   // Defense-in-depth: defineEvent is the only producer of

@@ -5,6 +5,7 @@ import {
   createEntityExecutor,
   type HandlerContext,
   type JobContext,
+  type ReservationContext,
   type SessionUser,
   type TenantId,
   type WriteResult,
@@ -84,7 +85,7 @@ export type BookCapUsageOptions = {
   readonly guardCurrentValue?: (currentValue: number) => void;
 };
 
-export type CapCounterContext = HandlerContext | JobContext;
+export type CapCounterContext = HandlerContext | JobContext | ReservationContext;
 
 export type CapCounterScope = {
   readonly user: SessionUser;
@@ -104,7 +105,7 @@ function assertDbServesUser(db: TenantDb, user: SessionUser): TenantDb {
 }
 
 // Jobs write in place (their db is not transaction-bound); systemScope handlers reach both dbs via
-// systemDb, because their ctx.db / ctx.dbOutsideTransaction are fail-closed proxies.
+// systemDb, because their ctx.db / ctx.db.outsideTransaction are fail-closed proxies.
 export function resolveCapCounterScope(
   ctx: CapCounterContext,
   outsideTransaction: boolean,
@@ -130,11 +131,11 @@ export function resolveCapCounterScope(
       : readDb;
     return { user, readDb, writeDb };
   }
-  const writeDb = outsideTransaction ? ctx.dbOutsideTransaction : ctx.db;
+  const writeDb = outsideTransaction ? ctx.db.outsideTransaction : ctx.db;
   if (!writeDb) {
     throw new Error(
       outsideTransaction
-        ? "cap-counter: outsideTransaction requested but ctx.dbOutsideTransaction is undefined"
+        ? "cap-counter: outsideTransaction requested but ctx.db.outsideTransaction is undefined"
         : "cap-counter: ctx.db missing — run inside a handler context",
     );
   }

@@ -248,21 +248,23 @@ describe("extendsRegistrar", () => {
     };
     // Simulates a handler whose OWN grant is allow=true (escapeHatch or
     // systemScope) — the extension hook must not inherit this.
-    const handlerCtx = createGatedIdentitySwitch(
-      'handler "fleet:write:vehicle:create"',
-      undefined,
-      true,
-      ungated,
-    );
+    const handlerCtx = {
+      dispatch: createGatedIdentitySwitch(
+        'handler "fleet:write:vehicle:create"',
+        undefined,
+        true,
+        ungated,
+      ),
+    };
 
     let caught: unknown;
     const ext = defineFeature("audit", (r) => {
       r.extendsRegistrar("audited", {
         hooks: {
           postSave: async (_result, ctx) => {
-            const asContext = ctx as unknown as { queryAs: QueryAsFn };
+            const asContext = ctx as unknown as { dispatch: { queryAs: QueryAsFn } };
             try {
-              await asContext.queryAs(createSystemUser(TENANT), "whoami", {});
+              await asContext.dispatch.queryAs(createSystemUser(TENANT), "whoami", {});
             } catch (err) {
               caught = err;
             }

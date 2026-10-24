@@ -12,7 +12,7 @@ import { runProjectionsForEvent } from "./projections-runner.ts";
 
 // Shared append-pipeline: Schema-validate → archive-guard → stream-version →
 // append → inline-projections. One implementation for both
-// `dispatcher.appendDomainEvent` (write-handler `ctx.appendEvent`) and
+// `dispatcher.appendDomainEvent` (write-handler `ctx.events.append`) and
 // `multi-stream-apply-context.appendEvent` (MSP-apply-side). Both call-sites
 // differ only in where `userId` comes from (SessionUser vs. triggering event
 // metadata) — everything after that is identical.
@@ -24,7 +24,7 @@ export type AppendDomainEventCoreDeps = {
   // typing, so we normalise at the boundary.
   readonly userId: string;
   // Label for the "event not registered" error message so the failure points
-  // at the caller (e.g. "ctx.appendEvent" vs. "MSP-apply ctx.appendEvent").
+  // at the caller (e.g. "ctx.events.append" vs. "MSP-apply ctx.appendEvent").
   readonly callSiteLabel: string;
   // Feature that issued the append — used to enforce cross-feature ownership:
   // events are owned by the feature that r.defineEvent'd them. When provided,
@@ -94,7 +94,7 @@ export async function appendDomainEventCore(
   }
 
   // Stream-version authoritative. See Block 0 / getStreamVersion doc for
-  // why row.version isn't sufficient once ctx.appendEvent enters the picture.
+  // why row.version isn't sufficient once ctx.events.append enters the picture.
   // A caller-pinned version (fetchForWriting handles) must reach append() so a
   // write landing between fetch and append conflicts instead of being re-read.
   const expectedVersion =
@@ -125,7 +125,7 @@ export async function appendDomainEventCore(
 
   // Inline projections fire in the same tx — a throw rolls everything back
   // together. Same semantics regardless of which call-site triggered the
-  // append (write-handler ctx.appendEvent vs. MSP-apply ctx.appendEvent).
+  // append (write-handler ctx.events.append vs. MSP-apply ctx.appendEvent).
   await runProjectionsForEvent(stored, deps.registry, deps.db);
 
   return stored;

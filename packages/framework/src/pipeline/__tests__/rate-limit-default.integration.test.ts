@@ -72,7 +72,7 @@ const rlDefaultFeature = defineFeature("rl-default", (r) => {
     schema: z.object({}),
     handler: async (event, ctx) => {
       const sysUser = createSystemUser(event.user.tenantId);
-      const res = await ctx.writeAs(sysUser, "rl-default:write:implicit-default", {});
+      const res = await ctx.dispatch.writeAs(sysUser, "rl-default:write:implicit-default", {});
       return { isSuccess: true as const, data: res };
     },
     access: { roles: ["Admin"] },
@@ -116,7 +116,7 @@ describe("systemScope default rate limit (fw#2861)", () => {
     expect(calls[0]?.config).toEqual({ limit: 600, windowSeconds: 60, cost: undefined });
   });
 
-  test("a SYSTEM-identity caller (ctx.writeAs) never touches the resolver", async () => {
+  test("a SYSTEM-identity caller (ctx.dispatch.writeAs) never touches the resolver", async () => {
     calls.length = 0;
     const res = await stack.http.write("rl-default:write:as-system-probe", {}, admin);
     expect(res.status).toBe(200);

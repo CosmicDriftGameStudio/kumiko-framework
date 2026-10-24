@@ -1,7 +1,7 @@
-// B2 — ctx.loadAggregate HTTP-surface for live aggregation + asOf.
+// B2 — ctx.events.load HTTP-surface for live aggregation + asOf.
 //
 // Marten's AggregateStreamAsync<T>(id[, version|timestamp]) in TypeScript
-// shape: ctx.loadAggregate(id[, { asOf }]). A queryHandler reduces the
+// shape: ctx.events.load(id[, { asOf }]). A queryHandler reduces the
 // returned events into whatever domain-state shape the feature wants.
 // Events are upcasted by the dispatcher, so the reducer sees the current
 // payload shape even for old v1 events.
@@ -79,7 +79,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     name: "invoice:approve",
     schema: z.object({ id: z.uuid(), amount: z.number().int(), approvedBy: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "asof-invoice",
         type: approved.name,
@@ -94,7 +94,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     name: "invoice:event-at",
     schema: z.object({ id: z.uuid(), atVersion: z.number().int() }),
     handler: async (query, ctx) => {
-      const events = await ctx.loadAggregate(query.payload.id, {
+      const events = await ctx.events.load(query.payload.id, {
         atVersion: query.payload.atVersion,
       });
       return events.map((evt) => ({ version: evt.version, type: evt.type, payload: evt.payload }));
@@ -103,7 +103,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
   });
 
   // Query handler — reduces raw events into a derived shape via
-  // ctx.loadAggregate. Exposes live aggregation over HTTP.
+  // ctx.events.load. Exposes live aggregation over HTTP.
   r.queryHandler({
     name: "invoice:state",
     schema: z.object({
@@ -111,7 +111,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
       asOf: z.iso.datetime().optional(),
     }),
     handler: async (query, ctx) => {
-      const events = await ctx.loadAggregate(query.payload.id, {
+      const events = await ctx.events.load(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
       // Simple reducer: collect created + approved facts, ignore the rest.
@@ -169,7 +169,7 @@ afterEach(async () => {
 
 // --- Tests ---
 
-describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equivalent", () => {
+describe("ctx.events.load via queryHandler — Marten AggregateStreamAsync equivalent", () => {
   test("reduces created + approved events into current state", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "asoftest:write:invoice:create",
@@ -292,7 +292,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
   });
 });
 
-describe("ctx.loadAggregate atVersion", () => {
+describe("ctx.events.load atVersion", () => {
   async function seedCreatedAndApproved(): Promise<string> {
     const created = await stack.http.writeOk<{ id: string }>(
       "asoftest:write:invoice:create",

@@ -164,7 +164,7 @@ export async function applyUserRolesUpdate(
 
   const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
   if (revoker) {
-    const revokeResult = await ctx.writeAs(
+    const revokeResult = await ctx.dispatch.writeAs(
       createSystemUser(event.user.tenantId ?? SYSTEM_TENANT_ID),
       REVOKE_ALL_SESSIONS_QN,
       {
@@ -176,7 +176,7 @@ export async function applyUserRolesUpdate(
     // skip: sessions feature not mounted — no live JWTs to revoke; role update
     // still commits. Apps that mount user without sessions accept stale claims
     // until JWT TTL.
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       "user:update-roles: sessions revoke-all handler missing; role change commits without session invalidation",
       {
         userId: event.payload.id,

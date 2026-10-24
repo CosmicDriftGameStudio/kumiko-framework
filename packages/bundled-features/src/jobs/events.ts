@@ -2,7 +2,7 @@
 // backed jobRun's event-store payloads (r.defineEvent + inline projections);
 // now job-run-logger.ts parses against them before writing straight into
 // jobRunsTable/jobRunLogsTable, so an out-of-dispatcher write still gets the
-// same validation guarantee ctx.appendEvent used to give it.
+// same validation guarantee ctx.events.append used to give it.
 
 import * as z from "zod";
 

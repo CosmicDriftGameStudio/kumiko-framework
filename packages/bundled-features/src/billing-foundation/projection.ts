@@ -1,7 +1,7 @@
 // Inline projection for `read_subscriptions`. Materializes the 5
 // subscription events into one row per tenant.
 //
-// Apply runs in the same transaction as ctx.unsafeAppendEvent, so the caller
+// Apply runs in the same transaction as ctx.events.unsafeAppend, so the caller
 // sees its write state immediately (no dispatcher tick required). The PK is
 // event.aggregateId (= deterministic uuidv5 per tenant), so replays collide
 // on the PK instead of creating duplicate rows.

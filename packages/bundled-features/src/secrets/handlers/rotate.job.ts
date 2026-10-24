@@ -142,7 +142,7 @@ export async function rotateJob(
     // potentially even past target.
     if (!result.isSuccess) {
       if (result.error.code === "version_conflict") return "skipped";
-      ctx.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
+      ctx.obs.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
         code: result.error.code,
       });
       return "failed";
@@ -157,7 +157,7 @@ export async function rotateJob(
     deadlineAt: deadline,
     signal: ctx.signal,
     onRowError: (row, err) => {
-      ctx.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
+      ctx.obs.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
     },
   });
 
@@ -167,5 +167,5 @@ export async function rotateJob(
     batchesProcessed: outcome.batchesProcessed,
     stoppedReason: outcome.stoppedReason,
   };
-  ctx.log?.info?.(`[secrets:rotate] complete: ${JSON.stringify(result)}`);
+  ctx.obs.log?.info?.(`[secrets:rotate] complete: ${JSON.stringify(result)}`);
 }

@@ -7,7 +7,7 @@
 //   1. Fingerprint check FIRST — before claiming, before any pipeline
 //      work. A changed workflow definition fails loud (WORKFLOW_RUN_FAILED,
 //      reason "workflow_definition_changed"), never a silent skip.
-//   2. Claim via a savepoint-scoped WORKFLOW_RESUMED append (ctx.tryAppendEvent,
+//   2. Claim via a savepoint-scoped WORKFLOW_RESUMED append (ctx.events.tryAppend,
 //      not unsafeAppendEvent — a losing VersionConflict must not poison this
 //      handler's own transaction). A losing claim means another worker beat
 //      us to this row; silent no-op.
@@ -78,7 +78,7 @@ async function appendRunFailed(
   runId: string,
   failedPayload: WorkflowRunFailedPayload,
 ): Promise<void> {
-  await ctx.unsafeAppendEvent({
+  await ctx.events.unsafeAppend({
     aggregateId: runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_FAILED_TYPE,
@@ -176,7 +176,7 @@ function readResumedPayload(payload: unknown): {
 // mistake attempt 1's WORKFLOW_RESUMED for attempt 2's and skip the second
 // retry entirely.
 function isRunAlreadySettled(
-  runEvents: Awaited<ReturnType<HandlerContext["loadAggregate"]>>,
+  runEvents: Awaited<ReturnType<HandlerContext["events"]["load"]>>,
   stepIndex: number,
   expectedRetryAttempt: number | undefined,
 ): boolean {
@@ -192,7 +192,7 @@ function isRunAlreadySettled(
   });
 }
 
-type LoadedEvents = Awaited<ReturnType<HandlerContext["loadAggregate"]>>;
+type LoadedEvents = Awaited<ReturnType<HandlerContext["events"]["load"]>>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -229,7 +229,7 @@ function readTriggerSource(startedPayload: unknown): TriggerSource | null {
 }
 
 async function loadReferencedEvent(ctx: HandlerContext, ref: TriggerEventRef) {
-  const events = await ctx.loadAggregate(ref.aggregateId, { atVersion: ref.version });
+  const events = await ctx.events.load(ref.aggregateId, { atVersion: ref.version });
   return events.find((e) => e.id === ref.eventId);
 }
 
@@ -385,7 +385,7 @@ async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInp
       workflowName,
       stepIndex: steps.length,
     };
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_RUN_COMPLETED_TYPE,
@@ -448,7 +448,7 @@ export const resumeRunHandler: WriteHandlerDef = {
     }
 
     const { workflowName } = pending;
-    const runEvents = await ctx.loadAggregate(runId);
+    const runEvents = await ctx.events.load(runId);
 
     // Before the workflow resolution: a racing tick on an already-settled run
     // must not append run-failed after run-completed when the definition has
@@ -469,7 +469,7 @@ export const resumeRunHandler: WriteHandlerDef = {
     }
     const workflow = resolved.workflow;
 
-    const claim = await ctx.tryAppendEvent({
+    const claim = await ctx.events.tryAppend({
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_RESUMED_TYPE,

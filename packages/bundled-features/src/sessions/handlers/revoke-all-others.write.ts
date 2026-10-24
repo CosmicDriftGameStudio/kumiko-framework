@@ -51,7 +51,7 @@ export const revokeAllOthersWrite = defineWriteHandler({
     // store_user_sessions. Skipped when nothing was revoked (no other
     // live sessions) — a spurious invalidation would be the failure mode.
     if (updated.length > 0) {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: generateId(),
         aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
         type: SESSION_REVOKED_EVENT_QN,

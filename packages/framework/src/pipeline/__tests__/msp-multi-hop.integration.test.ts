@@ -1,14 +1,14 @@
-// Runde 3 / C.2b — MSP-apply ctx.appendEvent cascades (saga / process-manager).
+// Runde 3 / C.2b — MSP-apply ctx.events.append cascades (saga / process-manager).
 //
 // Claims pinned here:
 //   1. MSP-apply receives an optional 3rd ctx arg with appendEvent + loadAggregate.
-//   2. ctx.appendEvent from inside apply writes a follow-up event into the
+//   2. ctx.events.append from inside apply writes a follow-up event into the
 //      CURRENT transaction on the aggregate stream the caller picks.
 //   3. The follow-up event inherits correlationId from the triggering event
 //      and records causationId = triggering event.id.
 //   4. A second MSP reacting to the follow-up appends its own event, completing
 //      a three-hop causal chain (order.placed → order.confirmed → order.shipped).
-//   5. ctx.loadAggregate reads the triggering stream's full history.
+//   5. ctx.events.load reads the triggering stream's full history.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -36,7 +36,7 @@ const orderEntity = createEntity({
 
 const orderTable = buildEntityTable("mmh-order", orderEntity);
 
-// Snapshot what each MSP-apply observed via ctx.loadAggregate.
+// Snapshot what each MSP-apply observed via ctx.events.load.
 const confirmLoadCounts: number[] = [];
 
 const mmhFeature = defineFeature("mmh", (r) => {
@@ -58,7 +58,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
     handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
         aggregateType: "mmh-order",
         type: placed.name,
@@ -69,8 +69,8 @@ const mmhFeature = defineFeature("mmh", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // Hop 1: placed → confirmed. Uses ctx.loadAggregate to observe the current
-  // stream before deciding + ctx.appendEvent to cascade.
+  // Hop 1: placed → confirmed. Uses ctx.events.load to observe the current
+  // stream before deciding + ctx.events.append to cascade.
   r.multiStreamProjection({
     name: "confirm-on-placed",
     apply: {
@@ -208,7 +208,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
     expect(shippedMeta.causationId).toBe(String(confirmed?.id));
   });
 
-  test("ctx.loadAggregate inside apply sees the stream as it was when the trigger event landed", async () => {
+  test("ctx.events.load inside apply sees the stream as it was when the trigger event landed", async () => {
     await postWrite("load-chk", "sprocket");
     await stack.eventDispatcher?.runOnce();
 
@@ -218,7 +218,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
     expect(confirmLoadCounts).toEqual([2]);
   });
 
-  test("tenant isolation: ctx.appendEvent writes into the triggering event's tenant", async () => {
+  test("tenant isolation: ctx.events.append writes into the triggering event's tenant", async () => {
     await postWrite("tenant-iso", "gear");
     await stack.eventDispatcher?.runOnce();
 

@@ -99,7 +99,7 @@ export async function runConfirmTokenFlow<TSuccessData>(
     }
 
     const changes = await spec.buildChanges(me);
-    const writeRes = await ctx.writeAs(systemUser, UserHandlers.update, {
+    const writeRes = await ctx.dispatch.writeAs(systemUser, UserHandlers.update, {
       id: me.id,
       version: me.version,
       changes,
@@ -141,7 +141,7 @@ async function loadValidatedUser(
       "reads the confirming user's row via UserQueries.findForAuth on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
   });
   const me = parseAuthUserRow(
-    await ctx.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),
+    await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),
   );
   if (!me || me.isDeleted || me.version === undefined || me.version < 1) return null;
   return { ...me, version: me.version };

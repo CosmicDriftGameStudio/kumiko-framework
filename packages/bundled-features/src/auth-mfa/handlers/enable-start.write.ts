@@ -61,7 +61,9 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
       if (!accountLabel) {
         // The declarative secretMint screen has no client component left to
         // read the session email off — derive the otpauth label server-side.
-        accountLabel = readableAccountLabel(await ctx.queryAs(event.user, UserQueries.me, {}));
+        accountLabel = readableAccountLabel(
+          await ctx.dispatch.queryAs(event.user, UserQueries.me, {}),
+        );
       }
 
       const secret = generateTotpSecret();

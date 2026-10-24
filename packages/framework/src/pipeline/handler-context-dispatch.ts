@@ -1,7 +1,7 @@
 import { runWithWriteOrigin } from "../api/request-context.ts";
 import type { DbTx } from "../db/connection.ts";
 import { runInSavepoint } from "../db/query.ts";
-import type { SessionUser, WriteResult } from "../engine/types/index.ts";
+import type { HandlerDispatch, SessionUser, WriteResult } from "../engine/types/index.ts";
 import { writeFailure } from "../errors/index.ts";
 import {
   type AfterRollbackHook,
@@ -10,13 +10,14 @@ import {
 } from "./after-rollback-sink.ts";
 import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
 import { executeQuery } from "./dispatch-query.ts";
-import { type HandlerTransactionScope, perCommandNestedDenied } from "./dispatch-shared.ts";
+import type { HandlerTransactionScope } from "./dispatch-shared.ts";
 import { executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
   isFailedWriteResult,
   NestedWriteRollback,
 } from "./dispatcher-utils.ts";
+import { perCommandNestedDenied } from "./handler-context-phase-denials.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { createGatedIdentitySwitch } from "./system-identity-switch.ts";
 
@@ -31,7 +32,7 @@ export function createCommitSinks(
   transactionScope: HandlerTransactionScope,
   outerNotifySink: AfterCommitHook[] | undefined,
 ): CommitSinks {
-  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
+  // Cross-feature bridge: ctx.dispatch.query/write share the current tx + afterCommitHooks sink.
   // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
   // Query bridges and post-commit contexts get a throwaway sink: hooks pushed there never run.
@@ -99,7 +100,13 @@ function createSerializedNestedWriter(scope: HandlerContextScope, sinks: CommitS
   };
 }
 
-export function buildDispatchFacet(scope: HandlerContextScope, sinks: CommitSinks) {
+export type DispatchFacetInput = Pick<HandlerDispatch, "queryAsMember" | "queryProjection">;
+
+export function buildDispatchFacet(
+  scope: HandlerContextScope,
+  sinks: CommitSinks,
+  readers: DispatchFacetInput,
+) {
   const {
     ctx,
     type,
@@ -140,13 +147,14 @@ export function buildDispatchFacet(scope: HandlerContextScope, sinks: CommitSink
     identitySwitchAudit,
   );
   return {
-    bridge: {
+    dispatch: {
+      ...readers,
       query: (targetType: string, payload: unknown) =>
         executeQuery(ctx, targetType, payload, user, origin, tx, sinks.notifyCommitSink), // @wrapper-known semantic-alias
       queryAs: identitySwitch.queryAs,
       write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
       writeAs: identitySwitch.writeAs,
-    },
+    } satisfies HandlerDispatch,
     scheduleFragment: {
       ...(sinks.hasLiveCommitSink && { scheduleAfterCommit }),
       // perCommand and no-tx paths have earlier commands already committed: nothing to compensate on rollback.

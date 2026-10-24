@@ -145,7 +145,7 @@ async function cancelAtProvider(
       when,
     });
   } catch (error) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       `[billing-foundation:record-contract-termination] provider cancel failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return { providerCancel: "none", effectiveAtIso: null, noticeReason: "provider_error" };
@@ -169,7 +169,7 @@ export function createDeclareContractTerminationHandler(): WriteHandlerDef {
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof declareContractTerminationSchema>;
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(event.user.tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
@@ -219,7 +219,7 @@ export function createRecordContractTerminationHandler(
       }
 
       const receivedAtIso = payload.receivedAtIso ?? options.now().toString();
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
@@ -256,7 +256,7 @@ export function createRecordContractTerminationHandler(
       };
       // Re-fetch after the external call: webhooks append to this stream without the lock, so a
       // stale expectedVersion would fail the append although the provider already cancelled.
-      const streamAfterProviderCall = await ctx.fetchForWriting({
+      const streamAfterProviderCall = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
@@ -348,7 +348,7 @@ export async function resumeAtProvider(
       providerSubscriptionId: subscription.providerSubscriptionId,
     });
   } catch (error) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       `[billing-foundation:revoke-contract-termination] provider resume failed: ${error instanceof Error ? error.message : String(error)}`,
     );
     return ["revocation_resume_failed"];
@@ -373,7 +373,7 @@ export function createRecordUnmatchedContractTerminationHandler(): WriteHandlerD
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof recordUnmatchedContractTerminationSchema>;
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: terminationUnmatchedAggregateId(payload.requestId),
         aggregateType: CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE,
       });

@@ -51,7 +51,7 @@ contract, fulfilled by `user`), and is the tenant not in teardown
 then does `buildSessionRoles` merge global + membership roles and
 `resolveAuthClaims` mint the session.
 
-`ctx.queryAsMember(userId, qn, payload)` reuses this same resolution for
+`ctx.dispatch.queryAsMember(userId, qn, payload)` reuses this same resolution for
 background reads (a hook/job reading as a stored member instead of SYSTEM),
 but under a stricter, non-interactive policy: no `destroyRequested`
 cancel-window grace, no unknown-principal pass. The resolved `SessionUser`
@@ -62,7 +62,7 @@ signed into a JWT.
 The resolution is cached per user for the lifetime of the reader: one handler
 invocation (shared with its hooks) or one job run. A membership revoked or a
 principal set to `Restricted` while a long-running job loops over
-`ctx.queryAsMember` is not noticed until the next run.
+`ctx.dispatch.queryAsMember` is not noticed until the next run.
 
 ## Decision 2 — reserved roles are global-only (the invariant)
 
@@ -140,7 +140,7 @@ binding that feature code cannot import.
 | `db.global(table)` writes | Write handler only, gated by the same `escapeHatch: { reason }` | Writes to a `tenancy: "global"` table with the tenant filter lifted | Yes | Writing a `tenancy: "global"` table's rows (reads through `db.global(table)` need no escape hatch) |
 | Identity-switch `queryAs` / `writeAs` | Call | Runs the call as a different, resolved `SessionUser` — cross-tenant only if that user's own roles allow it | No (gated by the target user's own access, not a reason) | Acting on behalf of a specific other user rather than lifting the tenant filter itself |
 | `escapeHatch: { reason }` on the entity-convention handlers (`defineEntity*Handler` / `r.crud` write/read) | Handler | One convention handler gets a system-mode `TenantDb`; write verbs address the target row's own tenant stream; does NOT grant `unsafeRaw` / `db.global` writes / identity switch | Yes — reported as `acknowledge-cross-tenant` | An operator (e.g. `SystemAdmin`) write/read on one entity-convention handler that must reach rows in any tenant |
-| `ctx.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
+| `ctx.dispatch.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
 | `r.step.read.findOne` / `r.step.read.findMany` with `unsafeAllTenants: { reason }` | Step | Reads through `ctx.systemDb.unsafeRaw(reason)` in an `r.systemScope()` feature, otherwise `ctx.db.unsafeRaw()`, which needs the handler's own `escapeHatch: { reason }`. Reported as an `"unsafe-raw"` audit event | Yes — a `{ reason }` object, not a boolean | A declarative handler step that must read rows across tenants; without it the step is tenant-filtered like `ctx.db` |
 | Jobs, extension hooks, MSP `apply` | Framework-provided | A `DbRunner`/`TenantDb` handed in by construction — there is no `ctx.db.raw` to reach for | N/A | Framework-internal call sites only; feature code never resolves this itself |
 

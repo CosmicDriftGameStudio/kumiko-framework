@@ -158,7 +158,7 @@ beforeAll(async () => {
     features: [createConfigFeature(), createTenantSettingsFeature(), invoiceFeature],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });

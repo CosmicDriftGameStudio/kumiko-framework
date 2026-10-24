@@ -46,7 +46,7 @@ export async function startDevJobRunners(opts: {
       consumerLane: lane,
       ...logger,
     });
-    // Without this, ctx.write/ctx.queryAs inside a dev-run job throw
+    // Without this, ctx.dispatch.write/ctx.dispatch.queryAs inside a dev-run job throw
     // "dispatcher attached — call attachDispatcher() first" on their first
     // call — the prod entrypoints attach automatically, dev boot must too.
     jr.attachDispatcher(dispatcherToWriteRef(opts.dispatcher));

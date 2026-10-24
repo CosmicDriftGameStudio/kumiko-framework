@@ -6,6 +6,7 @@ import {
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import type {
+  BeforeTransactionContext,
   BeforeTransactionResult,
   HandlerContext,
   WriteResult,
@@ -59,13 +60,16 @@ export type StoredRenderedPdf = {
   readonly layout?: RenderedTemplateRef;
 };
 
+// Rendering runs before the transaction too, where the context has no events or dispatch.write.
+type RenderContext = HandlerContext | BeforeTransactionContext;
+
 // Maps the renderer errors a caller can act on to client errors; anything else is a bug and throws.
 export function clientErrorForRenderFailure(
   e: unknown,
-  ctx: HandlerContext,
+  ctx: RenderContext,
   slug: string,
 ): KumikoError {
-  const log = createFallbackLogger("renderer-puppeteer-client", ctx.log);
+  const log = createFallbackLogger("renderer-puppeteer-client", ctx.obs.log);
   if (e instanceof RendererError && e.code === "unavailable") {
     log.error("PDF service unavailable", { cause: e.message });
     return new PuppeteerUnavailableError();
@@ -78,7 +82,7 @@ export function clientErrorForRenderFailure(
   throw e;
 }
 
-function renderFailure(e: unknown, ctx: HandlerContext, slug: string): WriteResult<never> {
+function renderFailure(e: unknown, ctx: RenderContext, slug: string): WriteResult<never> {
   return writeFailure(clientErrorForRenderFailure(e, ctx, slug));
 }
 
@@ -94,7 +98,7 @@ export type RenderedPdfBytes = {
 // Renders without storing: no file, no rendered-pdf row. For callers that keep the bytes
 // themselves (mail attachment, download); same no-transaction rule as renderPdfBeforeTransaction.
 export async function renderPdfBytes(
-  ctx: HandlerContext,
+  ctx: RenderContext,
   args: Pick<RenderPdfArgs, "slug" | "locale" | "variables">,
 ): Promise<WriteResult<RenderedPdfBytes>> {
   const tenantId = ctx.user.tenantId;
@@ -150,7 +154,7 @@ export async function renderPdfBytes(
 // Renders and uploads the PDF while no transaction is open: the print service call can take
 // seconds and must not hold a pool connection. Use as a handler's `beforeTransaction`.
 export async function renderPdfBeforeTransaction(
-  ctx: HandlerContext,
+  ctx: RenderContext,
   args: RenderPdfArgs,
 ): Promise<BeforeTransactionResult<RenderedPdfUpload>> {
   const rendered = await renderPdfBytes(ctx, args);

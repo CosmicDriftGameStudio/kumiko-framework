@@ -112,3 +112,10 @@ export function createFallbackLogger(
     },
   };
 }
+
+// A full Logger for contexts whose typed surface promises one (ctx.obs.log) but that have no
+// app logger wired; child() returns the same instance because there is no sink to scope.
+export function createFallbackFullLogger(namespace: string): Logger {
+  const logger: Logger = { ...createFallbackLogger(namespace), child: () => logger };
+  return logger;
+}

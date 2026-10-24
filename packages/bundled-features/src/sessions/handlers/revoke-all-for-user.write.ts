@@ -67,9 +67,9 @@ export const revokeAllForUserWrite = defineWriteHandler({
     // Lightweight append alongside the direct-write above; see revoke.write.ts
     // for why this isn't a lifecycle event on
     // store_user_sessions. Uses the low-level append() (not
-    // ctx.unsafeAppendEvent) because this handler is deliberately
+    // ctx.events.unsafeAppend) because this handler is deliberately
     // cross-tenant: the privileged caller's own tenantId (what
-    // ctx.unsafeAppendEvent would bind to) has no relationship to the
+    // ctx.events.unsafeAppend would bind to) has no relationship to the
     // target user's session tenant(s). Anchored on SYSTEM_TENANT_ID
     // instead, same as the jobs feature's cross-tenant run-lifecycle
     // events (job-run-logger.ts) — a fresh aggregate per call, so no
@@ -77,7 +77,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
     //
     // append() itself does NOT validate against the r.defineEvent-
     // registered schema (that guarantee only comes from going through
-    // ctx.unsafeAppendEvent's dispatcher path). Mirrors job-run-logger.ts:
+    // ctx.events.unsafeAppend's dispatcher path). Mirrors job-run-logger.ts:
     // parse explicitly before the raw append so a shape drift fails loudly
     // here instead of landing unvalidated on the events table.
     if (updated.length > 0) {

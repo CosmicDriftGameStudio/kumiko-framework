@@ -49,7 +49,7 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
     "reindexEntity filters WHERE tenant_id = $1 itself with this job's tenantId",
   );
   const result = await reindexEntity(db, ctx.registry, ctx.searchAdapter, entity, tenantId);
-  ctx.log?.info?.(
+  ctx.obs.log?.info?.(
     `[jobs:reindex-entity] tenant=${tenantId} reindexed ${entity}: ${result.indexedRows}/${result.scannedRows} rows indexed` +
       `${result.failures.length > 0 ? ` (${result.failures.length} failed)` : ""}`,
   );

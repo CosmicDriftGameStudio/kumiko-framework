@@ -10,7 +10,7 @@ import { tenantTable } from "../schema/tenant.ts";
 export const membershipsQuery = defineQueryHandler({
   name: "memberships",
   schema: z.object({ userId: z.string() }),
-  // Called via ctx.queryAs(systemUser, ...) during login/switch-tenant, or
+  // Called via ctx.dispatch.queryAs(systemUser, ...) during login/switch-tenant, or
   // directly by tenant admins managing memberships in the admin UI.
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   description:

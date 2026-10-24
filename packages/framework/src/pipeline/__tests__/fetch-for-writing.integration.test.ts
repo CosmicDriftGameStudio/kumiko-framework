@@ -1,4 +1,4 @@
-// Runde 3 / C.2a — ctx.fetchForWriting (Marten FetchForWriting equivalent).
+// Runde 3 / C.2a — ctx.events.fetchForWriting (Marten FetchForWriting equivalent).
 //
 // Claims pinned here:
 //   1. Returns the current stream (upcasted) + its version.
@@ -63,7 +63,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:add-item",
     schema: z.object({ id: z.uuid(), sku: z.string(), qty: z.number() }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -86,7 +86,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:bulk-add",
     schema: z.object({ id: z.uuid(), skus: z.array(z.string()) }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -104,7 +104,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:checkout",
     schema: z.object({ id: z.uuid(), totalCents: z.number() }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -124,7 +124,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:fetch-info",
     schema: z.object({ id: z.uuid(), probeType: z.string() }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -144,7 +144,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:checkout-probe",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -163,7 +163,7 @@ const cartFeature = defineFeature("f4w", (r) => {
     name: "cart:add-after-race",
     schema: z.object({ id: z.uuid(), sku: z.string() }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
       });
@@ -186,7 +186,7 @@ const cartFeature = defineFeature("f4w", (r) => {
       sku: z.string(),
     }),
     handler: async (event, ctx) => {
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
         expectedVersion: event.payload.expectedVersion,
@@ -225,7 +225,7 @@ afterEach(async () => {
 
 // --- Tests ---
 
-describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
+describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
   test("returns current stream + version; appendOne advances the stream", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",

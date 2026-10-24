@@ -54,7 +54,7 @@ import { generateDownloadToken } from "./token-helpers.ts";
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 // Gauge short name (feature.ts registers it via r.metric + resolves ctx.meter
-// into a MetricsHandle — jobs get no bound ctx.metrics, see feature.ts).
+// into a MetricsHandle — jobs get no bound ctx.obs.metrics, see feature.ts).
 // No "_seconds"/"_total" suffix: validateMetricName rejects both on a gauge.
 // Unit lives in the r.metric() `unit: "seconds"` declaration instead.
 export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";

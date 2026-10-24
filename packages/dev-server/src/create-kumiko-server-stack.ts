@@ -130,7 +130,7 @@ export async function startDevBackgroundRunners(
     context: stack.context,
     redisUrl,
     // Same dispatcher the request path writes through — without this,
-    // ctx.write/ctx.writeAs/ctx.queryAs inside a dev-run job throw on their
+    // ctx.dispatch.write/ctx.dispatch.writeAs/ctx.dispatch.queryAs inside a dev-run job throw on their
     // first call.
     dispatcher: stack.dispatcher,
     // Must match setupTestStack's jobs.queueNamePrefix so enqueuer and

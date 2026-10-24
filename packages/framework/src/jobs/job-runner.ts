@@ -29,6 +29,7 @@ import {
   getFallbackTracer,
   registerStandardMetrics,
 } from "../observability/index.ts";
+import { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
@@ -155,8 +156,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const result = await handler.handler(
         { type: ACTIVE_TENANT_IDS_QUERY_NAME, payload: {}, user: systemUser },
         {
-          db: systemModeDb,
-          dbOutsideTransaction: systemModeDb,
+          db: attachOutsideTransaction(systemModeDb, systemModeDb),
           systemDb: createUncheckedSystemDb(systemModeDb, undefined, reportEscapeHatch),
           registry,
           ...bridgeStub(),
@@ -745,7 +745,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
       // Propagate correlation from the scheduling request into the job
       // execution context. The worker re-enters requestContext.run with
-      // this value so ctx.appendEvent / executor writes during the job
+      // this value so ctx.events.append / executor writes during the job
       // stamp the same correlation as the HTTP request that scheduled it.
       const reqCtx = requestContext.get();
       if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;

@@ -52,7 +52,7 @@ beforeAll(async () => {
     },
     extraContext: ({ registry, db }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       templateResolver: createTemplateResolverApi(db, registry),
     }),
   });
@@ -331,7 +331,7 @@ describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-
       },
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafeCreateEntityTable(authStack.db, pageEntity);

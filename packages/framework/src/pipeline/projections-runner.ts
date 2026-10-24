@@ -42,7 +42,7 @@ export async function runProjections(
 
 // Fire every projection whose source matches the event's aggregate type AND
 // that declares an apply-handler for the event's type. Used by both the
-// CRUD path (via runProjections) and the ctx.appendEvent path (domain events
+// CRUD path (via runProjections) and the ctx.events.append path (domain events
 // emitted inside a write handler). Keeping one function means an auto-event
 // and a r.defineEvent-event land in the same inline-projection pipeline.
 // Events whose projections already ran. The EventStoreExecutor projects right

@@ -64,7 +64,7 @@ export function executorManagedWriteDenied(
   return new AccessDeniedError({
     message:
       `${operation}(${tableName}): "${tableName}" is fed by events (r.entity / r.projection). ` +
-      "Write it through the entity executor (r.crud, ctx.write, createEventStoreExecutor) or inside a " +
+      "Write it through the entity executor (r.crud, ctx.dispatch.write, createEventStoreExecutor) or inside a " +
       "projection apply; a direct write drifts from the event stream and a rebuild drops or resurrects the row.",
   });
 }

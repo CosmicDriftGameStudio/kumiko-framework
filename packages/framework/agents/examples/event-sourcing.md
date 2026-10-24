@@ -2,7 +2,7 @@
 
 # event-sourcing
 
-Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.appendEvent + r.projection + r.multiStreamProjection + ctx.loadAggregate (asOf) + ctx.archiveStream + ctx.queryProjection.
+Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.events.append + r.projection + r.multiStreamProjection + ctx.events.load (asOf) + ctx.events.archive + ctx.dispatch.queryProjection.
 
 ## README
 
@@ -17,12 +17,12 @@ blocks Kumiko provides.
 | API | Purpose |
 |---|---|
 | `r.defineEvent(name, schema, { version, migrations })` | Event schema with version number + upcaster chain |
-| `ctx.appendEvent({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
+| `ctx.events.append({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
 | `r.projection(...)` | Single-stream read model, inline in the write TX |
 | `r.multiStreamProjection(...)` | Cross-aggregate read model, async via dispatcher |
-| `ctx.loadAggregate(id, { asOf })` | Live aggregation with point-in-time |
-| `ctx.archiveStream(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
-| `ctx.queryProjection(name)` | Tenant-scoped read-model query |
+| `ctx.events.load(id, { asOf })` | Live aggregation with point-in-time |
+| `ctx.events.archive(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
+| `ctx.dispatch.queryProjection(name)` | Tenant-scoped read-model query |
 
 ## Domain
 
@@ -53,7 +53,7 @@ HTTP POST /api/write { type: "showcase:write:invoice:approve", ... }
          ↓
   writeHandler("invoice:approve")
          ↓ TX begin
-         ctx.appendEvent({ type: "showcase:event:invoice-approved", ... })
+         ctx.events.append({ type: "showcase:event:invoice-approved", ... })
          r.projection("invoice-detail")         ← updates status = "approved"
          ↓ TX commit
          (async)
@@ -86,12 +86,12 @@ Six integration tests pin everything at once:
 //
 // Exercises every Sprint-E Marten gold-standard API end-to-end:
 //   - r.defineEvent with version + migrations (sync + async upcaster)
-//   - ctx.appendEvent onto the aggregate stream (incl. headers metadata)
+//   - ctx.events.append onto the aggregate stream (incl. headers metadata)
 //   - r.projection (single-stream, inline)
 //   - r.multiStreamProjection (async)
-//   - ctx.loadAggregate with { asOf }
-//   - ctx.archiveStream
-//   - ctx.queryProjection
+//   - ctx.events.load with { asOf }
+//   - ctx.events.archive
+//   - ctx.dispatch.queryProjection
 //   - streamAllEventsByType (memory-bounded ops iteration)
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
@@ -364,7 +364,7 @@ describe("Event Sourcing Showcase", () => {
     expect(beforeSnapshot.state.status).toBe("paid");
     expect(beforeSnapshot.state.amountCents).toBe(3300);
 
-    // Take a snapshot after the pay event. ctx.snapshotAggregate writes
+    // Take a snapshot after the pay event. ctx.events.snapshot writes
     // kumiko_snapshots with the committed state + version.
     const snapResult = await stack.http.writeOk<{ id: string; snapshotVersion: number }>(
       "showcase:write:invoice:take-snapshot",
@@ -494,7 +494,7 @@ describe("Event Sourcing Showcase", () => {
     expect(otherView[0]?.totalCents).toBe(200);
   });
 
-  test("ctx.appendEvent with headers: Marten free key/value metadata lands in stored event", async () => {
+  test("ctx.events.append with headers: Marten free key/value metadata lands in stored event", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       "showcase:write:invoice:create",
       { customer: "MetaCo" },
@@ -535,7 +535,7 @@ describe("Event Sourcing Showcase", () => {
     });
 
     // Append a v1 acknowledged event directly to simulate a pre-migration
-    // payload on disk. ctx.appendEvent always writes the current version,
+    // payload on disk. ctx.events.append always writes the current version,
     // so the only way to test the read-time upcaster is to write the older
     // shape via the raw event-store.
     const invoiceId = "00000000-0000-4000-8000-00000000ac01";
@@ -591,7 +591,7 @@ describe("Event Sourcing Showcase", () => {
       approverDisplayName: "Quincy Acknowledger",
     });
 
-    // Sanity check the ctx.appendEvent path too: it writes the current
+    // Sanity check the ctx.events.append path too: it writes the current
     // shape directly (handler resolved displayName synchronously), so
     // the upcaster is a no-op on these events.
     const { id: liveId } = await stack.http.writeOk<{ id: string }>(
@@ -836,10 +836,10 @@ describe("role-restricted write handlers", () => {
 //   - emitEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
 //   - r.multiStreamProjection — cross-aggregate async read model
-//   - ctx.loadAggregate with { asOf } — point-in-time aggregate state
-//   - ctx.archiveStream / ctx.restoreStream — Marten ArchiveStream
-//   - ctx.queryProjection — tenant-scoped read of a projection table
-//   - ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot — perf path
+//   - ctx.events.load with { asOf } — point-in-time aggregate state
+//   - ctx.events.archive / ctx.events.restore — Marten ArchiveStream
+//   - ctx.dispatch.queryProjection — tenant-scoped read of a projection table
+//   - ctx.events.snapshot + ctx.events.loadWithSnapshot — perf path
 //     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
 //     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
@@ -1166,7 +1166,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:archive",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.archiveStream(event.payload.id, { aggregateType: "showcase-invoice" });
+      await ctx.events.archive(event.payload.id, { aggregateType: "showcase-invoice" });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
@@ -1181,14 +1181,14 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     handler: async (event, ctx) => {
       // Rebuild the state from the current stream so the snapshot reflects
       // the committed event log, not an in-memory guess. Use the upcaster-
-      // aware ctx.loadAggregate to stay consistent with read-time semantics.
-      const events = await ctx.loadAggregate(event.payload.id);
+      // aware ctx.events.load to stay consistent with read-time semantics.
+      const events = await ctx.events.load(event.payload.id);
       const state: InvoiceState = { ...initialInvoiceState };
       for (const evt of events) {
         reduceInvoice(state, evt);
       }
       const version = events.length > 0 ? (events[events.length - 1]?.version ?? 0) : 0;
-      await ctx.snapshotAggregate({
+      await ctx.events.snapshot({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         version,
@@ -1201,13 +1201,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
 
   // --- Query handlers ---
 
-  // Live aggregation via ctx.loadAggregate — reduces events into a state
+  // Live aggregation via ctx.events.load — reduces events into a state
   // snapshot. Supports asOf for point-in-time reads.
   r.queryHandler({
     name: "invoice:state",
     schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
     handler: async (query, ctx) => {
-      const events = await ctx.loadAggregate(query.payload.id, {
+      const events = await ctx.events.load(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
       const state: InvoiceState = { ...initialInvoiceState };
@@ -1232,7 +1232,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:fast-state",
     schema: z.object({ id: z.uuid() }),
     handler: async (query, ctx) => {
-      const result = await ctx.loadAggregateWithSnapshot<InvoiceStateRecord>(
+      const result = await ctx.events.loadWithSnapshot<InvoiceStateRecord>(
         query.payload.id,
         (state, evt) => {
           const next: InvoiceStateRecord = { ...state };
@@ -1261,7 +1261,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     },
   });
 
-  // Read-model query via ctx.queryProjection — auto-tenant-scoped. The
+  // Read-model query via ctx.dispatch.queryProjection — auto-tenant-scoped. The
   // helper collapses the zero-argument "return this projection" pattern
   // into a single call; returns { rows } so the response shape stays
   // consistent with other list handlers.

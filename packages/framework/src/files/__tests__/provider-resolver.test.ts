@@ -31,7 +31,7 @@ describe("makeFileProviderResolver — per-tenant cache", () => {
     const configAccessorFactory = mock(() => async (_key: unknown) => "fake");
     const resolver = makeFileProviderResolver({
       registry: fakeRegistry(),
-      _configAccessorFactory: configAccessorFactory,
+      configAccessorFactory,
       db: {} as never,
     });
 
@@ -47,7 +47,7 @@ describe("makeFileProviderResolver — per-tenant cache", () => {
     const configAccessorFactory = mock(() => async (_key: unknown) => "fake");
     const resolver = makeFileProviderResolver({
       registry: fakeRegistry(),
-      _configAccessorFactory: configAccessorFactory,
+      configAccessorFactory,
       db: {} as never,
     });
 
@@ -67,7 +67,7 @@ describe("makeFileProviderResolver — per-tenant cache", () => {
           return [{ entityName: "fake", options: { build: async () => fakeProvider } }];
         },
       } as unknown as Registry,
-      _configAccessorFactory: () => async (_key: unknown) => "fake",
+      configAccessorFactory: () => async (_key: unknown) => "fake",
       db: {} as never,
     });
 
@@ -84,7 +84,7 @@ describe("makeFileProviderResolver — per-tenant cache", () => {
           { entityName: "fake", options: { build: async () => withoutList } },
         ],
       } as unknown as Registry,
-      _configAccessorFactory: () => async (_key: unknown) => "fake",
+      configAccessorFactory: () => async (_key: unknown) => "fake",
       db: {} as never,
     });
 

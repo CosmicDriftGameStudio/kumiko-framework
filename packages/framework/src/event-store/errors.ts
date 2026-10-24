@@ -71,11 +71,11 @@ export class SeedTimeOrderError extends Error {
   }
 }
 
-// Thrown when ctx.appendEvent targets an archived stream. Archived aggregates
+// Thrown when ctx.events.append targets an archived stream. Archived aggregates
 // are read-only — restoreStream() makes them writable again. The archive
 // state is not carried on the events themselves; it lives on the sparse
 // kumiko_archived_streams table. Handlers that need to branch on archive
-// state should call ctx.isStreamArchived(id) first.
+// state should call ctx.events.isArchived(id) first.
 export class ArchivedStreamError extends Error {
   public readonly tenantId: string;
   public readonly aggregateId: string;

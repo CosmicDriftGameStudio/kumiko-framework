@@ -31,7 +31,7 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
       grants: ["systemIdentity"],
       reason:
         "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +
-        "target user via ctx.writeAs(SYSTEM, user:update) to set the new password hash.",
+        "target user via ctx.dispatch.writeAs(SYSTEM, user:update) to set the new password hash.",
     },
     agent: { expose: false },
     handler: async (event, ctx) => {

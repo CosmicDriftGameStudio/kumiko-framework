@@ -40,20 +40,22 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     };
     // Simulates a handler whose OWN grant is allow=true (e.g. it declared
     // escapeHatch or is systemScope) — the hook must not inherit this.
-    const handlerCtx = createGatedIdentitySwitch(
-      'handler "test:write:thing:create"',
-      undefined,
-      true,
-      ungated,
-    );
+    const handlerCtx = {
+      dispatch: createGatedIdentitySwitch(
+        'handler "test:write:thing:create"',
+        undefined,
+        true,
+        ungated,
+      ),
+    };
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
       const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
-        const asContext = ctx as unknown as { queryAs: QueryAsFn };
+        const asContext = ctx as unknown as { dispatch: { queryAs: QueryAsFn } };
         try {
-          await asContext.queryAs(systemUser, "whoami", {});
+          await asContext.dispatch.queryAs(systemUser, "whoami", {});
         } catch (err) {
           caught = err;
         }
@@ -77,19 +79,21 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
       queryAs: ungatedQueryAs as QueryAsFn,
       writeAs: async () => ({ isSuccess: true as const, data: null }),
     };
-    const handlerCtx = createGatedIdentitySwitch(
-      'handler "test:write:thing:create"',
-      undefined,
-      false,
-      ungated,
-    );
+    const handlerCtx = {
+      dispatch: createGatedIdentitySwitch(
+        'handler "test:write:thing:create"',
+        undefined,
+        false,
+        ungated,
+      ),
+    };
 
     let queryAsResult: unknown;
     const feature = defineFeature("test", (r) => {
       const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
-        const asContext = ctx as unknown as { queryAs: QueryAsFn };
-        queryAsResult = await asContext.queryAs(systemUser, "whoami", {});
+        const asContext = ctx as unknown as { dispatch: { queryAs: QueryAsFn } };
+        queryAsResult = await asContext.dispatch.queryAs(systemUser, "whoami", {});
       };
       r.hook({
         type: "postSave",
@@ -130,20 +134,24 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     };
     const ungatedResolveActiveMembership = mock(async () => activeResult);
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "test:write:thing:create"', undefined, true, {
+      dispatch: createGatedIdentitySwitch('handler "test:write:thing:create"', undefined, true, {
         queryAs: mock(async () => "ok") as QueryAsFn,
         writeAs: async () => ({ isSuccess: true as const, data: null }),
       }),
-      resolveActiveMembership: ungatedResolveActiveMembership as ResolveActiveMembershipFn,
+      auth: {
+        resolveActiveMembership: ungatedResolveActiveMembership as ResolveActiveMembershipFn,
+      },
     };
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
       const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
-        const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
+        const asContext = ctx as unknown as {
+          auth: { resolveActiveMembership: ResolveActiveMembershipFn };
+        };
         try {
-          await asContext.resolveActiveMembership("user-1", TENANT);
+          await asContext.auth.resolveActiveMembership("user-1", TENANT);
         } catch (err) {
           caught = err;
         }
@@ -167,22 +175,26 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
   test("entity-wide hook WITH escapeHatch does not re-grant resolveActiveMembership the handler was denied (deny-only)", async () => {
     const handlerLabel = 'handler "test:write:thing:create"';
     const handlerCtx = {
-      ...createGatedIdentitySwitch(handlerLabel, undefined, false, {
+      dispatch: createGatedIdentitySwitch(handlerLabel, undefined, false, {
         queryAs: mock(async () => "ok") as QueryAsFn,
         writeAs: async () => ({ isSuccess: true as const, data: null }),
       }),
-      resolveActiveMembership: (async () => {
-        throw systemIdentitySwitchDenied(handlerLabel);
-      }) as ResolveActiveMembershipFn,
+      auth: {
+        resolveActiveMembership: (async () => {
+          throw systemIdentitySwitchDenied(handlerLabel);
+        }) as ResolveActiveMembershipFn,
+      },
     };
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
       const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
-        const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
+        const asContext = ctx as unknown as {
+          auth: { resolveActiveMembership: ResolveActiveMembershipFn };
+        };
         try {
-          await asContext.resolveActiveMembership("user-1", TENANT);
+          await asContext.auth.resolveActiveMembership("user-1", TENANT);
         } catch (err) {
           caught = err;
         }

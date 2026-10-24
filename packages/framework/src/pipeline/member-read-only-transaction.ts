@@ -99,7 +99,7 @@ async function runInMemberReadOnlyTransactionScoped<T>(
     const pool = resolveDbSource(ctx, undefined);
     if (!pool) {
       throw new InternalError({
-        message: "ctx.queryAsMember requires a database connection — none is configured.",
+        message: "ctx.dispatch.queryAsMember requires a database connection — none is configured.",
       });
     }
     // Savepoint even on the pool path: Postgres rejects a READ WRITE reset (SQLSTATE 25001) inside a subtransaction.

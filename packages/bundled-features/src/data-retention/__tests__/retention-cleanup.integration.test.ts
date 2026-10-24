@@ -162,7 +162,7 @@ const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity({ name: "c7-holdsubjectref", ...subjectRefHoldEntity });
 });
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -336,13 +336,12 @@ describe("runRetentionCleanup :: real postgres", () => {
       }),
       registry: stack.registry,
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
-      log: noopLogger,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({ log: noopLogger }),
     };
     await job.handler({}, ctx);
 

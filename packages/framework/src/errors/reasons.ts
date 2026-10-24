@@ -39,11 +39,11 @@ export const FrameworkReasons = {
   // currently unavailable" not "you don't have permission".
   featureDisabled: "feature_disabled",
 
-  // AccessDeniedError: a handler/hook called ctx.queryAs/ctx.writeAs with a
+  // AccessDeniedError: a handler/hook called ctx.dispatch.queryAs/ctx.dispatch.writeAs with a
   // SYSTEM identity without an r.systemScope() feature or a declared escapeHatch.
   systemIdentitySwitchDenied: "system_identity_switch_denied",
 
-  // AccessDeniedError: a handler/hook called ctx.queryAs/ctx.writeAs with a
+  // AccessDeniedError: a handler/hook called ctx.dispatch.queryAs/ctx.dispatch.writeAs with a
   // non-SYSTEM identity other than its own caller (different user, tenant,
   // claims, origin or extra roles) without r.systemScope() or escapeHatch.
   identitySwitchDenied: "identity_switch_denied",
@@ -54,15 +54,15 @@ export const FrameworkReasons = {
   // AccessDeniedError: ctx.notify was called with `to: { tenant }` naming a tenant other than the caller's.
   notifyForeignTenantBroadcast: "notify_foreign_tenant_broadcast",
 
-  // AccessDeniedError: a handler/hook called ctx.queryProjection(..., { unsafeAllTenants: true })
+  // AccessDeniedError: a handler/hook called ctx.dispatch.queryProjection(..., { unsafeAllTenants: true })
   // without an r.systemScope() feature or a declared escapeHatch.
   unsafeAllTenantsDenied: "unsafe_all_tenants_denied",
 
-  // AccessDeniedError: ctx.queryAsMember's userId is not an active member of
+  // AccessDeniedError: ctx.dispatch.queryAsMember's userId is not an active member of
   // ctx's tenant. Deliberately generic — a caller can't probe which check failed.
   memberResolutionDenied: "member_resolution_denied",
 
-  // AccessDeniedError: a query handler invoked via ctx.queryAsMember tried to
+  // AccessDeniedError: a query handler invoked via ctx.dispatch.queryAsMember tried to
   // write — a resolved member principal is read-only by construction.
   memberResolutionReadOnly: "member_resolution_read_only",
 
@@ -72,12 +72,12 @@ export const FrameworkReasons = {
 
   // AccessDeniedError: the directly-dispatched entry handler performs a hard
   // delete/forget but its agent.risk resolves below "high" — delegation via
-  // ctx.write/writeAs from a lower-risk handler does not inherit the gate.
+  // ctx.dispatch.write/writeAs from a lower-risk handler does not inherit the gate.
   irreversibleOperationRequiresHighRisk: "irreversible_operation_requires_high_risk",
 
   // AccessDeniedError: the directly-dispatched entry handler writes a field
   // flagged readAsInstruction: true but its agent.risk resolves below "high" —
-  // delegation via ctx.write/writeAs from a lower-risk handler does not
+  // delegation via ctx.dispatch.write/writeAs from a lower-risk handler does not
   // inherit the gate.
   instructionFieldWriteRequiresHighRisk: "instruction_field_write_requires_high_risk",
 

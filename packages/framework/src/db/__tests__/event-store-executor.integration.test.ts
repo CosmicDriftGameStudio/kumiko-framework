@@ -317,12 +317,12 @@ describe("event-store-executor — sensitive fields", () => {
 describe("event-store-executor — detail liefert die Stream-Version", () => {
   const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
 
-  // Lifecycle writes via ctx.appendEvent advance the stream without changing row.version.
+  // Lifecycle writes via ctx.events.append advance the stream without changing row.version.
   // Returning the stale row version from detail would make every CRUD update built on
   // entityEdit (which uses detail.version for optimistic locking) fail with
   // version_conflict. For example, incident:open can advance the stream to v2 while
   // the row remains at v1, preventing incident-edit from saving.
-  test("nach ctx.appendEvent-artigem Stream-Bump: detail.version == Stream, Update damit erfolgreich", async () => {
+  test("nach ctx.events.append-artigem Stream-Bump: detail.version == Stream, Update damit erfolgreich", async () => {
     const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
     expect(created.isSuccess).toBe(true);
     if (!created.isSuccess) return;

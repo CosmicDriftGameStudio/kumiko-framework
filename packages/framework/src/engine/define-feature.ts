@@ -14,7 +14,7 @@ import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./ty
 // the call-site (`defineFeature("driverOrders", ...)` → TName="driverOrders").
 // The literal threads into the FeatureRegistrar so r.defineEvent's return
 // carries `name: "driver-orders:event:foo"` as a literal — strict-mode
-// for `ctx.appendEvent({ type: eventDef.name, ... })` lights up. Apps
+// for `ctx.events.append({ type: eventDef.name, ... })` lights up. Apps
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
 

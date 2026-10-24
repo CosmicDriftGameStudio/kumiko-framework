@@ -11,12 +11,37 @@ import type { KumikoEventTypeMap } from "./event-type-map.ts";
 import type { FileContext } from "./file-handle-types.ts";
 import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
 import type { GeoTzProvider } from "./geo-tz.ts";
+import type {
+  BeforeTransactionContext,
+  HandlerAuth,
+  HandlerDb,
+  HandlerDispatch,
+  HandlerEvents,
+  HandlerObservability,
+  JobDispatch,
+  JobEvents,
+  JobObservability,
+  ReservationContext,
+} from "./handler-context-facets.ts";
 import type { Logger } from "./logger.ts";
-import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
+import type { Meter, Tracer } from "./observability/index.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
 import type { CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
 import { isOneOf, propertyOf } from "./type-guards.ts";
 import type { Clock, TzContext } from "./tz-context.ts";
+
+export type {
+  BeforeTransactionContext,
+  HandlerAuth,
+  HandlerDb,
+  HandlerDispatch,
+  HandlerEvents,
+  HandlerObservability,
+  JobDispatch,
+  JobEvents,
+  JobObservability,
+  ReservationContext,
+} from "./handler-context-facets.ts";
 
 // --- Access ---
 
@@ -140,7 +165,7 @@ export function isUiAccessGranted(
 // --- Pipeline User ---
 
 // Set only on a SessionUser the framework resolved internally for a
-// background read (ctx.queryAsMember) — such a principal never carries `sid`.
+// background read (ctx.dispatch.queryAsMember) — such a principal never carries `sid`.
 export type SessionUserOrigin = "member-resolution";
 
 export type SessionUser = {
@@ -574,8 +599,6 @@ type SharedContextFields = {
   readonly forTenant?: (tenantId: TenantId) => TenantWriteTarget;
   /** Mints the per-request `ctx.config`; set by the boot (`addConfigAccessorFactory`) from the effective `configResolver`, overriding an app-supplied value. */
   readonly configAccessorFactory?: ConfigAccessorFactory;
-  /** @deprecated Use `configAccessorFactory`; the underscore name is removed in 0.390.0. */
-  readonly _configAccessorFactory?: ConfigAccessorFactory;
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the
   // set handler needs to encrypt on write, the resolver needs to decrypt
@@ -632,7 +655,7 @@ type SharedContextFields = {
   readonly kms?: import("./kms-adapter-types.ts").KmsAdapter;
   // Observability: optional at the outer boundary, always populated by the
   // time a handler receives its ctx (Noop fallback when no provider is
-  // configured, so handler code can call ctx.tracer/ctx.metrics without
+  // configured, so handler code can call ctx.obs.tracer/ctx.obs.metrics without
   // defensive checks).
   readonly tracer?: Tracer;
   readonly meter?: Meter;
@@ -652,7 +675,7 @@ type SharedContextFields = {
   // enabled for that tenant. Absent = all features on (back-compat).
   readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
   // Queue a side-effect to run after the outermost write transaction commits
-  // (same sink as ctx.write / dispatch-write lifecycle afterCommit). Seed
+  // (same sink as ctx.dispatch.write / dispatch-write lifecycle afterCommit). Seed
   // helpers and other mid-tx callers use this instead of firing afterCommit
   // hooks synchronously. Absent outside a write
   // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
@@ -660,9 +683,6 @@ type SharedContextFields = {
   // Runs when the handler transaction (or enclosing savepoint) does not commit, also after a failed COMMIT of
   // unknown outcome, so write it idempotent and outcome-safe. Present only inside a transaction scope.
   readonly scheduleAfterRollback?: (hook: () => Promise<void>) => void;
-  // Present on HandlerContext/JobContext; hooks receive HandlerContext as
-  // AppContext, so it's optional here. See HandlerContext.queryAsMember.
-  readonly queryAsMember?: MemberReader;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -705,9 +725,9 @@ export type AppContext = SharedContextFields & {
 // Handler execution: db (tenant-scoped) + registry guaranteed.
 //
 // Cross-feature bridge:
-//   ctx.query / ctx.write run the target handler AS THE CURRENT USER,
+//   ctx.dispatch.query / ctx.dispatch.write run the target handler AS THE CURRENT USER,
 //   sharing the active tx + afterCommit queue. Field-access filters apply.
-//   ctx.queryAs / ctx.writeAs switch identity (e.g. SYSTEM for privileged
+//   ctx.dispatch.queryAs / ctx.dispatch.writeAs switch identity (e.g. SYSTEM for privileged
 //   lookups like "find user by email for auth" — system reads aren't filtered
 //   by field-access read rules). Any target other than the caller itself (or
 //   a subset of its roles) is gated: reachable only from an r.systemScope()
@@ -728,17 +748,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // throws on first touch) — there's no type-level way to make `db` optional
   // only for system handlers (isSystem is a runtime-only registry lookup),
   // so a system handler must reach for `systemDb` below.
-  readonly db: TenantDb;
-  /**
-   * Same tenant scoping as `db`, but never bound to the handler's tx: writes through it survive
-   * a rollback. `undefined` only in the denial phases (member-resolution, before-transaction)
-   * and in platform-metering tenant mode; narrow with `hasOutsideTransactionDb(ctx)` or take it
-   * via `requireOutsideTransactionDb(ctx)` (`@cosmicdrift/kumiko-framework/db`). For atomic
-   * multi-statement writes outside the tx use `runInOwnTransaction(ctx.dbOutsideTransaction, fn)`; `fn`
-   * must not touch rows the handler's own tx has locked. For
-   * r.systemScope() handlers it is a fail-closed Proxy; use `systemDb.outsideTransaction`.
-   */
-  readonly dbOutsideTransaction: TenantDb | undefined;
+  readonly db: HandlerDb;
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.
   readonly systemDb?: UncheckedSystemDb;
@@ -752,7 +762,6 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
    *  `queryAs`/`writeAs`. */
   readonly user: SessionUser;
   readonly systemUser?: SessionUser;
-  readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   /** Keyed digest for handler-owned rate-limit keys, so Redis never holds a
    *  plaintext or plainly hashed identifier. Scoped to the running handler:
@@ -781,10 +790,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     isNew: boolean,
   ) => Promise<Record<string, unknown>>;
 
-  readonly query: (qn: string, payload: unknown) => Promise<unknown>;
-  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
-  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly dispatch: HandlerDispatch;
 
   // Runtime-check whether a feature is currently effectively-enabled. Use
   // inside an active handler when logic should opt into behaviour that
@@ -800,130 +806,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // stale `false`.
   readonly hasFeature: (featureName: string) => Promise<boolean>;
 
-  /**
-   * Default append: a typed domain event on one aggregate stream in the current tx. The runtime
-   * bumps the stream version and fires matching projections in the same transaction. A version
-   * conflict throws and poisons the transaction.
-   */
-  readonly appendEvent: AppendEventFn<TMap>;
+  readonly events: HandlerEvents<TMap>;
 
-  /**
-   * Untyped append (`payload: unknown`) with the same runtime as `appendEvent`. Only for
-   * migrations and upcasters, where the event type is not knowable at compile time.
-   */
-  readonly unsafeAppendEvent: UnsafeAppendEventFn;
-
-  /**
-   * Optimistic append: runs in a savepoint and returns a version conflict as a result instead of
-   * throwing, so the handler can continue after losing a race on the same aggregate stream.
-   */
-  readonly tryAppendEvent: TryAppendEventFn;
-
-  // Marten FetchForWriting equivalent: load the current stream, optionally
-  // enforce expectedVersion, and get a handle that appends further events
-  // onto that stream without re-specifying aggregateId/aggregateType.
-  // Fails fast with VersionConflictError when expectedVersion doesn't
-  // match — the write-handler never touches state it didn't expect.
-  readonly fetchForWriting: (args: FetchForWritingArgs) => Promise<AggregateStreamHandle>;
-
-  // Load the full stream of events for an aggregate, tenant-scoped to the
-  // current user. Events pass through the registered upcaster chain, so the
-  // payloads returned match the current schema shape regardless of when
-  // they were written. Use inside a queryHandler to expose Marten-style
-  // AggregateStreamAsync: hand the events to a reducer and return the
-  // derived state (live aggregation).
-  //
-  // `options.asOf` restricts to events whose createdAt is ≤ the given
-  // timestamp — the point-in-time / "what did this aggregate look like
-  // yesterday" query. `options.atVersion` reads only the event at that stream
-  // version (upcast, tenant-scoped), so following a stored event reference does
-  // not load a long stream.
-  readonly loadAggregate: (
-    aggregateId: string,
-    options?:
-      | { readonly asOf?: Temporal.Instant; readonly atVersion?: never }
-      | { readonly atVersion?: number; readonly asOf?: never },
-  ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
-
-  // Marten-aligned stream lifecycle. Archived streams become read-only:
-  // ctx.appendEvent throws ArchivedStreamError, ctx.loadAggregate returns []
-  // (pass { includeArchived: true } on the low-level loaders to override).
-  // restoreStream reopens a stream; aggregate-level lifecycle states like
-  // "closed" stay in the domain events, not the archive flag.
-  readonly archiveStream: (
-    aggregateId: string,
-    args: { readonly aggregateType: string; readonly reason?: string },
-  ) => Promise<void>;
-  readonly restoreStream: (aggregateId: string) => Promise<void>;
-  readonly isStreamArchived: (aggregateId: string) => Promise<boolean>;
-
-  // Cache the current state of an aggregate as a snapshot. Callers that
-  // hold the state (e.g. just reduced the stream in a queryHandler, or
-  // finished a write batch) pass it in alongside the version it reflects.
-  // The framework handles storage + upsert semantics; the snapshot policy
-  // (every N events, every M minutes, on-demand) stays with the feature —
-  // or pass { snapshotEvery } to loadAggregateWithSnapshot for the common case.
-  // Snapshots are a perf optimisation — the event log remains the source
-  // of truth.
-  readonly snapshotAggregate: (args: {
-    readonly aggregateId: string;
-    readonly aggregateType: string;
-    readonly version: number;
-    readonly state: Record<string, unknown>;
-    // Reducer-shape generation stamped onto the snapshot (default 1) — see
-    // loadAggregateWithSnapshot's snapshotVersion option.
-    readonly snapshotVersion?: number;
-  }) => Promise<void>;
-
-  // Snapshot-aware rehydrate. Loads the latest snapshot (if any), runs the
-  // registered upcaster chain on every delta event, and folds them onto
-  // the snapshot state with the caller's reducer. Returns the final state,
-  // the latest event version, and whether a snapshot was used — the last
-  // lets a feature's snapshot policy make informed decisions
-  // (e.g. "snapshot every 100 events past the last snapshot").
-  //
-  // Archived streams behave like ctx.loadAggregate — empty result with
-  // version=0, not an exception.
-  readonly loadAggregateWithSnapshot: <TState extends Record<string, unknown>>(
-    aggregateId: string,
-    reducer: import("./snapshot-types.ts").SnapshotReducer<TState>,
-    initial: TState,
-    options?: Omit<import("./snapshot-types.ts").LoadAggregateWithSnapshotOptions, "upcastEvent">,
-  ) => Promise<import("./snapshot-types.ts").LoadAggregateWithSnapshotResult<TState>>;
-
-  // Read rows from a registered projection table, tenant-scoped to the
-  // current user. Marten's equivalent of session.Query<T>() — the projection
-  // table is the read model; this surface makes it reachable by qualified
-  // name without the feature having to import the drizzle-table directly.
-  //
-  // Auto-applies tenant_id filter when the projection table has a tenant_id
-  // column. { unsafeAllTenants: true } opts out but requires a grant —
-  // r.systemScope() or a declared escapeHatch on the handler (or hook).
-  // Unknown projection name throws.
-  readonly queryProjection: <T = Record<string, unknown>>(
-    qualifiedName: string,
-    options?: { readonly unsafeAllTenants?: boolean },
-  ) => Promise<readonly T[]>;
-
-  // Always populated — Noop when no observability provider is configured.
-  // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
-  // without null-checks.
-  readonly metrics: MetricsHandle;
-
-  // For shared/library code invoked by many features' HandlerContext
-  // (e.g. a helper package called by several consumer features): binds to
-  // `featureName` instead of the dispatching handler's own feature, so the
-  // library counts under one stable kumiko_<featureName>_x name instead of
-  // splintering per caller. `featureName` accepts the same kebab-case form
-  // used as the feature's own name at defineFeature() — normalized to
-  // snake_case internally before resolving the metric name.
-  //
-  // Unlike ctx.metrics, an unregistered metric name here is a silent
-  // no-op, not a throw — this handle is meant for
-  // error/catch-path counters in shared code, where a missing registration
-  // must not turn an already-swallowed error into a thrown one.
-  readonly metricsFor: (featureName: string) => MetricsHandle;
-  readonly tracer: Tracer;
+  readonly obs: HandlerObservability;
 
   // Time + TZ helper. Feature code MUST go through this instead of
   // `new Date()` — ctx.tz.now() returns Temporal.Instant, ctx.tz.parse
@@ -942,23 +827,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // absence before using it.
   readonly locale: string;
 
-  // Resolve every registered r.authClaims() hook against `user` and return
-  // the merged claim record (keys auto-prefixed with the feature name). Used
-  // by login + switch-tenant write-handlers to populate SessionUser.claims
-  // before the JWT is signed. Thin pass-through to dispatcher.resolveAuthClaims
-  // so there's a single resolve impl — both entry-points can't drift.
-  readonly resolveAuthClaims: (user: SessionUser) => Promise<Record<string, unknown>>;
-
-  // Membership check for interactive sign-in paths (login, MFA completion,
-  // tenant switch). Thin pass-through to dispatcher.resolveActiveMembership so there's a single resolve impl.
-  readonly resolveActiveMembership: (
-    userId: string,
-    tenantId: TenantId,
-  ) => Promise<ActiveMembershipResult>;
-
-  // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
-  // (membership is resolved as SYSTEM), cached per handler invocation or job run.
-  readonly queryAsMember: MemberReader;
+  readonly auth: HandlerAuth;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
@@ -995,13 +864,10 @@ export type JobContext = SharedContextFields & {
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
   readonly db: TenantDb;
-  // Own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
-  readonly appendEvent: AppendEventFn;
+  readonly events: JobEvents;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
-  readonly log: Logger;
-  // Same contract as HandlerContext.metricsFor: unregistered names no-op.
-  readonly metricsFor: (featureName: string) => MetricsHandle;
+  readonly obs: JobObservability;
   // Tenant zone comes from tenant:config:timezone ("UTC" when unset or invalid); now() honours AppContext.clock.
   readonly tz: TzContext;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
@@ -1022,12 +888,7 @@ export type JobContext = SharedContextFields & {
   // Read-only reads across all tenants. Present only when the job's escapeHatch
   // grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
   readonly crossTenantReads?: CrossTenantReads;
-  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
-  // Tenant = the job's resolved tenant (may originate from payload.tenantId
-  // for tenant-less triggers, see _tenantId below). Ungated, like queryAs.
-  readonly queryAsMember: MemberReader;
+  readonly dispatch: JobDispatch;
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
@@ -1065,7 +926,7 @@ export type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (
  * → kebab-case. Drives the literal-type of `EventDef.name`, so that
  * `r.defineEvent("foo", schema)` inside `defineFeature("driverOrders")`
  * carries `name: "driver-orders:event:foo"` as a literal — strict-mode
- * for `ctx.appendEvent({ type: eventDef.name, ... })` lights up.
+ * for `ctx.events.append({ type: eventDef.name, ... })` lights up.
  *
  * Algorithm mirrors the runtime regex pipeline:
  *   1. `.` → `-` (dot acts as word-boundary)
@@ -1199,7 +1060,7 @@ export type EventDef<TPayload = unknown, TName extends string = string> = {
   readonly piiFields: EventPiiStance;
 };
 
-// Args for ctx.appendEvent — explicit aggregate target, Marten-style.
+// Args for ctx.events.append — explicit aggregate target, Marten-style.
 // `type` must match a name returned by r.defineEvent in any registered
 // feature; payload is validated against that event's Zod schema before
 // being written to the events-table.
@@ -1216,7 +1077,7 @@ export type AppendEventArgs = {
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
-// Typed-payload variant — used by the strict ctx.appendEvent. Keyed via
+// Typed-payload variant — used by the strict ctx.events.append. Keyed via
 // the discriminator type-arg so payload inference flows from `type`-literal
 // to the matching schema-payload.
 //
@@ -1253,12 +1114,12 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 //   We pick the first option and force the wrong path to fail visibly.
 //
 // How this is wired in practice:
-//   - Apps that augment KumikoEventTypeMap get a strict ctx.appendEvent in
+//   - Apps that augment KumikoEventTypeMap get a strict ctx.events.append in
 //     handlers bound to that map. Without an augmentation, emit through
 //     `emitEvent(ctx, eventDef, ...)`, which checks the payload against the
 //     EventDef returned by r.defineEvent.
 //   - Cross-package callers (e.g. bundled-features's set.write.ts) that
-//     can't afford a local wrapper reach for `ctx.unsafeAppendEvent`
+//     can't afford a local wrapper reach for `ctx.events.unsafeAppend`
 //     instead — same runtime, looser type-surface.
 export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
   args: TypedAppendEventArgs<TMap, K>,
@@ -1280,7 +1141,7 @@ export type TryAppendEventResult =
 
 export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
 
-// Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
+// Args for ctx.events.fetchForWriting — Marten FetchForWriting equivalent. Returns
 // the current stream state + a handle that appends without re-specifying
 // aggregateId/aggregateType. When expectedVersion is provided, the handle
 // rejects the write immediately if the stream is ahead — optimistic
@@ -1301,8 +1162,8 @@ export type AggregateStreamHandle = {
   // expectedVersion from the handle automatically. Multiple calls in a
   // row bump the handle's internal version and the events-table in order.
   // Only this handle's own appendOne calls advance the pinned version: if the
-  // same handler also writes to this aggregateId another way (ctx.appendEvent,
-  // a second handle, a CRUD write or a nested ctx.write), the next appendOne
+  // same handler also writes to this aggregateId another way (ctx.events.append,
+  // a second handle, a CRUD write or a nested ctx.dispatch.write), the next appendOne
   // fails with VersionConflictError against that handler's own write. Route
   // every append for the aggregate through one handle.
   readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
@@ -1321,7 +1182,7 @@ export type AggregateStreamHandle = {
 // register step-wise transforms that upgrade v(N) payloads to v(N+1) at read
 // time. The framework chains them automatically — a v1 event gets walked
 // through every registered migration up to the current version before the
-// payload reaches a projection apply() or ctx.appendEvent consumer.
+// payload reaches a projection apply() or ctx.events.append consumer.
 //
 // Sync transforms: just return the upgraded payload. Most schema-evolution
 // (renames, additions, format-fixes) needs no IO and stays sync — fast on
@@ -1504,7 +1365,7 @@ export type ReservationHandle = {
  *  result, throw, rollback, failed commit). Throwing a KumikoError rejects the write. */
 export type PreTransactionReservation = (
   event: WriteEvent,
-  ctx: HandlerContext,
+  ctx: ReservationContext,
 ) => Promise<ReservationRelease | ReservationHandle | undefined>;
 
 /** Outcome of a write handler's pre-transaction phase. `release` runs when the handler transaction does not commit (failure result, throw, rollback, failed commit with unknown outcome), so it must itself tolerate a commit that actually happened. */
@@ -1518,7 +1379,7 @@ export type BeforeTransactionResult<TPrepared = unknown> =
 
 export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
   event: WriteEvent<TPayload>,
-  ctx: HandlerContext,
+  ctx: BeforeTransactionContext,
 ) => Promise<BeforeTransactionResult<TPrepared>>;
 
 /** `perCommand`: the handler runs without a transaction of its own. */
@@ -1543,17 +1404,17 @@ export type WriteHandlerDef = {
    *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
   readonly rateLimitCost?: (payload: unknown) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
-  /** Reserves before the handler transaction opens. Reached through a nested ctx.write the
+  /** Reserves before the handler transaction opens. Reached through a nested ctx.dispatch.write the
    *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   /** Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
-   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write.
+   *  write before anything is written. A handler with this phase cannot run as a nested ctx.dispatch.write.
    *  `ctx.forTenant` is available but read-only here: its db denies writes for the own and a
    *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
-  /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.write/writeAs it
+  /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.dispatch.write/writeAs it
    *  issues runs as its own top-level command with its own transaction and afterCommit hooks;
    *  ctx.db writes and event appends throw. It cannot run as a nested write or inside a
    *  multi-command batch, and cannot be combined with beforeTransaction/reserveBeforeTransaction. */
@@ -1604,7 +1465,7 @@ export type QueryHandlerDef = {
    *  for these entities. Every name must be a registered entity. */
   readonly liveEntities?: readonly string[];
   // Query handlers can't reach db.global() (that gate is write-only), but
-  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.
   readonly escapeHatch?: EscapeHatchDeclaration;
 };
@@ -1616,7 +1477,7 @@ export type StreamHandlerDef = {
   readonly access: AccessRule;
   readonly rateLimit?: RateLimitDeclaration;
   // Stream handlers can't reach db.global() (that gate is write-only), but
-  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.
   readonly escapeHatch?: EscapeHatchDeclaration;
 };

@@ -172,7 +172,7 @@ export async function recordConsent(
   };
   const tenantId = ctx.user.tenantId;
   const isSubscription = prepared.mode === "subscription";
-  await ctx.unsafeAppendEvent({
+  await ctx.events.unsafeAppend({
     aggregateId: isSubscription ? subscriptionAggregateId(tenantId) : paymentAggregateId(tenantId),
     aggregateType: isSubscription ? SUBSCRIPTION_AGGREGATE_TYPE : PAYMENT_AGGREGATE_TYPE,
     type: CHECKOUT_CONSENT_RECORDED_EVENT_QN,

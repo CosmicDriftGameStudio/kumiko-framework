@@ -29,7 +29,7 @@ export type SubscriptionView = {
  *  aggregate ID), or null if the tenant has never subscribed. The status
  *  may be active/canceled/past_due/etc.; the caller decides what to do. */
 export async function getSubscriptionForTenant(
-  ctx: HandlerContext,
+  ctx: Pick<HandlerContext, "db">,
   tenantId: string,
 ): Promise<SubscriptionView | null> {
   const aggId = subscriptionAggregateId(tenantId);

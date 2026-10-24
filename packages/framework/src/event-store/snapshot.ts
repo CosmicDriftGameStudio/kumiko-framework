@@ -37,7 +37,7 @@ import { loadEventsAfterVersion } from "./event-store.ts";
 //   3. loadEventsAfterVersion(aggregate, N) → only the delta
 //   4. reducer(snapshot, delta) → current state
 //
-// Write path: manual via ctx.snapshotAggregate, or automatic via the
+// Write path: manual via ctx.events.snapshot, or automatic via the
 // { snapshotEvery: N } load option — the read path persists a fresh
 // snapshot whenever it folded at least N delta events.
 //
@@ -51,7 +51,7 @@ import { loadEventsAfterVersion } from "./event-store.ts";
 //
 // Upcaster interaction: the raw API (loadAggregateWithSnapshot below) does
 // NOT apply the upcaster chain on delta events — same layering as raw
-// loadAggregate. The Dispatcher wraps this into ctx.loadAggregateWithSnapshot
+// loadAggregate. The Dispatcher wraps this into ctx.events.loadWithSnapshot
 // and runs upcastStoredEvents on the delta before calling the reducer, so
 // feature authors always see current-version payloads.
 

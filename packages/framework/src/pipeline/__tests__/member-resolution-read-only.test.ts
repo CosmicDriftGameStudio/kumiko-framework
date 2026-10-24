@@ -7,39 +7,56 @@ import type { HandlerContext } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import { applyMemberResolutionReadOnly } from "../dispatch-shared.ts";
 
-const DROPPED_SURFACES = [
-  "systemDb",
-  "crossTenantReads",
-  "dbOutsideTransaction",
-  "runPreSave",
-  "files",
-  "derivatives",
+const DROPPED_SURFACES = ["systemDb", "crossTenantReads", "runPreSave", "files", "derivatives"];
+
+// [namespace, member] pairs; "notify" is the one denied call that stays top-level.
+const DENIED_CALLS: ReadonlyArray<readonly [string, string]> = [
+  ["dispatch", "write"],
+  ["dispatch", "writeAs"],
+  ["dispatch", "queryAs"],
+  ["dispatch", "queryAsMember"],
+  ["events", "append"],
+  ["events", "unsafeAppend"],
+  ["events", "tryAppend"],
+  ["events", "fetchForWriting"],
+  ["events", "archive"],
+  ["events", "restore"],
+  ["events", "snapshot"],
+  ["auth", "resolveActiveMembership"],
 ];
 
-const DENIED_CALLS = [
-  "write",
-  "writeAs",
-  "queryAs",
-  "appendEvent",
-  "unsafeAppendEvent",
-  "tryAppendEvent",
-  "fetchForWriting",
-  "archiveStream",
-  "restoreStream",
-  "snapshotAggregate",
-  "queryAsMember",
-  "resolveActiveMembership",
-  "notify",
-];
+const stubCall = () => "escalated";
 
 function readOnlyContext(): Record<string, unknown> {
-  const wired = Object.fromEntries(
-    [...DROPPED_SURFACES, ...DENIED_CALLS, "scheduleAfterCommit", "scheduleAfterRollback"].map(
-      (key) => [key, () => "escalated"],
-    ),
+  const namespaces = Object.fromEntries(
+    ["dispatch", "events", "auth"].map((namespace) => [
+      namespace,
+      Object.fromEntries(
+        DENIED_CALLS.filter(([owner]) => owner === namespace).map(([, member]) => [
+          member,
+          stubCall,
+        ]),
+      ),
+    ]),
   );
+  const wired = Object.fromEntries(
+    [...DROPPED_SURFACES, "notify", "scheduleAfterCommit", "scheduleAfterRollback"].map((key) => [
+      key,
+      stubCall,
+    ]),
+  );
+  const db = Object.defineProperty({}, "outsideTransaction", {
+    value: { escalated: true },
+    enumerable: false,
+    configurable: true,
+  });
   // @cast-boundary test stub — applyMemberResolutionReadOnly only spreads and overwrites.
-  const ctx = { ...wired, jobRunner: { handleEvent: () => "ran" } } as unknown as HandlerContext;
+  const ctx = {
+    ...wired,
+    ...namespaces,
+    db,
+    jobRunner: { handleEvent: () => "ran" },
+  } as unknown as HandlerContext;
   return applyMemberResolutionReadOnly(ctx) as unknown as Record<string, unknown>;
 }
 
@@ -61,23 +78,28 @@ describe("applyMemberResolutionReadOnly", () => {
     for (const key of DROPPED_SURFACES) {
       expect(surface(readOnly, key)).toBeUndefined();
     }
+    expect(Reflect.get(readOnly["db"] as object, "outsideTransaction")).toBeUndefined();
   });
 
-  test.each(DENIED_CALLS)("%s rejects with the member-resolution reason", async (call) => {
-    // @cast-boundary test stub — every denied surface is a call returning a promise.
-    const denied = surface(readOnlyContext(), call) as () => Promise<unknown>;
+  test.each([...DENIED_CALLS, ["", "notify"] as const])(
+    "%s.%s rejects with the member-resolution reason",
+    async (namespace, member) => {
+      const owner = namespace === "" ? readOnlyContext() : surface(readOnlyContext(), namespace);
+      // @cast-boundary test stub — every denied surface is a call returning a promise.
+      const denied = Reflect.get(owner as object, member) as () => Promise<unknown>;
 
-    const error = await denied().then(
-      () => undefined,
-      (e: unknown) => e,
-    );
+      const error = await denied().then(
+        () => undefined,
+        (e: unknown) => e,
+      );
 
-    expect(error).toBeInstanceOf(AccessDeniedError);
-    // @cast-boundary narrowed by the assertion above.
-    expect((error as AccessDeniedError).details).toMatchObject({
-      reason: FrameworkReasons.memberResolutionReadOnly,
-    });
-  });
+      expect(error).toBeInstanceOf(AccessDeniedError);
+      // @cast-boundary narrowed by the assertion above.
+      expect((error as AccessDeniedError).details).toMatchObject({
+        reason: FrameworkReasons.memberResolutionReadOnly,
+      });
+    },
+  );
 
   test("scheduleAfterCommit, scheduleAfterRollback and the jobRunner proxy throw synchronously", () => {
     const readOnly = readOnlyContext();

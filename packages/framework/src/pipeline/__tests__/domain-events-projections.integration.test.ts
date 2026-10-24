@@ -1,9 +1,9 @@
 // Gold-standard (Marten) event sourcing: domain events emitted via
-// ctx.appendEvent land on the same aggregate stream as the auto CRUD events,
+// ctx.events.append land on the same aggregate stream as the auto CRUD events,
 // and inline projections fire off both. This test pins the end-to-end path:
 //
 //   HTTP → Dispatcher → writeHandler → CRUD create (auto-event)
-//                                    → ctx.appendEvent (domain event)
+//                                    → ctx.events.append (domain event)
 //                                    → projections for BOTH apply inline
 //
 // Without all three pieces wired together (registry opens defineEvent names,
@@ -78,7 +78,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
           billedMarker: "pending",
         });
       },
-      // Domain event — fires on ctx.appendEvent. Same aggregate stream as
+      // Domain event — fires on ctx.events.append. Same aggregate stream as
       // the auto-event above, so the UPDATE below targets the row that the
       // create-apply just inserted.
       [shipmentBilled.name]: async (event, tx) => {
@@ -108,7 +108,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     name: "shipment:bill",
     schema: z.object({ id: z.uuid(), cost: z.number() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,
@@ -134,7 +134,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
   });
 
   // CRUD update — used by the regression test to prove that a CRUD write
-  // *after* a ctx.appendEvent (which bumped the aggregate stream version)
+  // *after* a ctx.events.append (which bumped the aggregate stream version)
   // still finds the right expectedVersion.
   r.writeHandler({
     name: "shipment:update",
@@ -154,7 +154,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     name: "shipment:bill-unregistered",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: "shipping:event:ghost", // never defined via r.defineEvent
@@ -169,7 +169,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     name: "shipment:bill-bad-payload",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,
@@ -220,7 +220,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     expect(rows[0]?.totalCost).toBe(0);
   });
 
-  test("ctx.appendEvent writes to the aggregate stream and triggers its projection", async () => {
+  test("ctx.events.append writes to the aggregate stream and triggers its projection", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "shipping:write:shipment:create",
       { cargo: "Container B", status: "loaded" },
@@ -277,7 +277,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     expect(events.some((e) => e.type === "shipping:event:ghost")).toBe(false);
   });
 
-  test("list and detail return the stream version after ctx.appendEvent, usable as update base", async () => {
+  test("list and detail return the stream version after ctx.events.append, usable as update base", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "shipping:write:shipment:create",
       { cargo: "Container L", status: "loaded" },
@@ -308,9 +308,9 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     expect(updated.data.version).toBe(3);
   });
 
-  test("Block 0 regression: CRUD update after ctx.appendEvent on same stream succeeds", async () => {
+  test("Block 0 regression: CRUD update after ctx.events.append on same stream succeeds", async () => {
     // Before Block 0, the CRUD executor read row.version as expectedVersion.
-    // ctx.appendEvent bumps the stream past that (billed = v2), and the next
+    // ctx.events.append bumps the stream past that (billed = v2), and the next
     // CRUD update would fail with events_aggregate_version_uq → version_conflict.
     // After Block 0, getStreamVersion drives expectedVersion — both writers
     // share the same stream cursor.
@@ -322,7 +322,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     // Create auto-event: stream at v1; projection row.version = 1
     expect(created.data.version).toBe(1);
 
-    // ctx.appendEvent: stream at v2; projection row still at v1
+    // ctx.events.append: stream at v2; projection row still at v1
     await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 2500 }, admin);
 
     // CRUD update — client presents the version it last saw (v2 is the

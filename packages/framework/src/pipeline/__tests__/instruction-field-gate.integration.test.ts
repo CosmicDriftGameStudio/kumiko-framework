@@ -158,7 +158,7 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     handler: async (event, ctx) => {
       const row = await promptExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       const version = typeof row?.["version"] === "number" ? row["version"] : 0;
-      return ctx.write("instructiongate:write:prompt:update", {
+      return ctx.dispatch.write("instructiongate:write:prompt:update", {
         id: event.payload.id,
         version,
         changes: { body: event.payload.body },
@@ -277,7 +277,7 @@ describe("executor.update — readAsInstruction field", () => {
     expect(row?.["label"]).toBe("plain");
   });
 
-  test("mid-risk handler delegating via ctx.write to the high standard update handler is denied, value unchanged", async () => {
+  test("mid-risk handler delegating via ctx.dispatch.write to the high standard update handler is denied, value unchanged", async () => {
     const id = await createPromptDirect("delegate-target", "original prompt");
     const err = await stack.http.writeErr(
       "instructiongate:write:delegate-update-to-standard",

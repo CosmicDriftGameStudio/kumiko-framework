@@ -30,7 +30,7 @@ export function createMetricsHandle(meter: Meter, featureName: string): MetricsH
 // Same feature-bound resolution as createMetricsHandle, but for an
 // explicit `featureName` chosen by the caller rather than the dispatching
 // handler's own feature. Meant for shared/library code
-// invoked from many features' HandlerContext (ctx.metricsFor) — the
+// invoked from many features' HandlerContext (ctx.obs.metricsFor) — the
 // library owns one stable metric name instead of splintering into
 // kumiko_<caller>_x per consumer.
 //
@@ -104,7 +104,7 @@ export function createNoopMetricsHandle(): MetricsHandle {
   };
 }
 
-// Shared factory behind ctx.metricsFor for handler and job contexts, so both
+// Shared factory behind ctx.obs.metricsFor for handler and job contexts, so both
 // keep the same no-op-on-unregistered contract.
 export function createMetricsForFactory(
   meter: Meter | undefined,

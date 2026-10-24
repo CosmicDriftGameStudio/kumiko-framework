@@ -112,7 +112,7 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
         sentStatus = result.status;
       } catch (error) {
         // Class and code only: the message can carry the address or a provider response body.
-        ctx.log?.warn("template test mail: channel threw", {
+        ctx.obs.log?.warn("template test mail: channel threw", {
           tenantId: event.user.tenantId,
           errorClass: error instanceof Error ? error.name : typeof error,
           errorCode: errorCodeOf(error),
@@ -120,7 +120,7 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
         return testMailFailed("channel_error");
       }
       if (sentStatus !== "sent") {
-        ctx.log?.warn("template test mail: channel did not send", {
+        ctx.obs.log?.warn("template test mail: channel did not send", {
           tenantId: event.user.tenantId,
           status: sentStatus,
         });

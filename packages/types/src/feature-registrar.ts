@@ -164,7 +164,7 @@ export type RequiresApi = ((options: { readonly features: readonly string[] }) =
  * features (apps that opt into the literal-name flavour) get propagated
  * through to `defineEvent` so the returned `EventDef.name` is a literal
  * `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`. That literal
- * threads through `ctx.appendEvent({ type: eventDef.name, ... })`,
+ * threads through `ctx.events.append({ type: eventDef.name, ... })`,
  * keeping strict-mode alive even when handlers route via `eventDef.name`
  * instead of hand-typed string literals.
  */
@@ -299,7 +299,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   translations(def: TranslationsDef): void;
 
   // Register an event payload shape. Returns the qualified def so callers
-  // can pass `.name` to ctx.appendEvent without hand-building the
+  // can pass `.name` to ctx.events.append without hand-building the
   // "<feature>:event:<short>" string.
   //
   // `options.version` declares the CURRENT schema generation. Defaults to 1
@@ -454,7 +454,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
 
   // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
-  // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
+  // Usage at runtime: ctx.obs.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
   metric(definition: { readonly name: string } & MetricOptions): void;
 

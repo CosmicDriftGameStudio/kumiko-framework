@@ -72,7 +72,7 @@ await runProdApp({
   envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   extraContext: ({ db, registry }) => ({
     configResolver: resolver,
-    _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+    configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     // Required whenever a key declares backing:"secrets" — without it the set
     // and read paths fail loud, never silently miss.
     secrets: createSecretsContext({ db, masterKeyProvider, registry }),

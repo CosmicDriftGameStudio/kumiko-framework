@@ -150,11 +150,11 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           db: ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           registry: ctx.registry,
           now,
-          log: (message) => ctx.log?.warn(message),
+          log: (message) => ctx.obs.log?.warn(message),
           fileProviderResolver: ctx._fileProviderResolver,
           searchAdapter: ctx.searchAdapter,
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
-          escapeHatchAuditLog: ctx.log,
+          escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
         });
       },

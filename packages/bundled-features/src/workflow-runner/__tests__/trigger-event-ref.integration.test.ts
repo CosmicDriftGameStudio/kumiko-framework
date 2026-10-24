@@ -126,7 +126,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
     }),
     handler: async (event, ctx) => {
       const { aggregateId, ...payload } = event.payload;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId,
         aggregateType: SOURCE_AGGREGATE_TYPE,
         type: SIGNUP_EVENT,
@@ -147,7 +147,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
     }),
     handler: async (event, ctx) => {
       const aggregateId = crypto.randomUUID();
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId,
         aggregateType: SOURCE_AGGREGATE_TYPE,
         type: REPLIED_EVENT,
@@ -162,7 +162,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
     name: "archive-source",
     schema: z.object({ aggregateId: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.archiveStream(event.payload.aggregateId, {
+      await ctx.events.archive(event.payload.aggregateId, {
         aggregateType: SOURCE_AGGREGATE_TYPE,
       });
       return { isSuccess: true as const, data: { aggregateId: event.payload.aggregateId } };
@@ -173,7 +173,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
   registerEventTrigger(r, refWorkflow as unknown as WorkflowDefinition);
 });
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -264,10 +264,10 @@ async function runResumeDueRunsJob(): Promise<void> {
     ),
     registry: stack.registry,
     systemUser,
-    log: noopLogger,
+    obs: { log: noopLogger },
     triggeredBy: null,
     _tenantId: admin.tenantId,
-    write: (name, payload) => stack.dispatcher.write(name, payload, systemUser),
+    dispatch: { write: (name, payload) => stack.dispatcher.write(name, payload, systemUser) },
   } as JobContext;
   await job.handler({}, ctx);
 }

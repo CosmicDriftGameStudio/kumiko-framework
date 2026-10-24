@@ -289,7 +289,7 @@ describe("defineProjectionQueryHandler", () => {
     expect(def.schema.safeParse({}).success).toBe(true);
   });
 
-  test("handler passes the qualified name to ctx.queryProjection and returns its rows", async () => {
+  test("handler passes the qualified name to ctx.dispatch.queryProjection and returns its rows", async () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
@@ -297,15 +297,15 @@ describe("defineProjectionQueryHandler", () => {
     );
     const fakeRows = [{ customer: "a", totalCents: 100 }];
     const ctx = {
-      queryProjection: mock().mockResolvedValue(fakeRows),
+      dispatch: { queryProjection: mock().mockResolvedValue(fakeRows) },
     };
     const result = await def.handler(
-      // biome-ignore lint/suspicious/noExplicitAny: test shim — handler only touches ctx.queryProjection here.
+      // biome-ignore lint/suspicious/noExplicitAny: test shim — handler only touches ctx.dispatch.queryProjection here.
       { type: "revenue:list", user: {} as any, payload: {} },
       // biome-ignore lint/suspicious/noExplicitAny: test shim — see above.
       ctx as any,
     );
-    expect(ctx.queryProjection).toHaveBeenCalledWith(
+    expect(ctx.dispatch.queryProjection).toHaveBeenCalledWith(
       "showcase:projection:customer-revenue",
       undefined,
     );
@@ -325,14 +325,14 @@ describe("defineProjectionQueryHandler", () => {
     const queryProjection = mock().mockResolvedValue([]);
     await def.handler(
       { type: "revenue:list", user: createTestUser(), payload: {} },
-      Object.assign(buildMinimalCtx(), { queryProjection }),
+      Object.assign(buildMinimalCtx(), { dispatch: { queryProjection } }),
     );
     expect(queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
       unsafeAllTenants: true,
     });
   });
 
-  test("unsafeAllTenants: true forwards the option to ctx.queryProjection", async () => {
+  test("unsafeAllTenants: true forwards the option to ctx.dispatch.queryProjection", async () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
@@ -341,16 +341,19 @@ describe("defineProjectionQueryHandler", () => {
         unsafeAllTenants: true,
       },
     );
-    const ctx = { queryProjection: mock().mockResolvedValue([]) };
+    const ctx = { dispatch: { queryProjection: mock().mockResolvedValue([]) } };
     await def.handler(
       // biome-ignore lint/suspicious/noExplicitAny: test shim.
       { type: "revenue:list", user: {} as any, payload: {} },
       // biome-ignore lint/suspicious/noExplicitAny: test shim.
       ctx as any,
     );
-    expect(ctx.queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
-      unsafeAllTenants: true,
-    });
+    expect(ctx.dispatch.queryProjection).toHaveBeenCalledWith(
+      "showcase:projection:customer-revenue",
+      {
+        unsafeAllTenants: true,
+      },
+    );
   });
 
   test("access is now a required option — omitting it is a type error", () => {

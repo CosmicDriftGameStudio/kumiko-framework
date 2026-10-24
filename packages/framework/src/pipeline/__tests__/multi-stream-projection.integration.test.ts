@@ -107,7 +107,7 @@ const mspFeature = defineFeature("msptest", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
         aggregateType: "msp-shipment",
         type: shipmentBilled.name,
@@ -128,7 +128,7 @@ const mspFeature = defineFeature("msptest", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
         aggregateType: "msp-refund",
         type: refundIssued.name,

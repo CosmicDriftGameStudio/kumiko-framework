@@ -1,4 +1,4 @@
-// ctx.queryProjection: read projection tables by qualified name.
+// ctx.dispatch.queryProjection: read projection tables by qualified name.
 // Framework-level read surface so features don't have to import projection
 // drizzle-tables directly. Auto-filters by tenant_id when the projection
 // table carries that column; { unsafeAllTenants: true } opts out but needs a
@@ -131,7 +131,8 @@ const qpFeature = defineFeature("qp", (r) => {
   r.queryHandler({
     name: "widget:list-tenant",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-tenant"),
+    handler: async (_query, ctx) =>
+      ctx.dispatch.queryProjection("qp:projection:widget-count-tenant"),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
@@ -139,7 +140,7 @@ const qpFeature = defineFeature("qp", (r) => {
     name: "widget:list-system",
     schema: z.object({ unsafeAllTenants: z.boolean().optional() }),
     handler: async (query, ctx) =>
-      ctx.queryProjection("qp:projection:widget-audit", {
+      ctx.dispatch.queryProjection("qp:projection:widget-audit", {
         unsafeAllTenants: query.payload.unsafeAllTenants ?? false,
       }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -148,7 +149,7 @@ const qpFeature = defineFeature("qp", (r) => {
   r.queryHandler({
     name: "widget:list-ghost",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:does-not-exist"),
+    handler: async (_query, ctx) => ctx.dispatch.queryProjection("qp:projection:does-not-exist"),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
@@ -156,7 +157,7 @@ const qpFeature = defineFeature("qp", (r) => {
     name: "widget:list-tenant-escape-hatch",
     schema: z.object({}),
     handler: async (_query, ctx) =>
-      ctx.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
+      ctx.dispatch.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON },
   });
@@ -171,7 +172,8 @@ const qpFeature = defineFeature("qp", (r) => {
   r.queryHandler({
     name: "widget:list-entitymeta",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-entitymeta"),
+    handler: async (_query, ctx) =>
+      ctx.dispatch.queryProjection("qp:projection:widget-count-entitymeta"),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
@@ -179,7 +181,7 @@ const qpFeature = defineFeature("qp", (r) => {
     name: "widget:list-tenant-untyped-payload",
     schema: z.object({ unsafeAllTenants: z.unknown() }),
     handler: async (query, ctx) =>
-      ctx.queryProjection("qp:projection:widget-count-tenant", {
+      ctx.dispatch.queryProjection("qp:projection:widget-count-tenant", {
         // @cast-boundary test-fixture — deliberately not the literal boolean `true`,
         // proving a truthy-but-not-strictly-true value still tenant-filters.
         unsafeAllTenants: query.payload.unsafeAllTenants as boolean,
@@ -195,7 +197,7 @@ const qpSystemFeature = defineFeature("qp-system", (r) => {
     name: "widget:list-tenant-systemscope",
     schema: z.object({}),
     handler: async (_query, ctx) =>
-      ctx.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
+      ctx.dispatch.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
@@ -243,7 +245,7 @@ afterEach(async () => {
   ]);
 });
 
-describe("ctx.queryProjection", () => {
+describe("ctx.dispatch.queryProjection", () => {
   test("auto-filters by tenant_id on tenant-scoped projection", async () => {
     await stack.http.writeOk("qp:write:widget:create", { name: "A-widget" }, admin);
     await stack.http.writeOk("qp:write:widget:create", { name: "B-widget" }, otherTenantAdmin);

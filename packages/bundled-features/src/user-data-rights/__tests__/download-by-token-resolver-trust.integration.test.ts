@@ -82,7 +82,7 @@ beforeAll(async () => {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
     // publicstatus prod: Host-Resolver-only, NO defaultTenantId. Resolver
     // always answers `hostTenant` here — jobTenant never appears as the

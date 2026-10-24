@@ -8,7 +8,7 @@ import * as z from "zod";
 //
 // _SHORT — r.defineEvent(short, schema) in feature.ts, framework prefixes it
 //          to the QN below.
-// _QN    — ctx.unsafeAppendEvent({ type })'s `type` field.
+// _QN    — ctx.events.unsafeAppend({ type })'s `type` field.
 export const TENANT_HANDOVER_CLAIMED_EVENT_SHORT = "claimed" as const;
 export const TENANT_HANDOVER_CLAIMED_EVENT_QN = "tenant-handover:event:claimed" as const;
 export const TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE = "tenant-handover-claim" as const;

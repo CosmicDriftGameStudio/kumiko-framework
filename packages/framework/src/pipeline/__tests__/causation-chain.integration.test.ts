@@ -4,14 +4,14 @@
 //   1. Root HTTP request without x-correlation-id → correlationId == requestId,
 //      causationId absent.
 //   2. Root with x-correlation-id header → correlationId == header value,
-//      stamped on every event the request writes (CRUD + ctx.appendEvent).
+//      stamped on every event the request writes (CRUD + ctx.events.append).
 //   3. The event-dispatcher wraps MSP-apply in requestContext.run so downstream
 //      writes from the apply inherit correlationId and set causationId to the
 //      triggering event.id.
 //
 // Note on MSP → new events: this test predates Runde 3 / C.2b. Claim 3 is
 // observable via `requestContext.get()` inside the apply — the wrap carries
-// the right values even when the apply doesn't call ctx.appendEvent.
+// the right values even when the apply doesn't call ctx.events.append.
 // The active propagation into cascaded writes is covered by
 // msp-multi-hop.integration.ts.
 
@@ -68,7 +68,7 @@ const causationFeature = defineFeature("causation", (r) => {
     handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
         aggregateType: "causation-order",
         type: placed.name,

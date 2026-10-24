@@ -75,7 +75,9 @@ export type WorkflowRunFailedPayload = {
   readonly reason?: string;
 };
 
-export type WorkflowRunContext = Pick<HandlerContext, "unsafeAppendEvent">;
+export type WorkflowRunContext = {
+  readonly events: Pick<HandlerContext["events"], "unsafeAppend">;
+};
 
 export class WorkflowSuspensionUnsupportedError extends Error {
   constructor(
@@ -116,7 +118,7 @@ export async function startAndRunWorkflow(args: {
     ...(args.idempotencyKey && { idempotencyKey: args.idempotencyKey }),
   };
 
-  await args.handlerCtx.unsafeAppendEvent({
+  await args.handlerCtx.events.unsafeAppend({
     aggregateId: args.runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_STARTED_TYPE,
@@ -127,7 +129,7 @@ export async function startAndRunWorkflow(args: {
 
   // @cast-boundary msp-to-handler-ctx — event-trigger hands over the narrower
   // MultiStreamApplyContext (no query/write/writeAs). The step vocabulary this
-  // runner drives (wait, compute, return) only ever calls unsafeAppendEvent.
+  // runner drives (wait, compute, return) only ever calls events.unsafeAppend.
   const stepCtx = args.handlerCtx as unknown as HandlerContext;
   const outcome = await runStepList(
     steps,
@@ -158,7 +160,7 @@ export async function startAndRunWorkflow(args: {
     stepIndex: steps.length,
   };
 
-  await args.handlerCtx.unsafeAppendEvent({
+  await args.handlerCtx.events.unsafeAppend({
     aggregateId: args.runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_COMPLETED_TYPE,

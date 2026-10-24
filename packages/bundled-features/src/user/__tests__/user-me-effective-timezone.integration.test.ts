@@ -22,7 +22,7 @@ beforeAll(async () => {
     features: [createUserFeature(), createConfigFeature(), createTenantFeature()],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafeCreateEntityTable(stack.db, userEntity);

@@ -55,12 +55,12 @@ beforeEach(async () => {
   await resetTestTables(stack.db, [userSessionTable]);
 });
 
-type JobCtx = Pick<AppContext, "db" | "registry" | "log">;
+type JobCtx = Pick<AppContext, "db" | "registry"> & { obs: { log: Log } };
 function jobCtx(): Parameters<typeof cleanupJob>[1] {
   const ctx: JobCtx = {
     db: stack.db,
     registry: stack.registry,
-    log: silentLogger(),
+    obs: { log: silentLogger() },
   };
   return ctx as unknown as Parameters<typeof cleanupJob>[1];
 }

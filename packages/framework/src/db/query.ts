@@ -213,11 +213,11 @@ export async function runInSavepointIfSupported<T, TRunner extends DbRunner>(
             ? "runInSavepointIfSupported: the transaction handle's connection is gone — the transaction " +
               "already committed (almost always database work in an afterCommit hook) or the connection dropped. " +
               "afterCommit is the default phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction " +
-              "for writes that must roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback."
+              "for writes that must roll back with the trigger, or ctx.db.outsideTransaction for work that must survive a rollback."
             : "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
               "this is almost always database work in an afterCommit hook. afterCommit is the default " +
               "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
-              "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
+              "roll back with the trigger, or ctx.db.outsideTransaction for work that must survive a rollback.",
         cause: e instanceof Error ? e : undefined,
       });
     }

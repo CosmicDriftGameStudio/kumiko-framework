@@ -489,7 +489,7 @@ describe("dispatcher.stream", () => {
         z.object({ count: z.number().int().min(0) }),
         async function* (query, handlerCtx) {
           for (let i = 0; i < query.payload.count; i++) {
-            const child = handlerCtx.tracer.startSpan("nested.child");
+            const child = handlerCtx.obs.tracer.startSpan("nested.child");
             child.end();
             yield { i };
           }

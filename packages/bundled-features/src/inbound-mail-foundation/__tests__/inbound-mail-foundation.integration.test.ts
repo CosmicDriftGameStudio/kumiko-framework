@@ -412,30 +412,32 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
       db: tenantDb,
       registry: stack.registry,
       ...bridgeStub({ user: admin }),
-      loadAggregate: (aggregateId: string) => loadAggregate(db, aggregateId, admin.tenantId),
-      tryAppendEvent: async (args: {
-        aggregateId: string;
-        aggregateType: string;
-        type: string;
-        payload: unknown;
-        headers?: unknown;
-      }) => {
-        if (args.aggregateType === MAIL_THREAD_AGGREGATE_TYPE) {
-          threadAppendAttempts++;
-          return { ok: false as const, conflict: new VersionConflictError(args.aggregateId, 0) };
-        }
-        // Step 4 (message append): fresh aggregateId, no concurrent writer
-        // in this test — a real, conflict-free append via expectedVersion 0.
-        const event = await append(db, {
-          aggregateId: args.aggregateId,
-          aggregateType: args.aggregateType,
-          tenantId: admin.tenantId,
-          expectedVersion: 0,
-          type: args.type,
-          payload: args.payload as Record<string, unknown>,
-          metadata: { userId: String(admin.id) },
-        });
-        return { ok: true as const, event };
+      events: {
+        load: (aggregateId: string) => loadAggregate(db, aggregateId, admin.tenantId),
+        tryAppend: async (args: {
+          aggregateId: string;
+          aggregateType: string;
+          type: string;
+          payload: unknown;
+          headers?: unknown;
+        }) => {
+          if (args.aggregateType === MAIL_THREAD_AGGREGATE_TYPE) {
+            threadAppendAttempts++;
+            return { ok: false as const, conflict: new VersionConflictError(args.aggregateId, 0) };
+          }
+          // Step 4 (message append): fresh aggregateId, no concurrent writer
+          // in this test — a real, conflict-free append via expectedVersion 0.
+          const event = await append(db, {
+            aggregateId: args.aggregateId,
+            aggregateType: args.aggregateType,
+            tenantId: admin.tenantId,
+            expectedVersion: 0,
+            type: args.type,
+            payload: args.payload as Record<string, unknown>,
+            metadata: { userId: String(admin.id) },
+          });
+          return { ok: true as const, event };
+        },
       },
       // @cast-boundary test/framework — hand-built ctx narrower than HandlerContext
     } as unknown as HandlerContext;

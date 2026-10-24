@@ -10,7 +10,7 @@
 //      both the event log AND projection contain ciphertext.
 //   4. inbound-message-received append (inline projection writes
 //      read_inbound_messages in the same TX). Savepoint-scoped
-//      (ctx.tryAppendEvent) — a losing concurrent ingest for the same
+//      (ctx.events.tryAppend) — a losing concurrent ingest for the same
 //      messageAggId returns { duplicate: true } instead of failing the TX.
 //   5. Thread rollup: mail-thread-updated append with a recalculated
 //      snapshot (count+1, max(lastMessageAt)) — the apply is a
@@ -140,7 +140,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         data: { duplicate: true as const, inboundMessageAggregateId: messageAggId },
       };
     }
-    const existingEvents = await ctx.loadAggregate(messageAggId);
+    const existingEvents = await ctx.events.load(messageAggId);
     if (existingEvents.length > 0) {
       // Stream existiert, Anchor fehlte → Anchor nachziehen, dann raus.
       await ctx.db.insertOne(seenMessageTable, {
@@ -211,7 +211,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
       providerName: payload.providerName,
       providerCursor: payload.providerCursor,
     };
-    const messageAppend = await ctx.tryAppendEvent({
+    const messageAppend = await ctx.events.tryAppend({
       aggregateId: messageAggId,
       aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
       type: INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -222,8 +222,8 @@ export const ingestMessageHandler: WriteHandlerDef = {
       // Lost the race against a concurrent ingest for the same messageAggId
       // (Watch-Push vs. Poll-Reconciliation overlap). The winner already
       // writes thread-rollup + seen-anchor for this message — steps 5+6
-      // skip here. tryAppendEvent's savepoint keeps this TX usable despite
-      // the caught VersionConflictError (see ctx.tryAppendEvent doc).
+      // skip here. events.tryAppend's savepoint keeps this TX usable despite
+      // the caught VersionConflictError (see ctx.events.tryAppend doc).
       return {
         isSuccess: true as const,
         data: { duplicate: true as const, inboundMessageAggregateId: messageAggId },
@@ -232,7 +232,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
 
     // ---------------------------------------------------------------
     // 5. Thread-Rollup. New snapshot (live COUNT + max(lastMessageAt)) via
-    //    ctx.tryAppendEvent in a bounded retry loop — the apply stays a
+    //    ctx.events.tryAppend in a bounded retry loop — the apply stays a
     //    dumb, replay-idempotent UPSERT. lastMessageAtIso is not PII (a
     //    timestamp), so it stays plaintext-comparable; subject is
     //    encrypted once up front (constant across retries, doesn't
@@ -244,9 +244,9 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    same thread arriving at once) converge on the true count.
     //    acquireNamespacedAdvisoryLock below serializes this whole
     //    countWhere+append section per threadAggId — transaction-scoped,
-    //    so it survives tryAppendEvent's inner SAVEPOINT and releases at
+    //    so it survives events.tryAppend's inner SAVEPOINT and releases at
     //    the enclosing TX's commit/rollback. Without it, a concurrent
-    //    commit landing between countWhere and tryAppendEvent's own fresh
+    //    commit landing between countWhere and events.tryAppend's own fresh
     //    version-read makes the append succeed with a stale count instead
     //    of a VersionConflictError, so the retry loop below never sees it
     //    as a conflict to retry (the original gap). Unlike step 4, a
@@ -280,7 +280,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
 
     let threadAppendOk = false;
     for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
-      const threadEvents = await ctx.loadAggregate(threadAggId);
+      const threadEvents = await ctx.events.load(threadAggId);
       const lastThreadEvent = threadEvents[threadEvents.length - 1];
       // @cast-boundary engine-payload — eigene events, shape via defineEvent
       const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
@@ -298,7 +298,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         lastMessageAtIso: newLastAt,
         messageCount,
       };
-      const threadAppend = await ctx.tryAppendEvent({
+      const threadAppend = await ctx.events.tryAppend({
         aggregateId: threadAggId,
         aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
         type: MAIL_THREAD_UPDATED_EVENT_QN,

@@ -67,5 +67,5 @@ export const puppeteerStatusQuery = defineQueryHandler({
   description:
     "Reports whether the PDF service (puppeteer-service) answers its health check; use it to show an admin whether PDFs can be created right now.",
   handler: async (_event, ctx) =>
-    probeService(createFallbackLogger("renderer-puppeteer-client", ctx.log)),
+    probeService(createFallbackLogger("renderer-puppeteer-client", ctx.obs.log)),
 });

@@ -77,9 +77,10 @@ function jobContext(
     },
     child: () => log,
   };
+  const base = harness.buildJobContext(runner);
   const ctx: JobContext = {
-    ...harness.buildJobContext(runner),
-    log,
+    ...base,
+    obs: { ...base.obs, log },
     ...(jobCipher && { configEncryption: jobCipher }),
   };
   return { ctx, logged };

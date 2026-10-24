@@ -76,7 +76,7 @@ Parents may belong to another feature; refer to them by QN.
 
 **Events.** Declare a domain event with `r.defineEvent(name, zodSchema)`.
 Emit it inside a write handler with `emitEvent(ctx, def, { ... })` or
-`ctx.appendEvent(...)`; it commits in the same transaction as the write.
+`ctx.events.append(...)`; it commits in the same transaction as the write.
 React to it with `r.projection(...)` (state on the same stream) or
 `r.multiStreamProjection({ name, apply })` (async consumer across streams,
 at least once, ordered).
@@ -195,7 +195,7 @@ produces code that compiles and then fails in production.
 - Never `INSERT`, `UPDATE` or `DELETE` on an entity table or the events
   table, and never call a raw database client for it. Write through a
   handler: `r.crud`, the `defineEntity*Handler` helpers, the executor from
-  `createEntityExecutor`, or `emitEvent` / `ctx.appendEvent`. The query
+  `createEntityExecutor`, or `emitEvent` / `ctx.events.append`. The query
   helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
   through `ctx.db.unsafeRaw()`. Test seeds use `seedRow` / `deleteRows` from
   `@cosmicdrift/kumiko-testing`.
@@ -203,7 +203,7 @@ produces code that compiles and then fails in production.
   projection.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.
   Use `r.queryHandler` with the executor, or a projection with
-  `ctx.queryProjection`.
+  `ctx.dispatch.queryProjection`.
 - Never pass a JS array as a parameter to `.unsafe(sql, [...])`. Bun.SQL
   binds it as `"a,b"` on Linux (CI) and passes on macOS, so `ANY($n)` only
   fails in CI. Pass `toPostgresArrayLiteral(values)` from
@@ -310,7 +310,7 @@ as bundled features.
 | Public or anonymous endpoints | `anonymous` role | `agents/examples/anonymous-access.md` |
 | Allowed state changes | Entity transitions | `agents/examples/state-machine.md` |
 | React to a write in another feature | `r.defineEvent` + `emitEvent` + `r.multiStreamProjection` | `agents/examples/cross-feature-events.md` |
-| Projections, event versions, history | `r.projection`, `ctx.loadAggregate`, `ctx.queryProjection` | `agents/examples/event-sourcing.md` |
+| Projections, event versions, history | `r.projection`, `ctx.events.load`, `ctx.dispatch.queryProjection` | `agents/examples/event-sourcing.md` |
 | Before or after save logic | Lifecycle hooks | `agents/examples/lifecycle-hooks.md` |
 | Typed errors with reasons | `@cosmicdrift/kumiko-framework/errors` | `agents/examples/error-contract.md` |
 | Translations | `r.translations` + client translations | `agents/examples/i18n.md` |

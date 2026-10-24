@@ -312,7 +312,7 @@ export class InternalError extends KumikoError {
   }
 }
 
-// A ctx.queryAsMember read ran into its statement timeout (SQLSTATE 57014). Reuses the generic
+// A ctx.dispatch.queryAsMember read ran into its statement timeout (SQLSTATE 57014). Reuses the generic
 // errors.internal i18n key: the client can do nothing but retry, and the code is for log/alert routing.
 export class MemberReadTimeoutError extends KumikoError {
   readonly code = "member_read_timeout";
@@ -320,7 +320,7 @@ export class MemberReadTimeoutError extends KumikoError {
 
   constructor(opts: { readonly timeoutMs: number; readonly cause?: Error }) {
     super({
-      message: `ctx.queryAsMember read exceeded its ${opts.timeoutMs}ms statement timeout`,
+      message: `ctx.dispatch.queryAsMember read exceeded its ${opts.timeoutMs}ms statement timeout`,
       i18nKey: "errors.internal",
       ...(opts.cause && { cause: opts.cause }),
     });

@@ -612,7 +612,7 @@ describe("event-store: requestId is a trace marker (no DB-level uniqueness)", ()
     // Idempotency is an HTTP-level concern, handled via Redis in
     // pipeline/idempotency.ts before the command executes. The events-table
     // imposes no uniqueness on metadata.requestId — a single request may
-    // write N events (CRUD + ctx.appendEvent + saga follow-ups), all
+    // write N events (CRUD + ctx.events.append + saga follow-ups), all
     // carrying the same requestId as a trace marker.
     const aggregateId1 = uuid();
     const aggregateId2 = uuid();

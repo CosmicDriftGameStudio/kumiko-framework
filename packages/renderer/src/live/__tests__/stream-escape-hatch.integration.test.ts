@@ -1,4 +1,4 @@
-// Stream handlers gate ctx.queryAs(SYSTEM, ...) on their own escapeHatch,
+// Stream handlers gate ctx.dispatch.queryAs(SYSTEM, ...) on their own escapeHatch,
 // same contract as write/query handlers.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -41,13 +41,13 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // --- ctx.queryAs(SYSTEM, ...) from a stream handler: gated by the
+  // --- ctx.dispatch.queryAs(SYSTEM, ...) from a stream handler: gated by the
   // stream handler's own escapeHatch, same contract as write/query. ---
   r.streamHandler(
     "query-as-system-no-hatch",
     z.object({}),
     async function* (query, ctx) {
-      const result = await ctx.queryAs(
+      const result = await ctx.dispatch.queryAs(
         createSystemUser(query.user.tenantId),
         "stream-idswitch-probe:query:whoami",
         {},
@@ -61,7 +61,7 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     "query-as-system-with-hatch",
     z.object({}),
     async function* (query, ctx) {
-      const result = await ctx.queryAs(
+      const result = await ctx.dispatch.queryAs(
         createSystemUser(query.user.tenantId),
         "stream-idswitch-probe:query:whoami",
         {},
@@ -94,13 +94,17 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
   );
 
-  // --- ctx.queryAs(nonSystemUser, ...) from a stream handler: a foreign
+  // --- ctx.dispatch.queryAs(nonSystemUser, ...) from a stream handler: a foreign
   // user needs the stream handler's escapeHatch; the target's own access rule still applies. ---
   r.streamHandler(
     "query-as-normal-user-no-hatch",
     z.object({}),
     async function* (_query, ctx) {
-      yield await ctx.queryAs(otherUserWithAdminRole, "stream-idswitch-probe:query:admin-only", {});
+      yield await ctx.dispatch.queryAs(
+        otherUserWithAdminRole,
+        "stream-idswitch-probe:query:admin-only",
+        {},
+      );
     },
     { access: { roles: ["User"] } },
   );
@@ -109,7 +113,7 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     "query-as-normal-user",
     z.object({ granted: z.boolean() }),
     async function* (query, ctx) {
-      const result = await ctx.queryAs(
+      const result = await ctx.dispatch.queryAs(
         query.payload.granted ? otherUserWithAdminRole : otherUserNoRole,
         "stream-idswitch-probe:query:admin-only",
         {},
@@ -159,7 +163,7 @@ async function collectAll<T>(gen: AsyncGenerator<T>): Promise<T[]> {
   return chunks;
 }
 
-describe("ctx.queryAs(SYSTEM, ...) from a stream handler — gated by the handler's own escapeHatch", () => {
+describe("ctx.dispatch.queryAs(SYSTEM, ...) from a stream handler — gated by the handler's own escapeHatch", () => {
   test("WITHOUT escapeHatch: fails with access_denied", async () => {
     const dispatcher = await buildDispatcherFor(user);
     let thrown: unknown;
@@ -228,7 +232,7 @@ describe("ctx.db.unsafeRaw() from a stream handler — gated by the handler's ow
   });
 });
 
-describe("ctx.queryAs(nonSystemUser, ...) from a stream handler — gated like write/query (fw#2876)", () => {
+describe("ctx.dispatch.queryAs(nonSystemUser, ...) from a stream handler — gated like write/query (fw#2876)", () => {
   test("WITHOUT escapeHatch: a foreign user fails with identity_switch_denied", async () => {
     const dispatcher = await buildDispatcherFor(user);
     let thrown: unknown;

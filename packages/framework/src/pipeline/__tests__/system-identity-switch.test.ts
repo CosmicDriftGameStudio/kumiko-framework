@@ -11,6 +11,7 @@ import type {
   SessionUser,
 } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
+import { attachOutsideTransaction } from "../attach-outside-transaction.ts";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
@@ -349,12 +350,12 @@ describe("withHookEscapeHatchGrant", () => {
     // Simulates dispatch-shared.ts's buildHandlerContext for a handler that
     // itself declared escapeHatch / is systemScope (allowSystemIdentity=true).
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated) },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, 'postSave hook of feature "f"', undefined);
 
-    await expect(hookCtx.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
+    await expect(hookCtx.dispatch.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
     );
   });
@@ -363,14 +364,14 @@ describe("withHookEscapeHatchGrant", () => {
     const { ungated, queryAsMock } = makeUngated();
     // Handler itself has NO escapeHatch (allowSystemIdentity=false).
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated) },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, 'postSave hook of feature "f"', {
       reason: "test hook needs SYSTEM",
     });
 
-    await hookCtx.queryAs(systemUserById, "q", { a: 1 });
+    await hookCtx.dispatch.queryAs(systemUserById, "q", { a: 1 });
     // Reaches the REAL ungated fn — not the handler's own (still-denying) gate.
     expect(queryAsMock).toHaveBeenCalledWith(systemUserById, "q", { a: 1 });
   });
@@ -378,23 +379,25 @@ describe("withHookEscapeHatchGrant", () => {
   test("a hook without escapeHatch may still switch to the handler's own caller", async () => {
     const { ungated, queryAsMock } = makeUngated();
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated) },
     };
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
 
-    await hookCtx.queryAs(normalUser, "q", {});
+    await hookCtx.dispatch.queryAs(normalUser, "q", {});
     expect(queryAsMock).toHaveBeenCalledWith(normalUser, "q", {});
   });
 
   test("a hook without escapeHatch does NOT inherit the handler's grant for a foreign identity", async () => {
     const { ungated, writeAsMock } = makeUngated();
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated) },
     };
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
     const foreignUser: SessionUser = { ...normalUser, tenantId: OTHER_TENANT };
 
-    await expect(hookCtx.writeAs(foreignUser, "w", {})).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(hookCtx.dispatch.writeAs(foreignUser, "w", {})).rejects.toBeInstanceOf(
+      AccessDeniedError,
+    );
     expect(writeAsMock).not.toHaveBeenCalled();
   });
 
@@ -406,12 +409,14 @@ describe("withHookEscapeHatchGrant", () => {
       roles: ["Admin"],
     };
     const spoofedCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated) },
       user: foreignUser,
     };
     const hookCtx = withHookEscapeHatchGrant(spoofedCtx, "hook", undefined);
 
-    await expect(hookCtx.writeAs(foreignUser, "w", {})).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(hookCtx.dispatch.writeAs(foreignUser, "w", {})).rejects.toBeInstanceOf(
+      AccessDeniedError,
+    );
     expect(writeAsMock).not.toHaveBeenCalled();
   });
 
@@ -419,30 +424,34 @@ describe("withHookEscapeHatchGrant", () => {
     const { ungated, queryAsMock } = makeUngated();
     const otherCaller: SessionUser = { ...normalUser, id: crypto.randomUUID() };
     const mixedCtx = {
-      queryAs: createGatedIdentitySwitch('handler "a"', normalUser, false, ungated).queryAs,
-      writeAs: createGatedIdentitySwitch('handler "b"', otherCaller, false, ungated).writeAs,
+      dispatch: {
+        queryAs: createGatedIdentitySwitch('handler "a"', normalUser, false, ungated).queryAs,
+        writeAs: createGatedIdentitySwitch('handler "b"', otherCaller, false, ungated).writeAs,
+      },
     };
     const hookCtx = withHookEscapeHatchGrant(mixedCtx, "hook", undefined);
 
-    await expect(hookCtx.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(hookCtx.dispatch.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(
+      AccessDeniedError,
+    );
     expect(queryAsMock).not.toHaveBeenCalled();
   });
 
   test("spreading the context ({...ctx}) still resolves back to the ungated pair", async () => {
     const { ungated, queryAsMock } = makeUngated();
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated),
+      dispatch: { ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated) },
       extra: 1,
     };
     const spread = { ...handlerCtx };
 
     const hookCtx = withHookEscapeHatchGrant(spread, "hook", { reason: "needs system" });
-    await hookCtx.queryAs(systemUserById, "q", {});
+    await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(queryAsMock).toHaveBeenCalledWith(systemUserById, "q", {});
   });
 
-  test("a context without queryAs/writeAs/db/dbOutsideTransaction is returned unchanged", () => {
+  test("a context without dispatch/db is returned unchanged", () => {
     const plainContext = { unrelated: 1 };
     const result = withHookEscapeHatchGrant(plainContext, "hook", { reason: "x" });
     expect(result).toBe(plainContext);
@@ -463,13 +472,15 @@ describe("withHookEscapeHatchGrant", () => {
         details: { reason: "member_resolution_read_only" },
       });
     };
-    const handlerCtx = { queryAs: gatedIdentitySwitch.queryAs, writeAs: denyStubWriteAs };
+    const handlerCtx = {
+      dispatch: { queryAs: gatedIdentitySwitch.queryAs, writeAs: denyStubWriteAs },
+    };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "test hook needs SYSTEM",
     });
 
-    await expect(hookCtx.writeAs(systemUserById, "w", {})).rejects.toBeInstanceOf(
+    await expect(hookCtx.dispatch.writeAs(systemUserById, "w", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
     );
     expect(writeAsMock).not.toHaveBeenCalled();
@@ -477,25 +488,27 @@ describe("withHookEscapeHatchGrant", () => {
 
   test("an ungated context not built by the dispatcher bridge fails closed (unit-test stub)", async () => {
     const stubQueryAs = mock(async (_user: SessionUser, _qn: string, _payload: unknown) => "ok");
-    const stubContext = { queryAs: stubQueryAs };
+    const stubContext = { dispatch: { queryAs: stubQueryAs } };
 
     const hookCtx = withHookEscapeHatchGrant(stubContext, "hook", undefined);
-    await expect(hookCtx.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
+    await expect(hookCtx.dispatch.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
     );
-    await expect(hookCtx.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(hookCtx.dispatch.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(
+      AccessDeniedError,
+    );
     const stubWithUser = withHookEscapeHatchGrant(
       { ...stubContext, user: normalUser },
       "hook",
       undefined,
     );
-    await expect(stubWithUser.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(
+    await expect(stubWithUser.dispatch.queryAs(normalUser, "q", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
     );
     expect(stubQueryAs).not.toHaveBeenCalled();
 
     const allowedHookCtx = withHookEscapeHatchGrant(stubContext, "hook", { reason: "x" });
-    await allowedHookCtx.queryAs(systemUserById, "q", {});
+    await allowedHookCtx.dispatch.queryAs(systemUserById, "q", {});
     expect(stubQueryAs).toHaveBeenCalledWith(systemUserById, "q", {});
   });
 
@@ -528,18 +541,39 @@ describe("withHookEscapeHatchGrant", () => {
     expect(unscopedRunner(hookCtxWithEscapeHatch.db.unsafeRaw())).toBe(rawDb);
   });
 
+  test("hook re-gates ctx.db.outsideTransaction.unsafeRaw() together with ctx.db", () => {
+    const rawDb: DbRunner = {
+      unsafe: async () => [],
+      begin: async () => {
+        throw new Error("begin not used in this test");
+      },
+    } as DbRunner;
+    const grants = { unsafeRaw: { reason: "handler's own grant" } };
+    const handlerDb = attachOutsideTransaction(
+      createTenantDb({ db: rawDb, tenantId: TENANT, mode: "tenant", grants }),
+      createTenantDb({ db: rawDb, tenantId: TENANT, mode: "tenant", grants }),
+    );
+    const handlerCtx = { db: handlerDb };
+
+    const withoutHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
+    expect(() => withoutHatch.db.outsideTransaction.unsafeRaw()).toThrow(AccessDeniedError);
+
+    const withHatch = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
+    expect(unscopedRunner(withHatch.db.outsideTransaction.unsafeRaw())).toBe(rawDb);
+  });
+
   test("handler-granted queryProjection reader: hook without escapeHatch loses the grant for unsafeAllTenants", async () => {
     const { ungated, mockFn } = makeUngatedProjectionReader();
     const handlerCtx = {
-      queryProjection: createGatedProjectionReader('handler "outer"', true, ungated),
+      dispatch: { queryProjection: createGatedProjectionReader('handler "outer"', true, ungated) },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", undefined) as {
-      queryProjection: ProjectionReader;
+      dispatch: { queryProjection: ProjectionReader };
     };
 
     await expect(
-      hookCtx.queryProjection("qp:projection:widgets", { unsafeAllTenants: true }),
+      hookCtx.dispatch.queryProjection("qp:projection:widgets", { unsafeAllTenants: true }),
     ).rejects.toBeInstanceOf(AccessDeniedError);
     expect(mockFn).not.toHaveBeenCalled();
   });
@@ -548,17 +582,21 @@ describe("withHookEscapeHatchGrant", () => {
     const { ungated, mockFn } = makeUngatedProjectionReader();
     const { report, calls } = recordingReporter();
     const handlerCtx = {
-      queryProjection: createGatedProjectionReader('handler "outer"', false, ungated, {
-        reason: undefined,
-        report,
-      }),
+      dispatch: {
+        queryProjection: createGatedProjectionReader('handler "outer"', false, ungated, {
+          reason: undefined,
+          report,
+        }),
+      },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
-    }) as { queryProjection: ProjectionReader };
+    }) as {
+      dispatch: { queryProjection: ProjectionReader };
+    };
 
-    await hookCtx.queryProjection("qp:projection:widgets", { unsafeAllTenants: true });
+    await hookCtx.dispatch.queryProjection("qp:projection:widgets", { unsafeAllTenants: true });
 
     expect(mockFn).toHaveBeenCalledWith("qp:projection:widgets", { unsafeAllTenants: true });
     expect(calls).toEqual([
@@ -617,14 +655,16 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
     const { ungated } = makeUngated();
     const { report, calls } = recordingReporter();
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated, {
-        reason: "handler's own grant",
-        report,
-      }),
+      dispatch: {
+        ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated, {
+          reason: "handler's own grant",
+          report,
+        }),
+      },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
-    await hookCtx.queryAs(systemUserById, "q", {});
+    await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(calls).toEqual([
       {
@@ -641,14 +681,16 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
     // Handler has NO grant (hasGrant=false, reason: undefined) — the report fn
     // must still be attached so a hook's own escapeHatch can use it.
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated, {
-        reason: undefined,
-        report,
-      }),
+      dispatch: {
+        ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated, {
+          reason: undefined,
+          report,
+        }),
+      },
     };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" });
-    await hookCtx.queryAs(systemUserById, "q", {});
+    await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(calls).toEqual([
       {
@@ -667,12 +709,12 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
       report,
       tenantId: TENANT,
     });
-    const handlerCtx = { queryAsMember: gatedReader };
+    const handlerCtx = { dispatch: { queryAsMember: gatedReader } };
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" }) as {
-      queryAsMember: MemberReader;
+      dispatch: { queryAsMember: MemberReader };
     };
-    await hookCtx.queryAsMember(systemUserById.id, "q", {});
+    await hookCtx.dispatch.queryAsMember(systemUserById.id, "q", {});
 
     expect(calls).toEqual([
       {

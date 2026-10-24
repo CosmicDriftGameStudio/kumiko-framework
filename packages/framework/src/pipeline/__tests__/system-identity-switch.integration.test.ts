@@ -1,4 +1,4 @@
-// ctx.queryAs/ctx.writeAs to anyone but the caller itself (or a role subset) needs
+// ctx.dispatch.queryAs/ctx.dispatch.writeAs to anyone but the caller itself (or a role subset) needs
 // r.systemScope() or { escapeHatch }. Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -92,7 +92,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     return {};
   });
 
-  // --- r.step.callFeature({ as }): gated like ctx.writeAs by the handler's escapeHatch ---
+  // --- r.step.callFeature({ as }): gated like ctx.dispatch.writeAs by the handler's escapeHatch ---
   r.writeHandler(
     defineWriteHandler({
       name: "step-call-as-colleague-no-hatch",
@@ -160,18 +160,20 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // --- ctx.resolveActiveMembership: gated the same as a SYSTEM queryAs/writeAs ---
+  // --- ctx.auth.resolveActiveMembership: gated the same as a SYSTEM queryAs/writeAs ---
   r.queryHandler({
     name: "resolve-active-membership-no-hatch",
     schema: z.object({}),
-    handler: async (query, ctx) => ctx.resolveActiveMembership(query.user.id, query.user.tenantId),
+    handler: async (query, ctx) =>
+      ctx.auth.resolveActiveMembership(query.user.id, query.user.tenantId),
     access: { roles: ["User"] },
   });
 
   r.queryHandler({
     name: "resolve-active-membership-with-hatch",
     schema: z.object({}),
-    handler: async (query, ctx) => ctx.resolveActiveMembership(query.user.id, query.user.tenantId),
+    handler: async (query, ctx) =>
+      ctx.auth.resolveActiveMembership(query.user.id, query.user.tenantId),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: needs SYSTEM to resolve membership" },
   });
@@ -181,7 +183,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "write-as-system-raw-only-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: raw reads only", grants: ["unsafeRaw"] },
   });
@@ -190,7 +196,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-system-raw-only-hatch",
     schema: z.object({}),
     handler: async (query, ctx) =>
-      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+      ctx.dispatch.queryAs(
+        createSystemUser(query.user.tenantId),
+        "idswitch-probe:query:whoami",
+        {},
+      ),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: raw reads only", grants: ["unsafeRaw"] },
   });
@@ -199,7 +209,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-system-identity-grant-hatch",
     schema: z.object({}),
     handler: async (query, ctx) =>
-      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+      ctx.dispatch.queryAs(
+        createSystemUser(query.user.tenantId),
+        "idswitch-probe:query:whoami",
+        {},
+      ),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: needs SYSTEM", grants: ["systemIdentity"] },
   });
@@ -209,7 +223,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "write-as-system-no-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["User"] },
   });
 
@@ -217,7 +235,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "write-as-system-with-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: needs SYSTEM to look itself up" },
   });
@@ -226,7 +248,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-system-no-hatch",
     schema: z.object({}),
     handler: async (query, ctx) =>
-      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+      ctx.dispatch.queryAs(
+        createSystemUser(query.user.tenantId),
+        "idswitch-probe:query:whoami",
+        {},
+      ),
     access: { roles: ["User"] },
   });
 
@@ -234,7 +260,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-system-with-hatch",
     schema: z.object({}),
     handler: async (query, ctx) =>
-      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+      ctx.dispatch.queryAs(
+        createSystemUser(query.user.tenantId),
+        "idswitch-probe:query:whoami",
+        {},
+      ),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: needs SYSTEM to look itself up" },
   });
@@ -244,7 +274,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-self",
     schema: z.object({ roles: z.array(z.string()).optional() }),
     handler: async (query, ctx) =>
-      ctx.queryAs(
+      ctx.dispatch.queryAs(
         query.payload.roles ? { ...query.user, roles: query.payload.roles } : query.user,
         "idswitch-probe:query:whoami",
         {},
@@ -256,7 +286,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-normal-user",
     schema: z.object({}),
     handler: async (_query, ctx) =>
-      ctx.queryAs(otherUserWithAdminRole, "idswitch-probe:query:admin-only", {}),
+      ctx.dispatch.queryAs(otherUserWithAdminRole, "idswitch-probe:query:admin-only", {}),
     access: { roles: ["User"] },
   });
 
@@ -264,7 +294,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "query-as-normal-user-with-hatch",
     schema: z.object({ granted: z.boolean() }),
     handler: async (query, ctx) =>
-      ctx.queryAs(
+      ctx.dispatch.queryAs(
         query.payload.granted ? otherUserWithAdminRole : otherUserNoRole,
         "idswitch-probe:query:admin-only",
         {},
@@ -277,7 +307,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "write-as-foreign-tenant",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     access: { roles: ["User"] },
   });
 
@@ -285,7 +315,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "write-as-foreign-tenant-with-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: acts for the same user inside a second tenant" },
   });
@@ -295,7 +325,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "inner-foreign-no-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     access: { roles: ["User"] },
   });
 
@@ -303,7 +333,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "outer-as-colleague-with-hatch",
     schema: z.object({}),
     handler: async (_event, ctx) =>
-      ctx.writeAs(otherUserNoRole, "idswitch-probe:write:inner-foreign-no-hatch", {}),
+      ctx.dispatch.writeAs(otherUserNoRole, "idswitch-probe:write:inner-foreign-no-hatch", {}),
     access: { roles: ["User"] },
     escapeHatch: { reason: "test: outer acts as a colleague" },
   });
@@ -313,7 +343,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "inner-no-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["system"] },
   });
 
@@ -321,7 +355,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "inner-with-hatch",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["system"] },
     escapeHatch: { reason: "test: inner needs SYSTEM" },
   });
@@ -330,7 +368,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     name: "outer-with-hatch",
     schema: z.object({ innerHasHatch: z.boolean() }),
     handler: async (event, ctx) =>
-      ctx.writeAs(
+      ctx.dispatch.writeAs(
         createSystemUser(event.user.tenantId),
         event.payload.innerHasHatch
           ? "idswitch-probe:write:inner-with-hatch"
@@ -365,7 +403,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (_result, ctx) => {
       const handlerCtx = ctx as unknown as HandlerContext;
       try {
-        await handlerCtx.writeAs(
+        await handlerCtx.dispatch.writeAs(
           createSystemUser(user.tenantId),
           "idswitch-probe:write:whoami-write",
           {},
@@ -386,7 +424,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     target: "hook-target-without-hatch",
     handler: async (_result, ctx) => {
       const handlerCtx = ctx as unknown as HandlerContext;
-      const res = await handlerCtx.writeAs(
+      const res = await handlerCtx.dispatch.writeAs(
         createSystemUser(user.tenantId),
         "idswitch-probe:write:whoami-write",
         {},
@@ -411,7 +449,11 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (_result, ctx) => {
       const handlerCtx = ctx as unknown as HandlerContext;
       try {
-        await handlerCtx.writeAs(foreignTenantTwin(user), "idswitch-probe:write:whoami-write", {});
+        await handlerCtx.dispatch.writeAs(
+          foreignTenantTwin(user),
+          "idswitch-probe:write:whoami-write",
+          {},
+        );
         hookForeignNoEscapeHatchOutcomes.push({ threw: false });
       } catch (err) {
         hookForeignNoEscapeHatchOutcomes.push({ threw: true });
@@ -429,7 +471,11 @@ const systemScopeFeature = defineFeature("idswitch-probe-system", (r) => {
     name: "write-as-system",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+      ctx.dispatch.writeAs(
+        createSystemUser(event.user.tenantId),
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     access: { roles: ["Admin"] },
   });
 
@@ -437,7 +483,7 @@ const systemScopeFeature = defineFeature("idswitch-probe-system", (r) => {
     name: "write-as-foreign-tenant",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx.writeAs(
+      ctx.dispatch.writeAs(
         { ...foreignTenantTwin(event.user), roles: ["User"] },
         "idswitch-probe:write:whoami-write",
         {},
@@ -457,7 +503,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("ctx.writeAs(SYSTEM, ...) — gated by the calling handler's escapeHatch", () => {
+describe("ctx.dispatch.writeAs(SYSTEM, ...) — gated by the calling handler's escapeHatch", () => {
   test("WITHOUT escapeHatch: fails with access_denied", async () => {
     const err = await stack.http.writeErr(
       "idswitch-probe:write:write-as-system-no-hatch",
@@ -477,7 +523,7 @@ describe("ctx.writeAs(SYSTEM, ...) — gated by the calling handler's escapeHatc
   });
 });
 
-describe("ctx.queryAs(SYSTEM, ...) — gated by the calling handler's escapeHatch", () => {
+describe("ctx.dispatch.queryAs(SYSTEM, ...) — gated by the calling handler's escapeHatch", () => {
   test("WITHOUT escapeHatch: fails with access_denied", async () => {
     const err = await stack.http.queryErr(
       "idswitch-probe:query:query-as-system-no-hatch",
@@ -535,7 +581,7 @@ describe("escapeHatch.grants", () => {
   });
 });
 
-describe("ctx.resolveActiveMembership — gated like a SYSTEM queryAs/writeAs", () => {
+describe("ctx.auth.resolveActiveMembership — gated like a SYSTEM queryAs/writeAs", () => {
   test("WITHOUT escapeHatch: fails with access_denied", async () => {
     const err = await stack.http.queryErr(
       "idswitch-probe:query:resolve-active-membership-no-hatch",
@@ -555,7 +601,7 @@ describe("ctx.resolveActiveMembership — gated like a SYSTEM queryAs/writeAs", 
   });
 });
 
-describe("ctx.queryAs/writeAs to a non-SYSTEM identity (fw#2876)", () => {
+describe("ctx.dispatch.queryAs/writeAs to a non-SYSTEM identity (fw#2876)", () => {
   test("switching to the caller itself is free", async () => {
     const result = await stack.http.queryOk<{ roles: readonly string[]; tenantId: string }>(
       "idswitch-probe:query:query-as-self",

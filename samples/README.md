@@ -26,7 +26,7 @@ an open-source statuspage clone built with Kumiko.
 | Seed reference data (`r.referenceData`) | [recipes/reference-data](recipes/reference-data/) | Integration |
 | Full-text search (searchable, searchWeight) | [recipes/search](recipes/search/) | Integration |
 | Realtime updates via SSE | [recipes/realtime-sse](recipes/realtime-sse/) | Integration |
-| Cross-feature reactions (`ctx.appendEvent` + `r.multiStreamProjection`) | [recipes/cross-feature-events](recipes/cross-feature-events/) | Integration |
+| Cross-feature reactions (`ctx.events.append` + `r.multiStreamProjection`) | [recipes/cross-feature-events](recipes/cross-feature-events/) | Integration |
 | Full event sourcing (defineEvent + Upcaster + Projections + asOf + archive) | [recipes/event-sourcing](recipes/event-sourcing/) | Integration |
 | State machine (allowed transitions enforced) | [recipes/state-machine](recipes/state-machine/) | Integration |
 | Request deduplication (idempotency) | [recipes/idempotency](recipes/idempotency/) | Integration |

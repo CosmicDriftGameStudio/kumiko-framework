@@ -264,7 +264,7 @@ export function validatePerCommandTransaction(
   if (conflicting !== undefined) {
     throw new Error(
       `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
-        "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.write.",
+        "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.dispatch.write.",
     );
   }
 }

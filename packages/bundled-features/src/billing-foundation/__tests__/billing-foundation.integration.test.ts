@@ -3,7 +3,7 @@
 //
 // **Mock-plugin strategy (analogous to ai-foundation):** we do NOT test the
 // Stripe-/Mollie-specific plugins here (their own feature.test.ts files cover
-// those). Instead, we call ctx.write directly on process-event with a
+// those). Instead, we call ctx.dispatch.write directly on process-event with a
 // normalized SubscriptionEvent payload to verify the foundation wiring:
 // atomic insert + upsert, idempotency via deterministic aggregate IDs, and
 // tenant isolation.

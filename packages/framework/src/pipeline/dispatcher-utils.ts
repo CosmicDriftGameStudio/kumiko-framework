@@ -198,7 +198,7 @@ export function resolveType(type: HandlerType): string {
   return typeof type === "string" ? type : type.name;
 }
 
-// A custom write losing an append race (ctx.appendEvent, stream.append) is a
+// A custom write losing an append race (ctx.events.append, stream.append) is a
 // retryable 409 like the CRUD executor's, not an internal error. Mapped here
 // because errors/ is client code and must not import the event store.
 // currentVersion -1 is the "not looked up" sentinel for a bare 23505 fallback.

@@ -49,7 +49,7 @@ const ledgerFeature = defineFeature("restoremoney", (r) => {
   r.queryHandler({
     name: "entry:events",
     schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => ctx.loadAggregate(query.payload.id),
+    handler: async (query, ctx) => ctx.events.load(query.payload.id),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });

@@ -1,6 +1,6 @@
 // Pipeline-engine observability integration test.
 //
-// Verifies that step.run sees a working ctx.tracer + ctx.metrics —
+// Verifies that step.run sees a working ctx.obs.tracer + ctx.obs.metrics —
 // not the noop provider — and that any spans/metrics emitted inside
 // a step land in the same recording provider that the dispatcher
 // uses for its own spans.
@@ -43,7 +43,7 @@ const observedHandler = defineWriteHandler({
       // Span emitted from inside a step. End it explicitly because
       // step.run is sync-or-async-but-not-otel-instrumented; the
       // recording provider only persists spans on .end().
-      const span = ctx.tracer.startSpan("test:step.compute.traced");
+      const span = ctx.obs.tracer.startSpan("test:step.compute.traced");
       span.end();
       return null;
     }),
@@ -51,7 +51,7 @@ const observedHandler = defineWriteHandler({
       // Note: MetricsHandle.inc is (name, labels?, value?) — labels comes
       // BEFORE value. Argument order trips a lot of authors; the engine-
       // wide convention follows the OpenTelemetry meter shape.
-      ctx.metrics.inc("test_step_counter_total", { step_name: "metered" }, 1);
+      ctx.obs.metrics.inc("test_step_counter_total", { step_name: "metered" }, 1);
       return null;
     }),
     r.step.return({ isSuccess: true as const, data: { ok: true } }),
@@ -97,7 +97,7 @@ beforeEach(async () => {
 });
 
 describe("pipeline-engine observability inheritance", () => {
-  test("ctx.tracer.startSpan inside a step is recorded by the dispatcher's provider", async () => {
+  test("ctx.obs.tracer.startSpan inside a step is recorded by the dispatcher's provider", async () => {
     await stack.http.writeOk("obstest:write:observed", {}, TestUsers.admin);
 
     const stepSpans = provider.spansByName("test:step.compute.traced");
@@ -109,7 +109,7 @@ describe("pipeline-engine observability inheritance", () => {
     expect(writeHandlerSpans.length).toBeGreaterThan(0);
   });
 
-  test("ctx.metrics.inc inside a step lands in the dispatcher's metric stream", async () => {
+  test("ctx.obs.metrics.inc inside a step lands in the dispatcher's metric stream", async () => {
     await stack.http.writeOk("obstest:write:observed", {}, TestUsers.admin);
 
     // Feature-scoped metric names get a `kumiko_<feature>_` prefix at boot.

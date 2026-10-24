@@ -107,6 +107,7 @@ export function stubCtx(
 ): HandlerContext {
   return {
     auditUserId: "tester",
+    obs: { log: { warn() {} } },
     config: async (handle: ConfigKeyHandle<"text" | "boolean" | "select">) => {
       if (handle.name === BILLING_LIVE_HANDLE.name) return config.billingLive ?? true;
       if (handle.name === ENVIRONMENT_HANDLE.name) return config.environment ?? "test";

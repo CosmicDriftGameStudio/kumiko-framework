@@ -125,7 +125,7 @@ beforeAll(async () => {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
     // Anonymous access for the Magic-Link path (httpRoute wrapper).
     // tenant context comes from job.requestedFromTenantId after token lookup;

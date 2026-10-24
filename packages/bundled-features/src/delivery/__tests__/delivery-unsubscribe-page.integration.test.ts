@@ -143,7 +143,7 @@ beforeAll(async () => {
             }),
         }),
         configResolver: resolver,
-        _configAccessorFactory: accessorFactory,
+        configAccessorFactory: accessorFactory,
       };
     },
     extraRoutes: [

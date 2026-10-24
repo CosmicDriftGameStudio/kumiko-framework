@@ -76,13 +76,16 @@ export function registerConsumerProtection(
         // user), never from payload data.
         const tenantId = ctx.systemUser.tenantId;
         const currentPeriodEndIso = payload["currentPeriodEndIso"];
-        const result = await ctx.write(SubscriptionFoundationHandlers.issueContractConfirmation, {
-          consentId,
-          sourceAggregateId: isSubscriptionEvent
-            ? subscriptionAggregateId(tenantId)
-            : paymentAggregateId(tenantId),
-          ...(typeof currentPeriodEndIso === "string" && { currentPeriodEndIso }),
-        });
+        const result = await ctx.dispatch.write(
+          SubscriptionFoundationHandlers.issueContractConfirmation,
+          {
+            consentId,
+            sourceAggregateId: isSubscriptionEvent
+              ? subscriptionAggregateId(tenantId)
+              : paymentAggregateId(tenantId),
+            ...(typeof currentPeriodEndIso === "string" && { currentPeriodEndIso }),
+          },
+        );
         if (!result.isSuccess) {
           throw new Error(
             `billing-foundation:${trigger.jobName}: issue-contract-confirmation failed: ${JSON.stringify(result.error)}`,

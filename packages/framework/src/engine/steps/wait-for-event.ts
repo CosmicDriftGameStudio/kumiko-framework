@@ -63,7 +63,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
     const timeoutAt =
       timeout.startsWith("P") || timeout.startsWith("PT") ? addDuration(now, timeout) : timeout;
 
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: ctx.workflow.runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_WAITING_FOR_EVENT_TYPE,

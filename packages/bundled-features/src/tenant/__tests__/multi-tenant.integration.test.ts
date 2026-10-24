@@ -6,6 +6,7 @@ import {
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  attachOutsideTransaction,
   bridgeStub,
   createRegistry,
   createSystemUser,
@@ -109,8 +110,7 @@ beforeAll(async () => {
           },
         },
         {
-          db: systemModeDb,
-          dbOutsideTransaction: systemModeDb,
+          db: attachOutsideTransaction(systemModeDb, systemModeDb),
           systemDb: createSystemDbView(systemModeDb),
           registry,
           ...bridgeStub(),

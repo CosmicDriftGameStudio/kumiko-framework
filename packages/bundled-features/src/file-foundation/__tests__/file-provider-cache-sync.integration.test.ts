@@ -104,7 +104,7 @@ describe("file provider cache across instances", () => {
       ...(sharedRedisWith && { sharedRedisWith }),
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafePushTables(pod.db, { configValuesTable, fileRefsTable });
@@ -165,7 +165,7 @@ describe("file provider cache on secret writes", () => {
       ],
       extraContext: ({ registry, db }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
         secrets: createSecretsContext({ db, masterKeyProvider, registry }),
       }),
     });

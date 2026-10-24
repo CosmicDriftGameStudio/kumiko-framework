@@ -612,7 +612,7 @@ export async function releaseExpiredCapReservations(
     try {
       await releaseCapReservation(ctx, id, outsideTransaction);
     } catch (error) {
-      ctx.log?.error("releasing an expired cap reservation failed", { id, capName, error });
+      ctx.obs.log?.error("releasing an expired cap reservation failed", { id, capName, error });
     }
   }
 }

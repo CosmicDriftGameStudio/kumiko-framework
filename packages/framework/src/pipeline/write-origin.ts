@@ -1,5 +1,5 @@
 // The static check in boot-validator/access-declarations.ts only sees a handler's own
-// input schema; writes reached via ctx.write/writeAs/queryAs, hooks or foreign-feature
+// input schema; writes reached via ctx.dispatch.write/writeAs/queryAs, hooks or foreign-feature
 // tables are only visible at the actual write, so the gate runs there at runtime.
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
@@ -46,7 +46,7 @@ function declaresPublicIntake(access: AccessRule): boolean {
 }
 
 // Only the public dispatcher entry points compute a root; every nested call inherits
-// it, so switching identity via ctx.writeAs(SYSTEM, ...) cannot shed an anonymous root.
+// it, so switching identity via ctx.dispatch.writeAs(SYSTEM, ...) cannot shed an anonymous root.
 export function rootWriteOrigin(registry: Registry, type: string, user: SessionUser): WriteOrigin {
   const rootHandler = registry.getWriteHandler(type) ?? registry.getQueryHandler(type);
   return {

@@ -30,7 +30,7 @@ export function chainReservations(
       try {
         await innerHandle.release();
       } catch (releaseError) {
-        ctx.log?.error("releasing the inner cap reservation failed", { error: releaseError });
+        ctx.obs.log?.error("releasing the inner cap reservation failed", { error: releaseError });
       }
       throw error;
     }

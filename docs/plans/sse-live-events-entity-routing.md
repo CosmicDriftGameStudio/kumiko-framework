@@ -42,7 +42,7 @@ worauf `publicstatus`s zwei Custom-Events (`incident-update-posted`,
 
 ```ts
 // publicstatus/src/features/publicstatus/handlers/incident-post-update.write.ts:53
-await ctx.appendEvent({
+await ctx.events.append({
   aggregateId: event.payload.incidentId,
   aggregateType: "incident",
   type: PublicStatusEvents.IncidentUpdatePosted,

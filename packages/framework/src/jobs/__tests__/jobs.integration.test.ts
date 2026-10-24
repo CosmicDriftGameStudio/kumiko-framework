@@ -202,8 +202,8 @@ const testFeature = defineFeature("test", (r) => {
   // Exercises createJobLogger (info/warn/error/debug/child) — otherwise those
   // one-liners stay uncovered even though every job builds a logger.
   r.job("logProbe", { trigger: { manual: true } }, async (payload, ctx) => {
-    expect(ctx.log).toBeDefined();
-    const log = ctx.log!;
+    expect(ctx.obs.log).toBeDefined();
+    const log = ctx.obs.log!;
     log.info("log-probe-info", { n: payload["n"] });
     log.warn("log-probe-warn");
     log.error("log-probe-error", { ok: false });
@@ -236,11 +236,11 @@ const testFeature = defineFeature("test", (r) => {
     jobLog.push({ name: "test:job:config-probe", payload: { value }, timestamp: Date.now() });
   });
 
-  // ctx.write/queryAs throw until JobRunner.attachDispatcher() has run —
+  // ctx.dispatch.write/queryAs throw until JobRunner.attachDispatcher() has run —
   // regression guard. No test runner here ever calls
   // attachDispatcher(), so this always hits the stub.
   r.job("writeProbe", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
-    await ctx.write("test:write:probe", {});
+    await ctx.dispatch.write("test:write:probe", {});
   });
 });
 
@@ -420,7 +420,7 @@ describe("scenario 3d: ctx.config resolves through the config accessor factory (
         });
         expect(receivedDb).toBeDefined();
       },
-      { context: { _configAccessorFactory: configAccessorFactory, db: {} as AppContext["db"] } },
+      { context: { configAccessorFactory, db: {} as AppContext["db"] } },
     );
   });
 });
@@ -947,7 +947,7 @@ describe("error handling", () => {
     );
   });
 
-  test("ctx.write throws before attachDispatcher() has run (framework#2043)", async () => {
+  test("ctx.dispatch.write throws before attachDispatcher() has run (framework#2043)", async () => {
     clearLog();
     const failures: string[] = [];
     await withRunner(

@@ -164,7 +164,7 @@ A throw rejects the boot, so the process never reports ready.
 
 | Slug + locale | What happens when missing |
 |---|---|
-| `imprint` / `de` | **Production:** `throw new Error(...)` blocks app start. **Dev:** `ctx.log.warn(...)` |
+| `imprint` / `de` | **Production:** `throw new Error(...)` blocks app start. **Dev:** `ctx.obs.log.warn(...)` |
 | `privacy` / `de` | as above |
 
 EN versions are **not** boot-fail-relevant by default (`LEGAL_OPTIONAL_BLOCKS`).

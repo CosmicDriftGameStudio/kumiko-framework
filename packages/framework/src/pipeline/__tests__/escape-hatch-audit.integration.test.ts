@@ -77,7 +77,7 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
     name: "identity-switch-write",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx
+      ctx.dispatch
         .queryAs(createSystemUser(event.user.tenantId), "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
     access: { roles: ["User"] },
@@ -88,7 +88,7 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
     name: "identity-switch-self-write",
     schema: z.object({}),
     handler: async (event, ctx) =>
-      ctx
+      ctx.dispatch
         .queryAs(event.user, "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
     access: { roles: ["User"] },

@@ -68,7 +68,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
     escapeHatch: {
       grants: ["systemIdentity"],
       reason:
-        "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, " +
+        "Reads the caller's own passwordHash (privileged-only field) via ctx.dispatch.queryAs(SYSTEM, " +
         "user:findForAuth) to re-verify the current password before minting the token. Also " +
         "reads the MFA enrollment of the user being re-authenticated via the mfaVerifier callback.",
     },
@@ -79,7 +79,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
     agent: { expose: false },
     handler: async (event, ctx) => {
       const systemUser = createSystemUser(event.user.tenantId);
-      const me = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+      const me = (await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
         id: event.user.id,
       })) as { passwordHash: string | null } | null; // @cast-boundary db-runner
       if (!me?.passwordHash) return reauthFailed();

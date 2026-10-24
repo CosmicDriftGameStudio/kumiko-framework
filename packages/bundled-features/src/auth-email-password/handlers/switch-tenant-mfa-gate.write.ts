@@ -43,10 +43,12 @@ export function createSwitchTenantMfaGateHandler(
       "Runs the MFA gate of the login for a tenant switch and answers with an MFA challenge, a setup requirement, or clearance.",
     handler: async (event, ctx) => {
       const { userId, tenantId } = event.payload;
-      const active = await ctx.resolveActiveMembership(userId, tenantId);
+      const active = await ctx.auth.resolveActiveMembership(userId, tenantId);
       if (active.kind === "rejected") return noMembership();
       const userRow = parseAuthUserRow(
-        await ctx.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, { id: userId }),
+        await ctx.dispatch.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
+          id: userId,
+        }),
       );
       const roles = buildSessionRoles(parseRoles(userRow?.roles ?? null), active.membership.roles);
       const mfaGate = await gateEnforceMfa(ctx, opts, userId, tenantId, roles);

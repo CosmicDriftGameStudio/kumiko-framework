@@ -102,7 +102,7 @@ export function createIssueContractConfirmationHandler(
         });
       }
 
-      const stream = await ctx.fetchForWriting({
+      const stream = await ctx.events.fetchForWriting({
         aggregateId: payload.sourceAggregateId,
         aggregateType: isSubscription ? SUBSCRIPTION_AGGREGATE_TYPE : PAYMENT_AGGREGATE_TYPE,
       });
@@ -119,7 +119,7 @@ export function createIssueContractConfirmationHandler(
         }
       }
       if (!consentEvent || !consent) {
-        ctx.log?.warn(
+        ctx.obs.log?.warn(
           `[billing-foundation:issue-contract-confirmation] no recorded consent ${payload.consentId} on the stream; no mail sent`,
         );
         return {
@@ -150,7 +150,7 @@ export function createIssueContractConfirmationHandler(
       // Everything that can fail runs before the append, so a failed run
       // leaves no marker behind and the job retry starts clean.
       const recipient = recipientRowSchema.safeParse(
-        await ctx.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
+        await ctx.dispatch.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
           id: consent.actorUserId,
         }),
       );
@@ -162,7 +162,7 @@ export function createIssueContractConfirmationHandler(
             )
           : null;
       if (!recipient.success || recipientEmail === null) {
-        ctx.log?.warn(
+        ctx.obs.log?.warn(
           `[billing-foundation:issue-contract-confirmation] recipient of consent ${payload.consentId} not found; no mail sent`,
         );
         return {
@@ -182,7 +182,7 @@ export function createIssueContractConfirmationHandler(
         locale,
       });
       if (terms.version !== consent.termsTemplateVersion) {
-        ctx.log?.warn(
+        ctx.obs.log?.warn(
           `[billing-foundation:issue-contract-confirmation] terms text block changed since consent ${payload.consentId} (version ${consent.termsTemplateVersion} -> ${terms.version}); the mail carries the current text`,
         );
       }

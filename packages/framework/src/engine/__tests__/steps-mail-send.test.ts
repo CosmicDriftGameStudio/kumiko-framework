@@ -10,7 +10,7 @@ import type { PipelineCtx } from "../types/step.ts";
 const mockUnsafeAppendEvent = mock();
 
 const mockCtx = {
-  unsafeAppendEvent: mockUnsafeAppendEvent,
+  events: { unsafeAppend: mockUnsafeAppendEvent },
   event: { type: "test", payload: {} },
   steps: {},
   scope: {},

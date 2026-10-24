@@ -23,7 +23,7 @@ import type { PipelineCtx } from "../../engine/types/step.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
-// A nested ctx.write runs inside the outer handler's transaction. When it fails
+// A nested ctx.dispatch.write runs inside the outer handler's transaction. When it fails
 // after its event and projection are written (inTransaction hook throws, SQL
 // error), the outer handler may swallow the failure result and commit — the
 // inner write must still be undone, and the outer tx must stay usable.
@@ -106,7 +106,7 @@ const nestedFeature = defineFeature("nws", (r) => {
       const created = await crud.create({ label: event.payload.label }, event.user, ctx.db);
       if (!created.isSuccess) return created;
 
-      lastInnerResult = await ctx.write(`nws:write:${event.payload.innerHandler}`, {
+      lastInnerResult = await ctx.dispatch.write(`nws:write:${event.payload.innerHandler}`, {
         label: event.payload.innerLabel,
       });
 
@@ -115,12 +115,12 @@ const nestedFeature = defineFeature("nws", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // ctx.writeAs goes through the gated identity switch; the handler swallows the inner result.
+  // ctx.dispatch.writeAs goes through the gated identity switch; the handler swallows the inner result.
   r.writeHandler({
     name: "outer:write-as",
     schema: z.object({ label: z.string(), innerLabel: z.string() }),
     handler: async (event, ctx) => {
-      lastInnerResult = await ctx.writeAs(
+      lastInnerResult = await ctx.dispatch.writeAs(
         createSystemUser(event.user.tenantId),
         "nws:write:inner:create",
         { label: event.payload.innerLabel },
@@ -156,8 +156,10 @@ const nestedFeature = defineFeature("nws", (r) => {
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => {
       const [rejected, kept] = await Promise.all([
-        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-${REJECTED_MARKER}` }),
-        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-kept` }),
+        ctx.dispatch.write("nws:write:inner:create", {
+          label: `${event.payload.label}-${REJECTED_MARKER}`,
+        }),
+        ctx.dispatch.write("nws:write:inner:create", { label: `${event.payload.label}-kept` }),
       ]);
       lastParallelResults = { rejected, kept };
       return { isSuccess: true as const, data: {} };
@@ -183,7 +185,7 @@ const nestedFeature = defineFeature("nws", (r) => {
     handler: async (result, ctx) => {
       // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
       const handlerCtx = ctx as unknown as HandlerContext;
-      lastHookWriteResult = await handlerCtx.write("nws:write:inner:create", {
+      lastHookWriteResult = await handlerCtx.dispatch.write("nws:write:inner:create", {
         label: `${result.data["label"]}-${REJECTED_MARKER}`,
       });
     },
@@ -244,7 +246,7 @@ beforeEach(async () => {
   await stack.redis.flushNamespace();
 });
 
-describe("nested ctx.write failure is confined to a savepoint", () => {
+describe("nested ctx.dispatch.write failure is confined to a savepoint", () => {
   test("a throwing inTransaction hook undoes the inner event and projection, outer commits", async () => {
     const res = await stack.http.write(
       "nws:write:outer:create",
@@ -323,7 +325,7 @@ describe("nested ctx.write failure is confined to a savepoint", () => {
     expect(afterCommitLog).toEqual(["inner:t5-kept"]);
   });
 
-  test("ctx.writeAs nests in a savepoint: a rejected inner write leaves no row, event or afterCommit", async () => {
+  test("ctx.dispatch.writeAs nests in a savepoint: a rejected inner write leaves no row, event or afterCommit", async () => {
     const res = await stack.http.write(
       "nws:write:outer:write-as",
       { label: "t6-outer", innerLabel: "t6-rejected" },

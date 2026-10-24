@@ -115,7 +115,7 @@ export const guard: AstGuard = {
   scan: SCAN,
   // App repos are not exempt — appendRaw/appendRawBatch bypasses the pipeline.
   security: true,
-  hint: "Admin API (appendRaw/appendRawBatch) bypasses the pipeline — only allowed in samples/*/migration/ or scripts/migrations/. For domain events: ctx.appendEvent / write handler.",
+  hint: "Admin API (appendRaw/appendRawBatch) bypasses the pipeline — only allowed in samples/*/migration/ or scripts/migrations/. For domain events: ctx.events.append / write handler.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

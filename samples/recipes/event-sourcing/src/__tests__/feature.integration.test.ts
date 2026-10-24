@@ -2,12 +2,12 @@
 //
 // Exercises every Sprint-E Marten gold-standard API end-to-end:
 //   - r.defineEvent with version + migrations (sync + async upcaster)
-//   - ctx.appendEvent onto the aggregate stream (incl. headers metadata)
+//   - ctx.events.append onto the aggregate stream (incl. headers metadata)
 //   - r.projection (single-stream, inline)
 //   - r.multiStreamProjection (async)
-//   - ctx.loadAggregate with { asOf }
-//   - ctx.archiveStream
-//   - ctx.queryProjection
+//   - ctx.events.load with { asOf }
+//   - ctx.events.archive
+//   - ctx.dispatch.queryProjection
 //   - streamAllEventsByType (memory-bounded ops iteration)
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
@@ -280,7 +280,7 @@ describe("Event Sourcing Showcase", () => {
     expect(beforeSnapshot.state.status).toBe("paid");
     expect(beforeSnapshot.state.amountCents).toBe(3300);
 
-    // Take a snapshot after the pay event. ctx.snapshotAggregate writes
+    // Take a snapshot after the pay event. ctx.events.snapshot writes
     // kumiko_snapshots with the committed state + version.
     const snapResult = await stack.http.writeOk<{ id: string; snapshotVersion: number }>(
       "showcase:write:invoice:take-snapshot",
@@ -410,7 +410,7 @@ describe("Event Sourcing Showcase", () => {
     expect(otherView[0]?.totalCents).toBe(200);
   });
 
-  test("ctx.appendEvent with headers: Marten free key/value metadata lands in stored event", async () => {
+  test("ctx.events.append with headers: Marten free key/value metadata lands in stored event", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       "showcase:write:invoice:create",
       { customer: "MetaCo" },
@@ -451,7 +451,7 @@ describe("Event Sourcing Showcase", () => {
     });
 
     // Append a v1 acknowledged event directly to simulate a pre-migration
-    // payload on disk. ctx.appendEvent always writes the current version,
+    // payload on disk. ctx.events.append always writes the current version,
     // so the only way to test the read-time upcaster is to write the older
     // shape via the raw event-store.
     const invoiceId = "00000000-0000-4000-8000-00000000ac01";
@@ -507,7 +507,7 @@ describe("Event Sourcing Showcase", () => {
       approverDisplayName: "Quincy Acknowledger",
     });
 
-    // Sanity check the ctx.appendEvent path too: it writes the current
+    // Sanity check the ctx.events.append path too: it writes the current
     // shape directly (handler resolved displayName synchronously), so
     // the upcaster is a no-op on these events.
     const { id: liveId } = await stack.http.writeOk<{ id: string }>(

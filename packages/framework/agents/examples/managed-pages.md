@@ -212,7 +212,7 @@ beforeAll(async () => {
     // Wire ctx.config() so the branding query resolves the tenant's cascade.
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);

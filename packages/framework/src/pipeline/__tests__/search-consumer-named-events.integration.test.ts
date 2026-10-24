@@ -118,7 +118,7 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
     name: "vault:poke",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "vault",
         type: poked.name,
@@ -133,7 +133,7 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
     name: "note:relabel",
     schema: z.object({ id: z.uuid(), label: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "note",
         type: relabeled.name,
@@ -157,7 +157,7 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
     name: "ext-only:poke",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "ext-only",
         type: poked.name,
@@ -178,7 +178,7 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
     name: "secret:poke",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "secret",
         type: poked.name,
@@ -193,7 +193,7 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
     name: "ghost:poke",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "ghost",
         type: poked.name,

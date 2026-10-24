@@ -28,7 +28,7 @@ beforeAll(async () => {
     features: [createConfigFeature(), createTenantSettingsFeature({ defaultCurrency: "GBP" })],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });

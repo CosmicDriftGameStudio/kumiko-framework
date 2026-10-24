@@ -6,7 +6,7 @@
 //   1. Idempotency-check: loads the payment-stream and scans for an
 //      already-seen `metadata.providerEventId`. A provider-replay with
 //      the same event-id → duplicate=true, no second append.
-//   2. ctx.unsafeAppendEvent — inline-projection materializes a new
+//   2. ctx.events.unsafeAppend — inline-projection materializes a new
 //      `read_payments`-row (INSERT-once, not UPSERT — every payment is
 //      its own fact, not a state-update).
 
@@ -55,7 +55,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     //    (a tenant with hundreds of purchases scans hundreds of events;
     //    optimize via a per-tenant providerEventId-index if that bites).
     // ---------------------------------------------------------------
-    const existingEvents = await ctx.loadAggregate(aggId);
+    const existingEvents = await ctx.events.load(aggId);
     const alreadySeen = existingEvents.some((e) => {
       const headers = e.metadata.headers ?? {};
       return (
@@ -106,7 +106,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
         providerCheckoutId: payload.providerCheckoutId,
       }),
     };
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: aggId,
       aggregateType: PAYMENT_AGGREGATE_TYPE,
       type: PAYMENT_RECEIVED_EVENT_QN,

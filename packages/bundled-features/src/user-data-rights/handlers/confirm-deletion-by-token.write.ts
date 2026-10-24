@@ -59,7 +59,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
     escapeHatch: {
       reason:
-        "resolveGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +
+        "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the anonymous token holder has no read access " +
         "to that tenant-config projection. startDeletionGracePeriod also appends the user " +
         "lifecycle event on the SYSTEM_TENANT_ID user stream.",

@@ -38,7 +38,7 @@ export function capCounterAggregateId(
  * different uuidv5 namespace, different output UUID. This also prevents an
  * accidental calendar increment from landing on the rolling stream.
  *
- * **Caller:** `CapCounterHandlers.incrementRolling` (via `ctx.write`) calls
+ * **Caller:** `CapCounterHandlers.incrementRolling` (via `ctx.dispatch.write`) calls
  * this with tenantId + capName and appends increment events to the stream.
  * Race-free because the event store appends with an auto-incrementing version.
  */

@@ -79,7 +79,7 @@ export const updateAccountHandler: WriteHandlerDef = {
       providerName: current.provider,
       reason: auditReasonFor(event.user, payload.reason),
     };
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: payload.accountId,
       aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
       type: MAIL_ACCOUNT_UPDATED_EVENT_QN,

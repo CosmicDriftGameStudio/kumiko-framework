@@ -225,7 +225,7 @@ async function fillPriceCache(
     } else {
       const message =
         outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-      ctx.log?.warn("subscription-dodo: product lookup failed", { message });
+      ctx.obs.log?.warn("subscription-dodo: product lookup failed", { message });
     }
   }
 }

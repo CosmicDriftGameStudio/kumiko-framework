@@ -41,7 +41,7 @@ defineStep<WaitStepArgs, undefined | typeof SUSPEND_SENTINEL>({
     const wakeAt =
       duration.startsWith("P") || duration.startsWith("PT") ? addDuration(now, duration) : duration;
 
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: ctx.workflow.runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_WAITING_TYPE,

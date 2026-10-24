@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-cross-feature-events",
-  "description": "Feature appends a typed domain event via ctx.appendEvent; a r.multiStreamProjection reacts asynchronously.",
+  "description": "Feature appends a typed domain event via ctx.events.append; a r.multiStreamProjection reacts asynchronously.",
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*"

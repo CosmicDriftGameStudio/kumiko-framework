@@ -39,7 +39,7 @@ export const principalStatusPlugin: PrincipalStatusPlugin = {
     return isPrincipalRowBlocked(row) ? "blocked" : "active";
   },
 
-  // ctx.queryAsMember's global-roles/timezone/locale source — same fields
+  // ctx.dispatch.queryAsMember's global-roles/timezone/locale source — same fields
   // login mints a session from (see login.write.ts gateBuildSession).
   async resolveProfile(userId, { db }): Promise<PrincipalProfile | null> {
     const row = await fetchOne<{ roles: unknown; timezone: string | null; locale: string | null }>(

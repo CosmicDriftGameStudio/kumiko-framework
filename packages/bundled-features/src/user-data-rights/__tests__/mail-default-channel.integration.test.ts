@@ -94,7 +94,7 @@ beforeAll(async () => {
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
       configResolver,
-      _configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
   });
 
@@ -160,13 +160,15 @@ describe("deletion-executed default mail through the email channel", () => {
       registry: stack.registry,
       configResolver,
       systemUser: createSystemUser(TENANT_WITHOUT_PROVIDER),
-      log: {
-        info() {},
-        warn() {},
-        error() {},
-        debug() {},
-        child() {
-          return this;
+      obs: {
+        log: {
+          info() {},
+          warn() {},
+          error() {},
+          debug() {},
+          child() {
+            return this;
+          },
         },
       },
     };

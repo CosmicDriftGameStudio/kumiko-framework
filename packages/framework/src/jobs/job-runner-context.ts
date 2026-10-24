@@ -13,6 +13,7 @@ import type {
   DispatchWriteRef,
   JobContext,
   JobDefinition,
+  JobDispatch,
   MemberReader,
   SessionUser,
 } from "../engine/types/index.ts";
@@ -277,10 +278,7 @@ function requireDispatchRef(scope: JobRunnerScope, method: string): DispatchWrit
   return ref;
 }
 
-function buildJobDispatchFacets(
-  scope: JobRunnerScope,
-  facetInput: JobFacetInput,
-): Pick<JobContext, "write" | "writeAs" | "queryAs" | "queryAsMember"> {
+function buildJobDispatchFacets(scope: JobRunnerScope, facetInput: JobFacetInput): JobDispatch {
   const { input, systemUser, isSystemJob, reportEscapeHatch } = facetInput;
   const { jobName, jobDef, tenantId, writeOrigin } = input;
   // Per-job-run reader, created lazily on queryAsMember's first call and
@@ -367,6 +365,9 @@ function buildJobContext(
   // this run (see createJobTriggerEventConsumer).
   const rawTriggerEvent = rawData["_triggerEvent"];
   const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
+  const jobLogger = createJobLogger(input.logs);
+  // Helpers that take the job context as AppContext read a flat `log`; the typed surface is obs.log.
+  const flatLogForAppContextReaders = { log: jobLogger };
   const jobContext: Omit<JobContext, "tz"> = {
     defer: createJobDefer(jobName, bullJob, token),
     canDefer:
@@ -375,13 +376,15 @@ function buildJobContext(
       hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
     ...scope.context,
     db: jobDb ?? missingDbProxy(jobName),
-    appendEvent: createJobAppendEvent({
-      registry: scope.registry,
-      jobDb,
-      tenantId,
-      systemUser,
-      jobName,
-    }),
+    events: {
+      append: createJobAppendEvent({
+        registry: scope.registry,
+        jobDb,
+        tenantId,
+        systemUser,
+        jobName,
+      }),
+    },
     files,
     derivatives,
     ...(notify !== undefined && { notify }),
@@ -399,11 +402,11 @@ function buildJobContext(
     triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
     attempt,
     finalAttempt,
-    log: createJobLogger(input.logs),
-    metricsFor: createMetricsForFactory(scope.context.meter),
+    obs: { log: jobLogger, metricsFor: createMetricsForFactory(scope.context.meter) },
+    ...flatLogForAppContextReaders,
     ...(triggerName !== undefined && { triggerName }),
     ...(triggerEvent !== undefined && { triggerEvent }),
-    ...dispatchFacets,
+    dispatch: dispatchFacets,
   };
   return { jobContext, config };
 }

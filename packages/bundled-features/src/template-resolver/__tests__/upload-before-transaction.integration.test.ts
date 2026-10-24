@@ -169,7 +169,8 @@ const fixtureFeature = defineFeature(FIXTURE, (r) => {
       schema: sourcePayload,
       access,
       transaction: "perCommand",
-      handler: (event, ctx) => ctx.write(TemplateResolverHandlers.resourceUpload, event.payload),
+      handler: (event, ctx) =>
+        ctx.dispatch.write(TemplateResolverHandlers.resourceUpload, event.payload),
     }),
   );
   r.writeHandler(
@@ -179,7 +180,7 @@ const fixtureFeature = defineFeature(FIXTURE, (r) => {
       access,
       transaction: "perCommand",
       handler: (event, ctx) =>
-        ctx.write(TemplateResolverHandlers.importBundle, { bundle: event.payload.bundle }),
+        ctx.dispatch.write(TemplateResolverHandlers.importBundle, { bundle: event.payload.bundle }),
     }),
   );
   r.writeHandler(
@@ -187,7 +188,8 @@ const fixtureFeature = defineFeature(FIXTURE, (r) => {
       name: "nested-upload",
       schema: sourcePayload,
       access,
-      handler: (event, ctx) => ctx.write(TemplateResolverHandlers.resourceUpload, event.payload),
+      handler: (event, ctx) =>
+        ctx.dispatch.write(TemplateResolverHandlers.resourceUpload, event.payload),
     }),
   );
   r.writeHandler(
@@ -196,7 +198,7 @@ const fixtureFeature = defineFeature(FIXTURE, (r) => {
       schema: bundlePayload,
       access,
       handler: (event, ctx) =>
-        ctx.write(TemplateResolverHandlers.importBundle, { bundle: event.payload.bundle }),
+        ctx.dispatch.write(TemplateResolverHandlers.importBundle, { bundle: event.payload.bundle }),
     }),
   );
   // Control for the probe: storage I/O inside the transaction is observed as an open transaction.
@@ -228,7 +230,7 @@ const switchFeature = defineFeature(SWITCH_FIXTURE, (r) => {
       access,
       transaction: "perCommand",
       handler: (event, ctx) =>
-        ctx.writeAs(tenantBAdmin, TemplateResolverHandlers.resourceUpload, event.payload),
+        ctx.dispatch.writeAs(tenantBAdmin, TemplateResolverHandlers.resourceUpload, event.payload),
     }),
   );
   r.writeHandler(
@@ -238,7 +240,7 @@ const switchFeature = defineFeature(SWITCH_FIXTURE, (r) => {
       access,
       transaction: "perCommand",
       handler: (event, ctx) =>
-        ctx.writeAs(tenantBAdmin, TemplateResolverHandlers.importBundle, {
+        ctx.dispatch.writeAs(tenantBAdmin, TemplateResolverHandlers.importBundle, {
           bundle: event.payload.bundle,
         }),
     }),
@@ -922,7 +924,7 @@ describe("copy-locale when the source changes between the phases", () => {
 });
 
 describe("callers", () => {
-  test("a perCommand handler orchestrates resource-upload through ctx.write", async () => {
+  test("a perCommand handler orchestrates resource-upload through ctx.dispatch.write", async () => {
     const templateId = await createMailTemplate(tenantAAdmin, "orchestrated-upload");
     const sourceFileRefId = await uploadPng(tenantAAdmin);
 
@@ -941,7 +943,7 @@ describe("callers", () => {
     expect(provider.keys()).toContain(row?.storageKey ?? "");
   });
 
-  test("a perCommand handler orchestrates import-bundle through ctx.write", async () => {
+  test("a perCommand handler orchestrates import-bundle through ctx.dispatch.write", async () => {
     await stack.http.writeOk(
       ORCHESTRATE_BUNDLE,
       { bundle: mailBundle("orchestrated-bundle") },
@@ -1011,7 +1013,7 @@ describe("callers", () => {
     ).toHaveLength(0);
   });
 
-  test("a normal handler cannot call resource-upload through a nested ctx.write", async () => {
+  test("a normal handler cannot call resource-upload through a nested ctx.dispatch.write", async () => {
     const templateId = await createMailTemplate(tenantAAdmin, "nested-upload");
     const sourceFileRefId = await uploadPng(tenantAAdmin);
     const before = await snapshot();
@@ -1027,7 +1029,7 @@ describe("callers", () => {
     await expectUnchanged(before);
   });
 
-  test("a normal handler cannot call import-bundle through a nested ctx.write", async () => {
+  test("a normal handler cannot call import-bundle through a nested ctx.dispatch.write", async () => {
     const before = await snapshot();
 
     const err = await stack.http.writeErr(

@@ -67,7 +67,7 @@ beforeAll(async () => {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       // Two providers, keyed by tenant — proves the cleanup job resolves
       // each stale row's OWN tenant rather than reusing a single
       // job-level ctx.files (which would be bound to SYSTEM_TENANT_ID, the

@@ -8,13 +8,13 @@ const noDbFeature = defineFeature("nodb", (r) => {
   r.queryHandler({
     name: "load-aggregate",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.loadAggregate("agg-1"),
+    handler: async (_query, ctx) => ctx.events.load("agg-1"),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.queryHandler({
     name: "is-stream-archived",
     schema: z.object({}),
-    handler: async (_query, ctx) => ctx.isStreamArchived("agg-1"),
+    handler: async (_query, ctx) => ctx.events.isArchived("agg-1"),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
@@ -31,21 +31,21 @@ async function rejectionMessage(run: Promise<unknown>): Promise<string> {
 describe("event store surfaces without a database connection", () => {
   const dispatcher = createDispatcher(createRegistry([noDbFeature]), {});
 
-  test("ctx.loadAggregate names the call in the no-database error", async () => {
+  test("ctx.events.load names the call in the no-database error", async () => {
     const message = await rejectionMessage(
       dispatcher.query("nodb:query:load-aggregate", {}, createTestUser()),
     );
     expect(message).toBe(
-      'ctx.loadAggregate("agg-1") requires a database connection — none is configured.',
+      'ctx.events.load("agg-1") requires a database connection — none is configured.',
     );
   });
 
-  test("ctx.isStreamArchived names the call in the no-database error", async () => {
+  test("ctx.events.isArchived names the call in the no-database error", async () => {
     const message = await rejectionMessage(
       dispatcher.query("nodb:query:is-stream-archived", {}, createTestUser()),
     );
     expect(message).toBe(
-      'ctx.isStreamArchived("agg-1") requires a database connection — none is configured.',
+      'ctx.events.isArchived("agg-1") requires a database connection — none is configured.',
     );
   });
 });
