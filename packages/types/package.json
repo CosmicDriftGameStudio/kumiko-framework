@@ -285,6 +285,10 @@
     "./temporal": {
       "types": "./src/temporal.ts",
       "default": "./src/temporal.ts"
+    },
+    "./probe": {
+      "types": "./src/probe.ts",
+      "default": "./src/probe.ts"
     }
   },
   "devDependencies": {

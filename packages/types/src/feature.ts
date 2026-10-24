@@ -39,6 +39,7 @@ import type {
 } from "./hooks.ts";
 import type { HttpRouteDefinition } from "./http-route.ts";
 import type { ContentCollectionDefinition, NavDefinition } from "./nav.ts";
+import type { ProbeDefinition } from "./probe.ts";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
@@ -347,6 +348,8 @@ export type FeatureDefinition = {
   readonly secretKeys: Readonly<Record<string, SecretKeyDefinition>>;
   // Secret namespaces declared via r.secretNamespace(), keyed by short name.
   readonly secretNamespaces: Readonly<Record<string, SecretNamespaceDefinition>>;
+  // Live probes declared via r.probe(), keyed by short name. Optional: most features declare none.
+  readonly probes?: Readonly<Record<string, ProbeDefinition>>;
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;

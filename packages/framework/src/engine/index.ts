@@ -120,6 +120,16 @@ export type {
   NavIconKey,
 } from "@cosmicdrift/kumiko-types/nav";
 export type {
+  ProbeContext,
+  ProbeCost,
+  ProbeDefinition,
+  ProbeOptions,
+  ProbeScope,
+  ProbeTarget,
+  ProbeText,
+  ProbeVerdict,
+} from "@cosmicdrift/kumiko-types/probe";
+export type {
   MspErrorMode,
   MultiStreamApplyFn,
   MultiStreamProjectionDefinition,
@@ -370,6 +380,7 @@ export {
 } from "./paged-list.ts";
 export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target.ts";
 export { buildPipelineSteps, stepsPipeline } from "./pipeline.ts";
+export { ProbeFailure } from "./probe-failure.ts";
 export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.ts";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";

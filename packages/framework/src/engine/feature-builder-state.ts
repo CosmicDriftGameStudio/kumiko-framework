@@ -38,6 +38,7 @@ import type {
   SearchPayloadContributorFn,
   ValidationHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
+import type { ProbeDefinition } from "@cosmicdrift/kumiko-types/probe";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
@@ -100,6 +101,7 @@ export type FeatureBuilderState = {
   metrics: Record<string, FeatureMetricDef>;
   secretKeys: Record<string, SecretKeyDefinition>;
   secretNamespaces: Record<string, SecretNamespaceDefinition>;
+  probes: Record<string, ProbeDefinition>;
   projections: Record<string, ProjectionDefinition>;
   multiStreamProjections: Record<string, MultiStreamProjectionDefinition>;
   entityProjectionExtensions: Record<string, EntityProjectionExtension[]>;
@@ -164,6 +166,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     metrics: {},
     secretKeys: {},
     secretNamespaces: {},
+    probes: {},
     projections: {},
     multiStreamProjections: {},
     entityProjectionExtensions: {},

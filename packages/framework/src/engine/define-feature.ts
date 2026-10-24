@@ -4,6 +4,7 @@ import type { HookMap } from "@cosmicdrift/kumiko-types/hooks";
 import { createInitialFeatureBuilderState } from "./feature-builder-state.ts";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
+import { buildProbeMethods } from "./feature-probes.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
 import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
 import type { FeatureDefinition } from "./types/index.ts";
@@ -119,6 +120,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     ...buildEntityHandlerMethods(state, name),
     ...buildConfigEventsJobsMethods(state, name),
     ...buildUiExtensionsMethods(state, name),
+    ...buildProbeMethods(state, name),
   };
 
   const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
@@ -179,6 +181,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     metrics: state.metrics,
     secretKeys: state.secretKeys,
     secretNamespaces: state.secretNamespaces,
+    ...(Object.keys(state.probes).length > 0 && { probes: state.probes }),
     projections: state.projections,
     entityProjectionExtensions: state.entityProjectionExtensions,
     multiStreamProjections: state.multiStreamProjections,
