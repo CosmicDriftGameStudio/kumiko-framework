@@ -103,7 +103,7 @@
     "@cosmicdrift/kumiko-types": "workspace:*",
     "ioredis": "^5.10.1",
     "temporal-polyfill": "^0.3.2",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "bun-types": "^1.4.4"

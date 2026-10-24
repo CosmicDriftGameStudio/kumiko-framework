@@ -106,7 +106,7 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@happy-dom/global-registrator": "^21.0.4",
