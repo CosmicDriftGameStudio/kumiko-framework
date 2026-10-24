@@ -51,6 +51,7 @@ import {
   createLifecycleHooks,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { assertAssignableMembershipRoles } from "./membership-roles.ts";
+import { findLiveMembershipStreamId } from "./membership-stream-history.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 import { tenantEntity, tenantTable } from "./schema/tenant.ts";
 
@@ -329,19 +330,13 @@ export async function seedTenantMembership(
     reason: "membership seed targets an explicit tenant that may differ from the actor's",
   });
 
-  // Idempotency: duplicate seeds are common across beforeEach-resets where
-  // only certain tables get truncated. A plain executor.create would trip
-  // the (user_id, tenant_id) unique index; the fixture call-site would then
-  // have to juggle try/catch. Lookup-first keeps call-sites clean.
-  const existing = await fetchOne(db, tenantMembershipsTable, {
-    userId: options.userId,
-    tenantId: options.tenantId,
-  });
-  if (existing) {
-    // Same validation as the create-path — a missing/non-string id throws
-    // instead of silently returning `undefined as string`.
-    return { id: extractMembershipId(existing) };
-  }
+  // Idempotent: an existing row or live stream of the pair wins. A second stream next to a stream
+  // whose row got lost would make every projection replay collide on the unique index.
+  const pair = { userId: options.userId, tenantId: options.tenantId };
+  const existing = await fetchOne(db, tenantMembershipsTable, pair);
+  if (existing) return { id: extractMembershipId(existing) };
+  const liveStreamId = await findLiveMembershipStreamId(db, pair);
+  if (liveStreamId) return { id: liveStreamId };
 
   // Keep by.id as audit actor, but force stream tenant to the membership tenant
   // so a cross-tenant `by` override cannot diverge row tenant vs event stream.

@@ -4,9 +4,12 @@
 //   bunx kumiko ops seed:status      → operation_type = "seed-migration"
 //   bunx kumiko ops projection:status → operation_type = "projection-rebuild"
 
+import type { DbRunner } from "../db/connection.ts";
 import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect.ts";
 // sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db/index.ts";
+import { acquireNamespacedAdvisoryLock } from "../db/queries/advisory-lock.ts";
+import { ES_OPS_ADVISORY_LOCK_KEY } from "../db/queries/es-ops.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 
 export type EsOperationType = "seed-migration" | "stream-migration";
@@ -41,10 +44,21 @@ export const esOperationsTable = pgTable(
   }),
 );
 
-// Convenience for tests + boot-time setup (idempotent). Mirrors the
-// createEventsTable pattern in event-store/events-schema.ts.
+const ES_OPERATIONS_DDL_LOCK_KEY = "kumiko_es_operations:ddl";
+
+// Replicas boot concurrently and CREATE TABLE IF NOT EXISTS is not race-safe: the loser trips
+// pg_type_typname_nsp_index. The lock transaction only carries the lock; the DDL runs on `db`.
 export async function createEsOperationsTable(db: DbConnection): Promise<void> {
-  if (!(await tableExists(db, "public.kumiko_es_operations"))) {
-    await unsafePushTables(db, { kumikoEsOperations: esOperationsTable });
-  }
+  // skip: the table exists, no lock needed on the common boot path.
+  if (await tableExists(db, "public.kumiko_es_operations")) return;
+  await db.begin(async (lockTx: DbRunner) => {
+    await acquireNamespacedAdvisoryLock(
+      lockTx,
+      ES_OPS_ADVISORY_LOCK_KEY,
+      ES_OPERATIONS_DDL_LOCK_KEY,
+    );
+    if (!(await tableExists(db, "public.kumiko_es_operations"))) {
+      await unsafePushTables(db, { kumikoEsOperations: esOperationsTable });
+    }
+  });
 }

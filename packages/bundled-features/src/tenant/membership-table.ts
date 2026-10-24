@@ -15,6 +15,8 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // Single source of truth: `tenantMembershipEntity`. The database table is
 // derived from the EntityDefinition through buildEntityTable, and the
 // unique index is declared via entity.indexes.
+export const MEMBERSHIP_UNIQUE_INDEX_NAME = "read_tenant_memberships_unique";
+
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
   fields: {
@@ -24,9 +26,7 @@ export const tenantMembershipEntity = createEntity({
     // read-side stays byte-compatible and no MSP/consumer needs rewrites.
     roles: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
-  indexes: [
-    { unique: true, columns: ["userId", "tenantId"], name: "read_tenant_memberships_unique" },
-  ],
+  indexes: [{ unique: true, columns: ["userId", "tenantId"], name: MEMBERSHIP_UNIQUE_INDEX_NAME }],
 });
 
 export const tenantMembershipsTable = buildEntityTable("tenant-membership", tenantMembershipEntity);
