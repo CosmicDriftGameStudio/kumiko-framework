@@ -54,7 +54,7 @@ export function createDisableHandler(opts: DisableOptions) {
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "disable (mfa) requires ctx.redis for TOTP replay protection",
+            message: "disable (mfa) requires ctx.services.redis for TOTP replay protection",
           }),
         );
       }

@@ -52,7 +52,7 @@ export const resetWrite = defineWriteHandler({
         throw new InternalError({
           message:
             `[config:write:reset] key "${event.payload.key}" declares backing="secrets" but ` +
-            `ctx.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
+            `ctx.services.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
         });
       }
       await ctx.services.secrets.delete(SYSTEM_TENANT_ID, event.payload.key, {

@@ -55,7 +55,8 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "regenerate-recovery (mfa) requires ctx.redis for TOTP replay protection",
+            message:
+              "regenerate-recovery (mfa) requires ctx.services.redis for TOTP replay protection",
           }),
         );
       }

@@ -51,7 +51,8 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
 
       return runConfirmTokenFlow(ctx, verify.userId, verify.expiresAtMs, {
         purpose: "reset",
-        redisRequiredMessage: "password-reset requires ctx.redis to enforce token single-use",
+        redisRequiredMessage:
+          "password-reset requires ctx.services.redis to enforce token single-use",
         invalidToken: invalidResetToken,
         buildChanges: async () => ({
           passwordHash: await hashPassword(event.payload.newPassword),

@@ -170,7 +170,7 @@ async function issueInvitation(
 ): Promise<WriteResult<InviteCreateData>> {
   if (!ctx.services.redis) {
     return writeFailure(
-      new InternalError({ message: "invite-create requires ctx.redis for token store" }),
+      new InternalError({ message: "invite-create requires ctx.services.redis for token store" }),
     );
   }
 

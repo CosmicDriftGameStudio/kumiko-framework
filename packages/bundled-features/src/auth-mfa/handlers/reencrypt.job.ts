@@ -91,7 +91,7 @@ export async function mfaReencryptJob(
   if (!ctx.services.masterKeyProvider) {
     throw new InternalError({
       message:
-        "[auth-mfa:reencrypt] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
+        "[auth-mfa:reencrypt] ctx.services.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
   const provider = ctx.services.masterKeyProvider;

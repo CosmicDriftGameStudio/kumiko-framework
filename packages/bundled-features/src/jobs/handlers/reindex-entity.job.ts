@@ -23,7 +23,7 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
   if (!ctx.services.searchAdapter) {
     throw new InternalError({
       message:
-        "[jobs:reindex-entity] ctx.searchAdapter missing — mount a search adapter to run this job.",
+        "[jobs:reindex-entity] ctx.services.searchAdapter missing — mount a search adapter to run this job.",
     });
   }
   // perTenant fan-out — the job-runner enqueues one child run per active

@@ -12,7 +12,9 @@ export function requireForTenant(
   targetTenantId: TenantId,
 ): TenantWriteTarget {
   if (!ctx.tenants.writeTarget) {
-    throw new InternalError({ message: "ctx.forTenant is not available in this handler context" });
+    throw new InternalError({
+      message: "ctx.tenants.writeTarget is not available in this handler context",
+    });
   }
   return ctx.tenants.writeTarget(targetTenantId);
 }

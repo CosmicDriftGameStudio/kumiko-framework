@@ -31,7 +31,7 @@ export function makeTenantMailTransportResolver(
   return async (tenantId) => {
     if (!ctx.configResolver) {
       throw new Error(
-        `${ctx.handlerName}: ctx.configResolver missing — cannot resolve the mail transport for tenant ${tenantId}`,
+        `${ctx.handlerName}: ctx.services.configResolver missing — cannot resolve the mail transport for tenant ${tenantId}`,
       );
     }
     const config = createConfigAccessor(

@@ -114,7 +114,7 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
   if (!ctx.services.configResolver) {
     throw new InternalError({
       message:
-        `[${handlerName}] ctx.configResolver missing — pass createConfigAccessorFactory's ` +
+        `[${handlerName}] ctx.services.configResolver missing — pass createConfigAccessorFactory's ` +
         `output via extraContext.configAccessorFactory and the resolver via ` +
         `extraContext.configResolver at boot.`,
     });
@@ -159,7 +159,7 @@ export function requireConfigEncryption(ctx: HandlerContext, handlerName: string
   if (!ctx.services.configEncryption) {
     throw new InternalError({
       message:
-        `[${handlerName}] ctx.configEncryption missing — at least one config key declares ` +
+        `[${handlerName}] ctx.services.configEncryption missing — at least one config key declares ` +
         `encrypted: true, so the boot wiring must pass an EnvelopeCipher via ` +
         `extraContext.configEncryption (run{Prod,Dev}App wire it automatically from ` +
         `KUMIKO_SECRETS_MASTER_KEY_V<n>; same instance the resolver was built with).`,

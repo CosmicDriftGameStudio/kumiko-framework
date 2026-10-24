@@ -135,7 +135,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     handler: async (event, ctx) => {
       if (!ctx.services.redis) {
         return writeFailure(
-          new InternalError({ message: "invite-accept-with-login requires ctx.redis" }),
+          new InternalError({ message: "invite-accept-with-login requires ctx.services.redis" }),
         );
       }
 

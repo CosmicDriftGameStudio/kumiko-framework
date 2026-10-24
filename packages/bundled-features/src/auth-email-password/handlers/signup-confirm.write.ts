@@ -149,7 +149,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
       if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
-            message: "signup-confirm requires ctx.redis for token consumption",
+            message: "signup-confirm requires ctx.services.redis for token consumption",
           }),
         );
       }
