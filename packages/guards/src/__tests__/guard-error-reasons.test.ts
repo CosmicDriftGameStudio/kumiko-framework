@@ -39,3 +39,14 @@ withUnsafeRawGrant(db, { reason: "append provenance event" });`,
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 });
+
+describe("guard-error-reasons — createTenantDb", () => {
+  test("does not flag the prose system-mode reason", () => {
+    const sf = parse(
+      `declare function createTenantDb(o: unknown): void;
+createTenantDb({ mode: "system", reason: "sweep reads every tenant" });`,
+      "packages/framework/src/x/handler.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+});

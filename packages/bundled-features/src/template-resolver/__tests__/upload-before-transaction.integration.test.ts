@@ -841,7 +841,12 @@ describe("copy-locale link and missing-file handling", () => {
     }).forget(
       { id: files.attachmentFileRefId },
       createSystemUser(SYSTEM_TENANT_ID),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test seeds system-tenant templates",
+      }),
     );
     expect(forgotten.isSuccess).toBe(true);
 

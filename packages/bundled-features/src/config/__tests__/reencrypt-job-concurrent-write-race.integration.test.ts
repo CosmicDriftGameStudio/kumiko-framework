@@ -102,7 +102,12 @@ async function seedV1Row(): Promise<void> {
     tenantId: SYSTEM_TENANT_ID,
   });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "test seeds and inspects config values across tenants around the re-encryption job",
+  });
   const result = await executor.create(
     { key: KEY, value: envelope, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -119,7 +124,12 @@ async function writeConcurrently(atVersion: number): Promise<void> {
     tenantId: SYSTEM_TENANT_ID,
   });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "test seeds and inspects config values across tenants around the re-encryption job",
+  });
   const row = await readRow();
   const result = await executor.update(
     { id: row.id, version: atVersion, changes: { value: envelope } },
@@ -163,6 +173,7 @@ function racyJobCtx(
         db: stack.db,
         tenantId: SYSTEM_TENANT_ID,
         mode: "system",
+        reason: "test seeds and inspects config values across tenants around the re-encryption job",
         grants: {
           unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
         },

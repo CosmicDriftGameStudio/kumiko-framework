@@ -79,7 +79,12 @@ let stack: TestStack;
 async function seedV1Row(): Promise<void> {
   const envelope = await cipher.encrypt(JSON.stringify(PLAINTEXT), { tenantId: SYSTEM_TENANT_ID });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "test seeds and inspects config values across tenants around the KEK rotation",
+  });
   const result = await executor.create(
     { key: KEY, value: envelope, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -90,7 +95,12 @@ async function seedV1Row(): Promise<void> {
 
 async function seedGarbageRow(): Promise<void> {
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "test seeds and inspects config values across tenants around the KEK rotation",
+  });
   const result = await executor.create(
     { key: GARBAGE_KEY, value: GARBAGE_VALUE, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -143,6 +153,7 @@ function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
     db: stack.db,
     tenantId: SYSTEM_TENANT_ID,
     mode: "system",
+    reason: "test seeds and inspects config values across tenants around the KEK rotation",
     grants: { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
   });
   return {

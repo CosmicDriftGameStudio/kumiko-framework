@@ -170,7 +170,12 @@ async function seedFileRef(args: {
   readonly key: string;
 }): Promise<string> {
   await provider.write(args.key, new Uint8Array([1, 2, 3]), "application/octet-stream");
-  const tdb = createTenantDb({ db: stack.db, tenantId: args.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: args.tenantId,
+    mode: "system",
+    reason: "test inspects file rows across tenants after the retention sweep",
+  });
   const systemUser = createSystemUser(args.tenantId);
   const id = crypto.randomUUID();
   const res = await fileRefCrud.create(

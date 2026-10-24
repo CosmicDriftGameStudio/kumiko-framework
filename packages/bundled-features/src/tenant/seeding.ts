@@ -164,6 +164,7 @@ function scopeSeedHookContext(
     db: runner,
     tenantId: targetTenantId,
     mode: "system",
+    reason: "seed hooks run in the seeded tenant, regardless of the caller's tenant",
     tracer: context.tracer,
     meter: context.meter,
     signal: context.signal,
@@ -260,7 +261,12 @@ export async function seedTenant(
   // DbConnection. Although the tenant aggregate is not tenant-scoped, the
   // wrapper is required by the runtime API. by.tenantId is sufficient; unlike
   // seedTenantMembership, no override semantics are needed.
-  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "tenant aggregate is not tenant-scoped, the executor still needs a system-mode handle",
+  });
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });
   if (existing) return { id: options.id };
@@ -324,7 +330,12 @@ export async function seedTenantMembership(
   const by = options.by ?? createSystemUser(options.tenantId);
   // System-scoped TenantDb: payload.tenantId may differ from an explicit
   // `by` override; stream tenant still follows `by` via streamTenantFor.
-  const tdb = createTenantDb({ db, tenantId: options.tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: options.tenantId,
+    mode: "system",
+    reason: "membership seed targets an explicit tenant that may differ from the actor's",
+  });
 
   // Idempotency: duplicate seeds are common across beforeEach-resets where
   // only certain tables get truncated. A plain executor.create would trip

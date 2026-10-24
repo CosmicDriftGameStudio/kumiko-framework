@@ -101,7 +101,12 @@ describe("unsafeRawForDeclaredStep", () => {
   test("resolves to the bound runner for a createUncheckedSystemDb holder, reporting once", () => {
     const runner = fakeRunner();
     const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
-    const systemDb = createTenantDb({ db: runner, tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: runner,
+      tenantId,
+      mode: "system",
+      reason: "test builds the system-mode source of a system db view",
+    });
     const unchecked = createUncheckedSystemDb(systemDb, undefined, (kind, reason) => {
       reports.push({ kind, reason });
     });

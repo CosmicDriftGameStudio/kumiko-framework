@@ -70,9 +70,15 @@ function databaseUrlOf(url: string, dbName: string): string {
   return url.replace(/\/[^/]+$/, `/${dbName}`);
 }
 
+/**
+ * URL of database `dbName` on the host of `url`, logged in as TEST_APPLICATION_ROLE with the password
+ * of `url` (the caller's TEST_DATABASE_URL). Pair it with `createTestDb({ applicationRole: true })` or
+ * a database owned by that role, so boots with row level security on connect without BYPASSRLS.
+ */
 // DDL takes no bind params, so the password is read from the configured URL instead of a literal.
-function applicationRoleUrlOf(url: string, dbName: string): string {
-  const parsed = new URL(databaseUrlOf(url, dbName));
+export function applicationRoleUrlOf(url: string, dbName: string): string {
+  const parsed = new URL(url);
+  parsed.pathname = `/${dbName}`;
   parsed.username = TEST_APPLICATION_ROLE;
   parsed.password = new URL(url).password;
   return parsed.toString();

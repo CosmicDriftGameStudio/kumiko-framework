@@ -45,7 +45,12 @@ export async function grantInvitedGlobalRoles(
   const updateResult = await userExecutor.update(
     { id: existing.id, version: existing.version, changes: { roles } },
     createSystemUser(SYSTEM_TENANT_ID),
-    createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    createTenantDb({
+      db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "global roles live on the tenant-agnostic user row in the system tenant",
+    }),
   );
   if (!updateResult.isSuccess) return updateResult;
   return grantedGlobalRoles(roles);

@@ -241,7 +241,12 @@ async function purgeTenantCache(ctx: DestructionStageCtx): Promise<StageRunOutco
 async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const now = getTemporal().Now.instant();
   const user = createSystemUser(ctx.tenantId);
-  const db = createTenantDb({ db: ctx.db, tenantId: ctx.tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    mode: "system",
+    reason: "destruction stage tombstones the row of the tenant being destroyed",
+  });
   // Per-row forget() through the executor, not a bulk deleteMany: memberships
   // are an ES-managed projection (add/remove/update-roles all go through
   // tenantMembershipCrud), so a store table write here is eventless — a future

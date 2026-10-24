@@ -95,6 +95,7 @@ export {
   enumerateFeatureTableSources,
   type FeatureTableSource,
 } from "./feature-table-sources.ts";
+export { type KnownTables, knownTablesOf } from "./known-table-names.ts";
 export { answerListAggregate, labelListAggregateGroups } from "./list-aggregate-labels.ts";
 export {
   flattenLocatedTimestamp,
@@ -207,6 +208,7 @@ export { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
 export type { RowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { assertNoActiveRowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
+export { scopeTenantDbToTenant } from "./scope-tenant-db-to-tenant.ts";
 export { withoutStatementTimeout } from "./statement-timeout.ts";
 export {
   buildBaseColumns,
@@ -241,6 +243,5 @@ export {
   hasOutsideTransactionDb,
   requireOutsideTransactionDb,
   SYSTEM_SCOPE_CHECK_BRAND,
-  scopeTenantDbToTenant,
 } from "./tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

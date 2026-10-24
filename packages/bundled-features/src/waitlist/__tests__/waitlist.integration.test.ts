@@ -65,7 +65,12 @@ async function requestUserDeletion(userId: string): Promise<void> {
       },
     },
     TestUsers.systemAdmin,
-    createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    createTenantDb({
+      db: stack.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads system-tenant waitlist rows",
+    }),
   );
   expect(result.isSuccess).toBe(true);
 }

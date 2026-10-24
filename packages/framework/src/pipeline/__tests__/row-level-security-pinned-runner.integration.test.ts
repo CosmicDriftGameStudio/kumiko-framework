@@ -52,7 +52,12 @@ describe("createTenantDb over a pre-scoped runner", () => {
   });
 
   test("system mode keeps the pinned system scope and sees every tenant", async () => {
-    const systemDb = createTenantDb({ db: pinned(), tenantId: admin.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: pinned(),
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test builds a system-mode handle over a pinned runner",
+    });
     expect(labelsOf(await readRaw(systemDb))).toEqual(["foreign", "own"]);
   });
 

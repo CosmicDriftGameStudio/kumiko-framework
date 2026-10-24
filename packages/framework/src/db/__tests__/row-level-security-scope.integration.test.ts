@@ -211,7 +211,12 @@ describe("TenantDb", () => {
   });
 
   test("system mode sees every tenant", async () => {
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenantA, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenantA,
+      mode: "system",
+      reason: "test proves system mode sees rows of every tenant",
+    });
     expect(await labels(systemDb)).toHaveLength(3);
   });
 

@@ -421,7 +421,12 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       },
     );
     const systemUser = createSystemUser(TENANT_A);
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT_A,
+      mode: "system",
+      reason: "test seeds subject rows in several tenants for the export",
+    });
     const createResult = await invitationExecutor.create(
       {
         email: INVITE_EMAIL,
@@ -461,7 +466,12 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // Cross-tenant isolation: Alice's own email invited in a different
     // tenant must land in that tenant's section, not TENANT_A's.
     const foreignTenantSystemUser = createSystemUser(TENANT_B);
-    const foreignTenantDb = createTenantDb({ db: stack.db, tenantId: TENANT_B, mode: "system" });
+    const foreignTenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT_B,
+      mode: "system",
+      reason: "test seeds subject rows in several tenants for the export",
+    });
     const foreignTenantResult = await invitationExecutor.create(
       {
         email: INVITE_EMAIL,

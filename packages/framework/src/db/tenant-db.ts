@@ -13,11 +13,9 @@ import {
   type GlobalTableDb,
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
-  type TenantDbMode,
   type TenantDbUpsertOptions,
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   asEntityTableMeta,
   asRawClient,
@@ -56,18 +54,27 @@ import {
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 import { queryDatabaseNow } from "./queries/database-now.ts";
-import { unsafeRawScopedRunner, unscopedRunnerOf } from "./row-level-security-scope.ts";
+import {
+  systemModeOptions,
+  type TenantDbModeOptions,
+  unsafeRawScopedRunner,
+  unscopedRunnerOf,
+} from "./row-level-security-scope.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
   bindTenantDbRunner,
   denyTenantDbWrites,
   tenantDbRunner,
   tenantDbWritesDeniedError,
-  tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
 import { registerScopedRebinder } from "./tenant-db-scoped-rebind.ts";
 import { createTenantDbStatementRunner } from "./tenant-db-statement-runner.ts";
 import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
+import {
+  isForeignTenantId,
+  requestedTenantIds,
+  tenantIdsAfterExclusion,
+} from "./tenant-id-filter.ts";
 import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 type Table = SchemaTable;
@@ -402,57 +409,17 @@ export function createSystemDbView(
   return buildUncheckedSystemDb(db, dbOutsideTransaction, report, { kind: "source-tenant-db" });
 }
 
-// Narrows a (possibly "system"-mode) TenantDb to a "tenant"-mode handle for one tenant on the
-// same connection/transaction. For code that must run caller-supplied callbacks (e.g. config
-// validators) without handing them a cross-tenant view.
-export function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb {
-  const writesDeniedReason = tenantDbWritesDeniedReason(db);
-  return createTenantDb({
-    db: tenantDbRunner(db),
-    tenantId,
-    mode: "tenant",
-    ...(writesDeniedReason !== undefined && { grants: { writesDeniedReason } }),
-  });
-}
-
 // @cast-boundary tenant-db-row
 export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): readonly T[] {
   return rows as unknown as readonly T[];
 }
 
+export { requestedTenantIds } from "./tenant-id-filter.ts";
 export { tableNameOf };
 
 // A grant is only real when its reason is non-empty — `{ reason: "" }` must not silently unlock it.
 function hasGrant(decl: EscapeHatchDeclaration | undefined): boolean {
   return decl !== undefined && decl.reason.trim().length > 0;
-}
-
-// Tenant ids left over when the caller excludes some via ne/notIn; undefined for other operator forms.
-function tenantIdsAfterExclusion(
-  requested: unknown,
-  allowed: readonly unknown[],
-): readonly unknown[] | undefined {
-  if (!isPlainObject(requested)) return undefined;
-  if ("ne" in requested) return allowed.filter((t) => t !== requested["ne"]);
-  if (Array.isArray(requested["notIn"])) {
-    const excluded: readonly unknown[] = requested["notIn"];
-    return allowed.filter((t) => !excluded.includes(t));
-  }
-  return undefined;
-}
-
-// Tenant ids a where.tenantId filter asks for; undefined for operator forms
-// that cannot narrow to a tenant list (ne, like, ...).
-export function requestedTenantIds(requested: unknown): readonly unknown[] | undefined {
-  if (Array.isArray(requested)) return requested;
-  if (!isPlainObject(requested)) return [requested];
-  if (Array.isArray(requested["in"])) return requested["in"];
-  if ("eq" in requested) return [requested["eq"]];
-  return undefined;
-}
-
-function isForeignTenantId(tenantIdValue: unknown): boolean {
-  return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
 }
 
 // Checks the canonical EntityTableMeta (branded EntityTable's KUMIKO_META_SYMBOL
@@ -570,12 +537,14 @@ export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): Ten
 export type CreateTenantDbOptions = {
   readonly db: DbRunner;
   readonly tenantId: TenantId;
-  readonly mode?: TenantDbMode;
   readonly tracer?: Tracer;
   readonly meter?: Meter;
   readonly signal?: AbortSignal;
   readonly grants?: TenantDbGrants;
-};
+} & (
+  | { readonly mode?: "tenant"; readonly reason?: undefined }
+  | { readonly mode: "system"; readonly reason: string }
+);
 
 export function createTenantDb(
   options: CreateTenantDbOptions & { readonly db: ExecutorManagedRunner },
@@ -587,7 +556,7 @@ export function createTenantDb(options: CreateTenantDbOptions): TenantDb {
 
 // Tenant-destroy hooks purge their own tenant's event-fed rows; the pinned tenant is the only reach and unsafeRaw stays without the write capability.
 export function createTenantDataDestroyDb(
-  options: Omit<CreateTenantDbOptions, "mode">,
+  options: Omit<CreateTenantDbOptions, "mode" | "reason">,
 ): ExecutorManagedTenantDb {
   return createTenantDb({ ...options, db: withExecutorManagedWrites(options.db), mode: "tenant" });
 }
@@ -597,7 +566,18 @@ export function createTenantDataDestroyDb(
 function buildTenantDb(
   options: Omit<CreateTenantDbOptions, "tenantId"> & { readonly tenantId: TenantId | undefined },
 ): TenantDb {
-  const { db: givenDb, tenantId, mode = "tenant", tracer, meter, signal, grants } = options;
+  const {
+    db: givenDb,
+    tenantId,
+    mode = "tenant",
+    reason: systemReason,
+    tracer,
+    meter,
+    signal,
+    grants,
+  } = options;
+  const modeOptions: TenantDbModeOptions =
+    mode === "system" ? systemModeOptions(systemReason) : { mode: "tenant" };
   const db = mode === "system" ? givenDb : unscopedRunnerOf(givenDb);
   if (tenantId === undefined) {
     throw new InternalError({ message: "createTenantDb: tenantId is required" });
@@ -612,7 +592,13 @@ function buildTenantDb(
       ? { ...grants, projectionRegistry }
       : grants;
 
-  const withDbSpan = createTenantDbStatementRunner({ tracer, meter, signal, mode, tenantId });
+  const withDbSpan = createTenantDbStatementRunner({
+    tracer,
+    meter,
+    signal,
+    ...modeOptions,
+    tenantId,
+  });
 
   // Reads see own-tenant rows + reference data (tenantId === SYSTEM_TENANT_ID).
   // Writes never touch reference rows — those are system-mode only.
@@ -978,7 +964,7 @@ function buildTenantDb(
     createTenantDb({
       db,
       tenantId,
-      mode,
+      ...modeOptions,
       tracer,
       meter,
       signal,
@@ -996,6 +982,7 @@ function buildTenantDb(
       db,
       tenantId,
       mode: "system",
+      reason,
       tracer,
       meter,
       signal,
@@ -1011,10 +998,18 @@ function buildTenantDb(
   registerScopedRebinder(tenantDb, {
     memberReadOnly: grants?.memberReadOnly === true,
     rebind: (runner) =>
-      createTenantDb({ db: runner, tenantId, mode, tracer, meter, signal, grants: scopedGrants }),
+      createTenantDb({
+        db: runner,
+        tenantId,
+        ...modeOptions,
+        tracer,
+        meter,
+        signal,
+        grants: scopedGrants,
+      }),
   });
   // Framework code reading through the raw runner (executor list/detail) must follow the db's own mode, not the ambient scope.
-  bindTenantDbRunner(tenantDb, db, mode, tenantId);
+  bindTenantDbRunner(tenantDb, db, modeOptions, tenantId);
   if (grants?.writesDeniedReason !== undefined) {
     denyTenantDbWrites(tenantDb, grants.writesDeniedReason);
   }

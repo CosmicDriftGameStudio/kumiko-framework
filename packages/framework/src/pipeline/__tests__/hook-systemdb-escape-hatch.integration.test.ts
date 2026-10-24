@@ -97,6 +97,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
         db: rawDb,
         tenantId: OTHER_TENANT_ID,
         mode: "system",
+        reason: "test builds the system-mode source of a hook's system db",
       });
       await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
     },
@@ -115,6 +116,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
           db: rawDb,
           tenantId: OTHER_TENANT_ID,
           mode: "system",
+          reason: "test builds the system-mode source of a hook's system db",
         });
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-unsafe-raw") {
@@ -123,6 +125,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
           db: rawDb,
           tenantId: OTHER_TENANT_ID,
           mode: "system",
+          reason: "test builds the system-mode source of a hook's system db",
         });
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-crud") {

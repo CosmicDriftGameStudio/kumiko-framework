@@ -206,7 +206,12 @@ function buildSecretsContext(
         tenantId,
         roles: SYSTEM_ROLES,
       };
-      const tdb = createTenantDb({ db, tenantId, mode: "system" });
+      const tdb = createTenantDb({
+        db,
+        tenantId,
+        mode: "system",
+        reason: "secrets API writes for a caller-named tenant, outside a request scope",
+      });
 
       const existing = await lookup(tenantId, key);
       const commonFields = {
@@ -271,7 +276,12 @@ function buildSecretsContext(
         tenantId,
         roles: SYSTEM_ROLES,
       };
-      const tdb = createTenantDb({ db, tenantId, mode: "system" });
+      const tdb = createTenantDb({
+        db,
+        tenantId,
+        mode: "system",
+        reason: "secrets API writes for a caller-named tenant, outside a request scope",
+      });
       const result = await executor.delete({ id: existing.id }, actor, tdb);
       return result.isSuccess;
     },

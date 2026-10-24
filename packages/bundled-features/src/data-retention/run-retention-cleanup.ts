@@ -254,7 +254,12 @@ async function forgetRowAndEraseKeys(args: {
   readonly registry: Registry;
 }): Promise<{ readonly isSuccess: boolean }> {
   return runInSubTransaction(args.db, async (sp) => {
-    const tdb = createTenantDb({ db: sp, tenantId: args.tenantId, mode: "system" });
+    const tdb = createTenantDb({
+      db: sp,
+      tenantId: args.tenantId,
+      mode: "system",
+      reason: "retention sweep forgets rows of the tenant being swept, outside any request scope",
+    });
     const result = await args.executor.forget({ id: args.rowId }, args.systemUser, tdb);
     if (!result.isSuccess) return { isSuccess: false };
     await eraseHardDeletedRowKeys({
@@ -508,7 +513,12 @@ export async function runRetentionCleanup(
   // the daily cron converges (hardDelete removes rows, softDelete's isDeleted
   // filter shrinks the set). A single batched forget/delete event is a follow-up.
   const systemUser = createSystemUser(tenantId);
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "retention sweep forgets rows of the tenant being swept, outside any request scope",
+  });
   const fileHolders = collectSingleFileHolders(registry);
 
   // Pre-load every override row for this tenant ONCE — N entities × M

@@ -3,11 +3,11 @@ import { InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
+import { scopeTenantDbToTenant } from "../scope-tenant-db-to-tenant.ts";
 import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
-  scopeTenantDbToTenant,
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
 import { tenantDbRunner, tenantDbWriteRunner } from "../tenant-db-runner.ts";

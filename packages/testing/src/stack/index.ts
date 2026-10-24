@@ -15,6 +15,7 @@ export {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 export {
+  applicationRoleUrlOf,
   type CreateTestDbOptions,
   createTestDb,
   DEFAULT_TEST_DB_POOL_MAX,

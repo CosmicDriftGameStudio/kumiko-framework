@@ -364,7 +364,12 @@ describe("read steps in a systemScope handler", () => {
   const systemScopeCtx = {
     db: throwingDb,
     systemDb: createUncheckedSystemDb(
-      createTenantDb({ db: rawDb, tenantId: testTenantId(1), mode: "system" }),
+      createTenantDb({
+        db: rawDb,
+        tenantId: testTenantId(1),
+        mode: "system",
+        reason: "test builds the system-mode source of a cross-tenant read step",
+      }),
       undefined,
       systemScopeReporter,
     ),

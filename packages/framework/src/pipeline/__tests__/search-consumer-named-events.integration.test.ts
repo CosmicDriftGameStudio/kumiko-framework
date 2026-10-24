@@ -216,7 +216,12 @@ function noteExecutor() {
 }
 
 function tenantDb() {
-  return createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
+  return createTenantDb({
+    db: stack.db,
+    tenantId: admin.tenantId,
+    mode: "system",
+    reason: "test reads search rows across tenants",
+  });
 }
 
 beforeAll(async () => {

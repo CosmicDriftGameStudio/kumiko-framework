@@ -176,7 +176,7 @@ describe("file provider cache on secret writes", () => {
     });
   });
 
-  afterAll(async () => stack.cleanup());
+  afterAll(async () => stack?.cleanup());
 
   test("secrets:write:set drops the cached provider so the next upload rebuilds it", async () => {
     await upload(stack);

@@ -271,7 +271,12 @@ export async function migrateLegacyWaitlist(
       continue;
     }
     await transaction(db, async (tx) => {
-      const tenantDb = createTenantDb({ db: tx, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+      const tenantDb = createTenantDb({
+        db: tx,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "legacy waitlist import writes system-tenant rows",
+      });
       const outcome = await importWaitlistEntry(tenantDb, entry, { dryRun: options.dryRun });
       if (outcome === "created") created += 1;
       else skipped += 1;

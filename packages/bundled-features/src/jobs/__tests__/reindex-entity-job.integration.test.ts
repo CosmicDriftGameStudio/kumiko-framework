@@ -105,7 +105,12 @@ describe("jobs feature: reindexEntity registration", () => {
 describe("reindexEntityJob", () => {
   test("indexes rows for the tenant resolved from ctx.systemUser", async () => {
     const executor = createEventStoreExecutor(widgetTable, widgetEntity, { entityName: "widget" });
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects entity rows across tenants for the reindex job",
+    });
     const created = await executor.create({ name: "Job Backfillable Widget" }, admin, tenantDb);
     if (!created.isSuccess) throw new Error("seed failed");
 
@@ -125,6 +130,7 @@ describe("reindexEntityJob", () => {
           db: stack.db,
           tenantId: admin.tenantId,
           mode: "system",
+          reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
             unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
           },
@@ -156,7 +162,12 @@ describe("reindexEntityJob", () => {
     // (e.g. a systemUser that isn't wired through) would be invisible here,
     // same as in the two direct-call tests above.
     const executor = createEventStoreExecutor(widgetTable, widgetEntity, { entityName: "widget" });
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects entity rows across tenants for the reindex job",
+    });
     const created = await executor.create({ name: "Registry-Resolved Widget" }, admin, tenantDb);
     if (!created.isSuccess) throw new Error("seed failed");
 
@@ -179,6 +190,7 @@ describe("reindexEntityJob", () => {
           db: stack.db,
           tenantId: admin.tenantId,
           mode: "system",
+          reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
             unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
           },
@@ -252,7 +264,12 @@ describe("reindexEntityJob", () => {
       searchAdapter: stack.search,
       systemUser: admin,
       systemDb: createSystemDbView(
-        createTenantDb({ db: stack.db, tenantId: otherTenantId, mode: "system" }),
+        createTenantDb({
+          db: stack.db,
+          tenantId: otherTenantId,
+          mode: "system",
+          reason: "test seeds and inspects entity rows across tenants for the reindex job",
+        }),
       ),
       log: noopLogger,
       triggeredBy: null,
@@ -281,6 +298,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
       db: stack.db,
       tenantId: admin.tenantId,
       mode: "system",
+      reason: "test seeds and inspects entity rows across tenants for the reindex job",
     });
     const created = await executor.create({ name: "Slow Scan Widget" }, admin, systemTenantDb);
     if (!created.isSuccess) throw new Error("seed failed");
@@ -313,6 +331,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
             db: capped.db,
             tenantId: admin.tenantId,
             mode: "system",
+            reason: "test seeds and inspects entity rows across tenants for the reindex job",
             grants: {
               unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
               projectionRegistry: stack.registry,

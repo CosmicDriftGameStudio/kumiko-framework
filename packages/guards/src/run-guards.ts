@@ -45,6 +45,7 @@ import { guard as noDirectFs } from "./guard-no-direct-fs";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as noTemporalPolyfillImport } from "./guard-no-temporal-polyfill-import";
 import { guard as restrictedSymbols } from "./guard-restricted-symbols";
+import { guard as rlsSessionSettings } from "./guard-rls-session-settings";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
@@ -70,6 +71,7 @@ export const GUARDS = [
   noTemporalPolyfillImport,
   restrictedSymbols,
   internalSubpathImports,
+  rlsSessionSettings,
   fakeTests,
   noLogicInViews,
   errorReasons,

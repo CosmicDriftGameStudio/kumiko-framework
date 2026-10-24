@@ -187,6 +187,8 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           db: dbConn,
           tenantId: invitationTenantId,
           mode: "system",
+          reason:
+            "invitation tenant differs from the caller's tenant, the accept step updates the invitation row there",
         });
         const updateResult = await invitationExecutor.update(
           {

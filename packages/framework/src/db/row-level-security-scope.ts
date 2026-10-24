@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
@@ -65,15 +64,24 @@ export function rowLevelSecurityScopeKey(scope: RowLevelSecurityScope | undefine
   return scope.kind === "system" ? "system" : `tenant:${scope.tenantId}`;
 }
 
+export type TenantDbModeOptions =
+  | { readonly mode: "tenant"; readonly reason?: undefined }
+  | { readonly mode: "system"; readonly reason: string };
+
+// Untyped JS callers can still omit the reason; fail at construction, not on the first query.
+export function systemModeOptions(reason: string | undefined): TenantDbModeOptions {
+  systemRowLevelSecurityScope(reason ?? "");
+  return { mode: "system", reason: reason ?? "" };
+}
+
 // Global tables carry SYSTEM_TENANT_ID rows; the app layer rejects tenant writes and filters reads.
 export function tenantDbRowLevelSecurityScope(
-  mode: TenantDbMode,
+  options: TenantDbModeOptions,
   tenantId: TenantId,
   table?: unknown,
 ): RowLevelSecurityScope {
-  if (mode === "system" || asEntityTableMeta(table)?.tenancy === "global") {
-    return SYSTEM_ROW_LEVEL_SECURITY_SCOPE;
-  }
+  if (options.mode === "system") return systemRowLevelSecurityScope(options.reason);
+  if (asEntityTableMeta(table)?.tenancy === "global") return SYSTEM_ROW_LEVEL_SECURITY_SCOPE;
   return tenantRowLevelSecurityScope(tenantId);
 }
 

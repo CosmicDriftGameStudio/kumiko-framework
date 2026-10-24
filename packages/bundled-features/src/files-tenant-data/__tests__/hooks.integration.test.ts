@@ -130,7 +130,12 @@ async function seedTenant(user: typeof tenantA): Promise<void> {
 
 async function seedFileRef(tenantId: TenantId, storageKey: string) {
   const user = createSystemUser(tenantId);
-  const tdb = createTenantDb({ db, tenantId, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason: "test inspects file rows of the destroyed tenant from outside its scope",
+  });
   const result = await fileRefCrud.create(
     { storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 10 },
     user,

@@ -83,6 +83,7 @@ import {
 } from "../unsubscribe.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 import { deletePreferencesOfUser } from "./preference-writes.ts";
+import { scopedForTest } from "./scoped-delivery-service.ts";
 
 // --- Setup ---
 
@@ -451,7 +452,7 @@ beforeAll(async () => {
           return (await deps.redis.get(key)) === "1";
         },
       });
-      deliveryService = ctx.deliveryService;
+      deliveryService = scopedForTest(ctx.deliveryService);
       return ctx;
     },
     extraRoutes: [...createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET })],
@@ -2037,6 +2038,7 @@ describe("flow 17: async render→send pipeline", () => {
         db,
         tenantId,
         mode: "system",
+        reason: "test reads delivery rows of any tenant",
         grants: {
           unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
         },

@@ -305,7 +305,12 @@ beforeEach(async () => {
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await runCrud.create({ name }, user, db);
   if (!result.isSuccess) throw new Error(`seedRun failed: ${result.error.message}`);
   return String(result.data.id);
@@ -313,7 +318,12 @@ async function seedRun(tenantId: TenantId, name: string): Promise<string> {
 
 async function seedPhoto(tenantId: TenantId, hostId: string, caption: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await photoCrud.create({ hostType: "run", hostId, caption }, user, db);
   if (!result.isSuccess) throw new Error(`seedPhoto failed: ${result.error.message}`);
   return String(result.data.id);
@@ -321,7 +331,12 @@ async function seedPhoto(tenantId: TenantId, hostId: string, caption: string): P
 
 async function seedNote(tenantId: TenantId, hostId: string, body: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await noteCrud.create({ hostType: "run", hostId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedNote failed: ${result.error.message}`);
   return String(result.data.id);
@@ -329,7 +344,12 @@ async function seedNote(tenantId: TenantId, hostId: string, body: string): Promi
 
 async function seedBundle(tenantId: TenantId, runId: string, label: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await bundleCrud.create({ runId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedBundle failed: ${result.error.message}`);
   return String(result.data.id);
@@ -337,7 +357,12 @@ async function seedBundle(tenantId: TenantId, runId: string, label: string): Pro
 
 async function seedMemo(tenantId: TenantId, runId: string, body: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await memoCrud.create({ runId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedMemo failed: ${result.error.message}`);
   return String(result.data.id);
@@ -345,7 +370,12 @@ async function seedMemo(tenantId: TenantId, runId: string, body: string): Promis
 
 async function seedStayMemo(tenantId: TenantId, runId: string, body: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await stayMemoCrud.create({ runId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedStayMemo failed: ${result.error.message}`);
   return String(result.data.id);
@@ -353,7 +383,12 @@ async function seedStayMemo(tenantId: TenantId, runId: string, body: string): Pr
 
 async function seedCampaign(tenantId: TenantId, runId: string, label: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await campaignCrud.create({ runId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedCampaign failed: ${result.error.message}`);
   return String(result.data.id);
@@ -365,7 +400,12 @@ async function seedCampaignInBundle(
   label: string,
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await campaignCrud.create({ bundleId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedCampaignInBundle failed: ${result.error.message}`);
   return String(result.data.id);
@@ -377,7 +417,12 @@ async function seedChannelText(
   body: string,
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await channelTextCrud.create({ campaignId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedChannelText failed: ${result.error.message}`);
   return String(result.data.id);
@@ -388,7 +433,12 @@ async function seedLinkA(
   parent: { readonly runId: string } | { readonly viaB: string },
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await linkACrud.create(parent, user, db);
   if (!result.isSuccess) throw new Error(`seedLinkA failed: ${result.error.message}`);
   return String(result.data.id);
@@ -396,7 +446,12 @@ async function seedLinkA(
 
 async function seedLinkB(tenantId: TenantId, viaA: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await linkBCrud.create({ viaA }, user, db);
   if (!result.isSuccess) throw new Error(`seedLinkB failed: ${result.error.message}`);
   return String(result.data.id);
@@ -407,7 +462,12 @@ async function seedLinkB(tenantId: TenantId, viaA: string): Promise<string> {
 // all and a walk would terminate for the wrong reason.
 async function pointLinkABack(tenantId: TenantId, linkAId: string, viaB: string): Promise<void> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await linkACrud.update({ id: linkAId, version: 1, changes: { viaB } }, user, db);
   if (!result.isSuccess) throw new Error(`pointLinkABack failed: ${result.error.message}`);
 }
@@ -418,7 +478,12 @@ async function seedPrefixedChild(
   label: string,
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await prefixedChildCrud.create({ runId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedPrefixedChild failed: ${result.error.message}`);
   return String(result.data.id);
@@ -430,7 +495,12 @@ async function seedPrefixedGrandchild(
   label: string,
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await prefixedGrandchildCrud.create({ parentId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedPrefixedGrandchild failed: ${result.error.message}`);
   return String(result.data.id);
@@ -442,7 +512,12 @@ async function seedFileRef(
   entityId: string,
 ): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test seeds and inspects rows of both sides of a tenant handover",
+  });
   const result = await fileRefCrud.create(
     {
       storageKey: `${tenantId}/${entityType}/${entityId}/photo/x.jpg`,
@@ -589,7 +664,12 @@ describe("tenant-handover :: claim", () => {
 
     // The event store's version bookkeeping survived the move: a normal
     // write against the claimed root in its new tenant still succeeds.
-    const destDb = createTenantDb({ db: stack.db, tenantId: dest.tenantId, mode: "system" });
+    const destDb = createTenantDb({
+      db: stack.db,
+      tenantId: dest.tenantId,
+      mode: "system",
+      reason: "test seeds and inspects rows of both sides of a tenant handover",
+    });
     const destUser = createSystemUser(dest.tenantId);
     const followUpWrite = await runCrud.update(
       { id: runId, version: 1, changes: { name: "renamed after claim" } },

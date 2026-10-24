@@ -20,7 +20,11 @@ import {
   type SecretsContext,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -217,12 +221,15 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
+// Inline sends read tenant secrets through the raw pool, so outside a dispatch they need a scope.
 async function notifyInline(tenantId: TenantId, to: string, type: string) {
-  await deliveryService.notify(
-    type,
-    { route: { email: to }, data: { title: "Hello", body: "Body" }, immediate: true },
-    createSystemUser(tenantId),
-    tenantId,
+  await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantId), () =>
+    deliveryService.notify(
+      type,
+      { route: { email: to }, data: { title: "Hello", body: "Body" }, immediate: true },
+      createSystemUser(tenantId),
+      tenantId,
+    ),
   );
 }
 

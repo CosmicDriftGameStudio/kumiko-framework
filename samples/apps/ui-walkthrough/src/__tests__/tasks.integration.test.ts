@@ -15,7 +15,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await stack.cleanup();
+  await stack?.cleanup();
 });
 
 describe("tasks", () => {

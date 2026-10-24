@@ -118,6 +118,37 @@ describe("Internal-Subpath-Imports Guard: rule 3 (system scope reason)", () => {
   });
 });
 
+describe("Internal-Subpath-Imports Guard: rule 3 (createTenantDb system reason)", () => {
+  const importLine = `import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";\n`;
+  const file = "/fx/fw/packages/x/src/a.ts";
+
+  test("allows a literal reason and tenant mode without one", () => {
+    const violations = run({
+      [file]: `${importLine}createTenantDb({ db, tenantId, mode: "system", reason: "sweeps all tenants" });\ncreateTenantDb({ db, tenantId, mode: "tenant" });\ncreateTenantDb({ db, tenantId });`,
+    });
+    expect(violations).toHaveLength(0);
+  });
+
+  test.each([
+    'createTenantDb({ db, tenantId, mode: "system" });',
+    'createTenantDb({ db, tenantId, mode: "system", reason: "" });',
+    'createTenantDb({ db, tenantId, mode: "system", reason: why });',
+    'createTenantDb({ db, tenantId, mode: "system", reason });',
+    'createTenantDb({ db, tenantId, mode: "system", reason: `why $' + "{x}` });",
+  ])("flags %s", (call) => {
+    const violations = run({ [file]: `${importLine}${call}` });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("[tenant-db-system-reason]");
+  });
+
+  test("allows forwarding a reason in the allowlisted tenant-db.ts", () => {
+    const violations = run({
+      "/fx/fw/packages/framework/src/db/tenant-db.ts": `${importLine}createTenantDb({ db, tenantId, mode: "system", reason });`,
+    });
+    expect(violations).toHaveLength(0);
+  });
+});
+
 describe("Internal-Subpath-Imports Guard: bypass forms", () => {
   test("flags require() and a template import() whose static head is the internal prefix", () => {
     const violations = run({

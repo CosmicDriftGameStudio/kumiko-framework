@@ -468,7 +468,12 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     const unbound = await fileRefExecutor.update(
       { id: heldId, version: row?.version, changes: { entityId: null } },
       createSystemUser(TENANT),
-      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test inspects file rows of the forgotten subject's tenant",
+      }),
     );
     expect(unbound.isSuccess).toBe(true);
     const heldKey = await storageKeyOf(heldId);

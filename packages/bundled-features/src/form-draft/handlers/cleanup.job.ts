@@ -77,7 +77,12 @@ async function releaseRowFileRefs(
     isCreateMode,
   );
   const systemUser = createSystemUser(row.tenantId);
-  const tenantDb = createTenantDb({ db, tenantId: row.tenantId, mode: "system" });
+  const tenantDb = createTenantDb({
+    db,
+    tenantId: row.tenantId,
+    mode: "system",
+    reason: "stale-draft cleanup job removes drafts of each tenant, outside any request scope",
+  });
   for (const ref of ownedRefs) {
     const forgetResult = await fileRefExecutor.forget({ id: ref.id }, systemUser, tenantDb);
     if (!forgetResult.isSuccess) {
@@ -137,7 +142,12 @@ export async function deleteStaleDraftsBatch(
   const byId = new Map(batch.map((row) => [row.id, row]));
   for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
     const systemUser = createSystemUser(tenantId);
-    const tenantDb = createTenantDb({ db, tenantId, mode: "system" });
+    const tenantDb = createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "stale-draft cleanup job removes drafts of each tenant, outside any request scope",
+    });
     for (const id of ids) {
       // skip: an unreadable blob hides its FileRefs; deleting now would orphan them, so the next run retries.
       if (byId.get(id)?.draftUnreadable) {

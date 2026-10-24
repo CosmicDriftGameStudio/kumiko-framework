@@ -25,10 +25,9 @@ export function buildTenantScopedDb(
   denyWrites = false,
 ): TenantDb {
   const { user, context, registry, origin, isSystem, writeEscapeHatch, handlerEscapeHatch } = scope;
-  return createTenantDb({
+  const options = {
     db: source,
     tenantId: foreignTenantId ?? user.tenantId,
-    mode: isSystem && foreignTenantId === undefined ? "system" : "tenant",
     tracer: context.tracer,
     meter: context.meter,
     signal,
@@ -43,7 +42,14 @@ export function buildTenantScopedDb(
       projectionRegistry: registry,
       ...(denyWrites && { writesDeniedReason: "without an open transaction" }),
     },
-  });
+  };
+  return isSystem && foreignTenantId === undefined
+    ? createTenantDb({
+        ...options,
+        mode: "system",
+        reason: "system-scope handler dispatch reads and writes across tenants by design",
+      })
+    : createTenantDb(options);
 }
 
 function buildHandlerCrossTenantReads(scope: HandlerContextScope) {

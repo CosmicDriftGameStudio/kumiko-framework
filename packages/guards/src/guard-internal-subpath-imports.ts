@@ -7,7 +7,8 @@
  *    `tenantRowLevelSecurityScope` from `@cosmicdrift/kumiko-testing/helpers` are test-only.
  * 3. `runInSystemRowLevelSecurityScope` and `systemScopedRunner` take a non-empty string literal
  *    reason, so every system-scope entry stays greppable; `SYSTEM_ROW_LEVEL_SECURITY_SCOPE` is
- *    framework-internal and only used by an allowlist.
+ *    framework-internal and only used by an allowlist. An object literal passed to
+ *    `createTenantDb` with `mode: "system"` carries the same kind of `reason`.
  *
  * Usage:
  *   bun guards/guard-internal-subpath-imports.ts
@@ -61,6 +62,12 @@ const FIXED_SCOPE_ALLOWLIST = [
 // Exercises the empty-reason rejection, so it passes empty literals on purpose.
 const REASON_RULE_EXEMPT = [
   /^packages\/framework\/src\/db\/__tests__\/row-level-security-scope\.test\.ts$/,
+];
+
+// These forward a reason their own caller already supplied as a literal.
+const FORWARDED_TENANT_DB_REASON_ALLOWLIST = [
+  /^packages\/framework\/src\/db\/tenant-db\.ts$/,
+  /^packages\/framework\/src\/db\/cross-tenant-reads\.ts$/,
 ];
 
 type Finding = { line: number; message: string };
@@ -204,6 +211,35 @@ function findReasonViolations(sf: SourceFile): Finding[] {
   return findings;
 }
 
+function isSystemModeProperty(prop: Node): boolean {
+  if (prop.getKind() !== SyntaxKind.PropertyAssignment) return false;
+  const assignment = prop.asKindOrThrow(SyntaxKind.PropertyAssignment);
+  return assignment.getName() === "mode" && assignment.getInitializer()?.getText() === '"system"';
+}
+
+function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
+  const findings: Finding[] = [];
+  for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression();
+    const calleeName =
+      callee.getKind() === SyntaxKind.PropertyAccessExpression
+        ? callee.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+        : callee.getText();
+    if (calleeName !== "createTenantDb") continue;
+    const options = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (options === undefined || !options.getProperties().some(isSystemModeProperty)) continue;
+    const reason = options.getProperty("reason")?.asKind(SyntaxKind.PropertyAssignment);
+    const initializer = reason?.getInitializer();
+    if (initializer !== undefined && isNonEmptyStringLiteral(initializer)) continue;
+    findings.push({
+      line: call.getStartLineNumber(),
+      message:
+        '[tenant-db-system-reason] createTenantDb({ mode: "system" }) needs a non-empty string literal `reason`',
+    });
+  }
+  return findings;
+}
+
 function findFixedScopeUses(sf: SourceFile): Finding[] {
   return sf
     .getDescendantsOfKind(SyntaxKind.Identifier)
@@ -217,7 +253,7 @@ function findFixedScopeUses(sf: SourceFile): Finding[] {
 export const guard: AstGuard = {
   name: "Internal-Subpath-Imports Guard",
   scan: SCAN,
-  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry passes a specific string-literal reason (why it needs cross-tenant access). SYSTEM_ROW_LEVEL_SECURITY_SCOPE is limited to row-level-security-scope.ts, dispatch-scope.ts and migrate-runner.ts; extend that allowlist in guard-internal-subpath-imports.ts with a reason.",
+  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access). SYSTEM_ROW_LEVEL_SECURITY_SCOPE is limited to row-level-security-scope.ts, dispatch-scope.ts and migrate-runner.ts; extend that allowlist in guard-internal-subpath-imports.ts with a reason.",
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -229,6 +265,9 @@ export const guard: AstGuard = {
       if (!isFrameworkRepo) findings.push(...findInternalImports(sf));
       if (!isTestFile(rel)) findings.push(...findTestOnlyScopeImports(sf));
       if (!isAllowlisted(rel, REASON_RULE_EXEMPT)) findings.push(...findReasonViolations(sf));
+      if (!isAllowlisted(rel, FORWARDED_TENANT_DB_REASON_ALLOWLIST)) {
+        findings.push(...findTenantDbReasonViolations(sf));
+      }
       if (!isAllowlisted(rel, FIXED_SCOPE_ALLOWLIST)) findings.push(...findFixedScopeUses(sf));
       for (const f of findings) violations.push({ file: rel, ...f });
     }

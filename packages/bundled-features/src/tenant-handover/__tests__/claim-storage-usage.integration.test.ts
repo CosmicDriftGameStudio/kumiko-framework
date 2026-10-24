@@ -100,7 +100,12 @@ beforeEach(async () => {
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test inspects storage usage rows of the claiming tenants",
+  });
   const result = await runCrud.create({ name }, user, db);
   if (!result.isSuccess) throw new Error(`seedRun failed: ${result.error.message}`);
   return String(result.data.id);
@@ -108,7 +113,12 @@ async function seedRun(tenantId: TenantId, name: string): Promise<string> {
 
 async function attachFile(tenantId: TenantId, entityId: string, size: number): Promise<string> {
   const user = createSystemUser(tenantId);
-  const db = createTenantDb({ db: stack.db, tenantId, mode: "system" });
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId,
+    mode: "system",
+    reason: "test inspects storage usage rows of the claiming tenants",
+  });
   const result = await fileRefCrud.create(
     {
       storageKey: `${tenantId}/run/${entityId}/photo/x.jpg`,
@@ -179,6 +189,7 @@ describe("tenant-handover :: claim moves fileRef event history + storage usage",
       db: stack.db,
       tenantId: dest.tenantId as TenantId,
       mode: "system",
+      reason: "test inspects storage usage rows of the claiming tenants",
     });
     const deleteResult = await fileRefCrud.delete({ id: fileId }, deleteUser, deleteDb);
     expect(deleteResult.isSuccess).toBe(true);

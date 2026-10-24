@@ -189,6 +189,7 @@ describe("switch-tenant :: active-membership building block", () => {
       db: stack.db,
       tenantId: SYSTEM_TENANT_ID,
       mode: "system",
+      reason: "test reads memberships of an arbitrary tenant",
     });
     const deleted = await createEventStoreExecutor(userTable, userEntity, {
       entityName: "user",

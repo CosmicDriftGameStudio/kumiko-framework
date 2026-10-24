@@ -15,6 +15,7 @@ import {
   assertRowLevelSecurityBootState,
   configureEntityFieldEncryption,
   type DbConnection,
+  knownTablesOf,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -244,7 +245,7 @@ export async function bootWorkerProcess(
   }
 
   try {
-    await assertRowLevelSecurityBootState(db, rowLevelSecurity);
+    await assertRowLevelSecurityBootState(db, rowLevelSecurity, knownTablesOf(features));
   } catch (err) {
     await closeDb();
     await closeOutsideTransactionDb();

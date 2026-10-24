@@ -407,7 +407,12 @@ describe("legacy waitlist migration", () => {
         submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
       },
       platformActor(),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
     );
     expect(legacyStream.isSuccess).toBe(true);
 
@@ -492,7 +497,12 @@ describe("legacy waitlist migration", () => {
         submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
       },
       platformActor(),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
     );
     expect(legacyStream.isSuccess).toBe(true);
 
@@ -523,7 +533,12 @@ describe("legacy waitlist migration", () => {
         submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
       },
       platformActor(),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
     );
     expect(legacyStream.isSuccess).toBe(true);
     await migrateLegacyWaitlist(stack.db, offlotOptions);
@@ -544,7 +559,12 @@ describe("legacy waitlist migration", () => {
   });
 
   test("importWaitlistEntry keeps the same source key on one id", async () => {
-    const db = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+    const db = createTenantDb({
+      db: stack.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads system-tenant waitlist rows",
+    });
     const entry = {
       sourceKey: `x:${crypto.randomUUID()}`,
       name: "N",

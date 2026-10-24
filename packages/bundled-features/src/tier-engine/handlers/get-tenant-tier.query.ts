@@ -24,7 +24,13 @@ export const getTenantTierQuery = defineQueryHandler({
   },
   handler: async (query, ctx) => {
     const tenantId = query.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-    const tdb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId, mode: "system" });
+    const tdb = createTenantDb({
+      db: ctx.db.unsafeRaw(),
+      tenantId,
+      mode: "system",
+      reason:
+        "tier lookup reads the assignment of the queried tenant, the escape hatch is declared on the handler",
+    });
     const row = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
     return row ?? null;
   },

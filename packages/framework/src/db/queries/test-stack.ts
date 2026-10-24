@@ -42,7 +42,31 @@ export async function createDatabase(
 const DUPLICATE_OBJECT = "42710";
 const UNIQUE_VIOLATION = "23505";
 
-// Parallel workers race on CREATE ROLE; losing the race means the role exists, which is the goal.
+const INTERNAL_ERROR = "XX000";
+
+const MAX_CAUSE_DEPTH = 8;
+
+// XX000 is Postgres' generic internal error; only the concurrent catalog update counts as a lost race.
+// The driver error carrying the message may sit below a wrapper, as for the SQLSTATE.
+function messageInCauseChain(error: unknown, needle: string): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && current instanceof Error; depth++) {
+    if (current.message.includes(needle)) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+function isLostRoleRace(error: unknown): boolean {
+  const pgError = extractPgError(error);
+  if (pgError?.code === DUPLICATE_OBJECT || pgError?.code === UNIQUE_VIOLATION) return true;
+  return (
+    pgError?.code === INTERNAL_ERROR && messageInCauseChain(error, "tuple concurrently updated")
+  );
+}
+
+// Parallel workers race on CREATE ROLE and ALTER ROLE; losing either race means the role has the
+// attributes and password this call wanted, which is the goal.
 export async function createApplicationRole(
   admin: AnyDb,
   role: string,
@@ -50,15 +74,16 @@ export async function createApplicationRole(
 ): Promise<void> {
   const raw = asRawClient(admin);
   const existing = await raw.unsafe(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [role]);
-  // skip: role already created by an earlier run or worker
-  if (existing.length > 0) return;
+  const attributes = `LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD ${quoteLiteral(password)}`;
+  // An earlier run may have created the role with another password, so an existing role is realigned.
+  const statement =
+    existing.length > 0
+      ? `ALTER ROLE ${quoteTableIdent(role)} ${attributes}`
+      : `CREATE ROLE ${quoteTableIdent(role)} ${attributes}`;
   try {
-    await raw.unsafe(
-      `CREATE ROLE ${quoteTableIdent(role)} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD ${quoteLiteral(password)}`,
-    );
+    await raw.unsafe(statement);
   } catch (error) {
-    const code = extractPgError(error)?.code;
-    if (code !== DUPLICATE_OBJECT && code !== UNIQUE_VIOLATION) throw error;
+    if (!isLostRoleRace(error)) throw error;
   }
 }
 

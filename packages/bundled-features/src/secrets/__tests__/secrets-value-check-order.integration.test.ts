@@ -12,6 +12,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
@@ -84,7 +88,17 @@ describe("secrets:write:set with an invalid value", () => {
 });
 
 describe("ctx.secrets.set (programmatic)", () => {
-  const secrets = () => programmaticSecrets;
+  // Called straight from the test, outside a dispatch, so there is no ambient request scope.
+  const secrets = () => ({
+    set: (...args: Parameters<SecretsContext["set"]>) =>
+      runInRowLevelSecurityScope(tenantRowLevelSecurityScope(args[0]), () =>
+        programmaticSecrets.set(...args),
+      ),
+    has: (...args: Parameters<SecretsContext["has"]>) =>
+      runInRowLevelSecurityScope(tenantRowLevelSecurityScope(args[0]), () =>
+        programmaticSecrets.has(...args),
+      ),
+  });
 
   test("rejects a value the declared valueSchema refuses, without echoing it", async () => {
     const err = await secrets()

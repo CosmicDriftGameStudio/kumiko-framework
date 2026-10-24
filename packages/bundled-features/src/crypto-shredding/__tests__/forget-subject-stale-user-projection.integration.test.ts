@@ -98,7 +98,12 @@ describe("forget-subject for a user whose stream is deleted but whose status is 
     const deleted = await userExecutor.delete(
       { id },
       createSystemUser(SYSTEM_TENANT_ID),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test inspects the user projection across tenants after forget",
+      }),
     );
     expect(deleted.isSuccess).toBe(true);
     expect(await userRow(id)).toEqual({ status: USER_STATUS.Active, isDeleted: true });

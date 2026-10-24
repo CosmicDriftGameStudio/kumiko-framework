@@ -29,11 +29,14 @@ export function withExecutorManagedWritesForTests(
   db: AnyDb,
 ): ExecutorManagedTenantDb | ExecutorManagedRunner {
   if (isBoundTenantDb(db)) {
-    return createTenantDb({
-      db: withExecutorManagedWrites(tenantDbRunner(db)),
-      tenantId: db.tenantId,
-      mode: db.mode,
-    });
+    const options = { db: withExecutorManagedWrites(tenantDbRunner(db)), tenantId: db.tenantId };
+    return db.mode === "system"
+      ? createTenantDb({
+          ...options,
+          mode: "system",
+          reason: "test seeding mirrors a system-mode TenantDb",
+        })
+      : createTenantDb(options);
   }
   if (isDbRunner(db)) return withExecutorManagedWrites(db);
   throw new Error("withExecutorManagedWritesForTests: expected a TenantDb or a Bun.SQL runner");

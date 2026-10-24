@@ -139,7 +139,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, orderEntity);
   await createEventsTable(stack.db);
 });
-afterAll(async () => stack.cleanup());
+afterAll(async () => stack?.cleanup());
 
 // --- 1) Zod validation error via schema: empty cart rejected ---
 

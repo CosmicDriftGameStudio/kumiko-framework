@@ -184,6 +184,8 @@ function buildJobDbFacets(
         db: configDb,
         tenantId,
         mode: "system",
+        reason:
+          "job context db for cross-tenant jobs, ctx.systemDb exposure is gated by isSystemJob",
         grants: {
           projectionRegistry: registry,
           ...(personalDataGate && { personalDataGate }),

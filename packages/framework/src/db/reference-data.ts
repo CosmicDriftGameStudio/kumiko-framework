@@ -29,7 +29,12 @@ export async function seedReferenceData(
   let inserted = 0;
   let updated = 0;
   const by = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb({ db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const tdb = createTenantDb({
+    db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "reference data lives in the system tenant",
+  });
 
   for (const def of defs) {
     const entity = registry.getEntity(def.entityName);

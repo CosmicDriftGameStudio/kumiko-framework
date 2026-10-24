@@ -60,7 +60,12 @@ function writeContext(scope: EventStoreWriteScope | undefined, db: DbConnection)
   const tenantId = scope?.tenantId ?? SYSTEM_TENANT_ID;
   return {
     user: createSystemUser(tenantId),
-    tenantDb: createTenantDb({ db, tenantId, mode: "system" }),
+    tenantDb: createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "test helper seeds event-store rows for any tenant",
+    }),
     options: scope?.streamTenantId ? { streamTenantId: scope.streamTenantId } : undefined,
   };
 }

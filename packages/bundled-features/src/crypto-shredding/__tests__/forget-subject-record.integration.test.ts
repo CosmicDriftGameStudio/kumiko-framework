@@ -122,7 +122,12 @@ afterEach(() => {
 
 describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
   test("erases the row's ciphertext under the record namespace, proven via decrypt; a same-uuid user-forget never touches it", async () => {
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const plaintext = "confidential support note";
     const created = await recordProbeExecutor().create({ body: plaintext }, dpoUser, tenantDb);
     if (!created.isSuccess) throw new Error("create failed");
@@ -203,7 +208,12 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
   // a tombstoned subject makes getOrCreateDek throw KeyErasedError, which must
   // surface as 409 subject_erased instead of an unhandled 500.
   test("update on an already-shredded row answers 409 subject_erased instead of writing a fresh plaintext value", async () => {
-    const tenantDb = createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" });
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const created = await recordProbeExecutor().create(
       { body: "pre-shred content" },
       dpoUser,
@@ -289,7 +299,12 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
   });
 
   test("DPO from another tenant cannot forget a record subject owned by a foreign tenant → denied, key survives", async () => {
-    const tenantADb = createTenantDb({ db: gateStack.db, tenantId: GATE_TENANT_A, mode: "system" });
+    const tenantADb = createTenantDb({
+      db: gateStack.db,
+      tenantId: GATE_TENANT_A,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const plaintext = "tenant A confidential note";
     const created = await recordProbeExecutor().create({ body: plaintext }, dpoTenantA, tenantADb);
     if (!created.isSuccess) throw new Error("create failed");
@@ -328,7 +343,12 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
   });
 
   test("DPO of the owning tenant may forget a record whose projection row was hard-deleted; a foreign DPO may not", async () => {
-    const tenantADb = createTenantDb({ db: gateStack.db, tenantId: GATE_TENANT_A, mode: "system" });
+    const tenantADb = createTenantDb({
+      db: gateStack.db,
+      tenantId: GATE_TENANT_A,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const created = await recordProbeExecutor().create(
       { body: "deleted soon" },
       dpoTenantA,
@@ -360,7 +380,12 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
     const executor = createEventStoreExecutor(recordProbeTable, recordProbeEntity, {
       entityName: unregisteredAggregate,
     });
-    const tenantADb = createTenantDb({ db: gateStack.db, tenantId: GATE_TENANT_A, mode: "system" });
+    const tenantADb = createTenantDb({
+      db: gateStack.db,
+      tenantId: GATE_TENANT_A,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const created = await executor.create({ body: "custom aggregate note" }, dpoTenantA, tenantADb);
     if (!created.isSuccess) throw new Error("create failed");
     const subject = {
@@ -387,7 +412,12 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
     const executor = createEventStoreExecutor(recordProbeTable, recordProbeEntity, {
       entityName: sharedAggregate,
     });
-    const tenantADb = createTenantDb({ db: gateStack.db, tenantId: GATE_TENANT_A, mode: "system" });
+    const tenantADb = createTenantDb({
+      db: gateStack.db,
+      tenantId: GATE_TENANT_A,
+      mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
+    });
     const created = await executor.create({ body: "tenant A note" }, dpoTenantA, tenantADb);
     if (!created.isSuccess) throw new Error("create failed");
     const subject = {
@@ -498,6 +528,7 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
       db: retentionStack.db,
       tenantId: RETENTION_TENANT,
       mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
     });
     const plaintext = "ledger entry naming a third party";
     const created = await blockDeleteProbeExecutor().create(
@@ -554,6 +585,7 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
       db: retentionStack.db,
       tenantId: RETENTION_TENANT,
       mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
     });
     const plaintext = "ledger entry under legal hold";
     const created = await blockDeleteProbeExecutor().create(
@@ -648,6 +680,7 @@ describe("crypto-shredding :: forget-subject (record subject) tenant retention p
       db: policyStack.db,
       tenantId: POLICY_TENANT,
       mode: "system",
+      reason: "test seeds and inspects subject records across tenants around forget",
     });
     const created = await createEventStoreExecutor(overrideProbeTable, overrideProbeEntity, {
       entityName: OVERRIDE_PROBE_ENTITY_NAME,
@@ -670,7 +703,12 @@ describe("crypto-shredding :: forget-subject (record subject) tenant retention p
         tenantId: POLICY_TENANT,
       },
       { ...dpoPolicyUser, roles: ["SystemAdmin"] },
-      createTenantDb({ db: policyStack.db, tenantId: POLICY_TENANT, mode: "system" }),
+      createTenantDb({
+        db: policyStack.db,
+        tenantId: POLICY_TENANT,
+        mode: "system",
+        reason: "test seeds and inspects subject records across tenants around forget",
+      }),
     );
     if (!overrideCreated.isSuccess) throw new Error("override create failed");
 

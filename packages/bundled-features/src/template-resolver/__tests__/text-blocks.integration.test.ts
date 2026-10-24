@@ -297,7 +297,12 @@ describe("text-blocks :: write", () => {
         changes: { variableSchema: JSON.stringify({ firstName: "string" }), status: "archived" },
       },
       createSystemUser(tenantAdmin.tenantId),
-      createTenantDb({ db, tenantId: tenantAdmin.tenantId, mode: "system" }),
+      createTenantDb({
+        db,
+        tenantId: tenantAdmin.tenantId,
+        mode: "system",
+        reason: "test seeds system-tenant text blocks",
+      }),
     );
 
     await stack.http.writeOk(

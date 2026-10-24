@@ -84,7 +84,12 @@ function seedExecutor() {
 }
 
 function tenantDb() {
-  return createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" });
+  return createTenantDb({
+    db: stack.db,
+    tenantId: admin.tenantId,
+    mode: "system",
+    reason: "test reindex reads entity rows across tenants",
+  });
 }
 
 describe("reindexEntity", () => {
@@ -220,7 +225,12 @@ describe("reindexEntity", () => {
     const created = await executor.create(
       { label: plain },
       admin,
-      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test reindex reads entity rows across tenants",
+      }),
     );
     if (!created.isSuccess) throw new Error("seed failed");
 
@@ -255,7 +265,12 @@ describe("reindexEntity", () => {
     const created = await executor.create(
       { label: plain },
       admin,
-      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test reindex reads entity rows across tenants",
+      }),
     );
     if (!created.isSuccess) throw new Error("seed failed");
 
@@ -286,7 +301,12 @@ describe("reindexEntity connection lifecycle", () => {
       const created = await seedExecutor().create(
         { name: "Stalled Widget" },
         admin,
-        createTenantDb({ db: ownStack.db, tenantId: admin.tenantId, mode: "system" }),
+        createTenantDb({
+          db: ownStack.db,
+          tenantId: admin.tenantId,
+          mode: "system",
+          reason: "test reindex reads entity rows across tenants",
+        }),
       );
       if (!created.isSuccess) throw new Error("seed failed");
 

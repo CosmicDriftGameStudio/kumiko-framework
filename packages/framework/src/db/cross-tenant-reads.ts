@@ -31,6 +31,6 @@ export function createHandlerCrossTenantReads(
   },
 ): CrossTenantReads {
   const { reason, report, ...dbOptions } = options;
-  const systemModeDb = createTenantDb({ ...dbOptions, mode: "system" });
+  const systemModeDb = createTenantDb({ ...dbOptions, mode: "system", reason });
   return createCrossTenantReads(systemModeDb, reason, report);
 }

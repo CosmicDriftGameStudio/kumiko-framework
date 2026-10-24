@@ -182,6 +182,7 @@ export async function setupChatHarness(
           db,
           tenantId: tenantAdmin.tenantId,
           mode: "system",
+          reason: "test harness reads delivery rows of any tenant",
           grants: {
             unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
           },

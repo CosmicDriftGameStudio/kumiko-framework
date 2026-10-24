@@ -22,8 +22,8 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  applicationRoleUrlOf,
   createTestDb,
-  TEST_APPLICATION_ROLE,
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -92,8 +92,10 @@ describe("kumiko ops backfill-pii (real DB)", () => {
     url.pathname = `/${testDb.dbName}`;
     // The subject-keys schema is created lazily; the test DB stands in for the dedicated cluster.
     process.env["SUBJECT_KEYS_DATABASE_URL"] = url.toString();
-    url.username = TEST_APPLICATION_ROLE;
-    process.env["DATABASE_URL"] = url.toString();
+    process.env["DATABASE_URL"] = applicationRoleUrlOf(
+      process.env["TEST_DATABASE_URL"] ?? "",
+      testDb.dbName,
+    );
     process.env["PLATFORM_KEK"] = randomBytes(32).toString("base64");
     process.env["KUMIKO_BLIND_INDEX_KEY"] = randomBytes(32).toString("base64");
   });

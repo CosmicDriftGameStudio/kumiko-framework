@@ -69,7 +69,13 @@ export const linkWaitlistOnSignup: MultiStreamApplyFn = async (event, tx) => {
   // skip: another membership came first.
   if (first && first.id !== event.aggregateId) return;
 
-  const db = createTenantDb({ db: tx, tenantId: SYSTEM_TENANT_ID, mode: "system" });
+  const db = createTenantDb({
+    db: tx,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason:
+      "linking a signup to its waitlist entry updates system-tenant rows from a membership event",
+  });
   const user = await fetchOne<{ email?: unknown }>(tx, userTable, { id: membership.userId });
   // skip: user row unreadable (erased or not projected yet).
   if (typeof user?.email !== "string") return;

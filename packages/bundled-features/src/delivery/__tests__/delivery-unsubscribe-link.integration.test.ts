@@ -33,6 +33,7 @@ import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
 import { createUnsubscribeRoutes } from "../unsubscribe.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
+import { scopedForTest } from "./scoped-delivery-service.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-link-test-secret-32-chars-min!!";
 const BASE_URL = "https://app.example";
@@ -72,7 +73,7 @@ beforeAll(async () => {
       const ctx = createDeliveryTestContext(deps, {
         unsubscribeLinks: { secret: UNSUBSCRIBE_SECRET, baseUrl: BASE_URL },
       });
-      deliveryService = ctx.deliveryService;
+      deliveryService = scopedForTest(ctx.deliveryService);
       return ctx;
     },
     extraRoutes: [...createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET })],

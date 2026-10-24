@@ -50,7 +50,12 @@ async function createOwnerRow(): Promise<string> {
 describe("executor streamTenantId (#3607)", () => {
   test("a system-mode db writes to the row's stream with the operator as actor", async () => {
     const id = await createOwnerRow();
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: operator.tenantId,
+      mode: "system",
+      reason: "test writes streams for a tenant other than the row's tenant",
+    });
 
     const updated = await noteExec.update({ id, changes: { label: "after" } }, operator, systemDb, {
       skipOptimisticLock: true,
@@ -70,7 +75,12 @@ describe("executor streamTenantId (#3607)", () => {
 
   test("a streamTenantId that is not the row's tenant is refused and nothing is written", async () => {
     const id = await createOwnerRow();
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: operator.tenantId,
+      mode: "system",
+      reason: "test writes streams for a tenant other than the row's tenant",
+    });
 
     const result = await noteExec.update({ id, changes: { label: "wrong" } }, operator, systemDb, {
       skipOptimisticLock: true,
@@ -134,7 +144,12 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("create on a system-mode db lands in the target stream with the operator as actor", async () => {
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: operator.tenantId,
+      mode: "system",
+      reason: "test writes streams for a tenant other than the row's tenant",
+    });
 
     const created = await noteExec.create({ label: "into-owner" }, operator, systemDb, {
       streamTenantId: ownerTenantId,
@@ -157,7 +172,12 @@ describe("executor streamTenantId (#3607)", () => {
   });
 
   test("create refuses a payload tenantId that differs from streamTenantId", async () => {
-    const systemDb = createTenantDb({ db: testDb.db, tenantId: operator.tenantId, mode: "system" });
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: operator.tenantId,
+      mode: "system",
+      reason: "test writes streams for a tenant other than the row's tenant",
+    });
 
     const result = await noteExec.create(
       { label: "mismatch", tenantId: testTenantId(3) },

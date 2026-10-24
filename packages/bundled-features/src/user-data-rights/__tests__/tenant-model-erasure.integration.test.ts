@@ -282,7 +282,12 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: created.id },
       createSystemUser(TENANT),
-      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test inspects rows of the erased tenant from outside its scope",
+      }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
@@ -333,7 +338,12 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: created.id },
       createSystemUser(OTHER_TENANT),
-      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test inspects rows of the erased tenant from outside its scope",
+      }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: co-member delete failed: ${deleteResult.error.code}`);
@@ -369,7 +379,12 @@ describe("forget pipeline honours the effective tenant model", () => {
     const deleteResult = await membershipExecutor.delete(
       { id: first.id },
       createSystemUser(TENANT),
-      createTenantDb({ db: stack.db, tenantId: TENANT, mode: "system" }),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test inspects rows of the erased tenant from outside its scope",
+      }),
     );
     if (!deleteResult.isSuccess) {
       throw new Error(`test setup: member removal failed: ${deleteResult.error.code}`);

@@ -96,6 +96,7 @@ beforeAll(async () => {
         db,
         tenantId: "00000000-0000-4000-8000-000000000000",
         mode: "system",
+        reason: "test reads rows of several tenants",
       });
       const result = await handler.handler(
         {
