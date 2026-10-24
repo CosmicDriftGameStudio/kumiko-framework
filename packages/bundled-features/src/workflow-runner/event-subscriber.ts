@@ -23,7 +23,7 @@
 // existing resume-due-runs job picks the row up on its next
 // cron tick — the resume path remains unchanged.
 
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany, sql, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type {
   FeatureRegistrar,
   MultiStreamApplyFn,
@@ -32,7 +32,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import type { TriggerEventRef } from "./runner.ts";
 import { workflowRunPendingTable } from "./tables.ts";
 
@@ -92,7 +91,9 @@ const wakeupApply: MultiStreamApplyFn = async (event, tx) => {
           aggregateId: event.aggregateId,
           version: event.version,
         } satisfies TriggerEventRef,
-        wakeAt: getTemporal().Now.instant().toString(),
+        // DB clock, like the due comparison in due-runs.ts: an app-clock stamp ahead of the
+        // database clock would leave the row not-yet-due for the next resume tick.
+        wakeAt: sql`now()`,
       },
       { tenantId: row.tenantId, runId: row.runId, stepIndex: row.stepIndex },
     );
