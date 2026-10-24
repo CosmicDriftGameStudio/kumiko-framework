@@ -97,7 +97,7 @@ export type EgressGuardPage = {
 };
 
 // Egress-Guard (enterprise#267): see egress-guard.ts. Extracted so CI can assert the
-// wiring without launching Chromium (render.integration.test.ts skips in CI).
+// wiring without launching Chromium.
 export async function attachEgressRequestGuard(page: EgressGuardPage): Promise<void> {
   await page.setRequestInterception(true);
   page.on("request", (interceptedRequest) => {
@@ -218,11 +218,6 @@ async function getBrowser(executablePath?: string): Promise<Browser> {
   } finally {
     launchingPromise = null;
   }
-}
-
-/** Test-only: expose getBrowser for the CI Chrome-launch smoke (#75/#254). */
-export async function getBrowserForSmoke(executablePath?: string): Promise<Browser> {
-  return getBrowser(executablePath);
 }
 
 export async function shutdownBrowser(): Promise<void> {

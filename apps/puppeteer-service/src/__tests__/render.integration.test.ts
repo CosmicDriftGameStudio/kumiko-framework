@@ -8,10 +8,6 @@ import type { ServiceConfig } from "../config";
 import { shutdownBrowser } from "../render";
 import { createApp } from "../server";
 
-// Opt-in gate (enterprise#254): CI must not silently skip forever.
-// Local / heavy runners: PUPPETEER_RENDER_TESTS=1 bun test …
-const RUN_RENDER_TESTS = process.env["PUPPETEER_RENDER_TESTS"] === "1";
-
 const CONFIG: ServiceConfig = {
   port: 0,
   authToken: "integration-test-token-0123456789abcdef0123",
@@ -25,26 +21,7 @@ afterAll(async () => {
   await shutdownBrowser();
 });
 
-// Always-on in CI: if Chrome launches successfully, the arm64 blocker (#75)
-// is gone — fail so the opt-in skips below get removed.
-describe("Chrome launch smoke (#75)", () => {
-  test("successful launch in CI means PUPPETEER_RENDER_TESTS skips should be removed", async () => {
-    const inCi = process.env["CI"] === "true" || process.env["CI"] === "1";
-    if (!inCi) return;
-    const { getBrowserForSmoke } = await import("../render");
-    try {
-      await getBrowserForSmoke();
-      expect.unreachable("Blocker #75 weg — Skips entfernen (PUPPETEER_RENDER_TESTS gate)");
-    } catch {
-      // Chrome still cannot launch on this runner — blocker remains.
-    } finally {
-      await shutdownBrowser();
-    }
-  });
-});
-
-// skip: arm64 Chrome won't launch on cdgs-runner (#75/#253); opt-in via PUPPETEER_RENDER_TESTS=1
-describe.skipIf(!RUN_RENDER_TESTS)("POST /render — echtes Puppeteer-Rendering", () => {
+describe("POST /render — echtes Puppeteer-Rendering", () => {
   test("kind=document-pdf liefert valid PDF mit magic-bytes %PDF-", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/render", {
@@ -112,11 +89,9 @@ describe.skipIf(!RUN_RENDER_TESTS)("POST /render — echtes Puppeteer-Rendering"
   });
 });
 
-// Skip in CI: Chromium won't launch on cdgs-runner (#75/#253). The
-// page.on("request") + abort wiring itself is covered chromium-free by
-// egress-guard-wiring.test.ts → attachEgressRequestGuard; this block only
-// proves end-to-end abort against a real local server.
-describe.skipIf(!!process.env["CI"])("Egress-Guard (enterprise#267) im echten Render", () => {
+// The page.on("request") + abort wiring is also covered chromium-free by
+// egress-guard-wiring.test.ts; this block proves the end-to-end abort against a real local server.
+describe("Egress-Guard (enterprise#267) im echten Render", () => {
   test("img src to loopback is aborted (requestCount stays 0); render still succeeds", async () => {
     // Loopback server: requestCount stays 0 iff the guard aborts before connect.
     // The data: URI continue-path guarantee and RFC1918/metadata CIDR blocking
@@ -155,8 +130,7 @@ describe.skipIf(!!process.env["CI"])("Egress-Guard (enterprise#267) im echten Re
   });
 });
 
-// skip: arm64 Chrome won't launch on cdgs-runner (#75/#253); opt-in via PUPPETEER_RENDER_TESTS=1
-describe.skipIf(!RUN_RENDER_TESTS)("countPdfPages gegen ein ECHTES Chromium-PDF (87/1)", () => {
+describe("countPdfPages gegen ein ECHTES Chromium-PDF (87/1)", () => {
   test("mehrseitiger Content → countPdfPages zählt > 1 Seite", async () => {
     const { app } = createApp(CONFIG);
     // ~60 paragraphs with forced breaks reliably blow past an A4 page.
@@ -185,7 +159,7 @@ describe.skipIf(!RUN_RENDER_TESTS)("countPdfPages gegen ein ECHTES Chromium-PDF 
 const PIXEL_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
-describe.skipIf(!RUN_RENDER_TESTS)("Dokument mit Briefkopf", () => {
+describe("Dokument mit Briefkopf", () => {
   test("invoice with letterhead: header, footer and a table spanning pages", async () => {
     const { app } = createApp(CONFIG);
     const rows = Array.from(

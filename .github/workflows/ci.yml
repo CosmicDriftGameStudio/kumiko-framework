@@ -9,6 +9,8 @@ name: CI
 # `bun test` (mit DB-Bedarf) feuert und den Release-Job rot macht.
 env:
   HUSKY: "0"
+  # Only the integration job needs Chrome; it re-enables the download for its install.
+  PUPPETEER_SKIP_DOWNLOAD: "true"
 
 on:
   # No branch push trigger besides main: merging is PR-only, so the
@@ -438,6 +440,16 @@ jobs:
         with:
           bun-version: "1.4.4"
 
+      - name: Read Puppeteer version
+        id: puppeteer
+        run: echo "version=$(jq -r '.dependencies.puppeteer' apps/puppeteer-service/package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ steps.puppeteer.outputs.version }}
+
       - name: Cache Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -448,6 +460,7 @@ jobs:
 
       - name: Install
         env:
+          PUPPETEER_SKIP_DOWNLOAD: "false"
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 

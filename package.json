@@ -53,7 +53,8 @@
   ],
   "trustedDependencies": [
     "@parcel/watcher",
-    "msgpackr-extract"
+    "msgpackr-extract",
+    "puppeteer"
   ],
   "bin": {
     "kumiko": "./bin/kumiko.ts"
