@@ -12,6 +12,7 @@ import {
   type Dispatcher,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { applyStandardBootSeeds } from "./boot/shared-boot-steps.ts";
+import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { RunProdAppOptions } from "./run-prod-app.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
 import type { ProdConnections } from "./run-prod-app-connections.ts";
@@ -110,6 +111,14 @@ export async function runProdBootSeeds(
     "boot seeds write rows for arbitrary tenants",
     async () => {
       const { options, config, composed, connections } = run;
+      // First: custom seeds update tenants by version and would crash against unmigrated streams.
+      await runStreamTenantBackfillOnBoot({
+        db: connections.db,
+        registry: composed.registry,
+        extraContext: run.requestContext.extraContext,
+        processName: "runProdApp",
+        ...(options.databaseWait && { databaseWait: options.databaseWait }),
+      });
       await applyStandardBootSeeds({
         db: connections.db,
         registry: composed.registry,

@@ -3,7 +3,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { EscapeHatchUseEvent, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type EscapeHatchUseEvent,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createNoopProvider,
@@ -100,7 +104,7 @@ describe("run-tenant-destruction cron", () => {
 
     expect(auditedKinds()).toContain("unsafe-raw");
     expect(meteredUses("unsafe-raw")).toBeGreaterThan(usesBefore);
-    const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
+    const events = await loadAggregate(stack.db, DUE_TENANT, SYSTEM_TENANT_ID);
     expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(true);
   });
 
@@ -119,7 +123,7 @@ describe("run-tenant-destruction cron", () => {
 
     const [row] = await selectMany(stack.db, tenantTable, { id: DUE_TENANT });
     expect(row?.["status"]).toBe("destroying");
-    const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
+    const events = await loadAggregate(stack.db, DUE_TENANT, SYSTEM_TENANT_ID);
     expect(events.some((e) => e.type.includes("tenant-destruction-started"))).toBe(true);
     expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(true);
   });
@@ -142,7 +146,7 @@ describe("run-tenant-destruction cron", () => {
     expect(meteredUses("unsafe-raw")).toBe(usesBefore);
     const [row] = await selectMany(stack.db, tenantTable, { id: DUE_TENANT });
     expect(row?.["status"]).toBe("destroyRequested");
-    const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);
+    const events = await loadAggregate(stack.db, DUE_TENANT, SYSTEM_TENANT_ID);
     expect(events.some((e) => e.type.includes("destruction-stage"))).toBe(false);
   });
 });

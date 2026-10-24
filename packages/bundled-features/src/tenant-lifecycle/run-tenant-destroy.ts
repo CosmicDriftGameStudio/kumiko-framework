@@ -10,6 +10,7 @@ import {
   createSystemUser,
   type EscapeHatchAuditSink,
   type Registry,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -133,7 +134,7 @@ async function appendTenantStageEvent(
   await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
+    tenantId: SYSTEM_TENANT_ID,
     expectedVersion,
     type,
     payload,
@@ -153,14 +154,14 @@ async function appendTenantStageEventIdempotent(
   alreadyRecorded: boolean,
 ): Promise<number> {
   if (alreadyRecorded) {
-    const events = await loadAggregate(db, tenantId, tenantId);
+    const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
     return lastEventVersion(events);
   }
   try {
     await appendTenantStageEvent(db, tenantId, type, payload, expectedVersion);
   } catch (err) {
     if (!(err instanceof VersionConflictError)) throw err;
-    const events = await loadAggregate(db, tenantId, tenantId);
+    const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
     const stage = String(payload["stage"] ?? "");
     if (stageOutcomeRecorded(events, stage, TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT)) {
       // skip: idempotent retry — stage already recorded before version conflict
@@ -168,7 +169,7 @@ async function appendTenantStageEventIdempotent(
     }
     throw err;
   }
-  const events = await loadAggregate(db, tenantId, tenantId);
+  const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
   return lastEventVersion(events);
 }
 
@@ -205,7 +206,7 @@ async function haltPipelineOnAbandon(args: {
   // stage's own run() may have appended to this same aggregate (e.g.
   // tombstoneTenantRow's tenantCrud.update) before throwing, so any version
   // captured earlier in the pipeline is stale and would VersionConflict here.
-  const eventsBeforeAbandon = await loadAggregate(args.db, args.tenantId, args.tenantId);
+  const eventsBeforeAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
   await appendTenantStageEvent(
     args.db,
     args.tenantId,
@@ -213,7 +214,7 @@ async function haltPipelineOnAbandon(args: {
     { stage: args.stage, attempts: args.attempts, error: args.error },
     lastEventVersion(eventsBeforeAbandon),
   );
-  const eventsAfterAbandon = await loadAggregate(args.db, args.tenantId, args.tenantId);
+  const eventsAfterAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
   const versionAfterAbandon = lastEventVersion(eventsAfterAbandon);
   await appendTenantStageEvent(
     args.db,
@@ -234,7 +235,7 @@ async function maybeAppendDestructionCompleted(
     // skip: pipeline still has pending stages
     return;
   }
-  const events = await loadAggregate(db, tenantId, tenantId);
+  const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
   if (events.some((event) => event.type === TENANT_DESTRUCTION_COMPLETED_EVENT_QN)) {
     // skip: idempotent — completion event already recorded
     return;
@@ -298,7 +299,7 @@ export async function runNextDestructionStage(args: {
   readonly actor?: string;
   readonly deadlineAt?: number;
 }): Promise<StageTickResult> {
-  const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
+  const events = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
 
   if (abandoned.size > 0) {
@@ -344,7 +345,7 @@ export async function runNextDestructionStage(args: {
     // tombstoneTenantRow updates the tenant row on the same stream) — reload
     // the version fresh instead of trusting the pre-run `version`, or this
     // append throws VersionConflictError on every stage whose run() writes.
-    const eventsAfterRun = await loadAggregate(args.db, args.tenantId, args.tenantId);
+    const eventsAfterRun = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
     // A tick that neither finishes nor processes anything would otherwise loop
     // forever, because progressed events do not count as attempts.
     if (!outcome.done && outcome.processed === 0) {
@@ -434,7 +435,7 @@ export async function runTenantDestructionSweep(args: {
   let triggered = 0;
   for (const row of due) {
     const tenantId = row.id;
-    const events = await loadAggregate(args.db, tenantId, tenantId);
+    const events = await loadAggregate(args.db, tenantId, SYSTEM_TENANT_ID);
     const version = lastEventVersion(events);
     const user = createSystemUser(tenantId);
     const scopedDb = createTenantDb({

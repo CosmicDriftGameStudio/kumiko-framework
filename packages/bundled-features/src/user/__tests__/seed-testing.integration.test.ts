@@ -8,8 +8,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -128,12 +128,12 @@ describe("seedUser", () => {
     expect(updated).toHaveLength(1);
   });
 
-  test("default `by` ist TestUsers.systemAdmin (für audit-trail)", async () => {
+  test("default `by` is the system user (audit trail)", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "eve@example.com",
       displayName: "Eve",
     });
     const [row] = await selectMany(stack.db, userTable, { id: userId });
-    expect(row?.["insertedById"]).toBe(TestUsers.systemAdmin.id);
+    expect(row?.["insertedById"]).toBe(SYSTEM_USER_ID);
   });
 });

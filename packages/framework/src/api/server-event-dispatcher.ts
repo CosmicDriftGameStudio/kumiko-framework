@@ -87,7 +87,7 @@ export function createServerEventDispatcher(deps: {
   return { baseDb, consumers, eventDispatcher };
 }
 
-function resolveBaseDbAndSearchAdapter(
+export function resolveBaseDbAndSearchAdapter(
   context: AppContext,
   registry: Registry,
 ): {

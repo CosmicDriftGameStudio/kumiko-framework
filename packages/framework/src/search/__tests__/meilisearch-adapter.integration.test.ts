@@ -210,6 +210,23 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
       results = await adapter.search(TENANT, "deleteme");
       expect(results.some((r) => r.entityId === 999)).toBe(false);
     });
+
+    test("remove and removeBatch tolerate a missing doc in an existing index and a never-created index", async () => {
+      const neverCreatedTenant = uuid();
+
+      await expect(adapter.remove(TENANT, "user", 424242)).resolves.toBeUndefined();
+      await expect(
+        adapter.removeBatch?.(TENANT, [
+          { entityType: "user", entityId: 424242 },
+          { entityType: "user", entityId: 424243 },
+        ]),
+      ).resolves.toBeUndefined();
+
+      await expect(adapter.remove(neverCreatedTenant, "user", 1)).resolves.toBeUndefined();
+      await expect(
+        adapter.removeBatch?.(neverCreatedTenant, [{ entityType: "user", entityId: 1 }]),
+      ).resolves.toBeUndefined();
+    });
   });
 
   // --- Batch variants ---

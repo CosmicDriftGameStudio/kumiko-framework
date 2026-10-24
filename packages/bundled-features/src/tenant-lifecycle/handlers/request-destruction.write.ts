@@ -1,12 +1,13 @@
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { appendDomainEventCore } from "@cosmicdrift/kumiko-framework/pipeline";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 import { resolveProfileForTenant } from "../../compliance-profiles/index.ts";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.ts";
-import { DESTRUCTION_REQUESTED_EVENT_QN } from "../constants.ts";
+import { DESTRUCTION_REQUESTED_EVENT_QN, TENANT_LIFECYCLE_FEATURE } from "../constants.ts";
 import { revokeTenantSessions } from "../lib/revoke-tenant-sessions.ts";
 import { invalidateTenantLifecycleGate } from "../lifecycle-gate.ts";
 
@@ -18,7 +19,7 @@ type TenantLifecycleRow = {
 };
 
 const REQUEST_DESTRUCTION_TENANT_ROW_REASON =
-  "reads the caller's tenant row, whose tenant_id is the creating tenant, its compliance profile, and revokes its sessions via DbRunner helpers";
+  "reads the caller's tenant row (a global row on the system tenant), its compliance profile, appends to the tenant stream on the system tenant and revokes its sessions via DbRunner helpers";
 
 export const requestDestructionWrite = defineWriteHandler({
   name: "request-destruction",
@@ -67,15 +68,25 @@ export const requestDestructionWrite = defineWriteHandler({
     if (!update.isSuccess) return update;
     invalidateTenantLifecycleGate(tenantId);
 
-    await ctx.unsafeAppendEvent({
-      aggregateId: tenantId,
-      aggregateType: "tenant",
-      type: DESTRUCTION_REQUESTED_EVENT_QN,
-      payload: {
-        requestedBy: event.user.id,
-        gracePeriodEnd: gracePeriodEnd.toString(),
+    await appendDomainEventCore(
+      {
+        registry: ctx.registry,
+        db: runner,
+        tenantId: SYSTEM_TENANT_ID,
+        userId: String(event.user.id),
+        callSiteLabel: "tenant-lifecycle request-destruction",
+        callerFeature: TENANT_LIFECYCLE_FEATURE,
       },
-    });
+      {
+        aggregateId: tenantId,
+        aggregateType: "tenant",
+        type: DESTRUCTION_REQUESTED_EVENT_QN,
+        payload: {
+          requestedBy: event.user.id,
+          gracePeriodEnd: gracePeriodEnd.toString(),
+        },
+      },
+    );
 
     if (await ctx.hasFeature("sessions")) {
       await revokeTenantSessions(runner, tenantId);

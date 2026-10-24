@@ -50,10 +50,9 @@ export type SeedUserRow = {
 /** Read shape of a membership entry exposed to seed helpers.
  * Distinguishes two tenantIds: the logical one from the read projection
  * (`tenantId`) and the physical one from the aggregate stream
- * (`streamTenantId`). They differ when the aggregate was created by an
- * executor with a different tenantId (for example,
- * seedTenantMembership-by=systemAdmin), which is a typical
- * publicstatus driver use case. */
+ * (`streamTenantId`). They only differ for memberships written by an admin
+ * of another tenant before `backfillTenantStreamTenants` ran; afterwards
+ * `streamTenantId = tenantId`. */
 export type SeedMembershipRow = {
   readonly userId: string;
   /** Payload tenant from `read_tenant_memberships.tenant_id`; it is used

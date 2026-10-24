@@ -20,10 +20,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { hashPassword } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
@@ -224,10 +228,10 @@ export async function seedAdmin(
   db: DbConnection,
   options: SeedAdminOptions,
 ): Promise<{ id: string }> {
-  const by = options.by ?? TestUsers.systemAdmin;
+  const byOption = options.by === undefined ? {} : { by: options.by };
 
   for (const m of options.memberships) {
-    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
+    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, ...byOption });
   }
 
   const { id: userId } = await seedUserWithPassword(db, {
@@ -236,7 +240,7 @@ export async function seedAdmin(
     displayName: options.displayName,
     ...(options.globalRoles !== undefined && { roles: options.globalRoles }),
     ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
-    by,
+    ...byOption,
   });
 
   for (const m of options.memberships) {
@@ -244,7 +248,7 @@ export async function seedAdmin(
       userId,
       tenantId: m.tenantId,
       roles: m.roles,
-      by,
+      ...byOption,
     });
   }
 
@@ -372,7 +376,8 @@ export async function seedAdminGuarded(
   const existingId = await findExistingUserIdForEmail(db, kms, options.email);
   if (existingId === undefined) return seedAdmin(db, options);
 
-  const by = options.by ?? TestUsers.systemAdmin;
+  const byOption = options.by === undefined ? {} : { by: options.by };
+  const by = options.by ?? createSystemUser(SYSTEM_TENANT_ID);
   const existingRow = await fetchOne(db, userTable, { id: existingId });
   if (existingRow) {
     // Re-write the email so email_bidx is recomputed; without it the account
@@ -384,12 +389,12 @@ export async function seedAdminGuarded(
     }
   }
   for (const m of options.memberships) {
-    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
+    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, ...byOption });
     await seedTenantMembership(db, {
       userId: existingId,
       tenantId: m.tenantId,
       roles: m.roles,
-      by,
+      ...byOption,
     });
   }
   return { id: existingId };

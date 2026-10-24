@@ -8,12 +8,12 @@ import {
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  runEventStoreSeed,
-  type SeedIfExists,
-  TestUsers,
-} from "@cosmicdrift/kumiko-framework/seeding";
+  createSystemUser,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { type PageRow, pageEntity, pagesTable } from "./table.ts";
 
@@ -35,8 +35,8 @@ export type SeedPageOptions = {
 export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise<{ id: string }> {
   // The default user must have user.tenantId === opts.tenantId; otherwise the
   // event-store stream ends up in the wrong tenant bucket → version_conflict
-  // on subsequent real writes. TestUsers.systemAdmin is testTenantId(1).
-  const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
+  // on subsequent real writes.
+  const by = opts.by ?? createSystemUser(opts.tenantId);
   const tdb = createTenantDb({
     db,
     tenantId: opts.tenantId,

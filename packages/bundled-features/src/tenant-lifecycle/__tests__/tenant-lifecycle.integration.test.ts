@@ -7,6 +7,7 @@ import {
   defineFeature,
   EXT_EXTERNAL_RESOURCE,
   EXT_TENANT_DATA,
+  SYSTEM_TENANT_ID,
   type TenantDataHookCtx,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -254,9 +255,9 @@ describe("tenant-lifecycle :: pipeline abandon / destroyFailed", () => {
     await append(poisonStack.db, {
       aggregateId: tenantAdmin.tenantId,
       aggregateType: TENANT_AGGREGATE_TYPE,
-      tenantId: tenantAdmin.tenantId,
+      tenantId: SYSTEM_TENANT_ID,
       expectedVersion:
-        (await loadAggregate(poisonStack.db, tenantAdmin.tenantId, tenantAdmin.tenantId)).at(-1)
+        (await loadAggregate(poisonStack.db, tenantAdmin.tenantId, SYSTEM_TENANT_ID)).at(-1)
           ?.version ?? 0,
       type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
       payload: { startedAt: now.toString() },
@@ -511,7 +512,7 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
 
     const rowB = await selectMany(isolationStack.db, tenantTable, { id: tenantB });
     expect(rowB[0]?.["status"]).toBe("destroying"); // still mid-pipeline, but progressed
-    const eventsB = await loadAggregate(isolationStack.db, tenantB, tenantB);
+    const eventsB = await loadAggregate(isolationStack.db, tenantB, SYSTEM_TENANT_ID);
     expect(eventsB.some((e) => e.type.endsWith("tenant-destruction-stage-succeeded"))).toBe(true);
   });
 

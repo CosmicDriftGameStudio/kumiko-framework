@@ -17,8 +17,11 @@ import {
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import {
+  createSystemUser,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";
 import { userEntity, userTable } from "./schema/user.ts";
@@ -61,7 +64,7 @@ export async function seedUser(
   // that opt in. Omit to keep today's hook-less behavior.
   hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
-  const by = options.by ?? TestUsers.systemAdmin;
+  const by = options.by ?? createSystemUser(SYSTEM_TENANT_ID);
   // executor.create expects a TenantDb (with an .insert() API). Although
   // User is tenant-agnostic (it has no tenant_id column), the runtime
   // interface requires this wrapper.

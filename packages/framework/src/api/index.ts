@@ -106,6 +106,7 @@ export {
 export { createApiRoutes } from "./routes.ts";
 export type { KumikoServer, ServerOptions } from "./server.ts";
 export { buildServer } from "./server.ts";
+export { resolveBaseDbAndSearchAdapter } from "./server-event-dispatcher.ts";
 export {
   makeDispatchSystemQuery,
   makeDispatchSystemWrite,

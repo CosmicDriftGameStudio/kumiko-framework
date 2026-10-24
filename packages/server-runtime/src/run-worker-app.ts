@@ -43,6 +43,7 @@ import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
@@ -223,6 +224,22 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
   return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
 }
 
+// Runs before the metrics port opens and before start() consumes jobs: a worker must not process
+// events of a feature whose streams still sit on the wrong tenant.
+async function backfillThenStartMetrics(
+  boot: Extract<WorkerBootResult, { kind: "booted" }>,
+  options: RunWorkerAppOptions,
+): Promise<ReturnType<typeof startWorkerMetricsServer> | undefined> {
+  await runStreamTenantBackfillOnBoot({
+    db: boot.db,
+    registry: boot.registry,
+    extraContext: boot.extraContext,
+    processName: "runWorkerApp",
+    ...(options.databaseWait && { databaseWait: options.databaseWait }),
+  });
+  return options.metrics ? startWorkerMetricsServer(options.metrics, boot.entrypoint) : undefined;
+}
+
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
   const resolvedEnvSource = await resolveGatedEnvSource(options);
@@ -271,9 +288,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   // hook, so a failing start() does not leak the listener.
   let metricsServer: ReturnType<typeof startWorkerMetricsServer> | undefined;
   try {
-    metricsServer = options.metrics
-      ? startWorkerMetricsServer(options.metrics, entrypoint)
-      : undefined;
+    metricsServer = await backfillThenStartMetrics(boot, options);
     await entrypoint.start();
   } catch (error) {
     // The boot failure is the actionable error; a close failure on a

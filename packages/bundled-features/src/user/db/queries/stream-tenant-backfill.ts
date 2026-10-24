@@ -1,32 +1,20 @@
-// One-time migration tooling for older user event streams.
-//
-// Making `user` a systemStream entity means every executor op addresses the
-// stream on SYSTEM_TENANT_ID. Streams created before that live on whichever
-// tenant created them ("scattered"), so newer writes version-conflict
-// against the empty SYSTEM stream. The raw UPDATE breaks as soon as an
-// aggregate has BOTH a legacy stream and newer SYSTEM events
-// (split stream — e.g. a skipOptimisticLock
-// lifecycle write appended v1 on SYSTEM while v1..n live on the old
-// tenant): retenanting then trips events_aggregate_version_uq.
-//
-// This tool merges per aggregate: all user events, ordered by global event
-// id, are renumbered 1..n and retenanted to SYSTEM_TENANT_ID — two-phase
-// version writes (negative interim values) dodge the unique index while the
-// per-aggregate transaction is in flight. Snapshots of migrated aggregates
-// are dropped (version numbering changed; the next snapshotting load
-// recreates them); archived-stream markers move with the stream.
-//
-// Idempotent: the candidate query only matches aggregates that still have
-// non-SYSTEM events. One failing aggregate does not abort the run — the
-// rest of the estate migrates, failures are reported.
-//
-// After a run, rebuild the user projection so read_users.tenant_id reflects
-// the stream move: rebuildProjection("user:projection:user-entity", ...) or
-// the jobs:job:projection-rebuild job.
+// Moves legacy user streams onto SYSTEM_TENANT_ID (user is a systemStream
+// entity). After a run, rebuild the user projection so read_users.tenant_id
+// reflects the move: rebuildProjection("user:projection:user-entity", ...) or
+// the jobs:job:projection-rebuild job. `backfillUserStreamTenantsWithDerivedState`
+// does the move, the old-bucket search cleanup, the rebuild and the reindex in one call.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { asRawClient, transaction, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import {
+  backfillAggregateStreamTenants,
+  createSearchBucketCleanup,
+  type DerivedStateMode,
+  rebuildAndReindex,
+  type StreamBackfillStepFailure,
+  stepFailures,
+} from "../../../shared/index.ts";
 
 export type UserStreamBackfillResult = {
   readonly aggregatesMigrated: number;
@@ -34,80 +22,66 @@ export type UserStreamBackfillResult = {
   readonly failed: ReadonlyArray<{ readonly aggregateId: string; readonly error: string }>;
 };
 
-export async function backfillUserStreamTenants(
+const USER_AGGREGATE = "user";
+const USER_PROJECTION = "user:projection:user-entity";
+
+export function backfillUserStreamTenants(
   db: DbConnection,
+  options: { readonly scanTenantIds?: readonly string[] } = {},
 ): Promise<UserStreamBackfillResult> {
-  const candidates = await unsafeReadRetrying<{ aggregate_id: string }>(
-    db,
-    `SELECT DISTINCT "aggregate_id" FROM "kumiko_events"
-      WHERE "aggregate_type" = 'user' AND "tenant_id" <> $1::uuid`,
-    [SYSTEM_TENANT_ID],
-  );
-
-  let aggregatesMigrated = 0;
-  let eventsMigrated = 0;
-  const failed: Array<{ aggregateId: string; error: string }> = [];
-
-  for (const { aggregate_id } of candidates) {
-    try {
-      eventsMigrated += await migrateAggregate(db, aggregate_id);
-      aggregatesMigrated++;
-    } catch (e) {
-      failed.push({
-        aggregateId: aggregate_id,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-  return { aggregatesMigrated, eventsMigrated, failed };
+  return backfillAggregateStreamTenants(db, {
+    aggregateType: USER_AGGREGATE,
+    target: { kind: "system" },
+    ...options,
+  });
 }
 
-async function migrateAggregate(db: DbConnection, aggregateId: string): Promise<number> {
-  return transaction(db, async (tx) => {
-    const raw = asRawClient(tx);
-    // Global id order = commit-adjacent replay order; merges a split stream
-    // (legacy tenant + SYSTEM) into one consistent version sequence.
-    const events = await raw.unsafe<{ id: bigint | string }>(
-      `SELECT "id" FROM "kumiko_events"
-        WHERE "aggregate_type" = 'user' AND "aggregate_id" = $1::uuid
-        ORDER BY "id" ASC
-        FOR UPDATE`,
-      [aggregateId],
-    );
+export type UserStreamBackfillWithDerivedStateResult = {
+  readonly streams: UserStreamBackfillResult;
+  readonly projectionsRebuilt: readonly string[];
+  readonly reindexedUsers: number;
+  readonly failures: readonly StreamBackfillStepFailure[];
+};
 
-    // Negative interim versions — real versions are always >= 1, so
-    // nothing can collide with events_aggregate_version_uq mid-migration.
-    for (const [i, ev] of events.entries()) {
-      await raw.unsafe(
-        `UPDATE "kumiko_events" SET "tenant_id" = $1::uuid, "version" = $2 WHERE "id" = $3`,
-        [SYSTEM_TENANT_ID, -(i + 1), ev.id],
-      );
-    }
-    // Final contiguous 1..n.
-    for (const [i, ev] of events.entries()) {
-      await raw.unsafe(`UPDATE "kumiko_events" SET "version" = $1 WHERE "id" = $2`, [i + 1, ev.id]);
-    }
-
-    // Version numbering changed → any snapshot of this aggregate is stale.
-    await raw.unsafe(`DELETE FROM "kumiko_snapshots" WHERE "aggregate_id" = $1::uuid`, [
-      aggregateId,
-    ]);
-
-    // Archived markers key on (tenant_id, aggregate_id) — move them with the
-    // stream, keeping an existing SYSTEM marker if both exist.
-    await raw.unsafe(
-      `INSERT INTO "kumiko_archived_streams" ("tenant_id", "aggregate_id", "aggregate_type", "archived_at", "archived_by", "reason")
-        SELECT $1::uuid, "aggregate_id", "aggregate_type", "archived_at", "archived_by", "reason"
-          FROM "kumiko_archived_streams"
-         WHERE "aggregate_id" = $2::uuid AND "tenant_id" <> $1::uuid
-        ON CONFLICT DO NOTHING`,
-      [SYSTEM_TENANT_ID, aggregateId],
-    );
-    await raw.unsafe(
-      `DELETE FROM "kumiko_archived_streams" WHERE "aggregate_id" = $1::uuid AND "tenant_id" <> $2::uuid`,
-      [aggregateId, SYSTEM_TENANT_ID],
-    );
-
-    return events.length;
+export async function backfillUserStreamTenantsWithDerivedState(deps: {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly searchAdapter?: SearchAdapter;
+  readonly derived?: DerivedStateMode;
+  readonly scanTenantIds?: readonly string[];
+  readonly onFirstCandidate?: () => Promise<"proceed" | "skip">;
+}): Promise<UserStreamBackfillWithDerivedStateResult> {
+  const {
+    db,
+    registry,
+    searchAdapter,
+    derived = "if-moved",
+    scanTenantIds,
+    onFirstCandidate,
+  } = deps;
+  const searchCleanup = createSearchBucketCleanup(searchAdapter, USER_AGGREGATE);
+  const streams = await backfillAggregateStreamTenants(db, {
+    aggregateType: USER_AGGREGATE,
+    target: { kind: "system" },
+    beforeMove: searchCleanup.beforeMove,
+    ...(scanTenantIds && { scanTenantIds }),
+    ...(onFirstCandidate && { onFirstCandidate }),
   });
+  const failures = stepFailures("user-streams", streams.failed);
+  if (streams.aggregatesMigrated === 0 && derived === "if-moved") {
+    return { streams, projectionsRebuilt: [], reindexedUsers: 0, failures };
+  }
+  const rebuilt = await rebuildAndReindex({
+    db,
+    registry,
+    ...(searchAdapter && { searchAdapter }),
+    projections: [USER_PROJECTION],
+    searchEntity: USER_AGGREGATE,
+  });
+  return {
+    streams,
+    projectionsRebuilt: rebuilt.projectionsRebuilt,
+    reindexedUsers: rebuilt.reindexedRows,
+    failures: [...failures, ...rebuilt.failures],
+  };
 }
