@@ -204,6 +204,11 @@ produces code that compiles and then fails in production.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.
   Use `r.queryHandler` with the executor, or a projection with
   `ctx.queryProjection`.
+- Never pass a JS array as a parameter to `.unsafe(sql, [...])`. Bun.SQL
+  binds it as `"a,b"` on Linux (CI) and passes on macOS, so `ANY($n)` only
+  fails in CI. Pass `toPostgresArrayLiteral(values)` from
+  `@cosmicdrift/kumiko-framework/db` and cast the placeholder (`$1::text[]`);
+  the Unsafe Array Param guard warns about array literals.
 - Never filter or count the rows of one `list` page in code. `list` returns
   one page (default 50, `limit` at most 200). Pass
   `filter: { field, op, value }` (`eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`)

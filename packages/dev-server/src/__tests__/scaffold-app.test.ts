@@ -349,9 +349,10 @@ describe("scaffoldApp", () => {
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
     expect(kumikoBin).toContain("runSchemaCli");
     expect(kumikoBin).toContain("runConsumerCli");
-    expect(kumikoBin).toContain("const features = allAppFeatures(appConfig);");
+    expect(kumikoBin).toContain('import { FEATURES } from "../kumiko/schema";');
+    expect(kumikoBin).not.toContain("allAppFeatures");
     expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");
-    expect(kumikoBin).toContain("{ features, kmsSlots }");
+    expect(kumikoBin).toContain("features: FEATURES,");
   });
 
   test("framework-owned files carry the kumiko-managed marker", async () => {

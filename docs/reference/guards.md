@@ -62,6 +62,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-renderer-boundaries` | Guard: prevents `@cosmicdrift/kumiko-renderer` (shared, platform-neutral) from touching DOM- or platform-specific APIs. | - |
 | `guard-restricted-symbols` | Guard: finds imports/re-exports of the unscoped stream primitives outside an allowlist. | - |
 | `guard-rls-session-settings` | Guard: row-level-security settings are transaction-local and written in one place. | - |
+| `guard-schema-cli-features` | Guard: a consumer's `runSchemaCli(...)` call must pass `features: FEATURES` imported from `kumiko/schema`. | - |
 | `guard-screen-conventions` | Usability mistakes in screen definitions that are statically decidable and otherwise come back screen by screen: a relatedList section whose rows lead nowhere, a row action labelled "edit" that does something else. | `kumiko-lint-ignore screen-conventions` |
 | `guard-silent-skip` | Guard: finds "silent skip" spots in production code. | - |
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
@@ -72,6 +73,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns. | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
+| `guard-unsafe-array-param` | Warns when a `.unsafe(sql, [...])` parameter list holds a JS array (or a spread). | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |
 | `guard-upgrade-state` | Guard: a consumer repo's `.kumiko/upgrade-state.json` marker must be caught up with the installed Kumiko framework version. | - |
 | `guard-write-handler-qns` | Guard: checks that `dispatcher.write("qn:literal:...")` calls in custom screens reference valid write-handler QNs. | - |

@@ -127,7 +127,10 @@ export function defineAppConfig(config: AppConfig): AppConfig {
   return config;
 }
 
-/** The full feature list prod boots with: `features` plus `prodFeatures`. */
+/**
+ * Raw `features` plus `prodFeatures`, without the bundled foundation: the runners compose it,
+ * tooling such as `runSchemaCli` takes `FEATURES` from `kumiko/schema`.
+ */
 export function allAppFeatures(
   config: Pick<AppConfig, "features" | "prodFeatures">,
 ): readonly FeatureDefinition[] {
