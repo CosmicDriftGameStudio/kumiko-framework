@@ -230,5 +230,9 @@ handler or job context passed to a parameter annotated `AppContext`, boot wiring
 (`clock`, `geoTzProvider` and similar), object literals with a spread next to moved members, destructuring with a
 default value or rest element, `Omit` of a moved member, a namespace key that is already set to a
 non-literal, a union receiver that maps differently per member, and an unresolved `ctx` / `context`
-receiver. Receivers typed by a hand-written structural type (`{ query: ... }`) are invisible to it
-and show up as type errors afterwards.
+receiver. A parameter named `ctx` or `context` that is typed by a hand-written structural type
+(`{ query: ... }`, a same-file alias, interface or intersection of them) follows the context: the
+type's moved members are nested (`{ dispatch: { query: ... } }`) and the body is rewritten, but only
+when a handler or job context is passed to that parameter somewhere in the project. A structural
+type declared in another file is reported as `manual`, and structural parameters with other names are
+invisible to it and show up as type errors afterwards.

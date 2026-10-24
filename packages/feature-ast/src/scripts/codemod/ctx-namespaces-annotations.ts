@@ -16,6 +16,9 @@ export class Counters {
   // Hook parameters annotated AppContext whose annotation is rewritten in this run: their body is
   // already read as a handler context.
   readonly pinnedParameters = new Set<Node>();
+  // Structural context type members moved in this run, so a type shared by several parameters is
+  // rewritten once.
+  readonly rewrittenMembers = new Set<Node>();
 
   pinnedKindOf(expression: Node): ContextKind | undefined {
     if (!Node.isIdentifier(expression)) return undefined;

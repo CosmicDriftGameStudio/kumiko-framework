@@ -34,6 +34,7 @@ import { describePath, isMovedMemberName, moveOf } from "./ctx-namespaces-mappin
 import { planRenamedMember } from "./ctx-namespaces-rename.ts";
 import { planBindingPattern, planObjectLiteral } from "./ctx-namespaces-structural.ts";
 import { planStructuralArguments } from "./ctx-namespaces-structural-params.ts";
+import { planStructuralContextParameter } from "./ctx-namespaces-structural-types.ts";
 
 export interface CtxNamespacesResult extends CodemodResult {
   readonly contextReceivers: number;
@@ -194,6 +195,7 @@ function visitAnnotationSite(plan: EditPlan, counters: Counters, node: Node): vo
       break;
     case SyntaxKind.Parameter:
       planHookAnnotation(plan, counters, node);
+      planStructuralContextParameter(plan, counters, node);
       break;
     case SyntaxKind.CallExpression:
     case SyntaxKind.NewExpression:
