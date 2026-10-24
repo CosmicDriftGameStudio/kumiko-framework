@@ -40,6 +40,7 @@ export {
   type AppE2eConfigInput,
   defineAppE2eConfig,
   type E2eProject,
+  ISOLATED_E2E_PROJECT_NAME,
   resolveE2eWorkers,
 } from "./define-app-e2e-config";
 export { type MailCaptureOptions, mailCapture } from "./mail-capture";

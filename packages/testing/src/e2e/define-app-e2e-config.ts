@@ -77,6 +77,8 @@ const TEMPLATE_OWNED_PROJECT_KEYS = [
 ] as const;
 const TEMPLATE_OWNED_USE_KEYS = ["actionTimeout", "navigationTimeout"] as const;
 const REAL_SPEC_GLOB = "**/*.real.spec.ts";
+export const ISOLATED_E2E_PROJECT_NAME = "chromium-isolated";
+export const NON_REAL_SPEC_PATTERN = /(?<!\.real)\.spec\.ts$/;
 const RESERVED_ENV_KEYS = [
   "PORT",
   SEED_ENABLE_ENV,
@@ -111,6 +113,7 @@ export type AppE2eConfigInput = {
   readonly projects?: readonly E2eProject[];
   readonly testDir?: string;
   readonly testMatch?: string | RegExp | readonly (string | RegExp)[];
+  readonly isolatedSpecs?: string | RegExp | readonly (string | RegExp)[];
   readonly permissions?: readonly string[];
   readonly launchOptions?: LaunchOptions;
 } & ServerStart;
@@ -138,6 +141,13 @@ function mutableTestMatch(
   match: NonNullable<AppE2eConfigInput["testMatch"]>,
 ): string | RegExp | (string | RegExp)[] {
   return typeof match === "string" || match instanceof RegExp ? match : [...match];
+}
+
+function patternList(
+  patterns: NonNullable<AppE2eConfigInput["testMatch"]> | undefined,
+): (string | RegExp)[] {
+  if (patterns === undefined) return [];
+  return typeof patterns === "string" || patterns instanceof RegExp ? [patterns] : [...patterns];
 }
 
 export function resolveE2eWorkers(
@@ -233,6 +243,58 @@ function failureRecording(
   return { trace: "off", screenshot: "off", video: "off" };
 }
 
+// Worker processes do not carry --shard in argv, so only the runner trips this.
+function isShardedRun(argv: readonly string[] = process.argv): boolean {
+  return argv.some((arg) => arg === "--shard" || arg.startsWith("--shard="));
+}
+
+type ProjectsInput = {
+  readonly chromiumUse: Project["use"];
+  readonly appProjects: readonly E2eProject[];
+  readonly isolated: readonly (string | RegExp)[];
+  readonly baseIgnore: readonly string[];
+  readonly realRun: boolean;
+};
+
+function assertIsolatedSpecsUsable(appProjects: readonly E2eProject[]): void {
+  if (appProjects.some((project) => project.name === undefined)) {
+    throw new Error(
+      "defineAppE2eConfig: isolatedSpecs needs named projects, because the isolated project waits for them via dependencies",
+    );
+  }
+  if (isShardedRun()) {
+    throw new Error(
+      "defineAppE2eConfig: isolatedSpecs cannot be combined with --shard; Playwright does not shard dependency projects, so one shard would run every spec.",
+    );
+  }
+}
+
+function buildE2eProjects(input: ProjectsInput): Project[] {
+  const { chromiumUse, appProjects, isolated, baseIgnore, realRun } = input;
+  const baseProjects: Project[] = [{ name: "chromium", use: chromiumUse }, ...appProjects];
+  if (isolated.length === 0) return baseProjects;
+  assertIsolatedSpecsUsable(appProjects);
+  // A project-level testIgnore replaces the top-level one instead of merging with it.
+  const parallelProjects = baseProjects.map((project) => ({
+    ...project,
+    testIgnore: [...baseIgnore, ...patternList(project.testIgnore), ...isolated],
+  }));
+  return [
+    ...parallelProjects,
+    {
+      name: ISOLATED_E2E_PROJECT_NAME,
+      testMatch: [...isolated],
+      testIgnore: [...baseIgnore, ...(realRun ? [NON_REAL_SPEC_PATTERN] : [])],
+      dependencies: parallelProjects.flatMap((project) =>
+        project.name === undefined ? [] : [project.name],
+      ),
+      fullyParallel: false,
+      workers: 1,
+      use: chromiumUse,
+    },
+  ];
+}
+
 export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConfig {
   const {
     port,
@@ -241,6 +303,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
     projects = [],
     testDir = "./e2e",
     testMatch,
+    isolatedSpecs,
     permissions,
     launchOptions,
   } = input;
@@ -257,13 +320,27 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
   const remote = remoteTargetFromEnv(process.env);
   const baseURL = remote?.baseURL ?? `http://localhost:${port}`;
   const realRun = isRealProviderRun();
+  const baseIgnore = [...screenshotSpecsIgnore(), ...(realRun ? [] : [REAL_SPEC_GLOB])];
+  const isolated = patternList(isolatedSpecs);
+  const chromiumUse = {
+    ...devices["Desktop Chrome"],
+    viewport: DESKTOP_VIEWPORT,
+    deviceScaleFactor: isScreenshotRun() ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
+  };
+  const e2eProjects = buildE2eProjects({
+    chromiumUse,
+    appProjects: projects,
+    isolated,
+    baseIgnore,
+    realRun,
+  });
 
   return defineConfig({
     testDir,
     ...(realRun
       ? { testMatch: REAL_SPEC_GLOB }
       : testMatch !== undefined && { testMatch: mutableTestMatch(testMatch) }),
-    testIgnore: [...screenshotSpecsIgnore(), ...(realRun ? [] : [REAL_SPEC_GLOB])],
+    testIgnore: baseIgnore,
     fullyParallel: true,
     forbidOnly: !!process.env["CI"],
     retries: 0,
@@ -281,17 +358,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       ...(permissions !== undefined && { permissions: [...permissions] }),
       ...(launchOptions !== undefined && { launchOptions }),
     },
-    projects: [
-      {
-        name: "chromium",
-        use: {
-          ...devices["Desktop Chrome"],
-          viewport: DESKTOP_VIEWPORT,
-          deviceScaleFactor: isScreenshotRun() ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
-        },
-      },
-      ...projects,
-    ],
+    projects: e2eProjects,
     ...(remote === undefined && {
       webServer: {
         command: serverCommand,
