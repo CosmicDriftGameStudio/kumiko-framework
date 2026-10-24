@@ -140,16 +140,24 @@ async function operationExists(db: DbConnection, id: string): Promise<boolean> {
   return (await fetchOne(db, esOperationsTable, { id })) !== undefined;
 }
 
+// An app declaring `search: "none"` has no docs to orphan, so only apps that may have a backend defer.
+function isDeferredWithoutSearchAdapter(
+  searchable: boolean,
+  deps: Pick<StepDeps, "searchAdapter" | "search">,
+): boolean {
+  return searchable && !deps.searchAdapter && deps.search !== "none";
+}
+
 async function runPart(
   part: StreamBackfillPart,
   deps: StepDeps,
 ): Promise<{ outcome: StreamBackfillPartOutcome; aggregatesMigrated: number }> {
-  const { db, registry, searchAdapter, log, search } = deps;
+  const { db, registry, log } = deps;
   const entity = part === "user" ? "user" : "tenant";
   const searchable =
     registry.getSearchableFields(entity).length > 0 ||
     registry.getSearchPayloadExtensions(entity).length > 0;
-  const blockedWithoutAdapter = searchable && !searchAdapter && search !== "none";
+  const blockedWithoutAdapter = isDeferredWithoutSearchAdapter(searchable, deps);
   const warnBlocked = () =>
     log.warn(
       `stream tenant backfill (${part}) has work but "${entity}" is searchable and this process has no search adapter; a process with one runs it`,
