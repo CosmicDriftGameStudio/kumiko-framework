@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   cpSync,
   existsSync,
@@ -227,8 +227,16 @@ function writeDuplicateTableSchemaFile(appCwd: string, tableName: string): void 
 
 describe("runSchemaCli — validate (static CI gate, no DB)", () => {
   let appCwd: string;
+  let prevDbUrl: string | undefined;
   beforeEach(() => {
     appCwd = freshAppCwd();
+    // CI exports DATABASE_URL for the whole run; with it validate would also check the live row-level
+    // security of a database other test files share, and these tests would depend on its state.
+    prevDbUrl = process.env["DATABASE_URL"];
+    delete process.env["DATABASE_URL"];
+  });
+  afterEach(() => {
+    if (prevDbUrl !== undefined) process.env["DATABASE_URL"] = prevDbUrl;
   });
 
   test("ENTITY_METAS listing a table twice → exit 1 naming the table", async () => {
@@ -555,6 +563,46 @@ describe("runSchemaCli — DB-backed paths", () => {
     expect(statusCode).toBe(0);
     expect(statusCap.log.join("\n")).toContain("0 pending");
 
+    rmSync(appCwd, { recursive: true, force: true });
+  });
+
+  test("validate with DATABASE_URL checks the live row-level security state", async () => {
+    const appCwd = freshAppCwd();
+    writeSchemaFile(appCwd, "tbl_validate_live");
+    await runSchemaCli(["generate", "validate_live"], appCwd, captureOut().out);
+    await runSchemaCli(["apply"], appCwd, captureOut().out);
+
+    const okCap = captureOut();
+    expect(await runSchemaCli(["validate"], appCwd, okCap.out)).toBe(0);
+    expect(okCap.log.join("\n")).toContain("row-level security: live database matches");
+
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE "tbl_rls_gap" ("id" uuid PRIMARY KEY, "tenant_id" uuid NOT NULL)`,
+    );
+    try {
+      const gapCap = captureOut();
+      expect(await runSchemaCli(["validate"], appCwd, gapCap.out)).toBe(1);
+      expect(gapCap.err.join("\n")).toContain("✗ row-level security");
+      expect(gapCap.err.join("\n")).toContain("tbl_rls_gap (ENABLE ROW LEVEL SECURITY");
+    } finally {
+      await asRawClient(testDb.db).unsafe(`DROP TABLE "tbl_rls_gap"`);
+      rmSync(appCwd, { recursive: true, force: true });
+    }
+  });
+
+  test("validate with an unreachable DATABASE_URL fails instead of skipping the live check", async () => {
+    const appCwd = freshAppCwd();
+    writeSchemaFile(appCwd, "tbl_validate_unreachable");
+    await runSchemaCli(["generate", "validate_unreachable"], appCwd, captureOut().out);
+
+    await withEnv(
+      { DATABASE_URL: "postgresql://placeholder:placeholder@localhost:1/placeholder" },
+      async () => {
+        const cap = captureOut();
+        expect(await runSchemaCli(["validate"], appCwd, cap.out)).toBe(1);
+        expect(cap.err.join("\n")).toContain("✗ row-level security");
+      },
+    );
     rmSync(appCwd, { recursive: true, force: true });
   });
 });
