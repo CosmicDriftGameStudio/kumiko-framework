@@ -22,8 +22,7 @@ import type { TenantDb, UncheckedSystemDb } from "./tenant-db-types.ts";
  * `ctx.db` plus `outsideTransaction`: the same tenant scoping, but never bound to the handler's
  * tx, so writes through it survive a rollback. `undefined` only in the denial phases
  * (member-resolution, before-transaction) and in platform-metering tenant mode; narrow with
- * `hasOutsideTransactionDb(ctx)` or take it via `requireOutsideTransactionDb(ctx)`
- * (`@cosmicdrift/kumiko-framework/db`). For atomic multi-statement writes outside the tx use
+ * `if (ctx.db.outsideTransaction)`. For atomic multi-statement writes outside the tx use
  * `runInOwnTransaction(ctx.db.outsideTransaction, fn)`; `fn` must not touch rows the handler's own
  * tx has locked. For r.systemScope() handlers `ctx.db` is a fail-closed guard; use
  * `systemDb.outsideTransaction`.
