@@ -1,6 +1,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { generateMigration } from "../db/index.ts";
+import {
+  assertRowLevelSecurityTableState,
+  createDbConnection,
+  generateMigration,
+} from "../db/index.ts";
+import { knownTablesOf } from "../db/known-table-names.ts";
 import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
 import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../db/replay-migration-sql.ts";
 
@@ -86,6 +91,46 @@ function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): boolean {
   }
 }
 
+// 4. Live row-level security table state — the table half of the boot check. Only with a DATABASE_URL;
+// without one the command stays database-free.
+async function checkLiveRowLevelSecurity(
+  out: SchemaCliOut,
+  schemaMod: SchemaMod,
+): Promise<boolean> {
+  const dbUrl = process.env["DATABASE_URL"];
+  if (!dbUrl) {
+    out.log("  · row-level security: skipped — set DATABASE_URL to check the live database.");
+    return true;
+  }
+  let features: ReturnType<typeof featureDefinitionsOf>;
+  try {
+    features = featureDefinitionsOf(schemaMod.features);
+  } catch {
+    // skip: the boot check already reported the unreadable FEATURES export
+    return true;
+  }
+  const knownTables = features === undefined ? { has: () => true } : knownTablesOf(features);
+  const { db, close } = createDbConnection({
+    url: dbUrl,
+    maxConnections: 1,
+    rowLevelSecurity: schemaMod.rowLevelSecurity,
+  });
+  try {
+    await assertRowLevelSecurityTableState(db, schemaMod.rowLevelSecurity, knownTables);
+    out.log("  ✓ row-level security: live database matches the configured mode");
+    return true;
+  } catch (e) {
+    out.err(`  ✗ row-level security: ${describeThrown(e)}`);
+    return false;
+  } finally {
+    try {
+      await close();
+    } catch {
+      // The check result is already reported; a failing close must not hide it.
+    }
+  }
+}
+
 type ReplayMismatches = ReturnType<typeof diffReplayAgainstSnapshot>;
 
 function reportMigrationContentMismatches(out: SchemaCliOut, mismatches: ReplayMismatches): void {
@@ -157,6 +202,8 @@ function checkMigrationContentDrift(
 //      Layer 1 alone misses this: it only compares ENTITY_METAS to the
 //      snapshot, never the snapshot to the SQL that's supposed to have
 //      produced it.
+//   4. live row-level security (only with DATABASE_URL): the boot's
+//      table-state check against the real database (not the role: that is a boot-time property).
 // The DB-level gate (assertKumikoSchemaCurrent) stays at boot/deploy.
 export async function runValidateCommand(ctx: SchemaCliContext): Promise<number> {
   const schemaMod = await loadSchemaModOrReport(ctx);
@@ -165,5 +212,6 @@ export async function runValidateCommand(ctx: SchemaCliContext): Promise<number>
   const schemaOk = checkSchemaDrift(ctx, schemaMod, prevSnapshot);
   const bootOk = checkBootValidity(ctx.out, schemaMod);
   const migrationsOk = checkMigrationContentDrift(ctx, prevSnapshot);
-  return schemaOk && bootOk && migrationsOk ? 0 : 1;
+  const rowLevelSecurityOk = await checkLiveRowLevelSecurity(ctx.out, schemaMod);
+  return schemaOk && bootOk && migrationsOk && rowLevelSecurityOk ? 0 : 1;
 }

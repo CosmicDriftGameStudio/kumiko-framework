@@ -77,6 +77,15 @@ export async function addMissingIndexes(
 }
 
 /**
+ * Re-applies the row-level security DDL on a table that already exists. The create functions of
+ * framework tables skip the push for existing tables, so databases created before row-level
+ * security was switched on would never get the policies. Idempotent; no-op unless the mode is "on".
+ */
+export async function ensureTableRowLevelSecurity(db: DbConnection, table: unknown): Promise<void> {
+  if (rowLevelSecurityModeOf(db) === "on") await applyTableRowLevelSecurity(db, tableToMeta(table));
+}
+
+/**
  * Bypass: pushes table definitions to the database directly. Produces
  * CREATE TABLE IF NOT EXISTS + CREATE INDEX statements via renderTableDdl
  * and executes them via db/queries/test-stack. Idempotent re-runs are safe.
