@@ -1326,8 +1326,9 @@
     },
   },
   "trustedDependencies": [
-    "msgpackr-extract",
     "@parcel/watcher",
+    "msgpackr-extract",
+    "puppeteer",
   ],
   "overrides": {
     "@parcel/watcher": "2.6.0",
