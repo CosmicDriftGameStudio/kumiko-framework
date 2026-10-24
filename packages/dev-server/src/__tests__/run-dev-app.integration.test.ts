@@ -314,7 +314,6 @@ describe("runDevApp — session boot gate (#2027)", () => {
     email: "session-gate-dev@example.eu",
     password: "test-pw-strong-1234",
     displayName: "Admin",
-    emailVerified: true,
     memberships: [
       {
         tenantId: "00000000-0000-4000-8000-000000000002" as TenantId,

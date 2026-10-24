@@ -191,6 +191,39 @@ function foreignMovedNames(declarations: readonly Node[]): string[] {
   );
 }
 
+interface StructuralContextParameter {
+  readonly annotation: Node;
+  readonly collected: Collected;
+  readonly foreign: string[];
+}
+
+function structuralContextParameter(
+  counters: Counters,
+  parameter: Node,
+): StructuralContextParameter | undefined {
+  if (!Node.isParameterDeclaration(parameter)) return undefined;
+  const annotation = parameter.getTypeNode();
+  // skip: AppContext is handled by the hook rewrite, a real context already carries namespaces
+  if (annotation === undefined || appContextReference(annotation) !== undefined) return undefined;
+  // skip: other names stay with the structural-params report, only ctx and context are read as contexts
+  if (!isContextNamedReceiver(parameter.getNameNode())) return undefined;
+  if (receiverOf(parameter.getType()).kind !== "none") return undefined;
+  const collected: Collected = { owners: [], foreignDeclarations: [] };
+  collect(annotation, new Set(), collected);
+  const foreign = foreignMovedNames(collected.foreignDeclarations);
+  const hasLocal = collected.owners.some((owner) => movedSignatures(owner).length > 0);
+  if ((!hasLocal && foreign.length === 0) || !receivesContext(counters, parameter, new Set())) {
+    return undefined;
+  }
+  return { annotation, collected, foreign };
+}
+
+// The structural-params report would repeat what the rewrite of this parameter already fixes.
+export function isRewrittenStructuralParameter(counters: Counters, parameter: Node): boolean {
+  const found = structuralContextParameter(counters, parameter);
+  return found !== undefined && found.foreign.length === 0;
+}
+
 // A hand-written structural type (alias, interface, intersection or inline literal) that declares
 // flat context members follows the context into its namespaces, and so does the parameter's body.
 export function planStructuralContextParameter(
@@ -198,20 +231,9 @@ export function planStructuralContextParameter(
   counters: Counters,
   parameter: Node,
 ): boolean {
-  if (!Node.isParameterDeclaration(parameter)) return false;
-  const annotation = parameter.getTypeNode();
-  // skip: AppContext is handled by the hook rewrite, a real context already carries namespaces
-  if (annotation === undefined || appContextReference(annotation) !== undefined) return false;
-  // skip: other names stay with the structural-params report, only ctx and context are read as contexts
-  if (!isContextNamedReceiver(parameter.getNameNode())) return false;
-  if (receiverOf(parameter.getType()).kind !== "none") return false;
-  const collected: Collected = { owners: [], foreignDeclarations: [] };
-  collect(annotation, new Set(), collected);
-  const foreign = foreignMovedNames(collected.foreignDeclarations);
-  const hasLocal = collected.owners.some((owner) => movedSignatures(owner).length > 0);
-  if ((!hasLocal && foreign.length === 0) || !receivesContext(counters, parameter, new Set())) {
-    return false;
-  }
+  const found = structuralContextParameter(counters, parameter);
+  if (found === undefined) return false;
+  const { annotation, collected, foreign } = found;
   if (foreign.length > 0) {
     plan.flagManual(
       annotation,

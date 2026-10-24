@@ -81,7 +81,7 @@ const CASES: readonly Case[] = [
   },
   {
     name: "structural-types",
-    rewrites: 9,
+    rewrites: 11,
     manual: [
       [
         40,

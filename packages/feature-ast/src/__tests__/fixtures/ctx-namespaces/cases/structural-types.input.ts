@@ -45,7 +45,14 @@ export async function notAContext(ctx: Unrelated) {
   return ctx.query("text");
 }
 
+type OptionalRedis = { readonly redis?: { get(key: string): Promise<string | null> } };
+
+export async function readsRedis(ctx: OptionalRedis) {
+  return ctx.redis?.get("key");
+}
+
 export async function handler(ctx: HandlerContext) {
+  await readsRedis(ctx);
   await handsOn(ctx);
   await intersected(ctx);
   await viaInterface(ctx);

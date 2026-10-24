@@ -9,6 +9,7 @@ import { appContextReference, type Counters } from "./ctx-namespaces-annotations
 import { contextReceiver } from "./ctx-namespaces-contracts.ts";
 import type { EditPlan } from "./ctx-namespaces-edits.ts";
 import { flatMemberTarget } from "./ctx-namespaces-mapping.ts";
+import { isRewrittenStructuralParameter } from "./ctx-namespaces-structural-types.ts";
 
 // A structural parameter that declares a moved member as optional type-checks against the new
 // context and silently reads undefined at runtime; tsc cannot see it.
@@ -47,6 +48,8 @@ export function planStructuralArguments(
       : undefined;
     // skip: AppContext parameters are reported by planAppContextArguments
     if (appContextReference(annotation) !== undefined) return;
+    // skip: the structural-types rewrite moves that parameter's members in this run
+    if (declaration !== undefined && isRewrittenStructuralParameter(counters, declaration)) return;
     // skip: only Kumiko handler or job contexts lost flat members
     if (contextReceiver(counters, argument).kind !== "context") return;
     const names = optionalMovedMembers(parameter.getTypeAtLocation(call), argument.getType());
