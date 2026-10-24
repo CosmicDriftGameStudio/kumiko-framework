@@ -32,6 +32,7 @@ import {
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { esOperationsTable } from "@cosmicdrift/kumiko-framework/es-ops";
 import {
+  append,
   createArchivedStreamsTable,
   createEventsTable,
   eventsTable,
@@ -55,6 +56,7 @@ const SESSION_TENANT = testTenantId(7);
 const MEMBER_TENANT = testTenantId(31);
 const TENANT_ALPHA = testTenantId(41);
 const TENANT_CANARY = testTenantId(44);
+const TENANT_LATE = testTenantId(46);
 
 const { systemStream: _systemStream, tenancy: _tenancy, ...legacyTenantEntity } = tenantEntity;
 const legacyTenantExecutor = createEventStoreExecutor(tenantTable, legacyTenantEntity, {
@@ -83,6 +85,21 @@ async function legacyCreateTenant(id: TenantId, key: string, name: string): Prom
 async function streamTenants(aggregateId: string): Promise<string[]> {
   const rows = await selectMany<{ tenantId: string }>(testDb, eventsTable, { aggregateId });
   return rows.map((row) => row.tenantId);
+}
+
+async function createdPayloadOf(
+  aggregateId: string,
+  key: string,
+  name: string,
+): Promise<Record<string, unknown>> {
+  const rows = await selectMany<{ payload: Record<string, unknown>; type: string }>(
+    testDb,
+    eventsTable,
+    { aggregateId },
+  );
+  const created = rows.find((row) => row.type === "tenant.created");
+  if (!created) throw new Error("template tenant.created event missing");
+  return { ...created.payload, key, name };
 }
 
 async function bootProdApp(): Promise<ProdAppHandle> {
@@ -139,7 +156,7 @@ afterAll(async () => {
 });
 
 describe("runProdApp stream tenant backfill", () => {
-  test("the first boot moves the legacy streams and writes the markers, the second boot does no work", async () => {
+  test("the first boot moves the legacy streams and writes the markers, later boots move late legacy streams and otherwise do nothing", async () => {
     await legacyCreateTenant(TENANT_ALPHA, "alpha", "Alpha Freight");
     const membershipTdb = createTenantDb({ db: testDb, tenantId: MEMBER_TENANT, mode: "system" });
     const membership = await membershipExecutor.create(
@@ -162,18 +179,30 @@ describe("runProdApp stream tenant backfill", () => {
     );
     expect(memberships.map((row) => row.tenantId)).toEqual([MEMBER_TENANT]);
     expect(await streamTenants(memberships[0]?.id ?? "")).toEqual([MEMBER_TENANT]);
-    const markers = await selectMany<{ id: string }>(testDb, esOperationsTable, {});
-    expect(markers.map((row) => row.id).sort()).toEqual([
-      "stream-tenant-backfill:tenant",
-      "stream-tenant-backfill:user",
-    ]);
-
     await handle.stop();
     handle = undefined;
 
-    // Planted after the markers exist: a scan would move it, the short-circuit leaves it.
+    // An old pod writes a legacy stream after the first boot: the next boot moves it.
     await legacyCreateTenant(TENANT_CANARY, "canary", "Canary Freight");
     handle = await bootProdApp();
-    expect(await streamTenants(TENANT_CANARY)).toEqual([SESSION_TENANT]);
+    expect(await streamTenants(TENANT_CANARY)).toEqual([SYSTEM_TENANT_ID]);
+    await handle.stop();
+    handle = undefined;
+
+    // Boot 3 has nothing to move and does not rebuild: a SYSTEM-stream event stays unprojected.
+    await append(testDb, {
+      aggregateId: TENANT_LATE,
+      aggregateType: "tenant",
+      tenantId: SYSTEM_TENANT_ID,
+      expectedVersion: 0,
+      type: "tenant.created",
+      payload: await createdPayloadOf(TENANT_ALPHA, "late", "Late Freight"),
+      metadata: { userId: "test-legacy" },
+    });
+    const rowsBefore = (await selectMany(testDb, tenantTable, {})).length;
+    handle = await bootProdApp();
+    expect((await selectMany(testDb, tenantTable, {})).length).toBe(rowsBefore);
+    // A clean boot writes nothing: no pending row is left, and none was ever needed.
+    expect(await selectMany(testDb, esOperationsTable, {})).toEqual([]);
   });
 });

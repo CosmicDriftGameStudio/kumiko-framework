@@ -59,6 +59,9 @@ export type StreamBackfillOptions = {
   // events_tenant_type_idx instead of grouping every event of the type. Streams on a tenant
   // outside the list are not found; omit it for the full scan.
   readonly scanTenantIds?: readonly string[];
+  // Called once when the scan found candidates, before the first move. "skip" ends the run
+  // with nothing moved (this process cannot do the work); a throw propagates to the caller.
+  readonly onFirstCandidate?: () => Promise<"proceed" | "skip">;
 };
 
 type CandidateRow = {
@@ -72,6 +75,11 @@ export async function backfillAggregateStreamTenants(
   options: StreamBackfillOptions,
 ): Promise<StreamBackfillResult> {
   const rows = await readCandidateRows(db, options);
+  if (rows.length > 0 && options.onFirstCandidate) {
+    if ((await options.onFirstCandidate()) === "skip") {
+      return { aggregatesMigrated: 0, eventsMigrated: 0, failed: [] };
+    }
+  }
 
   let aggregatesMigrated = 0;
   let eventsMigrated = 0;
@@ -114,7 +122,13 @@ async function readCandidateRows(
   if (options.target.kind === "system") params.push(SYSTEM_TENANT_ID);
   let scanSql = "";
   if (options.scanTenantIds) {
-    params.push(toPostgresArrayLiteral(options.scanTenantIds));
+    // Events already on the SYSTEM target are not legacy; leaving them out keeps the scan to
+    // the legacy events only. A payload target differs per aggregate, so nothing is left out.
+    const scanned =
+      options.target.kind === "system"
+        ? options.scanTenantIds.filter((id) => id !== SYSTEM_TENANT_ID)
+        : options.scanTenantIds;
+    params.push(toPostgresArrayLiteral(scanned));
     scanSql = ` AND e."tenant_id" = ANY($${params.length}::uuid[])`;
   }
   // An aggregate whose earliest event has no payload tenant yields a NULL

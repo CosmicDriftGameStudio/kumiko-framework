@@ -11,6 +11,7 @@ import {
 import { backfillAggregateStreamTenants } from "@cosmicdrift/kumiko-bundled-features/shared/stream-tenant-backfill";
 import {
   createTenantFeature,
+  TenantHandlers,
   tenantEntity,
   tenantMembershipEntity,
   tenantMembershipsTable,
@@ -25,18 +26,19 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   createEventStoreExecutor,
   createTenantDb,
-  deleteMany,
   fetchOne,
   insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
+  type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEsOperationsTable, esOperationsTable } from "@cosmicdrift/kumiko-framework/es-ops";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SEARCH_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -49,7 +51,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   runStreamTenantBackfillOnBoot,
-  streamBackfillMarkerId,
   streamBackfillPendingId,
 } from "../stream-tenant-backfill-on-boot";
 
@@ -64,6 +65,7 @@ const TENANT_CANARY = testTenantId(44);
 const TENANT_ORPHAN = testTenantId(45);
 const ORPHAN_ACTOR_TENANT = testTenantId(99);
 const BROKEN_MEMBERSHIP_ID = testTenantId(77);
+const TENANT_DELTA = testTenantId(47);
 const LEGACY_STREAMS = 5; // three tenants, two memberships
 
 const { systemStream: _systemStream, tenancy: _tenancy, ...legacyTenantEntity } = tenantEntity;
@@ -75,6 +77,9 @@ const membershipExecutor = createEventStoreExecutor(
   tenantMembershipEntity,
   { entityName: "tenant-membership" },
 );
+
+const admin: SessionUser = { ...TestUsers.systemAdmin, tenantId: SESSION_TENANT };
+const DETAIL = "tenant:query:tenant:detail";
 
 let stack: TestStack;
 
@@ -111,14 +116,31 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-function runStep() {
+function runStep(
+  opts: { withAdapter?: boolean; log?: ReturnType<typeof createFallbackLogger> } = {},
+) {
   return runStreamTenantBackfillOnBoot({
     db: stack.db,
     registry: stack.registry,
-    extraContext: { searchAdapter: stack.search },
-    envSource: {},
+    extraContext: opts.withAdapter === false ? {} : { searchAdapter: stack.search },
     processName: "stream-backfill-test",
+    ...(opts.log && { log: opts.log }),
   });
+}
+
+function recordingLogger(): {
+  log: ReturnType<typeof createFallbackLogger>;
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const log = createFallbackLogger("stream-backfill-test", {
+    error: () => undefined,
+    info: () => undefined,
+    warn: (message: string) => {
+      warnings.push(message);
+    },
+  });
+  return { log, warnings };
 }
 
 async function legacyCreateTenant(
@@ -195,7 +217,7 @@ async function operationIds(): Promise<string[]> {
 }
 
 describe("runStreamTenantBackfillOnBoot", () => {
-  test("moves everything once; the second run short-circuits on the markers and does no work", async () => {
+  test("moves everything, fixes legacy streams written later, and does nothing when none are left", async () => {
     await seedLegacyEstate();
 
     const first = await runStep();
@@ -204,28 +226,29 @@ describe("runStreamTenantBackfillOnBoot", () => {
     expect(first.aggregatesMigrated).toBe(LEGACY_STREAMS);
     expect(await tenantRowTenants()).toEqual(Array(3).fill(SYSTEM_TENANT_ID));
     expect(await searchHits(SESSION_TENANT, "alpha")).toEqual([]);
-    expect(await operationIds()).toEqual([
-      streamBackfillMarkerId("tenant"),
-      streamBackfillMarkerId("user"),
-    ]);
+    expect(await operationIds()).toEqual([]);
 
-    // A legacy stream that appears after the marker is untouched: the step does no scan at all.
+    // An old pod writes a legacy stream after the first boot: the next boot moves it.
     await legacyCreateTenant(SESSION_TENANT, TENANT_CANARY, "canary", "Canary Freight");
     const second = await runStep();
-    expect(second).toEqual({
-      skippedByEnv: false,
-      user: "marker-hit",
-      tenant: "marker-hit",
-      aggregatesMigrated: 0,
-    });
-    expect(await streamTenants(TENANT_CANARY)).toEqual([SESSION_TENANT]);
-
-    // Deleting the marker is the documented manual re-run.
-    await deleteMany(stack.db, esOperationsTable, { id: streamBackfillMarkerId("tenant") });
-    const third = await runStep();
-    expect(third.tenant).toBe("completed");
-    expect(third.aggregatesMigrated).toBe(1);
+    expect(second.aggregatesMigrated).toBe(1);
     expect(await streamTenants(TENANT_CANARY)).toEqual([SYSTEM_TENANT_ID]);
+    expect(await tenantRowTenants()).toHaveLength(4);
+
+    // Nothing left: no move and no rebuild (a SYSTEM-stream event stays unprojected).
+    await append(stack.db, {
+      aggregateId: TENANT_ORPHAN,
+      aggregateType: "tenant",
+      tenantId: SYSTEM_TENANT_ID,
+      expectedVersion: 0,
+      type: "tenant.created",
+      payload: await createdPayloadOf(TENANT_ALPHA, "late", "Late Freight"),
+      metadata: { userId: "test-legacy" },
+    });
+    const third = await runStep();
+    expect(third.aggregatesMigrated).toBe(0);
+    expect(await tenantRowTenants()).toHaveLength(4);
+    expect(await operationIds()).toEqual([]);
   });
 
   test("a crash after the moves is repaired through the derived-pending row", async () => {
@@ -262,16 +285,13 @@ describe("runStreamTenantBackfillOnBoot", () => {
     expect(await searchHits(SYSTEM_TENANT_ID, "alpha")).toEqual([TENANT_ALPHA]);
     expect(await searchHits(SESSION_TENANT, "alpha")).toEqual([]);
     expect(await searchHits(FIRST_TENANT, "beta")).toEqual([]);
-    expect(await operationIds()).toEqual([
-      streamBackfillMarkerId("tenant"),
-      streamBackfillMarkerId("user"),
-    ]);
+    expect(await operationIds()).toEqual([]);
     expect(
       await fetchOne(stack.db, esOperationsTable, { id: streamBackfillPendingId("tenant") }),
     ).toBe(undefined);
   });
 
-  test("two parallel boots: the lock serializes them, the second finds the markers", async () => {
+  test("two parallel boots: the lock serializes them, the second finds nothing left", async () => {
     await seedLegacyEstate();
 
     const [a, b] = await Promise.all([runStep(), runStep()]);
@@ -282,10 +302,7 @@ describe("runStreamTenantBackfillOnBoot", () => {
       expect(outcome.tenant === "failed" || outcome.user === "failed").toBe(false);
     }
     expect(await tenantRowTenants()).toEqual(Array(3).fill(SYSTEM_TENANT_ID));
-    expect(await operationIds()).toEqual([
-      streamBackfillMarkerId("tenant"),
-      streamBackfillMarkerId("user"),
-    ]);
+    expect(await operationIds()).toEqual([]);
   });
 
   test("a legacy stream on a tenant id that has no tenant row and no row carrying it is found", async () => {
@@ -328,7 +345,7 @@ describe("runStreamTenantBackfillOnBoot", () => {
     const first = await runStep();
     expect(first.tenant).toBe("failed");
     expect(await tenantRowTenants()).toEqual(Array(3).fill(SYSTEM_TENANT_ID));
-    expect(await operationIds()).toEqual([streamBackfillMarkerId("user")]);
+    expect(await operationIds()).toEqual([]);
 
     // A rebuild on the next boot would project this SYSTEM-stream tenant into a read row.
     await append(stack.db, {
@@ -345,20 +362,56 @@ describe("runStreamTenantBackfillOnBoot", () => {
     expect(second.tenant).toBe("failed");
     expect(second.aggregatesMigrated).toBe(0);
     expect(await tenantRowTenants()).toHaveLength(3);
-    expect(await operationIds()).toEqual([streamBackfillMarkerId("user")]);
+    expect(await operationIds()).toEqual([]);
   });
 
-  test("the env opt-out does nothing", async () => {
-    await seedLegacyEstate();
-    const outcome = await runStreamTenantBackfillOnBoot({
-      db: stack.db,
-      registry: stack.registry,
-      extraContext: { searchAdapter: stack.search },
-      envSource: { KUMIKO_SKIP_STREAM_TENANT_BACKFILL: "1" },
-      processName: "stream-backfill-test",
-    });
-    expect(outcome.skippedByEnv).toBe(true);
+  test("without a search adapter the step warns only when there is work, and writes nothing", async () => {
+    const clean = recordingLogger();
+    const idle = await runStep({ withAdapter: false, log: clean.log });
+    expect(idle.tenant).toBe("completed");
+    expect(clean.warnings).toEqual([]);
     expect(await operationIds()).toEqual([]);
+
+    await seedLegacyEstate();
+    const blocked = recordingLogger();
+    const outcome = await runStep({ withAdapter: false, log: blocked.log });
+    expect(outcome.tenant).toBe("no-search-adapter");
+    expect(blocked.warnings.length).toBeGreaterThan(0);
     expect(await streamTenants(TENANT_ALPHA)).toEqual([SESSION_TENANT]);
+    expect(await operationIds()).toEqual([]);
+
+    expect((await runStep()).aggregatesMigrated).toBe(LEGACY_STREAMS);
+  });
+
+  test("a split stream (legacy v1 on the session tenant, later events on SYSTEM) is merged in event order", async () => {
+    await runStep();
+    await legacyCreateTenant(SESSION_TENANT, TENANT_DELTA, "delta", "Delta Freight");
+    await drainEventConsumers(stack, [SEARCH_CONSUMER_NAME]);
+    await stack.http.writeOk(TenantHandlers.disable, { id: TENANT_DELTA }, admin);
+    expect(new Set(await streamTenants(TENANT_DELTA))).toEqual(
+      new Set([SESSION_TENANT, SYSTEM_TENANT_ID]),
+    );
+    expect(await searchHits(SESSION_TENANT, "delta")).toEqual([TENANT_DELTA]);
+
+    const outcome = await runStep();
+
+    expect(outcome.aggregatesMigrated).toBe(1);
+    const events = await selectMany<{ id: bigint; tenantId: string; version: number }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: TENANT_DELTA },
+    );
+    const ordered = [...events].sort((a, b) => (a.id < b.id ? -1 : 1));
+    expect(ordered.map((e) => e.tenantId)).toEqual(ordered.map(() => SYSTEM_TENANT_ID));
+    expect(ordered.map((e) => e.version)).toEqual(ordered.map((_, i) => i + 1));
+    const detail = await stack.http.queryOk<{ isEnabled: boolean; version: number }>(
+      DETAIL,
+      { id: TENANT_DELTA },
+      admin,
+    );
+    expect(detail.isEnabled).toBe(false);
+    expect(detail.version).toBe(ordered.length);
+    expect(await searchHits(SESSION_TENANT, "delta")).toEqual([]);
+    expect(await operationIds()).toEqual([]);
   });
 });

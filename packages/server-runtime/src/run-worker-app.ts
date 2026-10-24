@@ -229,13 +229,11 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
 async function backfillThenStartMetrics(
   boot: Extract<WorkerBootResult, { kind: "booted" }>,
   options: RunWorkerAppOptions,
-  envSource: Record<string, string | undefined>,
 ): Promise<ReturnType<typeof startWorkerMetricsServer> | undefined> {
   await runStreamTenantBackfillOnBoot({
     db: boot.db,
     registry: boot.registry,
     extraContext: boot.extraContext,
-    envSource,
     processName: "runWorkerApp",
     ...(options.databaseWait && { databaseWait: options.databaseWait }),
   });
@@ -290,7 +288,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   // hook, so a failing start() does not leak the listener.
   let metricsServer: ReturnType<typeof startWorkerMetricsServer> | undefined;
   try {
-    metricsServer = await backfillThenStartMetrics(boot, options, envSource);
+    metricsServer = await backfillThenStartMetrics(boot, options);
     await entrypoint.start();
   } catch (error) {
     // The boot failure is the actionable error; a close failure on a

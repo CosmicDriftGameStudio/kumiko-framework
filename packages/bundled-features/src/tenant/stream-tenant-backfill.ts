@@ -40,13 +40,24 @@ export type TenantStreamBackfillDeps = {
   readonly searchAdapter?: SearchAdapter;
   readonly derived?: DerivedStateMode;
   readonly scanTenantIds?: readonly string[];
+  readonly onFirstCandidate?: () => Promise<"proceed" | "skip">;
 };
 
 export async function backfillTenantStreamTenants(
   deps: TenantStreamBackfillDeps,
 ): Promise<TenantStreamBackfillResult> {
-  const { db, registry, searchAdapter, derived = "if-moved", scanTenantIds } = deps;
-  const scan = scanTenantIds ? { scanTenantIds } : {};
+  const {
+    db,
+    registry,
+    searchAdapter,
+    derived = "if-moved",
+    scanTenantIds,
+    onFirstCandidate,
+  } = deps;
+  const scan = {
+    ...(scanTenantIds && { scanTenantIds }),
+    ...(onFirstCandidate && { onFirstCandidate }),
+  };
   const searchCleanup = createSearchBucketCleanup(searchAdapter, TENANT_AGGREGATE);
 
   const tenants = await backfillAggregateStreamTenants(db, {

@@ -49,14 +49,23 @@ export async function backfillUserStreamTenantsWithDerivedState(deps: {
   readonly searchAdapter?: SearchAdapter;
   readonly derived?: DerivedStateMode;
   readonly scanTenantIds?: readonly string[];
+  readonly onFirstCandidate?: () => Promise<"proceed" | "skip">;
 }): Promise<UserStreamBackfillWithDerivedStateResult> {
-  const { db, registry, searchAdapter, derived = "if-moved", scanTenantIds } = deps;
+  const {
+    db,
+    registry,
+    searchAdapter,
+    derived = "if-moved",
+    scanTenantIds,
+    onFirstCandidate,
+  } = deps;
   const searchCleanup = createSearchBucketCleanup(searchAdapter, USER_AGGREGATE);
   const streams = await backfillAggregateStreamTenants(db, {
     aggregateType: USER_AGGREGATE,
     target: { kind: "system" },
     beforeMove: searchCleanup.beforeMove,
     ...(scanTenantIds && { scanTenantIds }),
+    ...(onFirstCandidate && { onFirstCandidate }),
   });
   const failures = stepFailures("user-streams", streams.failed);
   if (streams.aggregatesMigrated === 0 && derived === "if-moved") {

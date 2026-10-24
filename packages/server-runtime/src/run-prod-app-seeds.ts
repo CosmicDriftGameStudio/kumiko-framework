@@ -116,7 +116,6 @@ export async function runProdBootSeeds(
         db: connections.db,
         registry: composed.registry,
         extraContext: run.requestContext.extraContext,
-        envSource: config.envSource,
         processName: "runProdApp",
         ...(options.databaseWait && { databaseWait: options.databaseWait }),
       });
