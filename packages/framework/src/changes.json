@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "schema apply in the production image uses the runtime's row-level security mode",
+    "detail": "The app image ships only kumiko/migrations, not kumiko/schema.ts. Without the schema file `schema apply` ran with row-level security \"off\", so kumiko_events, kumiko_snapshots and kumiko_archived_streams were not healed and the boot of an app in \"on\" mode (the default) failed with \"framework tables without it\". Without a schema file apply now uses the same default as runProdApp. RunSchemaCliOptions takes an optional rowLevelSecurity, which wins over the schema file; the scaffolded bin/kumiko.ts passes appConfig.rowLevelSecurity, like bin/main.ts does for runProdApp. Apps that do not set rowLevelSecurity need no change. An app that sets rowLevelSecurity \"off\" and keeps a hand-written bin/kumiko.ts must pass rowLevelSecurity: \"off\" to runSchemaCli, otherwise apply enables row-level security on the framework tables and the app's \"off\" boot check fails."
+  },
+  {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "Projection rebuilds no longer report drift on timestamptz columns",
+    "detail": "Event payloads keep the microseconds of an instant, the live write stores milliseconds. A rebuild bound the payload's ISO string unchanged and wrote a different value, which the shadow diff reported as column drift. ISO instant strings bound to a timestamptz column are now truncated to milliseconds like Temporal.Instant values."
+  },
+  {
+    "version": "0.390.1",
+    "type": "improvement",
+    "title": "The live row-level security check of `kumiko check` covers only the app's own tables",
+    "detail": "`schema validate` (the boot step of `kumiko check`) checks the live database when DATABASE_URL is set. On a dev database several apps share it failed on the other apps' tables. It now checks the tables kumiko/schema.ts declares plus the framework tables; tables no feature declares any more are still reported by the boot check, which runs against the app's own database. An unreachable database still fails the check."
+  },
+  {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "kumiko-upgrade runs the codemods of its own feature-ast install",
+    "detail": "The kumiko-upgrade bins of kumiko-cli and kumiko-dev-server now look for the codemod scripts from their own package first, so a feature-ast copy hoisted above the app (for example in a workspace parent) can no longer supply codemods of another version. runUpgradeCli takes an optional codemodResolveFrom for that; without it the search still starts at the repo root."
+  },
+  {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "zod range moved to ^4.6.7",
+    "detail": "All framework packages and the scaffold template require zod ^4.6.7, which fixes GHSA-MRHX-C7XC-M3W5."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "Parallel writes in one handler no longer abort the transaction",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.390.1",
+    "type": "fix",
+    "title": "mailparser moved to a version without known nodemailer advisories",
+    "detail": "mailparser moves to ^3.12.4, which pins nodemailer 10.2.1, so apps no longer get nodemailer 10.0.13 through it."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated inboundProviderImapFeature constant is removed",
