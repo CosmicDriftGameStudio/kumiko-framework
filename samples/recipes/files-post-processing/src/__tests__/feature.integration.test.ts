@@ -143,7 +143,7 @@ describe("entry point 1 — declarative field variant", () => {
   });
 });
 
-describe("entry point 2 — imperative ctx.derivatives.variant() with region-blur", () => {
+describe("entry point 2 — imperative ctx.services.derivatives.variant() with region-blur", () => {
   test("set-cover derives a variant with no field declaration involved, and tracks order", async () => {
     const fileId = await uploadPhoto(null);
 
