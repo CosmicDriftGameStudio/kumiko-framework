@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "ts-morph": "^28.0.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

@@ -1,6 +1,7 @@
 import { extractPgError } from "../pg-error.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { PROJECTION_REBUILD_SCHEMA } from "./shadow-swap.ts";
 import { quoteTableIdent } from "./table-ops.ts";
 
@@ -131,7 +132,7 @@ export async function transferPublicSchemaOwnership(db: AnyDb, owner: string): P
        JOIN pg_roles r ON r.oid = c.relowner
       WHERE n.nspname = ANY($2::text[]) AND c.relkind IN ('r', 'p', 'S', 'v', 'm') AND r.rolname <> $1
         AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype IN ('a', 'i'))`,
-    [owner, ownedSchemas],
+    [owner, toPostgresArrayLiteral(ownedSchemas)],
   );
   for (const { nspname, relname, relkind } of relations) {
     const kind = OWNED_RELATION_KINDS[relkind];

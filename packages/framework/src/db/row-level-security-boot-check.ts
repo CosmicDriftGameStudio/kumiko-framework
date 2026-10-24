@@ -38,8 +38,18 @@ function listingOf(entries: readonly { table: string; missing: readonly string[]
   return entries.map((entry) => `${entry.table} (${entry.missing.join(", ")})`).join("; ");
 }
 
-async function assertAllTenantTablesProtected(db: AnyDb, knownTables: KnownTables): Promise<void> {
+// "database": the boot connects to the app's own database, so a table no feature declares is a
+// leftover of this app. "declared tables": `schema validate` may run against a dev database several
+// apps share, where undeclared tables belong to the other apps and must not fail this one.
+export type RowLevelSecurityCheckScope = "database" | "declared tables";
+
+async function assertAllTenantTablesProtected(
+  db: AnyDb,
+  knownTables: KnownTables,
+  scope: RowLevelSecurityCheckScope,
+): Promise<void> {
   const incomplete = (await readTenantTablesRowLevelSecurity(db))
+    .filter((table) => scope === "database" || knownTables.has(table.tableName))
     .map((table) => ({ table: table.tableName, missing: missingPartsOf(table) }))
     .filter((entry) => entry.missing.length > 0);
   // skip: every tenant table is protected
@@ -71,8 +81,14 @@ async function assertAllTenantTablesProtected(db: AnyDb, knownTables: KnownTable
   });
 }
 
-async function assertNoLiveRowLevelSecurity(db: AnyDb): Promise<void> {
-  const tables = await readTablesWithRowLevelSecurityEnabled(db);
+async function assertNoLiveRowLevelSecurity(
+  db: AnyDb,
+  knownTables: KnownTables,
+  scope: RowLevelSecurityCheckScope,
+): Promise<void> {
+  const tables = (await readTablesWithRowLevelSecurityEnabled(db)).filter(
+    (table) => scope === "database" || knownTables.has(table),
+  );
   // skip: no live row-level security to disable
   if (tables.length === 0) return;
   throw new InternalError({
@@ -86,13 +102,14 @@ export async function assertRowLevelSecurityTableState(
   db: AnyDb,
   mode: RowLevelSecurityMode,
   knownTables: KnownTables,
+  scope: RowLevelSecurityCheckScope = "database",
 ): Promise<void> {
   if (mode === "off") {
-    await assertNoLiveRowLevelSecurity(db);
+    await assertNoLiveRowLevelSecurity(db, knownTables, scope);
     // skip: off-mode check done
     return;
   }
-  await assertAllTenantTablesProtected(db, knownTables);
+  await assertAllTenantTablesProtected(db, knownTables, scope);
 }
 
 export async function assertRowLevelSecurityBootState(

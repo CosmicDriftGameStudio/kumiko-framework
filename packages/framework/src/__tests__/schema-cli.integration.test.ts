@@ -566,9 +566,9 @@ describe("runSchemaCli — DB-backed paths", () => {
     rmSync(appCwd, { recursive: true, force: true });
   });
 
-  test("validate with DATABASE_URL checks the live row-level security state", async () => {
+  test("validate with DATABASE_URL checks the live row-level security state of the app's tables", async () => {
     const appCwd = freshAppCwd();
-    writeSchemaFile(appCwd, "tbl_validate_live");
+    writeSchemaFile(appCwd, "tbl_validate_live", "tenant_id");
     await runSchemaCli(["generate", "validate_live"], appCwd, captureOut().out);
     await runSchemaCli(["apply"], appCwd, captureOut().out);
 
@@ -577,15 +577,37 @@ describe("runSchemaCli — DB-backed paths", () => {
     expect(okCap.log.join("\n")).toContain("row-level security: live database matches");
 
     await asRawClient(testDb.db).unsafe(
-      `CREATE TABLE "tbl_rls_gap" ("id" uuid PRIMARY KEY, "tenant_id" uuid NOT NULL)`,
+      `ALTER TABLE "tbl_validate_live" NO FORCE ROW LEVEL SECURITY, DISABLE ROW LEVEL SECURITY`,
     );
     try {
       const gapCap = captureOut();
       expect(await runSchemaCli(["validate"], appCwd, gapCap.out)).toBe(1);
       expect(gapCap.err.join("\n")).toContain("✗ row-level security");
-      expect(gapCap.err.join("\n")).toContain("tbl_rls_gap (ENABLE ROW LEVEL SECURITY");
+      expect(gapCap.err.join("\n")).toContain("tbl_validate_live (ENABLE ROW LEVEL SECURITY");
     } finally {
-      await asRawClient(testDb.db).unsafe(`DROP TABLE "tbl_rls_gap"`);
+      await asRawClient(testDb.db).unsafe(`DROP TABLE "tbl_validate_live"`);
+      rmSync(appCwd, { recursive: true, force: true });
+    }
+  });
+
+  test("validate on a database shared with another app ignores that app's unprotected tables", async () => {
+    const appCwd = freshAppCwd();
+    writeSchemaFile(appCwd, "tbl_validate_shared", "tenant_id");
+    await runSchemaCli(["generate", "validate_shared"], appCwd, captureOut().out);
+    await runSchemaCli(["apply"], appCwd, captureOut().out);
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE "tbl_other_app" ("id" uuid PRIMARY KEY, "tenant_id" uuid NOT NULL)`,
+    );
+    try {
+      const cap = captureOut();
+      expect(await runSchemaCli(["validate"], appCwd, cap.out)).toBe(0);
+      expect(cap.log.join("\n")).toContain(
+        "tables of other apps sharing the database are not checked",
+      );
+      expect(cap.err.join("\n")).not.toContain("tbl_other_app");
+    } finally {
+      await asRawClient(testDb.db).unsafe(`DROP TABLE "tbl_other_app"`);
+      await asRawClient(testDb.db).unsafe(`DROP TABLE "tbl_validate_shared"`);
       rmSync(appCwd, { recursive: true, force: true });
     }
   });

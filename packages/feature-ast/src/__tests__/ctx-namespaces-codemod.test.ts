@@ -271,6 +271,42 @@ describe("ctx-namespaces CLI", () => {
     expect(exitCode).toBe(0);
   });
 
+  it("rewrites a structural helper whose handler-context caller sits in another file", async () => {
+    const root = stageProject();
+    const helper = join(root, "src", "a-rows.ts");
+    const caller = join(root, "src", "b-handler.ts");
+    writeFileSync(
+      helper,
+      [
+        "type RowsContext = { readonly query: (qn: string, payload: unknown) => Promise<unknown> };",
+        "",
+        "export async function loadRows(ctx: RowsContext) {",
+        '  return ctx.query("rows:query:list", {});',
+        "}",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      caller,
+      [
+        'import type { HandlerContext } from "@cosmicdrift/kumiko-types/handlers";',
+        'import { loadRows } from "./a-rows.ts";',
+        "",
+        "export async function handler(ctx: HandlerContext) {",
+        "  return loadRows(ctx);",
+        "}",
+        "",
+      ].join("\n"),
+    );
+
+    const { exitCode } = await runCli(root, []);
+
+    expect(exitCode).toBe(0);
+    const migrated = readFileSync(helper, "utf8");
+    expect(migrated).toContain('ctx.dispatch.query("rows:query:list", {})');
+    expect(migrated).toContain("readonly dispatch: {");
+  });
+
   it("rejects unknown flags with exit 2", async () => {
     const root = stageProject();
 

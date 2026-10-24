@@ -9,8 +9,9 @@ import { applicationRoleUrlOf, createTestDb, type TestDb } from "@cosmicdrift/ku
 import { assertRowLevelSecurityBootState } from "../../db/index.ts";
 import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
 import { asRawClient } from "../../db/query.ts";
+import { runSchemaCli } from "../../schema-cli.ts";
 import { runApplyCommand } from "../apply-command.ts";
-import type { SchemaCliContext } from "../shared.ts";
+import { loadRowLevelSecurityModeOrReport, type SchemaCliContext } from "../shared.ts";
 import { runValidateCommand } from "../validate-command.ts";
 
 const TENANT_FRAMEWORK_TABLES = [
@@ -96,6 +97,37 @@ describe("framework tables created before row-level security was on", () => {
 
     expect(await runApplyCommand(ctx)).toBe(0);
     await assertRowLevelSecurityBootState(testDb.db, "on", ALL_KNOWN);
+  });
+
+  test("the prod image's apply (no kumiko/schema.ts, features passed) heals in the runtime's default mode", async () => {
+    process.env["DATABASE_URL"] = applicationRoleUrlOf(baseUrl, testDb.dbName);
+    const prodAppDir = mkdtempSync(join(tmpdir(), "kumiko-rls-prod-apply-"));
+    mkdirSync(join(prodAppDir, "kumiko", "migrations"), { recursive: true });
+    try {
+      await stripRowLevelSecurity();
+      lines = [];
+      const sink = (line: string) => void lines.push(line);
+      const exitCode = await runSchemaCli(
+        ["apply"],
+        prodAppDir,
+        { log: sink, err: sink },
+        { features: [], kmsSlots: [] },
+      );
+      expect(exitCode).toBe(0);
+      for (const table of TENANT_FRAMEWORK_TABLES) {
+        expect(await stateOf(table)).toMatchObject({ enabled: true, forced: true });
+      }
+      await assertRowLevelSecurityBootState(testDb.db, "on", ALL_KNOWN);
+    } finally {
+      rmSync(prodAppDir, { recursive: true, force: true });
+    }
+  });
+
+  test("an explicit rowLevelSecurity option wins over the schema file", async () => {
+    expect(
+      await loadRowLevelSecurityModeOrReport({ ...ctx, options: { rowLevelSecurity: "off" } }),
+    ).toBe("off");
+    expect(await loadRowLevelSecurityModeOrReport(ctx)).toBe("on");
   });
 
   test("validate does not check the connected role: a superuser connection on protected tables is green", async () => {

@@ -291,13 +291,13 @@
     "bun-types": "^1.4.4",
     "hono": "^4.13.1",
     "temporal-polyfill": "^0.3.2",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "ioredis": "^5.10.1"
   },
   "peerDependencies": {
     "hono": "^4.13.1",
     "temporal-polyfill": "^0.3.2",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "ioredis": "^5.10.1",
     "bun-types": "^1.4.4"
   },

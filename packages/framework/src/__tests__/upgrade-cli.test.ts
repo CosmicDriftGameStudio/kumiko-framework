@@ -670,6 +670,31 @@ describe("upgrade command — --apply", () => {
     expect(existsSync(join(consumerRoot, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 
+  test("--apply runs the codemod of the bin's own feature-ast, not the copy hoisted above the app", async () => {
+    const codemod = "scripts/codemod/report-copy.ts";
+    const consumerRoot = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(codemod),
+      "node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/report-copy.ts":
+        'console.log("hoisted copy");\n',
+      "tools/kumiko-cli/bin/kumiko-upgrade.ts": "",
+      "tools/kumiko-cli/node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/report-copy.ts":
+        'console.log("own copy");\n',
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--from", "0.165.0", "--apply", "--dry-run"],
+      consumerRoot,
+      spy.out,
+      { codemodResolveFrom: join(consumerRoot, "tools/kumiko-cli/bin") },
+    );
+
+    expect(spy.errs).toEqual([]);
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("own copy");
+    expect(spy.logs.join("\n")).not.toContain("hoisted copy");
+  });
+
   test("--dry-run runs the codemod but changes nothing and writes no marker", async () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),

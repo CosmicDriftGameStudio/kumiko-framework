@@ -84,12 +84,32 @@ export function instantToTimestamptzParam(instant: Temporal.Instant): string {
   return Temporal.Instant.fromEpochMilliseconds(instant.epochMilliseconds).toString();
 }
 
+function instantOfIsoString(value: string): Temporal.Instant | undefined {
+  try {
+    return Temporal.Instant.from(value);
+  } catch {
+    // skip: not an ISO instant, Postgres parses (or rejects) the text itself
+    return undefined;
+  }
+}
+
+// Event payloads carry instants as ISO strings with microseconds; a projection rebuild binds them
+// as-is, so without the same truncation the replayed row differs from the live one.
+function timestamptzInstantOf(value: unknown): Temporal.Instant | undefined {
+  if (isTemporalInstant(value)) return value;
+  if (typeof value === "string") return instantOfIsoString(value);
+  return undefined;
+}
+
 function prepareDriverNeutralScalar(
   value: unknown,
   pgType: string | undefined,
 ): PreparedValue | undefined {
-  if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
-    return { kind: "param", sql: "", bound: instantToTimestamptzParam(value) };
+  if (pgType === "timestamptz" || pgType === "timestamptz(3)") {
+    const instant = timestamptzInstantOf(value);
+    if (instant !== undefined) {
+      return { kind: "param", sql: "", bound: instantToTimestamptzParam(instant) };
+    }
   }
   // Sent as text, so Postgres rejects 3.5 for an integer column instead of rounding it.
   if (typeof value === "number" && pgType !== undefined && INTEGER_PG_TYPES.has(pgType)) {

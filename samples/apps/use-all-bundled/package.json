@@ -26,7 +26,7 @@
     "@cosmicdrift/kumiko-types": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
     "@cosmicdrift/kumiko-locale-fr": "workspace:*",

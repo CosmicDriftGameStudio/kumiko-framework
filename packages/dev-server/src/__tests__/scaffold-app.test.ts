@@ -353,6 +353,10 @@ describe("scaffoldApp", () => {
     expect(kumikoBin).not.toContain("allAppFeatures");
     expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");
     expect(kumikoBin).toContain("features: FEATURES,");
+    // schema apply must heal the mode runProdApp boots with; the prod image ships no kumiko/schema.ts.
+    expect(kumikoBin).toContain(
+      "...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
+    );
   });
 
   test("framework-owned files carry the kumiko-managed marker", async () => {
