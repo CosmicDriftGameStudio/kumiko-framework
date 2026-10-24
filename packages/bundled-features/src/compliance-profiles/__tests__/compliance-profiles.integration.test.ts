@@ -270,8 +270,8 @@ describe("compliance-profiles :: sub-processors (S1.4)", () => {
     expect(hetzner?.dpa).toMatch(/^https:\/\//);
     expect(hetzner?.region).toContain("Germany");
 
-    const cloudflare = result.active.find((s) => s.name.includes("Cloudflare"));
-    expect(cloudflare?.sccRequired).toBe(true);
+    const stripe = result.active.find((s) => s.name.includes("Stripe"));
+    expect(stripe?.sccRequired).toBe(true);
 
     expect(result.planned.map((p) => p.name)).toEqual(
       getPlannedSubProcessors().map((sp) => sp.name),
