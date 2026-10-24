@@ -9,6 +9,7 @@ type OptionRow = {
   readonly label: string;
   readonly description?: string;
   readonly group?: string;
+  readonly default?: boolean;
 };
 
 type OptionsQueryResult = { readonly rows: readonly OptionRow[] };
@@ -77,9 +78,13 @@ export function QueryOptionsSelect({
     const previousKey = settledPayloadKey.current;
     settledPayloadKey.current = payloadKey;
     const payloadChanged = previousKey !== null && previousKey !== payloadKey;
-    if (payloadChanged && current !== "" && !data.rows.some((row) => row.value === current)) {
-      onChange("");
-    }
+    const discarded =
+      payloadChanged && current !== "" && !data.rows.some((row) => row.value === current);
+    // A discarded value counts as empty, so it is replaced by the suggestion in one change.
+    if (current !== "" && !discarded) return;
+    const suggestion = data.rows.find((row) => row.default === true);
+    if (suggestion) onChange(suggestion.value);
+    else if (discarded) onChange("");
   }, [data]);
 
   // A stored value missing from the result (still loading, or dropped from the
