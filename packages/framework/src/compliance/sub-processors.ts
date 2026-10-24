@@ -16,7 +16,7 @@
 // SubProcessor has no "removed" state yet: a removed entry is deleted from
 // the array, so until the notification cron exists a removal is documented
 // only in the changelog. Removed so far: Mailbox.org (mailbox hosting),
-// replaced by ALL-INKL.COM.
+// replaced by ALL-INKL.COM, and Cloudflare (DNS/CDN), replaced by Hetzner DNS.
 
 /**
  * Bundle tier marker for SubProcessor.appliesTo. "all-tiers" matches
@@ -83,16 +83,6 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     dpa: "https://www.hetzner.com/legal/dpa",
     addedAt: "2024-01-01",
     appliesTo: ["all-tiers"],
-    status: "active",
-  },
-  {
-    name: "Cloudflare, Inc.",
-    purpose: "DNS, CDN, DDoS-Protection, WAF",
-    region: "Global (US-headquartered)",
-    dpa: "https://www.cloudflare.com/cloudflare-customer-dpa",
-    addedAt: "2024-01-01",
-    appliesTo: ["all-tiers"],
-    sccRequired: true,
     status: "active",
   },
   {

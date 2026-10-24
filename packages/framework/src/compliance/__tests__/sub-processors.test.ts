@@ -11,7 +11,7 @@ import {
 } from "../sub-processors.ts";
 
 describe("KUMIKO_SUB_PROCESSORS", () => {
-  test("Liste ist nicht leer (Plattform hat mindestens Hetzner+Cloudflare)", () => {
+  test("Liste ist nicht leer (Plattform hat mindestens Hetzner)", () => {
     expect(KUMIKO_SUB_PROCESSORS.length).toBeGreaterThan(0);
   });
 
@@ -57,16 +57,6 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "optInOnly": false,
           "region": "EU (Germany)",
           "sccRequired": false,
-          "status": "active",
-        },
-        {
-          "appliesTo": [
-            "all-tiers",
-          ],
-          "name": "Cloudflare, Inc.",
-          "optInOnly": false,
-          "region": "Global (US-headquartered)",
-          "sccRequired": true,
           "status": "active",
         },
         {
