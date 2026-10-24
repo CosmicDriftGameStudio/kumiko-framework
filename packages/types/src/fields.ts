@@ -426,8 +426,10 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  value-based heuristic. */
   readonly optionTones?: { readonly [K in TOptions[number]]?: SelectOptionTone };
   /** Loads the options from this query (QN). Contract:
-   *  `{ rows: { value, label, description?, group? }[] }`, labels are shown verbatim
-   *  (not translated); description is a muted second line, group a heading. `options` must be empty when set.
+   *  `{ rows: { value, label, description?, group?, default? }[] }`, labels are shown verbatim
+   *  (not translated); description is a muted second line, group a heading. `default: true`
+   *  marks the suggestion: the renderer pre-selects the first such row while the field is
+   *  empty; a set value is never replaced. `options` must be empty when set.
    *  Only valid on configEdit/actionForm screen fields and config keys, not on entity
    *  fields: the stored value would not be checked against the query result. */
   readonly optionsQuery?: string;
