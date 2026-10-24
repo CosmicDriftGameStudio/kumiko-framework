@@ -37,3 +37,7 @@ export {
   type SupportedFieldType,
 } from "./web/constants.ts";
 export { customFieldsField, wireCustomFieldsFor } from "./wire-for-entity.ts";
+export {
+  type WireCustomFieldsUserDataRightsOptions,
+  wireCustomFieldsUserDataRightsFor,
+} from "./wire-user-data-rights.ts";
