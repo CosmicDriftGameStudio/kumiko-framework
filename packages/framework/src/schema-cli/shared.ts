@@ -17,18 +17,26 @@ export type SchemaCliOut = {
   readonly err: (line: string) => void;
 };
 
-export type RunSchemaCliOptions =
-  | { readonly features?: undefined; readonly kmsSlots?: undefined }
-  | {
-      /** Composed app features. When given, `apply` rebuilds the projections whose
-       *  tables a freshly applied migration changed (via its `.rebuild.json`
-       *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
-      readonly features: readonly FeatureDefinition[];
-      /** Schema-declared Key Manager slots, `kmsSlotsOf(composedEnv.schema)`, or
-       *  `[]` when the app wires none. This CLI parses no env schema, so the
-       *  rebuild's KMS wiring cannot derive them itself. */
-      readonly kmsSlots: readonly string[];
-    };
+type RunSchemaCliRowLevelSecurityOption = {
+  /** The mode the app's runtime boots with (`AppConfig.rowLevelSecurity`). Wins over the schema
+   *  file, so `apply` heals the same mode the boot check enforces. */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
+};
+
+export type RunSchemaCliOptions = RunSchemaCliRowLevelSecurityOption &
+  (
+    | { readonly features?: undefined; readonly kmsSlots?: undefined }
+    | {
+        /** Composed app features. When given, `apply` rebuilds the projections whose
+         *  tables a freshly applied migration changed (via its `.rebuild.json`
+         *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
+        readonly features: readonly FeatureDefinition[];
+        /** Schema-declared Key Manager slots, `kmsSlotsOf(composedEnv.schema)`, or
+         *  `[]` when the app wires none. This CLI parses no env schema, so the
+         *  rebuild's KMS wiring cannot derive them itself. */
+        readonly kmsSlots: readonly string[];
+      }
+  );
 
 export type SchemaCliContext = {
   readonly argv: readonly string[];
@@ -137,12 +145,14 @@ export async function loadSchemaModOrReport(ctx: SchemaCliContext): Promise<Sche
 }
 
 // `apply` needs only the mode: migrations and rebuilds on a role that RLS binds see nothing unless
-// the connection runs in system scope, which only an "on" connection sets. Without a schema file
-// (dev CLI against a bare checkout) there is nothing to enforce.
+// the connection runs in system scope, which only an "on" connection sets. The prod image ships no
+// kumiko/schema.ts, so without one apply falls back to the runtime's default instead of "off":
+// otherwise the framework tables stay unhealed and the boot check of an "on" app fails.
 export async function loadRowLevelSecurityModeOrReport(
   ctx: SchemaCliContext,
 ): Promise<RowLevelSecurityMode | undefined> {
-  if (!existsSync(ctx.schemaFile)) return "off";
+  if (ctx.options.rowLevelSecurity !== undefined) return ctx.options.rowLevelSecurity;
+  if (!existsSync(ctx.schemaFile)) return DEFAULT_ROW_LEVEL_SECURITY_MODE;
   return (await loadSchemaModOrReport(ctx))?.rowLevelSecurity;
 }
 
