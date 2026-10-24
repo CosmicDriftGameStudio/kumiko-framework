@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 import { createSystemDbView, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition, JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createEnvMasterKeyProvider,
   type SecretsContext,
@@ -122,6 +123,14 @@ export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 let notificationCounter = 0;
 
+const silentLog: Logger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+  child: () => silentLog,
+};
+
 const NO_VALUE_SCHEMAS: SecretValueSchemaSource = {
   getSecretKey: () => undefined,
   findSecretNamespace: () => undefined,
@@ -175,8 +184,9 @@ export async function setupChatHarness(
     return {
       db,
       registry: stack.registry,
-      services: { secrets, extensions: {} },
-      ...(jobRunner !== undefined && { jobRunner }),
+      services: { secrets, extensions: {}, ...(jobRunner !== undefined && { jobRunner }) },
+      lifecycle: {},
+      obs: { log: silentLog },
       systemDb: createSystemDbView(
         createTenantDb({
           db,

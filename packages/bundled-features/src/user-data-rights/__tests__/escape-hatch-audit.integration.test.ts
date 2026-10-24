@@ -121,6 +121,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
       }),
       registry: stack.registry,
       systemUser,
+      lifecycle: {},
       obs: { log: noopLog },
       services: {
         _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {

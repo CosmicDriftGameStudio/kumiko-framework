@@ -227,21 +227,38 @@ describe("ctx-namespaces CLI", () => {
     expect(readFileSync(target, "utf8")).toBe(input);
   });
 
-  it("writes by default, then --check passes on the migrated file", async () => {
+  function stageHandlerBody(shape: "input" | "expected"): { root: string; target: string } {
     const root = stageProject();
     const target = join(root, "src", "handler-body.ts");
-    writeFileSync(target, readFileSync(caseFile("handler-body", "input"), "utf8"));
+    writeFileSync(target, readFileSync(caseFile("handler-body", shape), "utf8"));
+    return { root, target };
+  }
 
-    const before = await runCli(root, ["--check"]);
-    const written = await runCli(root, []);
-    const after = await runCli(root, ["--check"]);
+  it("--check exits 1 on an unmigrated handler body", async () => {
+    const { root } = stageHandlerBody("input");
 
-    expect(before.exitCode).toBe(1);
-    expect(written.exitCode).toBe(0);
+    const { exitCode } = await runCli(root, ["--check"]);
+
+    expect(exitCode).toBe(1);
+  });
+
+  it("writes the migrated handler body by default", async () => {
+    const { root, target } = stageHandlerBody("input");
+
+    const { exitCode } = await runCli(root, []);
+
+    expect(exitCode).toBe(0);
     expect(readFileSync(target, "utf8")).toBe(
       readFileSync(caseFile("handler-body", "expected"), "utf8"),
     );
-    expect(after.exitCode).toBe(0);
+  });
+
+  it("--check exits 0 on an already migrated handler body", async () => {
+    const { root } = stageHandlerBody("expected");
+
+    const { exitCode } = await runCli(root, ["--check"]);
+
+    expect(exitCode).toBe(0);
   });
 
   it("rejects unknown flags with exit 2", async () => {

@@ -227,7 +227,12 @@ describe("reindexEntityJob", () => {
       reindexEntityJob(
         { entity: "widget" },
         // @cast-boundary test-seam — deliberately no searchAdapter: proves the missing-adapter throw
-        { db: stack.db, registry: stack.registry, systemUser: admin } as unknown as JobContext,
+        {
+          db: stack.db,
+          registry: stack.registry,
+          services: { extensions: {} },
+          systemUser: admin,
+        } as unknown as JobContext,
       ),
     ).rejects.toThrow(/searchAdapter/);
   });

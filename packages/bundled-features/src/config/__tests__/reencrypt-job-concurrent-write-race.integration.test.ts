@@ -186,6 +186,7 @@ function racyJobCtx(
       _escapeHatchAuditSink: async () => {},
       extensions: {},
     },
+    lifecycle: {},
     obs: { log },
   } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log/_escapeHatchAuditSink
 }
