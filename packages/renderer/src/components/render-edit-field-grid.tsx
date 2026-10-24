@@ -53,6 +53,9 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         model.setFieldUntyped(field.field, v);
         clearErrorsAndValidate(field.field);
       }}
+      {...(props.actionFormScreenQn !== undefined && {
+        onSuggest: (value: string) => form.controller.seedField(field.field, value),
+      })}
       GridCell={GridCell}
       featureName={props.featureName}
       {...appendixCellProps(props, field.field)}

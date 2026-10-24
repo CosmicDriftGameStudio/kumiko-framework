@@ -425,13 +425,11 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  detail bands. Options without an entry keep the renderer's own
    *  value-based heuristic. */
   readonly optionTones?: { readonly [K in TOptions[number]]?: SelectOptionTone };
-  /** Loads the options from this query (QN). Contract:
-   *  `{ rows: { value, label, description?, group?, default? }[] }`, labels are shown verbatim
-   *  (not translated); description is a muted second line, group a heading. `default: true`
-   *  marks the suggestion: the renderer pre-selects the first such row while the field is
-   *  empty; a set value is never replaced. `options` must be empty when set.
-   *  Only valid on configEdit/actionForm screen fields and config keys, not on entity
-   *  fields: the stored value would not be checked against the query result. */
+  /** Loads the options from this query (QN), labels shown verbatim: `{ rows: { value, label,
+   *  description?, group?, default? }[] }`; description is a muted second line, group a heading.
+   *  actionForm only: the first `default: true` row seeds an empty field like a prefill (not a
+   *  change); set `submitPrefilled` to submit it unchanged. `options` must be empty when set.
+   *  Only valid on configEdit/actionForm screen fields and config keys, not entity fields. */
   readonly optionsQuery?: string;
   /** Payload sent with every `optionsQuery` call. `{ field }` entries re-load the
    *  options when that sibling field changes. */

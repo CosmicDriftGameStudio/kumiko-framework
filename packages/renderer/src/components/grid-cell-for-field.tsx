@@ -10,6 +10,8 @@ export type GridCellForFieldProps = {
   readonly columns: number;
   readonly issues: readonly FieldIssue[] | undefined;
   readonly onChange: (value: unknown) => void;
+  /** Passed through to RenderField — see RenderFieldProps.onSuggest. */
+  readonly onSuggest?: (value: string) => void;
   readonly GridCell: ReturnType<typeof usePrimitives>["GridCell"];
   /** Passed through so Reference fields can build the correct
    *  lookup query QN (`<feature>:query:<refEntity>:list`). */
@@ -72,6 +74,7 @@ export function GridCellForField({
   columns,
   issues,
   onChange,
+  onSuggest,
   GridCell,
   featureName,
   labelAppendix,
@@ -104,6 +107,7 @@ export function GridCellForField({
         field={field}
         {...(issues !== undefined && { issues })}
         onChange={onChange}
+        {...(onSuggest !== undefined && { onSuggest })}
         featureName={featureName}
         {...(labelAppendix !== undefined && { labelAppendix })}
         {...(fieldAppendix !== undefined && { fieldAppendix })}

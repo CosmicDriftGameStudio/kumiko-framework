@@ -148,6 +148,28 @@ describe("createFormController — core state machine", () => {
     expect(snap.isDirty).toBe(true);
   });
 
+  test("seedField: baseline and value move together, the form stays clean", () => {
+    const form = createFormController({ initial: { title: "a", model: "" } });
+    form.seedField("model", "m1");
+    const snap = form.getSnapshot();
+
+    expect(snap.values.model).toBe("m1");
+    expect(snap.initial.model).toBe("m1");
+    expect(snap.changes).toEqual({});
+    expect(snap.isDirty).toBe(false);
+  });
+
+  test("seedField: no-op once the field was touched", () => {
+    const form = createFormController({ initial: { model: "" } });
+    form.setField("model", "mine");
+    form.seedField("model", "m1");
+    const snap = form.getSnapshot();
+
+    expect(snap.values.model).toBe("mine");
+    expect(snap.initial.model).toBe("");
+    expect(snap.changes).toEqual({ model: "mine" });
+  });
+
   test("rebase: current values become the new baseline, changes collapse to {}", () => {
     const form = createFormController({ initial: { title: "hello" } });
     form.setField("title", "world");

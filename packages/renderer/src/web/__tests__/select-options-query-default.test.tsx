@@ -2,14 +2,12 @@
 // field is empty; a set value is never replaced.
 
 import { describe, expect, test } from "bun:test";
-import type {
-  ActionFormScreenDefinition,
-  TextFieldDef,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { SelectFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
+import { hasUnsavedInput } from "../../leave-guard.ts";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 const OPTIONS_QUERY = "catalog:query:model-options";
@@ -44,10 +42,10 @@ const modelForm: ActionFormScreenDefinition = {
       optionsQuery: OPTIONS_QUERY,
       optionsQueryPayload: { provider: { field: "provider" } },
     } as SelectFieldDef,
-    note: { type: "text" } as TextFieldDef,
   },
-  layout: { sections: [{ fields: ["provider", "model", "note"] }] },
+  layout: { sections: [{ fields: ["provider", "model"] }] },
   urlPrefillFields: ["provider", "model"],
+  submitPrefilled: true,
 };
 
 function renderForm(searchParams: Record<string, string>) {
@@ -87,35 +85,34 @@ function renderForm(searchParams: Record<string, string>) {
 const modelCombobox = () => screen.getByTestId("combobox-kumiko-edit-model");
 
 async function submit(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(document.querySelector("#kumiko-edit-note") as HTMLInputElement, "x");
   await user.click(screen.getByTestId("render-edit-submit"));
 }
 
-describe("select optionsQuery default row", () => {
-  test("a default row that is not first is pre-selected and submitted", async () => {
+describe("select optionsQuery default row in an actionForm", () => {
+  test("the suggestion (not the first row) is seeded and submitted without touching the form", async () => {
     const { writes, user } = renderForm({ provider: "openai" });
     await waitFor(() => expect(modelCombobox().textContent).toContain("Model Y"));
     await submit(user);
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toMatchObject({ provider: "openai", model: "model-y" });
+    await waitFor(() => expect(writes).toEqual([{ provider: "openai", model: "model-y" }]));
+  });
+
+  test("the seeded suggestion is no unsaved input", async () => {
+    renderForm({ provider: "openai" });
+    await waitFor(() => expect(modelCombobox().textContent).toContain("Model Y"));
+    expect(hasUnsavedInput()).toBe(false);
   });
 
   test("with several default rows the first one wins", async () => {
-    const { writes, user } = renderForm({ provider: "anthropic" });
+    renderForm({ provider: "anthropic" });
     await waitFor(() => expect(modelCombobox().textContent).toContain("Model B"));
-    await submit(user);
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toMatchObject({ model: "model-b" });
+    expect(modelCombobox().textContent).not.toContain("Model C");
   });
 
   test("without a default row the field stays empty", async () => {
-    const { writes, user } = renderForm({ provider: "plain" });
+    renderForm({ provider: "plain" });
     await waitFor(() => expect(modelCombobox().hasAttribute("disabled")).toBe(false));
     expect(modelCombobox().textContent).not.toContain("Model P");
     expect(modelCombobox().textContent).not.toContain("Model Q");
-    await submit(user);
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).not.toHaveProperty("model", expect.stringMatching(/./));
   });
 
   test("an already set value is not overwritten", async () => {
@@ -124,17 +121,15 @@ describe("select optionsQuery default row", () => {
     await waitFor(() => expect(modelCombobox().hasAttribute("disabled")).toBe(false));
     expect(modelCombobox().textContent).not.toContain("Model B");
     await submit(user);
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toMatchObject({ model: "model-a" });
+    await waitFor(() => expect(writes).toEqual([{ provider: "anthropic", model: "model-a" }]));
   });
 
-  test("a value dropped by a payload change is replaced by the new default", async () => {
+  test("a value dropped by a payload change is replaced by the new default and submitted", async () => {
     const { writes, user } = renderForm({ provider: "anthropic", model: "model-a" });
     await waitFor(() => expect(modelCombobox().textContent).toContain("Model A"));
     await user.click(screen.getByTestId("segmented-kumiko-edit-provider-openai"));
     await waitFor(() => expect(modelCombobox().textContent).toContain("Model Y"));
     await submit(user);
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toMatchObject({ provider: "openai", model: "model-y" });
+    await waitFor(() => expect(writes).toEqual([{ provider: "openai", model: "model-y" }]));
   });
 });

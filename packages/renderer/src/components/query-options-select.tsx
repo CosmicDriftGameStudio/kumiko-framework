@@ -46,6 +46,7 @@ type QueryOptionsSelectProps = {
   readonly id: string;
   readonly hasError: boolean;
   readonly onChange: (value: unknown) => void;
+  readonly onSuggest?: (value: string) => void;
 };
 
 // Select whose options come from a query (SelectFieldDef.optionsQuery), so it
@@ -59,6 +60,7 @@ export function QueryOptionsSelect({
   id,
   hasError,
   onChange,
+  onSuggest,
 }: QueryOptionsSelectProps): ReactNode {
   const { Input } = usePrimitives();
   const resolvedPayload = resolveOptionsQueryPayload(payload, row);
@@ -80,11 +82,17 @@ export function QueryOptionsSelect({
     const payloadChanged = previousKey !== null && previousKey !== payloadKey;
     const discarded =
       payloadChanged && current !== "" && !data.rows.some((row) => row.value === current);
-    // A discarded value counts as empty, so it is replaced by the suggestion in one change.
-    if (current !== "" && !discarded) return;
-    const suggestion = data.rows.find((row) => row.default === true);
-    if (suggestion) onChange(suggestion.value);
-    else if (discarded) onChange("");
+    const suggestion =
+      onSuggest === undefined ? undefined : data.rows.find((row) => row.default === true);
+    if (payloadChanged) {
+      // The user's sibling edit caused this load, so the form is dirty anyway: a
+      // discarded value is replaced by the suggestion in one change.
+      if (current !== "" && !discarded) return;
+      if (suggestion) onChange(suggestion.value);
+      else if (discarded) onChange("");
+    } else if (current === "" && suggestion) {
+      onSuggest?.(suggestion.value);
+    }
   }, [data]);
 
   // A stored value missing from the result (still loading, or dropped from the

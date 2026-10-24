@@ -17,6 +17,7 @@ export type ControlContext = RenderInputArgs & {
   readonly allIssues: Readonly<Record<string, readonly FieldIssue[]>> | undefined;
   readonly changed: boolean | undefined;
   readonly fillDisabled: boolean | undefined;
+  readonly onSuggest?: (value: string) => void;
 };
 
 // A rule returns undefined to pass; the first rule that returns a control wins.
@@ -92,7 +93,7 @@ const referenceRule: ControlRule = ({
 };
 
 const selectQueryRule: ControlRule = (ctx) => {
-  const { field, id, hasError, onChange, readOnlyText } = ctx;
+  const { field, id, hasError, onChange, onSuggest, readOnlyText } = ctx;
   const source = field.selectOptionsQuery;
   if (field.type !== "select" || source === undefined || readOnlyText) return undefined;
   return (
@@ -104,6 +105,7 @@ const selectQueryRule: ControlRule = (ctx) => {
       id={id}
       hasError={hasError}
       onChange={onChange}
+      {...(onSuggest !== undefined && { onSuggest })}
     />
   );
 };
