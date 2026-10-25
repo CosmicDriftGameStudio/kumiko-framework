@@ -2011,6 +2011,28 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The encrypted connection failed. Check the port and the TLS setting.",
   "inboundMail.imap.connect.errors.connectFailed":
     "No connection to the IMAP server. Check the server name and port.",
+  "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Outgoing server (SMTP)",
+  "inboundMail.imap.connect.outgoing": "Sending",
+  "inboundMail.imap.connect.outgoingHint":
+    "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "Receiving works, but sending does not: the outgoing server cannot be reached or is not allowed. Check its name.",
+  "inboundMail.imap.connect.errors.smtpLoginRejected":
+    "Receiving works, but sending does not: the outgoing server rejected the sign-in.",
+  "inboundMail.imap.connect.errors.smtpTlsFailed":
+    "Receiving works, but sending does not: the encrypted connection to the outgoing server on port 465 failed.",
+  "inboundMail.imap.connect.errors.smtpConnectFailed":
+    "Receiving works, but sending does not: no connection to the outgoing server on port 465.",
+  "inboundMail.send.errors.notConfigured":
+    "Sending is not set up for this mailbox. Connect the mailbox again with its outgoing server.",
+  "inboundMail.send.errors.loginRejected":
+    "The outgoing mail server rejected the sign-in. Check the mailbox password.",
+  "inboundMail.send.errors.serverUnreachable":
+    "The outgoing mail server cannot be reached. Try again later.",
+  "inboundMail.send.errors.rejected":
+    "The outgoing mail server refused the mail. Check the recipient address.",
+  "inboundMail.send.errors.invalidMessage":
+    "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "created",
   "audit.log.action.updated": "updated",

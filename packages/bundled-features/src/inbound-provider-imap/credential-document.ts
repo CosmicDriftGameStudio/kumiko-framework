@@ -9,13 +9,35 @@
 // at rest.
 //
 // The account's authMethod determines the interpretation:
-//   password → { host, port, secure, user, password }
+//   password → { host, port, secure, user, password, smtpHost?, smtpPort }
 //   xoauth2  → { host, port, secure, user, accessToken } — V1 fallback:
 //              OAuth providers (M365/Gmail) handle token acquisition and
 //              refresh; the imap provider only consumes a valid access
 //              token from the slot.
+//
+// smtpHost is the outgoing server for sending from the mailbox, with the same user and password
+// over implicit TLS. Documents written before sending existed have none: sending reports
+// "not set up" instead of guessing a host.
 
+import {
+  InboundAuthError,
+  type InboundMailContext,
+  inboundCredentialSecretKey,
+  type MailAccountRecord,
+} from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import * as z from "zod";
+import { FEATURE_NAME } from "./constants.ts";
+
+export const SMTP_IMPLICIT_TLS_PORT = 465;
+
+// A bare host name: a port, path or whitespace would point the connect somewhere the guard did
+// not check.
+export const smtpHostSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .regex(/^[^\s:/@]+$/);
 
 export const imapCredentialDocumentSchema = z.object({
   host: z.string().min(1).max(255),
@@ -24,6 +46,8 @@ export const imapCredentialDocumentSchema = z.object({
   user: z.string().min(1).max(320),
   password: z.string().min(1).optional(),
   accessToken: z.string().min(1).optional(),
+  smtpHost: smtpHostSchema.optional(),
+  smtpPort: z.number().int().min(1).max(65535).default(SMTP_IMPLICIT_TLS_PORT),
 });
 export type ImapCredentialDocument = z.infer<typeof imapCredentialDocumentSchema>;
 
@@ -48,4 +72,28 @@ export function parseImapCredentialDocument(raw: string): ParseCredentialResult 
     return { ok: false, reason: "missing_credentials", detail: "needs password or accessToken" };
   }
   return { ok: true, doc: parsed.data };
+}
+
+export async function readCredentialDocument(
+  ctx: InboundMailContext,
+  account: MailAccountRecord,
+): Promise<ImapCredentialDocument> {
+  const secrets = requireSecretsContext(
+    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
+    FEATURE_NAME,
+  );
+  const secret = await secrets.get(account.tenantId, inboundCredentialSecretKey(account.id));
+  if (!secret) {
+    throw new InboundAuthError(
+      `${FEATURE_NAME}: no credential document in secret slot for account ${account.id} — ` +
+        `store the IMAP connection JSON under ${inboundCredentialSecretKey(account.id)} first`,
+    );
+  }
+  const parsed = parseImapCredentialDocument(secret.reveal());
+  if (!parsed.ok) {
+    throw new InboundAuthError(
+      `${FEATURE_NAME}: account ${account.id}: ${parsed.reason}${parsed.detail ? `: ${parsed.detail}` : ""}`,
+    );
+  }
+  return parsed.doc;
 }

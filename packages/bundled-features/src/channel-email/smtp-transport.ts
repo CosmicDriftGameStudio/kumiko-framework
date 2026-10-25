@@ -18,6 +18,7 @@
 // high-volume apps the caller must layer its own implementation with a
 // dedicated queue (BullMQ + retry) on top.
 
+import { sanitizeMailDisplayName } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { createTransport, type Transporter } from "nodemailer";
 import addressparser from "nodemailer/lib/addressparser";
 import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.ts";
@@ -51,32 +52,11 @@ export type SmtpTransportOptions = {
   readonly servername?: string;
 };
 
-function isControlCharacter(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return code <= 0x1f || code === 0x7f;
-}
-
-// Mail clients often show only the display name: an embedded address ("<", ">", "@") would
-// pass for a foreign sender on the platform's own SPF/DKIM-signed domain.
-function isUnsafeDisplayNameCharacter(char: string): boolean {
-  return isControlCharacter(char) || char === "<" || char === ">" || char === "@";
-}
-
-// Control characters in a display name would let a caller inject headers.
-function sanitizedDisplayName(name: string | undefined): string | undefined {
-  const cleaned = name
-    ?.split("")
-    .map((char) => (isUnsafeDisplayNameCharacter(char) ? " " : char))
-    .join("")
-    .trim();
-  return cleaned === undefined || cleaned === "" ? undefined : cleaned;
-}
-
 function fromHeader(
   address: string,
   fromName: string | undefined,
 ): string | { readonly name: string; readonly address: string } {
-  const name = sanitizedDisplayName(fromName);
+  const name = sanitizeMailDisplayName(fromName);
   if (name === undefined) return address;
   const [parsed] = addressparser(address, { flatten: true });
   return parsed?.address ? { name, address: parsed.address } : address;

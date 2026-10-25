@@ -1,7 +1,7 @@
 import { IMAP_CONNECT_SCREEN_ID } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
-import { FEATURE_NAME, IMAP_CONNECT_ERRORS } from "./constants.ts";
+import { FEATURE_NAME, IMAP_CONNECT_ERRORS, SMTP_CONNECT_ERRORS } from "./constants.ts";
 
 const formFieldKey = (field: string): string =>
   fieldLabelKey(FEATURE_NAME, ACTION_FORM_ENTITY, field);
@@ -14,7 +14,12 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   [formFieldKey("port")]: { en: "Port" },
   [formFieldKey("user")]: { en: "User name" },
   [formFieldKey("password")]: { en: "Password" },
+  [formFieldKey("smtpHost")]: { en: "Outgoing server (SMTP)" },
   "inboundMail.imap.connect.server": { en: "Server sign-in" },
+  "inboundMail.imap.connect.outgoing": { en: "Sending" },
+  "inboundMail.imap.connect.outgoingHint": {
+    en: "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap.",
+  },
   "inboundMail.imap.connect.submit": { en: "Check and connect" },
   [IMAP_CONNECT_ERRORS.hostUnreachable.i18nKey]: {
     en: "The IMAP server cannot be reached or is not allowed. Check the server name.",
@@ -27,5 +32,17 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   },
   [IMAP_CONNECT_ERRORS.connectFailed.i18nKey]: {
     en: "No connection to the IMAP server. Check the server name and port.",
+  },
+  [SMTP_CONNECT_ERRORS.hostUnreachable.i18nKey]: {
+    en: "Receiving works, but sending does not: the outgoing server cannot be reached or is not allowed. Check its name.",
+  },
+  [SMTP_CONNECT_ERRORS.loginRejected.i18nKey]: {
+    en: "Receiving works, but sending does not: the outgoing server rejected the sign-in.",
+  },
+  [SMTP_CONNECT_ERRORS.tlsFailed.i18nKey]: {
+    en: "Receiving works, but sending does not: the encrypted connection to the outgoing server on port 465 failed.",
+  },
+  [SMTP_CONNECT_ERRORS.connectFailed.i18nKey]: {
+    en: "Receiving works, but sending does not: no connection to the outgoing server on port 465.",
   },
 };

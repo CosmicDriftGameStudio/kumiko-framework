@@ -2083,6 +2083,28 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "La connexion chiffrée a échoué. Vérifiez le port et le réglage TLS.",
   "inboundMail.imap.connect.errors.connectFailed":
     "Aucune connexion au serveur IMAP. Vérifiez le nom du serveur et le port.",
+  "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Serveur sortant (SMTP)",
+  "inboundMail.imap.connect.outgoing": "Envoi",
+  "inboundMail.imap.connect.outgoingHint":
+    "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "La réception fonctionne, mais pas l'envoi : le serveur sortant est injoignable ou non autorisé. Vérifiez son nom.",
+  "inboundMail.imap.connect.errors.smtpLoginRejected":
+    "La réception fonctionne, mais pas l'envoi : le serveur sortant a refusé la connexion.",
+  "inboundMail.imap.connect.errors.smtpTlsFailed":
+    "La réception fonctionne, mais pas l'envoi : la connexion chiffrée au serveur sortant sur le port 465 a échoué.",
+  "inboundMail.imap.connect.errors.smtpConnectFailed":
+    "La réception fonctionne, mais pas l'envoi : aucune connexion au serveur sortant sur le port 465.",
+  "inboundMail.send.errors.notConfigured":
+    "L'envoi n'est pas configuré pour cette boîte. Reconnectez la boîte avec son serveur sortant.",
+  "inboundMail.send.errors.loginRejected":
+    "Le serveur sortant a refusé la connexion. Vérifiez le mot de passe de la boîte.",
+  "inboundMail.send.errors.serverUnreachable":
+    "Le serveur sortant est injoignable. Réessayez plus tard.",
+  "inboundMail.send.errors.rejected":
+    "Le serveur sortant a refusé le message. Vérifiez l'adresse du destinataire.",
+  "inboundMail.send.errors.invalidMessage":
+    "Le message n'a pas été envoyé : un destinataire, l'objet ou la référence de réponse est invalide.",
   "sessions.mine.current.yes": "Cette session",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Appareil",

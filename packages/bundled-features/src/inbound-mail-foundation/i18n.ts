@@ -7,6 +7,7 @@ import {
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
 } from "./screens.ts";
+import { MAIL_SEND_ERRORS } from "./send-from-account.ts";
 
 const formFieldKey = (field: string): string =>
   fieldLabelKey(INBOUND_MAIL_FOUNDATION_FEATURE, ACTION_FORM_ENTITY, field);
@@ -41,4 +42,19 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   },
   [formFieldKey("accountId")]: { en: "Mailbox" },
   [formFieldKey("displayName")]: { en: "Name" },
+  [MAIL_SEND_ERRORS.notConfigured.i18nKey]: {
+    en: "Sending is not set up for this mailbox. Connect the mailbox again with its outgoing server.",
+  },
+  [MAIL_SEND_ERRORS.loginRejected.i18nKey]: {
+    en: "The outgoing mail server rejected the sign-in. Check the mailbox password.",
+  },
+  [MAIL_SEND_ERRORS.serverUnreachable.i18nKey]: {
+    en: "The outgoing mail server cannot be reached. Try again later.",
+  },
+  [MAIL_SEND_ERRORS.rejected.i18nKey]: {
+    en: "The outgoing mail server refused the mail. Check the recipient address.",
+  },
+  [MAIL_SEND_ERRORS.invalidMessage.i18nKey]: {
+    en: "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
+  },
 };

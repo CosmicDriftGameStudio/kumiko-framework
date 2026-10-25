@@ -2062,6 +2062,28 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "La connessione cifrata non è riuscita. Controlla la porta e l'opzione TLS.",
   "inboundMail.imap.connect.errors.connectFailed":
     "Nessuna connessione al server IMAP. Controlla nome del server e porta.",
+  "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Server in uscita (SMTP)",
+  "inboundMail.imap.connect.outgoing": "Invio",
+  "inboundMail.imap.connect.outgoingHint":
+    "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "La ricezione funziona, l'invio no: il server in uscita non è raggiungibile o non è consentito. Controlla il nome.",
+  "inboundMail.imap.connect.errors.smtpLoginRejected":
+    "La ricezione funziona, l'invio no: il server in uscita ha rifiutato l'accesso.",
+  "inboundMail.imap.connect.errors.smtpTlsFailed":
+    "La ricezione funziona, l'invio no: la connessione cifrata al server in uscita sulla porta 465 non è riuscita.",
+  "inboundMail.imap.connect.errors.smtpConnectFailed":
+    "La ricezione funziona, l'invio no: nessuna connessione al server in uscita sulla porta 465.",
+  "inboundMail.send.errors.notConfigured":
+    "L'invio non è configurato per questa casella. Ricollega la casella con il suo server in uscita.",
+  "inboundMail.send.errors.loginRejected":
+    "Il server in uscita ha rifiutato l'accesso. Controlla la password della casella.",
+  "inboundMail.send.errors.serverUnreachable":
+    "Il server in uscita non è raggiungibile. Riprova più tardi.",
+  "inboundMail.send.errors.rejected":
+    "Il server in uscita ha rifiutato la mail. Controlla l'indirizzo del destinatario.",
+  "inboundMail.send.errors.invalidMessage":
+    "La mail non è stata inviata: un destinatario, l'oggetto o il riferimento di risposta non è valido.",
   "sessions.mine.current.yes": "Questa sessione",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

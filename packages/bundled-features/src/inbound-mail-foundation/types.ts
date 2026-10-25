@@ -13,6 +13,7 @@
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.ts";
+import type { OutboundMailMessage, OutboundMailSent } from "./outbound-mail.ts";
 
 /**
  * Slim context for provider plugins.
@@ -186,6 +187,13 @@ export type InboundMailProviderPlugin = {
   ) => Promise<InboundFetchResult>;
   /** Nur OAuth-Provider. */
   readonly oauth?: InboundOAuthFlow;
+  /** Sends from the mailbox address through the customer's own server. Throws
+   *  MailSendNotConfiguredError, InboundAuthError, InboundTransientError or MailSendRejectedError. */
+  readonly send?: (
+    ctx: InboundMailContext,
+    account: MailAccountRecord,
+    message: OutboundMailMessage,
+  ) => Promise<OutboundMailSent>;
   /** Optional live push (IMAP IDLE, later Graph/Gmail webhooks).
    *  Returns stop(). Polling remains reconciliation: watch optimizes
    *  latency but is never the correctness anchor. `onError` reports a dead

@@ -2,12 +2,13 @@
 // account whose stored credential the mailbox probe can use, a failed one leaves no account and no
 // secret, and the password shows up in no event, row or error.
 //
-// The login cases need greenmail with its IMAPS port (see imap-foundation.integration.test.ts)
-// and skip visibly without it; the unreachable-host and validation cases run everywhere.
+// The login cases need greenmail with its IMAPS port (see imap-foundation.integration.test.ts),
+// the good login also SMTPS on port 465 with the same user (see
+// send-from-account.integration.test.ts); they skip visibly without it. The unreachable-host and
+// validation cases run everywhere.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { lookup } from "node:dns/promises";
-import { connect } from "node:net";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -29,7 +30,9 @@ import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts"
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
+import { SMTP_IMPLICIT_TLS_PORT } from "../credential-document.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
+import { reachable } from "./greenmail-mailbox.ts";
 
 // A host name, not an IP literal: the TLS connect needs it as the SNI server name.
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
@@ -45,27 +48,16 @@ process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
 const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
 const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
-function reachable(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host, port, timeout: 1500 });
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once("error", () => resolve(false));
-    socket.once("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-}
-
 const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
 const greenmailTest = greenmailUp ? test : test.skip;
+const smtpsUp = greenmailUp && (await reachable(HOST, SMTP_IMPLICIT_TLS_PORT));
+const greenmailWithSmtpsTest = smtpsUp ? test : test.skip;
 if (!greenmailUp) {
   console.warn(
     `connect-mailbox: no IMAP server on ${HOST}:${IMAPS_PORT} and :${IMAP_PORT}, login cases skipped`,
   );
+} else if (!smtpsUp) {
+  console.warn(`connect-mailbox: no SMTPS on ${HOST}:465, good-login case skipped`);
 }
 
 let stack: TestStack;
@@ -148,38 +140,41 @@ async function expectNothingStored(admin: Admin, newEvents: () => Promise<unknow
 }
 
 describe("connect mailbox form", () => {
-  greenmailTest("a good login connects an active mailbox the probe can reach", async () => {
-    const admin = freshAdmin();
-    const newEvents = await markEvents(stack);
+  greenmailWithSmtpsTest(
+    "a good login connects an active mailbox the probe can reach",
+    async () => {
+      const admin = freshAdmin();
+      const newEvents = await markEvents(stack);
 
-    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
-      ImapHandlers.connectMailbox,
-      { ...form(PASSWORD), secure: false },
-      admin,
-    );
+      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        { ...form(PASSWORD), secure: false },
+        admin,
+      );
 
-    expect(await accountsOf(admin)).toEqual([
-      expect.objectContaining({ id: accountId, status: "active", provider: "imap" }),
-    ]);
-    const [secret] = await secretsOf(admin);
-    expect(secret?.metadata.redactedPreview).toBe("IMAP login");
-    expect(Bun.inspect(await newEvents(), { depth: 10 })).not.toContain(PASSWORD);
-    expect(JSON.stringify(await accountsOf(admin))).not.toContain(PASSWORD);
+      expect(await accountsOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, status: "active", provider: "imap" }),
+      ]);
+      const [secret] = await secretsOf(admin);
+      expect(secret?.metadata.redactedPreview).toBe("IMAP login");
+      expect(Bun.inspect(await newEvents(), { depth: 10 })).not.toContain(PASSWORD);
+      expect(JSON.stringify(await accountsOf(admin))).not.toContain(PASSWORD);
 
-    await stack.http.writeOk(ReadinessWrites.runProbes, {}, admin);
-    await stack.drainJobs();
-    const { rows } = await stack.http.queryOk<{ rows: ProbeRow[] }>(
-      ReadinessQueries.latestResults,
-      {},
-      admin,
-    );
-    expect(rows.find((row) => row.probe === MAILBOX_PROBE)).toEqual(
-      expect.objectContaining({ status: "ok", targetId: accountId }),
-    );
+      await stack.http.writeOk(ReadinessWrites.runProbes, {}, admin);
+      await stack.drainJobs();
+      const { rows } = await stack.http.queryOk<{ rows: ProbeRow[] }>(
+        ReadinessQueries.latestResults,
+        {},
+        admin,
+      );
+      expect(rows.find((row) => row.probe === MAILBOX_PROBE)).toEqual(
+        expect.objectContaining({ status: "ok", targetId: accountId }),
+      );
 
-    const otherTenantAdmin = freshAdmin();
-    expect(await accountsOf(otherTenantAdmin)).toEqual([]);
-  });
+      const otherTenantAdmin = freshAdmin();
+      expect(await accountsOf(otherTenantAdmin)).toEqual([]);
+    },
+  );
 
   greenmailTest("a rejected login stores nothing and names the cause", async () => {
     const admin = freshAdmin();
