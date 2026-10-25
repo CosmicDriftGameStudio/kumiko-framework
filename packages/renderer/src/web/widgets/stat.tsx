@@ -11,6 +11,11 @@ import { cn } from "../lib/cn.ts";
 
 export type StatTone = DashboardStatTone;
 
+// One grid for every row of StatCards (dashboard stat groups, detail metric tiles), so the
+// cards fill the row at any count instead of leaving fixed empty columns.
+export const STAT_CARD_GRID_CLASSES =
+  "grid grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3";
+
 const TONE_CHIP: Record<StatTone, string> = {
   default: "bg-muted text-foreground",
   positive: "bg-primary/10 text-primary",
