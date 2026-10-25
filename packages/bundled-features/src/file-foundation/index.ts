@@ -15,3 +15,7 @@ export {
   fileContextFromResolver,
   readFileRefContent,
 } from "./read-file-ref-content.ts";
+export {
+  makeTenantStorageProviderResolver,
+  type TenantStorageResolverCtx,
+} from "./storage-provider-resolver.ts";

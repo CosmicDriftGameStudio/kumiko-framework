@@ -3,6 +3,7 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
 import { buildDocumentPreview } from "./document-pdf.ts";
 import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.ts";
 import { previewPdfQuery } from "./preview-pdf.query.ts";
+import { PDF_PROBE_I18N, registerPdfServiceProbe } from "./probe.ts";
 import { puppeteerRender } from "./render.ts";
 import { puppeteerStatusQuery } from "./status.query.ts";
 
@@ -36,5 +37,7 @@ export function createRendererPuppeteerClientFeature(): FeatureDefinition {
     r.entity({ name: RENDERED_PDF_ENTITY_NAME, ...renderedPdfEntity });
     r.queryHandler(puppeteerStatusQuery);
     r.queryHandler(previewPdfQuery);
+    r.translations({ keys: PDF_PROBE_I18N });
+    registerPdfServiceProbe(r);
   });
 }

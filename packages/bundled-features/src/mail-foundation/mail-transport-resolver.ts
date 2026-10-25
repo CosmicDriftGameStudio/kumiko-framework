@@ -7,11 +7,11 @@
 // in the worker lane (the prod-bug class the file-provider resolver already fixed).
 
 import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigResolver, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { createConfigAccessor } from "../../config/index.ts";
+import { createConfigAccessor } from "../config/index.ts";
+import { createTransportForTenant } from "./feature.ts";
 
 export interface TenantMailResolverCtx {
   readonly registry: Registry;

@@ -34,8 +34,8 @@ import {
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { makeTenantStorageProviderResolver } from "../../file-foundation/index.ts";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download.ts";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
 import { exportDownloadTokensTable } from "../schema/download-token.ts";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job.ts";
 import { hashDownloadToken } from "../token-helpers.ts";

@@ -17,6 +17,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/observability";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createConfigAccessor } from "../config/index.ts";
+import { makeTenantStorageProviderResolver } from "../file-foundation/index.ts";
+import { makeTenantMailTransportResolver } from "../mail-foundation/index.ts";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.ts";
 import { deletionTokenSecretEnvSchema } from "./env.ts";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
@@ -50,9 +52,7 @@ import {
   makeDefaultExportFailedEmail,
   makeDefaultExportReadyEmail,
 } from "./lib/default-mailers.ts";
-import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver.ts";
 import { resolveAppTenantModel } from "./lib/resolve-tenant-model.ts";
-import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.ts";
 import { registerGdprMails } from "./mail-notifications.ts";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,

@@ -15,8 +15,8 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { makeTenantStorageProviderResolver } from "../../file-foundation/index.ts";
 import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
 import {
   FORGET_CLEANUP_HANDLER_NAME,
   runForgetCleanup,

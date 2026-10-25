@@ -7,7 +7,7 @@ import { serviceEgress } from "./http-client.ts";
 
 const STATUS_TIMEOUT_MS = 3000;
 
-type PuppeteerStatus =
+export type PuppeteerStatus =
   | { readonly available: true }
   | {
       readonly available: false;
@@ -30,7 +30,7 @@ function unavailable(cause: string, log: StatusLogger): PuppeteerStatus {
 
 // One probe without retries: the admin screen asks before offering PDF actions,
 // so a slow answer must not hang it. /healthz is unauthenticated, so no token is sent.
-async function probeService(log: StatusLogger): Promise<PuppeteerStatus> {
+export async function probePuppeteerService(log: StatusLogger): Promise<PuppeteerStatus> {
   let serviceUrl: string;
   try {
     serviceUrl = loadClientConfig().serviceUrl;
@@ -67,5 +67,5 @@ export const puppeteerStatusQuery = defineQueryHandler({
   description:
     "Reports whether the PDF service (puppeteer-service) answers its health check; use it to show an admin whether PDFs can be created right now.",
   handler: async (_event, ctx) =>
-    probeService(createFallbackLogger("renderer-puppeteer-client", ctx.obs.log)),
+    probePuppeteerService(createFallbackLogger("renderer-puppeteer-client", ctx.obs.log)),
 });

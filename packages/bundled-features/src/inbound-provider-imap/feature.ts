@@ -270,6 +270,19 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
       await client.logout().catch(() => {});
     }
   },
+  // EXAMINE instead of SELECT: the system check must not touch \Recent or flags.
+  probe: async (ctx, account) => {
+    const doc = await readCredentialDocument(ctx, account);
+    const client = await createImapClient(doc, imapMailHostGuard());
+    try {
+      await client.connect();
+      await client.mailboxOpen(IMAP_MAILBOX, { readOnly: true });
+    } catch (err) {
+      throw mapImapError(err, doc.host);
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  },
   fetch: fetchMessages,
   watch: watchMailbox,
   // No oauth block: password authentication runs through the credential

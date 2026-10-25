@@ -159,6 +159,9 @@ export type InboundMailProviderPlugin = {
   /** Credential/reachability check during the connect flow — throws a
    *  typed error (InboundAuthError, etc.) and returns no value. */
   readonly verify: (ctx: InboundMailContext, account: MailAccountRecord) => Promise<void>;
+  /** Read-only liveness check for the system check; falls back to `verify`. Must not
+   *  change mailbox state (no flags, no new connection side effects). */
+  readonly probe?: (ctx: InboundMailContext, account: MailAccountRecord) => Promise<void>;
   /** Fetch since cursor. `cursor === null` means initial population,
    *  limited by backfillWindowDays. */
   readonly fetch: (

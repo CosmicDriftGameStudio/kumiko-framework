@@ -35,6 +35,9 @@ export {
   isFileProviderPlugin,
 } from "@cosmicdrift/kumiko-framework/files";
 
+import { FILE_FOUNDATION_I18N } from "./i18n.ts";
+import { registerStorageProbe } from "./probe.ts";
+
 const FEATURE_NAME = "file-foundation";
 
 export function createFileFoundationFeature() {
@@ -70,6 +73,9 @@ export function createFileFoundationFeature() {
       // Readiness gating: provider-plugins' required keys/secrets count only
       // while their plugin is the one this key selects.
       r.extensionSelector(EXT_FILE_PROVIDER, providerConfigKey);
+
+      r.translations({ keys: FILE_FOUNDATION_I18N });
+      registerStorageProbe(r);
 
       return { providerConfigKey };
     },

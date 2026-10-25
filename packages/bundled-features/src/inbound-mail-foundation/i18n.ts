@@ -1,6 +1,7 @@
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
+import { INBOUND_PROBE_I18N } from "./probe-keys.ts";
 import {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
@@ -11,6 +12,7 @@ const formFieldKey = (field: string): string =>
   fieldLabelKey(INBOUND_MAIL_FOUNDATION_FEATURE, ACTION_FORM_ENTITY, field);
 
 export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en: string }>> = {
+  ...INBOUND_PROBE_I18N,
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
   "inboundMail.accounts.col.name": { en: "Name" },

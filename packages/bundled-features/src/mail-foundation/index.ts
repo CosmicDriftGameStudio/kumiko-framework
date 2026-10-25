@@ -18,3 +18,7 @@ export {
   type TenantMailTransportScope,
   tenantMailTransport,
 } from "./feature.ts";
+export {
+  makeTenantMailTransportResolver,
+  type TenantMailResolverCtx,
+} from "./mail-transport-resolver.ts";

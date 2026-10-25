@@ -31,14 +31,16 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFileFoundationFeature } from "../../file-foundation/index.ts";
+import {
+  createFileFoundationFeature,
+  makeTenantStorageProviderResolver,
+} from "../../file-foundation/index.ts";
 import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
 import { UserDataRightsJobs } from "../web/constants.ts";
 import {
