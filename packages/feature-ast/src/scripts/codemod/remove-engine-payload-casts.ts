@@ -13,8 +13,9 @@
 // program, so the framework version the app compiles against decides the row type.
 
 import { dirname, resolve } from "node:path";
-import { type AsExpression, Node, Project, type SourceFile, SyntaxKind, ts } from "ts-morph";
+import { type AsExpression, Node, type Project, type SourceFile, SyntaxKind, ts } from "ts-morph";
 import { type CodemodResult, runCodemodCli } from "./codemod-support.ts";
+import { createTypeAwareProject } from "./type-aware-project.ts";
 
 const CAST_MARKER = "@cast-boundary";
 const EXECUTOR_TYPES_FILE = "/event-store-executor-types.ts";
@@ -278,7 +279,7 @@ function projectFor(filePath: string): Project | undefined {
   if (tsconfig === undefined) return undefined;
   const cached = projectsByTsconfig.get(tsconfig);
   if (cached !== undefined) return cached;
-  const project = new Project({ tsConfigFilePath: tsconfig, skipAddingFilesFromTsConfig: true });
+  const project = createTypeAwareProject(tsconfig);
   projectsByTsconfig.set(tsconfig, project);
   return project;
 }

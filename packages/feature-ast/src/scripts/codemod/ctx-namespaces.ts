@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { Project } from "ts-morph";
 import { type CodemodSite, formatWithBiome } from "./codemod-support.ts";
 import { collectSourceFiles } from "./collect-source-files.ts";
 import { transformCtxNamespaces } from "./ctx-namespaces-transform.ts";
+import { createTypeAwareProject } from "./type-aware-project.ts";
 
 const NAME = "ctx-namespaces";
 
@@ -101,10 +101,7 @@ function runGroup(
   mode: Mode,
   totals: RunTotals,
 ): void {
-  const project = new Project({
-    ...(tsconfig === undefined ? {} : { tsConfigFilePath: tsconfig }),
-    skipAddingFilesFromTsConfig: true,
-  });
+  const project = createTypeAwareProject(tsconfig);
   totals.projects += 1;
   // Receivers are found through references: a structural helper is only recognised as taking a
   // handler context when its callers in other files are already part of the project.
