@@ -35,6 +35,29 @@ describe("DataTable format cells", () => {
     expect(cell.textContent).toBe("Broken");
   });
 
+  test("enumOption with the accent tone draws a primary-colored pill", () => {
+    render(
+      <DataTable
+        columns={[
+          {
+            field: "status",
+            label: "Status",
+            type: "text",
+            sortable: false,
+            renderer: { format: "enumOption", keyPrefix: "s.", tones: { running: "accent" } },
+          },
+        ]}
+        rows={[{ id: "r1", values: { status: "running" } }]}
+        testId="t"
+      />,
+    );
+
+    const pill = screen
+      .getByTestId("cell-r1-status")
+      .querySelector("[data-status-dot]")?.parentElement;
+    expect(pill?.className).toContain("text-primary");
+  });
+
   test("a formatted cell with a link renders the text as a link", () => {
     render(
       <DataTable

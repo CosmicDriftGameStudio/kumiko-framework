@@ -469,6 +469,21 @@ function buildWriteHandlerToolbarAction(
   };
 }
 
+// Fail closed: `visible` and `params` are evaluated against the parent record, so without one
+// the action stays hidden. (navigate falls back to the implicit parent prefill without params.)
+function isToolbarActionHiddenForRecord(
+  action: RelatedListToolbarAction,
+  record: Readonly<Record<string, unknown>> | undefined,
+): boolean {
+  if (
+    action.visible !== undefined &&
+    (record === undefined || !evalFieldCondition(action.visible, record))
+  ) {
+    return true;
+  }
+  return action.kind !== "navigate" && action.params !== undefined && record === undefined;
+}
+
 // Shared by entityList, projectionList, and relatedList toolbars so the
 // three call sites can't drift apart.
 export function buildProjectionToolbarActions(options: {
@@ -511,13 +526,7 @@ export function buildProjectionToolbarActions(options: {
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
   for (const action of toolbarActions) {
-    // Fail closed: a conditional action without a record to evaluate against stays hidden.
-    if (
-      action.visible !== undefined &&
-      (record === undefined || !evalFieldCondition(action.visible, record))
-    ) {
-      continue;
-    }
+    if (isToolbarActionHiddenForRecord(action, record)) continue;
     if (action.kind === "navigate") {
       if (
         access !== undefined &&
@@ -528,8 +537,6 @@ export function buildProjectionToolbarActions(options: {
       out.push(buildNavigateToolbarAction(action, translate, nav, host, navigatePrefill, record));
       continue;
     }
-    // Fail closed like `visible`: params need the parent record they are extracted from.
-    if (action.params !== undefined && record === undefined) continue;
     if (action.kind === "drawer") {
       if (openDrawer === undefined) {
         warnDrawerActionDropped("toolbarAction", action.id);

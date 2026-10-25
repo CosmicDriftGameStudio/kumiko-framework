@@ -8,13 +8,17 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormatSpec } from "@cosmicdrift/kumiko-types/screen";
 import { applyFormatSpec, type Translate } from "../headless/index.ts";
-import { type StatusTone, statusToneForOptionTone, statusToneForValue } from "../primitives.tsx";
+import {
+  type StatusBadgeOptionTone,
+  statusToneForOptionTone,
+  statusToneForValue,
+} from "../primitives.tsx";
 import { isAbsoluteHttpUrl } from "./projection-detail-navigation.ts";
 
 export function headerStatusTone(
   header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
   record: Readonly<Record<string, unknown>>,
-): StatusTone | undefined {
+): StatusBadgeOptionTone | undefined {
   // skip: a header without status has no tone
   if (header.status === undefined) return undefined;
   const value = String(record[header.statusToneField ?? header.status] ?? "");

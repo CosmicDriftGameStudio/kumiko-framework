@@ -42,6 +42,7 @@ function checkVisibleWhenQueryRef(
 ): void {
   checkQueryRef(queryHandlers, query, buildPrefix);
   const handler = queryHandlers.get(query);
+  // skip: unknown handler, checkQueryRef already threw
   if (handler === undefined) return;
   const probe = idParam === undefined ? {} : { [idParam]: PROBE_ROUTE_ID };
   // skip: the query parses what the gate sends

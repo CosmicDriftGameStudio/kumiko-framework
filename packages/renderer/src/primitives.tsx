@@ -1502,10 +1502,13 @@ export type TabsProps = {
 
 export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 
+/** Tones a select option can request: the status tones plus the brand `accent`. */
+export type StatusBadgeOptionTone = StatusTone | "accent";
+
 /** Status pill. `value` is the raw column value — tone-mapping is the app's job. */
 export type StatusBadgeProps = {
   readonly value: string;
-  readonly tone?: StatusTone;
+  readonly tone?: StatusBadgeOptionTone;
   readonly testId?: string;
 };
 
@@ -1538,15 +1541,17 @@ const STATUS_TONE_BY_VALUE: Readonly<Record<string, StatusTone>> = {
   critical: "bad",
 };
 
-const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusTone>> = {
+const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusBadgeOptionTone>> = {
   ok: "ok",
   warn: "warn",
   bad: "bad",
+  critical: "critical",
+  accent: "accent",
   neutral: "muted",
 };
 
 // Own-key check: an unknown tone from an untyped definition must yield undefined so callers fall back to the value heuristic.
-export function statusToneForOptionTone(tone: SelectOptionTone): StatusTone | undefined {
+export function statusToneForOptionTone(tone: SelectOptionTone): StatusBadgeOptionTone | undefined {
   return Object.hasOwn(STATUS_TONE_BY_OPTION_TONE, tone)
     ? STATUS_TONE_BY_OPTION_TONE[tone]
     : undefined;

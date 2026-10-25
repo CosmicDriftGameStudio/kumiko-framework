@@ -362,7 +362,7 @@ export type BooleanFieldDef = {
   readonly access?: FieldAccess;
 };
 
-export const SELECT_OPTION_TONES = ["ok", "warn", "bad", "neutral"] as const;
+export const SELECT_OPTION_TONES = ["ok", "warn", "bad", "critical", "accent", "neutral"] as const;
 
 export type SelectOptionTone = (typeof SELECT_OPTION_TONES)[number];
 

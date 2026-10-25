@@ -4,7 +4,7 @@
 "@cosmicdrift/kumiko-framework": minor
 ---
 
-Closes four gaps in declarative screens. A drawer-hosted actionForm follows its `redirect`, `useQuery({ live: true })` listens on the handler's `liveEntities`, relatedList drawer and writeHandler toolbar actions take `params` from the parent record, and a projectionDetail `visibleWhen` can pass the route id to its query.
+Closes four gaps in declarative screens. A drawer-hosted actionForm follows its `redirect`, `useQuery({ live: true })` listens on the handler's `liveEntities`, relatedList drawer and writeHandler toolbar actions take `params` from the parent record, a projectionDetail `visibleWhen` can pass the route id to its query, and option tones gain `critical` and `accent`.
 
 <!-- kumiko-changes
 feature: renderer
@@ -32,4 +32,11 @@ feature: framework
 type: improvement
 title: projectionDetail visibleWhen can pass the route id
 detail: A screen-level visibleWhen takes idParam on projectionDetail. The gate then queries with the route id under that key, and boot accepts a visibleWhen query that requires exactly that input. Without idParam the empty-payload rule stays, and idParam on another screen type fails boot. A failing gate query, such as a 403 for a downgraded tenant, shows the fallback or the standard notice instead of the screen.
+-->
+
+<!-- kumiko-changes
+feature: types
+type: improvement
+title: Option tones gain critical and accent
+detail: SelectOptionTone is now ok, warn, bad, critical, accent or neutral, for select optionTones, enumOption tones, relatedList rowTone and projectionDetail header.statusTones. critical and accent reuse the StatusBadge colors (status-critical and the primary brand color), neutral stays muted. An informative state such as "Ready" can use accent instead of a custom cell.
 -->

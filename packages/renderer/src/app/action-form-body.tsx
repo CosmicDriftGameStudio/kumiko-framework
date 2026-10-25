@@ -44,6 +44,7 @@ import { navigateToReturn, navigateToReturnOr, useReturnTarget } from "./return-
 import { screenAccessAllows } from "./screen-access.ts";
 import {
   formatSummaryParams,
+  navigateAfterDrawerSubmit,
   navigateToRedirectTarget,
   redirectScreenTarget,
   resolveActionFormSummary,
@@ -378,19 +379,13 @@ export function ActionFormBody({
       if (!result.isSuccess) return;
       if (onSuccess !== undefined) {
         onSuccess();
-        // A drawer is no navigation target, so returnTo does not apply to its redirect.
-        if (screen.redirect !== undefined) {
-          const target = resolveRedirectTarget(screen.redirect, result.data, schema, appFeatures);
-          // Redirecting onto the host screen would only reset its filters/scroll/tab;
-          // the close + refetch above already refreshed it.
-          const hostScreenId =
-            nav.route === undefined ? undefined : lastSegment(nav.route.screenId);
-          const isHostScreen =
-            target.screenId === hostScreenId &&
-            target.entityId === undefined &&
-            target.tab === undefined;
-          if (!isHostScreen) navigateToRedirectTarget(nav, target);
-        }
+        navigateAfterDrawerSubmit({
+          nav,
+          redirect: screen.redirect,
+          resultData: result.data,
+          schema,
+          appFeatures,
+        });
         return;
       }
       if (screen.redirect === undefined) {
