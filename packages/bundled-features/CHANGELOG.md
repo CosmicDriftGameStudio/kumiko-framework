@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.391.1
+
+### Patch Changes
+
+- 20b9632: A regression test pins that a woken workflow run is due on the next resume tick even when the app clock runs ahead of the database clock.
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: improvement
+  title: Regression test for the woken-run due check
+  detail: The event-wakeup integration test now runs the wakeup with the app clock one hour ahead of the database and expects resume-due-runs to complete the run. Nothing changes for apps; the package is only republished.
+  -->
+- Updated dependencies [70ceb25]
+  - @cosmicdrift/kumiko-framework@0.391.1
+  - @cosmicdrift/kumiko-renderer@0.391.1
+  - @cosmicdrift/kumiko-testing@0.391.1
+  - @cosmicdrift/kumiko-types@0.391.1
+
 ## 0.391.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.1",
+    "type": "improvement",
+    "title": "Regression test for the woken-run due check",
+    "detail": "The event-wakeup integration test now runs the wakeup with the app clock one hour ahead of the database and expects resume-due-runs to complete the run. Nothing changes for apps; the package is only republished."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "Woken workflow runs are due on the next resume tick",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.1",
+    "type": "fix",
+    "title": "Type-aware codemods no longer exhaust memory when the app pins another zod",
+    "detail": "ctx-namespaces and remove-engine-payload-casts build their ts-morph project with a resolution host that resolves zod and its subpaths from the app root, so the program holds one zod copy even when bun nests a second version under each framework package. Without zod at the app root, resolution is unchanged. A small app with zod 4.6.6 next to framework packages on 4.6.7 went from 17 GB and 36 s to 1.1 GB and 3 s for ctx-namespaces, with the same rewrites."
+  },
+  {
     "version": "0.391.0",
     "type": "fix",
     "title": "Codemods no longer fail when git is not installed",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.1",
+    "type": "fix",
+    "title": "Boot errors name the real schema command",
+    "detail": "The drift report and the row-level-security boot check recommended `kumiko schema apply` and `kumiko schema generate`. Apps run the CLI as `bun kumiko-schema <subcommand>`, so the hints now say that."
+  },
+  {
     "version": "0.391.0",
     "type": "fix",
     "title": "Concurrent boots create kumiko_es_operations without a race",
