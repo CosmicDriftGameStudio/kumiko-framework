@@ -24,6 +24,11 @@ export const UserProfileQueries = {
   me: "user:query:user:me",
 } as const;
 
+// Short id: navigate targets resolve short ids app-wide, a cross-feature QN is not a navigate target.
+export const UserProfileForeignScreens = {
+  accountSecurity: "account-security",
+} as const;
+
 export const UserDataRightsHandlers = {
   requestDeletion: "user-data-rights:write:request-deletion",
   cancelDeletion: "user-data-rights:write:cancel-deletion",

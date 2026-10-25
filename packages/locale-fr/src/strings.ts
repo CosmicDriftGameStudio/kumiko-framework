@@ -1095,6 +1095,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "personal-access-tokens:entity:__action-form__:field:name": "Nom",
   "personal-access-tokens:entity:__action-form__:field:scopes": "Accès par API",
   "profile.danger.cancelDeletion": "Annuler la suppression",
+  "profile.mfa.open": "Gérer l'authentification à deux facteurs",
   "profile.danger.delete": "Supprimer le compte",
   "profile.danger.dialogDescription":
     "Après le délai de grâce, vos données seront définitivement supprimées. D'ici là, vous pouvez annuler.",

@@ -1089,6 +1089,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "personal-access-tokens:entity:__action-form__:field:name": "Name",
   "personal-access-tokens:entity:__action-form__:field:scopes": "Zugriff pro API",
   "profile.danger.cancelDeletion": "Löschung abbrechen",
+  "profile.mfa.open": "Zwei-Faktor-Authentifizierung verwalten",
   "profile.danger.delete": "Konto löschen",
   "profile.danger.dialogDescription":
     "Nach Ablauf der Frist werden deine Daten endgültig gelöscht. Bis dahin kannst du die Löschung abbrechen.",

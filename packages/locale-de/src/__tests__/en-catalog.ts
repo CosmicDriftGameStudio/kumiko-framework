@@ -1053,6 +1053,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "personal-access-tokens:entity:__action-form__:field:name": "Name",
   "personal-access-tokens:entity:__action-form__:field:scopes": "Per-API access",
   "profile.danger.cancelDeletion": "Cancel deletion",
+  "profile.mfa.open": "Manage two-factor authentication",
   "profile.danger.delete": "Delete account",
   "profile.danger.dialogDescription":
     "After the grace period your data will be permanently deleted. Until then you can cancel.",
