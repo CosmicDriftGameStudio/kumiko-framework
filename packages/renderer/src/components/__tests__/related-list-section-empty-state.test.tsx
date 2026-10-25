@@ -62,6 +62,7 @@ const baseSection: EditRelatedListSectionViewModel = {
 function renderEmpty(
   section: EditRelatedListSectionViewModel,
   onWrite?: (type: string, payload: unknown) => void,
+  record: Readonly<Record<string, unknown>> = { id: "order-1" },
 ) {
   const dispatcher = {
     write: (async (type: string, payload: unknown) => {
@@ -95,7 +96,7 @@ function renderEmpty(
             <RelatedListSection
               section={section}
               parentId="order-1"
-              record={{ id: "order-1" }}
+              record={record}
               featureName="orders"
             />
           </NavProvider>
@@ -139,5 +140,38 @@ describe("RelatedListSection — emptyState (fw#3234)", () => {
       type: "orders:write:seed-notifications",
       payload: { id: "order-1" },
     });
+  });
+
+  test("an emptyState variant whose condition holds for the parent record replaces the title", async () => {
+    const section: EditRelatedListSectionViewModel = {
+      ...baseSection,
+      emptyState: {
+        title: "No notifications yet",
+        description: "New ones show up here.",
+        variants: [
+          { when: { field: "status", eq: "draft" }, title: "Send the order first" },
+          { when: { field: "status", eq: "sent" }, title: "Nothing was sent back" },
+        ],
+      },
+    };
+    renderEmpty(section, undefined, { id: "order-1", status: "sent" });
+
+    await waitFor(() => rtlScreen.getByText("Nothing was sent back"));
+    expect(rtlScreen.queryByText("No notifications yet")).toBeNull();
+    expect(rtlScreen.queryByText("New ones show up here.")).toBeNull();
+  });
+
+  test("without a matching variant the default emptyState text stays", async () => {
+    const section: EditRelatedListSectionViewModel = {
+      ...baseSection,
+      emptyState: {
+        title: "No notifications yet",
+        variants: [{ when: { field: "status", eq: "draft" }, title: "Send the order first" }],
+      },
+    };
+    renderEmpty(section, undefined, { id: "order-1", status: "sent" });
+
+    await waitFor(() => rtlScreen.getByText("No notifications yet"));
+    expect(rtlScreen.queryByText("Send the order first")).toBeNull();
   });
 });

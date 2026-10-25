@@ -256,6 +256,10 @@ function pushRelatedListSectionKeys(
   const grouping = section.table?.grouping;
   pushKey(out, grouping?.label);
   for (const label of Object.values<string>(grouping?.labels ?? {})) pushKey(out, label);
+  for (const variant of section.emptyState?.variants ?? []) {
+    pushKey(out, variant.title);
+    pushKey(out, variant.description);
+  }
 }
 
 function pushListEmptyStateKeys(

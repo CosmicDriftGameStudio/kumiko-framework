@@ -4,9 +4,14 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import {
+  type EditRelatedListSection,
+  evalFieldCondition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ProbeTextKeys, ReadinessQueries, ReadinessWrites } from "../constants.ts";
+import { ScreenTextKeys, systemCheckRunScreen } from "../screens.ts";
 import { markEvents, setupReadinessStack } from "./readiness-test-stack.ts";
 
 const clock = createManualClock(getTemporal().Now.instant());
@@ -74,6 +79,16 @@ function freshUsers() {
 const start = (user: ReturnType<typeof createTestUser>) =>
   stack.http.writeOk<Started>(ReadinessWrites.runProbes, {}, user);
 
+function runResultsEmptyTitleFor(run: Readonly<Record<string, unknown>>): string | undefined {
+  const results = systemCheckRunScreen.layout.sections.find(
+    (section): section is EditRelatedListSection => section.kind === "relatedList",
+  );
+  const emptyState = results?.emptyState;
+  return (
+    emptyState?.variants?.find((variant) => evalFieldCondition(variant.when, run)) ?? emptyState
+  )?.title;
+}
+
 describe("readiness run-probes with injected clock", () => {
   test("a stale active run is abandoned and a new run takes over", async () => {
     const { tenantAdmin } = freshUsers();
@@ -95,6 +110,19 @@ describe("readiness run-probes with injected clock", () => {
     );
     expect(list.rows.find((row) => row.id === stale.runId)?.status).toBe("abandoned");
     expect(list.rows.find((row) => row.id === fresh.runId)?.status).toBe("done");
+
+    const staleResults = await stack.http.queryOk<{ rows: unknown[] }>(
+      ReadinessQueries.runResults,
+      { runId: stale.runId },
+      tenantAdmin,
+    );
+    const staleRun = await stack.http.queryOk<Record<string, unknown>>(
+      ReadinessQueries.runDetail,
+      { runId: stale.runId },
+      tenantAdmin,
+    );
+    expect(staleResults.rows).toEqual([]);
+    expect(runResultsEmptyTitleFor(staleRun)).toBe(ScreenTextKeys.latestAbandoned);
   });
 
   test("a run writes events only on its own run entry", async () => {

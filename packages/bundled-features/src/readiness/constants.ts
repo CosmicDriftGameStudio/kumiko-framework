@@ -15,6 +15,8 @@ export const ReadinessWrites = {
   runProbes: "readiness:write:run-probes",
 } as const;
 
+export const RUN_OUTCOME = { ok: "ok", failed: "failed", running: "running" } as const;
+
 export const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 
 // An active run older than this is treated as dead (worker crash) and may be replaced.

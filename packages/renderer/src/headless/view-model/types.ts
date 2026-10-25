@@ -13,6 +13,7 @@ import type {
   ListTableOptions,
   OptionsQueryPayload,
   PlatformComponent,
+  RelatedListEmptyStateVariant,
   RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,
@@ -460,6 +461,7 @@ export type EditRelatedListSectionViewModel = {
     readonly title: string;
     readonly description?: string;
     readonly action?: RowAction;
+    readonly variants?: readonly RelatedListEmptyStateVariant[];
   };
 };
 

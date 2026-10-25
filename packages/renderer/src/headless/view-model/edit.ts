@@ -204,6 +204,15 @@ export function computeRelatedListSectionViewModel(
         ...(sectionSpec.emptyState.action !== undefined && {
           action: sectionSpec.emptyState.action,
         }),
+        ...(sectionSpec.emptyState.variants !== undefined && {
+          variants: sectionSpec.emptyState.variants.map((variant) => ({
+            when: variant.when,
+            title: translate(variant.title),
+            ...(variant.description !== undefined && {
+              description: translate(variant.description),
+            }),
+          })),
+        }),
       },
     }),
   };

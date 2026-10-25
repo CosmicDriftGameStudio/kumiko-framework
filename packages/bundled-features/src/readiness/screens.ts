@@ -4,7 +4,8 @@ import type {
   ProjectionDetailScreenDefinition,
   RowAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { ReadinessQueries, ReadinessWrites } from "./constants.ts";
+import { ReadinessQueries, ReadinessWrites, RUN_OUTCOME } from "./constants.ts";
+import { PROBE_RUN_STATUS } from "./schema/probe-run.ts";
 
 export const SYSTEM_CHECK_SCREEN_ID = "system-check";
 export const SYSTEM_CHECK_RUN_SCREEN_ID = "system-check-run";
@@ -17,6 +18,9 @@ export const ScreenTextKeys = {
   latestTitle: "readiness.screen.latest.title",
   latestDescription: "readiness.screen.latest.description",
   latestEmpty: "readiness.screen.latest.empty",
+  latestRunning: "readiness.screen.latest.running",
+  latestNothingToCheck: "readiness.screen.latest.nothing-to-check",
+  latestAbandoned: "readiness.screen.latest.abandoned",
   historyTitle: "readiness.screen.history.title",
   historyDescription: "readiness.screen.history.description",
   historyEmpty: "readiness.screen.history.empty",
@@ -76,7 +80,24 @@ function resultsSection(
     title,
     query,
     columns: RESULT_COLUMNS,
-    emptyState: { title: ScreenTextKeys.latestEmpty },
+    emptyState: {
+      title: ScreenTextKeys.latestEmpty,
+      // A finished run without rows had nothing the caller may see, not "no run yet".
+      variants: [
+        {
+          when: { field: "outcome", eq: RUN_OUTCOME.running },
+          title: ScreenTextKeys.latestRunning,
+        },
+        {
+          when: { field: "outcome", eq: RUN_OUTCOME.ok },
+          title: ScreenTextKeys.latestNothingToCheck,
+        },
+        {
+          when: { field: "status", eq: PROBE_RUN_STATUS.Abandoned },
+          title: ScreenTextKeys.latestAbandoned,
+        },
+      ],
+    },
     ...extra,
   };
 }

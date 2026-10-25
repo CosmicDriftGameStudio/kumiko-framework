@@ -344,7 +344,20 @@ export type EditRelatedListSection = {
    *  section's query returns zero rows. Omitted: the DataTable default
    *  ("kumiko.list.no-entries") applies. `action`'s icon must resolve, same
    *  as `actions` above. */
-  readonly emptyState?: ListEmptyStateSpec;
+  readonly emptyState?: RelatedListEmptyStateSpec;
+};
+
+/** Empty-state text for one parent-record state, e.g. "still running" vs. "finished without rows". */
+export type RelatedListEmptyStateVariant = {
+  readonly when: Exclude<FieldCondition, boolean>;
+  readonly title: string;
+  readonly description?: string;
+};
+
+/** The first `variants` entry whose `when` holds for the parent record replaces `title` and
+ *  `description`; `action` stays. */
+export type RelatedListEmptyStateSpec = ListEmptyStateSpec & {
+  readonly variants?: readonly RelatedListEmptyStateVariant[];
 };
 
 // A declarative, self-persisting form section for `projectionDetail`

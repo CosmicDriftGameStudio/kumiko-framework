@@ -10,7 +10,8 @@ export const READINESS_I18N: Readonly<Record<string, LocalizedString>> = {
   "readiness.probe.cache.ok": { en: "Cache reachable" },
   "readiness.probe.search.label": { en: "Search" },
   "readiness.probe.search.ok": { en: "Search reachable" },
-  "readiness.probe.paid-not-requested": { en: "Not run, paid checks were not requested" },
+  "readiness.probe.search.unavailable": { en: "The search service does not answer" },
+  "readiness.probe.paid-not-requested": { en: "Only via “Test AI extraction”" },
   "readiness.probe.no-targets": { en: "Nothing to check" },
   "readiness.probe.timeout": { en: "No answer after {seconds} seconds" },
   "readiness.probe.failed": { en: "The check failed" },
@@ -29,6 +30,11 @@ export const READINESS_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Real calls against mail, storage, search and the other connected services. A failed row links to the screen that fixes it.",
   },
   "readiness.screen.latest.empty": { en: "No results yet. Start a check." },
+  "readiness.screen.latest.running": {
+    en: "The check is running. Results appear when it is done.",
+  },
+  "readiness.screen.latest.nothing-to-check": { en: "There is nothing to check for this tenant." },
+  "readiness.screen.latest.abandoned": { en: "The run was stopped before it returned results." },
   "readiness.screen.history.title": { en: "History" },
   "readiness.screen.history.description": {
     en: "Earlier runs, newest first. Open one to see its results.",
