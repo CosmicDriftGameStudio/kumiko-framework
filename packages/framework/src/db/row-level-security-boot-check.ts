@@ -62,17 +62,17 @@ async function assertAllTenantTablesProtected(
   const sections = [
     ...(frameworkTables.length > 0
       ? [
-          `framework tables without it: ${listingOf(frameworkTables)}. Run \`kumiko schema apply\`: it adds the missing policies to the framework tables (\`kumiko schema generate\` reports no changes for them).`,
+          `framework tables without it: ${listingOf(frameworkTables)}. Run \`bun kumiko-schema apply\`: it adds the missing policies to the framework tables (\`bun kumiko-schema generate\` reports no changes for them).`,
         ]
       : []),
     ...(known.length > 0
       ? [
-          `tables of this app without it: ${listingOf(known)}. Run \`kumiko schema generate\` and apply the migration.`,
+          `tables of this app without it: ${listingOf(known)}. Run \`bun kumiko-schema generate\` and apply the migration.`,
         ]
       : []),
     ...(orphaned.length > 0
       ? [
-          `tables no feature declares anymore: ${listingOf(orphaned)}. No feature declares them: add a migration with DROP TABLE (enable the commented \`-- DESTRUCTIVE\` DROP that \`kumiko schema generate\` emitted; see \`kumiko schema status\`).`,
+          `tables no feature declares anymore: ${listingOf(orphaned)}. No feature declares them: add a migration with DROP TABLE (enable the commented \`-- DESTRUCTIVE\` DROP that \`bun kumiko-schema generate\` emitted; see \`bun kumiko-schema status\`).`,
         ]
       : []),
   ];
@@ -92,7 +92,7 @@ async function assertNoLiveRowLevelSecurity(
   // skip: no live row-level security to disable
   if (tables.length === 0) return;
   throw new InternalError({
-    message: `rowLevelSecurity is "off" but row-level security is still enabled on: ${tables.join(", ")}. Without a tenant scope every statement would see zero rows. Run \`kumiko schema generate\` with rowLevelSecurity off to produce the DISABLE ROW LEVEL SECURITY migration and apply it.`,
+    message: `rowLevelSecurity is "off" but row-level security is still enabled on: ${tables.join(", ")}. Without a tenant scope every statement would see zero rows. Run \`bun kumiko-schema generate\` with rowLevelSecurity off to produce the DISABLE ROW LEVEL SECURITY migration and apply it.`,
   });
 }
 
