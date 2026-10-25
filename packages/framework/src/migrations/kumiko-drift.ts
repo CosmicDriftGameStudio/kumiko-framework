@@ -156,11 +156,11 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
   // restored by apply.
   lines.push("");
   if (report.pending.length > 0) {
-    lines.push("Run 'kumiko schema apply' to apply the pending migration(s).");
+    lines.push("Run 'bun kumiko-schema apply' to apply the pending migration(s).");
   }
   if (report.checksumMismatches.length > 0) {
     lines.push("Revert the edited migration file(s) to their applied content, or hand-correct");
-    lines.push("the checksum in _kumiko_migrations — 'kumiko schema apply' cannot resolve a");
+    lines.push("the checksum in _kumiko_migrations — 'bun kumiko-schema apply' cannot resolve a");
     lines.push("checksum mismatch.");
   }
   if (report.missingTables.length > 0 && report.pending.length === 0) {
@@ -169,9 +169,9 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
   }
   if (report.missingColumns.length > 0) {
     lines.push("Missing column(s) — the live table predates a richer snapshot (e.g. a");
-    lines.push("ride-along column the generator now emits). Run 'kumiko schema generate' to");
+    lines.push("ride-along column the generator now emits). Run 'bun kumiko-schema generate' to");
     lines.push(
-      "produce an ALTER-TABLE migration for the new column(s), then 'kumiko schema apply'.",
+      "produce an ALTER-TABLE migration for the new column(s), then 'bun kumiko-schema apply'.",
     );
   }
   return lines.join("\n");

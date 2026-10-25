@@ -29,7 +29,7 @@ describe("formatKumikoDriftReport", () => {
     const out = formatKumikoDriftReport(report);
     expect(out).toContain("2 unapplied migration(s)");
     expect(out).toContain("0001_init");
-    expect(out).toContain("Run 'kumiko schema apply'");
+    expect(out).toContain("Run 'bun kumiko-schema apply'");
     expect(out).not.toContain("checksum");
     expect(out).not.toContain("dropped after apply");
   });
@@ -47,7 +47,7 @@ describe("formatKumikoDriftReport", () => {
     expect(out).toContain("Revert the edited migration");
     expect(out).toContain("cannot resolve a");
     expect(out).toContain("checksum mismatch");
-    expect(out).not.toContain("Run 'kumiko schema apply'");
+    expect(out).not.toContain("Run 'bun kumiko-schema apply'");
   });
 
   test("missing tables without pending → suggests backup/regen, NOT 'schema apply'", () => {
@@ -60,7 +60,7 @@ describe("formatKumikoDriftReport", () => {
     expect(out).toContain("1 missing table(s)");
     expect(out).toContain("dropped after apply");
     expect(out).toContain("Restore from backup");
-    expect(out).not.toContain("Run 'kumiko schema apply'");
+    expect(out).not.toContain("Run 'bun kumiko-schema apply'");
   });
 
   test("missing tables WITH pending → only the 'schema apply' hint (pending covers it)", () => {
@@ -73,7 +73,7 @@ describe("formatKumikoDriftReport", () => {
       missingTables: ["widget"],
     };
     const out = formatKumikoDriftReport(report);
-    expect(out).toContain("Run 'kumiko schema apply'");
+    expect(out).toContain("Run 'bun kumiko-schema apply'");
     expect(out).not.toContain("Restore from backup");
   });
 
@@ -86,7 +86,7 @@ describe("formatKumikoDriftReport", () => {
     const out = formatKumikoDriftReport(report);
     expect(out).toContain("2 missing column(s)");
     expect(out).toContain("read_tenant_secrets: envelope, metadata");
-    expect(out).toContain("'kumiko schema generate'");
+    expect(out).toContain("'bun kumiko-schema generate'");
   });
 
   test("pending + mismatch combined → both remediation lines", () => {
@@ -99,7 +99,7 @@ describe("formatKumikoDriftReport", () => {
       ],
     };
     const out = formatKumikoDriftReport(report);
-    expect(out).toContain("Run 'kumiko schema apply'");
+    expect(out).toContain("Run 'bun kumiko-schema apply'");
     expect(out).toContain("Revert the edited migration");
   });
 });

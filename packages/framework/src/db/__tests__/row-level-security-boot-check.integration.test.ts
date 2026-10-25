@@ -109,7 +109,7 @@ describe("assertRowLevelSecurityBootState", () => {
       (e: Error) => e,
     );
     expect(String(error)).toMatch(/tables of this app without it: store_boot_check_items/);
-    expect(String(error)).toContain("kumiko schema generate");
+    expect(String(error)).toContain("bun kumiko-schema generate");
     expect(String(error)).not.toContain("no feature declares");
   });
 
@@ -119,7 +119,7 @@ describe("assertRowLevelSecurityBootState", () => {
       (e: Error) => e,
     );
     expect(String(error)).toMatch(/no feature declares anymore: store_boot_check_items/);
-    expect(String(error)).toContain("kumiko schema status");
+    expect(String(error)).toContain("bun kumiko-schema status");
     expect(String(error)).not.toContain("tables of this app");
   });
 

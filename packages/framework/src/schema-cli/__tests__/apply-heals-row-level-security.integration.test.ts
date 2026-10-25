@@ -82,7 +82,7 @@ describe("framework tables created before row-level security was on", () => {
     expect(await runValidateCommand(ctx)).toBe(1);
     const reported = lines.filter((line) => line.includes("row-level security")).join("\n");
     expect(reported).toContain("✗ row-level security");
-    expect(reported).toContain("kumiko schema apply");
+    expect(reported).toContain("bun kumiko-schema apply");
     for (const table of TENANT_FRAMEWORK_TABLES) expect(reported).toContain(table);
 
     expect(await runApplyCommand(ctx)).toBe(0);
