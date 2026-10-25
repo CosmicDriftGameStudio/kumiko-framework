@@ -33,6 +33,7 @@ const widgetCap: CapSpec = {
   label: "test.cap.widgets",
   limit: () => 10,
   usage: async () => 3,
+  unit: "tokens",
 };
 
 async function startStack(options: Pick<CreateCapOverviewOptions, "usageVisibleTo">) {
@@ -98,6 +99,15 @@ describe("caps:usage visibility with usageVisibleTo", () => {
   test("a regular User reads own-tenant usage", async () => {
     const res = await stack.http.query(CapOverviewQueries.capsUsage, {}, member);
     expect(res.status).toBe(200);
+  });
+
+  test("the cap unit reaches the caps:usage row", async () => {
+    const result = await stack.http.queryOk<{ rows: { id: string; unit?: string }[] }>(
+      CapOverviewQueries.capsUsage,
+      {},
+      member,
+    );
+    expect(result.rows.find((row) => row.id === "widgets")?.unit).toBe("tokens");
   });
 
   test("a role outside the list still gets 403", async () => {

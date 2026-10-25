@@ -7,7 +7,11 @@ import { type ErrorNotice, ErrorReference } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { HeaderActionsBar } from "./header-actions-bar.tsx";
 import type { NavApi } from "./nav.tsx";
-import { headerStatusTone, resolveSubtitleHref } from "./projection-detail-header-model.ts";
+import {
+  headerStatusTone,
+  resolveHeaderStatusText,
+  resolveSubtitleHref,
+} from "./projection-detail-header-model.ts";
 import { buildSubtitleParts, runMetricNavigate } from "./projection-detail-navigation.ts";
 import type { ReturnHost } from "./return-to.tsx";
 import { navigateTargetAllows } from "./screen-access.ts";
@@ -48,6 +52,7 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
   const { screen, record, primitives } = model;
   const { Grid, Text, StatusBadge } = primitives;
   const header = screen.header;
+  const statusText = resolveHeaderStatusText(screen, record, model.effectiveTranslate);
   return header !== undefined ? (
     header.status !== undefined ? (
       <Grid columns="auto">
@@ -56,14 +61,12 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
         </Text>
         {StatusBadge !== undefined ? (
           <StatusBadge
-            value={String(record[header.status] ?? "")}
+            value={statusText}
             tone={headerStatusTone(header, record)}
             testId="kumiko-screen-projection-detail-status"
           />
         ) : (
-          <Text testId="kumiko-screen-projection-detail-status">
-            {String(record[header.status] ?? "")}
-          </Text>
+          <Text testId="kumiko-screen-projection-detail-status">{statusText}</Text>
         )}
       </Grid>
     ) : (
@@ -213,7 +216,7 @@ export function renderStatusBadge(model: DetailHeaderModel): ReactNode {
   const header = screen.header;
   return header?.status !== undefined && StatusBadge !== undefined ? (
     <StatusBadge
-      value={String(record[header.status] ?? "")}
+      value={resolveHeaderStatusText(screen, record, model.effectiveTranslate)}
       tone={headerStatusTone(header, record)}
       testId="kumiko-screen-projection-detail-status"
     />

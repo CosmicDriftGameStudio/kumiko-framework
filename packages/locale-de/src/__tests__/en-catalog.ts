@@ -420,6 +420,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "cap-overview.list.col.tier": "Tier",
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Not measured yet",
+  "cap-overview.notIncluded": "Not included",
   "cap-overview.platform.filter.tenant": "Tenant",
   "cap-overview.unlimited": "{used} · unlimited",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Compliance profile",

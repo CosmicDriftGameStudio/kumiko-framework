@@ -18,7 +18,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { NavNode } from "../../headless/index.ts";
 import { resolveNavigation } from "../../headless/index.ts";
 import type { AppSchema, FeatureSchema } from "../../index.ts";
 import {
@@ -40,9 +39,10 @@ import {
 } from "../ui/breadcrumb.tsx";
 import { SidebarTrigger } from "../ui/sidebar.tsx";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
-import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.tsx";
+import { buildNavRegistrySliceForApp } from "./nav-tree.tsx";
 import { usePageHeaderSlot } from "./page-header-slot.tsx";
 import {
+  activeNavLabel,
   type BreadcrumbCrumb,
   resolveDetailBreadcrumb,
   screenTitleKey,
@@ -58,10 +58,13 @@ export function ShellHeader({
   schema,
   user,
   headerActions,
+  allowedNavQns,
 }: {
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: ShellHeaderUser;
   readonly headerActions?: ReactNode;
+  // The sidebar's nav set: when two navs point at the same screen, the title follows the one the sidebar shows.
+  readonly allowedNavQns?: ReadonlySet<string>;
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
@@ -70,6 +73,11 @@ export function ShellHeader({
     const source = buildNavRegistrySliceForApp(appSchema);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
   }, [appSchema, user]);
+  const allowedTree = useMemo(() => {
+    if (allowedNavQns === undefined) return undefined;
+    const source = buildNavRegistrySliceForApp(appSchema, allowedNavQns);
+    return resolveNavigation({ source, ...(user !== undefined && { user }) });
+  }, [appSchema, user, allowedNavQns]);
 
   const allScreens = useMemo(
     () => appSchema.features.flatMap((f) => f.screens),
@@ -87,10 +95,12 @@ export function ShellHeader({
       const detailCrumbs = resolveDetailBreadcrumb(allScreens, screenId, t);
       if (detailCrumbs !== undefined && detailCrumbs.length > 1) return detailCrumbs;
     }
-    const navLabel = activeNavLabel(tree, screenId, (k) => t(k));
+    const navLabel =
+      (allowedTree !== undefined ? activeNavLabel(allowedTree, screenId, t) : undefined) ??
+      activeNavLabel(tree, screenId, t);
     if (navLabel !== undefined) return [{ label: navLabel }];
     return resolveDetailBreadcrumb(allScreens, screenId, t);
-  }, [allScreens, screenId, entityId, t, tree]);
+  }, [allScreens, screenId, entityId, t, tree, allowedTree]);
 
   const setStatusElement = slot?.setStatusElement;
   const setActionsElement = slot?.setActionsElement;
@@ -352,19 +362,4 @@ function HeaderOverflow({
       </div>
     </>
   );
-}
-
-function activeNavLabel(
-  nodes: readonly NavNode[],
-  screenId: string,
-  t: (key: string) => string,
-): string | undefined {
-  for (const node of nodes) {
-    if (node.screen !== undefined && lastSegment(node.screen) === screenId) {
-      return node.label.includes(".") || node.label.includes(":") ? t(node.label) : node.label;
-    }
-    const child = activeNavLabel(node.children, screenId, t);
-    if (child !== undefined) return child;
-  }
-  return undefined;
 }

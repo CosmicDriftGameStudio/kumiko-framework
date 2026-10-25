@@ -109,4 +109,39 @@ describe("CapUsageBar", () => {
     expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
     expect(screen.queryByTestId("cap-usage-unlimited")).toBeNull();
   });
+
+  test("limit 0 renders not-included, even when nothing is measured", () => {
+    for (const used of [null, 5]) {
+      const usage: CapUsage = { used, limit: 0, fraction: 0 };
+      const { unmount } = render(
+        <Wrapper>
+          <CapUsageBar usage={usage} />
+        </Wrapper>,
+      );
+
+      expect(screen.getByTestId("cap-usage-not-included").textContent).toBe(
+        "cap-overview.notIncluded",
+      );
+      expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+      expect(screen.queryByTestId("cap-usage-not-measured")).toBeNull();
+      unmount();
+    }
+  });
+
+  test("formats used and limit by unit and groups plain numbers", () => {
+    const { unmount } = render(
+      <Wrapper>
+        <CapUsageBar usage={{ used: 1536, limit: 102400, fraction: 0.015, unit: "mb" }} />
+      </Wrapper>,
+    );
+    expect(screen.getByText(/1\.5.GB \/ 100.GB/)).toBeTruthy();
+    unmount();
+
+    render(
+      <Wrapper>
+        <CapUsageBar usage={{ used: 1500, limit: 150000, fraction: 0.01, unit: "count" }} />
+      </Wrapper>,
+    );
+    expect(screen.getByText(/1,500 \/ 150,000/)).toBeTruthy();
+  });
 });

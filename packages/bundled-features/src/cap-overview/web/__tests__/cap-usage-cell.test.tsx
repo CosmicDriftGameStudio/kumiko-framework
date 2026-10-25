@@ -44,6 +44,23 @@ describe("CapUsageCell", () => {
     expect(screen.getByTestId("cap-usage-bar")).toBeTruthy();
   });
 
+  test("renders not-included for limit 0", () => {
+    renderCell({ used: null, limit: 0, fraction: 0 });
+
+    expect(screen.getByTestId("cap-usage-not-included")).toBeTruthy();
+  });
+
+  test("accepts a known unit and rejects an unknown one", () => {
+    renderCell({ used: 40, limit: 100, fraction: 0.4, unit: "mb" });
+    expect(screen.getByTestId("cap-usage-bar")).toBeTruthy();
+  });
+
+  test("renders nothing for an unknown unit", () => {
+    renderCell({ used: 40, limit: 100, fraction: 0.4, unit: "furlongs" });
+
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+  });
+
   test.each([
     ["a non-object", 42],
     ["null", null],

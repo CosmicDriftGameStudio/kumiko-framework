@@ -299,4 +299,47 @@ describe("CapCardsPanel", () => {
     expect(screen.getByText("cap-overview.cards.loading")).toBeTruthy();
     expect(screen.queryByTestId("cap-cards-panel-empty")).toBeNull();
   });
+
+  test("limit 0 shows the not-included text, no badge, no bar, also when not measured", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "c1", used: 0, limit: 0, percent: 0 }),
+          nullCapRow({ id: "c2", limit: 0 }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    for (const card of screen.getAllByTestId("cap-card")) {
+      expect(card.textContent).toContain("cap-overview.notIncluded");
+    }
+    expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+    expect(screen.queryByTestId("cap-usage-not-measured")).toBeNull();
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  test("formats values by unit and groups plain numbers", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "c1", used: 1536, limit: 102400, percent: 2, unit: "mb" }),
+          capRow({ id: "c2", used: 1500, limit: 150000, percent: 1, unit: "count" }),
+          unlimitedCapRow({ id: "c3", used: 2048, unit: "mb" }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    const cards = screen.getAllByTestId("cap-card");
+    expect(cards[0]?.textContent).toMatch(/1\.5.GB \/ 100.GB/);
+    expect(cards[1]?.textContent).toContain("1,500 / 150,000");
+    expect(cards[2]?.textContent).toMatch(/2.GB/);
+  });
 });

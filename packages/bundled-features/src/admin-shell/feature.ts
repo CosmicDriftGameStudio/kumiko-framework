@@ -39,6 +39,9 @@ export type CreateAdminShellOptions = {
   /** Tenant nav → document-designer:nav:templates, platform nav → document-designer:nav:platform-templates.
    *  Requires document-designer mounted (a separate package, so no import here). Default false. */
   readonly includeDocumentDesigner?: boolean;
+  /** Tenant overview dashboard: screen, nav and the entry in the tenant workspace. Default true.
+   *  Set false when the app ships its own landing screen for tenant admins. */
+  readonly includeTenantOverview?: boolean;
   /** When false, only overview screens + nav are registered — app owns r.workspace(). Default true. */
   readonly registerWorkspaces?: boolean;
   /** Metric list the overview panels are built from — pass the SAME list to
@@ -47,18 +50,48 @@ export type CreateAdminShellOptions = {
   readonly metrics?: readonly MetricDefinition[];
 };
 
+type NavIdOptions = {
+  readonly includeTenantOverview?: boolean;
+  readonly includeTierAdmin?: boolean;
+  readonly includeCapOverview: boolean;
+  readonly includeDocumentDesigner: boolean;
+};
+
+function tenantWorkspaceNavIds(options: NavIdOptions): string[] {
+  return [
+    ...(options.includeTenantOverview === true ? ["admin-shell:nav:tenant-overview"] : []),
+    "tenant:nav:members",
+    "audit:nav:audit-log",
+    ...(options.includeCapOverview ? ["admin-shell:nav:my-caps"] : []),
+    ...(options.includeDocumentDesigner ? ["document-designer:nav:templates"] : []),
+  ];
+}
+
+function platformWorkspaceNavIds(options: NavIdOptions): string[] {
+  return [
+    "admin-shell:nav:platform-overview",
+    "admin-shell:nav:tenants",
+    ...(options.includeCapOverview ? ["admin-shell:nav:tenant-caps"] : []),
+    "audit:nav:audit-log-all-tenants",
+    "jobs:nav:job-runs",
+    ...(options.includeDocumentDesigner ? ["document-designer:nav:platform-templates"] : []),
+    ...(options.includeTierAdmin === true ? ["admin-shell:nav:tier-admin"] : []),
+  ];
+}
+
 export function createAdminShellFeature(options: CreateAdminShellOptions = {}): FeatureDefinition {
   const tenantWsId = options.workspaceIds?.tenant ?? DEFAULT_TENANT_WORKSPACE_ID;
   const platformWsId = options.workspaceIds?.platform ?? DEFAULT_PLATFORM_WORKSPACE_ID;
   const includeTierAdmin = options.includeTierAdmin ?? true;
   const includeCapOverview = options.includeCapOverview ?? false;
   const includeDocumentDesigner = options.includeDocumentDesigner ?? false;
+  const includeTenantOverview = options.includeTenantOverview ?? true;
   const registerWorkspaces = options.registerWorkspaces ?? true;
   const metrics = options.metrics ?? DEFAULT_METRICS;
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
-      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
     );
     r.uiHints({
       displayLabel: "Admin Shell",
@@ -77,38 +110,34 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
 
     r.translations({ keys: ADMIN_SHELL_I18N });
 
-    const tenantNav: string[] = [
-      "admin-shell:nav:tenant-overview",
-      "tenant:nav:members",
-      "audit:nav:audit-log",
-      ...(includeCapOverview ? (["admin-shell:nav:my-caps"] as const) : []),
-      ...(includeDocumentDesigner ? (["document-designer:nav:templates"] as const) : []),
-    ];
-    const platformNav: string[] = [
-      "admin-shell:nav:platform-overview",
-      "admin-shell:nav:tenants",
-      ...(includeCapOverview ? (["admin-shell:nav:tenant-caps"] as const) : []),
-      "audit:nav:audit-log-all-tenants",
-      "jobs:nav:job-runs",
-      ...(includeDocumentDesigner ? (["document-designer:nav:platform-templates"] as const) : []),
-      ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
-    ];
+    const tenantNav = tenantWorkspaceNavIds({
+      includeTenantOverview,
+      includeCapOverview,
+      includeDocumentDesigner,
+    });
+    const platformNav = platformWorkspaceNavIds({
+      includeTierAdmin,
+      includeCapOverview,
+      includeDocumentDesigner,
+    });
 
-    r.screen({
-      id: TENANT_OVERVIEW_SCREEN_ID,
-      type: "dashboard",
-      access: { roles: access.admin },
-      description: "admin-shell.screen.tenant-overview.subtitle",
-      timeRange: OVERVIEW_TIME_RANGE,
-      panels: [...tenantOverviewPanels(metrics, { includeCapOverview })],
-    });
-    r.nav({
-      id: "tenant-overview",
-      label: "admin-shell:nav.tenantOverview",
-      icon: "home",
-      screen: "admin-shell:screen:tenant-overview",
-      order: 1,
-    });
+    if (includeTenantOverview) {
+      r.screen({
+        id: TENANT_OVERVIEW_SCREEN_ID,
+        type: "dashboard",
+        access: { roles: access.admin },
+        description: "admin-shell.screen.tenant-overview.subtitle",
+        timeRange: OVERVIEW_TIME_RANGE,
+        panels: [...tenantOverviewPanels(metrics, { includeCapOverview })],
+      });
+      r.nav({
+        id: "tenant-overview",
+        label: "admin-shell:nav.tenantOverview",
+        icon: "home",
+        screen: "admin-shell:screen:tenant-overview",
+        order: 1,
+      });
+    }
 
     r.screen({
       id: PLATFORM_OVERVIEW_SCREEN_ID,
