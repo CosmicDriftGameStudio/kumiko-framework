@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 88,
+  "featureCount": 89,
   "features": [
     {
       "name": "account-security",
@@ -10,6 +10,20 @@
         "sessions",
         "auth-mfa"
       ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "admin-nav",
+      "description": "Administration group in the sidebar of this sample app.",
+      "toggleableDefault": null,
+      "requires": [],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
@@ -2152,14 +2166,18 @@
         "config",
         "secrets"
       ],
-      "optionalRequires": [],
+      "optionalRequires": [
+        "user"
+      ],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": [],
+      "writeHandlers": [
+        "readiness:write:run-probes"
+      ],
       "uiHints": {
         "displayLabel": "Readiness · Onboarding Probe",
         "category": "operations",
