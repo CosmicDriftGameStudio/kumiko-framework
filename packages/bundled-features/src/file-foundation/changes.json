@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "File-storage probe",
+    "detail": "file-foundation registers a probe that writes, reads and deletes a probe object in the configured storage provider."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated fileFoundationFeature constant is removed",

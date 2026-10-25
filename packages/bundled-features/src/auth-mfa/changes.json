@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "The disable-MFA form confirms success",
+    "detail": "After a successful disable the auth-mfa-disable screen shows \"Two-factor authentication is now turned off.\" and clears the spent code. Before, the form looked unchanged. New key mfa.disable.done in all locale packages."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "requiredPolicy \"systemAdmins\"",

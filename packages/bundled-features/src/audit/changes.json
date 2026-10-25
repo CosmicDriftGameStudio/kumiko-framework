@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "The audit log leaves readiness probe runs to SystemAdmins",
+    "detail": "A probe run's events carry system-probe and personal-mailbox results. audit:query:list and audit:query:details now leave the probe-run stream out for every caller below SystemAdmin, also when the caller filters by that aggregate type."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Oversized audit cursor is documented as a 400 validation error",

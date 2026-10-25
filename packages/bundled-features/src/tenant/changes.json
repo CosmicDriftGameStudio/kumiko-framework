@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "The stream-tenant backfill archives membership streams a projection replay must not see",
+    "detail": "Before the membership projection is rebuilt, the backfill reads the membership lifecycle from the event log and archives two kinds of streams. Streams of a user whose every stream is archived are archived with it, so a rebuild does not bring back memberships of users that no longer exist. When a second stream of a (userId, tenantId) pair was created while another one was still alive, the stream with the newest event stays and the others are archived; a pair that was removed and added again is left alone. Before, the rebuild failed on read_tenant_memberships_unique on every boot and the backfill stayed pending. The archived streams are logged as a warning and returned in membershipStreamsArchived. If a collision still remains, the failure says so and the step runs again on the next boot. Membership rows of archived users disappear from read_tenant_memberships with the rebuild."
+  },
+  {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "seedTenantMembership reuses the live membership stream of a pair",
+    "detail": "seedTenantMembership looked only at read_tenant_memberships. After the row was lost it created a second stream for the same pair, which made every later rebuild of the projection collide. It now also checks the event log and returns the id of the pair's live stream without writing anything. The seed does not bring the lost row back; only a rebuild of the membership projection does, and nothing triggers one on its own, so until then the user has no membership in that tenant."
+  },
+  {
     "version": "0.390.0",
     "type": "improvement",
     "title": "Event-store write helpers for user, membership and tenant tests",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "i18nText format, enumOption tones, linkScreenField, live projectionDetail and metric tiles",
+    "detail": "FormatSpec gains { format: \"i18nText\" } for values that are a server-built { i18nKey, i18nParams } or a plain i18n key. enumOption takes tones per option value. ListColumnSpec takes linkScreenField, the row field holding the screen QN the cell links to. ProjectionDetailScreenDefinition takes live and metricsStyle (\"band\" or \"tiles\"); MetricSpec takes tone and icon."
+  },
+  {
     "version": "0.389.0",
     "type": "breaking",
     "title": "DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency",

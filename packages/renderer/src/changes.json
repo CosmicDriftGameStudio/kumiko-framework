@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "Translated text cells, toned status pills, screen links in rows and live detail screens",
+    "detail": "An i18nText cell renders the text in the user's language. An enumOption column with tones draws the translated label as a status pill. A column with linkScreenField links the cell to the screen the row names, but only when the user may open that screen. A projectionDetail with live: true refetches the record and its relatedList sections on entity events. With metricsStyle \"tiles\" its metrics render as the dashboard KPI tiles (StatCard), the icon chip colored by the metric's tone; like on dashboards a value of 0 keeps the neutral tone."
+  },
+  {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "No repeated screen title on detail screens, header actions as high as the header controls, embedded table description first",
+    "detail": "A projectionDetail without a record title no longer repeats the screen title above its sections when the shell header already shows it. Screen actions in the shell header are now as high as the header's own controls (h-8) instead of the toolbar height. An embedded table (one that does not fill the screen height) shows its description above its toolbar, right under the section title."
+  },
+  {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "actionForm optionsQuery selects seed the row marked default",
+    "detail": "A row of an optionsQuery result can carry default: true. In an actionForm the first such row fills an empty field as a baseline value, like a prefill, so the form stays unchanged and leaving it asks nothing; set submitPrefilled to submit the suggestion unchanged. When a sibling field changes the payload and the old value drops out of the new rows, the new default replaces it as a normal change. configEdit never pre-selects, and a set value is never replaced."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "previewOpenByDefault opens the newest file",

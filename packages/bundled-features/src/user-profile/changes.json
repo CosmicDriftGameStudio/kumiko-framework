@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "The profile can link to account security",
+    "detail": "createUserProfileFeature({ linkAccountSecurity: true }) adds a header action that opens the account-security screen, which offers MFA enable or disable by the user's status. It requires the account-security feature; the default stays off. New key profile.mfa.open in all locale packages."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "change-email can be switched off",
