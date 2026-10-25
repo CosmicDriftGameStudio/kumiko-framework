@@ -113,7 +113,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Second")).toBeTruthy();
   });
 
-  test("two toasts in the same tick: separate React keys", () => {
+  test("two toasts in the same tick: separate React keys (counter race regression)", () => {
     // Previously, ToastProvider used a useState counter whose closure capture
     // caused double calls to see the same value, producing identical IDs
     // and React-key collisions (warning and UI glitch). The fix uses

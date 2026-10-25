@@ -640,7 +640,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(mockCheckoutCalls[0]?.mode).toBe("payment");
   });
 
-  test("mode omitted → plugin receives no mode field", async () => {
+  test("mode omitted → plugin receives no mode field (regression pin for existing callers)", async () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3015);
     await stack.http.writeOk(

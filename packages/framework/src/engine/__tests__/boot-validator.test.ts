@@ -2713,7 +2713,7 @@ describe("boot-validator", () => {
       ).toThrow(/filter references field "mail" which is encrypted, personal or secret/);
     });
 
-    test("filter.op=lt on text field → Throw", () => {
+    test("filter.op=lt on text field → Throw (op vs. type compatibility)", () => {
       expect(() => validateBoot([makeFeature({ field: "status", op: "lt", value: "x" })])).toThrow(
         /filter\.op "lt" is not allowed on field "status" \(type "text"\)/,
       );
@@ -2754,7 +2754,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("filter.op=lte on text field → Throw", () => {
+    test("filter.op=lte on text field → Throw (op vs. type compatibility)", () => {
       expect(() => validateBoot([makeFeature({ field: "status", op: "lte", value: "x" })])).toThrow(
         /filter\.op "lte" is not allowed on field "status" \(type "text"\)/,
       );

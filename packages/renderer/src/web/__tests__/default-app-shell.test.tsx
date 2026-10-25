@@ -41,7 +41,7 @@ function makeSchema(): FeatureSchema {
 }
 
 describe("DefaultAppShell user-prop forwarding", () => {
-  test("without user-prop → role-gated nav is invisible", () => {
+  test("without user-prop → role-gated nav is invisible (the prod bug before the fix)", () => {
     render(
       <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
         <div>content</div>

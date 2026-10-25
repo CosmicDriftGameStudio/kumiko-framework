@@ -249,7 +249,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     }),
   );
 
-  test("metadata.tenantId missing → null", async () => {
+  test("metadata.tenantId missing → null (app-owner bug, foundation answers 200 and ignores it)", async () => {
     const ev = buildSubscriptionEvent({});
     // @ts-expect-error — remove metadata for the test
     ev.data.object.metadata = {};

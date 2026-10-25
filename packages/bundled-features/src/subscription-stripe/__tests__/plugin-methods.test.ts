@@ -256,7 +256,7 @@ describe("createStripeCheckoutSession", () => {
     expect(callArgs).not.toHaveProperty("invoice_creation");
   });
 
-  test("mode omitted defaults to 'subscription'", async () => {
+  test("mode omitted defaults to 'subscription' (regression pin for existing callers)", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
