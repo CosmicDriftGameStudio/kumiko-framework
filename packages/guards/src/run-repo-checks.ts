@@ -9,6 +9,8 @@ import { check as secretLiterals } from "./check-secret-literals";
 import { check as singleRuntimeInstance } from "./check-single-runtime-instance";
 import { check as subpathExports } from "./check-subpath-exports";
 import { check as agentDocsDrift } from "./guard-agent-docs-drift";
+import { check as appDockerfile } from "./guard-app-dockerfile";
+import { check as docStatus } from "./guard-doc-status";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as guardsDocDrift } from "./guard-guards-doc-drift";
 import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
@@ -39,6 +41,8 @@ export const REPO_CHECKS = [
   guardsDocDrift,
   unsafeArrayParam,
   schemaCliFeatures,
+  appDockerfile,
+  docStatus,
 ];
 
 export const REPO_CHECK_FLAGS: readonly string[] = ["--write-baseline"];

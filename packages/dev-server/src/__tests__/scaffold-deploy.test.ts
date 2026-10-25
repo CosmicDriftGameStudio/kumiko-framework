@@ -212,7 +212,7 @@ describe("scaffoldDeploy", () => {
       );
     });
 
-    it("emits GITHUB_TOKEN blocks when @cosmicdriftgamestudio/* dep is present", () => {
+    it("mounts the registry secret for the install when @cosmicdriftgamestudio/* dep is present", () => {
       writeFileSync(join(tmp, "bunfig.toml"), "");
       writeFileSync(
         join(tmp, "package.json"),
@@ -226,13 +226,13 @@ describe("scaffoldDeploy", () => {
       const result = scaffoldDeploy({ appName: "ghapp", destination: tmp });
       expect(result.detected.hasPrivateGhPackages).toBe(true);
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
-      expect(df).toContain("ARG NPM_AUTH_TOKEN=");
-      expect(df).toContain("ARG NPM_AUTH_TOKEN\n");
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell variable expansion, not a JS template
-      expect(df).toContain("ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}");
+      expect(df).toContain(
+        "RUN --mount=type=secret,id=npm_auth_token,env=GITHUB_TOKEN bun install --frozen-lockfile",
+      );
+      expect(df).not.toMatch(/^(ARG|ENV) .*(NPM_AUTH_TOKEN|GITHUB_TOKEN)/m);
     });
 
-    it("skips NPM_AUTH_TOKEN blocks when only public @cosmicdrift/* deps are present", () => {
+    it("skips the registry secret when only public @cosmicdrift/* deps are present", () => {
       writeFileSync(
         join(tmp, "package.json"),
         JSON.stringify({
@@ -246,11 +246,12 @@ describe("scaffoldDeploy", () => {
       const result = scaffoldDeploy({ appName: "publicapp", destination: tmp });
       expect(result.detected.hasPrivateGhPackages).toBe(false);
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
-      expect(df).not.toContain("ARG NPM_AUTH_TOKEN");
-      expect(df).not.toContain("ENV GITHUB_TOKEN");
+      expect(df).not.toContain("NPM_AUTH_TOKEN");
+      expect(df).not.toContain("--mount=type=secret");
+      expect(df).toContain("RUN bun install --frozen-lockfile");
     });
 
-    it("manifests app with bunfig.toml: NPM_AUTH_TOKEN wiring + manifests-first COPY", () => {
+    it("manifests app with bunfig.toml: registry secret mount + manifests-first COPY", () => {
       writeFileSync(
         join(tmp, "package.json"),
         JSON.stringify({
@@ -263,12 +264,9 @@ describe("scaffoldDeploy", () => {
       expect(result.detected.installFromFullTree).toBe(false);
       expect(result.detected.registryConfigFiles).toEqual(["bunfig.toml"]);
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
-      expect(df).toContain("ARG NPM_AUTH_TOKEN=");
-      expect(df).toContain("ARG NPM_AUTH_TOKEN\n");
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell variable expansion, not a JS template
-      expect(df).toContain("ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}");
+      expect(df).not.toContain("NPM_AUTH_TOKEN");
       expect(df).toContain(
-        "COPY package.json bun.lock bunfig.toml ./\nRUN bun install --frozen-lockfile",
+        "COPY package.json bun.lock bunfig.toml ./\nRUN --mount=type=secret,id=npm_auth_token,env=GITHUB_TOKEN bun install --frozen-lockfile",
       );
       expect(df).toMatch(
         /FROM .* AS runtime\n(?:#[^\n]*\n)*ARG BUILD_VERSION=dev\nARG BUILD_TIME=unknown/,

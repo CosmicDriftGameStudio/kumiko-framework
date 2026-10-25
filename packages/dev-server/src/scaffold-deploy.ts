@@ -43,6 +43,7 @@ export type ScaffoldDeployOptions = RenderDeployFilesOptions & {
 };
 
 const REGISTRY_CONFIG_FILES = ["bunfig.toml", ".npmrc"] as const;
+const NPM_AUTH_SECRET_MOUNT = "--mount=type=secret,id=npm_auth_token,env=GITHUB_TOKEN";
 export type RegistryConfigFile = (typeof REGISTRY_CONFIG_FILES)[number];
 
 /** Detected optional-dirs/layout traits in the app's source-tree. Drives
@@ -51,9 +52,9 @@ export type ScaffoldDeployDetected = {
   /** ES-Operations seed-migrations (`seeds/`). Required for apps that
    *  use the es-ops feature. */
   readonly hasSeeds: boolean;
-  /** Private @cosmicdriftgamestudio/* GH-Packages → Dockerfile needs to
-   *  pass NPM_AUTH_TOKEN as build-arg + re-export it as $GITHUB_TOKEN inside
-   *  the build-stage (bunfig.toml/.npmrc read $GITHUB_TOKEN). */
+  /** Private @cosmicdriftgamestudio/* GH-Packages → the build-stage install
+   *  mounts the BuildKit secret npm_auth_token as $GITHUB_TOKEN
+   *  (bunfig.toml/.npmrc read $GITHUB_TOKEN). */
   readonly hasPrivateGhPackages: boolean;
   /** A `workspaces` root, or a `file:`/`workspace:`/`link:` dependency spec
    *  — bun needs the whole build context on disk to resolve the lockfile,
@@ -151,7 +152,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     options.ensuredRegistryConfigFiles ?? [],
   );
   if (detected.hasPrivateGhPackages && detected.registryConfigFiles.length === 0) {
-    // The Dockerfile only forwards the auth build-arg; without a registry
+    // The Dockerfile only mounts the auth secret; without a registry
     // config scope entry bun resolves @cosmicdriftgamestudio/* against npmjs
     // and the image build fails late with a 404.
     throw new Error(
@@ -166,6 +167,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     port: String(port),
     githubOrg,
     installManifests,
+    npmAuthSecretMount: detected.hasPrivateGhPackages ? `${NPM_AUTH_SECRET_MOUNT} ` : "",
     dbUser: detected.dbUser,
     dbName: detected.dbName,
   };

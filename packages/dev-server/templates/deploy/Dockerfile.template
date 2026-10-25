@@ -12,13 +12,6 @@
 # Build context: repository root (the full source tree is only used in the build stage).
 
 ARG BUN_VERSION=1.4.4
-{{#hasPrivateGhPackages}}
-# Registry auth for @cosmicdriftgamestudio: CI passes the token as
-# NPM_AUTH_TOKEN via --build-arg. Multi-stage ARG scoping needs the
-# re-declaration inside the stage that uses it; this top-level ARG only
-# makes it settable via `docker build`.
-ARG NPM_AUTH_TOKEN=
-{{/hasPrivateGhPackages}}
 # Build identity — passed in by the CI workflow via --build-arg. Defaults
 # for local container builds.
 ARG BUILD_VERSION=dev
@@ -28,9 +21,10 @@ ARG BUILD_TIME=unknown
 FROM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
 {{#hasPrivateGhPackages}}
-# bunfig.toml/.npmrc resolve the @cosmicdriftgamestudio scope via $GITHUB_TOKEN.
-ARG NPM_AUTH_TOKEN
-ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}
+# Registry auth for @cosmicdriftgamestudio: CI passes the token as the BuildKit
+# secret npm_auth_token. The install RUN mounts it as $GITHUB_TOKEN, which
+# bunfig.toml/.npmrc read, so it never lands in a layer, the image history or
+# the registry build cache.
 {{/hasPrivateGhPackages}}
 
 {{#installFromFullTree}}
@@ -38,14 +32,14 @@ ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}
 # disk for bun to resolve the lockfile — a partial COPY makes bun treat it
 # as empty and rewrite it.
 COPY . .
-RUN bun install --frozen-lockfile
+RUN {{npmAuthSecretMount}}bun install --frozen-lockfile
 RUN bun run build
 {{/installFromFullTree}}
 {{#installFromManifests}}
 # Manifests first for Docker layer cache — bun install only invalidates on
 # dependency change, not on every source edit.
 COPY {{installManifests}} ./
-RUN bun install --frozen-lockfile
+RUN {{npmAuthSecretMount}}bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 {{/installFromManifests}}

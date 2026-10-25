@@ -25,12 +25,14 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `check-subpath-exports` | A published package that ships `src/<feature>/web.ts` must list `./<feature>/web` in its package.json `exports`; otherwise every standalone app build fails with "Could not resolve". | - |
 | `guard-admin-api` | Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`) outside allowed paths. | - |
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
+| `guard-app-dockerfile` | An app's `deploy/Dockerfile` must reach the private @cosmicdriftgamestudio registry through a BuildKit secret, never through an NPM_AUTH_TOKEN build-arg that lands in the image history. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |
 | `guard-comment-issue-ref-only` | Comment Issue-Ref Guard: a comment that holds only an issue or PR reference or a planning label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) and no explanatory word is a violation. | `kumiko-lint-ignore comment-issue-ref-only` |
 | `guard-comment-lang` | Comment-language ratchet: no new German comments in product code. | `kumiko-lint-ignore comment-lang` |
 | `guard-cross-feature-imports` | Guard: blocks cross-feature deep imports. | `kumiko-lint-ignore cross-feature-import` |
 | `guard-direct-entity-writes` | Guard: forbids direct DB writes on tables registered as ES-entity projections. | - |
 | `guard-direct-fetch` | Guard: finds raw `fetch(` calls in server code outside the client-scoped exceptions. | `kumiko-lint-ignore direct-fetch` |
+| `guard-doc-status` | Every doc under docs/{plans,runbooks,migration,reference} needs valid status frontmatter. | - |
 | `guard-error-reasons` | Guard: `details.reason` strings and the first arg to UnprocessableError / failUnprocessable must follow the reason convention: | - |
 | `guard-event-store-writes` | Guard: flags string/template literals containing UPDATE/DELETE FROM/INSERT INTO against kumiko_events, kumiko_snapshots or kumiko_archived_streams outside the event store's own files. | - |
 | `guard-fake-tests` | Guard: tests must actually assert something. | - |

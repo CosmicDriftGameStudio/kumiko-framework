@@ -31,6 +31,8 @@ import {
   type ParseEnvOptions,
 } from "./internals.ts";
 
+export { type EnvSource, requiredEnvFor } from "./required-env.ts";
+
 // --- Per-env-var metadata (attach via Zod's `.meta()`) ---
 
 function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
