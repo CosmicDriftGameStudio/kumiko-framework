@@ -92,7 +92,17 @@ export type AuditListFilters = {
   cursor?: string | undefined;
   before?: string | undefined;
   includeTechnical?: boolean | undefined;
+  hiddenAggregateTypes?: readonly string[] | undefined;
 };
+
+/** The aggregateType condition: the requested type, minus the streams hidden from the caller. */
+export function aggregateTypeCondition(
+  aggregateType: string | undefined,
+  hidden: readonly string[] | undefined,
+): unknown {
+  if (hidden === undefined) return aggregateType;
+  return { ...(aggregateType !== undefined && { in: [aggregateType] }), notIn: hidden };
+}
 
 /** `tenantCondition` is a tenant id, or an operator object for reads across tenants. */
 export function buildAuditWhere(
@@ -101,7 +111,11 @@ export function buildAuditWhere(
   direction: "asc" | "desc",
 ): WhereObject {
   const where: WhereObject = { tenantId: tenantCondition };
-  if (p.aggregateType) where["aggregateType"] = p.aggregateType;
+  const aggregateType = aggregateTypeCondition(
+    p.aggregateType || undefined,
+    p.hiddenAggregateTypes,
+  );
+  if (aggregateType !== undefined) where["aggregateType"] = aggregateType;
   if (p.aggregateId) where["aggregateId"] = p.aggregateId;
   if (p.eventType) where["type"] = p.eventType;
   else if (p.search || !p.includeTechnical) {

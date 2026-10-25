@@ -45,6 +45,7 @@ export const listQuery = defineQueryHandler({
       {
         ...p,
         aggregateType: scopeFilter.aggregateType ?? p.aggregateType,
+        hiddenAggregateTypes: scopeFilter.hiddenAggregateTypes,
         includeTechnical: includesTechnicalEntries(p.filters),
       },
       direction,
