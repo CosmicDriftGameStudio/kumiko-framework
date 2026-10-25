@@ -8,6 +8,10 @@ Self-service account dashboard: MFA enrollment, recovery codes and the user's ow
 
 Requires: `sessions`, `auth-mfa`
 
+## admin-nav
+
+Administration group in the sidebar of this sample app.
+
 ## admin-shell
 
 Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
@@ -543,6 +547,8 @@ One-call tenant-onboarding probe: `readiness:query:status` rolls up every config
 Category: operations
 
 Requires: `config`, `secrets`
+
+Optional requires: `user`
 
 ## renderer-foundation
 
