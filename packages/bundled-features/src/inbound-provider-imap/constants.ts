@@ -20,3 +20,23 @@ export const IMAP_CONNECT_ERRORS = {
     i18nKey: "inboundMail.imap.connect.errors.connectFailed",
   },
 } as const;
+
+// Same categories as IMAP_CONNECT_ERRORS, for the outgoing server checked after the IMAP login.
+export const SMTP_CONNECT_ERRORS = {
+  hostUnreachable: {
+    reason: "smtp_host_unreachable",
+    i18nKey: "inboundMail.imap.connect.errors.smtpHostUnreachable",
+  },
+  loginRejected: {
+    reason: "smtp_login_rejected",
+    i18nKey: "inboundMail.imap.connect.errors.smtpLoginRejected",
+  },
+  tlsFailed: {
+    reason: "smtp_tls_failed",
+    i18nKey: "inboundMail.imap.connect.errors.smtpTlsFailed",
+  },
+  connectFailed: {
+    reason: "smtp_connect_failed",
+    i18nKey: "inboundMail.imap.connect.errors.smtpConnectFailed",
+  },
+} as const satisfies Record<keyof typeof IMAP_CONNECT_ERRORS, unknown>;

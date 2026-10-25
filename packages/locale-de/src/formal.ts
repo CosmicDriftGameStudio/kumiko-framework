@@ -258,6 +258,18 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfen Sie Port und TLS-Einstellung.",
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfen Sie Servernamen und Port.",
+  "inboundMail.imap.connect.outgoingHint":
+    "Antworten gehen von dieser Adresse über Ihren eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lassen Sie das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfen Sie seinen Namen.",
+  "inboundMail.send.errors.notConfigured":
+    "Senden ist für dieses Postfach nicht eingerichtet. Verbinden Sie das Postfach erneut mit seinem Postausgangsserver.",
+  "inboundMail.send.errors.loginRejected":
+    "Der Postausgangsserver hat die Anmeldung abgelehnt. Prüfen Sie das Passwort des Postfachs.",
+  "inboundMail.send.errors.serverUnreachable":
+    "Der Postausgangsserver ist nicht erreichbar. Versuchen Sie es später noch einmal.",
+  "inboundMail.send.errors.rejected":
+    "Der Postausgangsserver hat die Mail abgelehnt. Prüfen Sie die Empfängeradresse.",
 };
 
 export function germanBundleFor(address: GermanAddress): Readonly<Record<string, string>> {

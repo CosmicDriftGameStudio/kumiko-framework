@@ -2056,6 +2056,28 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "La conexión cifrada falló. Revisa el puerto y la opción TLS.",
   "inboundMail.imap.connect.errors.connectFailed":
     "No hay conexión con el servidor IMAP. Revisa el nombre del servidor y el puerto.",
+  "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Servidor de salida (SMTP)",
+  "inboundMail.imap.connect.outgoing": "Envío",
+  "inboundMail.imap.connect.outgoingHint":
+    "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "La recepción funciona, pero el envío no: no se puede acceder al servidor de salida o no está permitido. Revisa su nombre.",
+  "inboundMail.imap.connect.errors.smtpLoginRejected":
+    "La recepción funciona, pero el envío no: el servidor de salida rechazó el inicio de sesión.",
+  "inboundMail.imap.connect.errors.smtpTlsFailed":
+    "La recepción funciona, pero el envío no: falló la conexión cifrada con el servidor de salida en el puerto 465.",
+  "inboundMail.imap.connect.errors.smtpConnectFailed":
+    "La recepción funciona, pero el envío no: no hay conexión con el servidor de salida en el puerto 465.",
+  "inboundMail.send.errors.notConfigured":
+    "El envío no está configurado para este buzón. Vuelve a conectar el buzón con su servidor de salida.",
+  "inboundMail.send.errors.loginRejected":
+    "El servidor de salida rechazó el inicio de sesión. Revisa la contraseña del buzón.",
+  "inboundMail.send.errors.serverUnreachable":
+    "No se puede acceder al servidor de salida. Inténtalo más tarde.",
+  "inboundMail.send.errors.rejected":
+    "El servidor de salida rechazó el correo. Revisa la dirección del destinatario.",
+  "inboundMail.send.errors.invalidMessage":
+    "El correo no se envió: un destinatario, el asunto o la referencia de respuesta no es válido.",
   "sessions.mine.current.yes": "Esta sesión",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",
