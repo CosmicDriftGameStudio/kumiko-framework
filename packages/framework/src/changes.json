@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "Concurrent boots create kumiko_es_operations without a race",
+    "detail": "CREATE TABLE IF NOT EXISTS is not race-safe in Postgres, so replicas booting against a fresh database could fail on pg_type_typname_nsp_index. createEsOperationsTable now takes an advisory lock and checks again before it creates the table."
+  },
+  {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "r.probe registers live readiness probes with a per-probe timeout",
+    "detail": "A feature registers a probe with r.probe({ name, scope, cost, area, label, timeoutMs?, targets?, run }). scope \"system\" probes run only for SystemAdmins, \"tenant\" probes also for TenantAdmins of that tenant; cost \"paid\" probes run only when the caller asks for them. targets splits one probe into one result per target, such as one per mailbox. runWithTimeout from the api barrel is the shared timeout runner the readiness checks and probe runs use. A probe's context holds db, registry, obs, tz and services plus the run fields; the run job's dispatch, event emitter and escape-hatch powers stay with the job. The readiness status query still makes no network call."
+  },
+  {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "The boot validator checks enumOption tones",
+    "detail": "A list column with renderer { format: \"enumOption\", tones } fails boot when a tone is not one of the select-option tones."
+  },
+  {
+    "version": "0.391.0",
+    "type": "fix",
+    "title": "Cloudflare is no longer listed as a sub-processor",
+    "detail": "DNS moved to Hetzner, so Cloudflare, Inc. no longer processes data for the platform. The entry is gone from KUMIKO_SUB_PROCESSORS, which means it is missing from /api/compliance/sub-processors and from the sub-processor RSS feed."
+  },
+  {
     "version": "0.390.1",
     "type": "fix",
     "title": "schema apply in the production image uses the runtime's row-level security mode",

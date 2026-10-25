@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.391.0
+
+### Patch Changes
+
+- 37dfda5: Codemods run on machines without git, such as the customer-app builder image.
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: fix
+  title: Codemods no longer fail when git is not installed
+  detail: collectSourceFiles asks git check-ignore which files the repository's .gitignore excludes. Without a git executable Bun.spawnSync threw ENOENT and kumiko-upgrade --apply aborted at the first codemod, for example ctx-namespaces in the customer-app builder image. A missing git is now treated like a directory outside a repository: no file is filtered.
+  -->
+- Updated dependencies [8e6d41e]
+- Updated dependencies [c823c6f]
+- Updated dependencies [6629d51]
+- Updated dependencies [ffe0424]
+  - @cosmicdrift/kumiko-framework@0.391.0
+  - @cosmicdrift/kumiko-types@0.391.0
+
 ## 0.390.1
 
 ### Patch Changes

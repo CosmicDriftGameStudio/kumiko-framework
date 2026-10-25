@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "PDF-service probe",
+    "detail": "renderer-puppeteer-client registers a probe that calls the PDF service health check. probePuppeteerService and PuppeteerStatus are exported for it."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Render a PDF without storing it",

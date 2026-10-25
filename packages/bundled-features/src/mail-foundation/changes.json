@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "Mail-sending probe",
+    "detail": "mail-foundation registers a probe that sends a short test mail through the tenant's mail transport to the user who started the check. The address is not stored in the result. A failed row names the reason (server not found, settings incomplete, mail not accepted) and links to the email sending settings; the raw error stays in the server log."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Tenant mail transport falls back to the app transport without tenant config",

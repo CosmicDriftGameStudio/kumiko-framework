@@ -1,5 +1,136 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.391.0
+
+### Minor Changes
+
+- c823c6f: Readiness gains live probe runs and a system-check screen. Features register probes with `r.probe`, an admin starts a run, and the screen shows the latest results and the run history. The renderer gains the building blocks the screen needs. The disable-MFA form now confirms success, and the profile can link to account security.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.probe registers live readiness probes with a per-probe timeout
+  detail: A feature registers a probe with r.probe({ name, scope, cost, area, label, timeoutMs?, targets?, run }). scope "system" probes run only for SystemAdmins, "tenant" probes also for TenantAdmins of that tenant; cost "paid" probes run only when the caller asks for them. targets splits one probe into one result per target, such as one per mailbox. runWithTimeout from the api barrel is the shared timeout runner the readiness checks and probe runs use. A probe's context holds db, registry, obs, tz and services plus the run fields; the run job's dispatch, event emitter and escape-hatch powers stay with the job. The readiness status query still makes no network call.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The boot validator checks enumOption tones
+  detail: A list column with renderer { format: "enumOption", tones } fails boot when a tone is not one of the select-option tones.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: i18nText format, enumOption tones, linkScreenField, live projectionDetail and metric tiles
+  detail: FormatSpec gains { format: "i18nText" } for values that are a server-built { i18nKey, i18nParams } or a plain i18n key. enumOption takes tones per option value. ListColumnSpec takes linkScreenField, the row field holding the screen QN the cell links to. ProjectionDetailScreenDefinition takes live and metricsStyle ("band" or "tiles"); MetricSpec takes tone and icon.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Translated text cells, toned status pills, screen links in rows and live detail screens
+  detail: An i18nText cell renders the text in the user's language. An enumOption column with tones draws the translated label as a status pill. A column with linkScreenField links the cell to the screen the row names, but only when the user may open that screen. A projectionDetail with live: true refetches the record and its relatedList sections on entity events. With metricsStyle "tiles" its metrics render as the dashboard KPI tiles (StatCard), the icon chip colored by the metric's tone; like on dashboards a value of 0 keeps the neutral tone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: No repeated screen title on detail screens, header actions as high as the header controls, embedded table description first
+  detail: A projectionDetail without a record title no longer repeats the screen title above its sections when the shell header already shows it. Screen actions in the shell header are now as high as the header's own controls (h-8) instead of the toolbar height. An embedded table (one that does not fill the screen height) shows its description above its toolbar, right under the section title.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: Probe runs and the system-check screen
+  detail: The new readiness:write:run-probes starts a run as a worker job; includePaid also runs paid probes. A run only writes its own probe-run events, the probes read through adapters and fixtures and never write domain data. New queries return the latest run with its summary, the run history with the starter's name, and one run with its results. Probe texts arrive as { i18nKey, i18nParams }, and failed rows carry the QN of the screen that fixes the problem; the boot validator checks that QN against the feature screens and the generated settings screens. A probe that reports itself skipped shows no duration. createReadinessFeature({ nav: { order?, parent?, workspaces? } }) adds the system-check screen to the nav (workspace apps list the workspaces, a parent's membership does not carry over): start buttons (the paid one only when paid probes exist), the latest results with a fix link on failed rows, and the history that opens each run. Standard probes cover database, cache, search, mail sending, file storage, inbound mailboxes and the PDF service.
+  migration: New table read_readiness_probe_runs. Apps that mount readiness run `kumiko schema generate` and apply the migration before deploying. Without a nav option the screen stays dormant; pass createReadinessFeature({ nav: {} }) or a parent nav QN to show it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: The audit log leaves readiness probe runs to SystemAdmins
+  detail: A probe run's events carry system-probe and personal-mailbox results. audit:query:list and audit:query:details now leave the probe-run stream out for every caller below SystemAdmin, also when the caller filters by that aggregate type.
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: improvement
+  title: Mail-sending probe
+  detail: mail-foundation registers a probe that sends a short test mail through the tenant's mail transport to the user who started the check. The address is not stored in the result. A failed row names the reason (server not found, settings incomplete, mail not accepted) and links to the email sending settings; the raw error stays in the server log.
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: improvement
+  title: File-storage probe
+  detail: file-foundation registers a probe that writes, reads and deletes a probe object in the configured storage provider.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Inbound-mailbox probes
+  detail: inbound-mail-foundation registers a probe with one result per configured mailbox. A personal mailbox is probed only when its owner starts the run, and only its owner sees the result.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: PDF-service probe
+  detail: renderer-puppeteer-client registers a probe that calls the PDF service health check. probePuppeteerService and PuppeteerStatus are exported for it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: fix
+  title: The disable-MFA form confirms success
+  detail: After a successful disable the auth-mfa-disable screen shows "Two-factor authentication is now turned off." and clears the spent code. Before, the form looked unchanged. New key mfa.disable.done in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-profile
+  type: improvement
+  title: The profile can link to account security
+  detail: createUserProfileFeature({ linkAccountSecurity: true }) adds a header action that opens the account-security screen, which offers MFA enable or disable by the user's status. It requires the account-security feature; the default stays off. New key profile.mfa.open in all locale packages.
+  -->
+
+### Patch Changes
+
+- 8e6d41e: The stream-tenant backfill no longer fails on two membership streams of one (user, tenant) pair, `seedTenantMembership` no longer starts such a second stream, and replicas booting at the same time no longer race on creating `kumiko_es_operations`.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: The stream-tenant backfill archives membership streams a projection replay must not see
+  detail: Before the membership projection is rebuilt, the backfill reads the membership lifecycle from the event log and archives two kinds of streams. Streams of a user whose every stream is archived are archived with it, so a rebuild does not bring back memberships of users that no longer exist. When a second stream of a (userId, tenantId) pair was created while another one was still alive, the stream with the newest event stays and the others are archived; a pair that was removed and added again is left alone. Before, the rebuild failed on read_tenant_memberships_unique on every boot and the backfill stayed pending. The archived streams are logged as a warning and returned in membershipStreamsArchived. If a collision still remains, the failure says so and the step runs again on the next boot. Membership rows of archived users disappear from read_tenant_memberships with the rebuild.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: seedTenantMembership reuses the live membership stream of a pair
+  detail: seedTenantMembership looked only at read_tenant_memberships. After the row was lost it created a second stream for the same pair, which made every later rebuild of the projection collide. It now also checks the event log and returns the id of the pair's live stream without writing anything. The seed does not bring the lost row back; only a rebuild of the membership projection does, and nothing triggers one on its own, so until then the user has no membership in that tenant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Concurrent boots create kumiko_es_operations without a race
+  detail: CREATE TABLE IF NOT EXISTS is not race-safe in Postgres, so replicas booting against a fresh database could fail on pg_type_typname_nsp_index. createEsOperationsTable now takes an advisory lock and checks again before it creates the table.
+  -->
+- Updated dependencies [8e6d41e]
+- Updated dependencies [c823c6f]
+- Updated dependencies [6629d51]
+- Updated dependencies [ffe0424]
+  - @cosmicdrift/kumiko-framework@0.391.0
+  - @cosmicdrift/kumiko-types@0.391.0
+  - @cosmicdrift/kumiko-renderer@0.391.0
+  - @cosmicdrift/kumiko-testing@0.391.0
+
 ## 0.390.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.391.0",
+    "type": "improvement",
+    "title": "Inbound-mailbox probes",
+    "detail": "inbound-mail-foundation registers a probe with one result per configured mailbox. A personal mailbox is probed only when its owner starts the run, and only its owner sees the result."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Undecryptable mail account no longer stops polling of other accounts",
