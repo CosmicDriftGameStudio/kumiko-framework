@@ -16,7 +16,7 @@ function writePkg(dir: string, name: string): void {
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name }), "utf-8");
 }
 
-describe("findLocalRepo — derived 'app' layout counts only as a fallback (infra#499)", () => {
+describe("findLocalRepo — derived 'app' layout counts only as a fallback", () => {
   test("an unregistered repo with a flat src/ layout resolves via the derived app fallback", () => {
     const ws = workspace();
     const clone = join(ws, "brand-new-app");
@@ -115,7 +115,7 @@ describe("findLocalRepo — derived 'app' layout counts only as a fallback (infr
   });
 });
 
-describe("frameworkPackageTsConfigPath — standalone unregistered app repo does not crash (infra#499)", () => {
+describe("frameworkPackageTsConfigPath — standalone unregistered app repo does not crash", () => {
   test("falls back to the local repo's own tsconfig.json instead of throwing when no packages/<pkg>/tsconfig.json exists", () => {
     const ws = workspace();
     const clone = join(ws, "brand-new-app");

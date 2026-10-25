@@ -55,7 +55,7 @@ function readU16LE(buf: Uint8Array, offset: number): number {
 }
 
 describe("createZipStream :: structural asserts", () => {
-  test("leerer Stream → nur EOCD-Record (22 Bytes)", async () => {
+  test("empty stream → EOCD record only (22 bytes)", async () => {
     const zip = await collect(createZipStream(fromEntries([])));
     expect(zip.byteLength).toBe(22);
     // EOCD-Magic 0x06054b50 ("PK\x05\x06")
@@ -138,7 +138,7 @@ describe("createZipStream :: CRC32 correctness", () => {
 });
 
 describe("createZipStream :: UTF-8 filename support", () => {
-  test("General-Purpose-Flag Bit 11 (0x0800) ist gesetzt", async () => {
+  test("General-Purpose-Flag Bit 11 (0x0800) is set", async () => {
     const zip = await collect(
       createZipStream(fromEntries([{ path: "ascii.txt", data: fromString("x") }])),
     );
@@ -153,7 +153,7 @@ describe("createZipStream :: format limits (ZIP64-Pre-Check)", () => {
   // body is impractical in a test. The 65535-entry test below covers the
   // parallel limit constraint and guards against regressions.
 
-  test("Archive >65535 Entries wirft mit klarer Begruendung", async () => {
+  test("Archive with >65535 entries throws with a clear explanation", async () => {
     // 65535 entries are slow because each has a header; 65536 is enough to
     // trigger the branch. Empty bodies isolate the entry-count limit from
     // the body-size limit.
@@ -253,7 +253,7 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
     expect(Array.from(extracted)).toEqual(Array.from(combined));
   });
 
-  test("UTF-8 filename mit Umlauten (Bügel.pdf) wird korrekt entpackt", async () => {
+  test("UTF-8 filename with umlauts (Bügel.pdf) is extracted correctly", async () => {
     // With the UTF-8 flag (0x0800), Info-ZIP interprets the filename as UTF-8.
     // Without the flag, it would interpret it as CP437 and corrupt the umlaut.
     const zip = await collect(
@@ -292,7 +292,7 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
 });
 
 describe("createZipStream :: mtime in UTC (Audit-Drift-Schutz)", () => {
-  test("mtime wird als UTC encoded, nicht als lokale Zeitzone", async () => {
+  test("mtime is encoded as UTC, not as the local time zone", async () => {
     // 2026-05-09 14:30:00 UTC equals 16:30:00 CEST. If the implementation
     // used the local timezone on a CEST server, the DOS time would be 16:30;
     // this test requires it to remain 14:30 UTC.
@@ -319,7 +319,7 @@ describe("createZipStream :: mtime in UTC (Audit-Drift-Schutz)", () => {
 });
 
 describe("createZipStream :: streaming property", () => {
-  test("Lazy entries (async generator mit setTimeout) werden korrekt verarbeitet", async () => {
+  test("Lazy entries (async generator with setTimeout) are processed correctly", async () => {
     async function* lazyEntries(): AsyncIterable<ZipEntry> {
       await new Promise((r) => setTimeout(r, 5));
       yield { path: "lazy1.txt", data: fromString("delayed1") };
@@ -332,7 +332,7 @@ describe("createZipStream :: streaming property", () => {
     expect(readU16LE(zip, eocdStart + 8)).toBe(2);
   });
 
-  test("Lazy chunks innerhalb Entry: AsyncIterable<Uint8Array> mit setTimeout", async () => {
+  test("Lazy chunks within an entry: AsyncIterable<Uint8Array> with setTimeout", async () => {
     async function* lazyChunks(): AsyncIterable<Uint8Array> {
       await new Promise((r) => setTimeout(r, 2));
       yield new TextEncoder().encode("chunk1-");

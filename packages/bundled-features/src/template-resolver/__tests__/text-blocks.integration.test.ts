@@ -436,7 +436,7 @@ describe("text-blocks :: query (openToAll)", () => {
 });
 
 describe("text-blocks :: edge-cases", () => {
-  test("body=null roundtrip — set + query liefert null body zurück", async () => {
+  test("body=null roundtrip — set + query returns null body", async () => {
     // Realistic use-case: a tenant admin creates an empty block as a
     // stub (e.g. during onboarding) and fills it in later.
     await stack.http.writeOk<Record<string, unknown>>(
@@ -452,7 +452,7 @@ describe("text-blocks :: edge-cases", () => {
     expect(fetched).toMatchObject({ title: "Wird noch gefüllt", content: null });
   });
 
-  test("body=null kann via update auf string gesetzt werden", async () => {
+  test("body=null can be set to a string via update", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.set,
       { slug: "later-filled", locale: "de", title: "Stub", content: null },
@@ -471,7 +471,7 @@ describe("text-blocks :: edge-cases", () => {
     expect(fetched!["content"]).toBe("Inhalt");
   });
 
-  test("body knapp unter max-length (200k Zeichen) wird akzeptiert", async () => {
+  test("body just below max-length (200k characters) is accepted", async () => {
     const justBelowMax = "a".repeat(200_000);
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.set,
@@ -481,7 +481,7 @@ describe("text-blocks :: edge-cases", () => {
     expect(result).toMatchObject({ slug: "max-length-ok", isNew: true });
   });
 
-  test("body über max-length (200k+1 Zeichen) → validation_error", async () => {
+  test("body over max-length (200k+1 characters) → validation_error", async () => {
     const overLimit = "a".repeat(200_001);
     const error = await stack.http.writeErr(
       TemplateResolverHandlers.set,
@@ -491,7 +491,7 @@ describe("text-blocks :: edge-cases", () => {
     expectErrorIncludes(error, "validation_error");
   });
 
-  test("body mit XSS-Payload wird unverändert gespeichert (Markdown-Renderer ist verantwortlich für Escaping)", async () => {
+  test("body with XSS payload is stored unchanged (Markdown renderer is responsible for escaping)", async () => {
     // Documented behavior: text-content stores markdown 1:1.
     // Consumers (e.g. legal-pages with `marked`) must decide whether
     // to sanitize — see legal-pages/README.md XSS section.
@@ -626,7 +626,7 @@ describe("text-blocks :: seedTextBlock", () => {
   // against someone silently adding seedTextBlock validation
   // without converting app-side seed slugs (e.g. legal-pages platform
   // seeds).
-  test("seedTextBlock + set.write drift: `:`-slugs sind seed-only, set.write rejected sie", async () => {
+  test("seedTextBlock + set.write drift: `:`-slugs are seed-only, set.write rejects them", async () => {
     // Seed with `:` slug works (legal-pages pattern)
     const seeded = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,

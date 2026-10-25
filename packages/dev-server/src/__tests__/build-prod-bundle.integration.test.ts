@@ -50,7 +50,7 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     await rm(tmp, { recursive: true, force: true });
   });
 
-  test("kopiert public/ 1:1 nach dist/", async () => {
+  test("copies public/ verbatim to dist/", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(join(tmp, "public/favicon.txt"), "fav-content");
     await writeFile(join(tmp, "public/robots.txt"), "User-agent: *\nDisallow:\n");
@@ -66,7 +66,7 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     expect(await readFile(join(tmp, "dist/robots.txt"), "utf8")).toContain("User-agent");
   });
 
-  test("rendert public/index.html als Template (Inhalt erhalten)", async () => {
+  test("renders public/index.html as a template (preserving content)", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(
       join(tmp, "public/index.html"),
@@ -80,7 +80,7 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     expect(html).toContain("Custom Body");
   });
 
-  test("schreibt manifest.json auch wenn leer", async () => {
+  test("writes manifest.json even when empty", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(join(tmp, "public/index.html"), `<html></html>`);
 
@@ -90,7 +90,7 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     expect(manifest).toEqual({});
   });
 
-  test("public/index.html landet NICHT als rohes File in dist/ (wird als Template behandelt)", async () => {
+  test("public/index.html does NOT land as a raw file in dist/ (it is treated as a template)", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     const original = `<!doctype html><html><body>SOURCE</body></html>`;
     await writeFile(join(tmp, "public/index.html"), original);
@@ -105,7 +105,7 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     expect(await readFile(join(tmp, "dist/index.html"), "utf8")).toContain("SOURCE");
   });
 
-  test("clean wipe: vorhandenes dist/-Junk wird entfernt", async () => {
+  test("clean wipe: removes existing dist/ junk", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(join(tmp, "public/index.html"), `<html></html>`);
     // Junk file left by an earlier build
@@ -117,11 +117,11 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     expect(existsSync(join(tmp, "dist/old/stale.js"))).toBe(false);
   });
 
-  test("wirft mit klarer Message wenn weder public/ noch index.html noch client da", async () => {
+  test("throws a clear message when neither public/ nor index.html nor client exists", async () => {
     await expect(buildProdBundle({ cwd: tmp })).rejects.toThrow(/nothing to build/);
   });
 
-  test("wirft mit Anweisung wenn HTML-Template ohne /client.js Placeholder vorliegt", async () => {
+  test("throws with instructions when an HTML template without a /client.js placeholder is present", async () => {
     // Simulates a user-provided manifest entry (faked through an option; in
     // the real pipeline it comes from Bun.build). Tests renderHtml /
     // injectAssetTags through a lower-level path: HTML without a tag,
@@ -158,7 +158,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     await rm(tmp, { recursive: true, force: true });
   });
 
-  test("client.ts → hashed bundle, manifest, html mit injected script-tag", async () => {
+  test("client.ts → hashed bundle, manifest, HTML with injected script tag", async () => {
     // A client without external deps leaves Bun.build nothing to resolve.
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(
@@ -193,7 +193,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     expect(await readFile(assetPath, "utf8")).toContain('"hi"');
   });
 
-  test("client.ts ohne index.html → klarer Error mit Template-Vorschlag", async () => {
+  test("client.ts without index.html → clear error with template suggestion", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
     await writeFile(join(tmp, "package.json"), `{"name":"no-html","private":true}`);
@@ -205,7 +205,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
   });
 
-  test("client.ts + index.html ohne /client.js Placeholder → klarer Error", async () => {
+  test("client.ts + index.html without /client.js placeholder → clear error", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
     await mkdir(join(tmp, "public"), { recursive: true });
@@ -327,7 +327,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     );
   });
 
-  test("Re-Build mit unverändertem Source produziert identischen Hash (reproducibility)", async () => {
+  test("Rebuild with unchanged source produces identical hash (reproducibility)", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client.ts"), `console.log("stable");`);
     await mkdir(join(tmp, "public"), { recursive: true });

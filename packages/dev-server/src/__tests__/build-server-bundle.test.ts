@@ -336,7 +336,7 @@ describe("buildServerBundle meilisearch runtime dependency", () => {
   });
 });
 
-describe("readExtraRuntimeExternals (package.json kumiko field, #1484)", () => {
+describe("readExtraRuntimeExternals (package.json kumiko field)", () => {
   test("reads string list from kumiko.extraRuntimeExternals", () => {
     const dir = mkdtempSync(join(tmpdir(), "extra-ext-"));
     try {
@@ -377,7 +377,7 @@ describe("readExtraRuntimeExternals (package.json kumiko field, #1484)", () => {
   });
 });
 
-describe("buildServerBundle + package.json extras (#1484)", () => {
+describe("buildServerBundle + package.json extras", () => {
   test("extraRuntimeExternals from options land in runtimeDeps with app pin", async () => {
     const dir = makeFixture();
     try {

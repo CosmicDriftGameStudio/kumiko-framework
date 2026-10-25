@@ -51,7 +51,7 @@ describe("pin-drift.jq guard", () => {
     expect(runGuard({ dependencies: { "@cosmicdrift/kumiko-dev-server": "0.67.0" } })).toBe("");
   });
 
-  test("stale internal pin (#410) is reported as drift", () => {
+  test("stale internal pin is reported as drift", () => {
     expect(runGuard({ dependencies: { "@cosmicdrift/kumiko-framework": "0.50.0" } })).toBe(
       "@cosmicdrift/kumiko-framework@0.50.0 (expected 0.67.0)",
     );
@@ -84,7 +84,7 @@ describe("pin-drift.jq guard", () => {
     );
   });
 
-  test("peerDependency at the release version with a caret range (workspace:^ substitution, #1529) passes clean", () => {
+  test("peerDependency at the release version with a caret range (workspace:^ substitution) passes clean", () => {
     expect(
       runGuard({ peerDependencies: { "@cosmicdrift/kumiko-dev-server": "^0.67.0" } }),
     ).toBe("");
