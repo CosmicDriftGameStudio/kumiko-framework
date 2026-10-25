@@ -366,7 +366,7 @@ describe("download-by-token :: error paths", () => {
 });
 
 describe("download-by-job :: happy path", () => {
-  test("session-auth: Job-Owner → returns signed URL + audit (IP aus X-Forwarded-For)", async () => {
+  test("session-auth: Job owner → returns signed URL + audit (IP from X-Forwarded-For)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
     // The UI click runs as a direct download-by-job query (client sends
@@ -468,7 +468,7 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     expect(body).toContain("/user-export/by-token");
   });
 
-  test("POST-Exchange (Fragment-Pfad): happy-path + IP/UA-Audit aus httpRoute-Headers", async () => {
+  test("POST-Exchange (fragment path): happy path + IP/UA audit from httpRoute headers", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
 
     // trustedProxyHops=1 here → the resolver trusts the last XFF entry, not

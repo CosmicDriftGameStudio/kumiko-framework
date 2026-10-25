@@ -87,8 +87,8 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
   return dir;
 }
 
-describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
-  test("seed-migration kann updateMemberRoles auf aggregate in Demo-Tenant aufrufen (tenantIdOverride)", async () => {
+describe("es-ops E2E against real stack", () => {
+  test("seed-migration can call updateMemberRoles on an aggregate in Demo-Tenant (tenantIdOverride)", async () => {
     // Setup-Stage: tenant + membership ES-konform via Handler erstellen.
     // event lebt im demoTenant-stream.
     const tenantRes = await dispatcher.write(

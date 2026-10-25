@@ -342,7 +342,7 @@ describe("KumikoScreen", () => {
   // Screen-level filter is propagated from the schema into the
   // query payload. Three buckets ("scheduled" / "active" / "done")
   // share the same query handler; the filter decides which rows come.
-  test("entityList screen-filter: schema.filter landet im query-payload", async () => {
+  test("entityList screen-filter: schema.filter is included in the query payload", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async (type: string, payload: unknown) => {

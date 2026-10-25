@@ -409,7 +409,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
 });
 
 describe("S2.H2 :: fileRefDeleteHook", () => {
-  test('strategy="delete" → FileRef-Rows fuer User in Tenant weg', async () => {
+  test('strategy="delete" → FileRef rows for the user in the tenant are removed', async () => {
     await seedFileRef(uuid(201), TENANT_A, "user-delete-files", "f1.pdf");
     await seedFileRef(uuid(202), TENANT_A, "user-delete-files", "f2.pdf");
 

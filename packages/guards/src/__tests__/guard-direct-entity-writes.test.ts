@@ -90,7 +90,7 @@ describe("collectEntityProjectionTables", () => {
     expect([...tables][0]).toContain("fooTable");
   });
 
-  test("nimmt den expliziten backingTable-Override aus r.entity({ name, ...def, backingTable })", () => {
+  test("removes the explicit backingTable override from r.entity({ name, ...def, backingTable })", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
@@ -185,7 +185,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     expect(hits[0]?.table).toBe("fooTable");
   });
 
-  test("ALLOW: insertOne(tx, fooTable, ...) innerhalb r.projection({apply}) — tx-Receiver im apply-Pfad", () => {
+  test("ALLOW: insertOne(tx, fooTable, ...) inside r.projection({apply}) — tx receiver in the apply path", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void; projection: (def: unknown) => void }) {
@@ -206,7 +206,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
 });
 
 describe("scanDirectWrites :: non-tx-receiver", () => {
-  test("BLOCK: db.update(fooTable) im Production-Code", () => {
+  test("BLOCK: db.update(fooTable) in production code", () => {
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         async function bad(db: { update: (t: unknown) => { set: (v: unknown) => Promise<void> } }) {
@@ -223,7 +223,7 @@ describe("scanDirectWrites :: non-tx-receiver", () => {
     expect(hits[0]?.op).toBe("update");
   });
 
-  test("BLOCK: ctx.db.insert(fooTable) im Production-Code", () => {
+  test("BLOCK: ctx.db.insert(fooTable) in production code", () => {
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         async function bad(ctx: { db: { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } } }) {

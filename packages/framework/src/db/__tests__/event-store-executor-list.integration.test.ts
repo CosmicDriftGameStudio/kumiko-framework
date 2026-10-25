@@ -131,7 +131,7 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     expect(next.rows.length).toBeGreaterThan(0);
   });
 
-  test("totalCount auf empty-result: total=0, rows=[]", async () => {
+  test("totalCount on empty result: total=0, rows=[]", async () => {
     const res = await exec.list({ limit: 50, totalCount: true }, admin, tdb);
     expect(res.rows).toHaveLength(0);
     expect(res.total).toBe(0);

@@ -161,7 +161,7 @@ async function seedFileRef(
 }
 
 describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {
-  test("Alice in Tenant A + B → Bundle hat user-Profil + fileRefs aus beiden Tenants", async () => {
+  test("Alice in Tenant A + B → Bundle has user profile + fileRefs from both Tenants", async () => {
     await seedUser(ALICE_ID, {
       email: "alice@example.com",
       displayName: "Alice Test",
@@ -239,7 +239,7 @@ describe("runUserExport :: PII-Surface (Datenschutz-Audit)", () => {
 });
 
 describe("runUserExport :: Cross-User-Isolation", () => {
-  test("Alice's Bundle enthaelt KEINE Daten von Bob (gleicher Tenant, andere insertedById)", async () => {
+  test("Alice's Bundle contains NO data from Bob (same Tenant, different insertedById)", async () => {
     await seedUser(ALICE_ID, { email: "alice@example.com" });
     await seedUser(BOB_ID, { email: "bob.distinct@example.com" });
     await seedMembership(ALICE_ID, TENANT_A);

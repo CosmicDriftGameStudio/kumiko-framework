@@ -510,7 +510,7 @@ describe("text-blocks :: edge-cases", () => {
     expect(fetched!["content"]).toBe(xssPayload);
   });
 
-  test("concurrent set auf gleichen (tenantId, slug, lang) — mindestens einer succeed", async () => {
+  test("concurrent set on the same (tenantId, slug, lang) — at least one succeeds", async () => {
     // Race test: two tenant admins (or the same admin from two tabs)
     // write concurrently. fetchOne+update is not atomic — if both find
     // the same `existing` and both try to update, optimistic locking

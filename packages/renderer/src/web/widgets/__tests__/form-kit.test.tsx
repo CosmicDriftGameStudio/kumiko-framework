@@ -188,7 +188,7 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
 });
 
 describe("ResultPanel footer", () => {
-  test("rendert den footer-Slot", () => {
+  test("renders the footer slot", () => {
     render(
       <ResultPanel
         title="R"
@@ -263,7 +263,7 @@ describe("FileField", () => {
     expect(onChange).toHaveBeenCalledWith(null);
   });
 
-  test("entityType/fieldName reichen bis in den /api/files-Upload-Request durch", async () => {
+  test("entityType/fieldName are forwarded to the /api/files upload request", async () => {
     const originalFetch = global.fetch;
     const fetchSpy = mock(
       async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ id: "file-1" })),
@@ -323,7 +323,7 @@ describe("Button size", () => {
     expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
   });
 
-  test('width="full" streckt den Button (w-full)', () => {
+  test('width="full" stretches the button (w-full)', () => {
     function WideBtn(): ReactNode {
       const { Button } = usePrimitives();
       return (

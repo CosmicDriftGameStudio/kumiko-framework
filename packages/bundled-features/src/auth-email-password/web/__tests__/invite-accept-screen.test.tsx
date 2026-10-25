@@ -231,7 +231,7 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     });
   });
 
-  test("branch 2/3: die Session-Rollen aus user.roles schlagen die Invitation-Rolle", async () => {
+  test("Session roles from user.roles take precedence over the invitation role", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(

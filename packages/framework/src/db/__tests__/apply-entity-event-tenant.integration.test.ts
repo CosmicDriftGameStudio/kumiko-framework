@@ -133,7 +133,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     ).rejects.toThrow(/payload\.tenantId set but invalid/);
   });
 
-  test("payload.tenantId === null → wirft (fail-loud)", async () => {
+  test("payload.tenantId === null → throws (fail-loud)", async () => {
     // Mirror case. A JSON payload can contain literal null (for example, a
     // hook set the value to null instead of unsetting it). There must be
     // no silent fallback here either—this is critical for tenant isolation.

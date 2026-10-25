@@ -7,7 +7,7 @@ const HOUR_MS = 3_600_000;
 const start = 1_700_000_000_000;
 
 describe("isTrialActive", () => {
-  test("innerhalb des Fensters → aktiv", () => {
+  test("within the window → active", () => {
     expect(isTrialActive(start, start + 10 * 24 * HOUR_MS, 720)).toBe(true);
     expect(isTrialActive(start, start, 720)).toBe(true);
   });

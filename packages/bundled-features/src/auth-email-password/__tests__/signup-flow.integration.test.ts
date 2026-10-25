@@ -443,7 +443,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidSignupToken);
   });
 
-  test("zu kurzes Password → 400 invalid_body (Schema-Reject vor dispatcher)", async () => {
+  test("too-short password → 400 invalid_body (schema rejection before dispatcher)", async () => {
     const email = "short@example.com";
     const token = await requestSignup(email);
     const res = await postSignupConfirm(token, "tiny");

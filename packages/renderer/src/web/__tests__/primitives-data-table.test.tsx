@@ -369,7 +369,7 @@ describe("DataTable", () => {
       expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
     });
 
-    test("Click auf Next von page=1: onPageChange(2)", () => {
+    test("Clicking Next on page=1: onPageChange(2)", () => {
       const onPageChange = mock();
       render(
         <DataTable
@@ -383,7 +383,7 @@ describe("DataTable", () => {
       expect(onPageChange).toHaveBeenCalledWith(2);
     });
 
-    test("Click auf Prev von page=3: onPageChange(2)", () => {
+    test("Clicking Prev on page=3: onPageChange(2)", () => {
       const onPageChange = mock();
       render(
         <DataTable
@@ -630,7 +630,7 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("dt-sentinel-end")).toBeNull();
     });
 
-    test(`hasMore=false + ${END_LABEL_MIN_ROWS} Zeilen: End-Marker (Grenzfall auf Threshold)`, () => {
+    test(`hasMore=false + ${END_LABEL_MIN_ROWS} rows: End marker (threshold boundary case)`, () => {
       render(
         <DataTable
           columns={cols}
@@ -1123,7 +1123,7 @@ describe("DataTable", () => {
       expect(onTrigger).toHaveBeenCalledWith(rows[0]);
     });
 
-    test("style=danger: erzwingt Confirm-Dialog vor onTrigger", async () => {
+    test("style=danger: forces a confirmation dialog before onTrigger", async () => {
       const onTrigger = mock();
       render(
         <DataTable
@@ -1161,7 +1161,7 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("row-r2-action-archive")).toBeNull();
     });
 
-    test("Click auf Action-Cell propagiert NICHT auf onRowClick", async () => {
+    test("Clicking the action cell does NOT propagate to onRowClick", async () => {
       const user = userEvent.setup();
       const onRowClick = mock();
       const onTrigger = mock();

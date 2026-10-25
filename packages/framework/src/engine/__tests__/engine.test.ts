@@ -2419,7 +2419,7 @@ describe("registry boot validation", () => {
     expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no handler/i);
   });
 
-  test("multi-trigger: r.job akzeptiert ein Array von Trigger-Refs", () => {
+  test("multi-trigger: r.job accepts an array of trigger refs", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({ name: "order", ...createEntity({ table: "Orders", fields: {} }) });
       r.writeHandler({

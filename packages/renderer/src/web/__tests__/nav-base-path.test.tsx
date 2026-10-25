@@ -150,7 +150,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("href-list").textContent).toBe("/admin/task-list");
   });
 
-  test("Round-trip: aus '/admin/task-edit/xyz' navigate zu '/task-list' → '/admin/task-list'", () => {
+  test("Round-trip: navigate from '/admin/task-edit/xyz' to '/task-list' → '/admin/task-list'", () => {
     window.history.replaceState(null, "", "/admin/task-edit/xyz");
     render(
       <AdminBrowserNav>

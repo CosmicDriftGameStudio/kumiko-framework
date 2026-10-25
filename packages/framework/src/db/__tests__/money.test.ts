@@ -234,7 +234,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
   });
 });
 
-describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => {
+describe("Round-trip in the update path (helper chaining as in the executor)", () => {
   test("Update changes payload with money passes through flatten + back through rehydrate", () => {
     // Simulates the executor's flow: changes → flatten → DB → rehydrate
     const changes = { buyingPrice: { amount: 990, currency: "USD" } };

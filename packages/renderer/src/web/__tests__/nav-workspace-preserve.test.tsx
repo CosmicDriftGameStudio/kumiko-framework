@@ -65,7 +65,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — preserves the workspace 
     window.history.replaceState(null, "", "/admin/component-list");
   });
 
-  test("navigate({ screenId, entityId }) erbt den aktuellen Workspace → '/admin/component-edit/c1'", () => {
+  test("navigate({ screenId, entityId }) inherits the current workspace → '/admin/component-edit/c1'", () => {
     render(
       <WorkspaceNav>
         <Probe />
@@ -93,7 +93,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — preserves the workspace 
     expect(screen.getByTestId("screen-id").textContent).toBe("maintenance-schedule-form");
   });
 
-  test("explizite workspaceId gewinnt weiterhin (WorkspaceSwitcher-Fall)", () => {
+  test("explicit workspaceId still wins (WorkspaceSwitcher case)", () => {
     render(
       <WorkspaceNav>
         <Probe />
@@ -106,7 +106,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — preserves the workspace 
     expect(screen.getByTestId("workspace-id").textContent).toBe("visual");
   });
 
-  test("replace erbt den Workspace symmetrisch zu navigate", () => {
+  test("replace inherits the workspace, just like navigate", () => {
     render(
       <WorkspaceNav>
         <Probe />

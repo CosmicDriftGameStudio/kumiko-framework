@@ -105,7 +105,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
   });
 
-  test("write wirft → generischer Error-Banner, NICHT invalidToken", async () => {
+  test("write throws → generic Error-Banner, NOT invalidToken", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=tok-123");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
     fireEvent.click(ui.getByRole("button"));

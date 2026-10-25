@@ -180,7 +180,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     expect(after[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
-  test("DeletionRequested + gracePeriodEnd (Date-Spalte) ueberleben den Rebuild", async () => {
+  test("DeletionRequested + gracePeriodEnd (Date column) survive the rebuild", async () => {
     // Use the helper directly, without compliance-profile setup, because the focus
     // is serializing the Date column through the event and reducer.
     const hash = await hashPassword(ALICE_PW);

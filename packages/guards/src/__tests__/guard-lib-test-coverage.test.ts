@@ -128,7 +128,7 @@ export type FinanceRole = keyof typeof FINANCE_COLOR;`,
     ).toHaveLength(0);
   });
 
-  test("ignore-Tag auf IO-Loader nimmt die Funktion aus", () => {
+  test("ignore tag on IO-Loader excludes the function", () => {
     expect(
       run({
         [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via public-share.integration.test.ts
@@ -137,7 +137,7 @@ export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
     ).toHaveLength(0);
   });
 
-  test("alle Funktionen ge-ignore-tagged → Datei braucht keinen Test", () => {
+  test("all functions are ignore-tagged → file needs no test", () => {
     expect(
       run({
         [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered

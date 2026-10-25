@@ -287,7 +287,7 @@ describe("enrichWithReferences", () => {
     expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Linus", "Ada"]);
   });
 
-  test("null/leerer ref-Wert → _refs[field] undefined", async () => {
+  test("null/empty ref value → _refs[field] undefined", async () => {
     const row = await enrichA({ id: "p1", author: null });
     expect(single(row, "author")).toBeUndefined();
   });

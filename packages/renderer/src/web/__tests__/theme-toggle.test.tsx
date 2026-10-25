@@ -39,7 +39,7 @@ function renderWithMode(stub: StubApi, ui: ReactNode) {
 }
 
 describe("ThemeToggle", () => {
-  test("rendert Default-Unicode-Icon (☾) im light-Mode", () => {
+  test("renders default Unicode icon (☾) in light mode", () => {
     const stub = makeStub("light");
     renderWithMode(stub, <ThemeToggle testId="t" />);
     const btn = screen.getByTestId("t");
@@ -47,7 +47,7 @@ describe("ThemeToggle", () => {
     expect(btn.textContent).not.toContain("☀");
   });
 
-  test("rendert Default-Unicode-Icon (☀) im dark-Mode", () => {
+  test("renders default Unicode icon (☀) in dark mode", () => {
     const stub = makeStub("dark");
     renderWithMode(stub, <ThemeToggle testId="t" />);
     const btn = screen.getByTestId("t");

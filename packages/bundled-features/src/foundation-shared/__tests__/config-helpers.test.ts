@@ -40,7 +40,7 @@ describe("requireDefined", () => {
 });
 
 describe("requireNonEmpty", () => {
-  test("undefined → wirft die requireDefined-Message (delegiert, NICHT empty-Pfad)", () => {
+  test("undefined → throws the requireDefined message (delegated, NOT the empty path)", () => {
     expect(() => requireNonEmpty(undefined, "mail-foundation", "host")).toThrow(
       "config key resolved to undefined",
     );
@@ -52,7 +52,7 @@ describe("requireNonEmpty", () => {
     );
   });
 
-  test("leerer String → wirft UnconfiguredError (422, code unconfigured, typed details)", () => {
+  test("empty string → throws UnconfiguredError (422, code unconfigured, typed details)", () => {
     try {
       requireNonEmpty("", "file-foundation", "bucket");
       throw new Error("expected requireNonEmpty to throw");

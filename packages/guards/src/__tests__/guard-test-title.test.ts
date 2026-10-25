@@ -39,6 +39,24 @@ describe("test-title guard", () => {
     expect(hits(source).map((h) => h.line)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
+  test("flags a German title with a single marker and no umlaut", () => {
+    expect(hits('test("TenantAdmin kann Profile setzen", () => {});')).toEqual([
+      { line: 1, reason: "German" },
+    ]);
+    expect(hits('test("publish setzt status auf active", () => {});')).toHaveLength(1);
+    expect(hits('test("Tenant-Override gewinnt vor Default", () => {});')).toHaveLength(1);
+  });
+
+  test("does not flag English titles with words that are also German or quoted code", () => {
+    const source = [
+      'test("die all user rows for the tenant", () => {});',
+      'test("explains what was an issue in pro tier", () => {});',
+      'test("MIT license header stays", () => {});',
+      'test("keeps `kann` and "wird" as fixture names", () => {});',
+    ].join("\n");
+    expect(hits(source)).toEqual([]);
+  });
+
   test("leaves English titles, fixture names, hex colours and non-title calls alone", () => {
     const source = [
       'test("rejects an empty list", () => {});',

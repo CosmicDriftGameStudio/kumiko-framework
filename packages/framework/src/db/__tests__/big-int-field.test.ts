@@ -85,7 +85,7 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 });
 
 describe("buildInsertSchema — bigInt-Validation", () => {
-  test("akzeptiert safe-integer-Werte inkl. >2^31", () => {
+  test("accepts safe-integer values including >2^31", () => {
     const entity = createEntity({
       fields: { bytesWritten: createBigIntField({ required: true }) },
     });

@@ -102,7 +102,7 @@ describe("RenderList — format:unit-FormatSpec threads the app locale", () => {
     expect(renderAreaListUnderLocale("en-US", 72.5, unitScreen)).toBe("72.5 m²");
   });
 
-  test("ein renderer.locale gewinnt weiterhin vor dem App-Locale", () => {
+  test("renderer.locale still takes precedence over the app locale", () => {
     const screen: EntityListScreenDefinition = {
       id: "",
       type: "entityList",

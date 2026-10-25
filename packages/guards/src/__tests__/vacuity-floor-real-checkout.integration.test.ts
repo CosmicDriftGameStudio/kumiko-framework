@@ -5,7 +5,7 @@ import { resolveRepoRoots } from "../_lib/roots";
 import { type ScanSpec, scanFiles, scanRoots } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
 
-describe("Vacuity-Floor gegen den echten Checkout", () => {
+describe("Vacuity floor against the real checkout", () => {
   // The floor is disk-based (RootScan.sourceSurface) — a
   // root with zero .ts/.tsx source files is a violation, one with source but
   // nothing under the guard's own narrowing is not. Against this repo's real

@@ -82,7 +82,7 @@ afterAll(async () => {
 });
 
 describe("runSchemaApply", () => {
-  test("Greenfield: leere DB → Infra-Tabellen + App-Migration appliziert → 0", async () => {
+  test("Greenfield: empty DB → infrastructure tables + app migration applied → 0", async () => {
     expect(await runSchemaApply({ ...APPLY, appCwd })).toBe(0);
 
     expect(await tableExists(conn.db, "public.kumiko_events")).toBe(true);

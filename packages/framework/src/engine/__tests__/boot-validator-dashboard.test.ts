@@ -541,7 +541,7 @@ describe("validateBoot — dashboard screen panels", () => {
     });
   });
 
-  test("requiredKeysFromScreen sammelt ein gesetztes Screen-Panel-Label", () => {
+  test("requiredKeysFromScreen collects a set panel label from the screen", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",

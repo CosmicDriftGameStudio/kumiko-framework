@@ -96,7 +96,7 @@ describe("RenderField enumOption-FormatSpec renders different labels for the sam
     expect(captured?.children).toBe("archived");
   });
 
-  test("leerer Wert rendert leer", () => {
+  test("empty value renders empty", () => {
     renderUnderLocale("de", statusField(null));
     expect(captured?.children).toBe("");
   });

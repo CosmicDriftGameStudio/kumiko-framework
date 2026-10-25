@@ -137,7 +137,7 @@ describe("resolveDerivedMaxRequestBodySize", () => {
 });
 
 describe("SSE heartbeat cadence", () => {
-  test("liegt unter dem strengsten Edge-Idle-Timeout (Cloudflare 100s)", () => {
+  test("is below the strictest edge idle timeout (Cloudflare 100s)", () => {
     // Bun.serve's idleTimeout is disabled (see buildBunServeOptions), so the Bun 10s default
     // does not apply. The remaining strictest layers are CDN/LB edges:
     //   - Cloudflare Edge: 100 s (strictest realistic layer)

@@ -36,7 +36,7 @@ async function openUploadForm(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
-test("upload-leer", async ({ page }) => {
+test("upload-empty", async ({ page }) => {
   await openUploadForm(page);
   await captureScreenshot(page, "upload-leer");
 });

@@ -43,7 +43,7 @@ describe("parsePath with workspaces (hasWorkspaces=true)", () => {
     });
   });
 
-  test("Workspace-only /<workspaceId> → leerer screenId (Shell resolved Default)", () => {
+  test("Workspace-only /<workspaceId> → empty screenId (Shell resolved Default)", () => {
     expect(parsePath("/admin", true)).toEqual({ workspaceId: "admin", screenId: "" });
   });
 

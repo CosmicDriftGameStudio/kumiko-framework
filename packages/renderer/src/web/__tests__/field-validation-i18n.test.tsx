@@ -68,7 +68,7 @@ describe("DefaultField / errors.validation.* i18n", () => {
     );
   });
 
-  test("too_small interpoliert {minimum} aus issue.params", () => {
+  test("too_small interpolates {minimum} from issue.params", () => {
     const view = renderFieldWithIssues([
       {
         path: "name",

@@ -77,7 +77,7 @@ describe("file-provider-inmemory — build() + per-tenant store", () => {
     clearStorage("tenant-iso-b");
   });
 
-  test("clearStorage leert den Tenant-Store", async () => {
+  test("clearStorage clears the tenant store", async () => {
     const p = await inmemoryPlugin().build({ secrets: undefined }, "tenant-clear");
     await p.write("gone.txt", bytes("x"));
     expect(listKeys("tenant-clear")).toHaveLength(1);

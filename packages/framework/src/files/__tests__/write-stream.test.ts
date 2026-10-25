@@ -46,7 +46,7 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
     expect(Array.from(data)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  test("leerer Stream → leere Datei", async () => {
+  test("empty stream → empty file", async () => {
     const provider = createInMemoryFileProvider();
     await provider.writeStream("empty.bin", fromChunks([]));
 
@@ -138,7 +138,7 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     }
   });
 
-  test("ueberschreibt existing file atomar (rename ueber bestehenden Pfad)", async () => {
+  test("atomically overwrites existing file (rename over existing path)", async () => {
     const provider = createLocalProvider(basePath);
 
     await provider.write("k", new Uint8Array([1, 1, 1]));

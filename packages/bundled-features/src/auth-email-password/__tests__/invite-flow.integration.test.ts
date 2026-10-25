@@ -787,7 +787,7 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     );
   });
 
-  test("Existing email → invalid_invite_token (User soll Branch 2 nutzen)", async () => {
+  test("Existing email → invalid_invite_token", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
 
     const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {

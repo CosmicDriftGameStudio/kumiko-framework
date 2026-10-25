@@ -103,7 +103,7 @@ describe("textBlocksClient — shape", () => {
   });
 });
 
-describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
+describe("textBlocksClient — Provider unwraps the content container", () => {
   const origFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = origFetch;

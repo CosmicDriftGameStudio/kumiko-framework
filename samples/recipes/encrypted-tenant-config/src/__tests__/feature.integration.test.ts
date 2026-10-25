@@ -112,7 +112,7 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
     expect(ok.chargeId).toContain("cust_42");
   });
 
-  test("Tenant-Isolation: Tenant-A's Key leakt NICHT zu Tenant-B", async () => {
+  test("Tenant isolation: Tenant-A's key does not leak to Tenant-B", async () => {
     await stack.http.writeOk(
       "config:write:set",
       { key: stripeApiKeyHandle.name, value: "sk_live_acme_only", scope: "tenant" },

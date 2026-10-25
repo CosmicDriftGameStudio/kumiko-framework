@@ -1203,7 +1203,7 @@ describe("runProdApp — rejected WebSocket upgrades carry the security headers"
   });
 });
 
-describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Container)", () => {
+describe("runProdApp: local event dispatcher (MSP application in a single container)", () => {
   // Regression: runProdApp did not build the event dispatcher
   // ({disabled:true} in the API entrypoint), so no multiStreamProjection was
   // applied in Production and kumiko_event_consumers remained empty. The test

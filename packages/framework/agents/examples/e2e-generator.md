@@ -91,7 +91,7 @@ describe("e2e-generator sample — shop feature", () => {
     expect(validates.requiredFields).toEqual(["name", "price"]);
   });
 
-  test("edit-save-persists mapped Feldtypen auf die richtigen Playwright-Interaktionen", () => {
+  test("edit-save-persists maps field types to the correct Playwright interactions", () => {
     const specs = generateE2ESpec(registry);
     const save = specs.find((s) => s.kind === "edit-save-persists");
     if (save?.kind !== "edit-save-persists") throw new Error("unreachable");

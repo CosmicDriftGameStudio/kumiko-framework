@@ -9,7 +9,7 @@ import { qualifyNavId, qualifyScreenId } from "../kumiko-screen.tsx";
 import { lastSegment } from "../qn.ts";
 
 describe("lastSegment", () => {
-  test("nimmt den letzten ':'-getrennten Teil", () => {
+  test("returns the last ':'-separated part", () => {
     expect(lastSegment("tasks:screen:task-list")).toBe("task-list");
     expect(lastSegment("a:b")).toBe("b");
   });
@@ -19,7 +19,7 @@ describe("lastSegment", () => {
     expect(lastSegment("")).toBe("");
   });
 
-  test("trailing ':' → leerer Suffix", () => {
+  test("trailing ':' → empty suffix", () => {
     expect(lastSegment("a:")).toBe("");
   });
 });

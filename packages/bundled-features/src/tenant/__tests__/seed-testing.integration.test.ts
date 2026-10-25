@@ -74,7 +74,7 @@ describe("seedTenant", () => {
     expect(rows[0]?.["name"]).toBe("Tenant A");
   });
 
-  test("emittiert tenant.created-Event auf den Aggregate-Stream", async () => {
+  test("emits a tenant.created event on the aggregate stream", async () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
     const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant" });
     const createdEvents = events.filter((e) => e.type === "tenant.created");

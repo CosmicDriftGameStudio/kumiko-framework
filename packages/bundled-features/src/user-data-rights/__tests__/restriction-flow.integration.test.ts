@@ -368,7 +368,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
   });
 });
 
-describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () => {
+describe("Login block for Restricted/DeletionRequested/Deleted", () => {
   test("Active user login: 200 (regression check)", async () => {
     await seedAliceWithMembership(USER_STATUS.Active);
     const res = await login(ALICE_EMAIL, ALICE_PW);
@@ -399,7 +399,7 @@ describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () =>
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
   });
 
-  test("Wrong password vor Status-Check (timing-equivalence): 422 invalid_credentials, NICHT account_restricted", async () => {
+  test("Wrong password before status check (timing equivalence): 422 invalid_credentials, NOT account_restricted", async () => {
     // A Restricted user with a WRONG password must NOT learn account_restricted:
     // invalid_credentials is returned first (see login.write.ts: the status
     // check occurs AFTER password-verify). Otherwise, an attacker without

@@ -381,7 +381,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     expect(calendarRow).toBeNull();
   });
 
-  test("enforceRollingCap summiert mehrere increment-events innerhalb des Windows", async () => {
+  test("enforceRollingCap sums multiple increment events within the window", async () => {
     const admin = adminFor(902);
     await incrementRolling(admin, "ai-tokens-7d", 1000);
     await incrementRolling(admin, "ai-tokens-7d", 2500);
@@ -534,7 +534,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     expect(recordedNotifications).toHaveLength(0);
   });
 
-  test("hard-hit → CapExceededError, notifier feuert NICHT (throw kommt vor notify)", async () => {
+  test("hard-hit → CapExceededError, notifier does NOT fire (throw comes before notify)", async () => {
     recordedNotifications.length = 0;
     const admin = adminFor(1003);
     await increment(admin, "cap-notify-hard", 1200);

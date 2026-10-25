@@ -130,7 +130,7 @@ describe("Egress guard in a real render", () => {
   });
 });
 
-describe("countPdfPages gegen ein ECHTES Chromium-PDF (87/1)", () => {
+describe("countPdfPages against a real Chromium PDF", () => {
   test("multi-page content → countPdfPages counts > 1 page", async () => {
     const { app } = createApp(CONFIG);
     // ~60 paragraphs with forced breaks reliably blow past an A4 page.

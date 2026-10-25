@@ -6,7 +6,7 @@ import { defaultPrimitives } from "../index.tsx";
 const { Button } = defaultPrimitives;
 
 describe("DefaultButton className/ref", () => {
-  test("merged className landet auf dem DOM-Node", () => {
+  test("merged className is applied to the DOM node", () => {
     render(
       <Button className="my-custom-class" testId="btn">
         Save
@@ -15,7 +15,7 @@ describe("DefaultButton className/ref", () => {
     expect(screen.getByTestId("btn").className).toContain("my-custom-class");
   });
 
-  test("ref landet auf dem <button>-Element", () => {
+  test("ref is attached to the <button> element", () => {
     const ref = createRef<HTMLButtonElement>();
     render(
       <Button ref={ref} testId="btn">

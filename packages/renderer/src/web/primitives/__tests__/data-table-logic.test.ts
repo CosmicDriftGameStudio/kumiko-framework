@@ -27,13 +27,13 @@ describe("isComponentRendererRef", () => {
 });
 
 describe("applyFormatSpec", () => {
-  test("null/undefined/leer → leerer String (priority rendert stattdessen emptyLabel)", () => {
+  test("null/undefined/empty → empty string (priority renders emptyLabel instead)", () => {
     expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
   });
 
-  test("boolean: true → ✓, false → leer (defaults)", () => {
+  test("boolean: true → ✓, false → empty (defaults)", () => {
     expect(applyFormatSpec({ format: "boolean" }, true)).toBe("✓");
     expect(applyFormatSpec({ format: "boolean" }, false)).toBe("");
   });
@@ -125,7 +125,7 @@ describe("applyFormatSpec", () => {
 });
 
 describe("defaultCellRender", () => {
-  test("null/undefined/leerer String → leerer String", () => {
+  test("null/undefined/empty string → empty string", () => {
     expect(defaultCellRender(null, "text")).toBe("");
     expect(defaultCellRender(undefined, "text")).toBe("");
     expect(defaultCellRender("", "text")).toBe("");
@@ -140,7 +140,7 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("degraded-performance", "select")).toBe("Degraded performance");
   });
 
-  test("select → registriertes optionLabel gewinnt vor humanizeSlug", () => {
+  test("select → registered optionLabel takes precedence over humanizeSlug", () => {
     expect(defaultCellRender("op-x", "select", { "op-x": "Operativ X" })).toBe("Operativ X");
   });
 

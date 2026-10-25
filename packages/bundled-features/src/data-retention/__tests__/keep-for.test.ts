@@ -39,12 +39,12 @@ describe("computeCutoff", () => {
     expect(cutoff.toString()).toBe("2016-05-09T12:00:00Z");
   });
 
-  test("0d → now (Edge-Case, akzeptiert)", () => {
+  test("0d → now (edge case, accepted)", () => {
     const cutoff = computeCutoff("0d", now());
     expect(cutoff.toString()).toBe(now().toString());
   });
 
-  test("invalid format wirft InvalidKeepForError", () => {
+  test("Invalid format throws InvalidKeepForError", () => {
     expect(() => computeCutoff("30days", now())).toThrow(InvalidKeepForError);
     expect(() => computeCutoff("abc", now())).toThrow(InvalidKeepForError);
     expect(() => computeCutoff("", now())).toThrow(InvalidKeepForError);

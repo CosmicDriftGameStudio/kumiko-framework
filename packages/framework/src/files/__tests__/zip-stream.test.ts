@@ -108,7 +108,7 @@ describe("createZipStream :: structural asserts", () => {
 });
 
 describe("createZipStream :: CRC32 correctness", () => {
-  test("CRC32 von 'hello' matcht IEEE-802.3-Reference (0x3610a686)", async () => {
+  test("CRC32 for 'hello' matches the IEEE-802.3 reference (0x3610a686)", async () => {
     const zip = await collect(
       createZipStream(fromEntries([{ path: "x.txt", data: fromString("hello") }])),
     );
@@ -119,7 +119,7 @@ describe("createZipStream :: CRC32 correctness", () => {
     expect(crc).toBe(0x3610a686);
   });
 
-  test("CRC32 von '123456789' matcht Industrie-Standard-Reference (0xCBF43926)", async () => {
+  test("CRC32 for '123456789' matches the industry-standard reference (0xCBF43926)", async () => {
     // "123456789" → 0xCBF43926 is the IEEE-802.3 CRC32 test vector;
     // RFC 1952 (gzip) and RFC 3309 use it as a reference. A failure here
     // indicates that the CRC32 implementation is incorrect.
@@ -129,7 +129,7 @@ describe("createZipStream :: CRC32 correctness", () => {
     expect(readU32LE(zip, 14)).toBe(0xcbf43926);
   });
 
-  test("CRC32 von leerem Body = 0", async () => {
+  test("CRC32 for an empty body = 0", async () => {
     const zip = await collect(
       createZipStream(fromEntries([{ path: "empty.txt", data: fromBytes(new Uint8Array(0)) }])),
     );
@@ -216,7 +216,7 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
     expect(stdout).toContain("notes/hello.txt");
   });
 
-  test("Info-ZIP unzip -p extrahiert exakt den Original-Body", async () => {
+  test("Info-ZIP unzip -p extracts the original body exactly", async () => {
     const original = '{"key":"value","arr":[1,2,3]}';
     const zip = await collect(
       createZipStream(fromEntries([{ path: "data.json", data: fromString(original) }])),

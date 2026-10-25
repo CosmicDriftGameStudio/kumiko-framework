@@ -4,7 +4,7 @@ import { generateUniqueName } from "../index.ts";
 import { ADJECTIVES, NOUNS } from "../words.ts";
 
 describe("generateAdjNounName", () => {
-  test("default: <adj>-<noun> aus den Standard-Listen", () => {
+  test("default: <adj>-<noun> from the standard lists", () => {
     const name = generateAdjNounName();
     const [adj, noun, ...rest] = name.split("-");
     expect(rest).toEqual([]);
@@ -65,7 +65,7 @@ describe("generateNoConfusableId", () => {
     }
   });
 
-  test("length < 1 wirft", () => {
+  test("throws when length < 1", () => {
     expect(() => generateNoConfusableId(0)).toThrow(/length must be ≥ 1/);
     expect(() => generateNoConfusableId(-3)).toThrow(/length must be ≥ 1/);
   });
@@ -133,7 +133,7 @@ describe("generateUniqueName", () => {
     expect(name).toBe("bold-receiver");
   });
 
-  test("config-Validierung: maxClean > maxTotal wirft", async () => {
+  test("config validation: throws when maxClean > maxTotal", async () => {
     await expect(
       generateUniqueName({
         isAvailable: async () => true,

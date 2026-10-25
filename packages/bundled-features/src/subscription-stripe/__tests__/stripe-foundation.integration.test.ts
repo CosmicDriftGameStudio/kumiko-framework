@@ -330,7 +330,7 @@ describe("scenario 1b: consentId from webhook metadata is persisted", () => {
 });
 
 describe("invalid signature → 401, no DB write", () => {
-  test("wrong webhook-secret → 401, foundation sieht keinen event", async () => {
+  test("wrong webhook secret → 401, foundation sees no event", async () => {
     const tenantStringId = testTenantId(4002);
     const stripeEvent = buildStripeSubscriptionEvent({
       eventId: "evt_4002_bad",

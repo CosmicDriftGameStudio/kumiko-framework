@@ -20,7 +20,7 @@ describe("retryWhileUnavailable", () => {
     expect(calls).toBe(3);
   });
 
-  test("Erfolg im 2. Versuch → Ergebnis + genau 1 Sleep", async () => {
+  test("Success on the 2nd attempt → result + exactly 1 sleep", async () => {
     let calls = 0;
     let sleeps = 0;
     const result = await retryWhileUnavailable(

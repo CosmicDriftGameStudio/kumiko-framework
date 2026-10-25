@@ -31,8 +31,8 @@ describe("applyFormatSpec — priority", () => {
   });
 });
 
-describe("applyFormatSpec — leere Werte anderer Formate", () => {
-  test("collapsen zu ''", () => {
+describe("applyFormatSpec — empty values for other formats", () => {
+  test("collapse to ''", () => {
     expect(applyFormatSpec({ format: "boolean" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, null)).toBe("");
     expect(applyFormatSpec({ format: "timestamp" }, "")).toBe("");
@@ -282,7 +282,7 @@ describe("applyFormatSpec — unit", () => {
     expect(applyFormatSpec({ format: "unit", unit: "constructor" }, 58)).toBe("58");
   });
 
-  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+  test("empty value collapses to '' like every other non-priority format", () => {
     expect(applyFormatSpec({ format: "unit", unit: "km" }, null)).toBe("");
     expect(applyFormatSpec({ format: "unit", unit: "km" }, "")).toBe("");
   });
@@ -323,7 +323,7 @@ describe("applyFormatSpec — enumOption", () => {
     expect(applyFormatSpec(spec, ["active", "other"], translate)).toBe("Aktiv, other");
   });
 
-  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+  test("empty value collapses to '' like every other non-priority format", () => {
     expect(applyFormatSpec(spec, null, (k) => k)).toBe("");
     expect(applyFormatSpec(spec, "", (k) => k)).toBe("");
   });

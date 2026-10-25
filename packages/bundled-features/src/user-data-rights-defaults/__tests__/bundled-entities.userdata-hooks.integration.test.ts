@@ -498,7 +498,7 @@ describe("job-run userData-hooks", () => {
 });
 
 describe("Presence gating: Source feature not mounted → null/no-op instead of a crash", () => {
-  test("alle gegateten Hooks no-open auf dem Minimal-Stack", async () => {
+  test("all gated hooks no-open on the minimal stack", async () => {
     const minCtx = {
       db: createTenantDb({ db: minimal.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: minimal.registry,

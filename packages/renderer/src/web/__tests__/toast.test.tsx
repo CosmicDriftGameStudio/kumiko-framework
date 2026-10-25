@@ -86,7 +86,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  test("variant=bad: setzt die status-bad StatusTone-Klasse auf den Root", () => {
+  test("variant=bad: sets the status-bad StatusTone class on the root", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />
@@ -113,7 +113,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Second")).toBeTruthy();
   });
 
-  test("zwei toasts im selben Tick: getrennte React-keys (Counter-Race-Regression)", () => {
+  test("two toasts in the same tick: separate React keys", () => {
     // Previously, ToastProvider used a useState counter whose closure capture
     // caused double calls to see the same value, producing identical IDs
     // and React-key collisions (warning and UI glitch). The fix uses

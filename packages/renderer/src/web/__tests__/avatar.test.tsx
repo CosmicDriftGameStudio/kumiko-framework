@@ -3,17 +3,17 @@ import { Avatar } from "../layout/avatar.tsx";
 import { render, screen } from "./test-utils.tsx";
 
 describe("Avatar", () => {
-  test("Initials aus 'Daniel Hennig' → 'DH'", () => {
+  test("Initials from 'Daniel Hennig' → 'DH'", () => {
     render(<Avatar id="user-1" label="Daniel Hennig" />);
     expect(screen.getByRole("img", { name: "Daniel Hennig" }).textContent).toBe("DH");
   });
 
-  test("Initials aus single-name 'Daniel' → 'DA' (erste 2 Buchstaben)", () => {
+  test("Initials from single-name 'Daniel' → 'DA' (first 2 letters)", () => {
     render(<Avatar id="user-2" label="Daniel" />);
     expect(screen.getByRole("img", { name: "Daniel" }).textContent).toBe("DA");
   });
 
-  test("Initials aus email 'alice@example.com' → 'AL' (erste 2 Buchstaben)", () => {
+  test("Initials from email 'alice@example.com' → 'AL' (first 2 letters)", () => {
     render(<Avatar id="user-3" label="alice@example.com" />);
     expect(screen.getByRole("img", { name: "alice@example.com" }).textContent).toBe("AL");
   });

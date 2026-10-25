@@ -14,13 +14,13 @@ beforeAll(async () => {
 const BERLIN = { latitude: 52.52, longitude: 13.405 };
 
 describe("ctx.tz — GeoTzProvider seam", () => {
-  test("fromCoordinates delegiert an den Provider (sync)", async () => {
+  test("fromCoordinates delegates to the provider (sync)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: () => "Europe/Berlin" };
     const tz = createTzContext({ geoTz: provider });
     expect(await tz.fromCoordinates(BERLIN)).toBe("Europe/Berlin");
   });
 
-  test("fromCoordinates delegiert an den Provider (async)", async () => {
+  test("fromCoordinates delegates to the provider (async)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: async () => "Asia/Tokyo" };
     const tz = createTzContext({ geoTz: provider });
     expect(await tz.fromCoordinates({ latitude: 35.68, longitude: 139.69 })).toBe("Asia/Tokyo");

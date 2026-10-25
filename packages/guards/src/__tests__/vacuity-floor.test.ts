@@ -33,7 +33,7 @@ describe("Vacuity-Floor — classifyRun (numeric assertScanned form)", () => {
   });
 });
 
-describe("Vacuity-Floor gegen echte Pfade", () => {
+describe("Vacuity-Floor against real paths", () => {
   test("the guard list can be imported without side effects", () => {
     // Previously `import { GUARDS }` kicked off the whole suite (top-level
     // runGuards), so no test could touch the list.

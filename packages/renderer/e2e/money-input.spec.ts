@@ -13,16 +13,14 @@ test.describe("MoneyInput in a real browser", () => {
     await expect(page.getByTestId("section-money-a")).toBeVisible();
   });
 
-  test(".fill() auf frischem, unfokussiertem Feld committet den getippten Wert", async ({
-    page,
-  }) => {
+  test(".fill() on a fresh, unfocused field commits the typed value", async ({ page }) => {
     const input = page.locator("#money-a");
     await input.fill("100,00");
     await input.blur();
     await expect.poll(() => page.locator("body").getAttribute("data-money-a")).toBe("10000");
   });
 
-  test("erneutes .fill() auf bereits fokussiertem Feld committet den neuen Wert", async ({
+  test("calling .fill() again on an already focused field commits the new value", async ({
     page,
   }) => {
     const input = page.locator("#money-a");

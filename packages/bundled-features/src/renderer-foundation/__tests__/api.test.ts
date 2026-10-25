@@ -71,7 +71,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("puppeteer");
   });
 
-  test("Tenant-Override gewinnt vor Default", async () => {
+  test("Tenant override takes precedence over default", async () => {
     const api = createRendererFoundationApi(
       [makePlugin("mail-html", ["mail"]), makePlugin("custom-mail", ["mail"])],
       (tid) => (tid === TENANT ? { mail: "custom-mail" } : null),

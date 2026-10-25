@@ -30,14 +30,14 @@ describe("durationSpecToMs", () => {
 });
 
 describe("addDurationSpec", () => {
-  test("days addiert exakt zu Instant.epochMilliseconds", () => {
+  test("days add exactly to Instant.epochMilliseconds", () => {
     const T = getTemporal();
     const t0 = T.Instant.fromEpochMilliseconds(1_700_000_000_000);
     const t1 = addDurationSpec(t0, { days: 30 });
     expect(t1.epochMilliseconds - t0.epochMilliseconds).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
-  test("hours addiert exakt zu Instant.epochMilliseconds", () => {
+  test("hours add exactly to Instant.epochMilliseconds", () => {
     const T = getTemporal();
     const t0 = T.Instant.fromEpochMilliseconds(1_700_000_000_000);
     const t1 = addDurationSpec(t0, { hours: 6 });

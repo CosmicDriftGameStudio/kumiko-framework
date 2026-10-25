@@ -8,14 +8,14 @@ import { DateInput } from "../primitives/date-input.tsx";
 import { render } from "./test-utils.tsx";
 
 describe("DateInput", () => {
-  test("Eingabefeld zeigt locale-numerisches Datum (de-DE)", () => {
+  test("Input field displays locale-formatted numeric date (de-DE)", () => {
     render(
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,
     );
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("23.04.2026");
   });
 
-  test("Eingabefeld zeigt locale-numerisches Datum (en-US)", () => {
+  test("Input field displays locale-formatted numeric date (en-US)", () => {
     render(
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="en-US" />,
     );
@@ -55,7 +55,7 @@ describe("DateInput", () => {
     expect(trigger.getAttribute("aria-label")).not.toBeNull();
   });
 
-  test("hasError setzt aria-invalid auf dem Trigger", () => {
+  test("hasError sets aria-invalid on the trigger", () => {
     render(
       <DateInput
         id="d"
@@ -94,7 +94,7 @@ describe("DateInput", () => {
     expect(await screen.findByRole("grid")).toBeTruthy();
   });
 
-  test("Tag-Auswahl im Calendar: onChange feuert ISO yyyy-mm-dd", async () => {
+  test("Calendar day selection: onChange fires ISO yyyy-mm-dd", async () => {
     const user = userEvent.setup();
     const onChange = mock();
     render(<DateInput id="d" name="d" value="2026-04-23" onChange={onChange} locale="en-US" />);
@@ -107,7 +107,7 @@ describe("DateInput", () => {
 
   // captionLayout="dropdown" renders month and year selects instead of only previous/next month controls.
   // min/max constrain the year selector through startMonth/endMonth.
-  test("Kalender zeigt Jahres-Dropdown, begrenzt durch min/max", async () => {
+  test("Calendar shows year dropdown, constrained by min/max", async () => {
     const user = userEvent.setup();
     render(
       <DateInput
@@ -135,7 +135,7 @@ describe("DateInput", () => {
     expect(years).not.toContain("2027");
   });
 
-  test("min/max grauen Out-of-Range-Tage aus", async () => {
+  test("min/max disable out-of-range days", async () => {
     const user = userEvent.setup();
     const onChange = mock();
     // The range ends on April 10, 2026, so the 25th is outside it.

@@ -704,7 +704,7 @@ describe("Dialog", () => {
     expect(screen.getByTestId("confirm-cancel")).toBeTruthy();
   });
 
-  test("open=false rendert nichts (Portal leer)", () => {
+  test("open=false renders nothing (empty portal)", () => {
     render(
       <Dialog
         open={false}
@@ -966,7 +966,7 @@ describe("Section", () => {
 });
 
 describe("Stack", () => {
-  test("gap-Variante bildet auf die Tailwind-gap-Klasse ab", () => {
+  test("gap variant maps to the Tailwind gap class", () => {
     render(
       <Stack testId="s" gap="lg">
         <span>a</span>
@@ -1034,7 +1034,7 @@ describe("PageSection", () => {
     expect(screen.getByTestId("shell-4xl").className).toContain("max-w-4xl");
   });
 
-  test("FormScreenShell erbt die Breite aus ScreenWidthProvider, explizites maxWidth gewinnt", () => {
+  test("FormScreenShell inherits the width from ScreenWidthProvider, explicit maxWidth wins", () => {
     render(
       <ScreenWidthProvider width="full">
         <FormScreenShell testId="shell-ctx">x</FormScreenShell>

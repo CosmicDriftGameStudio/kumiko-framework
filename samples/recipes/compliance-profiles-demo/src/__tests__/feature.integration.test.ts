@@ -124,7 +124,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     expect(result.profile.subProcessor.worksCouncilApprovalRequired).toBe(true);
   });
 
-  test("Profile-Wechsel auf demselben Tenant zeigt sofort neues Verhalten", async () => {
+  test("Profile switch on the same tenant immediately shows new behavior", async () => {
     // Eigener Tenant D damit der Test reihenfolge-unabhaengig laeuft
     // (Tenant A bleibt auf eu-dsgvo fuer die anderen Tests).
     const tenantDAdmin = createTestUser({
@@ -151,7 +151,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     expect(back.profile.breach.authorityContact).toBe("BlnBDI Berlin");
   });
 
-  test("Tenant-Override merged auf base-profile, andere Felder bleiben", async () => {
+  test("Tenant override merges into base profile; other fields remain", async () => {
     // Eigener Tenant E damit der Override-State Tenant B nicht
     // ueberschreibt (reihenfolge-unabhaengig).
     const tenantEAdmin = createTestUser({

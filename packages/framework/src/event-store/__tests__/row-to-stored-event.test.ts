@@ -33,7 +33,7 @@ describe("toStoredEvent", () => {
     expect(toStoredEvent(row).id).toBe("42");
   });
 
-  test("mappt jedes Feld werttreu durch", () => {
+  test("maps every field faithfully", () => {
     const ev = toStoredEvent(row);
     expect(ev.aggregateId).toBe("agg-1");
     expect(ev.aggregateType).toBe("credit");

@@ -25,7 +25,7 @@ afterAll(async () => {
 const textCols = [{ name: "val", pgType: "text" as const, notNull: true }] as const;
 
 describe("selectMany", () => {
-  test("leere Tabelle returnt []", async () => {
+  test("empty table returns []", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const rows = await selectMany(db, meta);
       expect(rows).toEqual([]);
@@ -123,7 +123,7 @@ describe("insertMany", () => {
     });
   });
 
-  test("5 rows auf einmal", async () => {
+  test("inserts 5 rows at once", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const input = Array.from({ length: 5 }, (_, i) => ({ val: `row-${i}` }));
       const result = await insertMany<{ id: string; val: string }>(db, meta, input);

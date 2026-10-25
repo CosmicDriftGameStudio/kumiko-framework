@@ -309,7 +309,7 @@ describe("implicit-projection / sensitive rebuild parity", () => {
     return row;
   }
 
-  test("Live==Rebuild inkl. sensitive-Ciphertext + bidx (byte-gleiche Kopie aus dem Event)", async () => {
+  test("Live==Rebuild including sensitive ciphertext + bidx (byte-identical copy from the event)", async () => {
     const created = await crud.create(
       { email: "x@test.de", apiKey: "secret-token-abc" },
       adminUser,

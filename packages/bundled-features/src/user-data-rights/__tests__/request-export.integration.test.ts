@@ -93,7 +93,7 @@ describe("request-export :: happy path", () => {
     expect((rows[0] as any).status).toBe(EXPORT_JOB_STATUS.Pending);
   });
 
-  test("Event 'export-job.created' im Stream", async () => {
+  test("Event 'export-job.created' in the stream", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const events = await asRawClient(stack.db).unsafe(`
@@ -256,7 +256,7 @@ describe("export-status :: User-Polling", () => {
     expect(result.job.status).toBe(EXPORT_JOB_STATUS.Pending);
   });
 
-  test("Cross-Tenant: Polling aus Tenant B sieht den Job aus Tenant A", async () => {
+  test("Cross-Tenant: Polling from Tenant B sees the job from Tenant A", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const fromB = await stack.http.queryOk<StatusResponse>(EXPORT_STATUS, {}, aliceFromB);

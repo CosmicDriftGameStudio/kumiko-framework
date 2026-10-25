@@ -410,7 +410,7 @@ describe("scenario 4: tenant-isolation", () => {
 });
 
 describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
-  test("Tenant switcht von Stripe zu PayPal: subscription-row updated providerName, subscription-event-history zeigt beide", async () => {
+  test("Tenant switches from Stripe to PayPal: subscription-row updates providerName, subscription-event-history shows both", async () => {
     // **Disney+ use case:** a tenant switches from Stripe to PayPal. Canceling
     // the Stripe subscription and creating the PayPal subscription produce
     // two separate webhook events from the customer's action. The foundation

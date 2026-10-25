@@ -74,7 +74,7 @@ describe("buildNavProviderMaps", () => {
     }
   });
 
-  test("zwei explizite Provider auf derselben QN warnen weiterhin", () => {
+  test("continue warning about two explicit providers on the same QN", () => {
     const features: ClientFeatureDefinition[] = [
       { name: "a", navProviders: { "x:nav:content": provider() } },
       { name: "b", navProviders: { "x:nav:content": provider() } },

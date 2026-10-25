@@ -572,7 +572,7 @@ describe("EmptyState", () => {
 });
 
 describe("smoothPath", () => {
-  test("leer → leerer Pfad, ein Punkt → Move + Line auf sich selbst", () => {
+  test("empty → empty path, one point → Move + Line to itself", () => {
     expect(smoothPath([])).toBe("");
     expect(smoothPath([{ x: 1, y: 2 }])).toBe("M 1.0 2.0 L 1.0 2.0");
   });

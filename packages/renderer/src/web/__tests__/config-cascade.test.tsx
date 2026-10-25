@@ -161,7 +161,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
 });
 
 describe("ConfigCascadeView — origin sentence with default value", () => {
-  test("eigener Wert: Satz nennt den Standard inline", () => {
+  test("Own value: sentence states the default inline", () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
     );

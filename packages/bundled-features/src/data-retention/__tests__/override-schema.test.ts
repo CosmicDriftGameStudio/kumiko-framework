@@ -24,7 +24,7 @@ describe("retentionOverrideSchema — accept-Faelle", () => {
     expect(result.success).toBe(true);
   });
 
-  test("Alle 4 strategy-Werte akzeptiert", () => {
+  test("All 4 strategy values accepted", () => {
     for (const strategy of ["hardDelete", "softDelete", "anonymize", "blockDelete"]) {
       const result = retentionOverrideSchema.safeParse({ strategy });
       expect(result.success).toBe(true);
@@ -70,7 +70,7 @@ describe("retentionOverrideSchema — reject-Faelle (Drift-Schutz)", () => {
     }
   });
 
-  test("keepFor leerer String rejected", () => {
+  test("Empty keepFor string rejected", () => {
     const result = retentionOverrideSchema.safeParse({ keepFor: "" });
     expect(result.success).toBe(false);
   });
@@ -80,7 +80,7 @@ describe("retentionOverrideSchema — reject-Faelle (Drift-Schutz)", () => {
     expect(result.success).toBe(false);
   });
 
-  test("reference leerer String rejected", () => {
+  test("Empty reference string rejected", () => {
     const result = retentionOverrideSchema.safeParse({ reference: "" });
     expect(result.success).toBe(false);
   });

@@ -191,7 +191,7 @@ describe("ExportSection", () => {
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
 
-  test("Export-Request dispatcht den korrekten Handler-QN", async () => {
+  test("Export-Request dispatches the correct handler-QN", async () => {
     const { view, writes } = renderExportSection({});
     await waitForMount(view);
     fireEvent.click(view.getByTestId("privacy-export-request"));

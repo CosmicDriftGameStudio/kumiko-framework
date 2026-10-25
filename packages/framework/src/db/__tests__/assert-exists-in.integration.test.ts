@@ -103,7 +103,7 @@ describe("assertExistsIn — TenantDb auto-filter", () => {
 });
 
 describe("assertExistsIn — Fehler-Benennung + where", () => {
-  test("expliziter entityName override gewinnt", async () => {
+  test("explicit entityName override wins", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
       value: MISSING,

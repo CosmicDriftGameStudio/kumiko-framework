@@ -5,7 +5,7 @@ import { formatPath, NavProvider, parsePath, useNav } from "../../index.ts";
 import { KumikoLink, useBrowserNavApi } from "../app/nav.tsx";
 
 describe("parsePath", () => {
-  test("leerer Pfad / → undefined", () => {
+  test("empty path / → undefined", () => {
     expect(parsePath("/")).toBeUndefined();
   });
 
@@ -123,7 +123,7 @@ describe("useBrowserNavApi + NavProvider", () => {
     );
   }
 
-  test("initial-route aus window.location.pathname", async () => {
+  test("initial route from window.location.pathname", async () => {
     window.history.replaceState(null, "", "/task-list");
     render(
       <BrowserNav>

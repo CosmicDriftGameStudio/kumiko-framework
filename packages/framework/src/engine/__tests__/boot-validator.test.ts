@@ -2300,7 +2300,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([shopFeature({ react: {} })])).not.toThrow();
     });
 
-    test("react.__component leerer String → Throw", () => {
+    test("react.__component empty string → Throw", () => {
       expect(() => validateBoot([shopFeature({ react: { __component: "" } })])).toThrow(
         /expected a non-empty string/,
       );
@@ -2713,7 +2713,7 @@ describe("boot-validator", () => {
       ).toThrow(/filter references field "mail" which is encrypted, personal or secret/);
     });
 
-    test("filter.op=lt auf text-Feld → Throw (op-vs-Type-Compat)", () => {
+    test("filter.op=lt on text field → Throw", () => {
       expect(() => validateBoot([makeFeature({ field: "status", op: "lt", value: "x" })])).toThrow(
         /filter\.op "lt" is not allowed on field "status" \(type "text"\)/,
       );
@@ -2754,7 +2754,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("filter.op=lte auf text-Feld → Throw (op-vs-Type-Compat)", () => {
+    test("filter.op=lte on text field → Throw", () => {
       expect(() => validateBoot([makeFeature({ field: "status", op: "lte", value: "x" })])).toThrow(
         /filter\.op "lte" is not allowed on field "status" \(type "text"\)/,
       );
@@ -2898,7 +2898,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("handler leer → Throw", () => {
+    test("empty handler → Throw", () => {
       expect(() => validateBoot([makeFeature({ handler: "" })])).toThrow(
         /has empty or non-string handler/,
       );
@@ -3026,13 +3026,13 @@ describe("boot-validator", () => {
       });
     });
 
-    test("layout.sections leer → Throw", () => {
+    test("empty layout.sections → Throw", () => {
       expect(() => validateBoot([makeFeature({ sections: [] })])).toThrow(
         /has an empty sections list/,
       );
     });
 
-    test("section.fields leer → Throw", () => {
+    test("empty section.fields → Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ sections: [{ title: "Empty", fields: [] }] })]),
       ).toThrow(/section "Empty" with zero fields/);
@@ -3608,7 +3608,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reveal.fields leer → Throw", () => {
+    test("empty reveal.fields → Throw", () => {
       expect(() => validateBoot([makeFeature({ reveal: { fields: [] } })])).toThrow(
         /has an empty reveal\.fields list/,
       );
@@ -3791,7 +3791,7 @@ describe("boot-validator", () => {
       ).toThrow(/field "siteName" has no `type` set/);
     });
 
-    test("layout.sections leer → Throw", () => {
+    test("empty layout.sections → Throw", () => {
       expect(() => validateBoot([makeFeature({ sections: [] })])).toThrow(
         /has an empty sections list/,
       );
@@ -3862,7 +3862,7 @@ describe("boot-validator", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
     });
-    test("secretKeys nennt ein Feld ausserhalb von fields → Throw", () => {
+    test("secretKeys references a field outside fields → Throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.config({ keys: { "site-name": createTenantConfig("text", { default: "" }) } });
         r.screen({
@@ -4330,7 +4330,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("reference auf unknown Entity → Throw", () => {
+    test("reference to unknown Entity → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4348,7 +4348,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reference labelField auf unknown Field → Throw", () => {
+    test("reference labelField on unknown Field → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4540,7 +4540,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cross-feature labelField auf unknown Field → Throw", () => {
+    test("cross-feature labelField on unknown Field → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
           r.entity({
@@ -5781,7 +5781,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "id" })])).not.toThrow();
     });
 
-    test("visible.field auf unknown Field → Throw", () => {
+    test("visible.field on unknown Field → Throw", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "ghost" })])).toThrow(
         /visible\.field references unknown field "ghost"/,
       );

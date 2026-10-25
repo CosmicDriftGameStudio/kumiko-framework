@@ -5,7 +5,7 @@ describe("isValidIanaTimeZone", () => {
   // The five zones in the CI time-zone matrix (timezones.md) must all be valid;
   // otherwise the matrix cannot set them.
   test.each(["UTC", "Europe/Berlin", "America/Los_Angeles", "Asia/Tokyo", "Pacific/Apia"])(
-    "akzeptiert kanonische Zone %s",
+    "accepts canonical zone %s",
     (zone) => {
       expect(isValidIanaTimeZone(zone)).toBe(true);
     },

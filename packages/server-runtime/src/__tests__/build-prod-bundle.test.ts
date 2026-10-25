@@ -113,7 +113,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(() => resolveClientEntries(workDir, {})).not.toThrow(/client-admin\.tsx/);
   });
 
-  test("discoverHtmlTemplate findet index.html im cwd", async () => {
+  test("discoverHtmlTemplate finds index.html in cwd", async () => {
     await writeFile(join(workDir, "index.html"), "<html></html>");
 
     expect(discoverHtmlTemplate(workDir)).toBe(join(workDir, "index.html"));
@@ -170,7 +170,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     expect(entries[0]?.htmlPath).toBe("index.html");
   });
 
-  test("clientEntry: sourceFile fehlt → throws", () => {
+  test("clientEntry: sourceFile does not exist → throws", () => {
     expect(() => resolveClientEntries(workDir, { clientEntry: "./src/missing.tsx" })).toThrow(
       /kumiko\.clientEntry.*does not exist/s,
     );
@@ -485,7 +485,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
 });
 
 describe("build-prod-bundle/injectAssetTags", () => {
-  test("ersetzt /client.js durch hashed URL im script-tag", () => {
+  test("replaces /client.js with hashed URL in script tag", () => {
     const html = `<html><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(
       html,
@@ -497,7 +497,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('src="/client.js"');
   });
 
-  test("ersetzt /styles.css durch hashed URL im link-tag", () => {
+  test("replaces /styles.css with hashed URL in link tag", () => {
     const html = `<html><head><link rel="stylesheet" href="/styles.css" /></head><body></body></html>`;
     const result = injectAssetTags(
       html,
@@ -577,7 +577,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('src="/client-admin.js"');
   });
 
-  test("multi-mode: error-message nennt den richtigen Template-Namen", () => {
+  test("multi-mode: error message names the correct template name", () => {
     const html = `<html><body>no admin script</body></html>`;
     const manifest = { "client-admin.js": "/assets/client-admin-x.js" };
 

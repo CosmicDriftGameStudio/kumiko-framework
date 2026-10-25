@@ -129,7 +129,7 @@ describe("buildEntityTable — entity.indexes", () => {
 });
 
 describe("validateBoot — entity.indexes", () => {
-  test("Tippfehler im column-Namen wirft", () => {
+  test("a typo in a column name throws", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",
@@ -140,7 +140,7 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).toThrow(/does not match any field/);
   });
 
-  test("leere column-Liste wirft", () => {
+  test("an empty column list throws", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",

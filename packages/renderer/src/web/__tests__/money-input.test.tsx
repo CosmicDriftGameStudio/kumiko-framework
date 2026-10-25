@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MoneyInput, parseLocaleNumber } from "../primitives/money-input.tsx";
 
 describe("MoneyInput", () => {
-  test("blur-view: de-DE EUR zeigt €-Symbol + Punkt-Tausender + Komma-Decimal", () => {
+  test("blur-view: de-DE EUR shows € symbol + dot thousands separator + comma decimal separator", () => {
     render(
       <MoneyInput
         id="eur"
@@ -32,7 +32,7 @@ describe("MoneyInput", () => {
     expect(symbol.className).toContain("pr-3");
   });
 
-  test("blur-view: en-US USD zeigt $-Prefix + Komma-Tausender + Punkt-Decimal", () => {
+  test("blur-view: en-US USD shows $ prefix + comma thousands separator + dot decimal separator", () => {
     render(
       <MoneyInput
         id="usd"

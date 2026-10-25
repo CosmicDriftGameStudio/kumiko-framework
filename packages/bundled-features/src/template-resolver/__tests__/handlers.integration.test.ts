@@ -101,7 +101,7 @@ const basePayload = {
 // the database, findById/list/resolveTemplate would find nothing. A dedicated
 // audit-log test should query the `read_events` table directly.
 describe("template-resolver :: upsertSystem", () => {
-  test("SystemAdmin kann System-Template anlegen", async () => {
+  test("SystemAdmin can create a system template", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "system-new" },
@@ -194,7 +194,7 @@ describe("template-resolver :: upsertTenant", () => {
     expect(found2?.status).toBe("active");
   });
 
-  test("SystemAdmin kann via tenantIdOverride cross-tenant schreiben", async () => {
+  test("SystemAdmin can write across tenants via tenantIdOverride", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "system-override", tenantIdOverride: tenantA_Admin.tenantId },
@@ -212,7 +212,7 @@ describe("template-resolver :: upsertTenant", () => {
     expect(events[0]?.createdBy).toBe(systemAdmin.id);
   });
 
-  test("SystemAdmin-Override auf SYSTEM_TENANT_ID → access_denied (use upsertSystem)", async () => {
+  test("SystemAdmin override for SYSTEM_TENANT_ID → access_denied (use upsertSystem)", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "denied-system-override", tenantIdOverride: SYSTEM_TENANT_ID },
@@ -241,7 +241,7 @@ describe("template-resolver :: upsertTenant", () => {
 });
 
 describe("template-resolver :: publish + archive", () => {
-  test("publish setzt status auf active", async () => {
+  test("publish sets status to active", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "publish-test", status: "draft" },
@@ -278,7 +278,7 @@ describe("template-resolver :: publish + archive", () => {
     expectErrorIncludes(err, "access_denied");
   });
 
-  test("archive setzt status auf archived", async () => {
+  test("archive sets status to archived", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "archive-test", status: "active" },
@@ -361,7 +361,7 @@ describe("template-resolver :: findById query", () => {
 });
 
 describe("template-resolver :: list query", () => {
-  test("includeSystem=true zeigt eigene + system", async () => {
+  test("includeSystem=true shows own + system templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "list-system-1", locale: "de", kind: "ai-prompt" },

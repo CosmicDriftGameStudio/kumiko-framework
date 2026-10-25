@@ -218,7 +218,7 @@ describe("POST request-deletion :: state-transitions", () => {
     );
   });
 
-  test("im Restricted-State (Art. 18) → 422 user_not_in_active_state", async () => {
+  test("in Restricted state (Art. 18) → 422 user_not_in_active_state", async () => {
     await seedAlice({ status: USER_STATUS.Restricted });
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("user_not_in_active_state");
@@ -304,7 +304,7 @@ describe("POST cancel-deletion :: state-transitions", () => {
     expect((err.details as { currentStatus?: string })?.currentStatus).toBe(USER_STATUS.Active);
   });
 
-  test("im Restricted-State (Art. 18) → 422 no_pending_deletion", async () => {
+  test("in Restricted state (Art. 18) → 422 no_pending_deletion", async () => {
     await seedAlice({ status: USER_STATUS.Restricted });
     const err = await stack.http.writeErr(CANCEL_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("no_pending_deletion");
@@ -328,7 +328,7 @@ describe("Cross-Tenant-Account-Semantik", () => {
   // global user-row columns. A request in one tenant therefore marks the user as
   // deletionRequested for every tenant. This implements account-wide deletion
   // under GDPR Article 17; leaving a single tenant uses leave-tenant instead.
-  test("request-deletion in Tenant A flippt User global (sichtbar fuer alle Memberships)", async () => {
+  test("request-deletion in Tenant A flips User globally (visible to all memberships)", async () => {
     await seedAlice(); // Alice landet als 1 User-Row, status=Active.
 
     await stack.http.writeOk(REQUEST_DELETION, {}, aliceUser);

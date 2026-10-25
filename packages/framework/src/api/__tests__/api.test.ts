@@ -806,7 +806,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     expect(body.hasApp).toBe(true);
   });
 
-  test("Handler kann via deps.app intern /api/query aufrufen (anonymous + defaultTenantId)", async () => {
+  test("Handler can call /api/query internally via deps.app (anonymous + defaultTenantId)", async () => {
     // Realistic use case (publicstatus feed.xml): the r.httpRoute
     // builds a view from internal /api/query data. Anonymous access with
     // defaultTenantId enables the inner call without a Bearer token;

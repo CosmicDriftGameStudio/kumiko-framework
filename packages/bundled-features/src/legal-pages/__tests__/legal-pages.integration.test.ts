@@ -614,7 +614,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     });
   });
 
-  test("alle Lookups erfolgen gegen SYSTEM_TENANT_ID (nie tenant-scoped)", async () => {
+  test("all lookups are performed against SYSTEM_TENANT_ID (never tenant-scoped)", async () => {
     const { api, calls } = fakeTemplateResolver([
       { slug: "imprint", lang: "de", title: "I", content: "x" },
       { slug: "privacy", lang: "de", title: "P", content: "x" },
@@ -626,7 +626,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     }
   });
 
-  test("custom requiredBlock (es privacy) fehlt → throws in production", async () => {
+  test("custom requiredBlock (es privacy) is missing → throws in production", async () => {
     const { api } = fakeTemplateResolver([
       { slug: "imprint", lang: "es", title: "I", content: "x" },
     ]);

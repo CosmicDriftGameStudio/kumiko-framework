@@ -472,7 +472,7 @@ test("Server eager load: list returns _refs for relatedIds (multi-reference)", a
   expect(refIds).toEqual([a.id, b.id].sort());
 });
 
-test("Tier 2.7e-Multi: Multi-Reference (relatedIds) — Array von UUIDs round-trips durch HTTP/Zod/DB", async () => {
+test("Multi-reference (relatedIds): Array of UUIDs round-trips through HTTP/Zod/DB", async () => {
   // Pinst dass `multiple: true` auf reference:
   //   1) jsonb-Array<string> in der DB speichert
   //   2) z.array(z.uuid()) im Insert-Schema akzeptiert

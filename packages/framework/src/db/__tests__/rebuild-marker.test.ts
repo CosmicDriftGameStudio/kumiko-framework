@@ -54,7 +54,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(snap, snap))).toEqual([]);
   });
 
-  test("managed non-unique index-only change → no rebuild (ALTER bringt Tabelle alleine in Soll)", () => {
+  test("managed non-unique index-only change → no rebuild (ALTER alone puts the table in the desired state)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", undefined, [{ name: "read_a_id_idx", columns: ["id"] }]),

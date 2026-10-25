@@ -195,7 +195,7 @@ describe("buildAppSchema", () => {
   // buildAppSchema itself has no context, so the boot entrypoint
   // (createKumikoServer, runProdApp) forwards its own context.searchAdapter
   // presence check in via options.searchAdapterMissing.
-  test("options.searchAdapterMissing: true landet auf jeder FeatureSchema", () => {
+  test("options.searchAdapterMissing: true is included in every FeatureSchema", () => {
     const orderFeature = defineFeature("orders", (r) => {
       r.nav({ id: "list", label: "List" });
     });

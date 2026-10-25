@@ -40,7 +40,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
     expect(flat["pickupTz"]).toBe("Europe/Lisbon");
   });
 
-  test("{ at, tz, utc } — utc gewinnt deterministisch", () => {
+  test("{ at, tz, utc } — utc wins deterministically", () => {
     const flat = flattenLocatedTimestamp(
       {
         pickup: {

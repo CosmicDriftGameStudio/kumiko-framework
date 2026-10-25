@@ -60,7 +60,7 @@ describe("seedUser", () => {
     expect(rows[0]?.["passwordHash"]).toBe("$argon2id$test-hash");
   });
 
-  test("emittiert user.created-Event auf den Aggregate-Stream", async () => {
+  test("emits a user.created event on the aggregate stream", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "bob@example.com",
       displayName: "Bob",

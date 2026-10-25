@@ -569,7 +569,7 @@ describe("scenario 4: Account-Lifecycle", () => {
 });
 
 describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.4)", () => {
-  test("rebuild aus dem Event-Log → identische inbound-message-Rows", async () => {
+  test("rebuild from event log → identical inbound-message-Rows", async () => {
     const admin = adminFor(4005);
     const accountId = await connectSharedAccount(admin);
     await stack.http.writeOk(
@@ -619,7 +619,7 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
 });
 
 describe("Subject-Key-Erase makes the event payload permanently unreadable", () => {
-  test("Subject-Key-Erase macht den Event-Payload permanent unlesbar", async () => {
+  test("erasing the subject key makes the event payload permanently unreadable", async () => {
     const admin = adminFor(4006);
     const accountId = await connectSharedAccount(admin);
     await stack.http.writeOk(

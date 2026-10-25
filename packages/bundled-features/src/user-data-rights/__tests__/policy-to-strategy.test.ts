@@ -11,7 +11,7 @@ describe("policyToStrategy", () => {
     expect(policyToStrategy("hardDelete")).toBe("delete");
   });
 
-  test("softDelete → delete (Row markieren via softDelete-Mechanik des Frameworks)", () => {
+  test("softDelete → delete (Mark the Row via the framework's softDelete mechanism)", () => {
     expect(policyToStrategy("softDelete")).toBe("delete");
   });
 

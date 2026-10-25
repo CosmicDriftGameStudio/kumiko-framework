@@ -21,7 +21,7 @@ describe("instant() customType — toDriver", () => {
     expect(toDriver("2026-04-10T13:45:00+02:00")).toBe("2026-04-10T11:45:00Z");
   });
 
-  test("YYYY-MM-DD: coerced auf start-of-day UTC", () => {
+  test("YYYY-MM-DD: coerced to start of day UTC", () => {
     // Forgiving overload for type:"date": Zod validation accepts only
     // YYYY-MM-DD, so the dialect normalizes it to an instant.
     expect(toDriver("2026-04-10")).toBe("2026-04-10T00:00:00Z");

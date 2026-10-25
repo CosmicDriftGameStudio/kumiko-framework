@@ -19,7 +19,7 @@ describe("inboundMailFoundationFeature — shape", () => {
     expect(createInboundMailFoundationFeature().name).toBe("inbound-mail-foundation");
   });
 
-  test("does NOT require config — Multi-Provider, Provider-Config liegt in den Plugins", () => {
+  test("does NOT require config — Multi-Provider, provider config is in the plugins", () => {
     // Drift pin: there is no global provider-config key. A tenant can connect
     // IMAP, M365, and Gmail in parallel; the provider is stored per
     // MailAccount row.

@@ -663,7 +663,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     }
   });
 
-  test("best-effort: callback-Throw fuer User A killt Batch NICHT — User B trotzdem verarbeitet", async () => {
+  test("best-effort: callback throw for User A does NOT stop the batch — User B is still processed", async () => {
     // If sendEmail throws for User A, batch cleanup must continue for User B.
     // User A's sub-transaction has already committed, so propagating the throw
     // would make the job fail; a retry would find no expired users because all

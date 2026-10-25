@@ -56,7 +56,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
+describe("renderer-foundation :: Plugin pool from registry", () => {
   test("collectRendererPlugins findet alle registrierten Plugins", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const names = plugins.map((p) => p.name).sort();
@@ -70,7 +70,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     expect([...byName.get("puppeteer")!.kinds].sort()).toEqual(["document-pdf", "image-snapshot"]);
   });
 
-  test("API findet Default-Plugin pro kind aus echtem Pool", () => {
+  test("API finds the default plugin for each kind from a real pool", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
     expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" }).name).toBe(

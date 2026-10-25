@@ -35,7 +35,7 @@ describe("billingFoundationFeature — shape", () => {
     expect(createBillingFoundationFeature().name).toBe("billing-foundation");
   });
 
-  test("does NOT require config (Multi-Provider — config liegt in den Plugins)", () => {
+  test("does NOT require config (Multi-Provider — config lives in the plugins)", () => {
     // Drift pin: the foundation has no global `provider` config key. The
     // webhook URL carries providerName as a path parameter and every mounted
     // plugin is active at once. Adding `r.requires({ features: ["config"] })`
@@ -47,7 +47,7 @@ describe("billingFoundationFeature — shape", () => {
     expect(createBillingFoundationFeature().requires).not.toContain("secrets");
   });
 
-  test("foundation has NO config-keys (alle config-keys liegen in den Plugins)", () => {
+  test("foundation has NO config-keys (all config keys live in the plugins)", () => {
     // Multi-provider constraint: the foundation must not export config keys,
     // because that would force a global price-to-tier map. The map exists only
     // per plugin because Stripe price IDs, PayPal plan IDs, and Apple product IDs

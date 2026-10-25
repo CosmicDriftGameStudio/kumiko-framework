@@ -31,7 +31,7 @@ function featureWithScreens(
 }
 
 describe("buildNavRegistrySlice", () => {
-  test("qualifiziert Nav-IDs zu feature:nav:id", () => {
+  test("qualifies Nav IDs to feature:nav:id", () => {
     const slice = buildNavRegistrySlice(feature([{ id: "main", label: "Main" }]));
     expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:main"]);
   });

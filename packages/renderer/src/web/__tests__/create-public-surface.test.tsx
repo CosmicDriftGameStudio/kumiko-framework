@@ -50,7 +50,7 @@ describe("createPublicSurface", () => {
     delete (window as unknown as { __KUMIKO_SCHEMA__?: unknown }).__KUMIKO_SCHEMA__;
   });
 
-  test("rendert die Route deren path auf den aktuellen Pfad matcht", async () => {
+  test("renders the route whose path matches the current path", async () => {
     setPath("/login");
     mountRoot();
     await mount({
@@ -128,7 +128,7 @@ describe("createPublicSurface", () => {
     expect(screen.queryByTestId("gate-hijack")).toBeNull();
   });
 
-  test("shell wrappt den gematchten Content (Page-Chrome)", async () => {
+  test("shell wraps the matched content (Page-Chrome)", async () => {
     setPath("/login");
     mountRoot();
     await mount({

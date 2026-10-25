@@ -98,7 +98,7 @@ describe("QueryTable", () => {
     expect(container.querySelectorAll("tbody tr").length).toBe(0);
   });
 
-  test("rows-Selector zieht Rows aus verschachteltem Result", async () => {
+  test("row selector extracts rows from nested result", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,

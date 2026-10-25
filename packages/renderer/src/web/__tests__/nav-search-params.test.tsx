@@ -50,7 +50,7 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(window.location.search).toBe("?orders.sort=name");
   });
 
-  test("setSearchParams: mehrere Updates atomar (sort+dir+page in einem Call)", () => {
+  test("setSearchParams: multiple updates atomically (sort+dir+page in a single call)", () => {
     setLocation("/orders", "?orders.page=5");
     const { result } = renderHook(() => useBrowserNavApi());
     act(() => {

@@ -162,7 +162,7 @@ describe("template-resolver :: findExact", () => {
   });
 });
 
-describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
+describe("template-resolver :: resolveTemplate :: 4-step fallback", () => {
   test("Stufe 1: tenant + requested locale", async () => {
     await seedTemplate({
       tenantId: TENANT_A,
@@ -242,7 +242,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     expect(result.locale).toBe(FALLBACK_LOCALE);
   });
 
-  test("Tenant-Override gewinnt vor System-Default (Stufe 1 vor Stufe 2)", async () => {
+  test("Tenant override wins over system default (step 1 before step 2)", async () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "priority-test",
@@ -269,7 +269,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     expect(result.scope).toBe("tenant");
   });
 
-  test("Requested-Locale gewinnt vor Fallback-Locale (Stufe 2 vor Stufe 4)", async () => {
+  test("Requested locale wins over fallback locale (step 2 before step 4)", async () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "locale-priority",
@@ -574,7 +574,7 @@ describe("template-resolver :: JSON-Parsing", () => {
 });
 
 describe("template-resolver :: parentTemplateId", () => {
-  test("Tenant-Override kann parentTemplateId auf System-Default zeigen", async () => {
+  test("Tenant override can point parentTemplateId to system default", async () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "parent-test",

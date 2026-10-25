@@ -52,7 +52,7 @@ describe("Drawer", () => {
   });
 
   describe("showCloseButton", () => {
-    test("default true: Close-Button im Header vorhanden", () => {
+    test("default true: Close button present in the header", () => {
       render(
         <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
           <div>Body</div>

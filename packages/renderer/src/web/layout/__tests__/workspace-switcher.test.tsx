@@ -28,7 +28,7 @@ describe("WorkspaceSwitcher — Render", () => {
     expect(container.querySelector('[data-testid="workspace-switcher-trigger"]')).toBeNull();
   });
 
-  test("mehrere Workspaces → Trigger zeigt aktives Label", () => {
+  test("multiple workspaces → trigger shows active label", () => {
     renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}

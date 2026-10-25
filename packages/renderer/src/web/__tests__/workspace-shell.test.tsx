@@ -703,7 +703,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
 // AppSchema.features[].
 
 describe("WorkspaceShell — AppSchema (multi-feature)", () => {
-  test("admin Workspace zeigt Navs aus zwei Features in einer Sidebar", () => {
+  test("admin workspace shows navs from two features in one sidebar", () => {
     const app = {
       features: [
         {
@@ -862,7 +862,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     expect(screen.queryByTestId("sidebar-footer")).toBeNull();
   });
 
-  test("toAppSchema hebt FeatureSchema.workspaces auf App-Ebene (Backwards-Compat)", () => {
+  test("toAppSchema promotes FeatureSchema.workspaces to the app level (backwards compatibility)", () => {
     // Legacy single-feature shape with inline workspaces — the wrapper should
     // render exactly the same as an explicit AppSchema call with the same
     // contents.

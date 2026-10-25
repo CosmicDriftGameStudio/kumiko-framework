@@ -358,7 +358,7 @@ describe("SignupCompleteScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("server invalid_signup_token → mapped i18n-error im UI", async () => {
+  test("server invalid_signup_token → mapped i18n-error in the UI", async () => {
     const errBody = JSON.stringify({
       error: { code: "invalid_signup_token", details: { reason: "invalid_signup_token" } },
     });

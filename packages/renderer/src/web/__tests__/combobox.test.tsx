@@ -28,7 +28,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByText("Pick one")).toBeTruthy();
   });
 
-  test("single-mode: Trigger zeigt Label des selected value", () => {
+  test("single-mode: Trigger shows the label of the selected value", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -97,7 +97,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(changes).toEqual(["b"]);
   });
 
-  test("multi-mode: leerer state zeigt placeholder", () => {
+  test("multi-mode: empty state shows placeholder", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -243,7 +243,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     });
   });
 
-  test("remote-mode: loading=true zeigt 'Loading…' im Empty-State", async () => {
+  test("remote-mode: loading=true shows 'Loading…' in the empty state", async () => {
     render(
       <ComboboxInput
         id="combo"

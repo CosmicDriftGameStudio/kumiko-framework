@@ -182,7 +182,7 @@ describe("DefaultForm Action-Footer with stickyActions (Wizard, mobile fix)", ()
 });
 
 describe("DefaultSection without a title", () => {
-  test("rendert keinen leeren Header", () => {
+  test("does not render an empty header", () => {
     render(
       <Section testId="s">
         <div>content</div>
@@ -344,7 +344,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     expect(screen.getByTestId("danger").className).toContain("border-destructive/40");
   });
 
-  test("title-only standalone (Bestands-Consumer) hat keinen Divider mehr", () => {
+  test("title-only standalone (existing consumer) no longer has a divider", () => {
     render(
       <Section testId="legacy" title="Stammdaten">
         <div>x</div>

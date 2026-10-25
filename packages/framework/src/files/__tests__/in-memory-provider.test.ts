@@ -33,7 +33,7 @@ describe("createInMemoryFileProvider — write/read roundtrip", () => {
     expect(decode(await p.read("k"))).toBe("orig");
   });
 
-  test("read auf fehlenden Key wirft", async () => {
+  test("read throws on a missing key", async () => {
     const p = createInMemoryFileProvider();
     await expect(p.read("missing")).rejects.toThrow("in-memory file not found: missing");
   });

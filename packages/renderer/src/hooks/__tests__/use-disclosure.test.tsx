@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useDisclosure } from "../use-disclosure.ts";
 
 describe("useDisclosure", () => {
-  test("open/close/toggle steuern den Zustand", () => {
+  test("open/close/toggle control the state", () => {
     const { result } = renderHook(() => useDisclosure());
     expect(result.current.open).toBe(false);
     act(() => result.current.onOpen());

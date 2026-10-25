@@ -81,7 +81,7 @@ describe("ResetPasswordScreen", () => {
     });
   });
 
-  test("server invalid_reset_token → mapped i18n-error im UI", async () => {
+  test("server invalid_reset_token → mapped i18n-error in the UI", async () => {
     const errBody = JSON.stringify({
       error: { code: "invalid_reset_token", details: { reason: "invalid_reset_token" } },
     });

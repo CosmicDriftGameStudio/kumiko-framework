@@ -158,7 +158,7 @@ describe("managed-pages :: server-render route", () => {
 });
 
 describe("managed-pages :: Cross-Tenant-Isolation", () => {
-  test("derselbe Slug serviert pro Host den jeweiligen Tenant-Content", async () => {
+  test("the same slug serves the respective tenant content per host", async () => {
     const a = await (await stack.app.request("http://a.example.com/p/about")).text();
     const b = await (await stack.app.request("http://b.example.com/p/about")).text();
     expect(a).toContain("About A");
@@ -744,7 +744,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
 // the outer request resolved the tenant correctly. systemQuery (see feature.ts)
 // removes the internal HTTP round trip and passes the resolved tenantId in-process.
 // The fallback-free resolver and systemQuery path verify this behavior end to end.
-describe("managed-pages :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
+describe("managed-pages :: resolverTrust authoritative (host-based, as in publicstatus/show-pony)", () => {
   let authStack: TestStack;
   const authManaged = createManagedPagesFeature({
     resolveApexTenant: (host) => {

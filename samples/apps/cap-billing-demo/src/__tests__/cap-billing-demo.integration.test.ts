@@ -257,7 +257,7 @@ describe("cap-billing-demo: pro tenant (limit=100)", () => {
 });
 
 describe("cap-billing-demo: tenant-isolation", () => {
-  test("free-tenant am hard-cap blockiert NICHT den pro-tenant", async () => {
+  test("free tenant hitting the hard cap does NOT block the pro tenant", async () => {
     const free = adminFor(2201);
     const pro = adminFor(2202);
     clearInbox(free.tenantId);
@@ -439,7 +439,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
     expect(inbox).toHaveLength(12);
   });
 
-  test("Provider-Webhook → subscription canceled → tier-fallback auf free → cap blockiert", async () => {
+  test("Provider-Webhook → subscription canceled → tier-fallback to free → cap blocks", async () => {
     const tenant = adminFor(2402);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);

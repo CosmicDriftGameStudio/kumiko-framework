@@ -266,7 +266,7 @@ describe("auth-routes cookieDomain", () => {
     expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).not.toMatch(/Domain=/i);
   });
 
-  test("login: cookieDomain setzt Domain auf BEIDEN Cookies", async () => {
+  test("login: cookieDomain sets the Domain attribute on both cookies", async () => {
     const { app } = await buildApp({ cookieDomain: "example.eu" });
     const res = await login(app);
     expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);

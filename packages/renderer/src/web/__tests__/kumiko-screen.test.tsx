@@ -505,7 +505,7 @@ describe("KumikoScreen", () => {
   // impl lives in renderer/web's RoutedScreen, outside this test — here we
   // only verify the wiring: button renders icon-only in update-mode, fires
   // the callback, and swaps its accessible name to "copied" afterwards.
-  test("entityEdit update-mode: Copy-Link-Button feuert onCopyLink + zeigt 'copied'-Accessible-Name", async () => {
+  test("entityEdit update-mode: Copy-Link button fires onCopyLink + shows 'copied' accessible name", async () => {
     const user = userEvent.setup();
     const onCopyLink = mock(() => Promise.resolve());
     const dispatcher = makeDispatcher({

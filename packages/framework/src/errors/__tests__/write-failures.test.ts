@@ -63,7 +63,7 @@ describe("failTransition", () => {
     expect(details.message).toContain("sent, cancelled");
   });
 
-  test("leeres allowed → message zeigt 'none' (Terminal-State)", () => {
+  test("empty allowed list → message shows 'none' (terminal state)", () => {
     const f = failTransition("paid", "draft", []);
     const details = f.error.details as { message: string; allowed: readonly string[] };
     expect(details.allowed).toEqual([]);

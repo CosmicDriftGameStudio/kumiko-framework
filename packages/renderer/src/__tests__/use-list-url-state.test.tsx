@@ -66,7 +66,7 @@ describe("useListUrlState", () => {
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toBeNull();
   });
-  test("setSort schreibt sort+dir, resettet page (atomic update)", () => {
+  test("setSort writes sort+dir, resets page (atomic update)", () => {
     const nav = makeNav({ "orders.page": "5" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -139,13 +139,13 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({ "orders.page": "7" });
   });
-  test("invalid page (negativ, NaN, 0) → fallback auf 1", () => {
+  test("invalid page (negative, NaN, 0) → falls back to 1", () => {
     const nav = makeNav({ "orders.page": "-3" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.page).toBe(1);
   });
 
-  test("liest Faceted-Filter aus .f.<field>-Keys (comma-split), namespaced", () => {
+  test("reads faceted filters from .f.<field>-Keys (comma-split), namespaced", () => {
     const nav = makeNav({
       "orders.f.status": "draft,published",
       "orders.f.active": "true",
@@ -158,7 +158,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  test("setFilter schreibt comma-joined Werte + resettet page", () => {
+  test("setFilter writes comma-joined values + resets page", () => {
     const nav = makeNav({ "orders.page": "4" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -185,7 +185,7 @@ describe("useListUrlState", () => {
   // The date-range facet lives in the same .f. namespace so
   // clearFilters covers it — but both bounds have to land in ONE params
   // update, or the second call overwrites the first.
-  test("setDateRange schreibt beide Grenzen atomar + resettet page", () => {
+  test("setDateRange writes both boundaries atomically + resets page", () => {
     const nav = makeNav({ "orders.page": "4" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {

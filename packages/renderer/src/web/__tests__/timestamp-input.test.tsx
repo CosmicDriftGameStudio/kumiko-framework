@@ -32,7 +32,7 @@ describe("timestamp Konvertierung (Helpers)", () => {
     expect(wallClockSchema.safeParse(emitted).success).toBe(true);
   });
 
-  test("leere Eingabe → undefined (Feld geleert)", () => {
+  test("empty input → undefined (field cleared)", () => {
     expect(inputValueToTimestamp("", false)).toBeUndefined();
     expect(inputValueToTimestamp("", true)).toBeUndefined();
   });

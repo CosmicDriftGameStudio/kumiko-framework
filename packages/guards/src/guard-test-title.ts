@@ -9,6 +9,7 @@
 
 import path from "node:path";
 import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { isGermanTestTitle } from "./_lib/german-test-title";
 import {
   ALL_REPO_KINDS,
   type AstGuard,
@@ -29,7 +30,6 @@ import {
   testFrameworkAliases,
 } from "./_lib/test-callee";
 import { REFERENCE_RE } from "./guard-comment-issue-ref-only";
-import { isGermanComment } from "./guard-comment-lang";
 
 const ROOT = process.cwd();
 const GUARD_NAME = "test-title";
@@ -64,7 +64,7 @@ export function hasIssueReference(title: string): boolean {
 }
 
 function titleReason(title: string): string | undefined {
-  if (isGermanComment(title)) return "German";
+  if (isGermanTestTitle(title)) return "German";
   if (hasIssueReference(title)) return "issue reference";
   return undefined;
 }

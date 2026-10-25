@@ -30,7 +30,7 @@ describe("createTimestampField", () => {
     });
   });
 
-  test("kann sensitive markiert sein (PII / Audit-Schutz)", () => {
+  test("can be marked as sensitive (PII / audit protection)", () => {
     const f = createTimestampField({ sensitive: true });
     expect(f.sensitive).toBe(true);
   });

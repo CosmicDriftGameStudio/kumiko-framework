@@ -441,7 +441,7 @@ describe("createKumikoApp", () => {
     warnSpy.mockRestore();
   });
 
-  test("clientFeatures.columnRenderers → __component-Renderer mounten echtes Component im DOM", async () => {
+  test("clientFeatures.columnRenderers → __component-Renderer mounts a real component in the DOM", async () => {
     // Verifies the end-to-end wiring: ClientFeatureDefinition.columnRenderers
     // → provider in create-app → useColumnRenderer in the DataTable cell → JSX
     // in the DOM. The schema declares the string form; the component exists only
@@ -651,7 +651,7 @@ describe("createKumikoApp", () => {
     expect(screen.queryByText("Caps")).toBeNull();
   });
 
-  test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {
+  test("navAdapter override: custom router controls the active screen", async () => {
     // Verifies the navigation seam: the default adapter reads location.pathname,
     // while this memory adapter hardcodes the route. If the swap works, we see
     // the list screen instead of the form screen without setting `screenQn` or

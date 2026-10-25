@@ -249,7 +249,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     }),
   );
 
-  test("metadata.tenantId fehlt → null (App-Owner-Bug, foundation 200 ignored)", async () => {
+  test("metadata.tenantId missing → null", async () => {
     const ev = buildSubscriptionEvent({});
     // @ts-expect-error — remove metadata for the test
     ev.data.object.metadata = {};
@@ -259,14 +259,14 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     expect(event).toBeNull();
   });
 
-  test("price-id im Mapping → korrekter tier-Wert", async () => {
+  test("price-id in mapping → correct tier value", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_business_yearly" }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event?.tier).toBe("business");
   });
 
-  test("price-id NICHT im Mapping → null", async () => {
+  test("price-id NOT in mapping → null", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_unknown_xyz" }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
@@ -445,7 +445,7 @@ describe("mapStripeStatus — Stripe-status → normalized", () => {
     expect(mapStripeStatus("trialing")).toBe(SubscriptionStatuses.trialing);
   });
 
-  test("past_due / unpaid / paused → past_due (= grace-period im Plattform-Tier)", () => {
+  test("past_due / unpaid / paused → past_due (= grace period in the platform tier)", () => {
     // Drift pin: all three Stripe grace statuses map to the single
     // normalized "past_due" status. If Stripe introduces a fourth grace
     // status, it must be added explicitly rather than falling back to

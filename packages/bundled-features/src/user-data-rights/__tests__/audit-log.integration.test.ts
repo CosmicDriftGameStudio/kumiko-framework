@@ -127,7 +127,7 @@ describe("my-audit-log", () => {
     expect((bobRow.payload as { foo: string }).foo).toBe("bob");
   });
 
-  test("Account-weite Sicht: User sieht events aus anderen Tenants (DSGVO Art. 15)", async () => {
+  test("Account-wide view: User sees events from other tenants (GDPR Art. 15)", async () => {
     const tenantB = testTenantId(2);
     await seedEvent(alice.id, tenantA, "user.x", { from: "tenantA" });
     await seedEvent(alice.id, tenantB, "user.y", { from: "tenantB" });

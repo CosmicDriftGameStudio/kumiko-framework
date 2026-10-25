@@ -64,7 +64,7 @@ describe("buildManifestFromRegistry — deterministic codepoint sort", () => {
     expect(manifest.featureCount).toBe(2);
   });
 
-  test("tier-Tagging — per-Feature + top-level im Manifest", () => {
+  test("tier tagging — per-feature + top-level in manifest", () => {
     const registry = createRegistry([
       defineFeature("pro", () => {}),
       defineFeature("free", () => {}),

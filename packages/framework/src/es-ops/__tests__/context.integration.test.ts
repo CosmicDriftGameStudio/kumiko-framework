@@ -137,7 +137,7 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
 // --- Read-Helpers --------------------------------------------------------
 
 describe("SeedMigrationContext.findUserByEmail (integration)", () => {
-  test("liest existing user-row korrekt + maps tenant_id → tenantId", async () => {
+  test("correctly reads an existing user row and maps tenant_id → tenantId", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const tenantId = "00000000-0000-4000-8000-000000000099";
     await asRawClient(testDb.db).unsafe(
@@ -167,7 +167,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
 });
 
 describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
-  test("parst JSON-encoded roles-Spalte zu string[]", async () => {
+  test("parses the JSON-encoded roles column into string[]", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const aggId1 = "00000000-0000-4000-8000-0000000000a1";
     const aggId2 = "00000000-0000-4000-8000-0000000000a2";

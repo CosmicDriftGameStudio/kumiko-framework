@@ -81,7 +81,7 @@ describe("compliance-profiles :: for-tenant", () => {
 });
 
 describe("compliance-profiles :: set-profile", () => {
-  test("TenantAdmin kann Profile auf eu-dsgvo setzen", async () => {
+  test("TenantAdmin can set profiles to eu-dsgvo", async () => {
     await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
 
     const result = await stack.http.queryOk<{
@@ -209,7 +209,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   // SystemAdmin can set profiles
-  test("SystemAdmin kann Profile setzen (Plattform-Operator-Pfad)", async () => {
+  test("SystemAdmin can set profiles (platform operator path)", async () => {
     const sysAdmin = createIsolatedTenantAdmin(50, ["SystemAdmin"]);
     const result = await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, sysAdmin);
     expect(result).toMatchObject({ profileKey: "eu-dsgvo", isNew: true });

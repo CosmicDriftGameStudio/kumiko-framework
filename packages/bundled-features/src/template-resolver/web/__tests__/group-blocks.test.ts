@@ -105,7 +105,7 @@ describe("groupBlocksByFolder", () => {
     expect(nodes[1]?.label).toBe("page");
     expect(nodes[1]?.icon).toBe("folder");
   });
-  test("Folders alphabetisch sortiert (deterministisch gegen Map-order)", () => {
+  test("Folders sorted alphabetically (deterministic regardless of Map order)", () => {
     const nodes = inside(
       groupBlocksByFolder([
         block({ slug: "x", folder: "zebra" }),
@@ -116,7 +116,7 @@ describe("groupBlocksByFolder", () => {
     const folderLabels = nodes.map((n) => n.label);
     expect(folderLabels).toEqual(["apple", "mango", "zebra"]);
   });
-  test('content=null → state="stub" (Designer-Hinweis dass Slug existiert aber leer)', () => {
+  test('content=null → state="stub" (Designer hint that the slug exists but is empty)', () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "draft", content: null })]));
     expect(nodes[0]?.state).toBe("stub");
   });
@@ -146,7 +146,7 @@ describe("groupBlocksByFolder", () => {
     expect(marketingChildren[0]?.label).toBe("Hero");
     expect(marketingChildren[0]?.target?.args).toEqual({ slug: "hero", locale: "de" });
   });
-  test("V.1.6a shared folder-prefix → ein gemeinsamer parent", () => {
+  test("shared folder prefix → one shared parent", () => {
     // Two blocks with a nested path share the first segments.
     // page/hero + page/cta + page/marketing/banner → 1× page folder with
     // 3 children (2 leaves + 1 sub-folder).
@@ -168,7 +168,7 @@ describe("groupBlocksByFolder", () => {
     expect(marketingChildren).toHaveLength(1);
     expect(marketingChildren[0]?.label).toBe("Banner");
   });
-  test("V.1.6a folder/leaf-collision: gleicher Name auf gleicher Ebene", () => {
+  test("folder/leaf collision: same name at the same level", () => {
     // Edge case (advisor-flagged): block with folder=null, slug="page"
     // + block with folder="page" → "page" exists both as a leaf-root AND
     // as a folder. Both stay visible; the folder has a chevron + folder

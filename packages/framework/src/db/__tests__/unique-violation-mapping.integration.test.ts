@@ -67,7 +67,7 @@ beforeEach(async () => {
 // create — duplicate email → 409 unique_violation
 // =============================================================================
 
-describe("F8 — entity-level unique-violation auf create", () => {
+describe("entity-level unique-violation on create", () => {
   test("second create with same email → unique_violation 409 (not internal_error 500)", async () => {
     const first = await exec.create(
       { email: "alice@example.com", displayName: "Alice 1" },
@@ -110,8 +110,8 @@ describe("F8 — entity-level unique-violation auf create", () => {
 // update — change email to existing value → 409 unique_violation
 // =============================================================================
 
-describe("F8 — entity-level unique-violation auf update", () => {
-  test("update auf existing email-value → unique_violation 409", async () => {
+describe("entity-level unique-violation on update", () => {
+  test("update with existing email-value → unique_violation 409", async () => {
     const alice = await exec.create(
       { email: "alice@example.com", displayName: "Alice" },
       admin,

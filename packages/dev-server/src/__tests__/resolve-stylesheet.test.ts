@@ -36,7 +36,7 @@ describe("resolveStylesheet", () => {
     expect(out).toBe("/abs/path/styles.css");
   });
 
-  test("false → undefined (Pipeline explizit aus)", () => {
+  test("false → undefined (Pipeline explicitly disabled)", () => {
     const out = resolveStylesheet({
       features: [],
       stylesheet: false,

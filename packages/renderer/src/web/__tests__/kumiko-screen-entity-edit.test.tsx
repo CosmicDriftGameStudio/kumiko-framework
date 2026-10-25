@@ -38,7 +38,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     screens: [updateOnlyEdit, listScreen],
   };
 
-  test("allowDelete:false → update-mode rendert keinen Delete-Button", async () => {
+  test("allowDelete:false → update mode does not render a Delete button", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -55,7 +55,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
   });
 
-  test("allowCreate:false → entityList rendert keinen automatischen + Neu-Button", async () => {
+  test("allowCreate:false → entityList does not render an automatic + New button", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,

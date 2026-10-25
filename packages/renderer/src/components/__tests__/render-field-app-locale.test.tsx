@@ -103,7 +103,7 @@ describe("RenderField — App-Locale an date durchreichen", () => {
 });
 
 describe("RenderField passes min/max/dateLocale to the picker input", () => {
-  test("date-Feld: min/max/dateLocale landen in den InputProps", () => {
+  test("date field: min/max/dateLocale are passed to InputProps", () => {
     const field: EditFieldViewModel = {
       ...dateField(),
       min: "2020-01-01",
@@ -120,7 +120,7 @@ describe("RenderField passes min/max/dateLocale to the picker input", () => {
     }
   });
 
-  test("timestamp-Feld: min/max landen in den InputProps", () => {
+  test("timestamp field: min/max are passed to InputProps", () => {
     const field: EditFieldViewModel = {
       field: "at",
       label: "Zeitpunkt",

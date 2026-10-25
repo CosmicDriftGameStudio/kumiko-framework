@@ -351,7 +351,7 @@ describe("legal-pages sample", () => {
     expect(body).toContain("<strong>Alex Morgan</strong>");
   });
 
-  test("Cache-Header zeigt 60s public-cache", async () => {
+  test("Cache header indicates 60s public caching", async () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
   });

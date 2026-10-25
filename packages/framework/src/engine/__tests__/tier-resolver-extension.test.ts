@@ -49,7 +49,7 @@ describe("findTierResolverUsage", () => {
     expect(findTierResolverUsage([other])).toBeUndefined();
   });
 
-  test("leere Feature-Liste → undefined", () => {
+  test("empty feature list → undefined", () => {
     expect(findTierResolverUsage([])).toBeUndefined();
   });
 });

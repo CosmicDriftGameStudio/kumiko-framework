@@ -304,7 +304,7 @@ describe("seo :: runSeoBootCheck (direct unit-tests)", () => {
 // publicstatus' real resolver) therefore returned null → tenant_required
 // instead of the Managed-Pages entries. systemQuery fixes this (see the
 // managed-pages suite for the full mechanism explanation and red/green proof).
-describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
+describe("seo :: resolverTrust authoritative (host-based, like publicstatus/show-pony)", () => {
   let authStack: TestStack;
   const authManaged = createManagedPagesFeature({
     resolveApexTenant: (host) => (host.startsWith("a.") ? TENANT_A : null),

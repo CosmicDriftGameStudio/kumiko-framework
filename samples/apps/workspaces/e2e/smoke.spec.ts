@@ -9,7 +9,7 @@
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
-test("workspaces: boot, login, lands on admin workspace, sidebar zeigt admin-navs", async ({
+test("workspaces: boot, login, lands on admin workspace, sidebar shows admin-navs", async ({
   page,
 }) => {
   const errors: string[] = [];
