@@ -195,7 +195,7 @@ describe("getAllStreamHandlers", () => {
   });
 });
 
-describe("double-qualified handler names (#1991)", () => {
+describe("double-qualified handler names", () => {
   test("createRegistry throws at boot when a query handler's short name is already fully-qualified", () => {
     const feature = defineFeature("registry-test-ai-orch", (r) => {
       r.queryHandler({

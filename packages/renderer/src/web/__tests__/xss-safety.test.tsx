@@ -22,7 +22,7 @@ const UNSAFE_HREFS = [
 ];
 
 describe("XSS-safety (tenant-authored content)", () => {
-  test("Text-Primitive rendert Payload als Text, nicht als HTML", () => {
+  test("Text-Primitive renders Payload as text, not HTML", () => {
     render(<defaultPrimitives.Text testId="txt">{PAYLOAD}</defaultPrimitives.Text>);
     const node = screen.getByTestId("txt");
     expect(node.textContent).toBe(PAYLOAD);
@@ -30,7 +30,7 @@ describe("XSS-safety (tenant-authored content)", () => {
     expect(node.querySelector("img")).toBeNull();
   });
 
-  test("StatCard-Widget rendert label/value/sub als Text, nicht als HTML", () => {
+  test("StatCard-Widget renders label/value/sub as text, not HTML", () => {
     render(<StatCard testId="stat" label={PAYLOAD} value={PAYLOAD} sub={PAYLOAD} />);
     const node = screen.getByTestId("stat");
     expect(node.querySelector("script")).toBeNull();
@@ -48,7 +48,7 @@ describe("XSS-safety (tenant-authored content)", () => {
     expect(node.getAttribute("href")).toBe("#");
   });
 
-  test("Link-Primitive lässt sichere hrefs (https/mailto/relativ) unverändert", () => {
+  test("Link-Primitive leaves safe hrefs (https/mailto/relative) unchanged", () => {
     for (const href of ["https://example.com", "mailto:a@example.com", "/relative/path"]) {
       render(
         <defaultPrimitives.Link testId={`link-${href}`} href={href}>

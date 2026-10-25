@@ -224,7 +224,7 @@ describe("apex-surface-auth recipe", () => {
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 
-  test("enumeration-safe: unbekannte Email → success, keine Mail", async () => {
+  test("enumeration-safe: unknown email → success, no email", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
       payload: { email: "nobody@example.com" },

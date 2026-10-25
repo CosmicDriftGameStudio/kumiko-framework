@@ -25,14 +25,14 @@ afterAll(async () => {
 const textCols = [{ name: "val", pgType: "text" as const, notNull: true }] as const;
 
 describe("selectMany", () => {
-  test("leere Tabelle returnt []", async () => {
+  test("empty table returns []", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const rows = await selectMany(db, meta);
       expect(rows).toEqual([]);
     });
   });
 
-  test("ohne where gibt alle Zeilen zurück", async () => {
+  test("without where returns all rows", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertOne(db, meta, { val: "a" });
       await insertOne(db, meta, { val: "b" });
@@ -42,7 +42,7 @@ describe("selectMany", () => {
     });
   });
 
-  test("mit where filtert korrekt", async () => {
+  test("with where filters correctly", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertOne(db, meta, { val: "match" });
       await insertOne(db, meta, { val: "no-match" });
@@ -88,7 +88,7 @@ describe("selectMany", () => {
 });
 
 describe("fetchOne", () => {
-  test("gefundene Zeile zurückgeben", async () => {
+  test("returns the found row", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const inserted = await insertOne<{ id: string; val: string }>(db, meta, { val: "find-me" });
       const row = await fetchOne<{ id: string; val: string }>(db, meta, { id: inserted!.id });
@@ -97,7 +97,7 @@ describe("fetchOne", () => {
     });
   });
 
-  test("nicht-gefunden gibt undefined zurück", async () => {
+  test("not found returns undefined", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const row = await fetchOne(db, meta, { id: "00000000-0000-4000-8000-000000000001" });
       expect(row).toBeUndefined();
@@ -106,7 +106,7 @@ describe("fetchOne", () => {
 });
 
 describe("insertMany", () => {
-  test("0 rows = no-op, gibt [] zurück", async () => {
+  test("0 rows = no-op, returns []", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const result = await insertMany(db, meta, []);
       expect(result).toEqual([]);
@@ -123,7 +123,7 @@ describe("insertMany", () => {
     });
   });
 
-  test("5 rows auf einmal", async () => {
+  test("inserts 5 rows at once", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const input = Array.from({ length: 5 }, (_, i) => ({ val: `row-${i}` }));
       const result = await insertMany<{ id: string; val: string }>(db, meta, input);
@@ -135,7 +135,7 @@ describe("insertMany", () => {
 });
 
 describe("updateMany", () => {
-  test("zero match gibt [] zurück + keine Änderung", async () => {
+  test("zero matches return [] and make no changes", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertOne(db, meta, { val: "unchanged" });
       const result = await updateMany(
@@ -150,7 +150,7 @@ describe("updateMany", () => {
     });
   });
 
-  test("single match updatet genau eine Zeile", async () => {
+  test("single match updates exactly one row", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, { val: "before" });
       await updateMany(db, meta, { val: "after" }, { id: ins!.id });
@@ -159,7 +159,7 @@ describe("updateMany", () => {
     });
   });
 
-  test("unbekannter Key im set-Objekt wirft statt still verworfen zu werden", async () => {
+  test("unknown key in the set object throws instead of being silently discarded", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, { val: "before" });
       await expect(
@@ -168,7 +168,7 @@ describe("updateMany", () => {
     });
   });
 
-  test("multi-row update ändert alle matches", async () => {
+  test("multi-row update changes all matches", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ val: "old" }, { val: "old" }, { val: "keep" }]);
       const result = await updateMany(db, meta, { val: "updated" }, { val: "old" });
@@ -180,7 +180,7 @@ describe("updateMany", () => {
 });
 
 describe("deleteMany", () => {
-  test("zero match = keine Änderung", async () => {
+  test("zero matches = no changes", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertOne(db, meta, { val: "stay" });
       await deleteMany(db, meta, { id: "00000000-0000-4000-8000-000000000001" });
@@ -189,7 +189,7 @@ describe("deleteMany", () => {
     });
   });
 
-  test("single delete entfernt genau eine Zeile (verifiziert mit selectMany)", async () => {
+  test("single delete removes exactly one row (verified with selectMany)", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, { val: "delete-me" });
       await insertOne(db, meta, { val: "keep" });
@@ -199,7 +199,7 @@ describe("deleteMany", () => {
     });
   });
 
-  test("deleteMany({}) löscht alle Zeilen (FOOTGUN: kein WHERE-Clause)", async () => {
+  test("deleteMany({}) deletes all rows (FOOTGUN: no WHERE clause)", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ val: "a" }, { val: "b" }, { val: "c" }]);
       await deleteMany(db, meta, {});
@@ -210,7 +210,7 @@ describe("deleteMany", () => {
 });
 
 describe("transaction", () => {
-  test("commit: writes sind danach in DB sichtbar", async () => {
+  test("commit: writes are visible in the DB afterwards", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await transaction(db, async (tx) => {
         await insertOne(tx, meta, { val: "committed" });
@@ -221,7 +221,7 @@ describe("transaction", () => {
     });
   });
 
-  test("auf einem tx-Handle: InternalError statt TypeError", async () => {
+  test("on a tx handle: InternalError instead of TypeError", async () => {
     await withTable(textCols, async ({ db }) => {
       await transaction(db, async (tx) => {
         await expect(transaction(tx, async () => "nested")).rejects.toBeInstanceOf(InternalError);
@@ -229,7 +229,7 @@ describe("transaction", () => {
     });
   });
 
-  test("rollback bei throw: writes sind WEG (verifiziert mit selectMany)", async () => {
+  test("rollback on throw: writes are GONE (verified with selectMany)", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await expect(
         transaction(db, async (tx) => {

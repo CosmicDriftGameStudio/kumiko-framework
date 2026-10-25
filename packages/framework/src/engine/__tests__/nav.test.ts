@@ -363,7 +363,7 @@ describe("validateBoot — nav validation", () => {
 // createAction + actions[] entries carry the same screen-XOR-target
 // polymorphism as the node itself — the validator must reject the same
 // classes of mistake for actions that it already rejects for nodes.
-describe("validateBoot — nav action validation (fw#2750)", () => {
+describe("validateBoot — nav action validation", () => {
   test("createAction with neither screen nor target fails boot", () => {
     const feature = defineFeature("shop", (r) => {
       r.nav({
@@ -445,7 +445,7 @@ describe("validateBoot — nav action validation (fw#2750)", () => {
   });
 });
 
-describe("nav access inversion warning (fw#2640)", () => {
+describe("nav access inversion warning", () => {
   let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
   beforeEach(() => {
     warnSpy = spyOn(console, "warn").mockImplementation(() => {});

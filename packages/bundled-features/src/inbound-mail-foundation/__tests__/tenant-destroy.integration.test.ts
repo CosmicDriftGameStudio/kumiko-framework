@@ -125,7 +125,7 @@ async function seedMailAccount(user: typeof tenantA, address: string): Promise<s
   return result.accountId;
 }
 
-describe("inbound-mail-foundation :: tenant destroy (#3196)", () => {
+describe("inbound-mail-foundation :: tenant destroy", () => {
   test("deletes the mail-account row for the destroyed tenant, archives its stream, leaves another tenant's row untouched", async () => {
     await seedTenant(tenantA);
     await seedTenant(tenantB);

@@ -59,7 +59,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  test("resolveClientEntries findet single-mode src/client.tsx wenn nichts deklariert ist", async () => {
+  test("resolveClientEntries finds single-mode src/client.tsx when nothing is declared", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client.tsx"), "// single");
 
@@ -71,14 +71,14 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(entries[0]?.htmlPath).toBe("index.html");
   });
 
-  test("resolveClientEntries gibt leeres Array zurück wenn nichts da und nichts deklariert ist", () => {
+  test("resolveClientEntries returns an empty array when nothing exists and nothing is declared", () => {
     expect(resolveClientEntries(workDir, {})).toEqual([]);
   });
 
   // Regression: a plain module imported by the real entry, named
   // like a legacy client-<suffix>.tsx file, must not turn into an error or
   // a second entry once src/client.tsx exists (single mode wins outright).
-  test("src/client.tsx neben src/client-utils.tsx → genau ein Entry, kein Fehler", async () => {
+  test("src/client.tsx alongside src/client-utils.tsx → exactly one entry, no error", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client.tsx"), "// real entry");
     await writeFile(join(workDir, "src/client-utils.tsx"), "export const utils = [];");
@@ -89,7 +89,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(entries[0]?.name).toBe("client");
   });
 
-  test("legacy src/client-<suffix>.tsx ohne Deklaration → Migrations-Fehler mit package.json-Snippet", async () => {
+  test("legacy src/client-<suffix>.tsx without a declaration → migration error with a package.json snippet", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client-admin.tsx"), "// admin");
     await writeFile(join(workDir, "src/client-public.tsx"), "// public");
@@ -102,7 +102,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     );
   });
 
-  test("legacy src/client-<suffix>.ts (kein x) → Migrations-Snippet nennt die exakte .ts-Extension", async () => {
+  test("legacy src/client-<suffix>.ts (no x) → migration snippet names the exact .ts extension", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client-admin.ts"), "// admin");
 
@@ -113,20 +113,20 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(() => resolveClientEntries(workDir, {})).not.toThrow(/client-admin\.tsx/);
   });
 
-  test("discoverHtmlTemplate findet index.html im cwd", async () => {
+  test("discoverHtmlTemplate finds index.html in cwd", async () => {
     await writeFile(join(workDir, "index.html"), "<html></html>");
 
     expect(discoverHtmlTemplate(workDir)).toBe(join(workDir, "index.html"));
   });
 
-  test("discoverHtmlTemplate findet public/index.html als Fallback", async () => {
+  test("discoverHtmlTemplate finds public/index.html as a fallback", async () => {
     await mkdir(join(workDir, "public"), { recursive: true });
     await writeFile(join(workDir, "public/index.html"), "<html></html>");
 
     expect(discoverHtmlTemplate(workDir)).toBe(join(workDir, "public/index.html"));
   });
 
-  test("discoverHtmlTemplate bevorzugt cwd-index.html über public/index.html", async () => {
+  test("discoverHtmlTemplate prefers cwd-index.html over public/index.html", async () => {
     await mkdir(join(workDir, "public"), { recursive: true });
     await writeFile(join(workDir, "index.html"), "<!-- root -->");
     await writeFile(join(workDir, "public/index.html"), "<!-- public -->");
@@ -134,7 +134,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(discoverHtmlTemplate(workDir)).toBe(join(workDir, "index.html"));
   });
 
-  test("discoverHtmlTemplate gibt undefined zurück wenn nichts da ist", () => {
+  test("discoverHtmlTemplate returns undefined when nothing exists", () => {
     expect(existsSync(workDir)).toBe(true);
     expect(discoverHtmlTemplate(workDir)).toBeUndefined();
   });
@@ -170,7 +170,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     expect(entries[0]?.htmlPath).toBe("index.html");
   });
 
-  test("clientEntry: sourceFile fehlt → throws", () => {
+  test("clientEntry: sourceFile does not exist → throws", () => {
     expect(() => resolveClientEntries(workDir, { clientEntry: "./src/missing.tsx" })).toThrow(
       /kumiko\.clientEntry.*does not exist/s,
     );
@@ -184,7 +184,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     );
   });
 
-  test("clientEntry und clientEntries gleichzeitig → mutual-exclusion error", async () => {
+  test("clientEntry and clientEntries at the same time → mutual-exclusion error", async () => {
     await writeSourceFiles(["main.tsx", "client-admin.tsx"]);
 
     expect(() =>
@@ -201,7 +201,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     );
   });
 
-  test("clientEntries: ungültiger name (führender Großbuchstabe) → throws", async () => {
+  test("clientEntries: invalid name (leading uppercase letter) → throws", async () => {
     await writeSourceFiles(["client-admin.tsx"]);
 
     expect(() =>
@@ -211,7 +211,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ).toThrow(/invalid "kumiko\.clientEntries\[\]\.name"/);
   });
 
-  test("clientEntries: name mit '..' → throws", async () => {
+  test("clientEntries: name containing '..' → throws", async () => {
     await writeSourceFiles(["client-admin.tsx"]);
 
     expect(() =>
@@ -249,7 +249,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ).toThrow(/resolves outside the app root/);
   });
 
-  test("clientEntries: sourceFile existiert nicht → throws", () => {
+  test("clientEntries: sourceFile does not exist → throws", () => {
     expect(() =>
       resolveClientEntries(workDir, {
         clientEntries: [{ name: "admin", sourceFile: "./src/client-admin.tsx" }],
@@ -300,7 +300,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ).toThrow(/duplicate "kumiko\.clientEntries\[\]\.name" "admin"/);
   });
 
-  test("clientEntries: zwei Entries mit gleichem html-basename (default 'public' vs. explizit) → throws", async () => {
+  test("clientEntries: two entries with the same html-basename (default 'public' vs. explicit) → throws", async () => {
     await writeSourceFiles(["client-public.tsx", "client-legacy.tsx"]);
 
     expect(() =>
@@ -313,7 +313,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ).toThrow(/resolve to the same HTML output file "index\.html"/);
   });
 
-  test("clientEntries: zwei Entries mit identischem source-basename → throws", async () => {
+  test("clientEntries: two entries with identical source-basename → throws", async () => {
     await mkdir(join(workDir, "src/admin"), { recursive: true });
     await mkdir(join(workDir, "src/public"), { recursive: true });
     await writeFile(join(workDir, "src/admin/index.tsx"), "// admin");
@@ -329,7 +329,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ).toThrow(/share the source basename "index"/);
   });
 
-  test("publicstatus-Shape: public ohne htmlPath, admin/auth mit explizitem htmlPath", async () => {
+  test("publicstatus-Shape: public without htmlPath, admin/auth with explicit htmlPath", async () => {
     await mkdir(join(workDir, "public"), { recursive: true });
     await writeFile(join(workDir, "public/admin.html"), "<html></html>");
     await writeFile(join(workDir, "public/auth.html"), "<html></html>");
@@ -354,7 +354,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     expect(auth?.htmlPath).toBe(join(workDir, "public/auth.html"));
   });
 
-  test("show-pony-Shape: admin und public beide mit explizitem htmlPath", async () => {
+  test("show-pony-Shape: admin and public both with explicit htmlPath", async () => {
     await mkdir(join(workDir, "public"), { recursive: true });
     await writeFile(join(workDir, "public/admin.html"), "<html></html>");
     await writeFile(join(workDir, "public/index.html"), "<html></html>");
@@ -374,7 +374,7 @@ describe("build-prod-bundle/resolveClientEntries (declared)", () => {
     ]);
   });
 
-  test("offlot-app-Shape: einziger Entry 'app' mit explizitem htmlPath", async () => {
+  test("offlot-app-Shape: only entry 'app' with explicit htmlPath", async () => {
     await mkdir(join(workDir, "public"), { recursive: true });
     await writeFile(join(workDir, "public/app.html"), "<html></html>");
     await writeSourceFiles(["client-app.tsx"]);
@@ -402,11 +402,11 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  test("kein package.json → {}", () => {
+  test("no package.json → {}", () => {
     expect(readClientEntriesConfig(workDir)).toEqual({});
   });
 
-  test("package.json ohne kumiko-Block → {}", async () => {
+  test("package.json without a kumiko block → {}", async () => {
     await writeJson(join(workDir, "package.json"), { name: "app" });
 
     expect(readClientEntriesConfig(workDir)).toEqual({});
@@ -434,7 +434,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
     expect(readClientEntriesConfig(workDir)).toEqual({ clientEntries: declared });
   });
 
-  test("kumiko.clientEntry ist keine string → throws", async () => {
+  test("kumiko.clientEntry is not a string → throws", async () => {
     await writeJson(join(workDir, "package.json"), { name: "app", kumiko: { clientEntry: 42 } });
 
     expect(() => readClientEntriesConfig(workDir)).toThrow(
@@ -442,7 +442,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
     );
   });
 
-  test("kumiko.clientEntries ist kein Array → throws", async () => {
+  test("kumiko.clientEntries is not an array → throws", async () => {
     await writeJson(join(workDir, "package.json"), {
       name: "app",
       kumiko: { clientEntries: { name: "admin" } },
@@ -453,7 +453,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
     );
   });
 
-  test("kumiko.clientEntries[] ohne sourceFile → throws", async () => {
+  test("kumiko.clientEntries[] without sourceFile → throws", async () => {
     await writeJson(join(workDir, "package.json"), {
       name: "app",
       kumiko: { clientEntries: [{ name: "admin" }] },
@@ -464,7 +464,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
     );
   });
 
-  test("kumiko.clientEntries[].htmlPath ist keine string → throws", async () => {
+  test("kumiko.clientEntries[].htmlPath is not a string → throws", async () => {
     await writeJson(join(workDir, "package.json"), {
       name: "app",
       kumiko: {
@@ -485,7 +485,7 @@ describe("build-prod-bundle/readClientEntriesConfig", () => {
 });
 
 describe("build-prod-bundle/injectAssetTags", () => {
-  test("ersetzt /client.js durch hashed URL im script-tag", () => {
+  test("replaces /client.js with hashed URL in script tag", () => {
     const html = `<html><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(
       html,
@@ -497,7 +497,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('src="/client.js"');
   });
 
-  test("ersetzt /styles.css durch hashed URL im link-tag", () => {
+  test("replaces /styles.css with hashed URL in link tag", () => {
     const html = `<html><head><link rel="stylesheet" href="/styles.css" /></head><body></body></html>`;
     const result = injectAssetTags(
       html,
@@ -509,7 +509,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('href="/styles.css"');
   });
 
-  test("wirft mit Anweisung wenn /client.js Placeholder fehlt", () => {
+  test("throws with an instruction when the /client.js placeholder is missing", () => {
     const html = `<html><body><div id="root"></div></body></html>`;
 
     expect(() =>
@@ -520,7 +520,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     ).toThrow(/<script type="module" src="\/client\.js"><\/script>/);
   });
 
-  test("wirft mit Anweisung wenn /styles.css Placeholder fehlt", () => {
+  test("throws with an instruction when the /styles.css placeholder is missing", () => {
     const html = `<html><head><title>App</title></head><body></body></html>`;
 
     expect(() =>
@@ -531,7 +531,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     ).toThrow(/<link rel="stylesheet" href="\/styles\.css" \/>/);
   });
 
-  test("ist idempotent — zweite Injection auf bereits ersetztem HTML ändert nichts", () => {
+  test("is idempotent — a second injection into already replaced HTML changes nothing", () => {
     const html = `<html><body><script type="module" src="/client.js"></script></body></html>`;
     const manifest = { "client.js": "/assets/client-abc.js" };
     const first = injectAssetTags(html, manifest, clientEntry());
@@ -541,14 +541,14 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(first).toContain('src="/assets/client-abc.js"');
   });
 
-  test("ändert template ohne client/styles im manifest nicht", () => {
+  test("does not change the template without client/styles in the manifest", () => {
     const html = `<html><body>Hello</body></html>`;
     const result = injectAssetTags(html, {}, clientEntry());
 
     expect(result).toBe(html);
   });
 
-  test("verträgt mehrere script-tags und ersetzt nur den /client.js", () => {
+  test("handles multiple script tags and replaces only /client.js", () => {
     const html = `<html><body>
       <script>console.log("inline");</script>
       <script type="module" src="/client.js"></script>
@@ -560,7 +560,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('src="/client.js"');
   });
 
-  test("multi-mode: admin-entry ersetzt nur /client-admin.js, lässt /client-public.js liegen", () => {
+  test("multi-mode: admin entry replaces only /client-admin.js, leaving /client-public.js untouched", () => {
     const html = `<html><body>
       <script type="module" src="/client-admin.js"></script>
       <script type="module" src="/client-public.js"></script>
@@ -577,7 +577,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('src="/client-admin.js"');
   });
 
-  test("multi-mode: error-message nennt den richtigen Template-Namen", () => {
+  test("multi-mode: error message names the correct template name", () => {
     const html = `<html><body>no admin script</body></html>`;
     const manifest = { "client-admin.js": "/assets/client-admin-x.js" };
 
@@ -596,13 +596,13 @@ describe("build-prod-bundle/computeBuildId", () => {
     expect(computeBuildId(manifest)).toBe(computeBuildId({ ...manifest }));
   });
 
-  test("Key-Reihenfolge egal — nur die URL-Werte zählen", () => {
+  test("Key order does not matter — only the URL values count", () => {
     const a = { "client.js": "/assets/client-abc.js", "styles.css": "/assets/styles-xyz.css" };
     const b = { "styles.css": "/assets/styles-xyz.css", "client.js": "/assets/client-abc.js" };
     expect(computeBuildId(a)).toBe(computeBuildId(b));
   });
 
-  test("geändertes Asset (neuer Hash) → andere id", () => {
+  test("changed asset (new hash) → different id", () => {
     const before = { "client.js": "/assets/client-abc.js" };
     const after = { "client.js": "/assets/client-def.js" };
     expect(computeBuildId(before)).not.toBe(computeBuildId(after));
@@ -614,7 +614,7 @@ describe("build-prod-bundle/computeBuildId", () => {
 });
 
 describe("build-prod-bundle/injectAssetTags build-info", () => {
-  test("bäckt kumiko-build meta vor </head> wenn buildInfo gesetzt, ohne Inline-Script", () => {
+  test("adds kumiko-build meta before </head> when buildInfo is set, without an inline script", () => {
     const html = `<html><head><title>x</title></head><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry(), {
       id: "deadbeef0000",
@@ -640,7 +640,7 @@ describe("build-prod-bundle/injectAssetTags build-info", () => {
     expect(result).toContain('data-built-at="a&amp;b"');
   });
 
-  test("ohne buildInfo kein kumiko-build meta", () => {
+  test("without buildInfo, no kumiko-build meta", () => {
     const html = `<html><head></head><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry());
 

@@ -8,13 +8,13 @@
 //     "vitest --watch" → "bun test --watch"
 //     "yarn run -T playwright" → "bunx --bun playwright"
 //     "yarn workspaces foreach -A" → "bun --filter='*'"
-//     "node X.ts"      → "bun X.ts"  (nur eindeutige Patterns)
+//     "node X.ts"      → "bun X.ts"  (unique patterns only)
 //
 //   dependenciesMeta:
-//     entferne yarn-spezifisch, ergänze trustedDependencies: [] falls nicht vorhanden
+//     remove Yarn-specific entries, add trustedDependencies: [] if absent
 //
 //   resolutions:
-//     bleiben unverändert (bun supportet "resolutions" + "overrides")
+//     remain unchanged (bun supports "resolutions" + "overrides")
 //
 //   packageManager:
 //     "yarn@4.x.x" → "bun@1.4.4"
@@ -22,7 +22,7 @@
 //   link:./path Protocol → file:./path
 //
 //   devDependencies:
-//     entferne "vitest", "@vitest/coverage-v8" (manuell — codemod warnt nur)
+//     remove "vitest", "@vitest/coverage-v8" (manually — codemod only warns)
 
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";
@@ -31,7 +31,7 @@ const PROJECT_ROOT = process.argv[2] ?? process.cwd();
 const BUN_VERSION = process.argv[3] ?? "1.4.4";
 
 const SCRIPT_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\bvitest run --config\s+(\S+)/g, "bun test --config $1"], // Hinweis: bunfig.toml hat keine --config-Flag-Variant, manual nötig
+  [/\bvitest run --config\s+(\S+)/g, "bun test --config $1"], // Note: bunfig.toml has no --config flag variant; manual action required
   [/\bvitest run\b/g, "bun test"],
   [/\bvitest --watch\b/g, "bun test --watch"],
   [/(?<![\w-])vitest\b(?!\.)/g, "bun test"], // standalone "vitest"
@@ -75,9 +75,9 @@ async function transformPackageJson(path: string): Promise<{ changed: boolean; w
     for (const [name, val] of Object.entries(meta)) {
       // Yarn's `built: false` → don't auto-build
       // Bun's `trustedDependencies` = whitelist (everything else is "not trusted")
-      // → leerer Whitelist heißt "kein native-build außer prebuilds"
+      // → empty whitelist means "no native build except prebuilds"
       if (val.built === false) {
-        // skip — packages mit `built: false` werden auch von bun nicht gebaut wenn nicht in trustedDependencies
+        // skip — packages with `built: false` are also not built by bun if not in trustedDependencies
       } else if (val.built === true) {
         trusted.add(name.replace(/@\d.*$/, "")); // strip version pin from key
       }
@@ -103,7 +103,7 @@ async function transformPackageJson(path: string): Promise<{ changed: boolean; w
     }
   }
 
-  // vitest in devDependencies — nur warnen, manuell entfernen
+  // vitest in devDependencies — warn only, remove manually
   const devDeps = pkg.devDependencies as Record<string, string> | undefined;
   if (devDeps && (devDeps.vitest || devDeps["@vitest/coverage-v8"])) {
     warnings.push(`${relative(PROJECT_ROOT, path)}: vitest devDep present — remove manually after migration`);

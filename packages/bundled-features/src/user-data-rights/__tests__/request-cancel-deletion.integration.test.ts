@@ -155,7 +155,7 @@ describe("POST request-deletion :: happy path", () => {
     expect(row?.gracePeriodEnd?.toString()).toBe(result.gracePeriodEnd);
   });
 
-  test("ohne explizites Profile → minimal-no-region-Fallback (~30 Tage)", async () => {
+  test("without explicit profile → minimal-no-region fallback (~30 days)", async () => {
     await seedAlice();
     // Without SET_PROFILE, resolveComplianceProfile falls back to
     // minimal-no-region with warning="no-profile-selected".
@@ -171,7 +171,7 @@ describe("POST request-deletion :: happy path", () => {
 
   // Verify that addDurationSpec handles both `{days}` and `{hours}` overrides
   // instead of silently falling back to 30 days when `days` is absent.
-  test("Profile-Override {hours: 6} → ~6h Grace (kein 30d-Fallback)", async () => {
+  test("Profile override {hours: 6} → ~6h grace period (no 30d fallback)", async () => {
     await seedAlice();
     await stack.http.writeOk(
       SET_PROFILE,
@@ -201,7 +201,7 @@ function reason(err: { details?: unknown }): string | undefined {
 }
 
 describe("POST request-deletion :: state-transitions", () => {
-  test("User existiert nicht → 422 user_not_found", async () => {
+  test("User does not exist → 422 user_not_found", async () => {
     // The user is not seeded, so the handler cannot find its row.
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(err.code).toBe("unprocessable");
@@ -209,7 +209,7 @@ describe("POST request-deletion :: state-transitions", () => {
     expect(reason(err)).toBe("user_not_found");
   });
 
-  test("schon im DeletionRequested-State → 422 user_not_in_active_state (idempotenz-guard)", async () => {
+  test("Already in DeletionRequested state → 422 user_not_in_active_state (idempotency guard)", async () => {
     await seedAlice({ status: USER_STATUS.DeletionRequested });
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("user_not_in_active_state");
@@ -218,13 +218,13 @@ describe("POST request-deletion :: state-transitions", () => {
     );
   });
 
-  test("im Restricted-State (Art. 18) → 422 user_not_in_active_state", async () => {
+  test("in Restricted state (Art. 18) → 422 user_not_in_active_state", async () => {
     await seedAlice({ status: USER_STATUS.Restricted });
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("user_not_in_active_state");
   });
 
-  test("schon Deleted → 422 user_not_in_active_state", async () => {
+  test("Already Deleted → 422 user_not_in_active_state", async () => {
     await seedAlice({ status: USER_STATUS.Deleted });
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("user_not_in_active_state");
@@ -275,7 +275,7 @@ describe("POST cancel-deletion :: happy path", () => {
     expect(row?.gracePeriodEnd).toBeNull();
   });
 
-  test("request → cancel Roundtrip ist clean (state komplett zurueck auf Active+NULL)", async () => {
+  test("request → cancel round trip is clean (state fully back to Active+NULL)", async () => {
     await seedAlice();
     await stack.http.writeOk(REQUEST_DELETION, {}, aliceUser);
 
@@ -291,20 +291,20 @@ describe("POST cancel-deletion :: happy path", () => {
 });
 
 describe("POST cancel-deletion :: state-transitions", () => {
-  test("User existiert nicht → 422 user_not_found", async () => {
+  test("User does not exist → 422 user_not_found", async () => {
     const err = await stack.http.writeErr(CANCEL_DELETION, {}, aliceUser);
     expect(err.httpStatus).toBe(422);
     expect(reason(err)).toBe("user_not_found");
   });
 
-  test("kein pending Forget (status=Active) → 422 no_pending_deletion", async () => {
+  test("No pending deletion (status=Active) → 422 no_pending_deletion", async () => {
     await seedAlice();
     const err = await stack.http.writeErr(CANCEL_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("no_pending_deletion");
     expect((err.details as { currentStatus?: string })?.currentStatus).toBe(USER_STATUS.Active);
   });
 
-  test("im Restricted-State (Art. 18) → 422 no_pending_deletion", async () => {
+  test("in Restricted state (Art. 18) → 422 no_pending_deletion", async () => {
     await seedAlice({ status: USER_STATUS.Restricted });
     const err = await stack.http.writeErr(CANCEL_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("no_pending_deletion");
@@ -328,7 +328,7 @@ describe("Cross-Tenant-Account-Semantik", () => {
   // global user-row columns. A request in one tenant therefore marks the user as
   // deletionRequested for every tenant. This implements account-wide deletion
   // under GDPR Article 17; leaving a single tenant uses leave-tenant instead.
-  test("request-deletion in Tenant A flippt User global (sichtbar fuer alle Memberships)", async () => {
+  test("request-deletion in Tenant A flips User globally (visible to all memberships)", async () => {
     await seedAlice(); // Alice landet als 1 User-Row, status=Active.
 
     await stack.http.writeOk(REQUEST_DELETION, {}, aliceUser);
@@ -350,7 +350,7 @@ describe("Cross-Tenant-Account-Semantik", () => {
 });
 
 describe("Cross-User-Isolation", () => {
-  test("Bobs request-deletion ueberschreibt nicht Alices state", async () => {
+  test("Bob's request-deletion does not overwrite Alice's state", async () => {
     await seedAlice();
     const bobUser = createTestUser({
       id: 43,

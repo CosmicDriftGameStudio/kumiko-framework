@@ -271,23 +271,23 @@ describe("collectReferenceFields", () => {
     ]);
   });
 
-  test("keine reference-Felder → leer", () => {
+  test("no reference fields → empty", () => {
     expect(collectReferenceFields(authorEntity)).toEqual([]);
   });
 });
 
 describe("enrichWithReferences", () => {
-  test("löst single-ref zur Row auf", async () => {
+  test("resolves single ref to a row", async () => {
     const row = await enrichA({ id: "p1", author: A1 });
     expect(single(row, "author")?.["name"]).toBe("Ada");
   });
 
-  test("löst multiple-ref zu einem Array in Reihenfolge auf", async () => {
+  test("resolves multiple ref to an array in order", async () => {
     const row = await enrichA({ id: "p1", tags: [A2, A1] });
     expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Linus", "Ada"]);
   });
 
-  test("null/leerer ref-Wert → _refs[field] undefined", async () => {
+  test("null/empty ref value → _refs[field] undefined", async () => {
     const row = await enrichA({ id: "p1", author: null });
     expect(single(row, "author")).toBeUndefined();
   });
@@ -295,12 +295,12 @@ describe("enrichWithReferences", () => {
   // Multiple-reference contract: ALWAYS an array (filtered), never undefined —
   // unlike single references (above). A renderer can rely on .map() without a
   // null check.
-  test("multiple-ref filtert cross-tenant raus, behält den Rest als Array", async () => {
+  test("multiple-ref filters out cross-tenant refs, keeps the rest as an array", async () => {
     const row = await enrichA({ id: "p1", tags: [A1, BX] });
     expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Ada"]);
   });
 
-  test("multiple-ref nur cross-tenant → [] (leeres Array, NICHT undefined)", async () => {
+  test("multiple-ref only cross-tenant → [] (empty array, NOT undefined)", async () => {
     const row = await enrichA({ id: "p1", tags: [BX] });
     expect(many(row, "tags")).toEqual([]);
   });
@@ -310,19 +310,19 @@ describe("enrichWithReferences", () => {
     expect(many(row, "tags")).toEqual([]);
   });
 
-  test("TENANT-ISOLATION: cross-tenant-ref wird NICHT aufgelöst", async () => {
+  test("TENANT-ISOLATION: cross-tenant-ref is NOT resolved", async () => {
     // bx belongs to tenantB; dbA is scoped to tenantA, so the lookup filters it
     // out and _refs remains undefined (the renderer falls back to the UUID).
     const row = await enrichA({ id: "p1", author: BX });
     expect(single(row, "author")).toBeUndefined();
   });
 
-  test("dangling UUID (kein Row) → undefined, kein Crash", async () => {
+  test("dangling UUID (no row) → undefined, no crash", async () => {
     const row = await enrichA({ id: "p1", author: NOPE });
     expect(single(row, "author")).toBeUndefined();
   });
 
-  test("unbekannte ref-Entity (resolve→undefined) → undefined, kein Crash", async () => {
+  test("unknown ref entity (resolve→undefined) → undefined, no crash", async () => {
     const [row] = (await enrichWithReferences(
       [{ id: "p1", author: A1 }],
       postEntity,
@@ -333,7 +333,7 @@ describe("enrichWithReferences", () => {
     expect(single(row, "author")).toBeUndefined();
   });
 
-  test("keine reference-Felder → flache Kopie ohne Lookup", async () => {
+  test("no reference fields → flat copy without lookup", async () => {
     const out = await enrichWithReferences(
       [{ id: "x1", name: "n" }],
       authorEntity,
@@ -355,7 +355,7 @@ describe("enrichWithReferences", () => {
     expect(single(row, "author")?.["name"]).toBe("Ada");
   });
 
-  test("#1667: referenzierte PII-/encrypted-Felder werden entschlüsselt, keine Ciphertext-Leaks", async () => {
+  test("referenced PII-/encrypted fields are decrypted, no Ciphertext leaks", async () => {
     const [row] = (await enrichWithReferences(
       [{ id: "l1", contact: CX }],
       leadEntity,
@@ -370,7 +370,7 @@ describe("enrichWithReferences", () => {
     expect(isPiiCiphertext(contact?.["email"])).toBe(false);
   });
 
-  test('fw#1671: access.read map where every rule is "all" (unrestricted) does NOT trigger the strip path', async () => {
+  test('access.read map where every rule is "all" (unrestricted) does NOT trigger the strip path', async () => {
     const [row] = (await enrichWithReferences(
       [{ id: "l1", unrestrictedContact: UNRESTRICTED }],
       leadEntity,
@@ -420,7 +420,7 @@ describe("enrichWithReferences", () => {
     expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Ada"]);
   });
 
-  test("fw#1671: a row with a broken envelope is dropped, a sibling row's good ref still resolves in the same batch", async () => {
+  test("a row with a broken envelope is dropped, a sibling row's good ref still resolves in the same batch", async () => {
     const [goodRow, brokenRow] = (await enrichWithReferences(
       [
         { id: "l1", contact: CX },

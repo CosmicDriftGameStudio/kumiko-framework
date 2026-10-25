@@ -136,7 +136,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
     expect(colByName(tbl, "dropoff_tz").notNull).toBe(false);
   });
 
-  test("multiSelect — always NOT NULL, required:false wird absichtlich ignoriert", () => {
+  test("multiSelect — always NOT NULL, required:false is intentionally ignored", () => {
     // multiSelect has a default of `[]`, so the database column is structurally
     // never-null. `required:false` would mean "may be absent", which conflicts
     // with the array default; table-builder.ts therefore ignores required.
@@ -159,7 +159,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
     expect(colByName(tbl, "roles_required").notNull).toBe(true);
   });
 
-  test("embedded — always NOT NULL, required wird absichtlich ignoriert", () => {
+  test("embedded — always NOT NULL, required is intentionally ignored", () => {
     // embedded has a default of `{}`, so it follows the same behavior as multiSelect.
     const entity = createEntity({
       fields: {
@@ -172,7 +172,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
     expect(colByName(tbl, "meta_optional").notNull).toBe(true);
   });
 
-  test("reference multi — always NOT NULL, required wird absichtlich ignoriert", () => {
+  test("reference multi — always NOT NULL, required is intentionally ignored", () => {
     // This is a jsonb array of UUIDs with a default of `[]`, so it follows the same logic as
     // multiSelect.
     const entity = createEntity({

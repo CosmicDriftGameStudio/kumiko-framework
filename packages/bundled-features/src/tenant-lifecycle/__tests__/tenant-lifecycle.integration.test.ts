@@ -172,7 +172,7 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
     expect(err.httpStatus).toBe(403);
   });
 
-  test("authenticated read against an unseeded tenant doesn't 500 on a missing read_tenants table (fw#3102)", async () => {
+  test("authenticated read against an unseeded tenant doesn't 500 on a missing read_tenants table", async () => {
     const res = await stack.http.query(TenantQueries.me, {}, tenantAdmin);
     expect(res.status).toBe(200);
   });

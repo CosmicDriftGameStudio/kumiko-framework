@@ -25,17 +25,17 @@ const mixedEntity: EntityDefinition = createEntity({
 });
 
 describe("flattenCompoundTypes — Pipeline", () => {
-  test("identity bei Payload ohne Compound-Felder", () => {
+  test("identity for payload without compound fields", () => {
     const payload = { label: "ACME-001" };
     const flat = flattenCompoundTypes(payload, mixedEntity);
     expect(flat).toEqual({ label: "ACME-001" });
   });
 
-  test("identity bei leerem Payload", () => {
+  test("identity for empty payload", () => {
     expect(flattenCompoundTypes({}, mixedEntity)).toEqual({});
   });
 
-  test("alle Konverter laufen wenn alle Compound-Types im Payload sind", () => {
+  test("all converters run when all compound types are present in the payload", () => {
     const flat = flattenCompoundTypes(
       {
         label: "ACME",
@@ -54,7 +54,7 @@ describe("flattenCompoundTypes — Pipeline", () => {
     expect(flat["buyingPriceCurrency"]).toBe("EUR");
   });
 
-  test("ist pure — input wird nicht mutiert", () => {
+  test("is pure — input is not mutated", () => {
     const input = {
       pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" },
       buyingPrice: { amount: 100, currency: "EUR" },
@@ -66,7 +66,7 @@ describe("flattenCompoundTypes — Pipeline", () => {
 });
 
 describe("rehydrateCompoundTypes — Pipeline", () => {
-  test("identity bei Row ohne Compound-Felder", () => {
+  test("identity for row without compound fields", () => {
     expect(rehydrateCompoundTypes({ label: "ACME" }, mixedEntity)).toEqual({ label: "ACME" });
   });
 
@@ -94,7 +94,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     });
   });
 
-  test("Round-Trip: flatten → rehydrate ergibt identisches API-Object (utc wird im Read addiert)", () => {
+  test("Round-Trip: flatten → rehydrate produces identical API object (utc is added on read)", () => {
     const original = {
       label: "ACME",
       pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" },
@@ -112,7 +112,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     expect(round["label"]).toBe("ACME");
   });
 
-  test("ist pure — input wird nicht mutiert", () => {
+  test("is pure — input is not mutated", () => {
     const input = {
       pickupUtc: "2026-04-15T09:00:00Z",
       pickupTz: "Europe/Lisbon",

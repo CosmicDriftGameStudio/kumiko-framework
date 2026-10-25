@@ -1004,7 +1004,7 @@ describe("config.readiness query handler", () => {
 
   type MissingWithSummary = Missing & { missingCount: number; missingTone: "default" | "warn" };
 
-  test("missingCount matches missing.length and missingTone is warn while something is missing (fw#2312)", async () => {
+  test("missingCount matches missing.length and missingTone is warn while something is missing", async () => {
     const result = await stack.http.queryOk<MissingWithSummary>(
       ConfigQueries.readiness,
       {},
@@ -1016,7 +1016,7 @@ describe("config.readiness query handler", () => {
     expect(result.missingTone).toBe("warn");
   });
 
-  test("missingCount is 0 and missingTone is default once every required key is set (fw#2312)", async () => {
+  test("missingCount is 0 and missingTone is default once every required key is set", async () => {
     const admin = readinessAdminFor(7);
     for (const [key, value] of [
       ["transport:config:smtp-host", "smtp.example.com"],
@@ -1033,7 +1033,7 @@ describe("config.readiness query handler", () => {
     expect(result.missingTone).toBe("default");
   });
 
-  test("whitespace-only text value still counts as missing (requireNonEmpty-Parität)", async () => {
+  test("whitespace-only text value still counts as missing (requireNonEmpty parity)", async () => {
     const admin = readinessAdminFor(2);
     await stack.http.writeOk(
       ConfigHandlers.set,

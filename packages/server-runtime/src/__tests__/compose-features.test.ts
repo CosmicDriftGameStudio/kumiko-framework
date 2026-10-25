@@ -30,7 +30,7 @@ const pickerAuthDupe = defineFeature("auth-email-password", () => {});
 const HMAC_SECRET = "test-secret-with-at-least-32-bytes-aaa";
 
 describe("composeFeatures", () => {
-  test("includeBundled=false → nur App-Features", () => {
+  test("includeBundled=false → app features only", () => {
     const features = composeFeatures([noopFeature], { includeBundled: false });
     expect(features.map((f) => f.name)).toEqual(["noop-app"]);
   });
@@ -234,7 +234,7 @@ describe("composeFeatures", () => {
   // configure authOptions.invite still got /members with no invite button —
   // the screen is bound to auth-email-password's invite-create handler,
   // which only exists when opts.invite is set (feature.ts:238-239).
-  test("authOptions.invite → tenant bekommt invite-Screen + Toolbar-Action; ohne invite bootet sauber ohne beides", () => {
+  test("authOptions.invite → tenant gets invite screen + toolbar action; without invite, boots cleanly without either", () => {
     const withInvite = composeFeatures([noopFeature], {
       includeBundled: true,
       authOptions: { invite: { appUrl: "https://app/invite" } },

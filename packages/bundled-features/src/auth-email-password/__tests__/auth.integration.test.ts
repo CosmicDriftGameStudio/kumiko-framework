@@ -313,7 +313,7 @@ describe("scenario 5: change-password success", () => {
   });
 });
 
-describe("scenario 5c: change-password common-password rejection (#1340)", () => {
+describe("change-password common-password rejection", () => {
   test("common newPassword → 400 (schema rejects breach-list password)", async () => {
     const seed = await seedLoginUser({ email: "common-cp@example.com", password: "good-old-pw" });
     const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });

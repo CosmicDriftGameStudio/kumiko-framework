@@ -8,7 +8,7 @@ function pick(input: HTMLElement, files: readonly File[]): void {
 }
 
 describe("UploadZone", () => {
-  test("lädt eine Datei hoch und zeigt den done-Status", async () => {
+  test("uploads a file and displays the done status", async () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
     const file = new File(["hi"], "report.pdf", { type: "application/pdf" });
@@ -20,7 +20,7 @@ describe("UploadZone", () => {
     await waitFor(() => expect(screen.getByText("Uploaded")).toBeTruthy());
   });
 
-  test("zeigt die Fehlermeldung wenn onUpload wirft", async () => {
+  test("shows the error message when onUpload throws", async () => {
     const onUpload = mock(async () => {
       throw new Error("too_large");
     });
@@ -32,7 +32,7 @@ describe("UploadZone", () => {
     expect(screen.getByText("Failed")).toBeTruthy();
   });
 
-  test("multiple=false nimmt nur die erste Datei", async () => {
+  test("multiple=false accepts only the first file", async () => {
     const onUpload = mock(async () => {});
     render(
       <UploadZone title="Datei hochladen" onUpload={onUpload} multiple={false} testId="zone" />,
@@ -45,7 +45,7 @@ describe("UploadZone", () => {
     expect(onUpload).toHaveBeenCalledWith(a);
   });
 
-  test("resettet den Input nach dem Upload-Batch", async () => {
+  test("resets the input after the upload batch", async () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
     const input = screen.getByTestId("zone-input") as HTMLInputElement;
@@ -60,7 +60,7 @@ describe("UploadZone", () => {
     await waitFor(() => expect(setValue).toHaveBeenCalledWith(""));
   });
 
-  test("ruft onUpload bei Drop mit Dateien auf", async () => {
+  test("calls onUpload when files are dropped", async () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
     const file = new File(["hi"], "dropped.pdf", { type: "application/pdf" });
@@ -134,7 +134,7 @@ describe("UploadZone", () => {
     }
   });
 
-  test("disabled unterdrückt den Drop", () => {
+  test("disabled prevents dropping", () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} disabled testId="zone" />);
     const file = new File(["hi"], "dropped.pdf", { type: "application/pdf" });
@@ -143,7 +143,7 @@ describe("UploadZone", () => {
     expect(onUpload).not.toHaveBeenCalled();
   });
 
-  test("dragLeave auf ein Kind-Element behält den aktiven State, auf ein Element außerhalb setzt ihn zurück", () => {
+  test("dragLeave on a child element keeps the active state, while on an element outside it resets the state", () => {
     const onUpload = mock(async () => {});
     render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
     const dropzone = screen.getByTestId("zone-dropzone");
@@ -168,7 +168,7 @@ describe("UploadZone", () => {
     expect(dropzone.className).not.toContain("border-primary");
   });
 
-  test("gibt Bilder verkleinert an onUpload weiter (nicht die Originaldatei)", async () => {
+  test("passes resized images to onUpload (not the original file)", async () => {
     class FakeOffscreenCanvas {
       getContext() {
         return { drawImage: mock(() => {}) };

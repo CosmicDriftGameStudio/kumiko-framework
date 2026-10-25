@@ -38,7 +38,7 @@ function bootFeatures() {
   ];
 }
 
-describe("account-security composed from bundled screens (fw#2841)", () => {
+describe("account-security composed from bundled screens", () => {
   // auth-mfa's user-mfa entity has encrypted fields — validateBoot probes for a cipher.
   beforeAll(() => configureEntityFieldEncryption(createTestEnvelopeCipher()));
   afterAll(() => configureEntityFieldEncryption(undefined));

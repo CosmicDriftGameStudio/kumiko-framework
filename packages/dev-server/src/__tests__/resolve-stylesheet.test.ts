@@ -28,7 +28,7 @@ describe("resolveStylesheet", () => {
     expect(out?.startsWith("/")).toBe(true);
   });
 
-  test("absolute string bleibt unverändert (path.resolve idempotent)", () => {
+  test("absolute string remains unchanged (path.resolve idempotent)", () => {
     const out = resolveStylesheet({
       features: [],
       stylesheet: "/abs/path/styles.css",
@@ -36,7 +36,7 @@ describe("resolveStylesheet", () => {
     expect(out).toBe("/abs/path/styles.css");
   });
 
-  test("false → undefined (Pipeline explizit aus)", () => {
+  test("false → undefined (Pipeline explicitly disabled)", () => {
     const out = resolveStylesheet({
       features: [],
       stylesheet: false,
@@ -45,7 +45,7 @@ describe("resolveStylesheet", () => {
     expect(out).toBeUndefined();
   });
 
-  test("undefined ohne clientEntry → undefined (kein Browser-Bundle, keine CSS)", () => {
+  test("undefined without clientEntry → undefined (no browser bundle, no CSS)", () => {
     const out = resolveStylesheet({
       features: [],
     });

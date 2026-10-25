@@ -91,7 +91,7 @@ describe("runPendingSeedMigrations", () => {
     }
   });
 
-  test("skippable + env-flag → skip ohne run", async () => {
+  test("skippable + env-flag → skip without run", async () => {
     const dir = makeTempSeedsDir([
       { name: "2026-05-20-skip-me.ts", content: makeSeedFile("skip-me", { skippable: true }) },
     ]);
@@ -116,7 +116,7 @@ describe("runPendingSeedMigrations", () => {
     }
   });
 
-  test("already-applied seed wird übersprungen", async () => {
+  test("already-applied seed is skipped", async () => {
     const dir = makeTempSeedsDir([
       { name: "2026-05-19-init.ts", content: makeSeedFile("init") },
       { name: "2026-05-20-new.ts", content: makeSeedFile("new") },
@@ -139,7 +139,7 @@ describe("runPendingSeedMigrations", () => {
     }
   });
 
-  test("seed-file ohne default-export → klarer Error", async () => {
+  test("seed file without a default export → clear error", async () => {
     const dir = makeTempSeedsDir([
       { name: "2026-05-20-broken.ts", content: "export const notDefault = {};" },
     ]);

@@ -176,7 +176,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("seed throws → Tx rollback, kein Marker geschrieben", async () => {
+  test("seed throws → Tx rollback, no marker written", async () => {
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-fails.ts",
@@ -207,7 +207,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("systemWriteAs leitet zum echten Handler im SYSTEM_TENANT-Stream durch", async () => {
+  test("systemWriteAs dispatches to the real handler in the SYSTEM_TENANT stream", async () => {
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-uses-dispatcher.ts",
@@ -243,7 +243,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("systemWriteAs ohne extraRoles → access_denied gegen rollen-gated Handler, mit extraRoles → durch", async () => {
+  test("systemWriteAs without extraRoles → access_denied for role-gated handler, with extraRoles → proceeds", async () => {
     const denyDir = makeTempSeedsDir([
       {
         name: "2026-05-20-denied.ts",
@@ -354,7 +354,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("documented limitation: dispatcher-writes vor throw bleiben committed (idempotency-Pflicht für seeds)", async () => {
+  test("documented limitation: dispatcher writes before throw remain committed (idempotency requirement for seeds)", async () => {
     // Documented limitation: systemWriteAs runs through the app dispatcher,
     // which manages its own transaction (runBatch opens a separate transaction
     // on context.db; the runner's outer transaction is not passed through).
@@ -407,7 +407,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("applied-set filter: entries already in kumiko_es_operations werden geskipped", async () => {
+  test("applied-set filter: entries already in kumiko_es_operations are skipped", async () => {
     // Covers the loadAppliedIds filter (pending = files \ applied).
     // The pg_advisory_xact_lock and inner-transaction re-check provide a second
     // defense against parallel-pod races between loadAppliedIds and the

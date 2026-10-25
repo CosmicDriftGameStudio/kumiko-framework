@@ -104,7 +104,7 @@ describe("resolveScopeIds", () => {
   });
 });
 
-describe("resolvePiiSubject (kumiko-platform#231/#459)", () => {
+describe("resolvePiiSubject", () => {
   const tenant = "tenant-9" as TenantId;
 
   test("tenant scope resolves to the tenant subject", () => {

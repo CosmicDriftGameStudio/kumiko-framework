@@ -119,7 +119,7 @@ function tenantDb() {
   });
 }
 
-describe("searchable PII derived index (#1610)", () => {
+describe("searchable PII derived index", () => {
   test("create indexes plaintext; event payload stays ciphertext; erase purges search", async () => {
     const plain = "UniqueSearchPiiLabel1610";
     const created = await executor().create(
@@ -186,7 +186,7 @@ describe("searchable PII derived index (#1610)", () => {
     const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
   });
-  test("purge finds rows after anonymize rewrote ciphertext (#1610 bugbot)", async () => {
+  test("purge finds rows after anonymize rewrote ciphertext", async () => {
     const plain = "AnonymizedStillPurge1610";
     const created = await executor().create({ label: plain, note: "n" }, admin, tenantDb());
     if (!created.isSuccess) throw new Error("create failed");
@@ -257,7 +257,7 @@ describe("searchable PII derived index (#1610)", () => {
     expect(new Set(removed).size).toBe(copies + 1);
   });
 
-  test("purgeSearchDocumentsForSubject skips missing projection tables (fw#2550)", async () => {
+  test("purgeSearchDocumentsForSubject skips missing projection tables", async () => {
     const plain = "MissingTableStillPurges1610";
     const created = await executor().create({ label: plain, note: "n" }, admin, tenantDb());
     if (!created.isSuccess) throw new Error("create failed");

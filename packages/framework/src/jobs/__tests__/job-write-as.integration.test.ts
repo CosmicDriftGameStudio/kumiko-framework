@@ -181,7 +181,7 @@ async function notesFor(note: string): Promise<Array<{ created_by: string }>> {
   return [...rows];
 }
 
-describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)", () => {
+describe("JobContext.writeAs reaches a role-gated write handler", () => {
   test("ctx.dispatch.write is denied — the job's systemUser carries no TenantAdmin role", async () => {
     writeOutcomes.length = 0;
     const worker = createWorkerEntrypoint({
@@ -242,7 +242,7 @@ describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)
   });
 });
 
-describe("JobContext.writeAs is gated by the job's identity-switch grant (#3607)", () => {
+describe("JobContext.writeAs is gated by the job's identity-switch grant", () => {
   test("without a grant the switch is refused and nothing is written", async () => {
     writeAsFailures.length = 0;
     const worker = createWorkerEntrypoint({

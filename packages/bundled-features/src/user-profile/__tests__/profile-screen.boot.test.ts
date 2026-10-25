@@ -30,7 +30,7 @@ import { UserProfileForeignScreens } from "../web/constants.ts";
 // projectionDetail extension sections (entityName set, contributesToFormSubmit
 // not true, action handlers resolve) — same pattern as user-data-rights'
 // privacy-center screen (inspector-screens.boot.test.ts), which this mirrors.
-describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
+describe("user-profile screen (projectionDetail conversion)", () => {
   const features = [
     createConfigFeature(),
     createUserFeature(),

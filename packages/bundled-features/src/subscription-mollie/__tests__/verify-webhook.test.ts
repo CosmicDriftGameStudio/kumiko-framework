@@ -99,21 +99,21 @@ describe("extractMollieId", () => {
     ).toBe("tr_xxx");
   });
 
-  test("default content-type wird als form-urlencoded behandelt (Mollie-classic)", () => {
+  test("default content-type is treated as form-urlencoded (Mollie-classic)", () => {
     expect(extractMollieId("id=sub_yyy", {})).toBe("sub_yyy");
   });
 
-  test("JSON body mit content-type", () => {
+  test("JSON body with content-type", () => {
     expect(extractMollieId('{"id":"tr_zzz"}', { "content-type": "application/json" })).toBe(
       "tr_zzz",
     );
   });
 
-  test("malformed JSON → null statt throw (defensive)", () => {
+  test("malformed JSON → null instead of throwing (defensive)", () => {
     expect(extractMollieId("not json", { "content-type": "application/json" })).toBeNull();
   });
 
-  test("body ohne id → null", () => {
+  test("body without id → null", () => {
     expect(extractMollieId("foo=bar", {})).toBeNull();
   });
 });
@@ -191,7 +191,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
       priceToConfig: TEST_PRICE_CONFIG,
     });
 
-  test("first-payment paid, subscriptionId=null → list ist leer → ensureSubscription erstellt neue Sub → Created-Event mit der neuen sub-id", async () => {
+  test("first-payment paid, subscriptionId=null → list is empty → ensureSubscription creates new sub → Created event with the new sub-id", async () => {
     const newlyCreatedSub = buildMockSubscription({
       id: "sub_just_created",
       metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
@@ -245,7 +245,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     );
   });
 
-  test("Replay (Mollie sendet webhook nochmal) → list findet existing-active-sub für priceId → kein zweiter create", async () => {
+  test("Replay (Mollie sends webhook again) → list finds existing active sub for priceId → no second create", async () => {
     const existingSub = buildMockSubscription({
       id: "sub_already_there",
       status: "active",
@@ -267,7 +267,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     expect(client.customerSubscriptions.create).not.toHaveBeenCalled();
   });
 
-  test("List hat sub für ANDEREN priceId (= App-Builder bietet Plan-Wechsel) → trotzdem create für neuen priceId", async () => {
+  test("List has sub for a DIFFERENT priceId (= App-Builder offers plan change) → still create for new priceId", async () => {
     const otherPlanSub = buildMockSubscription({
       id: "sub_basic_old",
       status: "active",
@@ -301,12 +301,12 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
       priceToConfig: TEST_PRICE_CONFIG,
     });
 
-  test("body ohne id → throws", async () => {
+  test("body without id → throws", async () => {
     const client = buildClient();
     await expect(verify(client)("not-an-id-form", {})).rejects.toThrow(/no `id` field/);
   });
 
-  test("unbekannte ID-form (kein tr_/sub_ prefix) → null", async () => {
+  test("unknown ID form (no tr_/sub_ prefix) → null", async () => {
     const client = buildClient();
     expect(await verify(client)("id=unknown_xyz", {})).toBeNull();
   });
@@ -316,14 +316,14 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     expect(await verify(client)("id=tr_garbage", {})).toBeNull();
   });
 
-  test("payment ohne subscriptionId UND nicht first-payment-paid → null (= one-shot, nicht unsere domain)", async () => {
+  test("payment without subscriptionId AND not first-payment-paid → null (= one-shot, not our domain)", async () => {
     const client = buildClient({
       paymentResolve: buildMockPayment({ subscriptionId: null, sequenceType: "oneoff" }),
     });
     expect(await verify(client)("id=tr_oneshot", {})).toBeNull();
   });
 
-  test("first-payment-paid OHNE payment.metadata → null (App-Builder hat tenantId/priceId nicht gesetzt)", async () => {
+  test("first-payment-paid WITHOUT payment.metadata → null (App-Builder did not set tenantId/priceId)", async () => {
     const client = buildClient({
       paymentResolve: buildMockPayment({
         subscriptionId: null,
@@ -335,7 +335,7 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     expect(await verify(client)("id=tr_no_metadata", {})).toBeNull();
   });
 
-  test("first-payment-paid mit unbekanntem priceId → null (priceToConfig-Drift)", async () => {
+  test("first-payment-paid with unknown priceId → null (priceToConfig drift)", async () => {
     const client = buildClient({
       paymentResolve: buildMockPayment({
         subscriptionId: null,
@@ -347,7 +347,7 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     expect(await verify(client)("id=tr_unknown_price", {})).toBeNull();
   });
 
-  test("first-payment-paid für Preis ohne interval → null, keine Mollie-Subscription", async () => {
+  test("first-payment-paid for a price without interval → null, no Mollie subscription", async () => {
     const client = buildClient({
       paymentResolve: buildMockPayment({
         subscriptionId: null,
@@ -372,14 +372,14 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     }
   });
 
-  test("subscription ohne metadata.tenantId → null", async () => {
+  test("subscription without metadata.tenantId → null", async () => {
     const client = buildClient({
       subResolve: buildMockSubscription({ metadata: { priceId: "plan_pro" } }),
     });
     expect(await verify(client)("id=tr_no_tenant", {})).toBeNull();
   });
 
-  test("priceId nicht im Mapping → null", async () => {
+  test("priceId not in mapping → null", async () => {
     const client = buildClient({
       subResolve: buildMockSubscription({
         metadata: { tenantId: "t", priceId: "plan_unknown" },
@@ -388,12 +388,12 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     expect(await verify(client)("id=tr_test_001", {})).toBeNull();
   });
 
-  test("sub_xxx-direct-events sind heute NICHT supported (= null) — App-Builder bekommt sie indirekt via tr_xxx-payment-events", async () => {
+  test("sub_xxx-direct-events are currently NOT supported (= null) — App-Builder receives them indirectly via tr_xxx-payment-events", async () => {
     const client = buildClient();
     expect(await verify(client)("id=sub_direct_evt", {})).toBeNull();
   });
 
-  test("subscription ohne nextPaymentDate UND ohne startDate → throws (Mollie-API-Drift)", async () => {
+  test("subscription without nextPaymentDate AND without startDate → throws (Mollie API drift)", async () => {
     const client = buildClient({
       subResolve: buildMockSubscription({ nextPaymentDate: null, startDate: null }),
     });
@@ -411,7 +411,7 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
   });
 });
 
-describe("verifyAndParseMollieWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("verifyAndParseMollieWebhook — no ambient Temporal global", () => {
   const verify = (client: MollieClientShape) =>
     verifyAndParseMollieWebhook(client, {
       priceToTier: { plan_pro: "pro" },
@@ -447,11 +447,11 @@ describe("mapMollieStatus — Mollie-status → normalized", () => {
     expect(mapMollieStatus("completed" as never)).toBe(SubscriptionStatuses.canceled);
   });
 
-  test("suspended → past_due (= grace-period bei mandate-fail)", () => {
+  test("suspended → past_due (= grace period on mandate failure)", () => {
     expect(mapMollieStatus("suspended" as never)).toBe(SubscriptionStatuses.pastDue);
   });
 
-  test("pending → incomplete (= mandate noch nicht confirmed)", () => {
+  test("pending → incomplete (= mandate not yet confirmed)", () => {
     expect(mapMollieStatus("pending" as never)).toBe(SubscriptionStatuses.incomplete);
   });
 });
@@ -462,12 +462,12 @@ describe("mapMollieEventType — heuristik", () => {
     expect(mapMollieEventType(sub, null)).toBe(SubscriptionEventTypes.canceled);
   });
 
-  test("active sub ohne payment-context → updated (z.B. metadata-change via API)", () => {
+  test("active sub without payment context → updated (e.g. metadata change via API)", () => {
     const sub = buildMockSubscription({ status: "active" });
     expect(mapMollieEventType(sub, null)).toBe(SubscriptionEventTypes.updated);
   });
 
-  test("pending sub ohne payment-context → null (= noch nichts entschieden)", () => {
+  test("pending sub without payment context → null (= nothing decided yet)", () => {
     const sub = buildMockSubscription({ status: "pending" });
     expect(mapMollieEventType(sub, null)).toBeNull();
   });

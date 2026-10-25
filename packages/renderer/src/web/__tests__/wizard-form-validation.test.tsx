@@ -53,7 +53,7 @@ function renderWizard() {
   );
 }
 
-describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
+describe("entityEdit wizard — presence validation on Next", () => {
   test("empty required field blocks the step transition and shows a field error", async () => {
     renderWizard();
 
@@ -159,7 +159,7 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
 // The wizard chrome used to only show a "Step X of Y" counter —
 // no way to see what the remaining steps are called. The step bar renders
 // every section title up front and marks the current one.
-describe("entityEdit wizard — step bar (fw#1966)", () => {
+describe("entityEdit wizard — step bar", () => {
   test("shows every section title as a step entry", () => {
     renderWizard();
 

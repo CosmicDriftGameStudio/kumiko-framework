@@ -9,7 +9,7 @@ import { createUserFeature } from "../../user/feature.ts";
 import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID } from "../constants.ts";
 import { createSessionsFeature } from "../feature.ts";
 
-describe("sessions screens + query access alignment (kumiko-framework#255)", () => {
+describe("Sessions screens and query access are aligned", () => {
   const features = [
     createConfigFeature(),
     createUserFeature(),
@@ -43,7 +43,7 @@ describe("sessions screens + query access alignment (kumiko-framework#255)", () 
     expect(list.pageSize).toBe(MAX_LIST_LIMIT);
   });
 
-  test("session-list timestamp columns declare renderer.format (fw#2569)", () => {
+  test("session-list timestamp columns declare renderer.format", () => {
     const sessions = createSessionsFeature();
     const list = sessions.screens[SESSION_LIST_SCREEN_ID];
     if (list?.type !== "projectionList") throw new Error("expected projectionList");

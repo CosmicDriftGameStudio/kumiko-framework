@@ -109,7 +109,7 @@ async function seedUser(
   return { id: created.id };
 }
 
-describe("composeFeatures wiring — auth-mfa (kumiko-framework#266 Step 6)", () => {
+describe("composeFeatures wiring — auth-mfa", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
@@ -212,7 +212,7 @@ async function setPolicy(stack: TestStack, policy: "optional" | "admins" | "all"
 // in themselves). ponytail (see auth-mfa's config.ts): "admins"/"all"
 // hard-block an unenrolled matching user with mfaSetupRequired — there is
 // no enrollment-during-login UI yet (PR3). By design for this backend step.
-describe("composeFeatures wiring — auth-mfa enforcement policy (kumiko-framework#266 Step 7)", () => {
+describe("composeFeatures wiring — auth-mfa enforcement policy", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

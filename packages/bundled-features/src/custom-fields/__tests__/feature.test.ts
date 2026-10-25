@@ -140,14 +140,14 @@ describe("createCustomFieldsFeature access-options", () => {
     return access.roles;
   }
 
-  test("ohne Optionen: Singleton mit Default-Rollen", () => {
+  test("without options: singleton with default roles", () => {
     const feature = createCustomFieldsFeature();
     expect(feature).toBe(createCustomFieldsFeature());
     expect(writeAccess(feature, "set-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
     expect(writeAccess(feature, "clear-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
   });
 
-  test("valueWriteRoles überschreibt set- UND clear-custom-field", () => {
+  test("valueWriteRoles overrides set- AND clear-custom-field", () => {
     const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "set-custom-field")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "clear-custom-field")).toEqual(["Admin", "Editor"]);
@@ -165,13 +165,13 @@ describe("createCustomFieldsFeature access-options", () => {
     return access.roles;
   }
 
-  test("fieldDefinitionListRoles überschreibt den List-Query (FormSection-Lade-Pfad)", () => {
+  test("fieldDefinitionListRoles overrides the List-Query (FormSection loading path)", () => {
     const feature = createCustomFieldsFeature({ fieldDefinitionListRoles: ["Admin", "Editor"] });
     expect(listAccess(feature)).toEqual(["Admin", "Editor"]);
   });
 
   // valueWriteRoles without fieldDefinitionListRoles broke asymmetrically (save open, list closed) — value roles now inherit into the list default.
-  test("valueWriteRoles erbt in den List-Default wenn fieldDefinitionListRoles fehlt", () => {
+  test("valueWriteRoles is inherited as the list default when fieldDefinitionListRoles is missing", () => {
     const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
     const roles = listAccess(feature);
     // Value writers must also be able to load.
@@ -181,7 +181,7 @@ describe("createCustomFieldsFeature access-options", () => {
     expect(roles).toContain("TenantAdmin");
   });
 
-  test("explizite fieldDefinitionListRoles gewinnen über die valueWriteRoles-Vererbung", () => {
+  test("explicit fieldDefinitionListRoles take precedence over valueWriteRoles inheritance", () => {
     const feature = createCustomFieldsFeature({
       valueWriteRoles: ["Admin", "Editor"],
       fieldDefinitionListRoles: ["Viewer"],
@@ -191,7 +191,7 @@ describe("createCustomFieldsFeature access-options", () => {
 
   // define-/update-/delete-tenant-field were hard-wired to
   // ["TenantAdmin"] with no override; fieldDefinitionWriteRoles closes that gap.
-  test("fieldDefinitionWriteRoles überschreibt define-, update- UND delete-tenant-field", () => {
+  test("fieldDefinitionWriteRoles overrides define-, update-, AND delete-tenant-field", () => {
     const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "define-tenant-field")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "update-tenant-field")).toEqual(["Admin", "Editor"]);

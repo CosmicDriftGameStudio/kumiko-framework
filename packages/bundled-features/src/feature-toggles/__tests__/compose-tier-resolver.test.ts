@@ -149,7 +149,7 @@ describe("composeTierResolverWithGlobalToggles", () => {
     expect([...composed("t1" as TenantId)]).toEqual(["auth-self-registration"]);
   });
 
-  test("kumiko-framework#1479/2: an empty SYSTEM_TENANT_ID union throws instead of silently disabling all tier-gating", () => {
+  test("an empty SYSTEM_TENANT_ID union throws instead of silently disabling all tier-gating", () => {
     // A tierResolver that doesn't implement the SYSTEM_TENANT_ID convention
     // at all (e.g. always returns per-tenant grants, never the union) —
     // the old code would treat this as "zero tier-managed features", so
@@ -166,7 +166,7 @@ describe("composeTierResolverWithGlobalToggles", () => {
     expect(() => composed("t1" as TenantId)).toThrow(/SYSTEM_TENANT_ID/);
   });
 
-  test("kumiko-framework#1479/2: tierManaged is computed lazily — a resolver not ready at compose-time is fine as long as it's ready by first call", () => {
+  test("tierManaged is computed lazily — a resolver not ready at compose-time is fine as long as it's ready by first call", () => {
     let ready = false;
     const lateBoundResolver: EffectiveFeaturesResolver = (tenantId: TenantId) => {
       if (!ready) throw new Error("tierResolver not wired yet");
@@ -240,7 +240,7 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     expect([...composed("t1" as TenantId)]).not.toContain("pat-companion");
   });
 
-  test("kumiko-framework#1471/1: a tier-granted feature whose requires() dependency is globally disabled is excluded too", () => {
+  test("a tier-granted feature whose requires() dependency is globally disabled is excluded too", () => {
     // "pat-companion" IS in this tenant's tier grant this time (unlike the
     // test above) — the tenant's tier says yes, but its requires()
     // dependency "personal-access-tokens" is killed globally via override.
@@ -261,7 +261,7 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     expect(result).not.toContain("pat-companion");
   });
 
-  test("kumiko-framework#1471/2: a global override cannot disable a non-toggleable (always-on) feature", () => {
+  test("a global override cannot disable a non-toggleable (always-on) feature", () => {
     // "tenant" has no r.toggleable() call at all — computeEffectiveFeatures'
     // Rule 1 says non-toggleable features ignore overrides entirely. The old
     // code applied `readOverride(name) !== false` to every name in tierSet
@@ -276,7 +276,7 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     expect([...composed("t1" as TenantId)]).toContain("tenant");
   });
 
-  test("framework#1528: a resolver satisfying the emptiness guard but not merging always-on per-tenant still surfaces the always-on feature", () => {
+  test("a resolver satisfying the emptiness guard but not merging always-on per-tenant still surfaces the always-on feature", () => {
     // Custom composeApp resolver: implements the SYSTEM_TENANT_ID convention
     // (union includes "tenant") but, unlike tier-engine's own mergeAlwaysOn,
     // returns only the tier-only set for real tenants. Before the Rule-1

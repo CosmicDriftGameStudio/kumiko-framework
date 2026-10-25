@@ -46,7 +46,7 @@ const noopSubmit = async (): Promise<{
   readonly data: undefined;
 }> => ({ isSuccess: true, validationBlocked: false, data: undefined });
 
-describe("RenderEdit valueDisplay (fw#2245)", () => {
+describe("RenderEdit valueDisplay", () => {
   test('default ("form") keeps readOnly fields as disabled Inputs — unaffected callers stay unchanged', () => {
     render(
       <RenderEdit

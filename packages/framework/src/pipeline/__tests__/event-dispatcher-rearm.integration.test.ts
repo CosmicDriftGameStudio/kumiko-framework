@@ -101,7 +101,7 @@ async function backdateUpdatedAt(minutesAgo: number): Promise<void> {
   );
 }
 
-describe("issue #1350 — bounded dead-consumer re-arm", () => {
+describe("bounded dead-consumer re-arm", () => {
   test("stays dead within the cooldown window", async () => {
     poisonNames.add("poison");
     await appendWidget("poison");
@@ -167,7 +167,7 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     expect(deadAgain?.rearmCount).toBe(0);
   });
 
-  test("kumiko-framework#1525: cooldown-elapsed re-arm check works without relying on globalThis.Temporal", async () => {
+  test("cooldown-elapsed re-arm check works without relying on globalThis.Temporal", async () => {
     poisonNames.add("poison");
     await appendWidget("poison");
     await driveUntilDead();
@@ -211,7 +211,7 @@ describe("issue #1350 — bounded dead-consumer re-arm", () => {
     expect(stillExhausted?.rearmCount).toBe(3);
   });
 
-  test("kumiko_event_consumer_rearm_exhausted_total fires once, not per still-dead pass (#1362)", async () => {
+  test("kumiko_event_consumer_rearm_exhausted_total fires once, not per still-dead pass", async () => {
     // Dedicated stack with a RecordingMeter — module-level `stack` above is
     // shared across every test in this file and has no metric capture.
     const metricEvents: MetricEvent[] = [];

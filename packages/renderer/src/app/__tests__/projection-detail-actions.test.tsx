@@ -279,7 +279,7 @@ function renderDetail(opts: {
   );
 }
 
-describe("projectionDetail default edit action (fw#2166)", () => {
+describe("projectionDetail default edit action", () => {
   test("detailFor + matching entityEdit in the SAME feature → edit button navigates with the record id", async () => {
     const schema: FeatureSchema = {
       featureName: "app",
@@ -772,7 +772,7 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(errorBanner.textContent).toBe("archive failed: rent is still active");
   });
 
-  test("a failed writeHandler action shows its error in the head region, alongside the action button, NOT in Form's own actions/body regions (fw#2713)", async () => {
+  test("a failed writeHandler action shows its error in the head region, alongside the action button, NOT in Form's own actions/body regions", async () => {
     const schema: FeatureSchema = {
       featureName: "app",
       entities: {},

@@ -42,7 +42,7 @@ describe("EntityTable<E> — Property-Names existieren", () => {
   });
   const t = buildEntityTable("sample", sampleEntity);
 
-  test("base-columns sind getypt", () => {
+  test("base columns are typed", () => {
     expectTypeOf(t.id).not.toBeNever();
     expectTypeOf(t.tenantId).not.toBeNever();
     expectTypeOf(t.version).not.toBeNever();
@@ -52,13 +52,13 @@ describe("EntityTable<E> — Property-Names existieren", () => {
     expectTypeOf(t.modifiedById).not.toBeNever();
   });
 
-  test("field-columns sind getypt", () => {
+  test("field columns are typed", () => {
     expectTypeOf(t.title).not.toBeNever();
     expectTypeOf(t.done).not.toBeNever();
     expectTypeOf(t.priority).not.toBeNever();
   });
 
-  test("nicht-existierender Spaltenname ist Compile-Error", () => {
+  test("a non-existent column name is a compile error", () => {
     // @ts-expect-error — `nonExistent` is not declared in the entity.
     // If the line compiles, the type refactor was too permissive (= the index-
     // signature is back). The @ts-expect-error itself becomes a failure
@@ -98,12 +98,12 @@ describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
   });
   const t = buildEntityTable("delivery", ent);
 
-  test("Utc und Tz Spalten existieren", () => {
+  test("Utc and Tz columns exist", () => {
     expectTypeOf(t.pickupUtc).not.toBeNever();
     expectTypeOf(t.pickupTz).not.toBeNever();
   });
 
-  test("Original-name (ohne Suffix) ist KEIN column", () => {
+  test("Original name (without suffix) is NOT a column", () => {
     // @ts-expect-error — locatedTimestamp expands to pickupUtc + pickupTz, not `pickup`.
     // If `pickup` compiles, the FieldColumnNames map is broken.
     const x = t.pickup;
@@ -143,7 +143,7 @@ describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
   });
   const t = buildEntityTable("many", ent);
 
-  test("alle Felder als columns sichtbar", () => {
+  test("all fields are visible as columns", () => {
     expectTypeOf(t.txt).not.toBeNever();
     expectTypeOf(t.num).not.toBeNever();
     expectTypeOf(t.dt).not.toBeNever();

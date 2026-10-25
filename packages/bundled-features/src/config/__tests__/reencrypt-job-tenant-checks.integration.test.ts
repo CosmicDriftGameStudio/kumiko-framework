@@ -156,7 +156,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("config KEK-rotation job — multi-tenant scan + write checks (kumiko-framework#2072)", () => {
+describe("config KEK-rotation job — multi-tenant scan + write checks", () => {
   test("acknowledgeCrossTenant scan + per-tenant assertRowsTenant checks still rotate every tenant's row", async () => {
     const beforeRows = await readRawValues();
     expect(beforeRows).toHaveLength(2);

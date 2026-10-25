@@ -21,7 +21,7 @@ function ToastTrigger({ options }: { readonly options: readonly ToastOptions[] }
 }
 
 describe("ToastProvider + useToast", () => {
-  test("toast() pushed Title und Description in den Viewport", () => {
+  test("toast() pushes Title and Description into the viewport", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Saved", description: "Changes applied" }]} />
@@ -31,7 +31,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Changes applied")).toBeTruthy();
   });
 
-  test("toast() ohne description rendert nur den Title", () => {
+  test("toast() without description renders only the Title", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Copied" }]} />
@@ -40,7 +40,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Copied")).toBeTruthy();
   });
 
-  test("docsUrl: rendert Learn-more-Link (i18n-Default) mit target=_blank", () => {
+  test("docsUrl: renders Learn-more link (i18n default) with target=_blank", () => {
     render(
       <ToastProvider>
         <ToastTrigger
@@ -60,7 +60,7 @@ describe("ToastProvider + useToast", () => {
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
-  test("docsLinkLabel override: nutzt vom Caller gegebenen Text", () => {
+  test("docsLinkLabel override: uses text provided by the caller", () => {
     render(
       <ToastProvider>
         <ToastTrigger
@@ -77,7 +77,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByRole("link", { name: /Learn more/i })).toBeTruthy();
   });
 
-  test("ohne docsUrl: kein Link gerendert", () => {
+  test("without docsUrl: no link rendered", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Saved", description: "ok" }]} />
@@ -86,7 +86,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  test("variant=bad: setzt die status-bad StatusTone-Klasse auf den Root", () => {
+  test("variant=bad: sets the status-bad StatusTone class on the root", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />
@@ -103,7 +103,7 @@ describe("ToastProvider + useToast", () => {
     expect(node).not.toBeNull();
   });
 
-  test("zwei toasts: beide Entries sind im DOM (Stacking)", () => {
+  test("two toasts: both entries are in the DOM (stacking)", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "First" }, { title: "Second" }]} />
@@ -113,7 +113,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Second")).toBeTruthy();
   });
 
-  test("zwei toasts im selben Tick: getrennte React-keys (Counter-Race-Regression)", () => {
+  test("two toasts in the same tick: separate React keys (counter race regression)", () => {
     // Previously, ToastProvider used a useState counter whose closure capture
     // caused double calls to see the same value, producing identical IDs
     // and React-key collisions (warning and UI glitch). The fix uses
@@ -138,7 +138,7 @@ describe("ToastProvider + useToast", () => {
     }
   });
 
-  test("useToast außerhalb des Providers: no-op, kein Crash", () => {
+  test("useToast outside the provider: no-op, no crash", () => {
     // Component that uses useToast but is not mounted inside <ToastProvider>,
     // such as a test without a provider or a pre-mount code path.
     // It must render without throwing.
@@ -157,7 +157,7 @@ describe("ToastProvider + useToast", () => {
     });
     expect(screen.queryByText("Stub")).toBeNull();
   });
-  test("requestId: zeigt die Fehler-ID und Kopieren schreibt sie in die Zwischenablage", async () => {
+  test("requestId: displays the error ID and copying writes it to the clipboard", async () => {
     const written: string[] = [];
     const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
@@ -184,7 +184,7 @@ describe("ToastProvider + useToast", () => {
     }
   });
 
-  test("ohne requestId bleibt der Toast ohne Fehler-ID-Zeile", () => {
+  test("without requestId, the toast has no error ID row", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />

@@ -188,7 +188,7 @@ describe("scenario 5: tenant.list", () => {
     ]);
   });
 
-  test("without totalCount the shape carries no total field (fw#2312)", async () => {
+  test("without totalCount the shape carries no total field", async () => {
     const result = await stack.http.queryOk<{
       rows: Record<string, unknown>[];
       nextCursor: string | null;
@@ -197,7 +197,7 @@ describe("scenario 5: tenant.list", () => {
     expect(result.total).toBeUndefined();
   });
 
-  test("total reflects the full match count, not capped by limit (fw#2312)", async () => {
+  test("total reflects the full match count, not capped by limit", async () => {
     await stack.http.writeOk(
       TenantHandlers.create,
       { key: "gamma", name: "Gamma LLC" },

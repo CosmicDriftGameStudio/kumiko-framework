@@ -8,11 +8,11 @@ import { qualifyNavProviderKey } from "../create-app.tsx";
 // after release, so this behavior is pinned here.
 
 describe("qualifyNavProviderKey", () => {
-  test("lokale id wird mit Feature-Namen qualifiziert (self-keyed)", () => {
+  test("Local ID is qualified with the feature name (self-keyed)", () => {
     expect(qualifyNavProviderKey("cms", "content")).toBe("cms:nav:content");
   });
 
-  test("bereits qualifizierte QN geht unverändert durch (App registriert Nav für bundled-feature)", () => {
+  test("An already qualified QN passes through unchanged (app registers nav for bundled-feature)", () => {
     // The text-content client receives the publicstatus QN as navId. It must NOT be
     // qualified again as "text-content:nav:publicstatus:nav:content".
     expect(qualifyNavProviderKey("text-content", "publicstatus:nav:content")).toBe(
@@ -20,7 +20,7 @@ describe("qualifyNavProviderKey", () => {
     );
   });
 
-  test("self-keyed Fall ist konsistent mit qualifyNavId (Schema-Seite)", () => {
+  test("The self-keyed case is consistent with qualifyNavId (schema side)", () => {
     // Both sides must produce the same QN; otherwise they do not match.
     expect(qualifyNavProviderKey("demo", "list")).toBe(qualifyNavId("demo", "list"));
   });

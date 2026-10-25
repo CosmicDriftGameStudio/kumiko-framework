@@ -718,7 +718,7 @@ describe("embedded sub-field: timestamp", () => {
 // client form-controller and server write handler via the same
 // z.object().safeParse() call) ---
 
-describe("totalsMatch (fw#1839)", () => {
+describe("totalsMatch", () => {
   function invoiceEntity() {
     return createEntity({
       table: "Invoices",
@@ -810,7 +810,7 @@ describe("totalsMatch (fw#1839)", () => {
 // server is the authority for derived cells, a client value is overwritten
 // with the recomputed one instead of merely checked against it. ---
 
-describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () => {
+describe("embedded-list derived cell recomputation", () => {
   function orderEntity() {
     return createEntity({
       table: "Orders",
@@ -901,7 +901,7 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
   // integer/scale validation — round to the target's declared precision
   // before it's written back, instead of rejecting the whole row. ---
 
-  test("a fractional product on a money target is rounded to whole minor units (kaufmännisch)", () => {
+  test("a fractional product on a money target is rounded to whole minor units (commercial rounding)", () => {
     const entity = createEntity({
       table: "Orders",
       fields: {
@@ -1308,7 +1308,7 @@ describe("buildUpdateSchema", () => {
   });
 });
 
-describe("buildInsertSchema caller id (#2922)", () => {
+describe("buildInsertSchema caller id", () => {
   const entity = createEntity({
     table: "Test",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },

@@ -219,7 +219,7 @@ describe("scenario 6: access control", () => {
     expectErrorIncludes(error, "access_denied");
   });
 
-  test("TenantAdmin (ohne SystemAdmin) cannot create a tier-assignment — Self-Upgrade-Schutz", async () => {
+  test("TenantAdmin (without SystemAdmin) cannot create a tier-assignment — self-upgrade protection", async () => {
     // Changing the tier is controlled by platform billing: a TenantAdmin must
     // not set its own tier, or it could grant itself a free upgrade.
     const tenantAdmin = createTestUser({
@@ -262,7 +262,7 @@ describe("scenario 6: access control", () => {
     expectErrorIncludes(error, "access_denied");
   });
 
-  test("SystemAdmin (ohne TenantAdmin) CAN create a tier-assignment", async () => {
+  test("SystemAdmin (without TenantAdmin) CAN create a tier-assignment", async () => {
     const sysadmin = createTestUser({
       id: 313,
       tenantId: testTenantId(313),

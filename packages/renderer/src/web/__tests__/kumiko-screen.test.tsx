@@ -120,7 +120,7 @@ describe("KumikoScreen", () => {
 
   // The search box is a dead toolbar slot and guarantees a 422 once
   // the client knows the server has no SearchAdapter wired.
-  describe("entityList search box gated on schema.searchAdapterMissing (#2062)", () => {
+  describe("entityList search box gated on schema.searchAdapterMissing", () => {
     const searchableWidgetEntity = {
       fields: { title: { type: "text", required: true, searchable: true } },
     } as unknown as EntityDefinition;
@@ -215,7 +215,7 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("kumiko-screen-entity-missing")).toBeTruthy();
   });
 
-  test("entityEdit mit entityId → lädt detail, pre-fillt Form, submit update mit {id,version,changes}", async () => {
+  test("entityEdit with entityId → loads detail, pre-fills form, submits update with {id,version,changes}", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -261,7 +261,7 @@ describe("KumikoScreen", () => {
   // the section falls back to vm.id (=values["id"]=undefined) and renders create mode
   // during an edit. The real detail path is required here because a manually mocked
   // `initial.id` would not cover this flow.
-  test("entityEdit mit entityId → extension-section bekommt die echte entity-id (nicht create-mode)", async () => {
+  test("entityEdit with entityId → extension section receives the real entity-id (not create mode)", async () => {
     const editScreenWithExtension: EntityEditScreenDefinition = {
       id: "task-edit-ext",
       type: "entityEdit",
@@ -328,7 +328,7 @@ describe("KumikoScreen", () => {
     expect(section.textContent).toBe("task:task-1:Hetzner");
   });
 
-  test("entityList onRowClick → Callback feuert mit Row-Viewmodel", async () => {
+  test("entityList onRowClick → callback fires with row view model", async () => {
     const clicks: { id: string }[] = [];
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -355,7 +355,7 @@ describe("KumikoScreen", () => {
     expect(clicks).toEqual([{ id: "row-1" }]);
   });
 
-  test("entityEdit update-mode: Delete-Button öffnet Confirm-Dialog + write('delete')", async () => {
+  test("entityEdit update-mode: Delete button opens confirm dialog + write('delete')", async () => {
     const user = userEvent.setup();
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
@@ -440,7 +440,7 @@ describe("KumikoScreen", () => {
     return { onNavigate };
   }
 
-  test("entityEdit update-mode: abgelehntes Delete zeigt den Feldfehler im Banner, Dialog zu, keine Navigation", async () => {
+  test("entityEdit update-mode: rejected Delete shows the field error in the banner, closes the dialog, no navigation", async () => {
     const { onNavigate } = await deleteRejectedWith({
       fields: [{ path: "id", code: "custom", i18nKey: "tasks.errors.delete-blocked" }],
     });
@@ -452,7 +452,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-delete")).not.toBeNull();
   });
 
-  test("entityEdit update-mode: abgelehntes Delete mit mehreren Feldfehlern listet alle im Banner", async () => {
+  test("entityEdit update-mode: rejected Delete with multiple field errors lists all of them in the banner", async () => {
     await deleteRejectedWith({
       fields: [
         { path: "id", code: "custom", i18nKey: "tasks.errors.blocked-by-a" },
@@ -470,14 +470,14 @@ describe("KumikoScreen", () => {
     expect(extras.map((el) => el.textContent)).toEqual(["tasks.errors.blocked-by-b"]);
   });
 
-  test("entityEdit update-mode: abgelehntes Delete ohne Feldfehler zeigt den Top-Level-Key", async () => {
+  test("entityEdit update-mode: rejected Delete without field errors shows the top-level key", async () => {
     await deleteRejectedWith(undefined);
 
     const banner = await screen.findByTestId("render-edit-form-error-key");
     expect(banner.textContent).toContain("Validation failed");
   });
 
-  test("entityEdit update-mode: i18nParams des abgelehnten Deletes werden im Banner interpoliert", async () => {
+  test("entityEdit update-mode: i18nParams of the rejected Delete are interpolated in the banner", async () => {
     await deleteRejectedWith(
       {
         fields: [
@@ -491,7 +491,7 @@ describe("KumikoScreen", () => {
     expect(banner.textContent).toContain('tasks.errors.too-many|{"max":5}');
   });
 
-  test("entityEdit create-mode: kein Delete-Button (keine entity-id → nichts zu löschen)", () => {
+  test("entityEdit create-mode: no Delete button (no entity-id → nothing to delete)", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen schema={schema} qn="tasks:screen:task-edit" />
@@ -505,7 +505,7 @@ describe("KumikoScreen", () => {
   // impl lives in renderer/web's RoutedScreen, outside this test — here we
   // only verify the wiring: button renders icon-only in update-mode, fires
   // the callback, and swaps its accessible name to "copied" afterwards.
-  test("entityEdit update-mode: Copy-Link-Button feuert onCopyLink + zeigt 'copied'-Accessible-Name", async () => {
+  test("entityEdit update-mode: Copy-Link button fires onCopyLink + shows 'copied' accessible name", async () => {
     const user = userEvent.setup();
     const onCopyLink = mock(() => Promise.resolve());
     const dispatcher = makeDispatcher({
@@ -535,7 +535,7 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(button.textContent).toBe("Copied!"));
   });
 
-  test("entityEdit create-mode: kein Copy-Link-Button (keine entity-id → kein Permalink)", () => {
+  test("entityEdit create-mode: no Copy-Link button (no entity-id → no permalink)", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen
@@ -548,7 +548,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-copy-link")).toBeNull();
   });
 
-  test("entityEdit update-mode ohne onCopyLink-Prop: kein Copy-Link-Button", async () => {
+  test("entityEdit update-mode without onCopyLink prop: no Copy-Link button", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -618,7 +618,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
-  test("entityEdit update-mode: query-Error zeigt übersetzten Text statt rohem i18nKey (issue #1193)", async () => {
+  test("entityEdit update-mode: query error shows translated text instead of raw i18nKey", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: false,
@@ -643,7 +643,7 @@ describe("KumikoScreen", () => {
     expect(bannerText).not.toContain("errors.access.denied");
   });
 
-  test("entityList: query-Error zeigt übersetzten Text statt rohem i18nKey (issue #1193)", async () => {
+  test("entityList: query error shows translated text instead of raw i18nKey", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: false,
@@ -831,7 +831,7 @@ describe("KumikoScreen", () => {
   // dispatcher.write does not throw: a failure result was previously discarded, so
   // the confirmation dialog closed silently and the user saw no feedback. The dialog
   // now closes and a destructive toast displays the error text.
-  test("entityList rowActions writeHandler: fehlgeschlagener Write → Fehler-Toast statt stillem Dialog-Close", async () => {
+  test("entityList rowActions writeHandler: failed write → error toast instead of silent dialog close", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -897,7 +897,7 @@ describe("KumikoScreen", () => {
   // The hit branch of dispatcherErrorText: a known i18nKey with parameters puts the
   // translated, interpolated text into the toast instead of error.message. That
   // logic is what justifies the function.
-  test("entityList rowActions writeHandler: bekannter i18nKey → übersetzter Toast mit interpolierten Params", async () => {
+  test("entityList rowActions writeHandler: known i18nKey → translated toast with interpolated params", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -966,7 +966,7 @@ describe("KumikoScreen", () => {
   // navigate rowActions may carry style="danger" — it renders
   // red like the writeHandler variant, but does NOT force a confirm dialog
   // (the target form/screen is itself the confirmation).
-  test("entityList rowActions kind=navigate mit style=danger: rot, aber navigiert sofort ohne Dialog", async () => {
+  test("entityList rowActions kind=navigate with style=danger: red, but navigates immediately without dialog", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1102,7 +1102,7 @@ describe("KumikoScreen", () => {
   // Verify the same contract against the real useBrowserNavApi rather than memoryNav.
   // The actual bug mechanism is that pushState discards the query, so setSearchParams
   // must run on the new URL. This combines navigation, entityId, and params.
-  test("entityList rowActions kind=navigate: echte useBrowserNavApi → Pfad-Segmente + ?param auf der neuen URL", async () => {
+  test("entityList rowActions kind=navigate: actual useBrowserNavApi → path segments + ?param on the new URL", async () => {
     window.history.replaceState(null, "", "/task-list");
 
     const dispatcher = makeDispatcher({
@@ -1160,7 +1160,7 @@ describe("KumikoScreen", () => {
 
   // For entityEdit targets, the ID must be a path segment (route.entityId), not a
   // search parameter; otherwise the edit screen opens in create mode.
-  test("entityList rowActions kind=navigate mit entityId: Id landet im NavTarget, nicht in den Search-Params", async () => {
+  test("entityList rowActions kind=navigate with entityId: ID lands in the NavTarget, not in the search params", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
@@ -1224,7 +1224,7 @@ describe("KumikoScreen", () => {
   // JSON schema case (GET /api/schema): a declarative entityId: "id" survives JSON.stringify because it is a string rather
   // than a function. The schema therefore behaves the same when loaded directly or
   // after a JSON round trip.
-  test("entityList rowActions kind=navigate auf entityEdit-Ziel: entityId-String überlebt JSON-Roundtrip (JSON-Schema-sicher)", async () => {
+  test("entityList rowActions kind=navigate to entityEdit target: entityId string survives JSON roundtrip (JSON-schema-safe)", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1281,7 +1281,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "r1" });
   });
 
-  test("entityList rowActions kind=navigate auf NICHT-entityEdit-Ziel: kein entityId-Default", async () => {
+  test("entityList rowActions kind=navigate to non-entityEdit target: no entityId default", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1341,7 +1341,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-approve" });
   });
 
-  test("entityList rowActions kind=navigate ohne eigene params: setSearchParams trägt nur returnTo", async () => {
+  test("entityList rowActions kind=navigate without own params: setSearchParams carries only returnTo", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
@@ -1444,7 +1444,7 @@ describe("KumikoScreen", () => {
   // Same decoupling as the rowAction variant — style="danger" on a
   // navigate toolbarAction renders the destructive button variant without
   // forcing a confirm dialog.
-  test("entityList toolbarActions navigate-kind mit style=danger: destructive Button, navigiert sofort ohne Dialog", async () => {
+  test("entityList toolbarActions navigate-kind with style=danger: destructive button, navigates immediately without dialog", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const dispatcher = makeDispatcher({
       query: (async () => ({

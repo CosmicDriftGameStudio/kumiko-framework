@@ -35,19 +35,19 @@ describe("computeActiveRoles", () => {
     expect([...result].sort()).toEqual(["Admin", "SystemAdmin", "User"]);
   });
 
-  test("kein activeTenantId → nur globalRoles", () => {
+  test("no activeTenantId → only globalRoles", () => {
     const result = computeActiveRoles(user(["SystemAdmin"]), null, [t("tenant-1", ["Admin"])]);
     expect(result).toEqual(["SystemAdmin"]);
   });
 
-  test("activeTenantId zeigt auf nicht-vorhandenen tenant → nur globalRoles", () => {
+  test("activeTenantId points to non-existent tenant → only globalRoles", () => {
     const result = computeActiveRoles(user(["SystemAdmin"]), "tenant-2", [
       t("tenant-1", ["Admin"]),
     ]);
     expect(result).toEqual(["SystemAdmin"]);
   });
 
-  test("OHNE globalRoles + active membership → nur membership-roles", () => {
+  test("without globalRoles + active membership → only membership-roles", () => {
     const result = computeActiveRoles(user([]), "tenant-1", [t("tenant-1", ["Admin"])]);
     expect(result).toEqual(["Admin"]);
   });

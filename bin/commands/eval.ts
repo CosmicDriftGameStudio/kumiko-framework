@@ -1,19 +1,19 @@
-// L2 AI-Eval als kumiko-CLI subcommand.
+// L2 AI-Eval as kumiko-CLI subcommand.
 //
-// **Architektur:** Eval-Pipeline + Fixtures + Cost-Reporter leben im
-// `kumiko-enterprise`-repo (ai-foundation ist enterprise-only). Framework's
-// CLI delegiert per subprocess in die enterprise scripts. Wenn enterprise
-// nicht ausgecheckt ist (standalone framework-clone), fail-loud mit
-// Hinweis.
+// **Architecture:** Eval pipeline + fixtures + cost reporter live in the
+// `kumiko-enterprise`-repo (ai-foundation is enterprise-only). Framework's
+// CLI delegates via subprocess to the enterprise scripts. If enterprise
+// is not checked out (standalone framework-clone), fail-loud with a
+// notice.
 //
 // **Subcommands:**
-//   bunx kumiko eval                 → eval-l2.ts (alle args durchgereicht)
-//   bunx kumiko eval drift           → eval-l2-drift.ts (alle args durchgereicht)
+//   bunx kumiko eval                 → eval-l2.ts (all args forwarded)
+//   bunx kumiko eval drift           → eval-l2-drift.ts (all args forwarded)
 //
-// **Args werden 1:1 durchgereicht** an die zugrundeliegenden Scripts
-// — Dokumentation lebt dort.
+// **Args are forwarded 1:1** to the underlying scripts
+// — documentation lives there.
 //
-// **Beispiele:**
+// **Examples:**
 //   bunx kumiko eval --smoke
 //     → free local mock-mode smoke (3 fixtures)
 //   bunx kumiko eval --live --smoke --model claude-haiku-4-5
@@ -23,7 +23,7 @@
 //   bunx kumiko eval --provider openai-compat --smoke
 //     → $0 ollama-local
 //   bunx kumiko eval drift --baseline docs/l2-eval-live-baseline.json --current /tmp/new.json
-//     → regression-check (exit 1 wenn regressions)
+//     → regression-check (exit 1 if regressions)
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -79,8 +79,8 @@ export const evalCommand = defineCommand({
       sub === "drift"
         ? join(enterpriseRoot, "scripts/eval-l2-drift.ts")
         : join(enterpriseRoot, "scripts/eval-l2.ts");
-    // Wenn sub kein argument vorne ist, alle args durchreichen. Wenn sub
-    // == "drift", schluck ihn (war nur Routing).
+    // If sub is not a leading argument, forward all args. If sub
+    // == "drift", swallow it (was only routing).
     const forwardedArgs = sub === "drift" ? rest : ctx.argv;
 
     if (!existsSync(scriptPath)) {

@@ -19,21 +19,21 @@ function violationsFor(source: string) {
 }
 
 describe("guard-primitives-discipline checkFile()", () => {
-  test("nackter alert(-Call wird gemeldet, window.alert ebenso", () => {
+  test("bare alert(-call is flagged, as is window.alert", () => {
     expect(violationsFor('alert("x");\n').length).toBe(1);
     expect(violationsFor('window.alert("x");\n').length).toBe(1);
   });
 
-  test("Method-Calls wie toast.alert( sind KEIN Treffer (92/1)", () => {
+  test("Method calls such as toast.alert( are NOT matched", () => {
     expect(violationsFor('toast.alert("x");\n')).toHaveLength(0);
     expect(violationsFor('myalert("x");\n')).toHaveLength(0);
   });
 
-  test("alert( im trailing Inline-Kommentar ist KEIN Treffer (93/4)", () => {
+  test("alert( in a trailing inline comment is NOT matched", () => {
     expect(violationsFor('save(); // früher: alert("x")\n')).toHaveLength(0);
   });
 
-  test("kumiko-lint-ignore auf der Vorzeile unterdrückt den Treffer", () => {
+  test("kumiko-lint-ignore on the preceding line suppresses the violation", () => {
     const src = '// kumiko-lint-ignore primitives-discipline demo\nalert("x");\n';
     expect(violationsFor(src)).toHaveLength(0);
   });
@@ -52,64 +52,64 @@ describe("guard-primitives-discipline checkFile()", () => {
     expect(violationsFor(src)).toHaveLength(1);
   });
 
-  test("raw <input> in a spaceless ternary or after = / [ wird gemeldet, Array<input nicht", () => {
+  test("raw <input> in a spaceless ternary or after = / [ is flagged, Array<input is not", () => {
     expect(violationsFor("const a = cond?<input/>:<div/>;\n")).toHaveLength(1);
     expect(violationsFor("const b = <input/>;\n")).toHaveLength(1);
     expect(violationsFor("const c = [<input/>];\n")).toHaveLength(1);
     expect(violationsFor("type D = Array<input>;\n")).toHaveLength(0);
   });
 
-  test("raw <button> wird gemeldet", () => {
+  test("raw <button> is flagged", () => {
     expect(violationsFor("<button onClick={x}>Go</button>\n").length).toBe(1);
   });
 
-  test("raw bg-card className wird gemeldet (Card-Chrome → <Card>)", () => {
+  test("raw bg-card className is flagged (Card-Chrome → <Card>)", () => {
     const v = violationsFor('<div className="rounded-lg border bg-card p-4 shadow-sm">x</div>\n');
     expect(v).toHaveLength(1);
     expect(v[0]?.kind).toBe("class");
   });
 
-  test("text-card-foreground ist KEIN bg-card-Treffer", () => {
+  test("text-card-foreground is NOT a bg-card match", () => {
     expect(violationsFor('<div className="text-card-foreground border">x</div>\n')).toHaveLength(0);
   });
 
-  test("hover:bg-card und dark:bg-card werden erkannt (157/2)", () => {
+  test("hover:bg-card and dark:bg-card are detected", () => {
     expect(violationsFor('<div className="hover:bg-card">x</div>\n')).toHaveLength(1);
     expect(violationsFor('<div className="dark:bg-card">x</div>\n')).toHaveLength(1);
   });
 
-  test("bg-card/50 Opacity-Modifier wird erkannt (157/2)", () => {
+  test("bg-card/50 opacity modifier is detected", () => {
     expect(violationsFor('<div className="bg-card/50">x</div>\n')).toHaveLength(1);
   });
 
-  test("kumiko-lint-ignore auf der Vorzeile unterdrückt bg-card", () => {
+  test("kumiko-lint-ignore on the preceding line suppresses bg-card", () => {
     const src =
       '{/* kumiko-lint-ignore primitives-discipline demo */}\n<div className="bg-card">x</div>\n';
     expect(violationsFor(src)).toHaveLength(0);
   });
 
-  test("my-bg-card ist KEIN Treffer (regex-scope Fix — \\b matchte vorher jedes bindestrich-praefixierte Token)", () => {
+  test("my-bg-card is NOT matched (regex-scope fix — \\b previously matched every hyphen-prefixed token)", () => {
     expect(violationsFor('<div className="my-bg-card">x</div>\n')).toHaveLength(0);
   });
 
-  test("bg-card-elevated ist KEIN Treffer (regex-scope Fix)", () => {
+  test("bg-card-elevated is NOT matched (regex-scope fix)", () => {
     expect(violationsFor('<div className="bg-card-elevated">x</div>\n')).toHaveLength(0);
   });
 
-  test("mx-auto + max-w-* in einer className wird gemeldet (→ PageSection)", () => {
+  test("mx-auto + max-w-* in a className is flagged (→ PageSection)", () => {
     const v = violationsFor('<div className="mx-auto max-w-4xl p-6">x</div>\n');
     expect(v).toHaveLength(1);
     expect(v[0]?.kind).toBe("class");
     expect(v[0]?.counterpart).toContain("PageSection");
   });
 
-  test("umgekehrte Reihenfolge, Arbitrary-Wert und Varianten-Prefix werden erkannt", () => {
+  test("reversed order, arbitrary value, and variant prefix are detected", () => {
     expect(violationsFor('<div className="max-w-4xl mx-auto">x</div>\n')).toHaveLength(1);
     expect(violationsFor('<div className="mx-auto max-w-[1100px]">x</div>\n')).toHaveLength(1);
     expect(violationsFor('<div className="md:max-w-3xl mx-auto">x</div>\n')).toHaveLength(1);
   });
 
-  test("max-w-* allein, mx-auto allein und bindestrich-praefixierte Teilstrings sind KEIN Treffer", () => {
+  test("max-w-* alone, mx-auto alone, and hyphen-prefixed substrings are NOT matched", () => {
     expect(violationsFor('<div className="max-w-4xl p-6">x</div>\n')).toHaveLength(0);
     expect(violationsFor('<div className="mx-auto p-6">x</div>\n')).toHaveLength(0);
     expect(violationsFor('<div className="my-mx-auto max-w-4xl">x</div>\n')).toHaveLength(0);
@@ -117,13 +117,13 @@ describe("guard-primitives-discipline checkFile()", () => {
     expect(violationsFor('<div className="mx-auto-x max-w-4xl">x</div>\n')).toHaveLength(0);
   });
 
-  test("kumiko-lint-ignore unterdrückt den Screen-Container-Treffer", () => {
+  test("kumiko-lint-ignore suppresses the screen-container violation", () => {
     const src =
       '{/* kumiko-lint-ignore primitives-discipline narrow confirmation card */}\n<div className="mx-auto max-w-sm">x</div>\n';
     expect(violationsFor(src)).toHaveLength(0);
   });
 
-  test("Dateien unter einem public/-Segment sind vom Screen-Container-Check ausgenommen", () => {
+  test("Files under a public/-segment are excluded from the screen-container check", () => {
     const dir = mkdtempSync(join(tmpdir(), "prim-guard-public-"));
     try {
       const pub = join(dir, "public");
@@ -141,7 +141,7 @@ describe("guard-primitives-discipline checkFile()", () => {
     }
   });
 
-  test('checkFile(file, "app") klassifiziert Violations mit scope="app"', () => {
+  test('checkFile(file, "app") classifies violations with scope="app"', () => {
     const dir = mkdtempSync(join(tmpdir(), "prim-guard-"));
     const file = join(dir, "probe.tsx");
     writeFileSync(file, 'alert("x");\n');
@@ -291,7 +291,7 @@ describe("check.run — RepoCheck seam", () => {
     }
   });
 
-  test("client/-Segment (enterprise ai-foundation) wird gescannt", async () => {
+  test("client/-segment (enterprise ai-foundation) is scanned", async () => {
     const dir = mkdtempSync(join(tmpdir(), "prim-guard-client-"));
     try {
       const client = join(dir, "packages/ai-foundation/src/client");

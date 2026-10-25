@@ -19,7 +19,7 @@ const counterTable = table("read_unit_counters", {
   count: integer("count").notNull().default(0),
 }) as unknown as SchemaTable;
 
-describe("collectTableMetas (#255)", () => {
+describe("collectTableMetas", () => {
   test("collects entity, projection, MSP and storeTable tables — same sources as the test-stack auto-push", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({ name: "unit", ...exampleEntity() });
@@ -126,7 +126,7 @@ describe("collectTableMetas (#255)", () => {
   });
 });
 
-describe("collectTableMetas — r.entity backing table (#347)", () => {
+describe("collectTableMetas — r.entity backing table", () => {
   const richWidgetTable = table(
     "read_widgets",
     {
@@ -155,7 +155,7 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
     expect(meta?.indexes.map((i) => i.name)).toContain("read_widgets_name_unique");
   });
 
-  test("generate draws from the backing table itself — one source (the #255 invariant)", () => {
+  test("generate draws from the backing table itself — one source", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({ name: "widget", ...widgetEntity(), backingTable: richWidgetTable });
     });

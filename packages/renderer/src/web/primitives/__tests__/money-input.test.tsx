@@ -15,7 +15,7 @@ describe("formatMoney", () => {
     expect(formatMoney(199_99, "USD", "en-US")).toBe("$199.99");
   });
 
-  test("falls back to the raw amount instead of throwing on an invalid currency (#1494)", () => {
+  test("falls back to the raw amount instead of throwing on an invalid currency", () => {
     expect(formatMoney(100, "", "en-US")).toBe("100");
     expect(formatMoney(100, "EU", "en-US")).toBe("100");
     expect(formatMoney(100, "€", "en-US")).toBe("100");
@@ -23,15 +23,15 @@ describe("formatMoney", () => {
 });
 
 describe("currencyDecimals", () => {
-  test("0-Decimal-Währungen (JPY/KRW/VND/ISK)", () => {
+  test("0-decimal currencies (JPY/KRW/VND/ISK)", () => {
     for (const c of ["JPY", "KRW", "VND", "ISK"]) expect(currencyDecimals(c)).toBe(0);
   });
 
-  test("3-Decimal-Währungen (BHD/JOD/KWD/OMR/TND)", () => {
+  test("3-decimal currencies (BHD/JOD/KWD/OMR/TND)", () => {
     for (const c of ["BHD", "JOD", "KWD", "OMR", "TND"]) expect(currencyDecimals(c)).toBe(3);
   });
 
-  test("Default 2 für EUR/USD und unbekannte Codes", () => {
+  test("Defaults to 2 for EUR/USD and unknown codes", () => {
     for (const c of ["EUR", "USD", "CHF", "ZZZ"]) expect(currencyDecimals(c)).toBe(2);
   });
 });
@@ -45,21 +45,21 @@ describe("parseLocaleNumber", () => {
     expect(parseLocaleNumber("1.234,56", "de-DE")).toBeCloseTo(1234.56, 5);
   });
 
-  test("führendes Minus erlaubt", () => {
+  test("a leading minus is allowed", () => {
     expect(parseLocaleNumber("-123", "en-US")).toBe(-123);
   });
 
-  test("Minus NUR ganz vorne — '1-23' ist invalid (NaN)", () => {
+  test("Minus only at the very beginning — '1-23' is invalid (NaN)", () => {
     expect(parseLocaleNumber("1-23", "en-US")).toBeNaN();
   });
 
-  test("Buchstaben, leerer String und nackter Separator → NaN", () => {
+  test("Letters, empty string, and bare separator → NaN", () => {
     expect(parseLocaleNumber("abc", "en-US")).toBeNaN();
     expect(parseLocaleNumber("", "en-US")).toBeNaN();
     expect(parseLocaleNumber(".", "en-US")).toBeNaN();
   });
 
-  test("umgebender Whitespace wird getrimmt", () => {
+  test("surrounding whitespace is trimmed", () => {
     expect(parseLocaleNumber("  42  ", "en-US")).toBe(42);
   });
 });
@@ -71,7 +71,7 @@ function inputEl(): HTMLInputElement {
 }
 
 describe("MoneyInput — Render (Tier 2)", () => {
-  test("zeigt den Canonical-Cent-Wert als formatierte Währung (unfokussiert)", () => {
+  test("displays the canonical cent value as formatted currency (unfocused)", () => {
     render(
       <MoneyInput
         id="amt"
@@ -87,7 +87,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(inputEl().getAttribute("aria-describedby")).toBe("amt-currency");
   });
 
-  test("Focus schaltet auf rohen Decimal-String ohne Währungssymbol", () => {
+  test("Focus switches to the raw decimal string without a currency symbol", () => {
     render(
       <MoneyInput
         id="amt"
@@ -104,7 +104,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(value).not.toContain("€");
   });
 
-  test("Focus selektiert den gesamten Draft (bewusstes Select-all-on-focus) — sonst hängt ein danach eingefügter Wert an statt sie zu ersetzen (#1856)", () => {
+  test("Focus selects the entire draft (intentional select-all-on-focus) — otherwise a subsequently inserted value is appended instead of replacing it", () => {
     render(
       <MoneyInput
         id="amt"
@@ -121,7 +121,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(input.selectionEnd).toBe(input.value.length);
   });
 
-  test("Blur mit neuem Wert ruft onChange mit Minor-Units (Cents)", () => {
+  test("Blur with a new value calls onChange with minor units (cents)", () => {
     const onChange = mock((_v: number | undefined) => {});
     render(
       <MoneyInput

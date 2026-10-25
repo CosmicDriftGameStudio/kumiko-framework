@@ -5,7 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import { addDuration } from "../_duration-utils.ts";
 
-describe("addDuration — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("addDuration — no ambient Temporal global", () => {
   test("adds a duration without relying on globalThis.Temporal", () => {
     const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
     delete (globalThis as { Temporal?: unknown }).Temporal;

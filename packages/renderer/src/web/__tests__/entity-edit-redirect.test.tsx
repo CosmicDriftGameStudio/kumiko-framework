@@ -109,7 +109,7 @@ function fillNameAndSubmit(): void {
   fireEvent.submit(form);
 }
 
-describe("entityEdit redirect (#1942)", () => {
+describe("entityEdit redirect", () => {
   test("create: successful save with redirect set navigates there, not to the list", async () => {
     const navigated: NavTarget[] = [];
     render(
@@ -134,7 +134,7 @@ describe("entityEdit redirect (#1942)", () => {
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
   });
 
-  test("create: successful save with redirect set carries the newly created entityId along (#1945)", async () => {
+  test("create: successful save with redirect set carries the newly created entityId along", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
       write: (async () => ({
@@ -190,7 +190,7 @@ describe("entityEdit redirect (#1942)", () => {
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
   });
 
-  test("create: redirect as fully-qualified cross-feature QN navigates via its short id (#1946)", async () => {
+  test("create: redirect as fully-qualified cross-feature QN navigates via its short id", async () => {
     // redirect may name a screen in ANOTHER feature via `<feature>:screen:<id>`
     // (boot-validator accepts the QN directly) — the renderer must strip it
     // down to the short id before calling nav.navigate, since the runtime
@@ -257,7 +257,7 @@ describe("entityEdit redirect (#1942)", () => {
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
   });
 
-  test("update: redirect as fully-qualified cross-feature QN navigates via its short id (#1946)", async () => {
+  test("update: redirect as fully-qualified cross-feature QN navigates via its short id", async () => {
     // Mirrors the create-mode QN test above — EntityEditUpdateForm's
     // handleSubmitted has its own lastSegment(screen.redirect) call
     // (kumiko-screen.tsx), separate from the create path's.

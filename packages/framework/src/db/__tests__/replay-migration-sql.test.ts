@@ -284,7 +284,7 @@ describe("diffReplayAgainstSnapshot", () => {
     }
   });
 
-  test("kumiko-framework#1473: an unparsed ALTER TABLE statement fails loud instead of vanishing", () => {
+  test("an unparsed ALTER TABLE statement fails loud instead of vanishing", () => {
     const dir = tmpMigrationsDir();
     try {
       write(
@@ -299,7 +299,7 @@ ALTER TABLE "widgets" SET SCHEMA "other";`,
     }
   });
 
-  test("kumiko-framework#1535: an unquoted CREATE TABLE identifier parses instead of failing loud", () => {
+  test("an unquoted CREATE TABLE identifier parses instead of failing loud", () => {
     // Was "fails loud" — but real committed migrations do this
     // (publicstatus's 0014_marketing-waitlist.sql), and the old behavior
     // turned an already-graceful missing-table report into a hard abort.
@@ -325,7 +325,7 @@ ALTER TABLE "widgets" SET SCHEMA "other";`,
     }
   });
 
-  test("kumiko-framework#1535: a bare table-level PRIMARY KEY/UNIQUE clause isn't parsed as a column", () => {
+  test("a bare table-level PRIMARY KEY/UNIQUE clause isn't parsed as a column", () => {
     const dir = tmpMigrationsDir();
     try {
       write(
@@ -340,7 +340,7 @@ ALTER TABLE "widgets" SET SCHEMA "other";`,
     }
   });
 
-  test("kumiko-framework#1535: shape-neutral ALTER COLUMN/CONSTRAINT clauses don't fail loud", () => {
+  test("shape-neutral ALTER COLUMN/CONSTRAINT clauses don't fail loud", () => {
     // Regression for the false-positive class: these are all real,
     // committed, shape-neutral DDL shapes (kumiko-studio's
     // 0002_file_refs_soft_delete.sql, publicstatus's
@@ -391,7 +391,7 @@ ALTER TABLE IF EXISTS ONLY public.widgets ADD COLUMN "d" text;`,
     }
   });
 
-  test("FORCE / NO FORCE ROW LEVEL SECURITY is shape-neutral (fw#2907)", () => {
+  test("FORCE / NO FORCE ROW LEVEL SECURITY is shape-neutral", () => {
     const dir = tmpMigrationsDir();
     try {
       write(

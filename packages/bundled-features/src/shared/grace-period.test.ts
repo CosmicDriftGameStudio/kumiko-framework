@@ -3,7 +3,7 @@ import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isWithinGracePeriod } from "./grace-period.ts";
 
-describe("isWithinGracePeriod — kumiko-framework#1525/#1550", () => {
+describe("isWithinGracePeriod", () => {
   test("null gracePeriodEnd → false without ambient Temporal", async () => {
     await withoutAmbientTemporal(() => {
       expect(isWithinGracePeriod(null)).toBe(false);

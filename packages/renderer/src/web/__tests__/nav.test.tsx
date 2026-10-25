@@ -5,7 +5,7 @@ import { formatPath, NavProvider, parsePath, useNav } from "../../index.ts";
 import { KumikoLink, useBrowserNavApi } from "../app/nav.tsx";
 
 describe("parsePath", () => {
-  test("leerer Pfad / → undefined", () => {
+  test("empty path / → undefined", () => {
     expect(parsePath("/")).toBeUndefined();
   });
 
@@ -20,11 +20,11 @@ describe("parsePath", () => {
     });
   });
 
-  test("trailing-slash wird toleriert", () => {
+  test("trailing slash is tolerated", () => {
     expect(parsePath("/task-list/")).toEqual({ screenId: "task-list" });
   });
 
-  test("zusätzliche segmente werden ignoriert (kein nested routing)", () => {
+  test("additional segments are ignored (no nested routing)", () => {
     expect(parsePath("/task-edit/abc-123/extra/segments")).toEqual({
       screenId: "task-edit",
       entityId: "abc-123",
@@ -33,7 +33,7 @@ describe("parsePath", () => {
 });
 
 describe("formatPath", () => {
-  test("nur screenId", () => {
+  test("screenId only", () => {
     expect(formatPath({ screenId: "task-list" })).toBe("/task-list");
   });
 
@@ -41,7 +41,7 @@ describe("formatPath", () => {
     expect(formatPath({ screenId: "task-edit", entityId: "abc-123" })).toBe("/task-edit/abc-123");
   });
 
-  test("workspaceId prefix bei Workspace-Mode", () => {
+  test("workspaceId prefix in workspace mode", () => {
     expect(formatPath({ workspaceId: "admin", screenId: "task-list" })).toBe("/admin/task-list");
   });
 
@@ -53,14 +53,14 @@ describe("formatPath", () => {
 });
 
 describe("parsePath — workspace mode", () => {
-  test("/<workspaceId>/<screenId> → trägt beide", () => {
+  test("/<workspaceId>/<screenId> → contains both", () => {
     expect(parsePath("/admin/task-list", true)).toEqual({
       workspaceId: "admin",
       screenId: "task-list",
     });
   });
 
-  test("/<workspaceId>/<screenId>/<entityId> → mit entityId", () => {
+  test("/<workspaceId>/<screenId>/<entityId> → with entityId", () => {
     expect(parsePath("/admin/task-edit/abc-123", true)).toEqual({
       workspaceId: "admin",
       screenId: "task-edit",
@@ -68,11 +68,11 @@ describe("parsePath — workspace mode", () => {
     });
   });
 
-  test("/<workspaceId> ohne screen → screenId leer (caller resolved Default)", () => {
+  test("/<workspaceId> without screen → screenId empty (caller resolves Default)", () => {
     expect(parsePath("/admin", true)).toEqual({ workspaceId: "admin", screenId: "" });
   });
 
-  test("/ → undefined auch im Workspace-Mode", () => {
+  test("/ → undefined also in workspace mode", () => {
     expect(parsePath("/", true)).toBeUndefined();
   });
 });
@@ -123,7 +123,7 @@ describe("useBrowserNavApi + NavProvider", () => {
     );
   }
 
-  test("initial-route aus window.location.pathname", async () => {
+  test("initial route from window.location.pathname", async () => {
     window.history.replaceState(null, "", "/task-list");
     render(
       <BrowserNav>
@@ -153,7 +153,7 @@ describe("useBrowserNavApi + NavProvider", () => {
     expect(screen.getByTestId("entity-id").textContent).toBe("xyz");
   });
 
-  test("replace() aktualisiert location ohne History-Eintrag", async () => {
+  test("replace() updates location without a history entry", async () => {
     render(
       <BrowserNav>
         <Probe />
@@ -202,7 +202,7 @@ describe("KumikoLink", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  test("rendert <a> mit korrekter href", async () => {
+  test("renders <a> with correct href", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-edit", entityId: "xyz" }}>Edit</KumikoLink>
@@ -214,7 +214,7 @@ describe("KumikoLink", () => {
     expect(anchor.getAttribute("href")).toBe("/task-edit/xyz");
   });
 
-  test("left-click wird abgefangen → navigate() statt full reload", async () => {
+  test("left-click is intercepted → navigate() instead of full reload", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-list" }}>Liste</KumikoLink>
@@ -227,7 +227,7 @@ describe("KumikoLink", () => {
     expect(window.location.pathname).toBe("/task-list");
   });
 
-  test("meta-click (Cmd/Ctrl) wird NICHT abgefangen — Browser öffnet in neuem Tab", async () => {
+  test("meta-click (Cmd/Ctrl) is NOT intercepted — browser opens in new tab", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-list" }}>Liste</KumikoLink>

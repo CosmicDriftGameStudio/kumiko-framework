@@ -31,7 +31,7 @@ describe("guard-app-feature-structure", () => {
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
-  test("flaggt feature.ts-Logik-Dump über dem Zeilen-Limit", () => {
+  test("flags feature.ts logic dump over the line limit", () => {
     const body = Array.from({ length: 310 }, (_, i) => `// Zeile ${i}`).join("\n");
     const sf = parse(`${body}\nexport const f = 1;`, "src/features/demo/feature.ts");
     const outcome = guard.run([sf]);
@@ -39,7 +39,7 @@ describe("guard-app-feature-structure", () => {
     expect(outcome.violations[0]?.message).toContain("lines");
   });
 
-  test("flaggt r.screen type custom ohne Allowlist-Tag", () => {
+  test("flags r.screen type custom without an allowlist tag", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {
   r.screen({ id: "x", type: "custom" });
@@ -51,7 +51,7 @@ describe("guard-app-feature-structure", () => {
     expect(outcome.violations[0]?.message).toContain("custom");
   });
 
-  test("flaggt kein verschachteltes type custom innerhalb eines deklarativen r.screen", () => {
+  test("does not flag nested type custom within a declarative r.screen", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {
   r.screen({ id: "x", type: "entityList", widgets: [{ type: "custom" }] });
@@ -61,7 +61,7 @@ describe("guard-app-feature-structure", () => {
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
-  test("erlaubt custom-Screen mit Allowlist-Tag und andere type-Props", () => {
+  test("allows custom screen with an allowlist tag and other type props", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {
   // kumiko-lint-ignore app-feature-structure Designer-Screen, externes UI
@@ -75,7 +75,7 @@ describe("guard-app-feature-structure", () => {
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
-  test("flaggt r.screen type custom ohne Allowlist-Tag in packages/bundled-features", () => {
+  test("flags r.screen type custom without an allowlist tag in packages/bundled-features", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {
   r.screen({ id: "x", type: "custom" });
@@ -87,7 +87,7 @@ describe("guard-app-feature-structure", () => {
     expect(outcome.violations[0]?.message).toContain("custom");
   });
 
-  test("erlaubt custom-Screen mit Allowlist-Tag in packages/bundled-features", () => {
+  test("allows custom screen with an allowlist tag in packages/bundled-features", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {
   // kumiko-lint-ignore app-feature-structure Auth-Flow, kein deklarativer Screen-Typ
@@ -98,7 +98,7 @@ describe("guard-app-feature-structure", () => {
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
-  test("flaggt feature.ts-Logik-Dump über dem Zeilen-Limit in packages/bundled-features", () => {
+  test("flags feature.ts logic dump over the line limit in packages/bundled-features", () => {
     const body = Array.from({ length: 310 }, (_, i) => `// Zeile ${i}`).join("\n");
     const sf = parse(
       `${body}\nexport const f = 1;`,
@@ -115,7 +115,7 @@ describe("guard-app-feature-structure", () => {
 });
 
 describe("guard-app-feature-structure: @runtime client marker", () => {
-  test("flaggt den Marker außerhalb von web/ als Client-Code im Server-Baum", () => {
+  test("flags the marker outside web/ as client code in the server tree", () => {
     const sf = parse(
       `// @runtime client\nexport const FEATURE = "demo";`,
       "src/features/demo/constants.ts",
@@ -125,7 +125,7 @@ describe("guard-app-feature-structure: @runtime client marker", () => {
     expect(outcome.violations[0]?.message).toContain("move it under web/");
   });
 
-  test("flaggt den Marker unter web/ als redundant", () => {
+  test("flags the marker under web/ as redundant", () => {
     const sf = parse(
       `// @runtime client\nexport const FEATURE = "demo";`,
       "src/features/demo/web/constants.ts",
@@ -135,7 +135,7 @@ describe("guard-app-feature-structure: @runtime client marker", () => {
     expect(outcome.violations[0]?.message).toContain("redundant");
   });
 
-  test("flaggt den Marker unter dev/ und scripts/ ohne Umzug nach web/ zu empfehlen", () => {
+  test("flags the marker under dev/ and scripts/ without recommending a move to web/", () => {
     for (const dir of ["dev", "scripts"]) {
       const sf = parse(
         `// @runtime client\nexport const x = 1;`,
@@ -147,7 +147,7 @@ describe("guard-app-feature-structure: @runtime client marker", () => {
     }
   });
 
-  test("greift auch in bundled-features und bei verschachtelten Pfaden", () => {
+  test("also applies in bundled-features and to nested paths", () => {
     const sf = parse(
       `// @runtime client\nexport const x = 1;`,
       "packages/bundled-features/src/billing-foundation/consumer-protection/consent-locale.ts",
@@ -155,7 +155,7 @@ describe("guard-app-feature-structure: @runtime client marker", () => {
     expect(guard.run([sf]).violations).toHaveLength(1);
   });
 
-  test("lässt Dateien ohne Marker und andere Marker in Ruhe", () => {
+  test("leaves files without a marker and other markers alone", () => {
     const plain = parse(`export const x = 1;`, "src/features/demo/constants.ts");
     const dev = parse(`// @runtime dev\nexport const x = 1;`, "src/features/demo/seed.ts");
     expect(guard.run([plain, dev]).violations).toHaveLength(0);

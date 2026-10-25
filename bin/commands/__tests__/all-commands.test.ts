@@ -1,9 +1,9 @@
-// Smoke-Test über alle Commands: jeder muss registriert sein, valide
-// Metadaten haben, und ein paar definierte Eigenschaften erfüllen
+// Smoke test across all commands: each must be registered, have valid
+// metadata, and satisfy a few defined properties
 // (id, label, roles, category, run-fn).
 //
-// Plus: stellt sicher dass IDs eindeutig sind und Categories nur die
-// erlaubten Werte enthalten — kein "drift" zwischen Command-Files und
+// Plus: ensures that IDs are unique and Categories contain only the
+// allowed values — no "drift" between Command-Files and
 // TUI-Categories.
 
 import { describe, expect, test } from "bun:test";
@@ -55,7 +55,7 @@ describe("commands — registry coverage", () => {
   });
 
   test("no extra ids registered beyond the expected set", () => {
-    // Maintainer-Filter zeigt mehr Commands als App-Dev.
+    // Maintainer filter shows more commands than App-Dev.
     const all = getCommands("maintainer").map((c) => c.id);
     for (const id of all) {
       expect(EXPECTED_IDS).toContain(id);

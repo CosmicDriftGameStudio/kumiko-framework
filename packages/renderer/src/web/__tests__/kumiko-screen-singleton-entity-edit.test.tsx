@@ -40,7 +40,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     screens: [singletonEdit],
   };
 
-  test("kein vorhandener Record → rendert leeres Create-Form", async () => {
+  test("no existing record → renders empty Create form", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async (type: string, payload: unknown) => {
@@ -60,7 +60,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     expect(queryCalls).toEqual([{ type: "tasks:query:task:list", payload: { limit: 1 } }]);
   });
 
-  test("vorhandener Record → lädt ihn (Update-Form, prefilled) statt Create", async () => {
+  test("existing record → loads it (Update form, prefilled) instead of Create", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async (type: string, payload: unknown) => {
@@ -99,7 +99,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     });
   });
 
-  test("allowCreate:false + leere Tabelle → Fehler-Banner statt Create-Form", async () => {
+  test("allowCreate:false + empty table → error banner instead of Create form", async () => {
     const disabledSchema: FeatureSchema = {
       featureName: "tasks",
       entities: { task: taskEntity },
@@ -125,7 +125,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
   // screen whose `list` handler has stricter access.roles than its `edit`
   // handler used to render fine (no query ran before this feature) and now
   // flips to an error banner instead. No test caught that regression.
-  test("list-Query schlägt fehl → Fehler-Banner statt Create-Form", async () => {
+  test("list query fails → error banner instead of Create form", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: false,
@@ -158,7 +158,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
   // submit created a duplicate record ("exactly one record per tenant"
   // broken). Create on an empty table must now switch straight to the
   // update form of the newly created record.
-  test("erfolgreicher Create bei leerer Tabelle wechselt in Update-Form des neuen Records (kein zweiter Create möglich)", async () => {
+  test("successful Create with empty table switches to Update form for the new record (no second Create possible)", async () => {
     let created = false;
     const write = mock(async (type: string) => {
       if (type === "tasks:write:task:create") {

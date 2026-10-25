@@ -60,21 +60,21 @@ describe("staticCachePolicy", () => {
     });
   });
 
-  test("/build-info.json → no-cache (sonst pollt UpdateChecker eine veraltete id)", () => {
+  test("/build-info.json → no-cache (otherwise UpdateChecker polls a stale id)", () => {
     expect(cacheControlFor("/build-info.json")).toEqual({
       "cache-control": "no-cache",
     });
   });
 
-  test("public-folder file (favicon) → kein expliziter Header", () => {
+  test("public-folder file (favicon) → no explicit header", () => {
     expect(cacheControlFor("/favicon.ico")).toEqual({});
   });
 
-  test("public-folder file (og-image) → kein expliziter Header", () => {
+  test("public-folder file (og-image) → no explicit header", () => {
     expect(cacheControlFor("/og-image.png")).toEqual({});
   });
 
-  test("path mit assets als Substring (kein /assets/ prefix) → kein immutable", () => {
+  test("path with assets as a substring (not /assets/ prefix) → no immutable", () => {
     // Guard: /myassets/foo.js must NOT receive immutable — that would be a bug
     // because those files are not hashed.
     expect(cacheControlFor("/myassets/foo.js")).toEqual({});

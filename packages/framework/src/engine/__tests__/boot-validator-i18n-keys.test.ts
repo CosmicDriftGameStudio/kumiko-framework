@@ -98,7 +98,7 @@ describe("validateBoot — i18n surface keys", () => {
 
 // requiredKeysFromScreen read only section.fields, so a field declared
 // through section.groups — and every groups[].title — slipped past this guard.
-describe("validateBoot — i18n surface keys from section.groups (fw#2986)", () => {
+describe("validateBoot — i18n surface keys from section.groups", () => {
   function groupsFeature(keys: Record<string, { de: string; en: string }>) {
     return defineFeature("demo", (r) => {
       r.entity({

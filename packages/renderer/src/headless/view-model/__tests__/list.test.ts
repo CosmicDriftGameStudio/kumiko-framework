@@ -253,7 +253,7 @@ describe("computeListViewModel", () => {
     });
   });
 
-  test("multiSelect field column includes translated optionLabels (fw#2491)", () => {
+  test("multiSelect field column includes translated optionLabels", () => {
     const vm = computeListViewModel({
       screen: listScreen(["labels"]),
       entity: taskEntity,
@@ -351,7 +351,7 @@ describe("computeListViewModel", () => {
     },
   } as unknown as EntityDefinition;
 
-  test("ListColumnSpec.refEntity marks the column as a reference, even against a pseudo-entity whose fields are all 'text' (fw#2662)", () => {
+  test("ListColumnSpec.refEntity marks the column as a reference, even against a pseudo-entity whose fields are all 'text'", () => {
     const vm = computeListViewModel({
       screen: listScreen([
         {
@@ -393,7 +393,7 @@ describe("computeListViewModel", () => {
     expect(vm.columns[0]?.refEntity).toBeUndefined();
   });
 
-  test("non-regression: a projectionList column without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
+  test("a projectionList column without refEntity metadata stays 'text', unchanged", () => {
     const vm = computeListViewModel({
       screen: listScreen([{ field: "type", label: "delivery.log.col.type" }]),
       entity: projectionPseudoEntity,

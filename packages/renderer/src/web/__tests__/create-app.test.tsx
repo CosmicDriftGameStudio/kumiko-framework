@@ -237,7 +237,7 @@ describe("createKumikoApp", () => {
     );
   });
 
-  test("fallback screen skips access-restricted screens across features (#1176)", async () => {
+  test("fallback screen skips access-restricted screens across features", async () => {
     mountRoot();
     const restrictedFeature: FeatureSchema = {
       featureName: "user",
@@ -291,7 +291,7 @@ describe("createKumikoApp", () => {
     );
   });
 
-  test("custom screen without a registered clientFeatures component → console.error names feature + screen at boot (kumiko-framework#2025)", async () => {
+  test("custom screen without a registered clientFeatures component → console.error names feature + screen at boot", async () => {
     // A server feature can declare a `type: "custom"` screen without the
     // app mounting the corresponding client plugin — the screen is still
     // reachable via URL. createKumikoApp should surface that visibly ONCE
@@ -355,7 +355,7 @@ describe("createKumikoApp", () => {
     errorSpy.mockRestore();
   });
 
-  test("dormant custom screen without a registered clientFeatures component → no boot diagnostic (kumiko-framework#2034)", async () => {
+  test("dormant custom screen without a registered clientFeatures component → no boot diagnostic", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
 
     const dormantScreenSchema: FeatureSchema = {
@@ -384,7 +384,7 @@ describe("createKumikoApp", () => {
     errorSpy.mockRestore();
   });
 
-  test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
+  test("clientFeatures.columnRenderers → warns on key collision + last-wins wins", async () => {
     // Two features provide the same renderer key; the merge in create-app warns
     // and keeps the later entry (last wins). This verifies that the intentional
     // override behavior does not silently change if someone refactors it to
@@ -441,7 +441,7 @@ describe("createKumikoApp", () => {
     warnSpy.mockRestore();
   });
 
-  test("clientFeatures.columnRenderers → __component-Renderer mounten echtes Component im DOM", async () => {
+  test("clientFeatures.columnRenderers → __component-Renderer mounts a real component in the DOM", async () => {
     // Verifies the end-to-end wiring: ClientFeatureDefinition.columnRenderers
     // → provider in create-app → useColumnRenderer in the DataTable cell → JSX
     // in the DOM. The schema declares the string form; the component exists only
@@ -544,7 +544,7 @@ describe("createKumikoApp", () => {
     expect(screen.getByTestId("ca-rich-editor").textContent).toBe("hello");
   });
 
-  test("schema.translations (r.translations, #1059) resolves nav/dashboard labels without any clientFeatures duplication", async () => {
+  test("schema.translations (r.translations) resolves nav/dashboard labels without any clientFeatures duplication", async () => {
     // Mirrors cap-counter's real shape: a feature that declares r.translations
     // for its own nav label but ships NO web/i18n.ts / clientFeatures entry at
     // all. Previously this label rendered as the raw i18n key forever.
@@ -651,7 +651,7 @@ describe("createKumikoApp", () => {
     expect(screen.queryByText("Caps")).toBeNull();
   });
 
-  test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {
+  test("navAdapter override: custom router controls the active screen", async () => {
     // Verifies the navigation seam: the default adapter reads location.pathname,
     // while this memory adapter hardcodes the route. If the swap works, we see
     // the list screen instead of the form screen without setting `screenQn` or
@@ -684,7 +684,7 @@ describe("createKumikoApp", () => {
   // entity is the "record" — the click should land there without anyone
   // wiring rowActions/onRowClick, and it should win over both of the old
   // defaults (entityEdit-search, app-wide onRowClick).
-  describe("default row click (fw#2164)", () => {
+  describe("default row click", () => {
     const taskDetailScreen: ScreenDefinition = {
       id: "task-detail",
       type: "custom",
@@ -814,7 +814,7 @@ describe("createKumikoApp", () => {
   // fetches it from the authenticated GET /api/schema instead of throwing
   // at boot — these tests exercise the loading/unauthorized/failed states
   // and the "gate first, fetch after" ordering.
-  describe("createKumikoApp — schema fetch (kumiko-framework#3314)", () => {
+  describe("createKumikoApp schema fetch", () => {
     const originalFetch = globalThis.fetch;
     let calls: Array<{ readonly url: string; readonly init?: RequestInit }> = [];
 

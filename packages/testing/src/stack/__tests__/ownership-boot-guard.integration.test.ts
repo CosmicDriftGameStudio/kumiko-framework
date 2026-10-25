@@ -55,7 +55,7 @@ function featureWith(access: Parameters<typeof createEntity>[0]["access"]) {
 }
 
 describe("setupTestStack — ownership boot-guards", () => {
-  test("rejects an unqualified where-fragment on access.read (fw#2639)", async () => {
+  test("rejects an unqualified where-fragment on access.read", async () => {
     const promise = setupTestStack({
       features: [featureWith({ read: { Member: unqualifiedReadRule } })],
     });
@@ -66,7 +66,7 @@ describe("setupTestStack — ownership boot-guards", () => {
     await expect(promise).rejects.toThrow(/role "Member", feature: "fwbootguard"/);
   });
 
-  test("rejects a where-rule on access.write (fw#2626)", async () => {
+  test("rejects a where-rule on access.write", async () => {
     const promise = setupTestStack({
       features: [featureWith({ read: { Member: "all" }, write: { Member: qualifiedWriteRule } })],
     });

@@ -196,7 +196,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     expect(rebuildSnapshot).toEqual(liveSnapshot);
   });
 
-  test("ImplicitProjection ist im Registry registriert mit korrekten apply-keys", () => {
+  test("ImplicitProjection is registered in the registry with correct apply keys", () => {
     const registry = createRegistry([userFeature]);
     const projection = registry.getAllProjections().get("implicittest:projection:user-entity");
     expect(projection).toBeDefined();
@@ -212,7 +212,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     expect(projection.source).toBe("user");
   });
 
-  test("ohne softDelete → keine restore-apply-key registriert", () => {
+  test("without softDelete → no restore-apply-key is registered", () => {
     const hardDeleteEntity = createEntity({
       table: "read_implicit_hard",
       fields: {
@@ -274,7 +274,7 @@ const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
 const sensitiveEntityTable = buildEntityTable("sensitive-user", sensitiveEntity);
 const sensitiveProjection = "implicitsensitive:projection:sensitive-user-entity";
 
-describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
+describe("implicit-projection / sensitive rebuild parity", () => {
   let kms: InMemoryKmsAdapter;
 
   beforeAll(async () => {
@@ -309,7 +309,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     return row;
   }
 
-  test("Live==Rebuild inkl. sensitive-Ciphertext + bidx (byte-gleiche Kopie aus dem Event)", async () => {
+  test("Live==Rebuild including sensitive ciphertext + bidx (byte-identical copy from the event)", async () => {
     const created = await crud.create(
       { email: "x@test.de", apiKey: "secret-token-abc" },
       adminUser,
@@ -345,7 +345,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     expect(rebuiltRow["api_key_bidx"]).toBe(liveRow["api_key_bidx"]);
   });
 
-  test("DEK-Stabilität: Update re-encryptet mit demselben Subject-DEK — alter Event-Ciphertext bleibt lesbar", async () => {
+  test("DEK stability: Update re-encrypts with the same Subject-DEK — old event ciphertext remains readable", async () => {
     const created = await crud.create(
       { email: "y@test.de", apiKey: "first-secret" },
       adminUser,
@@ -383,7 +383,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     expect(rebuiltRow["api_key_bidx"]).toBe(computeBlindIndex(SENSITIVE_BIDX_KEY, "second-secret"));
   });
 
-  test("Erase-Divergenz bleibt die einzige legitime: DEK erased → Rebuild bidx NULL, Wert unlesbar", async () => {
+  test("Erase divergence remains the only legitimate one: DEK erased → Rebuild bidx NULL, value is unreadable", async () => {
     const created = await crud.create(
       { email: "z@test.de", apiKey: "gone-after-forget" },
       adminUser,

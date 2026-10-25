@@ -17,7 +17,7 @@ const openToAllAccess = {
 // fields must resolve to a registered entity, same as a reference facet
 // — a typo or an unmounted target feature is otherwise a silent
 // render-time break instead of a boot error.
-describe("validateBoot — refEntity targets (fw#3108)", () => {
+describe("validateBoot refEntity targets", () => {
   test("projectionList column with a typo'd refEntity throws", () => {
     const feature = defineFeature("ledger", (r) => {
       r.entity({

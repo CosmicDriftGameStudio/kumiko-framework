@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { describeUnparseableTscFailure } from "../check-app-tsc";
 
-// #386/1: wenn tsc -b mit exit≠0 endet aber keine Zeile auf `/ error TS\d+:/`
-// matcht (Spawn-Fehler, Config-Load, `error TS6053:` ohne führendes Space),
-// druckte der Runner irreführend "0 error(s)" und exitete 1. Der Helper baut
-// die Diagnose, die diesen Pfad sichtbar macht.
+// #386/1: when tsc -b ends with exit≠0 but no line matches `/ error TS\d+:/`
+// (spawn errors, config loading, `error TS6053:` without a leading space),
+// the runner misleadingly printed "0 error(s)" and exited 1. The helper builds
+// the diagnostic that makes this path visible.
 describe("describeUnparseableTscFailure", () => {
   test("spawn error (status null) → surfaces spawn error + no-output note", () => {
     const msg = describeUnparseableTscFailure(
@@ -23,7 +23,7 @@ describe("describeUnparseableTscFailure", () => {
     expect(msg).toContain("exit status: 1");
     expect(msg).toContain("raw tsc output:");
     expect(msg).toContain(raw);
-    // Kein Spawn-Fehler-Hinweis wenn result.error fehlt.
+    // No spawn error hint when result.error is absent.
     expect(msg).not.toContain("spawn error");
   });
 });

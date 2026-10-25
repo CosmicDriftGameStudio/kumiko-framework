@@ -13,13 +13,13 @@ afterAll(() => {
 installFetchMock();
 
 describe("ConfirmAccountUnlockScreen", () => {
-  test("ohne Token → missing-token page", () => {
+  test("without token → missing-token page", () => {
     renderWithProviders(<ConfirmAccountUnlockScreen />);
     expect(screen.getByText(/missing a token/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/login");
   });
 
-  test("mit Token + 200 → success after auto-submit", async () => {
+  test("with token + 200 → success after auto-submit", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -40,7 +40,7 @@ describe("ConfirmAccountUnlockScreen", () => {
     expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/home");
   });
 
-  test("mit Token + 422 → error state", async () => {
+  test("with token + 422 → error state", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ error: { code: "invalid_unlock_token" } }), { status: 422 }),

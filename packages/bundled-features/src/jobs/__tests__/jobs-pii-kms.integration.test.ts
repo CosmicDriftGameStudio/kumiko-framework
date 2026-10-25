@@ -168,7 +168,7 @@ describe("jobs run-started payload under KMS", () => {
 // lines straight from the BullMQ callback, with no event-PII catalog to
 // lean on. Same subject (triggeredById), same encrypt-under-DEK treatment,
 // same skip rules (null subject / no KMS stay plaintext).
-describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
+describe("jobs run-completed/-failed log messages under KMS", () => {
   const SECRET_LOG = "user export contained iban DE89370400440532013000";
 
   async function runIdFor(bullJobId: string): Promise<string> {
@@ -278,7 +278,7 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
 // string in job-runner.ts, since it pushes errorMsg into both the log
 // batch and the onJobFailed argument) stayed plaintext. Same subject, same
 // encrypt-under-DEK treatment, same skip rules as the logs above.
-describe("jobs run-failed error column under KMS (#2307)", () => {
+describe("jobs run-failed error column under KMS", () => {
   const SECRET_ERROR = "export failed for iban DE89370400440532013000";
 
   async function runIdFor(bullJobId: string): Promise<string> {
@@ -466,7 +466,7 @@ describe("jobs stale-run sweep error column under KMS", () => {
 // jobs:query:details HTTP handler so a regression in those eleven lines
 // (wrong AAD field name, log-array key access, the row/log spread) fails a
 // test instead of shipping ciphertext to the job-run detail screen.
-describe("jobs:query:details decrypts log messages and error end-to-end (#2247, #2307)", () => {
+describe("jobs:query:details decrypts log messages and error end-to-end", () => {
   let detailStack: TestStack;
   let detailLogger: ReturnType<typeof createJobRunLogger>;
 
@@ -598,7 +598,7 @@ describe("jobs:query:details decrypts log messages and error end-to-end (#2247, 
 // This dispatches the real jobs:write:retry HTTP handler so a
 // regression (missing decrypt, wrong AAD field name, sentinel mishandled)
 // fails a test instead of shipping a crash to the retry button.
-describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
+describe("jobs:write:retry decrypts payload before dispatch", () => {
   let retryStack: TestStack;
   let retryLogger: ReturnType<typeof createJobRunLogger>;
   let retryKms: InMemoryKmsAdapter;

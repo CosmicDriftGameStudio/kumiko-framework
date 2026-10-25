@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 describe("files :: feature-definition smoke", () => {
-  test("Boot ist clean (PII-Annotations + Event-Schema valide)", async () => {
+  test("Boot is clean (PII annotations + event schema valid)", async () => {
     // setupTestStack loaded the feature in beforeAll; if boot validation fails,
     // this block would never run.
     expect(stack).toBeDefined();
@@ -43,14 +43,14 @@ describe("files :: feature-definition smoke", () => {
     expect(fileRefEntity.table).toBe("file_refs");
   });
 
-  test("fileName ist als pii: true markiert", () => {
+  test("fileName is marked as pii: true", () => {
     const fileName = fileRefEntity.fields["fileName"] as { pii?: boolean };
     expect(fileName.pii).toBe(true);
   });
 });
 
 describe("files :: cross-feature behavior (F1, S1.7)", () => {
-  test("Sprint-2-Pattern: ein Consumer-Feature kann r.useExtension(EXT_USER_DATA, fileRef, ...) registrieren", async () => {
+  test("a consumer feature can register r.useExtension(EXT_USER_DATA, fileRef, ...)", async () => {
     // The stub feature simulates the user-data semantics: extendsRegistrar
     // comes from user-data-rights, and useExtension targets fileRef.
     const userDataProvider = defineFeature("test-user-data-provider", (r) => {
@@ -79,7 +79,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     await crossStack.cleanup();
   });
 
-  test("useExtension auf nicht-existierendes Entity wirft beim Boot", async () => {
+  test("useExtension on non-existent Entity throws during boot", async () => {
     const userDataProvider = defineFeature("test-user-data-provider-2", (r) => {
       r.extendsRegistrar(EXT_USER_DATA, {});
     });

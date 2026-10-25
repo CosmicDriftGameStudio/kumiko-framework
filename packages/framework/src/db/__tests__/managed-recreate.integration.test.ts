@@ -36,7 +36,7 @@ afterAll(async () => {
   await testDb.cleanup();
 });
 
-describe("managed projection recreate applies on a populated table (#356)", () => {
+describe("managed projection recreate applies on a populated table", () => {
   test("generated DROP+CREATE applies where an in-place ALTER NOT NULL dies", async () => {
     const raw = asRawClient(testDb.db);
 

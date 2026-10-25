@@ -79,7 +79,7 @@ describe("auto-default-tier postSave hook on tenant-create", () => {
     expect((rows[0] as Record<string, unknown>)["tier"]).toBe("free");
   });
 
-  test("idempotency: tenant-update fired keinen weiteren tier-assignment-row", async () => {
+  test("idempotency: tenant-update does not fire another tier-assignment-row", async () => {
     const created = (await stack.http.writeOk<Record<string, unknown>>(
       TenantHandlers.create,
       { key: "test-tenant-2", name: "Test Tenant Two" },

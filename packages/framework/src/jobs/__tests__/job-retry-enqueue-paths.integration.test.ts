@@ -40,7 +40,7 @@ async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
   if (keys.length > 0) await testRedis.redis.del(...keys);
 }
 
-describe("job retries on every enqueue path (fw#3184)", () => {
+describe("job retries on every enqueue path", () => {
   test("cron: a job with retries recovers via a second attempt on the same BullMQ job id", async () => {
     let callCount = 0;
     const starts: Array<{ jobId: string; attempt: number | undefined }> = [];

@@ -42,7 +42,7 @@ describe("computeDerivedCellValue", () => {
 });
 
 describe("roundDerivedCellValue", () => {
-  test("rounds a money target to whole minor units, kaufmännisch", () => {
+  test("rounds a money target to whole minor units using commercial rounding", () => {
     expect(roundDerivedCellValue(2307.58, { type: "money" })).toBe(2308);
     expect(roundDerivedCellValue(-2307.5, { type: "money" })).toBe(-2308);
   });

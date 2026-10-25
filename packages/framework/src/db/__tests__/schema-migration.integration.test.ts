@@ -300,7 +300,7 @@ describe("schema migration workflows", () => {
 // `packages/framework/src/db/__tests__/`, the same glob the CI `tz-matrix`
 // job (.github/workflows/ci.yml) runs under America/Los_Angeles, Europe/
 // Berlin, Asia/Tokyo and Pacific/Apia — proves it independent of process TZ.
-describe("date field — real DATE column, no TZ dependence (kumiko-framework#1924)", () => {
+describe("date field — real DATE column, no TZ dependence", () => {
   test("column is a genuine `date`, not timestamptz", async () => {
     const entity = createEntity({
       table: "df1_invoices",

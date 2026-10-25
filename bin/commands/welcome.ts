@@ -1,5 +1,5 @@
-// Welcome-Block für `kumiko` (no-args TTY fallback) und `kumiko help`.
-// Wird auch vom Ink-TUI im TitleBar referenziert.
+// Welcome block for `kumiko` (no-args TTY fallback) and `kumiko help`.
+// Also referenced by the Ink-TUI in TitleBar.
 //
 // Returns lines without trailing newlines. Caller joins with "\n".
 

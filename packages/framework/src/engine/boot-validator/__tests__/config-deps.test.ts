@@ -45,7 +45,7 @@ describe("validateConfigKeyAllowPerRequest", () => {
   });
 });
 
-describe("validateConfigKeyPiiEncrypted (kumiko-platform#231/#459)", () => {
+describe("validateConfigKeyPiiEncrypted", () => {
   test("allows piiEncrypted on a tenant-scoped text key", () => {
     const feature = fakeFeature({
       billingAddress: createTenantConfig("text", { piiEncrypted: true }),

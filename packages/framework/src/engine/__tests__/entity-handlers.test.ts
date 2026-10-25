@@ -412,12 +412,12 @@ describe("Verb-specific entity-handler factories", () => {
     expect(def.name).toBe("note:delete");
   });
 
-  test("defineEntityRestoreHandler produziert <entity>:restore (auf softDelete-Entity)", () => {
+  test("defineEntityRestoreHandler produces <entity>:restore (on softDelete entity)", () => {
     const def = defineEntityRestoreHandler("note", noteEntitySoftDelete, adminAccess);
     expect(def.name).toBe("note:restore");
   });
 
-  test("defineEntityRestoreHandler ohne softDelete → throw (Runtime-Guard bleibt)", () => {
+  test("defineEntityRestoreHandler without softDelete → throw (runtime guard remains)", () => {
     expect(() => defineEntityRestoreHandler("note", noteEntity, adminAccess)).toThrow(
       /softDelete: true/,
     );
@@ -436,7 +436,7 @@ describe("Verb-specific entity-handler factories", () => {
     expect(def.name).toBe("note:detail");
   });
 
-  test("Verb-Wrapper liefern Handler die identisch zu Legacy-API funktionieren", async () => {
+  test("Verb wrappers provide handlers that function identically to the legacy API", async () => {
     // Equivalence probe: defineEntityCreateHandler("note", ...) is not
     // merely naming sugar—the handler function must be bit-identical to
     // defineEntityCreateHandler("note", ...). We compare the schema

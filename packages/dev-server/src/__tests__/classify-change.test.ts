@@ -44,11 +44,11 @@ describe("classifyChange", () => {
     expect(classifyChange("/abs/samples/foo/src/component.test.tsx")).toBe("ignore");
   });
 
-  test("__tests__/ Subdir → ignore (auch wenn die Datei selbst nicht *.test.ts heißt)", () => {
+  test("__tests__/ subdirectory → ignore (even if the file itself is not *.test.ts)", () => {
     expect(classifyChange("/abs/samples/foo/src/__tests__/test-utils.ts")).toBe("ignore");
   });
 
-  test("Integration-Test → ignore (würde sonst Schema-Restart auslösen)", () => {
+  test("Integration test → ignore (would otherwise trigger schema restart)", () => {
     expect(classifyChange("/abs/samples/foo/src/feature.integration.test.ts")).toBe("ignore");
   });
 

@@ -161,7 +161,7 @@ async function seedFileRef(
 }
 
 describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {
-  test("Alice in Tenant A + B → Bundle hat user-Profil + fileRefs aus beiden Tenants", async () => {
+  test("Alice in Tenant A + B → Bundle has user profile + fileRefs from both Tenants", async () => {
     await seedUser(ALICE_ID, {
       email: "alice@example.com",
       displayName: "Alice Test",
@@ -239,7 +239,7 @@ describe("runUserExport :: PII-Surface (Datenschutz-Audit)", () => {
 });
 
 describe("runUserExport :: Cross-User-Isolation", () => {
-  test("Alice's Bundle enthaelt KEINE Daten von Bob (gleicher Tenant, andere insertedById)", async () => {
+  test("Alice's Bundle contains NO data from Bob (same Tenant, different insertedById)", async () => {
     await seedUser(ALICE_ID, { email: "alice@example.com" });
     await seedUser(BOB_ID, { email: "bob.distinct@example.com" });
     await seedMembership(ALICE_ID, TENANT_A);
@@ -267,7 +267,7 @@ describe("runUserExport :: Cross-User-Isolation", () => {
 });
 
 describe("runUserExport :: Orphan-User (0 Memberships)", () => {
-  test("User ohne Memberships → user-Profil trotzdem im Bundle (Pseudo-Tenant)", async () => {
+  test("User without memberships → user profile still in bundle (pseudo-tenant)", async () => {
     await seedUser(ORPHAN_ID, { email: "orphan@example.com" });
     // KEINE seedMembership.
 
@@ -287,7 +287,7 @@ describe("runUserExport :: Orphan-User (0 Memberships)", () => {
 });
 
 describe("runUserExport :: Empty-State", () => {
-  test("User existiert nicht → leeres Bundle ohne Error", async () => {
+  test("User does not exist → empty bundle without an error", async () => {
     // No user is seeded; the user hook returns null when no row exists.
     const bundle = await runUserExport({
       db: stack.db,
@@ -307,7 +307,7 @@ describe("runUserExport :: Empty-State", () => {
   });
 });
 
-describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
+describe("runUserExport :: PII subject ciphertexts", () => {
   test("Art. 20: bundle carries plaintext, never kumiko-pii: blobs", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
@@ -371,7 +371,7 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
   });
 });
 
-describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
+describe("runUserExport :: tenant-invitation PII export", () => {
   const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");
   const INVITE_EMAIL = "alice.invite@example.com";
 
@@ -521,7 +521,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
   });
 });
 
-describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#1955)", () => {
+describe("runUserExport :: fileRef PII export via the fileRefs side-channel", () => {
   afterEach(() => {
     resetPiiSubjectKmsForTests();
   });

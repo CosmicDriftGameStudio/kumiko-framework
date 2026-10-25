@@ -80,13 +80,13 @@ function renderUnderLocale(locale: string, field: EditFieldViewModel = moneyFiel
 }
 
 describe("RenderField — App-Locale an money durchreichen", () => {
-  test("money ohne field.locale bekommt das App-Locale (de-DE)", () => {
+  test("money without field.locale receives the App locale (de-DE)", () => {
     renderUnderLocale("de-DE");
     expect(captured?.kind).toBe("money");
     if (captured?.kind === "money") expect(captured.locale).toBe("de-DE");
   });
 
-  test("ein anderes App-Locale wird ebenso durchgereicht (en-US)", () => {
+  test("another App locale is passed through as well (en-US)", () => {
     renderUnderLocale("en-US");
     // Assert this first—without it, the test would be empty for an incorrect kind.
     expect(captured?.kind).toBe("money");
@@ -95,15 +95,15 @@ describe("RenderField — App-Locale an money durchreichen", () => {
 });
 
 describe("RenderField — App-Locale an date durchreichen", () => {
-  test("date ohne field.locale bekommt das App-Locale (de-DE)", () => {
+  test("date without field.locale receives the App locale (de-DE)", () => {
     renderUnderLocale("de-DE", dateField());
     expect(captured?.kind).toBe("date");
     if (captured?.kind === "date") expect(captured.locale).toBe("de-DE");
   });
 });
 
-describe("RenderField — min/max/dateLocale ans Picker-Input durchreichen (#369)", () => {
-  test("date-Feld: min/max/dateLocale landen in den InputProps", () => {
+describe("RenderField passes min/max/dateLocale to the picker input", () => {
+  test("date field: min/max/dateLocale are passed to InputProps", () => {
     const field: EditFieldViewModel = {
       ...dateField(),
       min: "2020-01-01",
@@ -120,7 +120,7 @@ describe("RenderField — min/max/dateLocale ans Picker-Input durchreichen (#369
     }
   });
 
-  test("timestamp-Feld: min/max landen in den InputProps", () => {
+  test("timestamp field: min/max are passed to InputProps", () => {
     const field: EditFieldViewModel = {
       field: "at",
       label: "Zeitpunkt",

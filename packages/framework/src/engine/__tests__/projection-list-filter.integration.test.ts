@@ -57,7 +57,7 @@ const rosterFeature = defineFeature("roster", (r) => {
   });
 });
 
-describe("projectionList filter — real query narrows real rows (fw#2224)", () => {
+describe("projectionList filter real query narrows real rows", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

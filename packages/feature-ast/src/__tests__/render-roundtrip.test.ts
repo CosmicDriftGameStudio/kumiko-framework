@@ -431,7 +431,7 @@ defineFeature("user-data-rights", (r) => {
 });
 `;
 
-describe("render → parse roundtrip — imported-constant registrar-call names (#2111)", () => {
+describe("render → parse roundtrip — imported-constant registrar-call names", () => {
   const initial = parse(NAME_CONST_FEATURE);
 
   test("parses the identifier-authored names, keeping the source text alongside the resolved value", () => {
@@ -597,7 +597,7 @@ defineFeature("mailer", (r) => {
 });
 `;
 
-describe("render → parse roundtrip — r.defineEvent piiFields stance (fw#2558)", () => {
+describe("render → parse roundtrip — r.defineEvent piiFields stance", () => {
   test('piiFields: "none" survives parse → render → parse unchanged', () => {
     const initial = parse(DEFINE_EVENT_WITH_MIGRATIONS_FEATURE);
     const rendered = renderFeatureFile({

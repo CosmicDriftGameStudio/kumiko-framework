@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
-// build-apps — Wrapper-Skript, das `bun run build` in allen Workspaces
-// aufruft die ein `build`-Script haben. Wir enumerieren manuell statt
-// `--filter`, weil wir nur Workspaces mit vorhandenem build-Script wollen.
+// build-apps — Wrapper script that calls `bun run build` in all workspaces
+// that have a `build` script. We enumerate manually instead of
+// `--filter`, because we only want workspaces with an existing build script.
 //
-// Workspace-Discovery liest package.json#workspaces und expandiert
-// single-level globs (`samples/apps/*`). Damit gibt's keine Drift wenn
-// du das Repo-Layout umorganisierst.
+// Workspace discovery reads package.json#workspaces and expands
+// single-level globs (`samples/apps/*`). This prevents drift when
+// you reorganize the repo layout.
 //
-// CI: `bun build:apps` ruft das hier; lokal genauso.
+// CI: `bun build:apps` invokes this; same locally.
 
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
@@ -32,15 +32,15 @@ async function readWorkspacePatterns(): Promise<readonly string[]> {
   return [];
 }
 
-// Expandiert eine Workspace-Spec zu konkreten Pfaden:
+// Expands a workspace spec into concrete paths:
 //   "packages/framework"   → ["packages/framework"]
 //   "samples/apps/*"       → ["samples/apps/showcase", "samples/apps/ui-walkthrough", …]
 async function expandWorkspaceSpec(spec: string): Promise<readonly string[]> {
   if (!spec.includes("*")) {
     return existsSync(spec) ? [spec] : [];
   }
-  // Single-level glob: "<parent>/*" — andere Patterns würden Bun.glob
-  // brauchen, kommen hier aber im Repo nicht vor.
+  // Single-level glob: "<parent>/*" — other patterns would require Bun.glob
+  // here, but do not occur in the repo.
   if (!spec.endsWith("/*")) {
     throw new Error(
       `[build-apps] unsupported workspace pattern: ${spec} — only "<dir>/*" is supported`,

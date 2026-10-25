@@ -54,7 +54,7 @@ describe("use-all-bundled scaffoldDeploy", () => {
     expect(result.detected.hasPrivateGhPackages).toBe(false);
   });
 
-  test("Dockerfile emits start.sh inline (Sprint 9.8 B1 fix)", () => {
+  test("Dockerfile emits start.sh inline", () => {
     scaffoldDeploy({
       appName: "use-all-bundled",
       port: 3000,

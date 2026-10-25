@@ -81,7 +81,7 @@ afterAll(async () => {
 });
 
 describe("legal-pages sample", () => {
-  test("alle LEGAL_ROUTES sind über stack.app erreichbar", async () => {
+  test("all LEGAL_ROUTES are reachable via stack.app", async () => {
     // Smoke-Test: jede Route gibt entweder 200 (gerendert) oder 404
     // (Block fehlt). Nie 5xx — die Server-Pipeline läuft sauber durch.
     for (const route of LEGAL_ROUTES) {
@@ -105,21 +105,21 @@ describe("legal-pages sample", () => {
     expect(privacyBody).toContain("Datenschutzerklärung");
   });
 
-  test("EN-Variante 404 (nicht geseedet) zeigt hilfreiche Meldung", async () => {
+  test("The EN variant 404 (not seeded) shows a helpful message", async () => {
     const res = await stack.app.request("/legal/imprint");
     expect(res.status).toBe(404);
     const body = await res.text();
     expect(body).toContain("Tenant-Admin");
   });
 
-  test("Markdown-Headings werden zu HTML-h2-Tags", async () => {
+  test("Markdown headings are converted to HTML h2 tags", async () => {
     const res = await stack.app.request("/legal/impressum");
     const body = await res.text();
     expect(body).toContain("<h2>Angaben gemäß § 5 TMG</h2>");
     expect(body).toContain("<strong>Alex Morgan</strong>");
   });
 
-  test("Cache-Header zeigt 60s public-cache", async () => {
+  test("Cache header indicates 60s public caching", async () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
   });

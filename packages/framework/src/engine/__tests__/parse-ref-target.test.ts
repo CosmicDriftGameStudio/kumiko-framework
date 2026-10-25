@@ -24,14 +24,14 @@ describe("parseRefTarget", () => {
     });
   });
 
-  test("kebab-case-feature: bleibt erhalten beim split", () => {
+  test("kebab-case-feature: remains intact when split", () => {
     expect(parseRefTarget("public-status:incident", "shop")).toEqual({
       featureName: "public-status",
       entityName: "incident",
     });
   });
 
-  test("zweiter Doppelpunkt im entity-name (selten, aber möglich) — splittet nur am ERSTEN", () => {
+  test("second colon in entity-name (rare, but possible) — splits only at the FIRST", () => {
     // Feature and entity are kebab-case segments; the parser splits only at the first
     // ":". An entity name containing ":" passes through this parser but is rejected by
     // the boot validator, so downstream lookup cannot find it.

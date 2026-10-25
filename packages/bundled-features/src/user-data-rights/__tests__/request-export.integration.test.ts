@@ -76,7 +76,7 @@ type RequestExportResponse = {
 };
 
 describe("request-export :: happy path", () => {
-  test("erster Klick erzeugt pending Job mit requestedFromTenantId=Caller-Tenant", async () => {
+  test("First click creates a pending job with requestedFromTenantId=Caller-Tenant", async () => {
     const result = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
 
     expect(result.isExisting).toBe(false);
@@ -93,7 +93,7 @@ describe("request-export :: happy path", () => {
     expect((rows[0] as any).status).toBe(EXPORT_JOB_STATUS.Pending);
   });
 
-  test("Event 'export-job.created' im Stream", async () => {
+  test("Event 'export-job.created' in the stream", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const events = await asRawClient(stack.db).unsafe(`
@@ -127,7 +127,7 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
     expect(evRows).toHaveLength(1); // 1 click = 1 event, not 2
   });
 
-  test("Klick nach done-Job ist NEUER Job (Audit-Historie wird nicht blockiert)", async () => {
+  test("Click after a done job creates a NEW job (audit history is not blocked)", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     // Simulate the worker by setting status to done; a direct update is acceptable in this test.
     await changeExportJob(stack.db, first.jobId, { status: EXPORT_JOB_STATUS.Done }, tenantA);
@@ -142,7 +142,7 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
 });
 
 describe("request-export :: Cross-Tenant (Plan-Doc-Pflicht-Test)", () => {
-  test("Alice klickt aus Tenant A → Tenant B Klick sieht den A-Job (kein 2. Job)", async () => {
+  test("Alice clicks from Tenant A → a click from Tenant B sees the A job (no 2nd job)", async () => {
     const fromA = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     expect(fromA.isExisting).toBe(false);
 
@@ -209,12 +209,12 @@ describe("export-status :: User-Polling", () => {
         };
       };
 
-  test("hasJob=false wenn User noch nichts requestet hat", async () => {
+  test("hasJob=false when the user has not requested anything yet", async () => {
     const result = await stack.http.queryOk<StatusResponse>(EXPORT_STATUS, {}, aliceUser);
     expect(result.hasJob).toBe(false);
   });
 
-  test("hasJob=true mit pending-Job nach request-export", async () => {
+  test("hasJob=true with a pending job after request-export", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const result = await stack.http.queryOk<StatusResponse>(EXPORT_STATUS, {}, aliceUser);
@@ -234,7 +234,7 @@ describe("export-status :: User-Polling", () => {
     expect(bobResult.hasJob).toBe(false);
   });
 
-  test("liefert NEUESTEN Job zurueck (orderBy desc requestedAt)", async () => {
+  test("Returns the NEWEST job (orderBy desc requestedAt)", async () => {
     const T = getTemporal();
     const oldJobId = "11111111-1111-4111-8111-111111111111";
     await seedRowViaEventStore(stack.db, exportJobsTable, {
@@ -256,7 +256,7 @@ describe("export-status :: User-Polling", () => {
     expect(result.job.status).toBe(EXPORT_JOB_STATUS.Pending);
   });
 
-  test("Cross-Tenant: Polling aus Tenant B sieht den Job aus Tenant A", async () => {
+  test("Cross-Tenant: Polling from Tenant B sees the job from Tenant A", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const fromB = await stack.http.queryOk<StatusResponse>(EXPORT_STATUS, {}, aliceFromB);

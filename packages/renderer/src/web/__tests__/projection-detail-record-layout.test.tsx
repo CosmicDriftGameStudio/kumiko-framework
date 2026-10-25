@@ -1175,7 +1175,7 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
     expect(screen.queryByTestId("related-list-Payments")).toBeNull();
   });
 
-  test("without a Tabs primitive, falls back to the stacked all-sections layout instead of truncating to the first section (fw#2501)", async () => {
+  test("without a Tabs primitive, falls back to the stacked all-sections layout instead of truncating to the first section", async () => {
     const dispatcher = dispatcherReturning(rowData);
     const { navApi } = navWithTab(undefined);
 
@@ -1258,7 +1258,7 @@ describe("KumikoScreen / projectionDetail — unchanged for a solon-shaped scree
   });
 });
 
-describe("KumikoScreen / projectionDetail — switching records remounts the body (fw#2518)", () => {
+describe("KumikoScreen / projectionDetail — switching records remounts the body", () => {
   test("record A's fields are gone from the DOM after switching to record B", async () => {
     const dataById: Record<string, Readonly<Record<string, unknown>>> = {
       "rent-1": { description: "Loft 4B" },

@@ -108,7 +108,7 @@ function sectionActionsOf(screen: {
   return screen.layout.sections.flatMap((s) => s.actions ?? []);
 }
 
-describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
+describe("privacy-center screen (projectionDetail conversion)", () => {
   test("is a projectionDetail bound to the user's own `me` query", () => {
     const f = createUserDataRightsFeature();
     const screen = f.screens["privacy-center"];

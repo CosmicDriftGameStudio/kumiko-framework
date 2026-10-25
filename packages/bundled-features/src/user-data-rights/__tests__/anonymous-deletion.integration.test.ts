@@ -127,7 +127,7 @@ async function statusOf(id: string = aliceUser.id): Promise<string | undefined> 
 }
 
 describe("anonymous deletion flow", () => {
-  test("request-by-email (anonym) für aktiven User → success + Verify-Mail mit Token", async () => {
+  test("request-by-email (anonymous) for active user → success + Verify-Mail with token", async () => {
     await seedAlice();
 
     const res = await stack.http.raw("POST", "/api/write", {
@@ -145,7 +145,7 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.Active);
   });
 
-  test("confirm-by-token (anonym) mit echtem Token → Grace-Period gestartet", async () => {
+  test("confirm-by-token (anonymous) with valid token → grace period started", async () => {
     await seedAlice();
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -174,7 +174,7 @@ describe("anonymous deletion flow", () => {
     expect(rows[0]?.gracePeriodEnd).not.toBeNull();
   });
 
-  test("confirm-replay (anonym): zweites Confirm mit gleichem Token → 422, Status unverändert", async () => {
+  test("confirm-replay (anonymous): second confirm with same token → 422, status unchanged", async () => {
     await seedAlice();
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -256,7 +256,7 @@ describe("anonymous deletion flow", () => {
     }
   });
 
-  test("replay-after-cancel (#354/1): Token nach cancel-deletion re-armt NICHT → 422, bleibt Active", async () => {
+  test("replay-after-cancel: token after cancel-deletion does NOT re-arm → 422, remains Active", async () => {
     await seedAlice();
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -286,7 +286,7 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.Active);
   });
 
-  test("supersede (#354/1): altes Token re-armt NICHT, nachdem ein zweiter Antrag eine neue requestId setzt", async () => {
+  test("supersede: old token does NOT re-arm after a second request sets a new requestId", async () => {
     // This distinguishes the requestId check from a presence-only check: after
     //    cancel, a fresh request sets the marker again with a new requestId.
     // A presence-only guard would incorrectly accept the old token; the
@@ -333,7 +333,7 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
   });
 
-  test("request-by-email für nicht-existente Email → success, KEINE Mail (enumeration-safe)", async () => {
+  test("request-by-email for non-existent email → success, NO email (enumeration-safe)", async () => {
     await seedAlice();
     const res = await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -344,7 +344,7 @@ describe("anonymous deletion flow", () => {
     expect(verifyCalls).toHaveLength(0);
   });
 
-  test("request-by-email für non-active User → success, KEINE Mail", async () => {
+  test("request-by-email for non-active user → success, NO email", async () => {
     await seedAlice(USER_STATUS.DeletionRequested);
     const res = await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -355,7 +355,7 @@ describe("anonymous deletion flow", () => {
     expect(verifyCalls).toHaveLength(0);
   });
 
-  test("confirm mit Garbage-Token → 422, Status unverändert", async () => {
+  test("confirm with garbage token → 422, status unchanged", async () => {
     await seedAlice();
     const res = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
@@ -365,7 +365,7 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.Active);
   });
 
-  test("confirm mit falsch-signiertem Token → 422", async () => {
+  test("confirm with incorrectly signed token → 422", async () => {
     await seedAlice();
     // First create a genuine request so the row has a requestId; otherwise the
     // no-outstanding-request guard would reject the call before reaching the
@@ -389,7 +389,7 @@ describe("anonymous deletion flow", () => {
   });
 });
 
-describe("anonymous deletion flow — not configured (kein Secret)", () => {
+describe("anonymous deletion flow — not configured (no secret)", () => {
   let bareStack: TestStack;
   const bareVerifyCalls: VerifyArgs[] = [];
 
@@ -428,7 +428,7 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
     await bareStack.cleanup();
   });
 
-  test("request-by-email ohne Secret → success no-op, KEINE Mail", async () => {
+  test("request-by-email without secret → success no-op, NO email", async () => {
     const res = await bareStack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
       payload: { email: ALICE_EMAIL },
@@ -438,7 +438,7 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
     expect(bareVerifyCalls).toHaveLength(0);
   });
 
-  test("confirm ohne Secret → 422", async () => {
+  test("confirm without secret → 422", async () => {
     const { token } = signDeletionToken(aliceUser.id, "req-id", 60, DELETION_SECRET);
     const res = await bareStack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,

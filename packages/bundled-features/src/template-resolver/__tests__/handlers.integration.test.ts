@@ -101,7 +101,7 @@ const basePayload = {
 // the database, findById/list/resolveTemplate would find nothing. A dedicated
 // audit-log test should query the `read_events` table directly.
 describe("template-resolver :: upsertSystem", () => {
-  test("SystemAdmin kann System-Template anlegen", async () => {
+  test("SystemAdmin can create a system template", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "system-new" },
@@ -153,7 +153,7 @@ describe("template-resolver :: upsertSystem", () => {
 });
 
 describe("template-resolver :: upsertTenant", () => {
-  test("TenantAdmin kann Override für eigenen Tenant anlegen", async () => {
+  test("TenantAdmin can create an override for their own tenant", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "tenant-own" },
@@ -162,7 +162,7 @@ describe("template-resolver :: upsertTenant", () => {
     expect(result).toMatchObject({ slug: "tenant-own", isNew: true });
   });
 
-  test("default-status ist draft, explizites active geht auch", async () => {
+  test("default-status is draft, explicit active also works", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "tenant-default-draft" },
@@ -194,7 +194,7 @@ describe("template-resolver :: upsertTenant", () => {
     expect(found2?.status).toBe("active");
   });
 
-  test("SystemAdmin kann via tenantIdOverride cross-tenant schreiben", async () => {
+  test("SystemAdmin can write across tenants via tenantIdOverride", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "system-override", tenantIdOverride: tenantA_Admin.tenantId },
@@ -212,7 +212,7 @@ describe("template-resolver :: upsertTenant", () => {
     expect(events[0]?.createdBy).toBe(systemAdmin.id);
   });
 
-  test("SystemAdmin-Override auf SYSTEM_TENANT_ID → access_denied (use upsertSystem)", async () => {
+  test("SystemAdmin override for SYSTEM_TENANT_ID → access_denied (use upsertSystem)", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "denied-system-override", tenantIdOverride: SYSTEM_TENANT_ID },
@@ -241,7 +241,7 @@ describe("template-resolver :: upsertTenant", () => {
 });
 
 describe("template-resolver :: publish + archive", () => {
-  test("publish setzt status auf active", async () => {
+  test("publish sets status to active", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "publish-test", status: "draft" },
@@ -255,7 +255,7 @@ describe("template-resolver :: publish + archive", () => {
     expect(published).toMatchObject({ status: "active" });
   });
 
-  test("publish: TenantA kann TenantB's Template nicht publishen (refused)", async () => {
+  test("publish: TenantA cannot publish TenantB's Template (refused)", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "isolation-publish" },
@@ -269,7 +269,7 @@ describe("template-resolver :: publish + archive", () => {
     expectErrorIncludes(err, "access_denied");
   });
 
-  test("publish: nicht-existierender ID → refused wie ein gesperrtes Template", async () => {
+  test("publish: non-existent ID → refused like a locked template", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.publish,
       { id: "00000000-0000-4000-8000-000000000999" },
@@ -278,7 +278,7 @@ describe("template-resolver :: publish + archive", () => {
     expectErrorIncludes(err, "access_denied");
   });
 
-  test("archive setzt status auf archived", async () => {
+  test("archive sets status to archived", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "archive-test", status: "active" },
@@ -292,7 +292,7 @@ describe("template-resolver :: publish + archive", () => {
     expect(archived).toMatchObject({ status: "archived" });
   });
 
-  test("archive: tenant-isolation (refused bei fremdem Tenant)", async () => {
+  test("archive: tenant isolation (refused for foreign tenant)", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "isolation-archive" },
@@ -326,7 +326,7 @@ describe("template-resolver :: findById query", () => {
     expect(result).toMatchObject({ slug: "find-own", scope: "tenant" });
   });
 
-  test("returnt null bei fremdem Tenant", async () => {
+  test("returns null for a foreign tenant", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "find-isolation" },
@@ -340,7 +340,7 @@ describe("template-resolver :: findById query", () => {
     expect(result).toBeNull();
   });
 
-  test("System-Templates sind für alle authentifizierten User sichtbar", async () => {
+  test("System Templates are visible to all authenticated users", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "find-system" },
@@ -361,7 +361,7 @@ describe("template-resolver :: findById query", () => {
 });
 
 describe("template-resolver :: list query", () => {
-  test("includeSystem=true zeigt eigene + system", async () => {
+  test("includeSystem=true shows own + system templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "list-system-1", locale: "de", kind: "ai-prompt" },
@@ -382,7 +382,7 @@ describe("template-resolver :: list query", () => {
     expect(slugs).toContain("list-tenant-1");
   });
 
-  test("includeSystem=false zeigt nur eigenen Tenant", async () => {
+  test("includeSystem=false shows only their own tenant", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "list-system-2", locale: "tr", kind: "ai-prompt" },
@@ -407,7 +407,7 @@ describe("template-resolver :: list query", () => {
   // scope through TenantDb; it provides no cross-tenant view of other tenant
   // templates. TestUsers.systemAdmin belongs to testTenantId(1), not the
   // system tenant.
-  test("SystemAdmin + includeSystem=false → nur eigener Tenant, weder System- noch Fremd-Templates", async () => {
+  test("SystemAdmin + includeSystem=false → only their own tenant, neither System nor foreign-tenant Templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "sysown-system", locale: "pl", kind: "ai-prompt" },
@@ -434,7 +434,7 @@ describe("template-resolver :: list query", () => {
     expect(slugs).not.toContain("sysown-tenant-a");
   });
 
-  test("SystemAdmin + includeSystem=true → eigene + System-Templates, Fremd-Tenant bleibt unsichtbar", async () => {
+  test("SystemAdmin + includeSystem=true → own and System Templates, foreign tenant remains invisible", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
       { ...basePayload, slug: "syscross-system", locale: "nl", kind: "ai-prompt" },
@@ -461,7 +461,7 @@ describe("template-resolver :: list query", () => {
     expect(slugs).not.toContain("syscross-tenant-b");
   });
 
-  test("tenant-isolation: TenantA's templates nicht für TenantB", async () => {
+  test("tenant isolation: TenantA's templates are not visible to TenantB", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
       { ...basePayload, slug: "list-iso", locale: "fr", kind: "ai-prompt" },

@@ -91,7 +91,7 @@ describe("useQuery live-mode", () => {
     await waitFor(() => expect(getByTestId("probe").textContent).toBe("2"));
   });
 
-  test("live=false: injected event wird ignoriert, kein refetch", async () => {
+  test("live=false: injected event is ignored, no refetch", async () => {
     let calls = 0;
     const dispatcher = makeDispatcher((async () => {
       calls += 1;
@@ -121,7 +121,7 @@ describe("useQuery live-mode", () => {
     expect(calls).toBe(1);
   });
 
-  test("live=true: nur events für die Query-Entity triggern refetch", async () => {
+  test("live=true: only events for the query entity trigger refetch", async () => {
     let calls = 0;
     const dispatcher = makeDispatcher((async () => {
       calls += 1;

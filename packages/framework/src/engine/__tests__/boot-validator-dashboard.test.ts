@@ -147,7 +147,7 @@ describe("validateBoot — dashboard screens", () => {
     expect(() => validateBoot([feature])).toThrow(/empty columns list/);
   });
 
-  test("requiredKeysFromScreen sammelt Panel- und Column-Labels", () => {
+  test("requiredKeysFromScreen collects panel and column labels", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",
@@ -271,7 +271,7 @@ describe("validateBoot — dashboard screens", () => {
     expect(() => validateBoot([feature])).toThrow(/filter.optionsQuery is empty/);
   });
 
-  test("requiredKeysFromScreen sammelt stat-group-Kinder- und Filter-Labels, aber keine custom-Panel-Keys", () => {
+  test("requiredKeysFromScreen collects stat-group child and filter labels, but not custom panel keys", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",
@@ -341,7 +341,7 @@ function screenPanelFeature(panel: DashboardScreenPanel) {
   return dashboardFeature([STAT_PANEL, panel]);
 }
 
-describe("validateBoot — dashboard screen panels (fw#2841)", () => {
+describe("validateBoot — dashboard screen panels", () => {
   test("accepts a cross-feature projectionList target with a registered visibleWhen query", () => {
     const feature = screenPanelFeature({
       kind: "screen",
@@ -541,7 +541,7 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
     });
   });
 
-  test("requiredKeysFromScreen sammelt ein gesetztes Screen-Panel-Label", () => {
+  test("requiredKeysFromScreen collects a set panel label from the screen", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",

@@ -183,7 +183,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/zero fields/i);
   });
 
-  test("validateBoot rejects a projectionDetail extension section with contributesToFormSubmit: true (read-only screen, solon#264)", () => {
+  test("validateBoot rejects a projectionDetail extension section with contributesToFormSubmit: true (read-only screen)", () => {
     const features = [
       defineFeature("app", (r) => {
         r.screen({
@@ -241,7 +241,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/has no component/i);
   });
 
-  test("validateBoot boots a projectionDetail extension section without contributesToFormSubmit (self-persisting, solon#264)", () => {
+  test("validateBoot boots a projectionDetail extension section without contributesToFormSubmit (self-persisting)", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler({
@@ -270,7 +270,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("validateBoot rejects a projectionDetail relatedList section with an empty query (fw#2166)", () => {
+  test("validateBoot rejects a projectionDetail relatedList section with an empty query", () => {
     const features = [
       defineFeature("app", (r) => {
         r.screen({
@@ -288,7 +288,7 @@ describe("r.screen() — registration", () => {
     );
   });
 
-  test("validateBoot rejects a relatedList rowClick with no matching detailFor screen (fw#2166)", () => {
+  test("validateBoot rejects a relatedList rowClick with no matching detailFor screen", () => {
     const features = [
       defineFeature("app", (r) => {
         r.screen({
@@ -314,7 +314,7 @@ describe("r.screen() — registration", () => {
     );
   });
 
-  test("validateBoot accepts a relatedList rowClick with a detailFor screen in another feature (fw#2166)", () => {
+  test("validateBoot accepts a relatedList rowClick with a detailFor screen in another feature", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler({
@@ -365,7 +365,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("validateBoot rejects a relatedList section in a wizard layout (fw#2166)", () => {
+  test("validateBoot rejects a relatedList section in a wizard layout", () => {
     const features = [
       defineFeature("app", (r) => {
         r.screen({
@@ -384,7 +384,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/relatedList.*wizard layout/);
   });
 
-  test("validateBoot accepts a valid relatedList section without rowClick (fw#2166)", () => {
+  test("validateBoot accepts a valid relatedList section without rowClick", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler({
@@ -414,7 +414,7 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  describe("relatedList search + facets (fw#2740)", () => {
+  describe("relatedList search + facets", () => {
     test("rejects searchable: true when the bound query's schema has no search parameter", () => {
       const features = [
         defineFeature("app", (r) => {
@@ -781,7 +781,7 @@ describe("r.screen() — registration", () => {
     });
   });
 
-  test("validateBoot rejects a relatedList section on entityEdit (fw#2166)", () => {
+  test("validateBoot rejects a relatedList section on entityEdit", () => {
     const features = [
       defineFeature("shop", (r) => {
         r.entity({ name: "product", ...productEntity() });
@@ -802,7 +802,7 @@ describe("r.screen() — registration", () => {
     );
   });
 
-  test("validateBoot rejects a relatedList section on configEdit (fw#2166)", () => {
+  test("validateBoot rejects a relatedList section on configEdit", () => {
     const features = [
       defineFeature("shop", (r) => {
         r.config({
@@ -827,7 +827,7 @@ describe("r.screen() — registration", () => {
     );
   });
 
-  test("validateBoot rejects a relatedList section on actionForm (fw#2166)", () => {
+  test("validateBoot rejects a relatedList section on actionForm", () => {
     const features = [
       defineFeature("shop", (r) => {
         r.writeHandler({

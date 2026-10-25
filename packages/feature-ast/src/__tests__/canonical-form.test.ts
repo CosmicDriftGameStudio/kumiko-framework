@@ -182,7 +182,7 @@ defineFeature("todoList", (r) => {
 });
 `;
 
-describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
+describe("Canonical Object Form — parser accepts and extracts", () => {
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
     skipFileDependencyResolution: true,
@@ -191,20 +191,20 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
   const sourceFile = project.createSourceFile("canonical.ts", CANONICAL_FEATURE);
   const result = parseSourceFile(sourceFile);
 
-  test("featureName wird gelesen", () => {
+  test("featureName is read", () => {
     expect(result.featureName).toBe("todoList");
   });
 
-  test("alle r.* Calls werden ohne Errors extrahiert", () => {
+  test("all r.* calls are extracted without errors", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("kein UnknownPattern — jede r.*-Methode ist erkannt", () => {
+  test("no UnknownPattern — every r.* method is recognized", () => {
     const unknowns = result.patterns.filter((p) => p.kind === "unknown");
     expect(unknowns).toEqual([]);
   });
 
-  test("alle Pattern-Kinds sind erfasst", () => {
+  test("all pattern kinds are covered", () => {
     const kinds: ReadonlySet<string> = new Set(result.patterns.map((p) => p.kind));
     const expected = [
       // Static
@@ -243,7 +243,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     }
   });
 
-  test("entity Pattern: name + fields aus Object-Form", () => {
+  test("entity pattern: name + fields from object form", () => {
     const entity = result.patterns.find((p) => p.kind === "entity");
     expect(entity).toMatchObject({
       kind: "entity",
@@ -251,7 +251,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("relation Pattern: entity + name aus Object-Form", () => {
+  test("relation pattern: entity + name from object form", () => {
     const relation = result.patterns.find((p) => p.kind === "relation");
     expect(relation).toMatchObject({
       kind: "relation",
@@ -260,7 +260,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("hook Pattern: type + target aus Object-Form", () => {
+  test("hook pattern: type + target from object form", () => {
     const hook = result.patterns.find((p) => p.kind === "hook");
     expect(hook).toMatchObject({
       kind: "hook",
@@ -269,7 +269,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("hook Pattern: entity-wide { allOf } target aus Object-Form", () => {
+  test("hook pattern: entity-wide { allOf } target from object form", () => {
     const entityHook = result.patterns.find(
       (p) => p.kind === "hook" && p.hookType === "postDelete",
     );
@@ -280,7 +280,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("metric / secret / claimKey: name aus Object-Form", () => {
+  test("metric / secret / claimKey: name from object form", () => {
     const metric = result.patterns.find((p) => p.kind === "metric");
     expect(metric).toMatchObject({ kind: "metric", shortName: "requests" });
     const secret = result.patterns.find((p) => p.kind === "secret");
@@ -289,7 +289,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     expect(claim).toMatchObject({ kind: "claimKey", shortName: "teamId" });
   });
 
-  test("defineEvent: name + version + migrations aus Object-Form", () => {
+  test("defineEvent: name + version + migrations from object form", () => {
     const ev = result.patterns.find((p) => p.kind === "defineEvent");
     expect(ev).toMatchObject({
       kind: "defineEvent",
@@ -299,7 +299,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("referenceData: entity + upsertKey aus Object-Form", () => {
+  test("referenceData: entity + upsertKey from object form", () => {
     const ref = result.patterns.find((p) => p.kind === "referenceData");
     expect(ref).toMatchObject({
       kind: "referenceData",
@@ -308,7 +308,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("requires: featureNames aus features-Array", () => {
+  test("requires: featureNames from features array", () => {
     const req = result.patterns.find((p) => p.kind === "requires");
     expect(req).toMatchObject({
       kind: "requires",
@@ -316,7 +316,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("optionalRequires: featureNames aus features-Array", () => {
+  test("optionalRequires: featureNames from features array", () => {
     const opt = result.patterns.find((p) => p.kind === "optionalRequires");
     expect(opt).toMatchObject({
       kind: "optionalRequires",
@@ -324,7 +324,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("readsConfig: qualifiedKeys aus keys-Array", () => {
+  test("readsConfig: qualifiedKeys from keys array", () => {
     const rc = result.patterns.find((p) => p.kind === "readsConfig");
     expect(rc).toMatchObject({
       kind: "readsConfig",
@@ -332,7 +332,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("useExtension: name + entity aus Object-Form", () => {
+  test("useExtension: name + entity from object form", () => {
     const ue = result.patterns.find((p) => p.kind === "useExtension");
     expect(ue).toMatchObject({
       kind: "useExtension",
@@ -341,7 +341,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("job: name + handlerBody.raw enthält den Closure-Body", () => {
+  test("job: name + handlerBody.raw contains the closure body", () => {
     const job = result.patterns.find((p) => p.kind === "job");
     expect(job).toMatchObject({ kind: "job", jobName: "cleanupExpired" });
     if (job?.kind === "job") {
@@ -363,7 +363,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     }
   });
 
-  test("authClaims: fnBody.raw enthält den Handler-Body", () => {
+  test("authClaims: fnBody.raw contains the handler body", () => {
     const ac = result.patterns.find((p) => p.kind === "authClaims");
     expect(ac).toMatchObject({ kind: "authClaims" });
     if (ac?.kind === "authClaims") {

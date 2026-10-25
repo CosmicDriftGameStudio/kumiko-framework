@@ -7,7 +7,7 @@ import { createDateField, createEntity, createTimestampField } from "../factorie
 import { buildInsertSchema } from "../schema-builder.ts";
 
 describe("date/timestamp min/max bounds", () => {
-  test("date max abgewiesen, im Rahmen akzeptiert", () => {
+  test("date max rejected, accepted within bounds", () => {
     const entity = createEntity({
       table: "T",
       fields: { born: createDateField({ max: "2026-06-15" }) },
@@ -17,7 +17,7 @@ describe("date/timestamp min/max bounds", () => {
     expect(schema.safeParse({ born: "2026-12-31" }).success).toBe(false);
   });
 
-  test("date min abgewiesen, im Rahmen akzeptiert", () => {
+  test("date min rejected, accepted within bounds", () => {
     const entity = createEntity({
       table: "T",
       fields: { d: createDateField({ min: "2026-01-01" }) },
@@ -27,7 +27,7 @@ describe("date/timestamp min/max bounds", () => {
     expect(schema.safeParse({ d: "2025-12-31" }).success).toBe(false);
   });
 
-  test("ohne bounds: jedes valide Datum passt", () => {
+  test("without bounds: every valid date is accepted", () => {
     const entity = createEntity({ table: "T", fields: { d: createDateField() } });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ d: "1999-01-01" }).success).toBe(true);

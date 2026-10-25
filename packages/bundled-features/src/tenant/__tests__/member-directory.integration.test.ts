@@ -92,7 +92,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("tenant:query:member-directory (fw#3107)", () => {
+describe("tenant:query:member-directory", () => {
   test("is the lookup source the renderer uses for user:user references", () => {
     expect(REFERENCE_LOOKUP_SOURCES["user:user"]).toEqual({
       queryQn: TenantQueries.memberDirectory,

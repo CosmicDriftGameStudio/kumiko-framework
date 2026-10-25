@@ -38,7 +38,7 @@ describe("splitSqlStatements", () => {
     expect(splitSqlStatements("SELECT a/*x*/AS b;")).toEqual(["SELECT a AS b;"]);
   });
 
-  test("nested block comment also leaves a space at outer depth (#1599)", () => {
+  test("nested block comment also leaves a space at outer depth", () => {
     expect(splitSqlStatements("SELECT a/*x/*y*/z*/AS b;")).toEqual(["SELECT a AS b;"]);
   });
 

@@ -14,7 +14,7 @@ function setLocation(pathname: string, search: string): void {
 }
 
 describe("useBrowserNavApi — searchParams", () => {
-  test("liest aktuelle ?key=value-Pairs als Plain-Record", () => {
+  test("reads current ?key=value pairs as a plain record", () => {
     setLocation("/orders", "?orders.sort=createdAt&orders.dir=desc");
     const { result } = renderHook(() => useBrowserNavApi());
     expect(result.current.searchParams).toEqual({
@@ -23,13 +23,13 @@ describe("useBrowserNavApi — searchParams", () => {
     });
   });
 
-  test("leeres ?-Suffix → leeres Record (kein crash)", () => {
+  test("empty ? suffix → empty record (no crash)", () => {
     setLocation("/orders", "");
     const { result } = renderHook(() => useBrowserNavApi());
     expect(result.current.searchParams).toEqual({});
   });
 
-  test("setSearchParams: schreibt URL via replaceState (kein History-Push)", () => {
+  test("setSearchParams: writes URL via replaceState (no history push)", () => {
     setLocation("/orders", "");
     const initialHistoryLength = window.history.length;
     const { result } = renderHook(() => useBrowserNavApi());
@@ -41,7 +41,7 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(window.history.length).toBe(initialHistoryLength);
   });
 
-  test("setSearchParams: null löscht den Key", () => {
+  test("setSearchParams: null removes the key", () => {
     setLocation("/orders", "?orders.sort=name&orders.dir=asc");
     const { result } = renderHook(() => useBrowserNavApi());
     act(() => {
@@ -50,7 +50,7 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(window.location.search).toBe("?orders.sort=name");
   });
 
-  test("setSearchParams: mehrere Updates atomar (sort+dir+page in einem Call)", () => {
+  test("setSearchParams: multiple updates atomically (sort+dir+page in a single call)", () => {
     setLocation("/orders", "?orders.page=5");
     const { result } = renderHook(() => useBrowserNavApi());
     act(() => {
@@ -67,7 +67,7 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(window.location.search).not.toContain("orders.page");
   });
 
-  test("re-render nach setSearchParams: searchParams reflektiert neuen State", () => {
+  test("re-render after setSearchParams: searchParams reflects new state", () => {
     setLocation("/orders", "");
     const { result, rerender } = renderHook(() => useBrowserNavApi());
     act(() => {
@@ -77,7 +77,7 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(result.current.searchParams).toEqual({ "orders.q": "acme" });
   });
 
-  test("Pfad bleibt unangetastet bei setSearchParams", () => {
+  test("path remains unchanged when calling setSearchParams", () => {
     setLocation("/dashboard", "");
     const { result } = renderHook(() => useBrowserNavApi());
     act(() => {

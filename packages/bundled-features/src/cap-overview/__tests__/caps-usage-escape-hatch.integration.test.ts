@@ -134,7 +134,7 @@ describe("caps:usage's own escapeHatch grants a cap provider raw SQL", () => {
   });
 });
 
-describe("tenant-caps:list's own escapeHatch grants cap providers raw SQL (#2974)", () => {
+describe("tenant-caps:list's own escapeHatch grants cap providers raw SQL", () => {
   test("usage() and usageBatch() raw SQL SUM aggregates run through tenant-caps:list", async () => {
     const admin = createTestUser({
       id: 91013,

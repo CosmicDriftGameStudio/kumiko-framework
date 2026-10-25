@@ -45,7 +45,7 @@ beforeEach(async () => {
 });
 
 describe("seedUser", () => {
-  test("schreibt Projection-Row mit email/displayName/passwordHash", async () => {
+  test("writes Projection row with email/displayName/passwordHash", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "alice@example.com",
       displayName: "Alice",
@@ -60,7 +60,7 @@ describe("seedUser", () => {
     expect(rows[0]?.["passwordHash"]).toBe("$argon2id$test-hash");
   });
 
-  test("emittiert user.created-Event auf den Aggregate-Stream", async () => {
+  test("emits a user.created event on the aggregate stream", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "bob@example.com",
       displayName: "Bob",
@@ -74,7 +74,7 @@ describe("seedUser", () => {
     expect(payload.displayName).toBe("Bob");
   });
 
-  test("idempotent über email — zweiter Call liefert dieselbe userId, kein zweites Event", async () => {
+  test("idempotent by email — second call returns the same userId, no second event", async () => {
     const first = await seedUser(stack.db, {
       email: "carol@example.com",
       displayName: "Carol",
@@ -94,7 +94,7 @@ describe("seedUser", () => {
     expect(created.filter((e) => e.type === "user.created")).toHaveLength(1);
   });
 
-  test("passwordHash optional — User ohne Hash anlegbar (z.B. SSO-Federation)", async () => {
+  test("passwordHash optional — user without a hash can be created (e.g. SSO-Federation)", async () => {
     const { id: userId } = await seedUser(stack.db, {
       email: "dave@example.com",
       displayName: "Dave",
@@ -103,7 +103,7 @@ describe("seedUser", () => {
     expect(row?.["passwordHash"]).toBeNull();
   });
 
-  test("emailVerified:true reconciled auf einem bereits geseedeten User (#1687)", async () => {
+  test("reconciles emailVerified:true for an already seeded user", async () => {
     const first = await seedUser(stack.db, {
       email: "frank@example.com",
       displayName: "Frank",

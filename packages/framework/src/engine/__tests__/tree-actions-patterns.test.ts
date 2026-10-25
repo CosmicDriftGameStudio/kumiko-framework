@@ -114,7 +114,7 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
     expect(ref.args).toEqual({ slug: "imprint" });
   });
 
-  test("NoArgs-Action durch den Bridge — list ohne args", () => {
+  test("NoArgs action through the bridge — list without args", () => {
     const textContent = defineFeature("text-content", (r) => {
       const handle = r.treeActions({
         edit: { args: { slug: "" as string } },

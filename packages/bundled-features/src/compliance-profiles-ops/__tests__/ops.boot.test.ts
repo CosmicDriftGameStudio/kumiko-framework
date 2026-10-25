@@ -6,7 +6,7 @@ import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createComplianceProfilesOpsFeature } from "../index.ts";
 
-describe("compliance-profiles-ops (#2089)", () => {
+describe("compliance-profiles-ops declares systemScope and requires compliance-profiles + tenant", () => {
   test("declares systemScope and requires compliance-profiles + tenant", () => {
     expect(createComplianceProfilesOpsFeature().systemScope).toBe(true);
     expect(createComplianceProfilesOpsFeature().requires).toContain("compliance-profiles");

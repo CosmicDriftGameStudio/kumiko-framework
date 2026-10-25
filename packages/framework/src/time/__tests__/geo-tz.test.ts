@@ -14,19 +14,19 @@ beforeAll(async () => {
 const BERLIN = { latitude: 52.52, longitude: 13.405 };
 
 describe("ctx.tz — GeoTzProvider seam", () => {
-  test("fromCoordinates delegiert an den Provider (sync)", async () => {
+  test("fromCoordinates delegates to the provider (sync)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: () => "Europe/Berlin" };
     const tz = createTzContext({ geoTz: provider });
     expect(await tz.fromCoordinates(BERLIN)).toBe("Europe/Berlin");
   });
 
-  test("fromCoordinates delegiert an den Provider (async)", async () => {
+  test("fromCoordinates delegates to the provider (async)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: async () => "Asia/Tokyo" };
     const tz = createTzContext({ geoTz: provider });
     expect(await tz.fromCoordinates({ latitude: 35.68, longitude: 139.69 })).toBe("Asia/Tokyo");
   });
 
-  test("fromCoordinates reicht die Koordinaten unverändert durch", async () => {
+  test("fromCoordinates passes the coordinates through unchanged", async () => {
     let seen: { latitude: number; longitude: number } | undefined;
     const provider: GeoTzProvider = {
       fromCoordinates: (c) => {
@@ -38,12 +38,12 @@ describe("ctx.tz — GeoTzProvider seam", () => {
     expect(seen).toEqual(BERLIN);
   });
 
-  test("fromCoordinates wirft ohne Provider", async () => {
+  test("fromCoordinates throws without a provider", async () => {
     const tz = createTzContext();
     await expect(tz.fromCoordinates(BERLIN)).rejects.toThrow(/GeoTzProvider/);
   });
 
-  test("fromAddress delegiert wenn der Provider es unterstützt", async () => {
+  test("fromAddress delegates when the provider supports it", async () => {
     const provider: GeoTzProvider = {
       fromCoordinates: () => "UTC",
       fromAddress: (a) => (a.country === "PT" ? "Europe/Lisbon" : "UTC"),
@@ -52,7 +52,7 @@ describe("ctx.tz — GeoTzProvider seam", () => {
     expect(await tz.fromAddress({ country: "PT" })).toBe("Europe/Lisbon");
   });
 
-  test("fromAddress wirft wenn der Provider kein fromAddress hat (offline lat/lng)", async () => {
+  test("fromAddress throws when the provider has no fromAddress (offline lat/lng)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: () => "UTC" };
     const tz = createTzContext({ geoTz: provider });
     // Regression (680/2): this message must say the PROVIDER lacks
@@ -62,7 +62,7 @@ describe("ctx.tz — GeoTzProvider seam", () => {
     );
   });
 
-  test("fromAddress wirft ohne Provider — eigene Message, nicht die Provider-ohne-fromAddress-Message", async () => {
+  test("fromAddress throws without a provider — its own message, not the provider-without-fromAddress message", async () => {
     const tz = createTzContext();
     await expect(tz.fromAddress({ country: "PT" })).rejects.toThrow(
       /requires a GeoTzProvider — inject one/,

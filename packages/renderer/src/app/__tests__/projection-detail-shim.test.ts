@@ -44,7 +44,7 @@ describe("synthesizeProjectionDetailScreen", () => {
     expect(writeFormSection.fields[0]).toEqual({ field: "note", readOnly: false });
   });
 
-  test("carries description through so RenderEdit can render it as the form subtitle (fw#2723)", () => {
+  test("carries description through so RenderEdit can render it as the form subtitle", () => {
     const withDescription = synthesizeProjectionDetailScreen({
       id: "order-detail",
       type: "projectionDetail",
@@ -69,7 +69,7 @@ describe("synthesizeProjectionDetailScreen", () => {
 // never registered the field names, so computeEditViewModel threw "references
 // unknown field" for every one of them, and synthesizeProjectionDetailScreen
 // let a group field's own readOnly value pass through unforced.
-describe("groups-sections (fw#2982)", () => {
+describe("groups-sections", () => {
   const groupsOnlyScreen: ProjectionDetailScreenDefinition = {
     id: "contact-detail",
     type: "projectionDetail",

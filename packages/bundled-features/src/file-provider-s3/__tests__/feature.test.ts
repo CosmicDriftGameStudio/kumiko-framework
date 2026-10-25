@@ -68,7 +68,7 @@ function s3Plugin(): FileProviderPlugin {
 }
 
 describe("fileProviderS3Feature — build() guard", () => {
-  test("build ohne ctx.config wirft (config-feature nicht gemountet)", async () => {
+  test("build without ctx.config throws (config feature is not mounted)", async () => {
     // The deeper value/secret paths (empty bucket/region/accessKeyId,
     // missing secret, happy path) depend on the real Config/Secrets pipeline
     // and belong in an S3 integration test (setupTestStack + MinIO), not here.

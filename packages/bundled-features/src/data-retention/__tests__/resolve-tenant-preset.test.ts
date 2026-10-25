@@ -17,13 +17,13 @@ describe("PROFILE_TO_PRESET map", () => {
     }
   });
 
-  test("mappt nur auf echte RetentionPreset-Keys", () => {
+  test("maps only to actual RetentionPreset keys", () => {
     for (const preset of Object.values(PROFILE_TO_PRESET)) {
       expect(Object.keys(RETENTION_PRESETS)).toContain(preset);
     }
   });
 
-  test("swiss-dsg ist namensgleich, EU/DE mappen auf ihr Regime", () => {
+  test("swiss-dsg has the same name, EU/DE map to their regime", () => {
     expect(PROFILE_TO_PRESET["swiss-dsg"]).toBe("swiss-dsg");
     expect(PROFILE_TO_PRESET["eu-dsgvo"]).toBe("dsgvo-basic");
     expect(PROFILE_TO_PRESET["de-hr-dsgvo-hgb"]).toBe("dsgvo-hgb");
@@ -32,7 +32,7 @@ describe("PROFILE_TO_PRESET map", () => {
 });
 
 describe("resolveTenantRetentionPreset soft-gate", () => {
-  test("compliance-profiles nicht gemountet → null (ohne DB-Zugriff)", async () => {
+  test("compliance-profiles not mounted → null (without DB access)", async () => {
     let dbTouched = false;
     const db = new Proxy(
       {},

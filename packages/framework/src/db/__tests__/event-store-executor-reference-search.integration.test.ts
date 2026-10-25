@@ -229,7 +229,7 @@ beforeEach(async () => {
   );
 });
 
-describe("event-store-executor.list — searchable reference fields (fw#2660)", () => {
+describe("event-store-executor.list — searchable reference fields", () => {
   test("matches via the reference column's label with no text-field match", async () => {
     const [acme] = await seedRows(testDb.db, customerTable, [
       { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
@@ -451,7 +451,7 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
     expect(res.rows.map((r) => r["id"])).toEqual([(textMatchOrder as { id: string }).id]);
   });
 
-  test("a caller without read access to the reference column gets no reference-match hit (fw#2629 parity)", async () => {
+  test("a caller without read access to the reference column gets no reference-match hit", async () => {
     const [acme] = await seedRows(testDb.db, customerTable, [
       { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
     ]);

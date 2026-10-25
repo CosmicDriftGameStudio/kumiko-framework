@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 describe("seedSystemTemplate", () => {
-  test("legt System-Template an, resolveTemplate findet es für beliebigen Tenant", async () => {
+  test("creates a system template, and resolveTemplate finds it for any tenant", async () => {
     const slug = `welcome-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,
@@ -54,7 +54,7 @@ describe("seedSystemTemplate", () => {
     expect(resolved.scope).toBe("system");
   });
 
-  test('ifExists="update" überschreibt content', async () => {
+  test('ifExists="update" overwrites content', async () => {
     const slug = `incident-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,
@@ -82,7 +82,7 @@ describe("seedSystemTemplate", () => {
     expect(row?.version).toBe(2);
   });
 
-  test("default skip: zweiter Boot-Call ohne update ändert nichts", async () => {
+  test("default skip: second boot call without update changes nothing", async () => {
     const slug = `status-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,

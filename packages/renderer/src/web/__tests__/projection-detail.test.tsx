@@ -391,7 +391,7 @@ describe("KumikoScreen / projectionDetail", () => {
 
 // `relatedList` sections run their own query against the shown
 // record's id, independent of the detail query above.
-describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => {
+describe("KumikoScreen / projectionDetail relatedList section", () => {
   const relatedListSection = {
     kind: "relatedList" as const,
     title: "Payments",
@@ -575,7 +575,7 @@ describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => 
 // A hand-written NotesSection block had no declarative equivalent
 // on projectionDetail. Extension sections without contributesToFormSubmit
 // (self-persisting, e.g. via their own dispatcher writes) are now allowed.
-describe("KumikoScreen / projectionDetail extension section (solon#264)", () => {
+describe("KumikoScreen / projectionDetail extension section", () => {
   const SessionNotes = ({
     entityName,
     entityId,
@@ -1204,7 +1204,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
 // as toolbarActions/rowActions, wired into ProjectionDetailBody's own
 // headerActions builder (ProjectionDetailBody owns the Drawer directly,
 // unlike relatedList sections which only forward through onOpenDrawer).
-describe("KumikoScreen / projectionDetail actions drawer-kind (fw#2710)", () => {
+describe("KumikoScreen / projectionDetail actions drawer-kind", () => {
   const noteForm: ActionFormScreenDefinition = {
     id: "session-note-drawer",
     type: "actionForm",
@@ -1435,7 +1435,7 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
 // <form>) and prove the degraded section's own submit still reaches its
 // dispatcher, without depending on the button-to-form association the
 // removed nested <form> used to rely on.
-describe("KumikoScreen / projectionDetail extension section with its own <form> (fw#2312/fw#2705 nested-form regression)", () => {
+describe("KumikoScreen / projectionDetail extension section with its own <form>", () => {
   function FormExtensionSection({ entityId }: ExtensionSectionProps): ReactNode {
     const dispatcher = useDispatcher();
     const { Form, Button } = usePrimitives();
@@ -1566,7 +1566,7 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
 // title row (not the screen-level head region covered below) and
 // dispatch against the same record, with the same navigate/params
 // evaluation as a screen-level action.
-describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
+describe("KumikoScreen / projectionDetail section actions", () => {
   test("a section action renders in the section's title row and navigates with record-derived params", async () => {
     const sectionActionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -1647,7 +1647,7 @@ describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
 // region (title/status/metrics), before any tab content, in both layout
 // modes — `single` gets the same treatment as `tabs` since the actions
 // belong to the header regardless of how the body is laid out.
-describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", () => {
+describe("KumikoScreen / projectionDetail header actions placement", () => {
   const dispatcher: Dispatcher = createMockDispatcher({
     query: (async () => ({
       isSuccess: true,
@@ -1655,7 +1655,7 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     })) as unknown as Dispatcher["query"],
   });
 
-  test("slots.header shares one card with the header actions (fw#3234)", async () => {
+  test("slots.header shares one card with the header actions", async () => {
     const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
     const screenWithSlot: ProjectionDetailScreenDefinition = {
       ...detailScreen,

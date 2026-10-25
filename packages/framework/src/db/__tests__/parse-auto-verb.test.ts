@@ -38,11 +38,11 @@ describe("parseAutoVerb", () => {
     expect(parseAutoVerb(event({ type }))).toBe(verb);
   });
 
-  test("domain-event auf demselben aggregate → null", () => {
+  test("domain event on the same aggregate → null", () => {
     expect(parseAutoVerb(event({ type: "user.password-changed" }))).toBeNull();
   });
 
-  test("auto-verb-Suffix auf falschem aggregate → null", () => {
+  test("auto-verb suffix on the wrong aggregate → null", () => {
     // type "tenant.created" on a user aggregate is defensively treated as a
     // domain event by the user ImplicitProjection, not as its own auto-verb.
     expect(parseAutoVerb(event({ aggregateType: "user", type: "tenant.created" }))).toBeNull();
@@ -58,11 +58,11 @@ describe("parseAutoVerb", () => {
     expect(parseAutoVerb(event({ type: "user.imported" }))).toBeNull();
   });
 
-  test("type ohne dot-separator → null", () => {
+  test("type without dot separator → null", () => {
     expect(parseAutoVerb(event({ type: "userCreated" }))).toBeNull();
   });
 
-  test("type mit verschachteltem prefix → null", () => {
+  test("type with nested prefix → null", () => {
     // "user.profile.updated" has two dots, so it is not a clean auto-verb
     expect(parseAutoVerb(event({ type: "user.profile.updated" }))).toBeNull();
   });

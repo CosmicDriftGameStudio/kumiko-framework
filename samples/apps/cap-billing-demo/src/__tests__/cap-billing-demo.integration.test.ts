@@ -157,7 +157,7 @@ function inboxOf(admin: ReturnType<typeof adminFor>) {
 // =============================================================================
 
 describe("cap-billing-demo: free tenant (limit=10)", () => {
-  test("sendet 10 Newsletter unter dem Cap → alle Mails landen in der Inbox", async () => {
+  test("sends 10 newsletters under the cap → all emails land in the inbox", async () => {
     const free = adminFor(2001);
     clearInbox(free.tenantId);
     await selectInMemoryMail(free);
@@ -173,7 +173,7 @@ describe("cap-billing-demo: free tenant (limit=10)", () => {
     expect(inbox.every((m) => !m.subject.startsWith("[Cap Warning]"))).toBe(true);
   });
 
-  test("11. Newsletter (= soft-hit @110%) liefert eine Cap-Warning-Mail an den Admin", async () => {
+  test("11th newsletter (= soft-hit @110%) delivers a cap-warning email to the admin", async () => {
     const free = adminFor(2002);
     clearInbox(free.tenantId);
     await selectInMemoryMail(free);
@@ -204,7 +204,7 @@ describe("cap-billing-demo: free tenant (limit=10)", () => {
     expect(inbox).toHaveLength(13);
   });
 
-  test("13. Newsletter würde counter=12 erreichen → CapExceededError, NICHT versendet", async () => {
+  test("13th newsletter would reach counter=12 → CapExceededError, NOT sent", async () => {
     const free = adminFor(2003);
     clearInbox(free.tenantId);
     await selectInMemoryMail(free);
@@ -240,7 +240,7 @@ describe("cap-billing-demo: free tenant (limit=10)", () => {
 });
 
 describe("cap-billing-demo: pro tenant (limit=100)", () => {
-  test("12 sends bei pro → komplett okay, kein soft-hit (12 < soft@110)", async () => {
+  test("12 sends on pro → completely fine, no soft-hit (12 < soft@110)", async () => {
     const pro = adminFor(2101);
     clearInbox(pro.tenantId);
     await selectInMemoryMail(pro);
@@ -257,7 +257,7 @@ describe("cap-billing-demo: pro tenant (limit=100)", () => {
 });
 
 describe("cap-billing-demo: tenant-isolation", () => {
-  test("free-tenant am hard-cap blockiert NICHT den pro-tenant", async () => {
+  test("free tenant hitting the hard cap does NOT block the pro tenant", async () => {
     const free = adminFor(2201);
     const pro = adminFor(2202);
     clearInbox(free.tenantId);
@@ -294,7 +294,7 @@ describe("cap-billing-demo: tenant-isolation", () => {
 // period, gleiche aggregate-id) aber das limit wird neu aufgelöst.
 
 describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
-  test("free→pro upgrade: counter bleibt, neuer cap greift sofort", async () => {
+  test("free→pro upgrade: counter remains, new cap takes effect immediately", async () => {
     const tenant = adminFor(2301);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
@@ -331,7 +331,7 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     expect(inbox).toHaveLength(14);
   });
 
-  test("pro→free downgrade via config: existing counter kann sofort hard-hit auslösen", async () => {
+  test("pro→free downgrade via config: existing counter can immediately trigger a hard-hit", async () => {
     const tenant = adminFor(2302);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
@@ -439,7 +439,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
     expect(inbox).toHaveLength(12);
   });
 
-  test("Provider-Webhook → subscription canceled → tier-fallback auf free → cap blockiert", async () => {
+  test("Provider-Webhook → subscription canceled → tier-fallback to free → cap blocks", async () => {
     const tenant = adminFor(2402);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
@@ -482,7 +482,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
     expect(inboxOf(tenant)).toHaveLength(15);
   });
 
-  test("Webhook-Replay: zweiter event mit selber providerEventId → keine doppelte audit-row, kein zweiter tier-update", async () => {
+  test("Webhook replay: second event with the same providerEventId → no duplicate audit row, no second tier update", async () => {
     const tenant = adminFor(2403);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
@@ -556,7 +556,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
     expect(error.httpStatus).toBe(429);
   });
 
-  test("Multi-Provider: zweiter event von ANDEREM provider überschreibt subscription-row (Disney+-Wechsel)", async () => {
+  test("Multi-provider: second event from a DIFFERENT provider overwrites the subscription row (Disney+ switch)", async () => {
     const tenant = adminFor(2404);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);

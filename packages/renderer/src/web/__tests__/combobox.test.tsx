@@ -11,7 +11,7 @@ import { render, screen, waitFor } from "./test-utils.tsx";
 // tested there; these tests only pin the wiring.
 
 describe("ComboboxInput (Tier 2.1c)", () => {
-  test("single-mode: Trigger zeigt placeholder wenn value leer", () => {
+  test("single-mode: Trigger shows placeholder when value is empty", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -28,7 +28,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByText("Pick one")).toBeTruthy();
   });
 
-  test("single-mode: Trigger zeigt Label des selected value", () => {
+  test("single-mode: Trigger shows the label of the selected value", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -75,7 +75,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByTestId("combobox-combo").hasAttribute("title")).toBe(false);
   });
 
-  test("single-mode: Click auf Item → onChange mit value, Popover schließt", async () => {
+  test("single-mode: Click on item → onChange with value, popover closes", async () => {
     const user = userEvent.setup();
     const changes: string[] = [];
     render(
@@ -97,7 +97,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(changes).toEqual(["b"]);
   });
 
-  test("multi-mode: leerer state zeigt placeholder", () => {
+  test("multi-mode: empty state shows placeholder", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -112,7 +112,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByText("Pick tags")).toBeTruthy();
   });
 
-  test("multi-mode: vorhandene values rendern als Tags mit Label", () => {
+  test("multi-mode: existing values render as tags with label", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -133,7 +133,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.queryByText("Gamma")).toBeNull();
   });
 
-  test("multi-mode: Click auf neues Item → onChange mit erweitertem Array", async () => {
+  test("multi-mode: Click on new item → onChange with expanded array", async () => {
     const user = userEvent.setup();
     const changes: (readonly string[])[] = [];
     render(
@@ -161,7 +161,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect([...(changes[0] ?? [])].sort()).toEqual(["a", "b"]);
   });
 
-  test("disabled: Trigger ist disabled", () => {
+  test("disabled: Trigger is disabled", () => {
     render(
       <ComboboxInput id="combo" name="combo" value="" onChange={() => {}} options={[]} disabled />,
     );
@@ -172,7 +172,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
   // `multiple: true`), clicking an item in the browser only moved focus instead
   // of triggering onChange. Non-remote multi-mode and the other paths worked;
   // only this combination was broken.
-  test("multi-mode + remote-mode: Click auf Item → onChange mit erweitertem Array", async () => {
+  test("multi-mode + remote-mode: Click on item → onChange with expanded array", async () => {
     const user = userEvent.setup();
     const changes: (readonly string[])[] = [];
     render(
@@ -199,7 +199,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
   });
 
   // Remote mode: typed search API.
-  test("remote-mode: render mit onSearchChange + loading mountet ohne crash", () => {
+  test("remote-mode: render with onSearchChange + loading mounts without crashing", () => {
     render(
       <ComboboxInput
         id="combo"
@@ -243,7 +243,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     });
   });
 
-  test("remote-mode: loading=true zeigt 'Loading…' im Empty-State", async () => {
+  test("remote-mode: loading=true shows 'Loading…' in the empty state", async () => {
     render(
       <ComboboxInput
         id="combo"
@@ -272,7 +272,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
   // referenceable rows yet), not the edge case. The footer deliberately
   // lives OUTSIDE Command.List/cmdk's filter+empty machinery so it never
   // competes with it for visibility.
-  test("onCreate: Footer bleibt sichtbar wenn keine Optionen matchen, klick feuert onCreate + schließt Popover", async () => {
+  test("onCreate: Footer remains visible when no options match, clicking fires onCreate + closes popover", async () => {
     const user = userEvent.setup();
     let created = 0;
     render(
@@ -295,7 +295,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(created).toBe(1);
   });
 
-  test("ohne onCreate: kein Footer-Item im Popover", async () => {
+  test("without onCreate: no footer item in popover", async () => {
     render(
       <ComboboxInput
         id="combo"

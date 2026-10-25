@@ -32,7 +32,7 @@ function colByName(table: unknown, dbName: string) {
 }
 
 describe("createBigIntField factory", () => {
-  test("liefert FieldDef mit type='bigInt' + default required=false", () => {
+  test("returns a FieldDef with type='bigInt' and default required=false", () => {
     const f = createBigIntField();
     expect(f.type).toBe("bigInt");
     expect(f.required).toBe(false);
@@ -53,7 +53,7 @@ describe("createBigIntField factory", () => {
 });
 
 describe("buildEntityTable — bigInt-Mapping", () => {
-  test("bigInt-Spalte ist DISTINCT von number-Spalte (number=integer/32-bit, bigInt=bigint/64-bit)", () => {
+  test("bigInt column is DISTINCT from number column (number=integer/32-bit, bigInt=bigint/64-bit)", () => {
     const entity = createEntity({
       fields: {
         smallCount: createNumberField({}),
@@ -71,7 +71,7 @@ describe("buildEntityTable — bigInt-Mapping", () => {
     expect(small.columnType).not.toBe(big.columnType);
   });
 
-  test("required bigInt wird NOT NULL", () => {
+  test("required bigInt becomes NOT NULL", () => {
     const entity = createEntity({
       fields: {
         requiredBig: createBigIntField({ required: true }),
@@ -85,7 +85,7 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 });
 
 describe("buildInsertSchema — bigInt-Validation", () => {
-  test("akzeptiert safe-integer-Werte inkl. >2^31", () => {
+  test("accepts safe-integer values including >2^31", () => {
     const entity = createEntity({
       fields: { bytesWritten: createBigIntField({ required: true }) },
     });

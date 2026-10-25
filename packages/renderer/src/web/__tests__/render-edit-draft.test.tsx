@@ -355,7 +355,7 @@ describe("RenderEdit wizard draft", () => {
   // React Native/Hermes without a polyfill. With it deleted, minting a
   // draftId must still work through the mintDraftId() fallback instead of
   // throwing.
-  test("draft id still mints when crypto.randomUUID is unavailable (fw#1929)", async () => {
+  test("draft id still mints when crypto.randomUUID is unavailable", async () => {
     const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
     const original = cryptoRef?.randomUUID;
     // `randomUUID` lives on crypto's prototype (non-configurable) — `delete`
@@ -679,7 +679,7 @@ describe("RenderEdit wizard draft", () => {
     );
   });
 
-  test("a draftKey over the server's 256-char limit is not sent — warns and skips instead of failing silently server-side (fw#1903)", async () => {
+  test("a draftKey over the server's 256-char limit is not sent — warns and skips instead of failing silently server-side", async () => {
     const { dispatcher, calls } = makeDraftDispatcher();
     let controls: RenderEditControls<TestValues> | undefined;
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
@@ -926,7 +926,7 @@ describe("RenderEdit wizard draft", () => {
   });
 });
 
-describe("RenderEdit create-mode draftId (issue #1913)", () => {
+describe("RenderEdit create-mode draftId", () => {
   function makeDraftWizardScreen(): EntityEditScreenDefinition {
     return {
       id: "orders:screen:order-wizard-draftid",
@@ -1000,7 +1000,7 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     return { dispatcher, drafts };
   }
 
-  test("two parallel create sessions on the same screen get different draftKeys and don't overwrite each other (#1908)", async () => {
+  test("two parallel create sessions on the same screen get different draftKeys and don't overwrite each other", async () => {
     const { dispatcher, drafts } = makeMultiDraftDispatcher();
     const screenDef = makeDraftWizardScreen();
 
@@ -1064,7 +1064,7 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
   // session only happens across tabs). The mint keys off each component's
   // own `draftId` React state, not a re-read of the shared storage slot, so
   // this must isolate too.
-  test("two parallel create sessions sharing one DraftStorage still get different draftKeys (#1908)", async () => {
+  test("two parallel create sessions sharing one DraftStorage still get different draftKeys", async () => {
     const { dispatcher, drafts } = makeMultiDraftDispatcher();
     const screenDef = makeDraftWizardScreen();
     const sharedDraftStorage = createFakeDraftStorage();

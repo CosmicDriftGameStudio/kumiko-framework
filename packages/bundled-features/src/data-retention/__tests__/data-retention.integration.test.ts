@@ -34,11 +34,11 @@ describe("data-retention :: feature-definition smoke", () => {
     expect(feature.name).toBe("data-retention");
   });
 
-  test("tenantRetentionOverride-Entity ist registriert", () => {
+  test("tenantRetentionOverride-Entity is registered", () => {
     expect(feature.entities?.["tenant-retention-override"]).toBeDefined();
   });
 
-  test("Entity-Definition hat UNIQUE(tenantId, entityName) als 1:1-Constraint", () => {
+  test("Entity definition has UNIQUE(tenantId, entityName) as a 1:1 constraint", () => {
     const entity = feature.entities?.["tenant-retention-override"];
     const indexes = entity?.indexes ?? [];
     const uniqueIndex = indexes.find((i) => i.unique === true);

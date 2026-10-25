@@ -23,7 +23,7 @@ describe("AppLayout fill", () => {
     expect((container.querySelector("main") as HTMLElement).className).toContain("min-h-0");
   });
 
-  test("fill={false} → min-h-screen (Seiten-Scroll), kein fill-Marker (Escape-Hatch)", () => {
+  test("fill={false} → min-h-screen (page scroll), no fill marker (escape hatch)", () => {
     const { container } = render(<AppLayout fill={false}>x</AppLayout>);
     const el = root(container);
     expect(el.className).toContain("min-h-screen");
@@ -31,7 +31,7 @@ describe("AppLayout fill", () => {
     expect((container.querySelector("main") as HTMLElement).className).not.toContain("min-h-0");
   });
 
-  test("className/mainClassName werden an die Defaults angehängt", () => {
+  test("className/mainClassName are appended to the defaults", () => {
     const { container } = render(
       <AppLayout className="bg-gradient-test" mainClassName="main-test">
         x

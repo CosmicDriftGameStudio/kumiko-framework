@@ -25,7 +25,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 30 });
   });
 
-  test("swiss-dsg extends eu-dsgvo — übernimmt Base-Felder", () => {
+  test("swiss-dsg extends eu-dsgvo — inherits base fields", () => {
     const p = COMPLIANCE_PROFILES["swiss-dsg"];
     expect(p.key).toBe("swiss-dsg");
     expect(p.region).toBe("CH");
@@ -38,7 +38,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 30 });
   });
 
-  test("de-hr-dsgvo-hgb extends eu-dsgvo — HR-Override greift, Base bleibt", () => {
+  test("de-hr-dsgvo-hgb extends eu-dsgvo — HR override applies, base remains", () => {
     const p = COMPLIANCE_PROFILES["de-hr-dsgvo-hgb"];
     expect(p.region).toBe("DE");
     expect(p.userRights.employeeAccessRight).toBe(true);
@@ -50,7 +50,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     expect(p.userRights.portabilityFormat).toEqual(["json"]);
   });
 
-  test("minimal-no-region ist eigenständig (kein extends)", () => {
+  test("minimal-no-region is standalone (no extends)", () => {
     const p = COMPLIANCE_PROFILES["minimal-no-region"];
     expect(p.region).toBe("—");
     expect(p.notifications.mandatoryBreachNotification).toBe(false);
@@ -59,7 +59,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
 });
 
 describe("SELECTABLE_PROFILE_KEYS", () => {
-  test('enthält 3 Profile, ohne "minimal-no-region" (kein Production-Default)', () => {
+  test('contains 3 profiles, without "minimal-no-region" (no production default)', () => {
     expect(SELECTABLE_PROFILE_KEYS).toEqual(["eu-dsgvo", "swiss-dsg", "de-hr-dsgvo-hgb"]);
     expect(SELECTABLE_PROFILE_KEYS).not.toContain("minimal-no-region");
   });
@@ -71,7 +71,7 @@ describe("complianceProfileOverrideSchema — Schema↔Profile-Konsistenz (S1.10
   // test fails. A fully resolved profile is a trivially valid override object;
   // rejection means the schema and profile type are out of sync or the schema
   // is stricter than the profile type.
-  test("Schema akzeptiert ein vollständig aufgelöstes Profile als Override (Drift-Guard)", () => {
+  test("Schema accepts a fully resolved profile as an override (drift guard)", () => {
     // Remove identification fields because they cannot be overridden.
     const fullProfile = COMPLIANCE_PROFILES["eu-dsgvo"];
     const {
@@ -93,7 +93,7 @@ describe("complianceProfileOverrideSchema — Schema↔Profile-Konsistenz (S1.10
     expect(result.success).toBe(true);
   });
 
-  test("Schema akzeptiert auch swiss-dsg + de-hr-dsgvo-hgb (extends-Profile mit Override-Feldern)", () => {
+  test("Schema also accepts swiss-dsg + de-hr-dsgvo-hgb (extends profiles with override fields)", () => {
     for (const key of ["swiss-dsg", "de-hr-dsgvo-hgb"] as const) {
       const fullProfile = COMPLIANCE_PROFILES[key];
       const {
@@ -116,7 +116,7 @@ describe("resolveComplianceProfile — Default-Fallback", () => {
     expect(result.warning).toBe("no-profile-selected");
   });
 
-  test("selection=minimal-no-region (DB-Edge-Case) → kein warning, fallback aktiv", () => {
+  test("selection=minimal-no-region (DB edge case) → no warning, fallback active", () => {
     // minimal-no-region can no longer be set through set-profile. If the state
     // nevertheless exists in the DB (migration or direct insert), the minimal
     // profile is returned; the needs-profile banner endpoint separately marks it
@@ -127,7 +127,7 @@ describe("resolveComplianceProfile — Default-Fallback", () => {
     expect(result.warning).toBeUndefined();
   });
 
-  test("selection=eu-dsgvo + kein override → keine warning", () => {
+  test("selection=eu-dsgvo + no override → no warning", () => {
     const result = resolveComplianceProfile({ selection: "eu-dsgvo" });
     expect(result.profile.key).toBe("eu-dsgvo");
     expect(result.warning).toBeUndefined();
@@ -135,7 +135,7 @@ describe("resolveComplianceProfile — Default-Fallback", () => {
 });
 
 describe("resolveComplianceProfile — Override deep-merge", () => {
-  test("Override gracePeriod.days überschreibt rekursiv, andere userRights bleiben", () => {
+  test("Override gracePeriod.days overrides recursively, other userRights remain", () => {
     const result = resolveComplianceProfile({
       selection: "eu-dsgvo",
       override: {
@@ -149,7 +149,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
     expect(result.profile.userRights.auskunftFrist).toEqual({ days: 30 });
   });
 
-  test("Override breach.authorityContact ändert nur diesen einen Pfad", () => {
+  test("Override breach.authorityContact changes only this path", () => {
     const result = resolveComplianceProfile({
       selection: "eu-dsgvo",
       override: {
@@ -176,7 +176,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
     expect(result.profile.breach.authorityContact).toBe("EDÖB Bern");
   });
 
-  test("Atomic path: retention {months} → {years} ersetzt komplett (kein object-merge)", () => {
+  test("Atomic path: retention {months} → {years} replaces completely (no object merge)", () => {
     // Without this, deepMerge on discriminated-union objects would produce
     // { months: 24, years: 10 }, which is semantically invalid because retention
     // must be exactly one choice.
@@ -203,7 +203,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
     expect(result.profile.userRights.gracePeriod).not.toHaveProperty("days");
   });
 
-  test("Array-Property im Override ersetzt komplett (Top-Level-Replace, kein concat)", () => {
+  test("Array property in the override replaces completely (top-level replace, no concat)", () => {
     const result = resolveComplianceProfile({
       selection: "eu-dsgvo",
       override: {
@@ -217,7 +217,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
   });
 });
 
-describe("Profile-Definition-Snapshots — fängt Drift ab", () => {
+describe("Profile definition snapshots — catches drift", () => {
   test("eu-dsgvo voll-resolved", () => {
     expect(COMPLIANCE_PROFILES["eu-dsgvo"]).toMatchInlineSnapshot(`
       {

@@ -101,7 +101,7 @@ describe("runConsumerCli status", () => {
     expect(joined).toContain('instance_id="inst-1"');
   });
 
-  test("--instance-id=<id> form is recognised (#1412)", async () => {
+  test("--instance-id=<id> form is recognised", async () => {
     prevDbUrl = process.env["DATABASE_URL"];
     process.env["DATABASE_URL"] = testUrl;
     await insertConsumerIfAbsent(testDb.db, "test:consumer:eq", "inst-2");
@@ -111,7 +111,7 @@ describe("runConsumerCli status", () => {
     expect(lines.join("\n")).toContain('instance_id="inst-2"');
   });
 
-  test("--instance-id before the name still parses the name correctly (#1412)", async () => {
+  test("--instance-id before the name still parses the name correctly", async () => {
     prevDbUrl = process.env["DATABASE_URL"];
     process.env["DATABASE_URL"] = testUrl;
     await insertConsumerIfAbsent(testDb.db, "test:consumer:order", "inst-3");
@@ -124,7 +124,7 @@ describe("runConsumerCli status", () => {
     expect(lines.join("\n")).toContain('instance_id="inst-3"');
   });
 
-  test("--instance-id with a missing value errors instead of silently falling back to shared (#1412)", async () => {
+  test("--instance-id with a missing value errors instead of silently falling back to shared", async () => {
     prevDbUrl = process.env["DATABASE_URL"];
     process.env["DATABASE_URL"] = testUrl;
     const { out, lines } = captureOut();

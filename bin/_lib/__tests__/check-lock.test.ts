@@ -71,7 +71,7 @@ describe("checkLockPaths", () => {
   });
 });
 
-describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
+describe("acquireCheckLock / followCheck: scope isolation", () => {
   // Reproduces the pre-push hook's real setup: it cd's into the SAME parent
   // workspace for every sub-repo before running `kumiko check`, only
   // KUMIKO_CLI_SCOPE differs between a concurrent push from repo A vs repo

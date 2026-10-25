@@ -18,7 +18,7 @@ describe("applyFormatSpec — json", () => {
 });
 
 describe("applyFormatSpec — priority", () => {
-  test("rendert emptyLabel für undefined/null/leer/0 (nicht den globalen ''-Collapse)", () => {
+  test("renders emptyLabel for undefined/null/empty/0 (not the global '' collapse)", () => {
     expect(applyFormatSpec({ format: "priority" }, undefined)).toBe("—");
     expect(applyFormatSpec({ format: "priority" }, null)).toBe("—");
     expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
@@ -31,8 +31,8 @@ describe("applyFormatSpec — priority", () => {
   });
 });
 
-describe("applyFormatSpec — leere Werte anderer Formate", () => {
-  test("collapsen zu ''", () => {
+describe("applyFormatSpec — empty values for other formats", () => {
+  test("collapse to ''", () => {
     expect(applyFormatSpec({ format: "boolean" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, null)).toBe("");
     expect(applyFormatSpec({ format: "timestamp" }, "")).toBe("");
@@ -40,7 +40,7 @@ describe("applyFormatSpec — leere Werte anderer Formate", () => {
 });
 
 describe("applyFormatSpec — boolean/currency", () => {
-  test("boolean mit Default- und Custom-Labels", () => {
+  test("boolean with default and custom labels", () => {
     expect(applyFormatSpec({ format: "boolean" }, true)).toBe("✓");
     expect(applyFormatSpec({ format: "boolean" }, false)).toBe("");
     expect(applyFormatSpec({ format: "boolean", trueLabel: "ja", falseLabel: "nein" }, false)).toBe(
@@ -48,13 +48,13 @@ describe("applyFormatSpec — boolean/currency", () => {
     );
   });
 
-  test("currency hängt Symbol an", () => {
+  test("currency appends symbol", () => {
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, 12)).toBe("12 €");
     expect(applyFormatSpec({ format: "currency" }, 12)).toBe("12");
   });
 });
 
-describe("applyFormatSpec — number grouping (fw#3234)", () => {
+describe("applyFormatSpec — number grouping", () => {
   test("groups thousands by default", () => {
     expect(applyFormatSpec({ format: "number" }, 2021)).toBe("2,021");
     expect(applyFormatSpec({ format: "number", locale: "de-DE" }, 2021)).toBe("2.021");
@@ -108,7 +108,7 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
   // making the test deterministic in CI (UTC) and locally (CET).
   const instant = "2026-01-15T12:00:00Z";
 
-  test("timestamp mit locale+dateStyle+timeStyle rendert lokalisiert", () => {
+  test("timestamp with locale+dateStyle+timeStyle renders localized", () => {
     const out = applyFormatSpec(
       { format: "timestamp", locale: "en-US", dateStyle: "long", timeStyle: "short" },
       instant,
@@ -117,23 +117,23 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(out).toContain("2026");
   });
 
-  test("date mit locale de-DE rendert deutschen Monatsnamen", () => {
+  test("date with locale de-DE renders German month name", () => {
     const out = applyFormatSpec({ format: "date", locale: "de-DE", dateStyle: "long" }, instant);
     expect(out).toContain("Januar");
     expect(out).toContain("2026");
   });
 
-  test("date ohne dateStyle rendert Tag und Monat zweistellig", () => {
+  test("date without dateStyle renders day and month with two digits", () => {
     expect(applyFormatSpec({ format: "date", locale: "de-DE" }, "2026-03-05")).toBe("05.03.2026");
   });
 
-  test("timestamp ohne Optionen nutzt das kompakte Default-Format", () => {
+  test("timestamp without options uses the compact default format", () => {
     const out = applyFormatSpec({ format: "timestamp", locale: "en-US" }, instant);
     expect(out).toContain("2026");
     expect(out).not.toBe(instant);
   });
 
-  test("timestamp mit timeZone rendert in der angegebenen Zone, unabhängig von der Laufzeit-Zone", () => {
+  test("timestamp with timeZone renders in the specified zone, regardless of the runtime zone", () => {
     const lateEveningUtc = "2026-12-31T23:30:00Z";
     const berlin = applyFormatSpec(
       {
@@ -161,7 +161,7 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(losAngeles).toContain("3:30");
   });
 
-  test("timestamp mit timeZone ohne dateStyle nutzt die Zone im Default-Format", () => {
+  test("timestamp with timeZone without dateStyle uses the zone in the default format", () => {
     const out = applyFormatSpec(
       { format: "timestamp", locale: "en-US", timeZone: "Europe/Berlin" },
       "2026-12-31T23:30:00Z",
@@ -170,7 +170,7 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(out).toContain("2027");
   });
 
-  test("ungültige timeZone fällt auf den Rohstring zurück statt zu werfen", () => {
+  test("invalid timeZone falls back to the raw string instead of throwing", () => {
     const instant = "2026-12-31T23:30:00Z";
     expect(applyFormatSpec({ format: "timestamp", timeZone: "Not/AZone" }, instant)).toBe(instant);
     expect(
@@ -178,12 +178,12 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     ).toBe(instant);
   });
 
-  test("unparsebarer Wert fällt auf den Rohstring zurück", () => {
+  test("unparseable value falls back to the raw string", () => {
     expect(applyFormatSpec({ format: "timestamp" }, "kein-datum")).toBe("kein-datum");
     expect(applyFormatSpec({ format: "date" }, "kein-datum")).toBe("kein-datum");
   });
 
-  test("offset-lose Timestamps (kein Z/Offset) fallen NICHT auf den Rohstring zurück", () => {
+  test("offset-less timestamps (no Z/Offset) do NOT fall back to the raw string", () => {
     // Temporal.Instant.from is stricter than the old `new Date(raw)` —
     // without a UTC designator/offset it throws. Both forms must still
     // format instead of passing through raw (see toInstant fallback in
@@ -197,7 +197,7 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     }
   });
 
-  test("offset-loser Timestamp im date-Format fällt NICHT auf den Rohstring zurück", () => {
+  test("offset-less timestamp in date format does NOT fall back to the raw string", () => {
     const withoutOffset = "2026-01-15T12:00:00";
     const out = applyFormatSpec({ format: "date", locale: "en-US" }, withoutOffset);
     expect(out).not.toBe(withoutOffset);
@@ -205,8 +205,8 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
   });
 });
 
-describe("applyFormatSpec — unit (fw#2187)", () => {
-  test("km/m/kg/percent gehen über Intl.NumberFormat(style:'unit'), locale-korrekt", () => {
+describe("applyFormatSpec — unit", () => {
+  test("km/m/kg/percent go through Intl.NumberFormat(style:'unit'), correctly localized", () => {
     expect(applyFormatSpec({ format: "unit", unit: "km" }, 58)).toBe(
       new Intl.NumberFormat(undefined, {
         style: "unit",
@@ -235,7 +235,7 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
     );
   });
 
-  test("mi (Meilen) geht über Intl.NumberFormat(style:'unit') genau wie km", () => {
+  test("mi (miles) goes through Intl.NumberFormat(style:'unit') just like km", () => {
     expect(applyFormatSpec({ format: "unit", unit: "mi" }, 58)).toBe(
       new Intl.NumberFormat(undefined, {
         style: "unit",
@@ -246,7 +246,7 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
     expect(applyFormatSpec({ format: "unit", unit: "mi", locale: "en-US" }, 12)).toBe("12 mi");
   });
 
-  test("m2 hat kein ECMA-402-sanktioniertes Intl-Unit (RangeError für 'square-meter') — Zahl + literales Suffix", () => {
+  test("m2 has no ECMA-402-sanctioned Intl-Unit (RangeError for 'square-meter') — number + literal suffix", () => {
     expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 58)).toBe("58 m²");
     expect(applyFormatSpec({ format: "unit", unit: "m2", locale: "de-DE" }, 1234.5)).toBe(
       "1.234,5 m²",
@@ -268,68 +268,68 @@ describe("applyFormatSpec — unit (fw#2187)", () => {
     );
   });
 
-  test("nicht-numerischer Wert fällt auf String zurück", () => {
+  test("non-numeric value falls back to a string", () => {
     expect(applyFormatSpec({ format: "unit", unit: "km" }, "not-a-number")).toBe("not-a-number");
   });
 
-  test("fehlende/unbekannte unit fällt auf String zurück, statt zu werfen", () => {
+  test("missing/unknown unit falls back to a string instead of throwing", () => {
     expect(applyFormatSpec({ format: "unit" }, 58)).toBe("58");
     expect(applyFormatSpec({ format: "unit", unit: "does-not-exist" }, 58)).toBe("58");
   });
 
-  test("Prototype-Chain-Keys (toString, constructor) zählen NICHT als unit — Object.hasOwn statt `in`", () => {
+  test("Prototype-chain keys (toString, constructor) do NOT count as unit — Object.hasOwn instead of `in`", () => {
     expect(applyFormatSpec({ format: "unit", unit: "toString" }, 58)).toBe("58");
     expect(applyFormatSpec({ format: "unit", unit: "constructor" }, 58)).toBe("58");
   });
 
-  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+  test("empty value collapses to '' like every other non-priority format", () => {
     expect(applyFormatSpec({ format: "unit", unit: "km" }, null)).toBe("");
     expect(applyFormatSpec({ format: "unit", unit: "km" }, "")).toBe("");
   });
 });
 
-describe("applyFormatSpec — enumOption (fw#2315)", () => {
+describe("applyFormatSpec — enumOption", () => {
   const spec = { format: "enumOption", keyPrefix: "contact:entity:contact:field:status:option:" };
 
-  test("übersetzter Key gewinnt gegen den Rohwert", () => {
+  test("translated key wins over the raw value", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
     expect(applyFormatSpec(spec, "active", translate)).toBe("Aktiv");
   });
 
-  test("unbekannter Key fällt auf den Rohwert zurück (translate gibt den Key unverändert zurück)", () => {
+  test("unknown key falls back to the raw value (translate returns the key unchanged)", () => {
     const translate = (key: string) => key;
     expect(applyFormatSpec(spec, "active", translate)).toBe("active");
   });
 
-  test("ohne translate-Parameter fällt auf den Rohwert zurück", () => {
+  test("without a translate parameter, falls back to the raw value", () => {
     expect(applyFormatSpec(spec, "active")).toBe("active");
   });
 
-  test("ohne keyPrefix fällt auf den Rohwert zurück, auch mit translate", () => {
+  test("without keyPrefix, falls back to the raw value, even with translate", () => {
     const translate = (key: string) => `translated:${key}`;
     expect(applyFormatSpec({ format: "enumOption" }, "active", translate)).toBe("active");
   });
 
-  test("nicht-string-Wert wird vor der Key-Bildung stringifiziert", () => {
+  test("non-string value is stringified before key construction", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:1" ? "Eins" : key;
     expect(applyFormatSpec(spec, 1, translate)).toBe("Eins");
   });
 
-  test("Array-Wert: jeder Eintrag wird einzeln übersetzt und komma-verbunden", () => {
+  test("Array value: each entry is translated individually and joined with commas", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
     expect(applyFormatSpec(spec, ["active", "other"], translate)).toBe("Aktiv, other");
   });
 
-  test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
+  test("empty value collapses to '' like every other non-priority format", () => {
     expect(applyFormatSpec(spec, null, (k) => k)).toBe("");
     expect(applyFormatSpec(spec, "", (k) => k)).toBe("");
   });
 });
 
-describe("applyFormatSpec — boolean labels through translate (fw#2683)", () => {
+describe("applyFormatSpec — boolean labels through translate", () => {
   const TRUE_KEY = "managed-pages:entity:page:field:published:option:true";
   const FALSE_KEY = "managed-pages:entity:page:field:published:option:false";
   const spec = { format: "boolean", trueLabel: TRUE_KEY, falseLabel: FALSE_KEY };

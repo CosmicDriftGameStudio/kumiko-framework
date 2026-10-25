@@ -343,7 +343,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     expect(row?.email).toContain("anonymized.invalid");
   });
 
-  test("incomplete hooks are written to ctx.obs.log (job-run audit trail, #1572)", async () => {
+  test("incomplete hooks are written to ctx.obs.log (job-run audit trail)", async () => {
     const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeTruthy();
 
@@ -401,7 +401,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
 });
 
 describe("runForgetCleanup :: time-window guards", () => {
-  test("Future-grace User wird NICHT bearbeitet", async () => {
+  test("User with a future grace period is NOT processed", async () => {
     await seedUser(FUTURE_USER_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(7 * 24 * 60 * 60 * 1000), // +7d
@@ -422,7 +422,7 @@ describe("runForgetCleanup :: time-window guards", () => {
     expect(userRow?.email).toBe(`user-${FUTURE_USER_ID}@example.com`);
   });
 
-  test("Active-User (kein Forget-Antrag) wird NICHT bearbeitet", async () => {
+  test("Active user (no forget request) is NOT processed", async () => {
     await seedUser(ALICE_ID, { status: USER_STATUS.Active });
     await seedMembership(ALICE_ID, TENANT_A);
 
@@ -440,7 +440,7 @@ describe("runForgetCleanup :: time-window guards", () => {
 });
 
 describe("runForgetCleanup :: idempotenz", () => {
-  test("zweiter Run nach Cleanup ist no-op", async () => {
+  test("second run after cleanup is a no-op", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
@@ -466,8 +466,8 @@ describe("runForgetCleanup :: idempotenz", () => {
   });
 });
 
-describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
-  test("nach Cleanup ist KEINE Original-PII (email + displayName) mehr in DB", async () => {
+describe("runForgetCleanup :: PII audit after cleanup", () => {
+  test("after cleanup, NO original PII (email + displayName) remains in DB", async () => {
     // Cross-data PII check: simulate multiple data points linked to Alice's
     // identity, then verify that none still contain her original values.
     const ORIGINAL_EMAIL = "alice.unique.audit@example.com";
@@ -507,7 +507,7 @@ describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
   // The orphan path previously flipped status=Deleted without running
   // userDeleteHook, leaving email/displayName/passwordHash unchanged. It looked
   // compliant but was not.
-  test("User ohne Memberships → trotzdem PII anonymisiert (kein leerer status-Flip)", async () => {
+  test("User without memberships → PII is still anonymized (no empty status flip)", async () => {
     const ORIGINAL_EMAIL = "orphan.unique@example.com";
     const ORIGINAL_NAME = "Orphan Original";
     await seedUser(ALICE_ID, {
@@ -538,7 +538,7 @@ describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
 });
 
 describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () => {
-  test("happy: callback fires mit userEmail PRE-tx + tenantIds + executedAt nach success", async () => {
+  test("happy: callback fires with userEmail before tx + tenantIds + executedAt after success", async () => {
     const ORIGINAL_EMAIL = "alice.callback@example.com";
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
@@ -584,7 +584,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     expect(aliceRow?.email).toContain("anonymized.invalid");
   });
 
-  test("kein callback-Optional → success ohne crash, processedUserIds enthaelt User", async () => {
+  test("no optional callback → success without crash, processedUserIds contains user", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
@@ -663,7 +663,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     }
   });
 
-  test("best-effort: callback-Throw fuer User A killt Batch NICHT — User B trotzdem verarbeitet", async () => {
+  test("best-effort: callback throw for User A does NOT stop the batch — User B is still processed", async () => {
     // If sendEmail throws for User A, batch cleanup must continue for User B.
     // User A's sub-transaction has already committed, so propagating the throw
     // would make the job fail; a retry would find no expired users because all
@@ -709,7 +709,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     expect((await fetchUser(BOB_ID))?.status).toBe(USER_STATUS.Deleted);
   });
 
-  test("User ohne email-Field (NULL) → callback NICHT gefeuert (skip ohne crash)", async () => {
+  test("User without email field (NULL) → callback is NOT fired (skip without crash)", async () => {
     // Edge case: the email column may be empty if a previous user hook already
     // anonymized the user while leaving the status unchanged, or because of an
     // external migration. Skipping the callback prevents invalid arguments from
@@ -746,7 +746,7 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
   // Verifies the load-bearing property that a failing hook for User A cannot
   // roll User B back with it. Removing the sub-transaction from
   // run-forget-cleanup.ts must make this test fail.
-  test("failing Hook bei User A → User B trotzdem cleaned, A bleibt im DeletionRequested", async () => {
+  test("failing hook for User A → User B is still cleaned, A remains in DeletionRequested", async () => {
     const ORIGINAL_A_EMAIL = "alice.failing.hook@example.com";
     const ORIGINAL_B_EMAIL = "bob.success.hook@example.com";
 
@@ -834,7 +834,7 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
     }
   });
 
-  test("Hook meldet {status:'incomplete'} → kein Rollback, User trotzdem Deleted, im result.incomplete gesammelt", async () => {
+  test("Hook reports {status:'incomplete'} → no rollback, user still Deleted, collected in result.incomplete", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
@@ -899,7 +899,7 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
     }
   });
 
-  test("hook incomplete on one tenant, then throws on a later tenant → the incomplete report survives, flagged rolledBack (#1489)", async () => {
+  test("hook incomplete on one tenant, then throws on a later tenant → the incomplete report survives, flagged rolledBack", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),

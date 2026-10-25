@@ -19,7 +19,7 @@ describe("inboundMailFoundationFeature — shape", () => {
     expect(createInboundMailFoundationFeature().name).toBe("inbound-mail-foundation");
   });
 
-  test("does NOT require config — Multi-Provider, Provider-Config liegt in den Plugins", () => {
+  test("does NOT require config — Multi-Provider, provider config is in the plugins", () => {
     // Drift pin: there is no global provider-config key. A tenant can connect
     // IMAP, M365, and Gmail in parallel; the provider is stored per
     // MailAccount row.
@@ -43,7 +43,7 @@ describe("inboundMailFoundationFeature — shape", () => {
     ]);
   });
 
-  test("SyncCursor + SeenMessage sind unmanaged (NICHT event-sourced, Plan §3.4)", () => {
+  test("SyncCursor + SeenMessage are unmanaged (NOT event-sourced)", () => {
     // If modeled as r.entity, the tick-state tables would flood the event log
     // and be wiped during projection rebuilds.
     const unmanaged = Object.keys(createInboundMailFoundationFeature().storeTables);
@@ -141,12 +141,12 @@ describe("scope-visibility (Plan Entscheidung 2)", () => {
   const other = { id: "user-2", roles: ["User"] as const };
   const admin = { id: "user-3", roles: ["TenantAdmin"] as const };
 
-  test("shared row (ownerUserId=null) ist für alle sichtbar", () => {
+  test("shared row (ownerUserId=null) is visible to everyone", () => {
     expect(isVisibleToCaller({ ownerUserId: null }, owner)).toBe(true);
     expect(isVisibleToCaller({ ownerUserId: null }, other)).toBe(true);
   });
 
-  test("persönliche Row nur für Owner + TenantAdmin", () => {
+  test("personal row only for owner + TenantAdmin", () => {
     const row = { ownerUserId: "user-1" };
     expect(isVisibleToCaller(row, owner)).toBe(true);
     expect(isVisibleToCaller(row, other)).toBe(false);
@@ -163,7 +163,7 @@ describe("plugin type-guard + secret-key helper", () => {
     expect(isInboundMailProviderPlugin(null)).toBe(false);
   });
 
-  test("inboundCredentialSecretKey ist per-Account gekeyt", () => {
+  test("inboundCredentialSecretKey is keyed per account", () => {
     expect(inboundCredentialSecretKey("abc")).toBe(
       "inbound-mail-foundation:inbound.credential.abc",
     );

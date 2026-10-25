@@ -11,7 +11,7 @@ import { loginAsAdmin } from "./_helpers/login";
 
 test.use({ locale: "de-DE", viewport: { width: 1440, height: 900 } });
 
-test("liste-leer-fehler", async ({ page }) => {
+test("empty-list-error", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/receive-invoice");
   await page.getByLabel("Lieferant").fill("Hausmeisterdienst Lindner");

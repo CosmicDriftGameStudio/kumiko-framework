@@ -25,8 +25,8 @@ import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { createFeatureTogglesFeature } from "../feature.ts";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 
-describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
-  test("ruft effectiveFeatures mit SYSTEM_TENANT_ID, nicht mit caller-tenantId", async () => {
+describe("registered.query SYSTEM_TENANT_ID convention", () => {
+  test("calls effectiveFeatures with SYSTEM_TENANT_ID, not with caller-tenantId", async () => {
     const observed: string[] = [];
 
     const dummy = defineFeature("dummy", (r) => {

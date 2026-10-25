@@ -28,7 +28,7 @@ afterAll(async () => {
 });
 
 describe("unsafeEnsureEntityTable", () => {
-  test("legt die Tabelle beim ersten Aufruf an (returnt true)", async () => {
+  test("creates the table on the first call (returns true)", async () => {
     const created = await unsafeEnsureEntityTable(db.db, tenantEntity, "probe");
     expect(created).toBe(true);
     const rows = await asRawClient(db.db).unsafe<{ exists: boolean }>(
@@ -37,12 +37,12 @@ describe("unsafeEnsureEntityTable", () => {
     expect(rows[0]?.exists).toBe(true);
   });
 
-  test("ist beim zweiten Aufruf ein No-Op (returnt false, kein Fehler)", async () => {
+  test("is a no-op on the second call (returns false, no error)", async () => {
     const created = await unsafeEnsureEntityTable(db.db, tenantEntity, "probe");
     expect(created).toBe(false);
   });
 
-  test("unsafeCreateEntityTable ist idempotent — zweiter Push wirft nicht (CREATE IF NOT EXISTS)", async () => {
+  test("unsafeCreateEntityTable is idempotent — second push does not throw (CREATE IF NOT EXISTS)", async () => {
     // CREATE TABLE IF NOT EXISTS — idempotent by design.
     await expect(unsafeCreateEntityTable(db.db, tenantEntity, "probe")).resolves.toBeUndefined();
   });

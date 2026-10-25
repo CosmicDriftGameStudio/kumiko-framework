@@ -163,8 +163,8 @@ async function connectSharedAccount(admin: ReturnType<typeof adminFor>): Promise
 // Scenarios
 // =============================================================================
 
-describe("scenario 1: connect-account + list mit decrypt-on-read", () => {
-  test("connect legt Stream + Projection-Row an; address ist at-rest Ciphertext, list liefert Klartext", async () => {
+describe("connect-account + list with decrypt-on-read", () => {
+  test("connect creates Stream + Projection row; address is at-rest Ciphertext, list returns plaintext", async () => {
     const admin = adminFor(4001);
     const accountId = await connectSharedAccount(admin);
 
@@ -193,7 +193,7 @@ describe("scenario 1: connect-account + list mit decrypt-on-read", () => {
 });
 
 describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
-  test("dieselbe providerMessageId 2× → genau 1 Row, duplicate=true; Thread zählt korrekt", async () => {
+  test("the same providerMessageId 2× → exactly 1 row, duplicate=true; Thread counts correctly", async () => {
     const admin = adminFor(4002);
     const accountId = await connectSharedAccount(admin);
 
@@ -258,8 +258,8 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
   });
 });
 
-describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt kumulativ", () => {
-  test("nach einem Race-verzerrten (zu niedrigen) messageCount-Event korrigiert der naechste ingest auf den echten Row-Count", async () => {
+describe("ingest-message — Thread rollup is self-correcting rather than cumulative", () => {
+  test("after a race-distorted (too low) messageCount event, the next ingest corrects it to the actual row count", async () => {
     const admin = adminFor(4021);
     const accountId = await connectSharedAccount(admin);
 
@@ -326,7 +326,7 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
   });
 });
 
-describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #1229, closed by #2155)", () => {
+describe("ingest-message — concurrent thread-rollup race", () => {
   // Probabilistic — repeated because whether a concurrent thread-rollup commit
   // lands inside the step-5 critical section depends on real transaction-timing
   // interleaving, which a single run cannot force deterministically.
@@ -376,7 +376,7 @@ describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #
   });
 });
 
-describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)", () => {
+describe("ingest-message — thread-rollup retry exhaustion", () => {
   // The version-conflict retry loop (THREAD_ROLLUP_MAX_ATTEMPTS = 5) is
   // exercised by scenario 2c above only on its happy path (some attempt
   // within the bound eventually wins). New behavior added alongside it —
@@ -459,8 +459,8 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
   });
 });
 
-describe("scenario 3: Scope-Sichtbarkeit (persönliches Postfach)", () => {
-  test("Messages eines user-scoped Accounts sieht nur der Owner (+ TenantAdmin)", async () => {
+describe("Scope visibility (personal mailbox)", () => {
+  test("Only the owner (+ TenantAdmin) can see messages from a user-scoped account", async () => {
     const tenantNumber = 4003;
     const owner = createTestUser({
       id: 40031,
@@ -524,7 +524,7 @@ describe("scenario 3: Scope-Sichtbarkeit (persönliches Postfach)", () => {
 });
 
 describe("scenario 4: Account-Lifecycle", () => {
-  test("update → disconnect → update wird abgelehnt, disconnect ist idempotent", async () => {
+  test("update → disconnect → update is rejected, disconnect is idempotent", async () => {
     const admin = adminFor(4004);
     const accountId = await connectSharedAccount(admin);
 
@@ -569,7 +569,7 @@ describe("scenario 4: Account-Lifecycle", () => {
 });
 
 describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.4)", () => {
-  test("rebuild aus dem Event-Log → identische inbound-message-Rows", async () => {
+  test("rebuild from event log → identical inbound-message-Rows", async () => {
     const admin = adminFor(4005);
     const accountId = await connectSharedAccount(admin);
     await stack.http.writeOk(
@@ -618,8 +618,8 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
   });
 });
 
-describe("scenario 6: crypto-shredding (#800)", () => {
-  test("Subject-Key-Erase macht den Event-Payload permanent unlesbar", async () => {
+describe("Subject-Key-Erase makes the event payload permanently unreadable", () => {
+  test("erasing the subject key makes the event payload permanently unreadable", async () => {
     const admin = adminFor(4006);
     const accountId = await connectSharedAccount(admin);
     await stack.http.writeOk(

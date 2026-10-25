@@ -139,8 +139,8 @@ function mintActor(user: { id: string; tenantId: TenantId; roles: readonly strin
   return withMintedSession((u, meta) => callbacks.get().sessionCreator(u, meta), user);
 }
 
-describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
-  test("Restricted-Status ueberlebt einen Projection-Rebuild (T_create != T_active)", async () => {
+describe("read_users rebuild preserves lifecycle state", () => {
+  test("Restricted status survives a projection rebuild (T_create != T_active)", async () => {
     // Discriminating premise: user.created lands on systemAdmin.tenantId
     // (= T_CREATE), while the lifecycle runs later on T_ACTIVE. They must differ.
     expect(TestUsers.systemAdmin.tenantId).toBe(T_CREATE);
@@ -180,7 +180,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     expect(after[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
-  test("DeletionRequested + gracePeriodEnd (Date-Spalte) ueberleben den Rebuild", async () => {
+  test("DeletionRequested + gracePeriodEnd (Date column) survive the rebuild", async () => {
     // Use the helper directly, without compliance-profile setup, because the focus
     // is serializing the Date column through the event and reducer.
     const hash = await hashPassword(ALICE_PW);
@@ -214,7 +214,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
   // Honest counterpart to the forward test: existing data whose status was set by
   // the old raw path (without an event) cannot survive a rebuild until the one-time
   // backfill records its live state as user.updated in the event log.
-  test("Bestandsdaten: alt-roh gesetzter Status wird ohne Backfill weggewischt, mit Backfill bewahrt", async () => {
+  test("Legacy data: a status set directly in old raw data is wiped without backfill and preserved with backfill", async () => {
     const hash = await hashPassword(ALICE_PW);
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,

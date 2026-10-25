@@ -111,7 +111,7 @@ describe("CustomFieldsFormSection", () => {
     });
   });
 
-  test("pre-fills inputs from initialValues (Edit zeigt den Bestand, nicht write-only)", async () => {
+  test("pre-fills inputs from initialValues (Edit shows the existing value, not write-only)", async () => {
     const user = userEvent.setup();
     mockedQueryRows = [
       {
@@ -237,7 +237,7 @@ describe("CustomFieldsFormSection", () => {
 });
 
 describe("CustomFieldsFormSection — clear-Pfad", () => {
-  test("Leeren eines gespeicherten Werts dispatched clear-custom-field (nicht skip)", async () => {
+  test("Clearing a stored value dispatches clear-custom-field (not skip)", async () => {
     const user = userEvent.setup();
     mockedQueryRows = [
       {
@@ -274,7 +274,7 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
     });
   });
 
-  test("unveränderter Bestandswert wird beim Save NICHT erneut geschrieben", async () => {
+  test("unchanged existing value is NOT written again on Save", async () => {
     const user = userEvent.setup();
     mockedQueryRows = [
       {
@@ -313,7 +313,7 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
 });
 
 describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
-  test("boolean: Bestand wird als true/false-String angezeigt, Save coerced zu boolean", async () => {
+  test("boolean: existing value is displayed as a true/false string, Save coerces it to boolean", async () => {
     const user = userEvent.setup();
     mockedQueryRows = [
       {
@@ -355,7 +355,7 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
     );
   });
 
-  test("date: Bestand erreicht das DateInput-Textfeld (locale-numerisch)", () => {
+  test("date: existing value reaches the DateInput text field (locale-numeric)", () => {
     mockedQueryRows = [
       {
         id: "f1",
@@ -386,8 +386,8 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
   });
 });
 
-describe("CustomFieldsFormSection — composed mode (Bug-Bash 3 #1)", () => {
-  test("Registry vorhanden → kein eigener Save-Button (Section schreibt am Haupt-Form mit)", () => {
+describe("CustomFieldsFormSection — composed mode", () => {
+  test("Registry present → no separate Save button (Section writes to the main form)", () => {
     mockedQueryRows = [
       {
         id: "f1",

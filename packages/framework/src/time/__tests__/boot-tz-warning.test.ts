@@ -2,21 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { warnIfNonUtcServerTimeZone } from "../boot-tz-warning.ts";
 
 describe("warnIfNonUtcServerTimeZone", () => {
-  test("warnt nicht wenn die Prozess-TZ UTC ist", () => {
+  test("does not warn when the process TZ is UTC", () => {
     const messages: string[] = [];
     const warned = warnIfNonUtcServerTimeZone("UTC", (m) => messages.push(m));
     expect(warned).toBe(false);
     expect(messages).toHaveLength(0);
   });
 
-  test.each(["GMT", "Etc/UTC"])("warnt nicht bei UTC-äquivalenter Zone %s", (zone) => {
+  test.each(["GMT", "Etc/UTC"])("does not warn for a UTC-equivalent zone %s", (zone) => {
     const messages: string[] = [];
     const warned = warnIfNonUtcServerTimeZone(zone, (m) => messages.push(m));
     expect(warned).toBe(false);
     expect(messages).toHaveLength(0);
   });
 
-  test("warnt bei nicht-UTC Zone, nennt Zone + UTC-Hinweis", () => {
+  test("warns for a non-UTC zone, names the zone and includes a UTC hint", () => {
     const messages: string[] = [];
     const warned = warnIfNonUtcServerTimeZone("Europe/Berlin", (m) => messages.push(m));
     expect(warned).toBe(true);
@@ -25,7 +25,7 @@ describe("warnIfNonUtcServerTimeZone", () => {
     expect(messages[0]).toContain("UTC");
   });
 
-  test("Default-Aufruf liest die ECHTE Prozess-TZ (ambient, nicht injiziert)", () => {
+  test("The default call reads the actual process TZ (ambient, not injected)", () => {
     // This is the only test that reads the ambient time zone instead of injecting it—
     // allowing the tz-matrix CI job (4 legs: LA/Berlin/Tokyo/Apia) to distinguish
     // between its legs. Without this assertion, "runs in every zone without throwing"

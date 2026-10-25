@@ -71,7 +71,7 @@ describe("KumikoScreen", () => {
 
   // slots.header/footer on entityEdit are shared through action-form-shim's
   // synthesizeActionFormScreen — an actionForm mounts them the same way.
-  test("actionForm: slots.header and slots.footer both render (fw#2853)", async () => {
+  test("actionForm: slots.header and slots.footer both render", async () => {
     const TopBanner = () => <div data-testid="action-form-header-slot">top banner</div>;
     const BottomAction = () => <button type="button" data-testid="action-form-footer-slot" />;
 
@@ -135,7 +135,7 @@ describe("KumikoScreen", () => {
     );
   });
 
-  test("actionForm ohne submitStyle: submit button renders default variant", async () => {
+  test("actionForm without submitStyle: submit button renders default variant", async () => {
     const dispatcher = makeDispatcher({
       write: (async () => ({
         isSuccess: true,
@@ -163,7 +163,7 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("render-edit-submit").getAttribute("data-variant")).toBe("default");
   });
 
-  test("actionForm mit redirect auf entityList: nach success → navigate ohne entityId (#2419)", async () => {
+  test("actionForm with redirect to entityList: after success → navigate without entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -211,7 +211,7 @@ describe("KumikoScreen", () => {
     expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
   });
 
-  test("actionForm mit Cross-Feature-QN als redirect auf entityList: navigiert per Short-Id ohne entityId (#1946, #2485)", async () => {
+  test("actionForm with Cross-Feature-QN as redirect to entityList: navigates via Short-Id without entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -272,7 +272,7 @@ describe("KumikoScreen", () => {
     expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
   });
 
-  test("actionForm mit Cross-Feature-QN als redirect auf entityEdit: hängt entityId an (#2485)", async () => {
+  test("actionForm with Cross-Feature-QN as redirect to entityEdit: appends entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -337,7 +337,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "vehicle-wizard", entityId: "x" });
   });
 
-  test("actionForm mit Cross-Feature-QN als redirect: löst den Screen aus der im QN benannten Feature auf, nicht aus dem ersten Id-Treffer (#2485)", async () => {
+  test("actionForm with Cross-Feature-QN as redirect: resolves the screen from the feature named in the QN, not from the first ID match", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -415,7 +415,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "wizard", entityId: "x" });
   });
 
-  test("actionForm mit Cross-Feature-QN: ein eigener Screen mit gleicher Short-Id schattet das im QN benannte Ziel nicht ab (#2486)", async () => {
+  test("actionForm with Cross-Feature-QN: an own screen with the same Short-Id does not shadow the target named in the QN", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -483,7 +483,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "wizard", entityId: "x" });
   });
 
-  test("actionForm mit redirect auf entityEdit: hängt entityId an (#2419)", async () => {
+  test("actionForm with redirect to entityEdit: appends entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -539,7 +539,7 @@ describe("KumikoScreen", () => {
   // the redirect target is the parent's detail screen — `idFrom` names the
   // payload field the navigation id comes from, so the handler keeps
   // reporting what it actually wrote.
-  test("actionForm mit redirect-Objekt + idFrom: navigiert mit der Eltern-ID statt data.id (#2670)", async () => {
+  test("actionForm with redirect object + idFrom: navigates with the parent ID instead of data.id", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -591,7 +591,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "parent" });
   });
 
-  test("actionForm mit redirect-Objekt + idFrom, das im Payload fehlt: navigiert ohne entityId, nicht mit data.id", async () => {
+  test("actionForm with redirect object + idFrom missing from the payload: navigates without entityId, not with data.id", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -644,24 +644,24 @@ describe("KumikoScreen", () => {
   });
 
   describe("extractIdField", () => {
-    test("liefert den String-Wert eigener Felder", () => {
+    test("returns the string value of own fields", () => {
       expect(extractIdField({ leaseId: "x" }, "leaseId")).toBe("x");
     });
 
-    test("fehlendes Feld, Nicht-String und Nicht-Objekt → undefined", () => {
+    test("missing field, non-string, and non-object → undefined", () => {
       expect(extractIdField({}, "leaseId")).toBeUndefined();
       expect(extractIdField({ leaseId: 5 }, "leaseId")).toBeUndefined();
       expect(extractIdField(null, "leaseId")).toBeUndefined();
       expect(extractIdField("leaseId", "leaseId")).toBeUndefined();
     });
 
-    test("Prototyp-Schlüssel lösen nicht auf (own-property-Guard)", () => {
+    test("Prototype keys do not resolve (own-property guard)", () => {
       expect(extractIdField({}, "constructor")).toBeUndefined();
       expect(extractIdField(Object.create({ leaseId: "x" }), "leaseId")).toBeUndefined();
     });
   });
 
-  test("actionForm mit blankem String-redirect: navigiert weiter mit data.id, nicht mit einem anderen Payload-Feld (#2670)", async () => {
+  test("actionForm with blank string redirect: continues with data.id, not another payload field", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -718,7 +718,7 @@ describe("KumikoScreen", () => {
   // redirect did the same navigate but never extracted the id. The with-id
   // case is covered by the actionForm redirect success test above (now
   // asserting entityId); this pins the back-compat guarantee.
-  test("actionForm mit redirect: Handler-Result ohne id → navigate ohne entityId-Key (Rückwärtskompatibilität, #2416)", async () => {
+  test("actionForm with redirect: handler result without id → navigate without entityId key (backward compatibility)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -769,7 +769,7 @@ describe("KumikoScreen", () => {
   // a cancel button with the same target as the submit redirect — semantically
   // empty on single-action screens ("send test mail"). `cancelTarget: false`
   // switches it off, `cancelTarget: "<screen>"` decouples it from the redirect.
-  test("actionForm mit redirect: Abbrechen-Button existiert (historisches Default-Verhalten)", () => {
+  test("actionForm with redirect: cancel button exists (historical default behavior)", () => {
     const actionScreen: ActionFormScreenDefinition = {
       id: "quick-add",
       type: "actionForm",
@@ -789,7 +789,7 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("render-edit-cancel")).toBeTruthy();
   });
 
-  test("actionForm mit cancelTarget=false: KEIN Abbrechen-Button trotz redirect", () => {
+  test("actionForm with cancelTarget=false: NO cancel button despite redirect", () => {
     const actionScreen: ActionFormScreenDefinition = {
       id: "quick-add",
       type: "actionForm",
@@ -810,7 +810,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
   });
 
-  test("actionForm mit cancelTarget-Screen: Abbrechen navigiert dorthin, auch ohne redirect", async () => {
+  test("actionForm with cancelTarget screen: cancel navigates there, even without redirect", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -845,7 +845,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([{ screenId: "task-list" }]);
   });
 
-  test("actionForm mit Cross-Feature-QN als cancelTarget: Abbrechen navigiert per Short-Id (#1946)", () => {
+  test("actionForm with Cross-Feature-QN as cancelTarget: cancel navigates via Short-Id", () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -882,7 +882,7 @@ describe("KumikoScreen", () => {
   // URL search params fill the actionForm initial values.
   // Use case: a rowAction kind=navigate sets `?taskId=r1`, the actionForm
   // sees it on mount and prefills the title field.
-  test("actionForm initial values: searchParams überschreiben Field-Defaults", async () => {
+  test("actionForm initial values: searchParams override field defaults", async () => {
     const memoryNav = {
       route: { screenId: "approve" },
       navigate: () => undefined,
@@ -926,7 +926,7 @@ describe("KumikoScreen", () => {
     expect(priorityInput.value).toBe("9");
   });
 
-  test("actionForm initial values: searchParam mit fehlerhafter Number → Default-Fallback", async () => {
+  test("actionForm initial values: searchParam with invalid Number → default fallback", async () => {
     const memoryNav = {
       route: { screenId: "approve" },
       navigate: () => undefined,
@@ -1073,7 +1073,7 @@ describe("KumikoScreen", () => {
     expect(inputValue("iban")).toBe("own-iban");
   });
 
-  test("actionForm submitLabel: i18n-Key landet auf dem Submit-Button (übersteuert default)", () => {
+  test("actionForm submitLabel: i18n-Key lands on the submit button (overrides default)", () => {
     const dispatcher = makeDispatcher();
     const actionScreen: ActionFormScreenDefinition = {
       id: "approve",
@@ -1095,7 +1095,7 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("render-edit-submit").textContent).toBe("actions.approve");
   });
 
-  test("actionForm ohne redirect: nach success bleibt der User auf der Form (kein navigate)", async () => {
+  test("actionForm without redirect: after success, the user remains on the form (no navigate)", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
@@ -1146,7 +1146,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([]);
   });
 
-  test("custom screen type without a registered component → error placeholder naming feature + screen (kumiko-framework#2025)", () => {
+  test("custom screen type without a registered component → error placeholder naming feature + screen", () => {
     const customSchema: FeatureSchema = {
       featureName: "tasks",
       entities: { task: taskEntity },
@@ -1181,7 +1181,7 @@ describe("KumikoScreen", () => {
   // `lastSegment` defensively strips the prefix; the tests pin both paths.
   // ------------------------------------------------------------------
 
-  test("entityList + Neu-Button → navigiert mit screenId aus Schema", async () => {
+  test("entityList + New button → navigates with screenId from schema", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1217,7 +1217,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
   });
 
-  test("Auto-Navigate ist defensiv: schema.screens.id mit Doppel-Punkt-Prefix wird gestrippt", async () => {
+  test("Auto-navigate is defensive: schema.screens.id with a double-colon prefix is stripped", async () => {
     // Defense in depth: should the registry ever stamp QN-form ids into
     // schema.screens, useNavigateToCreateFor without lastSegment would pass a
     // QN on as screenId -> URL double-qualified. The test simulates this
@@ -1285,7 +1285,7 @@ describe("KumikoScreen", () => {
 // Without this pass-through a context section (e.g. update timeline that
 // reads ?incidentId) would stay blind.
 describe("KumikoScreen: actionForm extension-section", () => {
-  test("extension-section erhält initialValues inkl. searchParams-Prefill", async () => {
+  test("extension-section receives initialValues including searchParams prefill", async () => {
     const actionScreen: ActionFormScreenDefinition = {
       id: "post-update",
       type: "actionForm",

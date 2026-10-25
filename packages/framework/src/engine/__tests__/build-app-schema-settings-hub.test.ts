@@ -221,7 +221,7 @@ describe("buildAppSchema — Settings-Hub inline placement", () => {
   });
 });
 
-describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => {
+describe("buildAppSchema — development warning for a dangling audience reference", () => {
   // billing registers only system+tenant keys → audience-user is NEVER
   // generated. A workspace referencing config:nav:audience-user still boots
   // (the boot-validator exempts the audience QNs), but the entry renders

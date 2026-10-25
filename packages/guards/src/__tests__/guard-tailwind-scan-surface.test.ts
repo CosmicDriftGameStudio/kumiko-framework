@@ -271,7 +271,7 @@ describe("scanSourceCoverage", () => {
     };
   }
 
-  test("flags an enterprise package with className .tsx and no @source entry (studio#289, red)", () => {
+  test("flags an enterprise package with className .tsx and no @source entry", () => {
     const { root, cleanup } = makeAppFixture({
       dependencyName: "@cosmicdriftgamestudio/kumiko-designer",
     });
@@ -285,7 +285,7 @@ describe("scanSourceCoverage", () => {
     }
   });
 
-  test("an @source entry for the package clears the finding (studio#289, green)", () => {
+  test("an @source entry for the package clears the finding", () => {
     const { root, cleanup } = makeAppFixture({
       dependencyName: "@cosmicdriftgamestudio/kumiko-designer",
       extraSourceEntry:
@@ -515,7 +515,7 @@ describe("scanPublishedScanSurface", () => {
     return findings.find((f) => f.packageName === packageName);
   }
 
-  test("(a) only a src glob, files=[dist] → finding (the real studio#289 bug)", () => {
+  test("only a src glob, files=[dist] → finding", () => {
     const { root, cleanup } = makePublishedSurfaceFixture({
       filesField: ["dist"],
     });

@@ -29,11 +29,11 @@ describe("fileProviderInMemoryFeature — plugin-registration", () => {
 });
 
 describe("listKeys / clearStorage — per-tenant store helpers", () => {
-  test("listKeys liefert empty-array für unbekannten Tenant", () => {
+  test("listKeys returns an empty array for an unknown tenant", () => {
     expect(listKeys("never-touched")).toEqual([]);
   });
 
-  test("clearStorage auf unbekannten Tenant ist no-op", () => {
+  test("clearStorage on an unknown tenant is a no-op", () => {
     expect(() => clearStorage("never-touched")).not.toThrow();
   });
 });
@@ -51,14 +51,14 @@ function inmemoryPlugin(): FileProviderPlugin {
 const bytes = (s: string) => new TextEncoder().encode(s);
 
 describe("file-provider-inmemory — build() + per-tenant store", () => {
-  test("build liefert Provider; Write erscheint in listKeys(tenant)", async () => {
+  test("build returns a provider; a write appears in listKeys(tenant)", async () => {
     const provider = await inmemoryPlugin().build({ secrets: undefined }, "tenant-build-1");
     await provider.write("doc.txt", bytes("x"));
     expect(listKeys("tenant-build-1")).toContain("doc.txt");
     clearStorage("tenant-build-1");
   });
 
-  test("selber Tenant: zwei builds liefern identitätsstabilen Storage (State bleibt)", async () => {
+  test("Same tenant: two builds provide identity-stable storage (state persists)", async () => {
     const a = await inmemoryPlugin().build({ secrets: undefined }, "tenant-stable");
     await a.write("first.txt", bytes("1"));
     const b = await inmemoryPlugin().build({ secrets: undefined }, "tenant-stable");
@@ -66,7 +66,7 @@ describe("file-provider-inmemory — build() + per-tenant store", () => {
     clearStorage("tenant-stable");
   });
 
-  test("Tenant-Isolation: Write in A erscheint nicht in B", async () => {
+  test("Tenant isolation: a write in A does not appear in B", async () => {
     const a = await inmemoryPlugin().build({ secrets: undefined }, "tenant-iso-a");
     const b = await inmemoryPlugin().build({ secrets: undefined }, "tenant-iso-b");
     await a.write("only-in-a.txt", bytes("a"));
@@ -77,7 +77,7 @@ describe("file-provider-inmemory — build() + per-tenant store", () => {
     clearStorage("tenant-iso-b");
   });
 
-  test("clearStorage leert den Tenant-Store", async () => {
+  test("clearStorage clears the tenant store", async () => {
     const p = await inmemoryPlugin().build({ secrets: undefined }, "tenant-clear");
     await p.write("gone.txt", bytes("x"));
     expect(listKeys("tenant-clear")).toHaveLength(1);

@@ -75,7 +75,7 @@ function uniquePrefix(label: string): string {
   return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-describe("createWorkerEntrypoint auto-wires attachDispatcher() (framework#2044)", () => {
+describe("createWorkerEntrypoint auto-wires attachDispatcher()", () => {
   test("ctx.dispatch.write inside a job commits end-to-end through a real entrypoint", async () => {
     writeProbeResults.length = 0;
     const registry = createRegistry([writeProbeFeature]);
@@ -111,7 +111,7 @@ describe("createWorkerEntrypoint auto-wires attachDispatcher() (framework#2044)"
   });
 });
 
-describe("createJobRunner without attachDispatcher() still hits the #2043 stub", () => {
+describe("createJobRunner without attachDispatcher() still hits the stub", () => {
   test("ctx.dispatch.write throws — proves the entrypoint's attachDispatcher() call is the thing that makes writes work", async () => {
     writeProbeFailures.length = 0;
     const registry = createRegistry([writeProbeFeature]);

@@ -443,7 +443,7 @@ function tabsLocator(page: Page) {
   return page.getByTestId("kumiko-screen-projection-detail-tabs");
 }
 
-test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
+test.describe("record-detail-layout — tab-panel height", () => {
   // The design refresh (#3381) made detail tabs a full-bleed "board": the
   // relatedList scroll region fills the panel down to the footer instead of
   // the card sizing to its rows (fw#2778's original behavior). What must
@@ -616,9 +616,7 @@ test("record-detail-layout — all tab kinds + screen actions, one screenshot pe
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test("record-detail-layout — tab strip fits the phone viewport width (fw#3234)", async ({
-  page,
-}) => {
+test("record-detail-layout — tab strip fits the phone viewport width", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
   await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();

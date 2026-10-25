@@ -289,7 +289,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(renderCalls).toBe(0);
   });
 
-  test("the field's own spec is used, not the built-in preset — proves resolution comes from the field declaration (#1985)", async () => {
+  test("the field's own spec is used, not the built-in preset — resolution comes from the field declaration", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/full`);
@@ -301,7 +301,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(lastRenderSpec?.maxEdge).toBe(4096);
   });
 
-  test("a field-declared name with no preset counterpart is served end-to-end — the exact case #1985 reported", async () => {
+  test("a field-declared name with no preset counterpart is served end-to-end", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/plan`);

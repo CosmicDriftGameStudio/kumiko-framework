@@ -55,7 +55,7 @@ afterEach(() => {
   resetBlindIndexKeyForTests();
 });
 
-describe("fw#2593 — email unique constraint on the plaintext column (no blind index configured)", () => {
+describe("email unique constraint on the plaintext column (no blind index configured)", () => {
   test("a soft-deleted user's email is reusable when no blind index is configured", async () => {
     const email = "plaintext-soft-deleted@example.com";
     const tdb = createTenantDb({

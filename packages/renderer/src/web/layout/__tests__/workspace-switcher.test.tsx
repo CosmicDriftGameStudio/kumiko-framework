@@ -21,14 +21,14 @@ function ws(id: string, label = id): WorkspaceSchema {
 }
 
 describe("WorkspaceSwitcher — Render", () => {
-  test("ein einziger Workspace → rendert nichts (kein nutzloser Switcher)", () => {
+  test("a single workspace → renders nothing (no useless switcher)", () => {
     const { container } = renderWithSidebar(
       <WorkspaceSwitcher workspaces={[ws("a")]} activeId="a" onSelect={() => {}} />,
     );
     expect(container.querySelector('[data-testid="workspace-switcher-trigger"]')).toBeNull();
   });
 
-  test("mehrere Workspaces → Trigger zeigt aktives Label", () => {
+  test("multiple workspaces → trigger shows active label", () => {
     renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
@@ -41,7 +41,7 @@ describe("WorkspaceSwitcher — Render", () => {
     expect(screen.getByText("Beta")).toBeTruthy();
   });
 
-  test("Dropdown öffnen listet alle Workspaces, aria-checked am aktiven", async () => {
+  test("Opening the dropdown lists all workspaces, aria-checked on the active one", async () => {
     const user = userEvent.setup();
     renderWithSidebar(
       <WorkspaceSwitcher
@@ -82,7 +82,7 @@ describe("WorkspaceSwitcher — Render", () => {
     ).toBeTruthy();
   });
 
-  test("activeId zeigt auf keinen sichtbaren Workspace → Trigger zeigt Fallback-Label statt leerem span (fw#1816)", () => {
+  test("activeId points to no visible workspace → trigger shows fallback label instead of an empty span", () => {
     renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[ws("a", "Alpha"), ws("b", "Beta")]}
@@ -95,7 +95,7 @@ describe("WorkspaceSwitcher — Render", () => {
     expect(screen.getByText("Select workspace")).toBeTruthy();
   });
 
-  test("rendering outside a SidebarProvider throws — the JSDoc requirement is a real crash, not just documentation (fw#1816)", () => {
+  test("rendering outside a SidebarProvider throws — the JSDoc requirement is a real crash, not just documentation", () => {
     // SidebarMenuButton calls useSidebar() internally; without a
     // SidebarProvider ancestor that throws synchronously during render.
     // Silence the expected console.error noise React logs alongside it.
@@ -115,7 +115,7 @@ describe("WorkspaceSwitcher — Render", () => {
     }
   });
 
-  test("Click auf einen Eintrag ruft onSelect mit der Workspace-id", async () => {
+  test("Clicking an entry calls onSelect with the workspace ID", async () => {
     const user = userEvent.setup();
     const onSelect = mock((_id: string) => {});
     renderWithSidebar(
@@ -132,7 +132,7 @@ describe("WorkspaceSwitcher — Render", () => {
 });
 
 describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
-  test("Label mit Punkt geht durch t() und rendert die Übersetzung", async () => {
+  test("Label with a period goes through t() and renders the translation", async () => {
     const user = userEvent.setup();
     const bundle = { en: { "nav.adminArea": "Admin Area" } };
     renderWithSidebar(

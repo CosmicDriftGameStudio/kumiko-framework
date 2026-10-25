@@ -9,8 +9,8 @@ import type { Logger } from "../types.ts";
 import { createFallbackLogger, setProcessLogger } from "../utils.ts";
 
 describe("createFallbackLogger", () => {
-  describe("mit wrapped logger", () => {
-    test("delegiert an logger.error mit [namespace]-Prefix (kein colon)", () => {
+  describe("with a wrapped logger", () => {
+    test("delegates to logger.error with [namespace] prefix (no colon)", () => {
       const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
       const fallback = createFallbackLogger("redis", { error });
 
@@ -20,7 +20,7 @@ describe("createFallbackLogger", () => {
       expect(error).toHaveBeenCalledWith("[redis] connection lost", { attempt: 3 });
     });
 
-    test("reicht fehlendes data-Argument als undefined durch", () => {
+    test("passes a missing data argument through as undefined", () => {
       const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
       const fallback = createFallbackLogger("jobs", { error });
 
@@ -29,7 +29,7 @@ describe("createFallbackLogger", () => {
       expect(error).toHaveBeenCalledWith("[jobs] boom", undefined);
     });
 
-    test("debug() delegiert an logger.debug wenn vorhanden (fw#1812: graceful-shutdown log-level downgrade)", () => {
+    test("debug() delegates to logger.debug when available (graceful-shutdown log-level downgrade)", () => {
       const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
       const debug = mock((_msg: string, _data?: Record<string, unknown>) => {});
       const fallback = createFallbackLogger("job-runner", { error, debug });
@@ -43,7 +43,7 @@ describe("createFallbackLogger", () => {
       expect(error).not.toHaveBeenCalled();
     });
 
-    test("debug() fällt auf console.debug zurück wenn der wrapped logger keine debug-Methode hat", () => {
+    test("debug() falls back to console.debug when the wrapped logger has no debug method", () => {
       const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
       const spy = spyOn(console, "debug").mockImplementation(() => {});
       try {
@@ -59,8 +59,8 @@ describe("createFallbackLogger", () => {
     });
   });
 
-  describe("mit wrapped logger der child() kann", () => {
-    test("bindet component per child und loggt alle Level ohne Prefix", () => {
+  describe("with a wrapped logger that supports child()", () => {
+    test("binds component via child and logs all levels without a prefix", () => {
       const calls: string[] = [];
       const childLogger: Logger = {
         info: (msg) => void calls.push(`info:${msg}`),
@@ -85,8 +85,8 @@ describe("createFallbackLogger", () => {
     });
   });
 
-  describe("ohne logger (console-Fallback)", () => {
-    test("schreibt auf console.error mit [namespace]-Prefix im selben Format wie wrapped", () => {
+  describe("without a logger (console fallback)", () => {
+    test("writes to console.error with [namespace] prefix in the same format as wrapped", () => {
       const spy = spyOn(console, "error").mockImplementation(() => {});
       try {
         const fallback = createFallbackLogger("boot");
@@ -100,7 +100,7 @@ describe("createFallbackLogger", () => {
       }
     });
 
-    test("ohne data wird nur ein Argument an console.warn übergeben", () => {
+    test("without data, only one argument is passed to console.warn", () => {
       const spy = spyOn(console, "warn").mockImplementation(() => {});
       try {
         const fallback = createFallbackLogger("boot");
@@ -115,7 +115,7 @@ describe("createFallbackLogger", () => {
       }
     });
 
-    test("debug() schreibt auf console.debug mit [namespace]-Prefix", () => {
+    test("debug() writes to console.debug with [namespace] prefix", () => {
       const spy = spyOn(console, "debug").mockImplementation(() => {});
       try {
         const fallback = createFallbackLogger("boot");
@@ -130,7 +130,7 @@ describe("createFallbackLogger", () => {
     });
   });
 
-  describe("Prozess-Logger wechselt nach erster Nutzung", () => {
+  describe("process logger switches after first use", () => {
     const recordingLogger = (calls: string[]): Logger => {
       const logger: Logger = {
         info: (msg) => void calls.push(`info:${msg}`),
@@ -142,7 +142,7 @@ describe("createFallbackLogger", () => {
       return logger;
     };
 
-    test("folgt dem aktuellen Prozess-Logger und fällt nach null auf console zurück", () => {
+    test("follows the current process logger and falls back to console after null", () => {
       const first: string[] = [];
       const second: string[] = [];
       const spy = spyOn(console, "info").mockImplementation(() => {});

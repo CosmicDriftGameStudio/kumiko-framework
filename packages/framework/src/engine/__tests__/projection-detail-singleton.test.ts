@@ -17,7 +17,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 // that same path id. Both combinations are rejected at boot
 // instead of silently winning (idParam ignored / edit button opening a
 // blank create form).
-describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
+describe("validateBoot — projectionDetail singleton", () => {
   test("singleton + idParam throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler({

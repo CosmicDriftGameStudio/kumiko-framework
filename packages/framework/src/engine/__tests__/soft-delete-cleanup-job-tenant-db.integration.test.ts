@@ -105,7 +105,7 @@ function createExpiredDeletedItem(user: typeof TestUsers.admin): Promise<string>
   return createSoftDeleted("item", "fw2914_sdc_items", user, 400);
 }
 
-describe("soft-delete cleanup job smoke run on a tenant-filtered JobContext.db (fw#2914)", () => {
+describe("soft-delete cleanup job smoke run on a tenant-filtered JobContext.db", () => {
   test("a per-tenant fan-out run purges only the active tenant's expired soft-deleted rows", async () => {
     const ownId = await createExpiredDeletedItem(TestUsers.admin);
     const foreignId = await createExpiredDeletedItem(TestUsers.otherTenant);
@@ -128,7 +128,7 @@ describe("soft-delete cleanup job smoke run on a tenant-filtered JobContext.db (
   });
 });
 
-describe("soft-delete cleanup with a tenancy: global entity (fw#3529)", () => {
+describe("soft-delete cleanup with a tenancy: global entity", () => {
   test("per-tenant run survives the global table; the system run purges only the expired global row", async () => {
     const jobRunner = stack.jobRunner;
     if (!jobRunner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");

@@ -21,7 +21,7 @@ const COLUMNS = [
 ] as const;
 
 describe("QueryTable", () => {
-  test("rendert Query-Result als DataTable-Rows", async () => {
+  test("renders the query result as DataTable rows", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -40,7 +40,7 @@ describe("QueryTable", () => {
     expect(screen.getByText("Name")).toBeTruthy();
   });
 
-  test("Row-Click liefert die geklickte Row", async () => {
+  test("row click provides the clicked row", async () => {
     const onRowClick = mock((_row: { id: string }) => {});
     const dispatcher = createMockDispatcher({
       query: (async () => ({
@@ -98,7 +98,7 @@ describe("QueryTable", () => {
     expect(container.querySelectorAll("tbody tr").length).toBe(0);
   });
 
-  test("rows-Selector zieht Rows aus verschachteltem Result", async () => {
+  test("row selector extracts rows from nested result", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,

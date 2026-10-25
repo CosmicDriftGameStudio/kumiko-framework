@@ -169,7 +169,7 @@ describe("createRateLimitResolver — peek", () => {
   });
 });
 
-describe("createRateLimitResolver — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("createRateLimitResolver — no ambient Temporal global", () => {
   test("check() and peek() compute resetAt without relying on globalThis.Temporal", async () => {
     const config = { limit: 5, windowSeconds: 60 };
     const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;

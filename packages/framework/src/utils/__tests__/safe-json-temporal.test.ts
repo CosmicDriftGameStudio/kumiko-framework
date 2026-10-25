@@ -13,7 +13,7 @@ describe("stringifyJson — Temporal.Instant without ambient Temporal", () => {
   });
 });
 
-describe("stringifyJson — Temporal.PlainDate (kumiko-framework#1924)", () => {
+describe("stringifyJson — Temporal.PlainDate", () => {
   test("serializes to yyyy-mm-dd via PlainDate's own toJSON(), no special-casing needed", () => {
     const day = Temporal.PlainDate.from("2026-03-15");
     expect(stringifyJson({ publishedAt: day })).toBe('{"publishedAt":"2026-03-15"}');

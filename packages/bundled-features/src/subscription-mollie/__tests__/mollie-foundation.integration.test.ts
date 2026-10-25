@@ -315,7 +315,7 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
 });
 
 describe("scenario 3: idempotency via Mollie-retry", () => {
-  test("derselbe tr_xxx 2× → 2. Mal foundation duplicate=true, kein zweiter event-row, kein zweiter sub-create", async () => {
+  test("same tr_xxx twice → second foundation duplicate=true, no second event-row, no second sub-create", async () => {
     const tenantStringId = testTenantId(5003);
 
     mockState.payments.set(
@@ -353,7 +353,7 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
 });
 
 describe("scenario 4: error + ignored paths", () => {
-  test("body ohne id → 401 (Plugin throws, extraRoute mapped auf extra_route_signature_invalid)", async () => {
+  test("body without id → 401 (Plugin throws, extraRoute mapped to extra_route_signature_invalid)", async () => {
     const res = await stack.app.request("/api/subscription/webhook/mollie", {
       method: "POST",
       body: "no-id-field",
@@ -364,7 +364,7 @@ describe("scenario 4: error + ignored paths", () => {
     expect(body.error.code).toBe("extra_route_signature_invalid");
   });
 
-  test("sub_xxx-direct-event → 200 ignored, kein DB-write", async () => {
+  test("sub_xxx-direct-event → 200 ignored, no DB-write", async () => {
     const tenantStringId = testTenantId(5004);
     const res = await postMollieWebhook("sub_5004_direct");
     expect(res.status).toBe(200);

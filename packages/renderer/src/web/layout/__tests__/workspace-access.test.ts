@@ -17,12 +17,12 @@ function ws(definition: WorkspaceDefinition): WorkspaceSchema {
 }
 
 describe("filterByAccess", () => {
-  test("ohne access-rule immer sichtbar", () => {
+  test("without an access rule, always visible", () => {
     const out = filterByAccess([ws({ id: "a", label: "A" }), ws({ id: "b", label: "B" })], []);
     expect(out.map((w) => w.definition.id)).toEqual(["a", "b"]);
   });
 
-  test("access {roles} filtert nach user-roles", () => {
+  test("access {roles} filters by user roles", () => {
     const admin = ws({ id: "admin", label: "Admin", access: { roles: ["Admin"] } });
     const open = ws({ id: "all", label: "All" });
     expect(filterByAccess([admin, open], ["Admin"]).map((w) => w.definition.id)).toEqual([
@@ -32,7 +32,7 @@ describe("filterByAccess", () => {
     expect(filterByAccess([admin, open], ["User"]).map((w) => w.definition.id)).toEqual(["all"]);
   });
 
-  test("sortiert nach order (lower = earlier)", () => {
+  test("sorted by order (lower = earlier)", () => {
     const out = filterByAccess(
       [ws({ id: "b", label: "B", order: 2 }), ws({ id: "a", label: "A", order: 1 })],
       [],
@@ -42,13 +42,13 @@ describe("filterByAccess", () => {
 });
 
 describe("resolveDefaultId", () => {
-  test("preferred gewinnt wenn sichtbar", () => {
+  test("preferred wins when visible", () => {
     expect(resolveDefaultId([ws({ id: "a", label: "A" }), ws({ id: "b", label: "B" })], "b")).toBe(
       "b",
     );
   });
 
-  test("default-flag wenn kein preferred", () => {
+  test("default flag when no preferred", () => {
     expect(
       resolveDefaultId(
         [ws({ id: "a", label: "A" }), ws({ id: "b", label: "B", default: true })],
@@ -57,13 +57,13 @@ describe("resolveDefaultId", () => {
     ).toBe("b");
   });
 
-  test("erste sichtbare als Fallback", () => {
+  test("first visible as fallback", () => {
     expect(
       resolveDefaultId([ws({ id: "a", label: "A" }), ws({ id: "b", label: "B" })], undefined),
     ).toBe("a");
   });
 
-  test("preferred nicht sichtbar → Fallback (hier: erste)", () => {
+  test("preferred not visible → fallback (here: first)", () => {
     expect(resolveDefaultId([ws({ id: "a", label: "A" })], "nonexistent")).toBe("a");
   });
 });
@@ -83,11 +83,11 @@ describe("firstNavScreenId", () => {
     ],
   };
 
-  test("erste Nav (in navMembers-Reihenfolge) mit screen → lastSegment(screen)", () => {
+  test("first Nav (in navMembers order) with screen → lastSegment(screen)", () => {
     expect(firstNavScreenId(app, ["shop:nav:header", "shop:nav:list"])).toBe("catalog");
   });
 
-  test("leere oder undefined navMembers → ''", () => {
+  test("empty or undefined navMembers → ''", () => {
     expect(firstNavScreenId(app, [])).toBe("");
     expect(firstNavScreenId(app, undefined)).toBe("");
   });

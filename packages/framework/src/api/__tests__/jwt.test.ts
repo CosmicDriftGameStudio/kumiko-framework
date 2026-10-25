@@ -226,7 +226,7 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/not present in the keyring/);
   });
 
-  it("kumiko-framework#1308: plain JWT_SECRET carries over as a verify-only legacy key once a keyring is adopted", () => {
+  it("plain JWT_SECRET carries over as a verify-only legacy key once a keyring is adopted", () => {
     // Adopting rotation for the first time doesn't unset JWT_SECRET (it still
     // signs the separate password-reset/email-verification HMAC family) —
     // and sessions signed before adoption have no `kid`, so they must keep
@@ -242,7 +242,7 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toEqual({ keys: { v1: SECRET, legacy: PLAIN_SECRET }, signKid: "v1" });
   });
 
-  it("kumiko-framework#1308: legacy JWT_SECRET never becomes the sign key, only ever verify-only", () => {
+  it("legacy JWT_SECRET never becomes the sign key, only ever verify-only", () => {
     const PLAIN_SECRET = "pre-rotation-plain-secret-32-chars-long!!";
     const keyring = loadJwtSecretOrKeyring({
       JWT_SECRET: PLAIN_SECRET,
@@ -253,7 +253,7 @@ describe("loadJwtSecretOrKeyring", () => {
     expect((keyring as { signKid: string }).signKid).toBe("v1");
   });
 
-  it("kumiko-framework#1308: no plain JWT_SECRET set alongside a keyring → no legacy key added", () => {
+  it("no plain JWT_SECRET set alongside a keyring → no legacy key added", () => {
     expect(
       loadJwtSecretOrKeyring({
         JWT_SECRET_V1: SECRET,
@@ -277,7 +277,7 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/JWT_SECRET_V1 must be ≥32 chars/);
   });
 
-  it("kumiko-framework#1526: short legacy JWT_SECRET is rejected, not silently carried into the keyring", () => {
+  it("short legacy JWT_SECRET is rejected, not silently carried into the keyring", () => {
     // Auth-bypass: a short JWT_SECRET carried into keys["legacy"] without a
     // length check would be offline-bruteforceable — an attacker forges
     // {alg:"HS256", kid:"legacy"} with arbitrary sub/tenantId/roles and
@@ -291,7 +291,7 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/JWT_SECRET must be ≥32 chars/);
   });
 
-  it("kumiko-framework#1308: empty JWT_SECRET_V<n> throws instead of silently falling back to single-secret mode", () => {
+  it("empty JWT_SECRET_V<n> throws instead of silently falling back to single-secret mode", () => {
     expect(() =>
       loadJwtSecretOrKeyring({
         JWT_SECRET: SECRET,

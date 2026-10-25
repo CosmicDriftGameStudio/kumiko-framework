@@ -53,7 +53,7 @@ const admin = createTestUser({ roles: ["TenantAdmin"] });
 const customRoleUser = createTestUser({ roles: ["Admin"] });
 const unprivileged = createTestUser({ roles: ["Viewer"] });
 
-describe("secrets — roles option (#2296)", () => {
+describe("secrets — roles option", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

@@ -1,28 +1,28 @@
-// Unit-Test preload — Template pro Repo anpassen.
+// Unit-test preload — adapt template per repo.
 //
-// Ersetzt vitest.setup.ts. Wird via bunfig.toml [test].preload geladen,
-// einmal pro Test-File vor allen Test-Statements.
+// Replaces vitest.setup.ts. Loaded via bunfig.toml [test].preload,
+// once per test file before all test statements.
 
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-// happy-dom als DOM-Polyfill registrieren. Tests die DOM brauchen
-// (testing-library/react, Radix-Components) bekommen window, document,
-// HTMLElement etc. global. Node-only-Tests sind davon nicht betroffen
-// (die typeof-Checks unten greifen nur wenn DOM da ist).
+// Register happy-dom as a DOM polyfill. Tests that need the DOM
+// (testing-library/react, Radix-Components) get window, document,
+// HTMLElement etc. globally. Node-only tests are unaffected
+// (the typeof checks below only apply when the DOM is present).
 GlobalRegistrator.register();
 
-// Temporal-Polyfill — Tests die ctx.tz oder direkt Temporal.* nutzen.
-// In Production-Boot-Pfaden via ensureTemporalPolyfill(); für reine
-// Unit-Tests (kein setupTestStack) wird der Bootstrap hier gemacht.
-// PFAD ANPASSEN pro Repo:
+// Temporal polyfill — tests that use ctx.tz or directly Temporal.*.
+// In production boot paths via ensureTemporalPolyfill(); for pure
+// unit tests (no setupTestStack), bootstrap here.
+// ADJUST PATH per repo:
 import { ensureTemporalPolyfill } from "../packages/framework/src/time/polyfill";
 await ensureTemporalPolyfill();
 
-// jsdom/happy-dom-Polyfill: Pointer-Capture-APIs fehlen.
-// Radix-UI nutzt sie auf Triggers von DropdownMenu/Select/Popover —
-// ohne Polyfill schluckt das Open-Handling stillschweigend und der
-// Dropdown öffnet sich nicht im Test. typeof-Check, weil reine
-// node-only Tests kein HTMLElement haben (Dispatcher-Tests, Engine-Tests).
+// jsdom/happy-dom polyfill: Pointer-Capture APIs are missing.
+// Radix-UI uses them on triggers of DropdownMenu/Select/Popover —
+// without the polyfill, open handling silently fails and the
+// dropdown does not open in the test. typeof check because pure
+// node-only tests have no HTMLElement (Dispatcher tests, Engine tests).
 if (typeof globalThis.HTMLElement !== "undefined") {
   const proto = globalThis.HTMLElement.prototype as unknown as Record<string, unknown>;
   if (proto.hasPointerCapture === undefined) {

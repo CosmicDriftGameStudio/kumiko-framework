@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "../polyfill.ts";
 
 describe("Temporal Polyfill", () => {
-  test("ensureTemporalPolyfill ist idempotent + Temporal nach dreifachem Aufruf nutzbar", async () => {
+  test("ensureTemporalPolyfill is idempotent and Temporal remains usable after three calls", async () => {
     await ensureTemporalPolyfill();
     await ensureTemporalPolyfill();
     await ensureTemporalPolyfill();
@@ -18,7 +18,7 @@ describe("Temporal Polyfill", () => {
     );
   });
 
-  test("Temporal.Instant ist nach Polyfill konstruktor-fähig", async () => {
+  test("Temporal.Instant can be constructed after the polyfill is loaded", async () => {
     await ensureTemporalPolyfill();
     const T = getTemporal();
     const instant = T.Instant.from("2026-04-18T10:00:00Z");
@@ -35,7 +35,7 @@ describe("Temporal Polyfill", () => {
     expect(date.day).toBe(18);
   });
 
-  test("Temporal.ZonedDateTime mit IANA-Zone (Europe/Lisbon) funktioniert", async () => {
+  test("Temporal.ZonedDateTime with IANA zone (Europe/Lisbon) works", async () => {
     await ensureTemporalPolyfill();
     const T = getTemporal();
     const zdt = T.ZonedDateTime.from("2026-04-18T10:00:00[Europe/Lisbon]");
@@ -45,7 +45,7 @@ describe("Temporal Polyfill", () => {
     expect(zdt.toInstant().toString()).toBe("2026-04-18T09:00:00Z");
   });
 
-  test("DST-Übergang 2026-03-29 02:30 Europe/Berlin existiert nicht", async () => {
+  test("DST transition 2026-03-29 02:30 Europe/Berlin does not exist", async () => {
     await ensureTemporalPolyfill();
     const T = getTemporal();
     // Germany's 2026 spring-forward transition skips 02:00–03:00 on the night
@@ -59,7 +59,7 @@ describe("Temporal Polyfill", () => {
     ).toThrow();
   });
 
-  test("getTemporal vor Polyfill-Init throwt wenn Native fehlt", () => {
+  test("getTemporal throws before polyfill initialization when native Temporal is missing", () => {
     // Temporal is already installed by the module singleton after the first
     // ensureTemporalPolyfill() call, so the pre-initialization throw cannot be
     // tested directly without sharing mutable global state. Verify the post-init

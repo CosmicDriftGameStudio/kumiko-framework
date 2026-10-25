@@ -163,7 +163,7 @@ function emitMoneyChange(minorUnits: number): void {
   capturedInput.onChange(minorUnits);
 }
 
-describe("RenderField money contract consistency across top-level + embedded-list (kumiko-framework#1972)", () => {
+describe("RenderField money contract consistency across top-level + embedded-list", () => {
   test("a crooked invoice total (1234.56 EUR) whose line amounts sum to the same value validates end to end", () => {
     const entity = invoiceEntity();
 

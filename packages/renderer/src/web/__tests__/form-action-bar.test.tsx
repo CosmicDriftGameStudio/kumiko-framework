@@ -25,7 +25,7 @@ import {
 const { Form, Section, Button } = defaultPrimitives;
 
 describe("DefaultForm Action-Footer", () => {
-  test("Actions sitzen am Form-Ende (border-t, sm:justify-between), Titel ist Heading", () => {
+  test("Actions sit at the end of the form (border-t, sm:justify-between), title is a heading", () => {
     render(
       <Form onSubmit={() => {}} title="Titel" actions={<Button>Save</Button>} testId="f">
         <div>body</div>
@@ -45,7 +45,7 @@ describe("DefaultForm Action-Footer", () => {
     expect(screen.getByTestId("f-title").textContent).toBe("Titel");
   });
 
-  test("secondaryActions + actions: zwei Gruppen mit eigenen testIds, Container flex-col-reverse", () => {
+  test("secondaryActions + actions: two groups with their own testIds, container flex-col-reverse", () => {
     render(
       <Form
         onSubmit={() => {}}
@@ -70,7 +70,7 @@ describe("DefaultForm Action-Footer", () => {
     expect(footer.className).toContain("sm:justify-between");
   });
 
-  test("nur actions (keine secondaryActions): keine -actions-secondary-Gruppe", () => {
+  test("only actions (no secondaryActions): no -actions-secondary group", () => {
     render(
       <Form onSubmit={() => {}} actions={<Button>Save</Button>} testId="f">
         <div>body</div>
@@ -80,7 +80,7 @@ describe("DefaultForm Action-Footer", () => {
     expect(screen.getByTestId("f-actions").textContent).toBe("Save");
   });
 
-  test("nur actions (keine secondaryActions): Gruppe bleibt rechtsbündig (sm:ml-auto)", () => {
+  test("only actions (no secondaryActions): group remains right-aligned (sm:ml-auto)", () => {
     render(
       <Form onSubmit={() => {}} actions={<Button>Save</Button>} testId="f">
         <div>body</div>
@@ -94,8 +94,8 @@ describe("DefaultForm Action-Footer", () => {
   });
 });
 
-describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fix)", () => {
-  test("nur die Submit-Action bleibt max-sm:fixed — Back (type=button) wandert zu secondary", () => {
+describe("DefaultForm Action-Footer with stickyActions (Wizard, mobile fix)", () => {
+  test("only the submit action remains max-sm:fixed — Back (type=button) moves to secondary", () => {
     render(
       <Form
         onSubmit={() => {}}
@@ -120,7 +120,7 @@ describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fi
     expect(secondary.className).not.toContain("max-sm:fixed");
   });
 
-  test("ohne stickyActions bleibt die alte Aufteilung unverändert (kein fixed, Back bleibt bei actions)", () => {
+  test("without stickyActions, the previous arrangement remains unchanged (no fixed, Back stays with actions)", () => {
     render(
       <Form
         onSubmit={() => {}}
@@ -143,7 +143,7 @@ describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fi
     expect(primary.className).not.toContain("max-sm:fixed");
   });
 
-  test("stickyActions ohne secondaryActions: Back allein bildet die secondary-Gruppe", () => {
+  test("stickyActions without secondaryActions: Back alone forms the secondary group", () => {
     render(
       <Form
         onSubmit={() => {}}
@@ -163,7 +163,7 @@ describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fi
     expect(screen.getByTestId("f-actions-secondary").textContent).toBe("Back");
   });
 
-  test("stickyActions ohne submit-Action: alle actions bleiben fixed statt zu verschwinden (fw#1918-Regression)", () => {
+  test("stickyActions without a submit action: all actions remain fixed instead of disappearing (regression)", () => {
     render(
       <Form
         onSubmit={() => {}}
@@ -181,8 +181,8 @@ describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fi
   });
 });
 
-describe("DefaultSection ohne Titel", () => {
-  test("rendert keinen leeren Header", () => {
+describe("DefaultSection without a title", () => {
+  test("does not render an empty header", () => {
     render(
       <Section testId="s">
         <div>content</div>
@@ -192,8 +192,8 @@ describe("DefaultSection ohne Titel", () => {
   });
 });
 
-describe("Form = eine Card, Sections als innere Abschnitte", () => {
-  test("Section im Form trägt keine eigene Card-Fläche, Titel+Footer leben in derselben Card", () => {
+describe("Form = one Card, Sections as inner sections", () => {
+  test("Section in Form has no own Card surface, title and footer live in the same Card", () => {
     render(
       <Form onSubmit={() => {}} title="Titel" actions={<Button>Save</Button>} testId="f">
         <Section testId="s1">
@@ -219,7 +219,7 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
     expect(card?.querySelector("[data-testid='f-actions']")).toBeTruthy();
   });
 
-  test("BareFormProvider: Form rendert nackt (keine eigene Card) — gegen Card-in-Card im AuthCard", () => {
+  test("BareFormProvider: Form renders bare (no own Card) — prevents Card-in-Card in AuthCard", () => {
     render(
       <BareFormProvider>
         <Form onSubmit={() => {}} testId="bare">
@@ -289,7 +289,7 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
     expect(form.querySelectorAll("section").length).toBe(0);
   });
 
-  test("Section standalone (außerhalb Form) bleibt eine eigene Card", () => {
+  test("standalone Section (outside Form) remains its own Card", () => {
     render(
       <Section testId="solo" title="Solo">
         <div>x</div>
@@ -312,7 +312,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     expect(screen.getByTestId("sc").querySelector(".border-b")).toBeNull();
   });
 
-  test("standalone: actions rendern oben rechts in der Titelzeile, kein Footer", () => {
+  test("standalone: actions render at the top right in the title row, no footer", () => {
     render(
       <Section testId="sc" title="Ergebnis" actions={<Button>Übernehmen</Button>}>
         <div>x</div>
@@ -324,7 +324,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     expect(screen.getByTestId("sc").querySelector(".border-t")).toBeNull();
   });
 
-  test("standalone ohne Titel: actions allein spannen trotzdem die Titelzeile auf, rechtsbündig", () => {
+  test("standalone without a title: actions alone still span the title row, right-aligned", () => {
     render(
       <Section testId="sc-no-title" actions={<Button>X</Button>}>
         <div>x</div>
@@ -344,7 +344,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     expect(screen.getByTestId("danger").className).toContain("border-destructive/40");
   });
 
-  test("title-only standalone (Bestands-Consumer) hat keinen Divider mehr", () => {
+  test("title-only standalone (existing consumer) no longer has a divider", () => {
     render(
       <Section testId="legacy" title="Stammdaten">
         <div>x</div>
@@ -353,7 +353,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     expect(screen.getByTestId("legacy").querySelector(".border-b")).toBeNull();
   });
 
-  test("im Form: actions sind in der Titelzeile OHNE border-t (das Form trägt den Footer)", () => {
+  test("in Form: actions are in the title row WITHOUT border-t (the Form provides the footer)", () => {
     render(
       <Form onSubmit={() => {}} testId="f">
         <Section testId="inner" actions={<Button>X</Button>}>
@@ -381,7 +381,7 @@ function makeScreen(sectionTitle: string): EntityEditScreenDefinition {
 }
 
 describe("RenderEdit Section-Titel-Dopplung", () => {
-  test("Section-Titel == Form-Titel → Header unterdrückt", () => {
+  test("Section title == Form title → Header suppressed", () => {
     // Without a translation bundle, the form title falls back to screen.id —
     // a matching section title reproduces the duplication.
     render(
@@ -399,7 +399,7 @@ describe("RenderEdit Section-Titel-Dopplung", () => {
     expect(section.querySelector("h3")).toBeNull();
   });
 
-  test("abweichender Section-Titel bleibt sichtbar", () => {
+  test("different Section title remains visible", () => {
     render(
       <DispatcherProvider dispatcher={createMockDispatcher()}>
         <RenderEdit
@@ -416,7 +416,7 @@ describe("RenderEdit Section-Titel-Dopplung", () => {
   });
 });
 
-describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () => {
+describe("DefaultForm pinned footer (fillHeight + stickyActions)", () => {
   test("footer is a sibling after the body, in flow (no max-sm:fixed, no spacer)", () => {
     render(
       <Form onSubmit={() => {}} fillHeight stickyActions actions={<Button>Save</Button>} testId="f">

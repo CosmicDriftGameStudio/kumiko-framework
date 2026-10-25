@@ -64,7 +64,7 @@ const noopSubmit = async (): Promise<{
   readonly data: undefined;
 }> => ({ isSuccess: true, validationBlocked: false, data: undefined });
 
-describe("reference optionsQuery (fw#2780)", () => {
+describe("reference optionsQuery", () => {
   test("picker options come from the declared handler and show its composed label", async () => {
     const user = userEvent.setup();
     const dispatcher = makeDispatcher();

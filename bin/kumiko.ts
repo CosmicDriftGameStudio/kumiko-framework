@@ -22,8 +22,8 @@ const CONSOLE_OUTPUT: Output = {
 };
 
 function findRepoRoot(): string {
-  // bin/kumiko.ts lebt in framework-Repo-Root. import.meta.dir = bin/,
-  // also ".." = framework-Root. KUMIKO_REPO_ROOT-Override für bundled-
+  // bin/kumiko.ts lives in framework-repo root. import.meta.dir = bin/,
+  // so ".." = framework root. KUMIKO_REPO_ROOT override for bundled-
   // scenarios.
   return process.env["KUMIKO_REPO_ROOT"] ?? resolvePath(import.meta.dir, "..");
 }

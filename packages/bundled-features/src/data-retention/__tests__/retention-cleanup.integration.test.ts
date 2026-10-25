@@ -244,7 +244,7 @@ beforeEach(async () => {
 });
 
 describe("runRetentionCleanup :: real postgres", () => {
-  test("hardDelete entfernt nur abgelaufene Rows DES Tenants, behaelt frische + Fremd-Tenant", async () => {
+  test("hardDelete removes only expired rows of the tenant, keeps fresh rows + other tenant", async () => {
     await seed("read_c7_widget", T1, "expired-t1", pastIso);
     await seed("read_c7_widget", T1, "fresh-t1", withinIso);
     await seed("read_c7_widget", T2, "expired-t2", pastIso);
@@ -280,7 +280,7 @@ describe("runRetentionCleanup :: real postgres", () => {
     expect(await labels("read_c7_gadget", T1)).toEqual(["expired", "fresh"]);
   });
 
-  test("Entity ohne Policy bleibt komplett unangetastet", async () => {
+  test("Entity without a policy remains completely untouched", async () => {
     await seed("read_c7_plain", T1, "ancient", pastIso);
 
     await runRetentionCleanup({
@@ -294,7 +294,7 @@ describe("runRetentionCleanup :: real postgres", () => {
     expect(await labels("read_c7_plain", T1)).toEqual(["ancient"]);
   });
 
-  test("fehlende reference-Spalte → skip statt Mass-Delete", async () => {
+  test("missing reference column → skip instead of mass delete", async () => {
     await seed("read_c7_stale", T1, "should-survive", pastIso);
 
     const result = await runRetentionCleanup({

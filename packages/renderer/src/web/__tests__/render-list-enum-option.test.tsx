@@ -103,13 +103,13 @@ function renderStatusListUnderLocale(locale: string, statusValue: string): strin
   return result.getByTestId("cell-r1-status").textContent;
 }
 
-describe("RenderList — enumOption-FormatSpec auf projectionList/relatedList-Spalten (fw#2315)", () => {
+describe("RenderList — enumOption-FormatSpec on projectionList/relatedList columns", () => {
   test("dieselbe Spalte unter zwei Locales rendert zwei verschiedene Beschriftungen", () => {
     expect(renderStatusListUnderLocale("de", "active")).toBe("Aktiv");
     expect(renderStatusListUnderLocale("en", "active")).toBe("Active");
   });
 
-  test("unbekannter Options-Key fällt auf den Rohwert zurück", () => {
+  test("unknown option key falls back to the raw value", () => {
     expect(renderStatusListUnderLocale("de", "archived")).toBe("archived");
   });
 });

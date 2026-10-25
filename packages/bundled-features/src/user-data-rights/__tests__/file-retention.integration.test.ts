@@ -176,8 +176,8 @@ async function fetchFileRow(
   return rows[0] ?? null;
 }
 
-describe("file-retention :: Forget-Pipeline greift für fileRef", () => {
-  test("Default (keine Override-Policy) → Datei wird hart gelöscht (Art. 17)", async () => {
+describe("file-retention :: Forget pipeline applies to fileRef", () => {
+  test("Default (no override policy) → File is hard-deleted (Art. 17)", async () => {
     const userId = uuid(1);
     await seedForgetUser(userId);
     await seedMembership(userId, TENANT_B);
@@ -190,7 +190,7 @@ describe("file-retention :: Forget-Pipeline greift für fileRef", () => {
     expect(await fetchFileRow(uuid(101))).toBeNull();
   });
 
-  test("Retention-Override fileRef→anonymize → Datei wird anonymisiert, Row bleibt", async () => {
+  test("Retention override fileRef→anonymize → File is anonymized, row remains", async () => {
     const userId = uuid(2);
     await seedForgetUser(userId);
     await seedMembership(userId, TENANT_A);

@@ -114,7 +114,7 @@ afterAll(async () => {
   await testRedis.cleanup();
 });
 
-describe("JobContext.db (fw#2914)", () => {
+describe("JobContext.db", () => {
   test("is tenant-filtered to the job's tenant and unsafeRaw is denied without escapeHatch", async () => {
     outcomes.length = 0;
     auditEvents.length = 0;

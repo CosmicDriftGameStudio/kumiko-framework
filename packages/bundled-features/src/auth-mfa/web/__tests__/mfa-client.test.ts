@@ -35,7 +35,7 @@ describe("verifyMfaChallenge", () => {
     );
   });
 
-  test("success → kind:success mit token+user", async () => {
+  test("success → kind:success with token+user", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         isSuccess: true,
@@ -52,7 +52,7 @@ describe("verifyMfaChallenge", () => {
     });
   });
 
-  test("HTTP 429 → kind:failure reason:rate_limited (ohne Body-Parse)", async () => {
+  test("HTTP 429 → kind:failure reason:rate_limited (without body parsing)", async () => {
     globalThis.fetch = mock(
       async () => new Response(null, { status: 429 }),
     ) as unknown as typeof fetch;
@@ -62,7 +62,7 @@ describe("verifyMfaChallenge", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "rate_limited" } });
   });
 
-  test("error als String → kind:failure reason:<string>", async () => {
+  test("error as string → kind:failure reason:<string>", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: "invalid_totp_code" }),
     ) as unknown as typeof fetch;
@@ -72,7 +72,7 @@ describe("verifyMfaChallenge", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "invalid_totp_code" } });
   });
 
-  test("error-Objekt mit details.reason → reason aus details, message+retryAfterSeconds übernommen", async () => {
+  test("error object with details.reason → reason from details, message+retryAfterSeconds preserved", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         isSuccess: false,
@@ -92,7 +92,7 @@ describe("verifyMfaChallenge", () => {
     });
   });
 
-  test("error-Objekt ohne details.reason → fällt auf error.code zurück", async () => {
+  test("error object without details.reason → falls back to error.code", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: { code: "invalid_challenge_token" } }),
     ) as unknown as typeof fetch;
@@ -102,7 +102,7 @@ describe("verifyMfaChallenge", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "invalid_challenge_token" } });
   });
 
-  test("kein error-Feld, kein isSuccess → default reason mfa_verify_failed", async () => {
+  test("no error field, no isSuccess → default reason mfa_verify_failed", async () => {
     globalThis.fetch = mock(async () => jsonResponse({})) as unknown as typeof fetch;
 
     const res = await verifyMfaChallenge("challenge-1", "000000");
@@ -145,7 +145,7 @@ describe("startMfaSetupPreauth", () => {
     );
   });
 
-  test("success → kind:success mit setupToken/otpauthUri/recoveryCodes", async () => {
+  test("success → kind:success with setupToken/otpauthUri/recoveryCodes", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         isSuccess: true,
@@ -177,7 +177,7 @@ describe("startMfaSetupPreauth", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "rate_limited" } });
   });
 
-  test("error als String → kind:failure reason:<string>", async () => {
+  test("error as string → kind:failure reason:<string>", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: "invalid_challenge_token" }),
     ) as unknown as typeof fetch;
@@ -187,7 +187,7 @@ describe("startMfaSetupPreauth", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "invalid_challenge_token" } });
   });
 
-  test("error-Objekt ohne details.reason → fällt auf error.code zurück", async () => {
+  test("error object without details.reason → falls back to error.code", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: { code: "mfa_already_enabled" } }),
     ) as unknown as typeof fetch;
@@ -217,7 +217,7 @@ describe("confirmMfaSetupPreauth", () => {
     );
   });
 
-  test("success → kind:success mit token+user", async () => {
+  test("success → kind:success with token+user", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         isSuccess: true,
@@ -244,7 +244,7 @@ describe("confirmMfaSetupPreauth", () => {
     expect(res).toEqual({ kind: "failure", error: { reason: "rate_limited" } });
   });
 
-  test("error-Objekt mit details.reason → reason + retryAfterSeconds übernommen", async () => {
+  test("error object with details.reason → reason + retryAfterSeconds preserved", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         isSuccess: false,

@@ -336,7 +336,7 @@ describe("T1.5d: per-field retention sweep", () => {
     expect(cf["liveEdit"]).toBe("written-mid-sweep");
   });
 
-  test("#975: a legacy field with the removed `sensitive` key is skipped, not fatal to the sweep", async () => {
+  test("a legacy field with the removed `sensitive` key is skipped, not fatal to the sweep", async () => {
     const propertyId = "88888888-8888-4000-8000-000000000008";
     await defineField("temp", {
       type: "text",

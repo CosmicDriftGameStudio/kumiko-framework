@@ -47,7 +47,7 @@ describe("tryHonoFirst", () => {
     expect(res.response.status).toBe(404);
   });
 
-  test("matched=true for a matched route that deliberately answers 404 (no marker — bug #2435)", async () => {
+  test("matched=true for a matched route that deliberately answers 404 (no marker)", async () => {
     // The actual bug: file-derivatives' public-variant route matches and
     // answers `c.text("not found", 404)` for default-deny — NOT a
     // router-miss. Without the marker header this used to be

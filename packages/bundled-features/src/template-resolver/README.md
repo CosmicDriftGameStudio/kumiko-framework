@@ -1,15 +1,11 @@
 # template-resolver
 
-Strukturierter Content-Storage mit Tenant-Override-Hierarchie, Locale-Fallback und Resource-Linking via `file-foundation`. Eine Entity (`template-resource`) für alle Content-Arten — Render-Templates (`mail`, `document-pdf`, `notification`, `image-snapshot`), Rahmen (`mail-layout`, `pdf-layout`), Markdown-Textblöcke (`text-block`, ex `text-content`-Feature) und AI-Prompts (`ai-prompt`).
-
-**Plan-Doc:** [`kumiko-platform/docs/plans/features/template-resolver.md`](../../../../../../kumiko-platform/docs/plans/features/template-resolver.md)
-
-**Status (2026-05-19):** 45 Integration-Tests grün, typecheck grün, self+advisor-reviewed. Implementierungs-Erkenntnisse im Plan-Doc.
+Structured content storage with tenant override hierarchy, locale fallback, and resource linking via `file-foundation`. One entity (`template-resource`) for all content types: render templates (`mail`, `document-pdf`, `notification`, `image-snapshot`), layouts (`mail-layout`, `pdf-layout`), Markdown text blocks (`text-block`, formerly the `text-content` feature), and AI prompts (`ai-prompt`).
 
 ## Mount
 
 ```typescript
-// App-Bootstrap
+// App bootstrap
 import {
   createTemplateResolverApi,
   createTemplateResolverFeature,
@@ -17,7 +13,7 @@ import {
 
 const features = [
   createTemplateResolverFeature(),
-  // ... weitere Features
+  // ... additional features
 ];
 
 const app = createKumikoApp({
@@ -28,7 +24,7 @@ const app = createKumikoApp({
 });
 ```
 
-## Konsumtion (in Feature-Handlern)
+## Consumption (in feature handlers)
 
 ```typescript
 import { requireTemplateResolver } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -41,109 +37,107 @@ async function someHandler(ctx) {
     kind: "mail",
     locale: "de",
   });
-  // template.content + template.meta + template.variableSchema + template.linkedResources verwenden
+  // use template.content + template.meta + template.variableSchema + template.linkedResources
   // ...
 }
 ```
 
-## Kinds, Format und Meta
+## Kinds, format, and meta
 
 | kind | contentFormat | meta |
 |---|---|---|
-| `mail` | `html` (Dokument-Schema, wird serverseitig neu aufgebaut) | Pflicht: `subject`; optional `previewText`, `layoutSlug`, `category` (`transactional`/`marketing`), `senderName`, `replyTo` |
-| `mail-layout` | `mjml` | leer (`{}`) oder fehlend |
-| `pdf-layout` | `html` | leer (`{}`) oder fehlend |
-| `document-pdf` | `html` | fehlt |
-| übrige | frei | fehlt |
+| `mail` | `html` (document schema, rebuilt server-side) | Required: `subject`; optional `previewText`, `layoutSlug`, `category` (`transactional`/`marketing`), `senderName`, `replyTo` |
+| `mail-layout` | `mjml` | empty (`{}`) or missing |
+| `pdf-layout` | `html` | empty (`{}`) or missing |
+| `document-pdf` | `html` | missing |
+| remaining kinds | arbitrary | missing |
 
-`meta` liegt als JSON in der Spalte `meta` und wird beim Schreiben pro kind gegen
-`template-meta.ts` geprüft (Fehler als Field-Issues auf `meta.*`). Subject und
-Preview-Text erlauben nur einfache Platzhalter (`{{name}}`, `{{name.feld}}`), keine
-Zeilenumbrüche.
+`meta` is stored as JSON in the `meta` column and is validated on write per kind against
+`template-meta.ts` (errors as field issues on `meta.*`). Subject and preview text allow only simple
+placeholders (`{{name}}`, `{{name.field}}`), with no line breaks.
 
-Slugs sind kebab-Segmente, mit `:` verbunden (`templateSlugSchema`); Notification-Templates
-liegen unter ihrem qualifizierten Namen `feature:notify:name`.
+Slugs are kebab-case segments joined with `:` (`templateSlugSchema`); notification templates
+use their qualified name `feature:notify:name`.
 
-## Platzhalter-Validierung (kind `mail`)
+## Placeholder validation (kind `mail`)
 
-Die Variablen kommen aus der Notification mit gleichem qualifiziertem Namen
-(`r.notification({ variables })`), sonst aus `variableSchema` der Zeile. Systemplatzhalter
-(`tenantName`, `signature`, `imprint`, `unsubscribeUrl`) und der Resource-Key `logo` sind immer erlaubt.
+Variables come from the notification with the same qualified name
+(`r.notification({ variables })`), otherwise from the row's `variableSchema`. System placeholders
+(`tenantName`, `signature`, `imprint`, `unsubscribeUrl`) and the resource key `logo` are always allowed.
 
-- `upsertSystem` und `upsertTenant` lehnen unbekannte Platzhalter ab (Field-Issue auf `content`).
-- `upsertSystem` und `upsertTenant` mit `status: "active"` verlangen zusätzlich, dass jede `required`-Variable benutzt wird. Ein Tenant-Draft darf unvollständig sein und liefert `validation` zurück.
-- `publish` prüft die gespeicherte Zeile erneut.
-- `seedSystemTemplate` wirft bei beiden Problemen.
+- `upsertSystem` and `upsertTenant` reject unknown placeholders (field issue on `content`).
+- `upsertSystem` and `upsertTenant` with `status: "active"` additionally require every `required` variable to be used. A tenant draft may be incomplete and returns `validation`.
+- `publish` checks the stored row again.
+- `seedSystemTemplate` throws for both problems.
 
-## Notification-Templates seeden
+## Seeding notification templates
 
-`r.notification({ variables, template, meta })` bringt Text und Meta mit dem Code mit.
-`seedNotificationTemplates(db, registry)` (aus `.../template-resolver/seeding`) schreibt sie
-pro Locale als System-Template; `applyBootSeeds` ruft das beim Boot auf. Der Code ist
-maßgeblich: geänderte Texte aktualisieren die Zeile, unveränderte erzeugen kein Event.
-Tenant-Overrides bleiben unberührt.
+`r.notification({ variables, template, meta })` includes text and meta with the code.
+`seedNotificationTemplates(db, registry)` (from `.../template-resolver/seeding`) writes them
+as system templates per locale; `applyBootSeeds` calls this at boot. The code is authoritative:
+changed text updates the row, unchanged text produces no event. Tenant overrides remain untouched.
 
-## Resolver-Reihenfolge (4-Stufen-Fallback)
+## Resolver order (four-stage fallback)
 
 1. `tenantId` + requested locale
 2. `SYSTEM_TENANT_ID` + requested locale
 3. `tenantId` + `FALLBACK_LOCALE` (default "de")
 4. `SYSTEM_TENANT_ID` + `FALLBACK_LOCALE`
 
-Wenn nichts gefunden → `TemplateNotFoundError`.
+If nothing is found, `TemplateNotFoundError`.
 
-## Boot-Seeding (System-Templates)
+## Boot seeding (system templates)
 
 ```typescript
 import { seedSystemTemplate } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 
-// runProdApp seeds — idempotent, default skip if slug exists
+// runProdApp seeds, idempotent, skips by default if the slug exists
 await seedSystemTemplate(db, {
   slug: "welcome-email",
   kind: "mail",
   locale: "de",
-  content: '<p>Willkommen, <span data-variable="name"></span></p>',
+  content: '<p>Welcome, <span data-variable="name"></span></p>',
   contentFormat: "html",
 });
 ```
 
-`ifExists: "update"` für autoritative Re-Seeds (z.B. nach Template-Content-Release).
+`ifExists: "update"` for authoritative re-seeds, for example after a template content release.
 
-## Admin-Workflows (Write-Handlers + Queries)
+## Admin workflows (write handlers + queries)
 
-| Handler | QN | Wer | Was |
+| Handler | QN | Who | What |
 |---|---|---|---|
-| `TemplateResolverHandlers.upsertSystem` | `template-resolver:write:upsert-system` | SystemAdmin | Erstellt/Updated System-Default-Templates (`SYSTEM_TENANT_ID`, scope='system', status='active') |
-| `TemplateResolverHandlers.upsertTenant` | `template-resolver:write:upsert-tenant` | TenantAdmin (eigener Tenant) + SystemAdmin via `tenantIdOverride` | Erstellt/Updated Tenant-Overrides (scope='tenant'), default-status='draft' |
-| `TemplateResolverHandlers.publish` | `template-resolver:write:publish` | TenantAdmin (eigener Tenant) | Setzt status='active' |
-| `TemplateResolverHandlers.archive` | `template-resolver:write:archive` | TenantAdmin (eigener Tenant) | Setzt status='archived' (Resolver ignoriert es danach) |
-| `TemplateResolverHandlers.publishSystem` | `template-resolver:write:publish-system` | SystemAdmin | Setzt status='active' auf einem System-Default (gleiche Mail-Prüfung wie `publish`) |
-| `TemplateResolverHandlers.archiveSystem` | `template-resolver:write:archive-system` | SystemAdmin | Setzt status='archived' auf einem System-Default; Tenants ohne Override fallen durch |
-| `TemplateResolverHandlers.resetToSystem` | `template-resolver:write:reset-to-system` | TenantAdmin (eigener Tenant) | Archiviert den eigenen Override, sodass wieder die aktive System-Vorlage greift; ohne aktive System-Vorlage `no_system_template` |
-| `TemplateResolverQueries.findById` | `template-resolver:query:find-by-id` | TenantAdmin + User (eigener Tenant + system-templates sichtbar) | Raw-Lookup für Edit-UI |
-| `TemplateResolverQueries.list` | `template-resolver:query:list` | gleich | Filter nach kind/locale/status, optional includeSystem |
-| `TemplateResolverQueries.usage` | `template-resolver:query:usage` | TenantAdmin | Welche Notifications eine Mail-Vorlage bzw. ein Mail-Layout verwenden (aus der Registry) |
-| `TemplateResolverQueries.overview` | `template-resolver:query:overview` | TenantAdmin + SystemAdmin | Eine Zeile je Slug und Art (Mail, PDF, Layouts) mit Herkunft, Sprachen, Status, Version, Layout und Verwendung; durchsuch-, filter-, sortier- und seitenweise lesbar |
-| `TemplateResolverQueries.layoutSource` | `template-resolver:query:layout-source` | TenantAdmin + SystemAdmin | Eigene und System-Fassung eines Layouts, Kopf/Signatur/Fuß-Bereiche der wirksamen html-Fassung, Speicher-Locale; MJML-Quelle nur für SystemAdmin |
-| `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin | Anzahl aktiver/Entwurf-Overrides einer System-Vorlage und aktive Tenants gesamt, nur Zahlen |
-| `TemplateResolverQueries.diffToSystem` | `template-resolver:query:diff-to-system` | TenantAdmin (eigener Tenant) | Block- und Meta-Vergleich eines Tenant-Overrides mit der System-Vorlage |
+| `TemplateResolverHandlers.upsertSystem` | `template-resolver:write:upsert-system` | SystemAdmin | Creates or updates system default templates (`SYSTEM_TENANT_ID`, scope='system', status='active') |
+| `TemplateResolverHandlers.upsertTenant` | `template-resolver:write:upsert-tenant` | TenantAdmin (own tenant) + SystemAdmin via `tenantIdOverride` | Creates or updates tenant overrides (scope='tenant'), default status='draft' |
+| `TemplateResolverHandlers.publish` | `template-resolver:write:publish` | TenantAdmin (own tenant) | Sets status='active' |
+| `TemplateResolverHandlers.archive` | `template-resolver:write:archive` | TenantAdmin (own tenant) | Sets status='archived' (the resolver ignores it afterward) |
+| `TemplateResolverHandlers.publishSystem` | `template-resolver:write:publish-system` | SystemAdmin | Sets status='active' on a system default, with the same mail validation as `publish` |
+| `TemplateResolverHandlers.archiveSystem` | `template-resolver:write:archive-system` | SystemAdmin | Sets status='archived' on a system default; tenants without an override fall through |
+| `TemplateResolverHandlers.resetToSystem` | `template-resolver:write:reset-to-system` | TenantAdmin (own tenant) | Archives the own override so that the active system template applies again; without an active system template, `no_system_template` |
+| `TemplateResolverQueries.findById` | `template-resolver:query:find-by-id` | TenantAdmin + User (own tenant, system templates visible) | Raw lookup for the edit UI |
+| `TemplateResolverQueries.list` | `template-resolver:query:list` | same | Filters by kind/locale/status, optionally includeSystem |
+| `TemplateResolverQueries.usage` | `template-resolver:query:usage` | TenantAdmin | Which notifications use a mail template or mail layout, from the registry |
+| `TemplateResolverQueries.overview` | `template-resolver:query:overview` | TenantAdmin + SystemAdmin | One row per slug and type, mail, PDF, layouts, with origin, languages, status, version, layout, and usage; searchable, filterable, sortable, and pageable |
+| `TemplateResolverQueries.layoutSource` | `template-resolver:query:layout-source` | TenantAdmin + SystemAdmin | Own and system version of a layout, header/signature/footer regions of the effective HTML version, storage locale; MJML source only for SystemAdmin |
+| `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin | Number of active/draft overrides of a system template and total active tenants, numbers only |
+| `TemplateResolverQueries.diffToSystem` | `template-resolver:query:diff-to-system` | TenantAdmin (own tenant) | Block and meta comparison of a tenant override with the system template |
 
-**SystemAdmin-Cross-Tenant für publish/archive/findById:** deferred (Task 8) — `upsertTenant` hat `tenantIdOverride` bereits; publish/archive brauchen das erst wenn ein Sysadmin-Panel fremde Tenant-Templates kuratiert. `ctx.db` ist tenant-scoped, fremde IDs → NotFound ohne Override.
+**SystemAdmin cross-tenant access for publish/archive/findById:** deferred (Task 8), `upsertTenant` already has `tenantIdOverride`; publish/archive only need this when a system admin panel curates templates belonging to other tenants. `ctx.db` is tenant-scoped, foreign IDs result in NotFound without an override.
 
-## Status-Lifecycle
+## Status lifecycle
 
 ```
 upsertSystem  ──┐
-                ├──► status: "active" (System-Default sofort aktiv)
-upsertTenant  ──┴──► status: "draft" (Default) | "active" (explizit)
+                ├──► status: "active" (system default active immediately)
+upsertTenant  ──┴──► status: "draft" (default) | "active" (explicit)
 
-publish ───────► status: "active" (übernimmt einen offenen Entwurf)
+publish ───────► status: "active" (publishes an open draft)
 archive ───────► status: "archived"
-discardDraft ──► verwirft den Entwurf neben der aktiven Fassung
+discardDraft ──► discards the draft alongside the active version
 ```
 
-Ein Entwurf über einer aktiven Zeile (`upsertTenant` ohne `status`, `copy-locale`, `import-bundle`) liegt als JSON in `draft` neben der Zeile; die Hauptfelder bleiben die ausgelieferte Fassung. `find-by-id` und `layout-source` liefern die Arbeitsfassung (Entwurf, sonst gespeichert) mit `active { version, since }`.
-Resolver returnt **nur** Templates mit `status: "active"`. draft/archived werden ignoriert.
+A draft over an active row (`upsertTenant` without `status`, `copy-locale`, `import-bundle`) is stored as JSON in `draft` beside the row; the main fields remain the delivered version. `find-by-id` and `layout-source` return the working version, the draft if present, otherwise the stored version, with `active { version, since }`.
+The resolver returns **only** templates with `status: "active"`. draft/archived are ignored.
 
 ## Consumer Conformance
 
@@ -165,30 +159,28 @@ describe("my-mail-renderer :: template-resolver conformance", () => {
 });
 ```
 
-The harness checks `TemplateNotFoundError` propagation, locale-fallback, and (when `resolveResources` is provided) missing resource keys.
+The harness checks `TemplateNotFoundError` propagation, locale fallback, and, when `resolveResources` is provided, missing resource keys.
 
-## Text-Blöcke (`kind: "text-block"`)
+## Text blocks (`kind: "text-block"`)
 
-Marketing-, FAQ- und Legal-Texte laufen über denselben Store, aber über einen
-eigenen Write-Pfad: `set.write` trägt `title` + `folder` (Content-Tree) und
-kennt keinen draft-Status — Speichern veröffentlicht.
+Marketing, FAQ, and legal texts use the same store, but a separate write path: `set.write` carries
+`title` + `folder` (content tree) and has no draft status, saving publishes.
 
-| Handler | QN | Wer | Was |
+| Handler | QN | Who | What |
 |---|---|---|---|
-| `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride` auch auf `SYSTEM_TENANT_ID`) | Upsert einer Ressource pro `(tenantId, slug, kind, locale)` |
-| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | Ein Text-Block — der Public-Read für Landing-/Legal-Pages |
-| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | Alle Text-Blöcke eines Tenants für den Content-Tree |
-| `<collection>-list` / `-item` / `-set` | `template-resolver:query:<id>-list` … | wie deklariert | Pro Content-Collection, siehe unten |
+| `TemplateResolverHandlers.set` | `template-resolver:write:set` | TenantAdmin + SystemAdmin (via `tenantIdOverride`, also on `SYSTEM_TENANT_ID`) | Upserts one resource per `(tenantId, slug, kind, locale)` |
+| `TemplateResolverQueries.bySlug` | `template-resolver:query:by-slug` | anonymous + User + Admins | One text block, the public read for landing/legal pages |
+| `TemplateResolverQueries.byTenant` | `template-resolver:query:by-tenant` | anonymous + User + Admins | All text blocks of a tenant for the content tree |
+| `<collection>-list` / `-item` / `-set` | `template-resolver:query:<id>-list` … | as declared | Per content collection, see below |
 
-Die beiden Public-Queries sind fest auf `kind: "text-block"` verdrahtet und
-nehmen **keinen** kind-Parameter. Mail-Templates und AI-Prompts liegen in
-derselben Tabelle und laufen über die Handler ihrer Collection. So kann ein
-neuer kind nicht versehentlich öffentlich lesbar werden.
+The two public queries are hardcoded to `kind: "text-block"` and accept **no** kind parameter. Mail
+templates and AI prompts are stored in the same table and use the handlers of their collection. This
+prevents a new kind from accidentally becoming publicly readable.
 
-Seed-Helper: `seedTextBlock` / `seedLegalContentFromJson` aus
+Seeding helpers: `seedTextBlock` / `seedLegalContentFromJson` from
 `@cosmicdrift/kumiko-bundled-features/template-resolver/seeding`.
 
-Content-Tree + Editor (Desktop-Web):
+Content tree + editor (desktop web):
 
 ```typescript
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
@@ -198,11 +190,10 @@ createKumikoApp({
 });
 ```
 
-## Content-Collections
+## Content collections
 
-Eine Sammlung erscheint dort in der Nav, wo sie fachlich hingehört — statt alles
-in einen zentralen "Content"-Bereich zu kippen. Deklariert wird sie **beim
-Mounten**, nicht im Feature:
+A collection appears in the navigation where it belongs functionally, instead of putting everything
+in one central "Content" section. It is declared **when mounting**, not in the feature:
 
 ```typescript
 createTemplateResolverFeature({
@@ -223,91 +214,79 @@ createTemplateResolverFeature({
 });
 ```
 
-`access` gehört an den Mount, weil ein bundled-feature das Rollenvokabular der
-App nicht kennen kann — dasselbe Muster wie die `access`-Option von
-`tags`/`folders`/`ledger`. Ohne Angabe gilt TenantAdmin + SystemAdmin.
+`access` belongs on the mount because a bundled feature cannot know the app's role vocabulary, the same
+pattern as the `access` option of `tags`/`folders`/`ledger`. Without an explicit value, TenantAdmin + SystemAdmin applies.
 
-Jede Collection bekommt **eigene Handler** — `<id>-list`, `<id>-item`,
-`<id>-set` — die je die Access-Regel ihrer Collection tragen. Deshalb setzt der
-Dispatcher die Trennung durch: wer Snippets pflegen darf, kommt an den
-AI-Prompts nicht vorbei. Ein gemeinsamer Handler mit `kind`-Parameter müsste
-die Vereinigung aller Rollen zulassen und im Body sortieren.
+Each collection gets **its own handlers**, `<id>-list`, `<id>-item`, `<id>-set`, each carrying the
+access rule of its collection. The dispatcher therefore enforces separation: anyone allowed to manage
+snippets cannot access the AI prompts. A shared handler with a `kind` parameter would have to allow
+the union of all roles and sort in the body.
 
-Der Payload trägt entsprechend **keinen** `kind` — `kind`, `ownership` und
-`access` stammen aus der Deklaration. Zwei Collections dürfen denselben `kind`
-mit unterschiedlichen Regeln führen.
+Accordingly, the payload carries **no** `kind`; `kind`, `ownership` and `access` come from the
+declaration. Two collections may use the same `kind` with different rules.
 
-`textBlocksClient()` bedient jede deklarierte Collection automatisch: ein
-Folder-Tree pro Collection inklusive SSE-Refresh, Editor-Ziel mit der
-`collectionId`. Die App reicht dafür nichts durch.
+`textBlocksClient()` automatically serves every declared collection: one folder tree per collection,
+including SSE refresh, and an editor target with the `collectionId`. The app passes nothing through for this.
 
-`nav.parent` darf auf ein fremdes Feature zeigen. Der Boot-Validator lehnt
-dangling Refs ab — eine Collection unter einem nicht gemounteten Feature lässt
-den Boot scheitern statt still aus der Sidebar zu verschwinden. Die
-Sichtbarkeit des Knotens folgt `access`, sofern `nav.access` nichts anderes
-sagt.
+`nav.parent` may point to another feature. The boot validator rejects dangling references, a collection
+under an unmounted feature causes boot to fail instead of silently disappearing from the sidebar. Node
+visibility follows `access` unless `nav.access` specifies otherwise.
 
-Ein "+" am Knoten braucht ein explizites `nav.createAction` (Ziel ist
-üblicherweise `treeHandle.create`); ohne das listet die Collection nur, was
-schon existiert. `nav.actions` setzt Hover-Actions auf die Zeile.
+A "+" on the node requires an explicit `nav.createAction`, whose target is usually
+`treeHandle.create`; without it, the collection only lists existing items. `nav.actions` adds hover actions to the row.
 
-Speichern **veröffentlicht sofort** — Status `active`, leeres `variableSchema`.
-Wer eine Draft-Stufe oder ein Variablen-Schema braucht, nimmt
+Saving **publishes immediately**, with status `active` and an empty `variableSchema`.
+Anyone who needs a draft stage or a variable schema uses
 `upsertSystem`/`upsertTenant` + `publish`.
 
 ### ownership: user vs. tenant
 
-`ownership: "tenant"` (Default) heißt: ein Satz, den alle im Tenant teilen —
-kuratierte Bausteine, AI-Prompts. `ownership: "user"` heißt: jeder Enduser
-pflegt seine eigenen Einträge — Mail-Signaturen, persönliche Antwort-Bausteine.
+`ownership: "tenant"` (default) means one set shared by everyone in the tenant,
+curated snippets and AI prompts. `ownership: "user"` means each end user maintains their own entries,
+mail signatures and personal reply snippets.
 
-User-owned Collections liegen in einer **eigenen Tabelle**
-(`read_user_content_entries`, Entity `user-content-entry`) mit `ownerId NOT
-NULL` und Unique-Index `(tenantId, ownerId, slug, kind, locale)`. Zwei Agents
-können damit beide eine Signatur `standard` haben.
+User-owned collections are stored in a **separate table**
+(`read_user_content_entries`, entity `user-content-entry`) with `ownerId NOT
+NULL` and unique index `(tenantId, ownerId, slug, kind, locale)`. This allows two agents
+to each have a `standard` signature.
 
-Warum nicht eine Tabelle mit nullbarer `ownerId`: das `content`-Feld dort
-trägt `userOwned` (Name, Telefonnummer, Anschrift → crypto-shredding). Diese
-Annotation wird **pro Entity** aufgelöst, nicht pro Zeile, und
-`resolveSubjectForField` wirft, wenn die Owner-Spalte leer ist — jede
-tenant-weite Mail-Template-Zeile würde beim Schreiben scheitern.
+Why not one table with a nullable `ownerId`: the `content` field there carries
+`userOwned` data, name, phone number, address, for crypto-shredding. This annotation is resolved
+**per entity**, not per row, and `resolveSubjectForField` throws when the owner column is empty,
+so every tenant-wide mail template row would fail on write.
 
-Beim Mounten einer user-owned Collection sind zwei Dinge Pflicht:
+When mounting a user-owned collection, two things are required:
 
-1. **Migration.** Die Entity kommt nur in den Schema-Diff, wenn mindestens eine
-   user-owned Collection deklariert ist. Danach in der App
-   `bunx kumiko-schema generate add-user-content` + `apply` — ohne die Tabelle
-   antwortet der Handler in Prod mit 500.
-2. **`template-resolver-user-data` mitmounten.** Die Entity trägt Subject-Daten;
-   ohne den EXT_USER_DATA-Hook verweigert der Boot-Guard den Start. Das Feature
-   liefert den Art.-20-Export; die Löschung (Art. 17) läuft über
-   crypto-shredding, nicht über einen physischen DELETE — der wäre bei einer
-   event-sourced Entity nicht replay-fest.
+1. **Migration.** The entity is included in the schema diff only if at least one
+   user-owned collection is declared. Then in the app run
+   `bunx kumiko-schema generate add-user-content` + `apply`, without the table
+   the handler returns 500 in production.
+2. **Mount `template-resolver-user-data` as well.** The entity carries subject data;
+   without the EXT_USER_DATA hook, the boot guard refuses to start. The feature provides the Art. 20
+   export; deletion (Art. 17) uses crypto-shredding, not a physical DELETE, which would not be
+   replay-safe for an event-sourced entity.
 
-Der Locale-Fallback von `resolveTemplate` gilt für user-owned Einträge **nicht**:
-sie werden gelistet und editiert, nie als Tenant/System-Override aufgelöst. Wer
-im Client eigene *und* geteilte Bausteine zeigen will, mountet zwei Collections
-nebeneinander und führt sie in der UI zusammen.
+The locale fallback of `resolveTemplate` does **not** apply to user-owned entries:
+they are listed and edited, never resolved as tenant/system overrides. Anyone who wants to show their own
+and shared snippets in the client mounts two collections side by side and combines them in the UI.
 
-Unter `tenantIdOverride` (SystemAdmin) bleibt die Zeile die **eigene** des
-Aufrufers im fremden Tenant — ein Admin editiert nie die Signatur eines anderen.
+With `tenantIdOverride` (SystemAdmin), the row remains the caller's **own** row in the foreign tenant,
+an admin never edits another user's signature.
 
-## Validierung, Layouts, Bundles
+## Validation, layouts, bundles
 
-- `validate` (Query) trocken-läuft die Schreib-Pipeline: `canSave`, `canPublish`, verwendete/unbekannte/fehlende Platzhalter, verfügbare Variablen. `mail`, `document-pdf`, `pdf-layout` und `mail-layout` laufen durch dasselbe Platzhalter-Gate; `page`/`pages` gibt es nur in `document-pdf` und `pdf-layout`.
-- `preview` (Query, TenantAdmin/SystemAdmin) rendert einen Entwurf oder, ohne `content`, die gespeicherte Vorlage mit Beispielwerten aus dem `example` jeder deklarierten Variable (Listen: zwei Zeilen, ohne `example` feste Ersatzwerte). Der Entwurf läuft durch dieselben Gates wie ein Speichern, eine Mail durch den echten Mail-Renderer. Antwort: Betreff, HTML, `displayHtml` (nur Mail: `cid:`-Bilder als Data-URI für den Editor, 5 MiB Budget), Text, Anhänge (`kind: "inline"` mit `cid` oder `kind: "file"`, jeweils mit Größe) und `checks` (`resources_resolved`, `text_present`, `size_under_cap` mit 10 MiB, `required_placeholders`). `document-pdf` liefert den bereinigten Body und die Layout-Regionen, kein PDF.
-- `send-test` (Write, TenantAdmin/SystemAdmin) schickt die gerenderte Mail nur an die eigene Adresse des Aufrufers, Betreff mit `[TEST] `, höchstens 10 pro Nutzer und Stunde. Es gibt keine Empfänger-Eingabe. Braucht `delivery`, `channel-email` und `renderer-mail-html`.
-- Layouts: Tenant-`mail-layout` und `pdf-layout` sind strukturiertes HTML mit `data-content`-Slot und Regionen (Header, Signatur, Footer). Rohes MJML mit `{{{content}}}` genau einmal darf nur das System schreiben.
-- `export-bundle`, `import-bundle`, `import-bundle-system`: ein Template mit allen Locales und Ressourcen-Dateien (base64) als eigenständiges Bundle; bestehende Ziele nur mit `overwrite`. Systemimport mit Ressourcen braucht einen Caller im System-Tenant.
-- `copy-locale`: Startpunkt für Übersetzungen, kopiert als Tenant-Draft. Mit `scope: "system"` (nur SystemAdmin) wird eine Systemvorlage als System-Draft kopiert; andere Aufrufer bekommen 403.
-- Mail-Anhänge: `resource-upload` mit `purpose: "attachment"` und `fileName` legt eine PDF-, PNG- oder JPEG-Datei (geprüft am Inhalt, Originalbytes, höchstens 10 pro Mail-Vorlage) neben den Inline-Bildern ab. `resource-remove`, `copy-locale` und die Bundles tragen sie mit (Bundle-Eintrag `purpose: "attachment"`). Der Mail-Renderer hängt sie nach den Inline-Bildern an.
-- `r.notification(..., { record: { entity, map } })` mappt eine Entity-Zeile auf die deklarierten Variablen (`mapRecordToVariables`); Boot prüft Entity, Variablen und Feldpfade.
+- `validate` (query) dry-runs the write pipeline: `canSave`, `canPublish`, used/unknown/missing placeholders, and available variables. `mail`, `document-pdf`, `pdf-layout`, and `mail-layout` pass through the same placeholder gate; `page`/`pages` exist only in `document-pdf` and `pdf-layout`.
+- `preview` (query, TenantAdmin/SystemAdmin) renders a draft or, without `content`, the stored template with example values from the `example` of each declared variable, two rows for lists, fixed replacement values without `example`. The draft passes through the same gates as saving, and a mail through the actual mail renderer. Response: subject, HTML, `displayHtml` (mail only: `cid:` images as data URIs for the editor, 5 MiB budget), text, attachments (`kind: "inline"` with `cid` or `kind: "file"`, each with size), and `checks` (`resources_resolved`, `text_present`, `size_under_cap` with 10 MiB, `required_placeholders`). `document-pdf` returns the cleaned body and layout regions, not a PDF.
+- `send-test` (write, TenantAdmin/SystemAdmin) sends the rendered mail only to the caller's own address, with `[TEST] ` in the subject, at most 10 per user and hour. There is no recipient input. Requires `delivery`, `channel-email`, and `renderer-mail-html`.
+- Layouts: tenant `mail-layout` and `pdf-layout` are structured HTML with a `data-content` slot and regions, header, signature, footer. Raw MJML with `{{{content}}}` exactly once may only be written by the system.
+- `export-bundle`, `import-bundle`, `import-bundle-system`: one template with all locales and resource files, base64 encoded, as a standalone bundle; existing targets only with `overwrite`. A system import with resources requires a caller in the system tenant.
+- `copy-locale`: starting point for translations, copies as a tenant draft. With `scope: "system"` (SystemAdmin only), copies a system template as a system draft; other callers receive 403.
+- Mail attachments: `resource-upload` with `purpose: "attachment"` and `fileName` stores a PDF, PNG, or JPEG file, validated by its contents and original bytes, at most 10 per mail template, alongside inline images. `resource-remove`, `copy-locale`, and the bundles include them, with bundle entry `purpose: "attachment"`. The mail renderer attaches them after the inline images.
+- `r.notification(..., { record: { entity, map } })` maps an entity row to the declared variables (`mapRecordToVariables`); boot validates the entity, variables, and field paths.
 
-## Out-of-Scope
+## Out of scope
 
-- Rendering (Markdown/MJML → HTML/PDF) — siehe `renderer-foundation`
-- Resource-URL-Substitution (signed-URL vs. data-URI) — Caller-Verantwortung je nach kind
-- Visual Template-Editor — `designer`-Bundle (geplant)
-- A/B-Testing — eigenes Bundle wenn Bedarf real
-
-
+- Rendering (Markdown/MJML to HTML/PDF), see `renderer-foundation`
+- Resource URL substitution (signed URL vs. data URI), caller responsibility by kind
+- Visual template editor, `designer` bundle (planned)
+- A/B testing, separate bundle if there is real demand

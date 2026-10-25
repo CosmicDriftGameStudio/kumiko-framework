@@ -49,9 +49,8 @@ import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-// kumiko-lint-ignore cross-feature-import regression-proof: seedTenant
-// must fire tier-engine's entity postSave hook on self-signup, not just on the
-// TenantHandlers.create HTTP path.
+// kumiko-lint-ignore cross-feature-import the test proves seedTenant fires tier-engine's
+// entity postSave hook on self-signup, not just on the TenantHandlers.create HTTP path.
 import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
@@ -419,7 +418,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(payload.locale).toBeUndefined();
   });
 
-  test("Single-Use-Burn: zweiter confirm mit gleichem Token → 422 invalid_signup_token", async () => {
+  test("Single-use token: second confirmation with the same token → 422 invalid_signup_token", async () => {
     const email = "burn@example.com";
     const password = "burn-test-pw-1234";
     const token = await requestSignup(email);
@@ -444,7 +443,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidSignupToken);
   });
 
-  test("zu kurzes Password → 400 invalid_body (Schema-Reject vor dispatcher)", async () => {
+  test("too-short password → 400 invalid_body (schema rejection before dispatcher)", async () => {
     const email = "short@example.com";
     const token = await requestSignup(email);
     const res = await postSignupConfirm(token, "tiny");
@@ -464,7 +463,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(new Set(keys).size).toBe(3);
   });
 
-  test("bereits registrierte Email → 422 signup_email_already_registered, keine Session, kein neuer Tenant/Membership, kein Account-Takeover (#365)", async () => {
+  test("already registered email → 422 signup_email_already_registered, no session, no new Tenant/Membership, no account takeover", async () => {
     const email = "victim@example.com";
     const victimPassword = "victim-original-pw-1234";
 
@@ -516,7 +515,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(loginAttacker.status).not.toBe(200);
   });
 
-  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+  test("common password → 400 (schema rejects breach-list password)", async () => {
     const email = "common-signup@example.com";
     const token = await requestSignup(email);
 

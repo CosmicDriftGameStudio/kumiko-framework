@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MoneyInput, parseLocaleNumber } from "../primitives/money-input.tsx";
 
 describe("MoneyInput", () => {
-  test("blur-view: de-DE EUR zeigt €-Symbol + Punkt-Tausender + Komma-Decimal", () => {
+  test("blur-view: de-DE EUR shows € symbol + dot thousands separator + comma decimal separator", () => {
     render(
       <MoneyInput
         id="eur"
@@ -32,7 +32,7 @@ describe("MoneyInput", () => {
     expect(symbol.className).toContain("pr-3");
   });
 
-  test("blur-view: en-US USD zeigt $-Prefix + Komma-Tausender + Punkt-Decimal", () => {
+  test("blur-view: en-US USD shows $ prefix + comma thousands separator + dot decimal separator", () => {
     render(
       <MoneyInput
         id="usd"
@@ -50,7 +50,7 @@ describe("MoneyInput", () => {
     expect(symbol.className).toContain("pl-3");
   });
 
-  test("blur-view: ja-JP JPY zeigt Yen-Symbol ohne Decimals", () => {
+  test("blur-view: ja-JP JPY displays Yen symbol without decimals", () => {
     render(
       <MoneyInput
         id="jpy"
@@ -68,7 +68,7 @@ describe("MoneyInput", () => {
     expect(input.value).not.toContain(".00");
   });
 
-  test("focus-view: zeigt raw editable string (kein Grouping, kein Symbol)", () => {
+  test("focus-view: shows raw editable string (no grouping, no symbol)", () => {
     render(
       <MoneyInput
         id="eur"
@@ -85,7 +85,7 @@ describe("MoneyInput", () => {
     expect(input.value).toBe("1234,56");
   });
 
-  test("blur mit gültigem Edit-String: onChange feuert Cents", () => {
+  test("blur with a valid edit string: onChange fires cents", () => {
     const onChange = mock();
     render(
       <MoneyInput
@@ -104,7 +104,7 @@ describe("MoneyInput", () => {
     expect(onChange).toHaveBeenCalledWith(1234);
   });
 
-  test("blur mit leerem String: onChange(undefined) räumt den Wert", () => {
+  test("blur with an empty string: onChange(undefined) clears the value", () => {
     const onChange = mock();
     render(
       <MoneyInput
@@ -123,7 +123,7 @@ describe("MoneyInput", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
-  test("blur mit korruptem Input (Buchstaben): onChange wird NICHT gerufen", () => {
+  test("blur with corrupt input (letters): onChange is NOT called", () => {
     const onChange = mock();
     render(
       <MoneyInput
@@ -158,35 +158,35 @@ describe("MoneyInput", () => {
 });
 
 describe("parseLocaleNumber (strict-Negative)", () => {
-  test("de-DE: erkennt Komma als Decimal", () => {
+  test("de-DE: recognizes comma as decimal separator", () => {
     expect(parseLocaleNumber("12,34", "de-DE")).toBe(12.34);
   });
 
-  test("en-US: erkennt Punkt als Decimal", () => {
+  test("en-US: recognizes period as decimal separator", () => {
     expect(parseLocaleNumber("12.34", "en-US")).toBe(12.34);
   });
 
-  test("Tausender-Trenner werden entfernt", () => {
+  test("Thousands separators are removed", () => {
     expect(parseLocaleNumber("1.234,56", "de-DE")).toBe(1234.56);
     expect(parseLocaleNumber("1,234.56", "en-US")).toBe(1234.56);
   });
 
-  test("negativ am Anfang: wird als negative Zahl geparst", () => {
+  test("negative at the beginning: is parsed as a negative number", () => {
     expect(parseLocaleNumber("-12,34", "de-DE")).toBe(-12.34);
   });
 
-  test("Minus mitten in der Zahl: NaN (strict — kein Silent-Fallback)", () => {
+  test("Minus in the middle of the number: NaN (strict — no silent fallback)", () => {
     // "1-23" could naively be interpreted as -123; the strict check prevents
     // mistyped input from being converted into the wrong amount.
     expect(parseLocaleNumber("1-23", "de-DE")).toBeNaN();
   });
 
-  test("Buchstaben oder Sonderzeichen: NaN", () => {
+  test("Letters or special characters: NaN", () => {
     expect(parseLocaleNumber("abc", "de-DE")).toBeNaN();
     expect(parseLocaleNumber("12,3a", "de-DE")).toBeNaN();
   });
 
-  test("Leerstring oder reines Decimal: NaN", () => {
+  test("Empty string or a lone decimal separator: NaN", () => {
     expect(parseLocaleNumber("", "de-DE")).toBeNaN();
     expect(parseLocaleNumber(",", "de-DE")).toBeNaN();
   });

@@ -41,11 +41,29 @@ const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
 // not enough.
 const DE_MARKER_RE =
   /\b(und|oder|für|wenn|nicht|dann|auch|noch|wird|sind|mit|zum|zur|bei|nach|ohne|über|kein|eine|einen|dieser|diese)\b/g;
+// Function words that never occur in English but are too rare in German
+// comments to justify a hit on their own; they only count next to an umlaut.
+const DE_WEAK_MARKER_RE =
+  /\b(ob|der|dessen|ein|jetzt|nur|sobald|schon|falls|sowie|bzw|beim|hier|keine|bewusst|zwei)\b/g;
 const MIN_DE_MARKER_HITS = 2;
 const UMLAUT_RE = /[äöüÄÖÜß]/;
+const WORD_RE = /\p{L}+/gu;
+const LOWER_CASE_WORD_RE = /^\p{Ll}/u;
+
+// A capitalised word with an umlaut is a proper noun or a fixture name ("Müller GmbH",
+// "Zürich"), so only a lower-case word carries the umlaut signal alone.
+function hasLowerCaseUmlautWord(text: string): boolean {
+  return (text.match(WORD_RE) ?? []).some(
+    (word) => LOWER_CASE_WORD_RE.test(word) && UMLAUT_RE.test(word),
+  );
+}
 
 export function isGermanComment(text: string): boolean {
-  return UMLAUT_RE.test(text) || (text.match(DE_MARKER_RE)?.length ?? 0) >= MIN_DE_MARKER_HITS;
+  const markerHits = text.match(DE_MARKER_RE)?.length ?? 0;
+  if (markerHits >= MIN_DE_MARKER_HITS) return true;
+  if (hasLowerCaseUmlautWord(text)) return true;
+  if (!UMLAUT_RE.test(text)) return false;
+  return markerHits + (text.match(DE_WEAK_MARKER_RE)?.length ?? 0) >= 1;
 }
 
 export type Site = {

@@ -59,7 +59,7 @@ describe("runDevApp validateBootOptions", () => {
   });
 });
 
-describe("runDevApp boot-validation (#359)", () => {
+describe("runDevApp boot-validation", () => {
   test("unresolvable navigate-target throws at boot — dev/prod parity, no port bound", async () => {
     await expect(runDevApp({ features: [unresolvableNavFeature()] })).rejects.toThrow(
       /navigate-target "ghost-screen" does not resolve/,

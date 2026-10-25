@@ -241,7 +241,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(userRows[0]?.email).not.toContain("alice@demo.local");
   });
 
-  test("anonymize-Strategy: todoDeleteHook setzt authorId=null statt hard-delete", async () => {
+  test("anonymize-Strategy: todoDeleteHook sets authorId=null instead of hard-delete", async () => {
     await seedAlice();
     await stack.http.writeOk(
       TODO_CREATE_QN,
@@ -281,7 +281,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   // r.storeTable-Registrierung hält store_todos AUS dem Rebuild-Set raus —
   // hier strukturell gepinnt: ein Revert zu r.entity ließe store_todos als
   // rebuildbare Projektion auftauchen und failte diesen Test.
-  test("#498: store_todos is not a rebuildable projection (r.storeTable guard)", () => {
+  test("store_todos is not a rebuildable projection (r.storeTable guard)", () => {
     expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(
       (p) => extractTableName(p.table) === "store_todos",

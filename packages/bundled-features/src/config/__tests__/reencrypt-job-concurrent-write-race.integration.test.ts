@@ -205,7 +205,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("config KEK-rotation job — concurrent write race (kumiko-framework#1188)", () => {
+describe("config KEK-rotation job — concurrent write race", () => {
   test("a write interleaved with a running rotation wins — rotation's stale update is rejected, not silently applied", async () => {
     const seeded = await readRow();
     expect(JSON.parse(seeded.value as string).kekVersion).toBe(1);

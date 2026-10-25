@@ -45,7 +45,7 @@ function inputs(container: Element): { date: HTMLInputElement; time: HTMLInputEl
 }
 
 describe("Input kind=locatedTimestamp", () => {
-  test("Datum + Uhrzeit tippen → { at: Wall-Clock, tz }, passend zum local-Schema", () => {
+  test("Enter date + time → { at: Wall-Clock, tz }, matching the local schema", () => {
     let last: { at: string; tz: string } | undefined;
     const view = render(
       <ControlledLocated initial={{ at: "", tz: "Europe/Lisbon" }} onEmit={(v) => (last = v)} />,
@@ -64,7 +64,7 @@ describe("Input kind=locatedTimestamp", () => {
     expect(last.at).not.toContain("+");
   });
 
-  test("READ-Wert mit Sekunden wird angezeigt + offset-frei re-emittiert", () => {
+  test("READ value with seconds is displayed and re-emitted without an offset", () => {
     let last: { at: string; tz: string } | undefined;
     const view = render(
       <ControlledLocated
@@ -82,7 +82,7 @@ describe("Input kind=locatedTimestamp", () => {
     expect(atSchema.safeParse(last.at).success).toBe(true);
   });
 
-  test("kein Input → noch kein onChange (Sanity, Startwert bleibt Sentinel)", () => {
+  test("no input → no onChange yet (sanity check, initial value remains sentinel)", () => {
     let last: { at: string; tz: string } | undefined | "sentinel" = "sentinel";
     render(<ControlledLocated initial="" onEmit={(v) => (last = v)} />);
     expect(last).toBe("sentinel");

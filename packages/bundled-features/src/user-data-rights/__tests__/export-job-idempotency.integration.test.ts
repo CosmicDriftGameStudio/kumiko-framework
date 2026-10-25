@@ -106,7 +106,7 @@ async function insertJob(
 }
 
 describe("ExportJob :: Partial-UNIQUE-Index", () => {
-  test("zwei pending-Jobs fuer denselben User → DB lehnt zweiten ab", async () => {
+  test("two pending jobs for the same user → DB rejects the second", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
     await expectUniqueViolation(
@@ -118,7 +118,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(1);
   });
 
-  test("pending + running fuer denselben User → DB lehnt running ab", async () => {
+  test("pending + running for the same user → DB rejects running", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
     // The other active status (running) is also blocked because the index covers
@@ -132,7 +132,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(1);
   });
 
-  test("pending fuer User A + pending fuer User B → beide erlaubt (per-User-scoped)", async () => {
+  test("pending for User A + pending for User B → both allowed (per-user-scoped)", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     await insertJob(BOB_ID, EXPORT_JOB_STATUS.Pending);
 
@@ -140,7 +140,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("done + neuer pending fuer denselben User → erlaubt (Done ausserhalb des Index-Filters)", async () => {
+  test("done + new pending for the same user → allowed (Done outside the index filter)", async () => {
     // Erster Job done (Audit-Historie)
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
     // A second pending job for the same user represents a new request after
@@ -151,7 +151,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("failed + neuer pending fuer denselben User → erlaubt (Retry-Pfad)", async () => {
+  test("failed + new pending for the same user → allowed (retry path)", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Failed);
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
@@ -159,7 +159,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("zwei done-Jobs fuer denselben User → erlaubt (Audit-Historie)", async () => {
+  test("two done jobs for the same user → allowed (audit history)", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
 
@@ -167,7 +167,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
+  test("Lifecycle: pending → running blocks further pending inserts; after running → done, another pending insert is allowed", async () => {
     const runningJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running);
 
     // A pending insert fails because a running job is also included in the index filter.
@@ -192,7 +192,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
 });
 
 describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
-  test("bytesWritten >2^31 schreibt + liest identisch zurueck", async () => {
+  test("bytesWritten >2^31 writes + reads back identically", async () => {
     const TWO_GB_PLUS = 3_000_000_000; // ~2.8 GB, well above the integer limit
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: TWO_GB_PLUS,
@@ -205,7 +205,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
     expect(row?.bytesWritten).toBe(TWO_GB_PLUS);
   });
 
-  test("bytesWritten 2^50 (~1 PB) schreibt + liest identisch zurueck", async () => {
+  test("bytesWritten 2^50 (~1 PB) writes + reads back identically", async () => {
     const ONE_PB_PLUS = 2 ** 50;
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: ONE_PB_PLUS,
@@ -218,7 +218,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
     expect(row?.bytesWritten).toBe(ONE_PB_PLUS);
   });
 
-  test("bytesWritten als raw-SQL geprueft → DB-Spalte ist tatsaechlich BIGINT", async () => {
+  test("bytesWritten checked via raw SQL → DB column is actually BIGINT", async () => {
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: 1,
     });

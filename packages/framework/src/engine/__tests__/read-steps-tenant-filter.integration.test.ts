@@ -147,7 +147,7 @@ const readStepsTenantFilterFeature = defineFeature("read-steps-tenant-filter", (
 const admin = TestUsers.admin;
 const otherTenant = TestUsers.otherTenant;
 
-describe("r.step.read.findOne/findMany tenant-filtering (fw#2914)", () => {
+describe("r.step.read.findOne/findMany tenant-filtering", () => {
   let stack: TestStack;
   const events: EscapeHatchUseEvent[] = [];
   let adminRowId: string;

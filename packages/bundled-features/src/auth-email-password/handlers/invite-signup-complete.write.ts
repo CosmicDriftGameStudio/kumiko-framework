@@ -33,7 +33,7 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptStoredPii, registrationLocaleFromRequest } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import invite-flow
+// kumiko-lint-ignore cross-feature-import the handler loads the pending invitation and marks it accepted
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -48,7 +48,7 @@ import {
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
 import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.ts";
-// kumiko-lint-ignore cross-feature-import existence-check
+// kumiko-lint-ignore cross-feature-import the handler rejects an invitation whose email already has a user row
 import { userTable } from "../../user/schema/user.ts";
 import { invalidInviteToken } from "../errors.ts";
 import {

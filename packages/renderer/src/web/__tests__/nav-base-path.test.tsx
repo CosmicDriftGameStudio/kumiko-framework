@@ -68,7 +68,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("route-defined").textContent).toBe("in");
   });
 
-  test("Read: URL '/admin' (genau basePath) → in-app route undefined (Root, kein screen)", () => {
+  test("Read: URL '/admin' (exact basePath) → in-app route undefined (Root, no screen)", () => {
     window.history.replaceState(null, "", "/admin");
     render(
       <AdminBrowserNav>
@@ -81,7 +81,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
   });
 
-  test("Read: URL '/marketing/foo' (außerhalb basePath) → route=undefined, App rendert Out-State", () => {
+  test("Read: URL '/marketing/foo' (outside basePath) → route=undefined, App renders Out-State", () => {
     window.history.replaceState(null, "", "/marketing/foo");
     render(
       <AdminBrowserNav>
@@ -105,7 +105,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
   });
 
-  test("Write: navigate mit entityId → '/admin/task-edit/xyz'", () => {
+  test("Write: navigate with entityId → '/admin/task-edit/xyz'", () => {
     render(
       <AdminBrowserNav>
         <Probe />
@@ -119,7 +119,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("entity-id").textContent).toBe("xyz");
   });
 
-  test("Write: replace verhält sich symmetrisch", () => {
+  test("Write: replace behaves symmetrically", () => {
     render(
       <AdminBrowserNav>
         <Probe />
@@ -131,7 +131,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(window.location.pathname).toBe("/admin/task-list");
   });
 
-  test("hrefFor: KumikoLink rendert Anchor mit prepended basePath", () => {
+  test("hrefFor: KumikoLink renders an anchor with prepended basePath", () => {
     render(
       <AdminBrowserNav>
         <KumikoLink to={{ screenId: "task-list" }}>Liste</KumikoLink>
@@ -141,7 +141,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(anchor.getAttribute("href")).toBe("/admin/task-list");
   });
 
-  test("hrefFor in Probe: in-app route → mit basePath prefix", () => {
+  test("hrefFor in Probe: in-app route → with basePath prefix", () => {
     render(
       <AdminBrowserNav>
         <Probe />
@@ -150,7 +150,7 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
     expect(screen.getByTestId("href-list").textContent).toBe("/admin/task-list");
   });
 
-  test("Round-trip: aus '/admin/task-edit/xyz' navigate zu '/task-list' → '/admin/task-list'", () => {
+  test("Round-trip: navigate from '/admin/task-edit/xyz' to '/task-list' → '/admin/task-list'", () => {
     window.history.replaceState(null, "", "/admin/task-edit/xyz");
     render(
       <AdminBrowserNav>
@@ -172,7 +172,7 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  test("basePath mit trailing slash wird normalisiert", () => {
+  test("basePath with trailing slash is normalized", () => {
     function NavWithTrailing({ children }: { readonly children: ReactNode }): ReactNode {
       const api = useBrowserNavApi({ basePath: "/admin/" });
       return <NavProvider value={api}>{children}</NavProvider>;
@@ -186,7 +186,7 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
   });
 
-  test("basePath ohne leading slash wird normalisiert", () => {
+  test("basePath without leading slash is normalized", () => {
     function NavWithoutLeading({ children }: { readonly children: ReactNode }): ReactNode {
       const api = useBrowserNavApi({ basePath: "admin" });
       return <NavProvider value={api}>{children}</NavProvider>;
@@ -200,7 +200,7 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
   });
 
-  test("basePath='/' verhält sich wie kein basePath", () => {
+  test("basePath='/' behaves like no basePath", () => {
     function NavWithRoot({ children }: { readonly children: ReactNode }): ReactNode {
       const api = useBrowserNavApi({ basePath: "/" });
       return <NavProvider value={api}>{children}</NavProvider>;
@@ -218,7 +218,7 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
     expect(window.location.pathname).toBe("/task-edit/xyz");
   });
 
-  test("Prefix-aber-nicht-Match: '/administrator' MATCHT NICHT '/admin'", () => {
+  test("Prefix but not a match: '/administrator' does NOT MATCH '/admin'", () => {
     // /administrator starts with 'admin' but not with '/admin/' —
     // the strict segment boundary prevents false positives like this.
     window.history.replaceState(null, "", "/administrator/dashboard");
@@ -236,7 +236,7 @@ describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () =>
     window.history.replaceState(null, "", "/");
   });
 
-  test("popstate (Browser-Back) re-rendert mit gestrippter Route", () => {
+  test("popstate (Browser Back) re-renders with stripped route", () => {
     render(
       <AdminBrowserNav>
         <Probe />
@@ -257,7 +257,7 @@ describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () =>
     expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
   });
 
-  test("popstate aus dem App-Bereich raus → route wird out-of-app", () => {
+  test("popstate leaving the app area → route becomes out-of-app", () => {
     window.history.replaceState(null, "", "/admin/task-list");
     render(
       <AdminBrowserNav>
@@ -274,7 +274,7 @@ describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () =>
   });
 });
 
-describe("useBrowserNavApi({ basePath }) — searchParams-Orthogonalität", () => {
+describe("useBrowserNavApi({ basePath }) — searchParams orthogonality", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
   });
@@ -295,7 +295,7 @@ describe("useBrowserNavApi({ basePath }) — searchParams-Orthogonalität", () =
     );
   }
 
-  test("Read: ?filter=open unter '/admin/task-list' wird gelesen, nicht von basePath berührt", () => {
+  test("Read: ?filter=open under '/admin/task-list' is read, not affected by basePath", () => {
     window.history.replaceState(null, "", "/admin/task-list?filter=open");
     render(
       <AdminBrowserNav>
@@ -305,7 +305,7 @@ describe("useBrowserNavApi({ basePath }) — searchParams-Orthogonalität", () =
     expect(screen.getByTestId("filter").textContent).toBe("open");
   });
 
-  test("Write: setSearchParams behält basePath im URL-Pfad", () => {
+  test("Write: setSearchParams keeps basePath in the URL path", () => {
     window.history.replaceState(null, "", "/admin/task-list");
     render(
       <AdminBrowserNav>
@@ -362,7 +362,7 @@ describe("useBrowserNavApi({ basePath, hasWorkspaces })", () => {
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
   });
 
-  test("Write: hrefFor mit Workspace-Target prepend'd basePath VOR die Workspace-id", () => {
+  test("Write: hrefFor with Workspace target prepends basePath BEFORE the Workspace id", () => {
     render(
       <WorkspaceAdminNav>
         <WorkspaceProbe />
@@ -371,7 +371,7 @@ describe("useBrowserNavApi({ basePath, hasWorkspaces })", () => {
     expect(screen.getByTestId("href-dispatch").textContent).toBe("/admin/dispatch/task-list");
   });
 
-  test("Write: navigate mit Workspace-Target landet auf '/admin/dispatch/task-list'", () => {
+  test("Write: navigate with Workspace target lands on '/admin/dispatch/task-list'", () => {
     render(
       <WorkspaceAdminNav>
         <WorkspaceProbe />

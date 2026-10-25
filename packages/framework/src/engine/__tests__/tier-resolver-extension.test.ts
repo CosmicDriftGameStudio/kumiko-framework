@@ -31,12 +31,12 @@ describe("findTierResolverUsage", () => {
     expect(usage?.extensionName).toBe(TENANT_TIER_RESOLVER_EXT);
   });
 
-  test("findet die Usage auch wenn sie nicht im ersten Feature liegt", () => {
+  test("finds the usage even when it is not in the first feature", () => {
     const usage = findTierResolverUsage([plainFeature("a"), tierResolverFeature("tier-stub")]);
     expect(usage?.extensionName).toBe(TENANT_TIER_RESOLVER_EXT);
   });
 
-  test("returnt undefined wenn keine Feature die Extension nutzt", () => {
+  test("returns undefined when no feature uses the extension", () => {
     expect(findTierResolverUsage([plainFeature("a"), plainFeature("b")])).toBeUndefined();
   });
 
@@ -49,7 +49,7 @@ describe("findTierResolverUsage", () => {
     expect(findTierResolverUsage([other])).toBeUndefined();
   });
 
-  test("leere Feature-Liste → undefined", () => {
+  test("empty feature list → undefined", () => {
     expect(findTierResolverUsage([])).toBeUndefined();
   });
 });

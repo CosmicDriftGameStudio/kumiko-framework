@@ -1,5 +1,5 @@
-// System-Infos für die Sidebar — Versionen, Git, Workspace-Detection.
-// Async wo nötig (git), sync sonst (process.versions, package.json).
+// System information for the sidebar — versions, Git, workspace detection.
+// Async where needed (git), sync otherwise (process.versions, package.json).
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
@@ -14,8 +14,8 @@ export type SystemInfo = {
   readonly featureCount: number;
 };
 
-// Liest die kumiko-framework Version aus dem TOP-LEVEL package.json.
-// Das script lebt in `bin/kumiko.ts`, also bin/ → ".." = repo-root.
+// Reads the kumiko-framework version from the TOP-LEVEL package.json.
+// The script lives in `bin/kumiko.ts`, so bin/ → ".." = repo-root.
 const FRAMEWORK_ROOT = resolvePath(import.meta.dir, "..", "..");
 
 export function collectSystemInfo(): SystemInfo {
@@ -59,8 +59,8 @@ function gitDirty(): boolean {
 }
 
 function countBundledFeatures(): number {
-  // Sprint A heuristic: zählt die direct subdirectories unter
-  // packages/bundled-features/src. Sprint B liest aus der Registry.
+  // Sprint A heuristic: counts the direct subdirectories under
+  // packages/bundled-features/src. Sprint B reads from the Registry.
   const bf = join(FRAMEWORK_ROOT, "packages/bundled-features/src");
   if (!existsSync(bf)) return 0;
   try {

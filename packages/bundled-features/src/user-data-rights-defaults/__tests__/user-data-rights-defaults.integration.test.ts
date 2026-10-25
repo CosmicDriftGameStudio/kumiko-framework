@@ -253,13 +253,13 @@ async function fetchFileRefs(tenantId: string, insertedById?: string | null) {
 }
 
 describe("user-data-rights-defaults :: feature loads", () => {
-  test("Boot ist clean (5 features in der requires-Chain)", () => {
+  test("Boot is clean (5 features in the requires-Chain)", () => {
     expect(stack).toBeDefined();
   });
 });
 
 describe("S2.H1 :: userExportHook", () => {
-  test("liefert Profil-JSON ohne passwordHash + roles (PII-Check)", async () => {
+  test("returns profile JSON without passwordHash + roles (PII check)", async () => {
     await seedUser(uuid(1001), { displayName: "Marc" });
 
     const result = await userExportHook({
@@ -282,7 +282,7 @@ describe("S2.H1 :: userExportHook", () => {
     expect(profile?.["status"]).toBeUndefined();
   });
 
-  test("returns null wenn User nicht existiert", async () => {
+  test("returns null when user does not exist", async () => {
     const result = await userExportHook({
       db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
@@ -318,7 +318,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     expect(row.deleted_at).not.toBeNull(); // softDelete-Timestamp gesetzt
   });
 
-  test('strategy="anonymize" → email/displayName anonymisiert aber status bleibt active', async () => {
+  test('strategy="anonymize" → email/displayName anonymized but status remains active', async () => {
     await seedUser(uuid(1004));
 
     await userDeleteHook(
@@ -339,7 +339,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     expect(row.deleted_at).toBeNull(); // no soft delete
   });
 
-  test("idempotent: zweiter delete-Call crasht nicht UND State bleibt korrekt deleted", async () => {
+  test("idempotent: second delete call does not crash and state remains correctly deleted", async () => {
     await seedUser(uuid(1005));
 
     await userDeleteHook(
@@ -379,7 +379,7 @@ describe("S2.H1 :: userDeleteHook", () => {
 });
 
 describe("S2.H2 :: fileRefExportHook", () => {
-  test("liefert FileRef-Metadata + signed-URL-Liste fuer Sprint-2.U3 ZIP-Bau", async () => {
+  test("returns FileRef metadata + signed-URL list for ZIP creation", async () => {
     await seedFileRef(uuid(101), TENANT_A, "user-files-1", "lebenslauf.pdf");
     await seedFileRef(uuid(102), TENANT_A, "user-files-1", "anschreiben.pdf");
 
@@ -397,7 +397,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
     expect(names).toEqual(["anschreiben.pdf", "lebenslauf.pdf"]);
   });
 
-  test("returns null wenn User keine Files hat", async () => {
+  test("returns null when user has no files", async () => {
     const result = await fileRefExportHook({
       db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
@@ -409,7 +409,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
 });
 
 describe("S2.H2 :: fileRefDeleteHook", () => {
-  test('strategy="delete" → FileRef-Rows fuer User in Tenant weg', async () => {
+  test('strategy="delete" → FileRef rows for the user in the tenant are removed', async () => {
     await seedFileRef(uuid(201), TENANT_A, "user-delete-files", "f1.pdf");
     await seedFileRef(uuid(202), TENANT_A, "user-delete-files", "f2.pdf");
 
@@ -448,7 +448,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     expect(file.inserted_by_id).toBeNull();
   });
 
-  test("Cross-Tenant-Isolation: Tenant A's Forget beruehrt Tenant B's Files nicht (User-explicit)", async () => {
+  test("Cross-tenant isolation: Tenant A's Forget does not affect Tenant B's files (explicit user)", async () => {
     await seedFileRef(uuid(301), TENANT_A, "shared-user", "tenantA.pdf");
     await seedFileRef(uuid(302), TENANT_B, "shared-user", "tenantB.pdf");
 
@@ -471,7 +471,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     expect(bRemaining[0]?.file_name).toBe("tenantB.pdf");
   });
 
-  test("idempotent: zweiter delete-Call crasht nicht UND DB-State bleibt 0 Files", async () => {
+  test("idempotent: second delete call does not crash and database state remains at 0 files", async () => {
     await seedFileRef(uuid(401), TENANT_A, "user-idem-files", "f.pdf");
 
     await fileRefDeleteHook(
@@ -503,7 +503,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
   });
 });
 
-describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", () => {
+describe("fileRefDeleteHook — per-row PII decision", () => {
   test('strategy="delete" — field explicitly non-personal (dealer business data): binary + row survive, insertedById=null', async () => {
     const userId = "user-dealer-photo";
     await seedFileRefWithField(
@@ -723,7 +723,7 @@ describe("S2.H2 :: fileRefDeleteHook — remaining personal-annotation branches"
   });
 });
 
-describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue #2461)", () => {
+describe("fileRefDeleteHook — GDPR derivatives survive forget", () => {
   async function seedFileRefWithKey(
     id: string,
     tenantId: string,

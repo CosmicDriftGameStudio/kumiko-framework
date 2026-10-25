@@ -87,7 +87,7 @@ mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kum
 // The provider fetches → fetch is mocked.
 
 describe("textBlocksClient — shape", () => {
-  test("ohne navId: kein navProvider/navEntities (no-leak), aber Resolver bleibt", () => {
+  test("without navId: no navProvider/navEntities (no leak), but the resolver remains", () => {
     const def = textBlocksClient();
     expect(def.name).toBe("template-resolver");
     expect(def.navProviders).toBeUndefined();
@@ -95,7 +95,7 @@ describe("textBlocksClient — shape", () => {
     expect(def.resolvers?.["template-resolver:edit"]).toBeDefined();
   });
 
-  test("mit navId: Provider + SSE-Entities unter exakt dieser QN", () => {
+  test("with navId: provider + SSE entities under exactly this QN", () => {
     const navId = "publicstatus:nav:content";
     const def = textBlocksClient({ navId });
     expect(Object.keys(def.navProviders ?? {})).toEqual([navId]);
@@ -103,13 +103,13 @@ describe("textBlocksClient — shape", () => {
   });
 });
 
-describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
+describe("textBlocksClient — Provider unwraps the content container", () => {
   const origFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = origFetch;
   });
 
-  test("emittiert Folder/Leaves direkt, kein 'Content'-Wrapper-Knoten", async () => {
+  test("emits Folder/Leaves directly, with no 'Content' wrapper node", async () => {
     const blocks = [
       {
         slug: "imprint",

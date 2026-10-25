@@ -38,7 +38,7 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {
 }
 
 describe("MfaDisableDialog", () => {
-  test("sechs Ziffern lösen keinen Auto-Submit aus; Bestätigen sendet den Code", async () => {
+  test("Six digits do not trigger auto-submit; Confirm sends the code", async () => {
     const calls: WriteCall[] = [];
     renderWith(
       <MfaDisableDialog open onOpenChange={() => {}} onDisabled={() => {}} onError={() => {}} />,
@@ -57,7 +57,7 @@ describe("MfaDisableDialog", () => {
     expect(calls[0]?.payload).toEqual({ code: "123456" });
   });
 
-  test("Umschalter wechselt auf ein Recovery-Code-Textfeld und zurück", () => {
+  test("Toggle switches to a recovery-code text field and back", () => {
     renderWith(
       <MfaDisableDialog open onOpenChange={() => {}} onDisabled={() => {}} onError={() => {}} />,
       makeDispatcher([]),
@@ -92,7 +92,7 @@ function ReopenableDisableDialog(): ReactNode {
 }
 
 describe("MfaDisableDialog reopening", () => {
-  test("nach Cancel und erneutem Öffnen ist der Code-Modus aktiv", async () => {
+  test("After Cancel and reopening, code mode is active", async () => {
     renderWith(<ReopenableDisableDialog />, makeDispatcher([]));
 
     fireEvent.click(screen.getByRole("button", { name: "Use a recovery code instead" }));
@@ -110,7 +110,7 @@ describe("MfaDisableDialog reopening", () => {
 });
 
 describe("MfaRegenerateRecoveryDialog", () => {
-  test("Umschalter: Recovery-Code wird unverändert gesendet", async () => {
+  test("Toggle: recovery code is sent unchanged", async () => {
     const calls: WriteCall[] = [];
     renderWith(
       <MfaRegenerateRecoveryDialog
@@ -132,7 +132,7 @@ describe("MfaRegenerateRecoveryDialog", () => {
     expect(calls[0]?.payload).toEqual({ code: "ABCD-EFGH" });
   });
 
-  test("Code-Feld ist fokussiert und sendet erst nach Bestätigen", async () => {
+  test("Code field is focused and sends only after confirming", async () => {
     const calls: WriteCall[] = [];
     renderWith(
       <MfaRegenerateRecoveryDialog

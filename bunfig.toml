@@ -7,28 +7,28 @@ linker = "hoisted"
 [test]
 # Unit-test default: polyfill-only preload (no service-URL env, no DOM).
 # Integration runs pull service defaults via bunfig.integration.toml →
-# preload/env. DOM/render tests (*.test.tsx) laufen über
-# bunfig.dom.toml (Issue #1330) — hier wird happy-dom nicht mehr geladen.
+# preload/env. DOM/render tests (*.test.tsx) run via
+# bunfig.dom.toml — happy-dom is not loaded here.
 preload = [
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
 ]
 
-# *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
-# sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
-# (siehe "Playwright Test did not expect test() to be called here").
+# *.spec.ts belongs to Playwright (e2e/ folder). Otherwise bun test tries to
+# load it and crashes because Playwright expects its own test() globals
+# (see "Playwright Test did not expect test() to be called here").
 pathIgnorePatterns = [
   "**/*.integration.test.ts",
-  # *.test.tsx brauchen happy-dom → eigener Lauf via bunfig.dom.toml
-  # (`bun run test:dom`). Hier raus, damit der node-only Default kein
-  # window-Global mehr unterlegt bekommt.
+  # *.test.tsx needs happy-dom → separate run via bunfig.dom.toml
+  # (`bun run test:dom`). Excluded here so the node-only default gets no
+  # window global.
   "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",
-  # dist/ enthält compiled .js mit denselben Test-Namen wie src/ —
-  # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
-  # ephemerale DBs, sieht aus wie flaky-Tests).
+  # dist/ holds compiled .js with the same test names as src/ —
+  # without this exclude bun test scans BOTH copies (duplicates fight over
+  # ephemeral DBs and look like flaky tests).
   "**/dist/**",
 ]
 

@@ -106,7 +106,7 @@ function renderMoneyField(
   return captured;
 }
 
-describe("RenderField money round-trip (kumiko-framework#1923)", () => {
+describe("RenderField money round-trip", () => {
   test("create: untouched required field, buildInitialValues default validates against buildInsertSchema", () => {
     const entity = buildEntity("USD");
     // Same default shape kumiko-screen.tsx's buildInitialValues produces
@@ -191,7 +191,7 @@ describe("RenderField money round-trip (kumiko-framework#1923)", () => {
     expect(result.data?.["price"]).toEqual({ amount: 500, currency: "JPY" });
   });
 
-  test("record currency differs from entity.defaultCurrency (#1930)", () => {
+  test("record currency differs from entity.defaultCurrency", () => {
     const entity = buildEntity("EUR");
     let payload: unknown;
     const field = renderMoneyField(entity, { price: { amount: 500, currency: "JPY" } }, (v) => {

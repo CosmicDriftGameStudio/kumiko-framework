@@ -33,7 +33,7 @@ describe("toStoredEvent", () => {
     expect(toStoredEvent(row).id).toBe("42");
   });
 
-  test("mappt jedes Feld werttreu durch", () => {
+  test("maps every field faithfully", () => {
     const ev = toStoredEvent(row);
     expect(ev.aggregateId).toBe("agg-1");
     expect(ev.aggregateType).toBe("credit");
@@ -47,7 +47,7 @@ describe("toStoredEvent", () => {
     expect(ev.createdBy).toBe("user-1");
   });
 
-  test("Feld-Vollständigkeit: das Mapping deckt genau die StoredEvent-Keys ab", () => {
+  test("Field completeness: the mapping covers exactly the StoredEvent keys", () => {
     // Guards required fields staying in sync with StoredEvent (event-store.ts);
     // optional fields consistently omitted on both sides must be added manually.
     const expectedKeys: ReadonlyArray<keyof StoredEvent> = [

@@ -270,7 +270,7 @@ describe("event-dispatcher — isolation between consumers", () => {
   });
 });
 
-describe("getAllConsumerProgress — Ops-View für consumer lag", () => {
+describe("getAllConsumerProgress — ops view for consumer lag", () => {
   test("lag = highWaterMark - cursor pro consumer, caught-up = 0n", async () => {
     // State after normal processing has caught up.
     await appendWidget("one");

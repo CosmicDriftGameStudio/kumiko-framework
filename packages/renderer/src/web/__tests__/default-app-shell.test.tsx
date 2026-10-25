@@ -41,7 +41,7 @@ function makeSchema(): FeatureSchema {
 }
 
 describe("DefaultAppShell user-prop forwarding", () => {
-  test("OHNE user-prop → role-gated nav unsichtbar (= prod-bug-vor-fix)", () => {
+  test("without user-prop → role-gated nav is invisible (the prod bug before the fix)", () => {
     render(
       <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
         <div>content</div>
@@ -67,7 +67,7 @@ describe("DefaultAppShell user-prop forwarding", () => {
 });
 
 describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
-  test("headerActions rendern rechtsbündig im Topbar-Header", () => {
+  test("headerActions render right-aligned in the topbar header", () => {
     render(
       <DefaultAppShell
         brand={<span>Brand</span>}
@@ -83,7 +83,7 @@ describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
     expect(slot?.textContent).toBe("Theme");
   });
 
-  test("ohne headerActions → kein Slot (keine leere Zelle)", () => {
+  test("without headerActions → no slot (no empty cell)", () => {
     render(
       <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
         <div>content</div>
@@ -96,7 +96,7 @@ describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
 // DefaultAppShell threads `user.roles` into a UserRolesProvider around
 // children — KumikoScreen reads that to gate role-restricted
 // screens at render time, not just in nav.
-describe("DefaultAppShell wires user.roles into children for screen-level access (#1203)", () => {
+describe("DefaultAppShell wires user.roles into children for screen-level access", () => {
   const restrictedScreen: EntityListScreenDefinition = {
     id: "restricted",
     type: "entityList",

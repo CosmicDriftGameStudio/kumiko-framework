@@ -1141,7 +1141,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     }
   });
 
-  test("multi-tenant: fileRefs aus 2 Tenants → 2 separate Provider-Builds (cache-invariant)", async () => {
+  test("multi-tenant: fileRefs from 2 tenants → 2 separate Provider builds (cache-invariant)", async () => {
     const tenantB = testTenantId(2);
     await seedMembership(tenantA, aliceUser.id);
     await seedMembership(tenantB, aliceUser.id);
@@ -1347,7 +1347,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(row?.status).toBe("done");
   });
 
-  test("Atom 5.fix3 best-effort: callback-Throw fuer Job A killt Batch NICHT — Job B trotzdem verarbeitet", async () => {
+  test("best-effort: callback throws for Job A does NOT kill batch — Job B still processed", async () => {
     // If sendExportReadyEmail throws, the batch must continue. Job A's status is
     // already committed as done, so a retry finds no pending jobs; without
     // continuation, the failure would be silent and the ZIP would expire

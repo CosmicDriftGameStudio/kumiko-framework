@@ -12,39 +12,39 @@ function now() {
 }
 
 describe("computeCutoff", () => {
-  test("30d → 30 Tage zurück", () => {
+  test("30d → 30 days ago", () => {
     const cutoff = computeCutoff("30d", now());
     expect(cutoff.toString()).toBe("2026-04-07T12:00:00Z");
   });
 
-  test("24h → 24 Stunden zurück", () => {
+  test("24h → 24 hours ago", () => {
     const cutoff = computeCutoff("24h", now());
     expect(cutoff.toString()).toBe("2026-05-06T12:00:00Z");
   });
 
-  test("1w → 7 Tage zurück", () => {
+  test("1w → 7 days ago", () => {
     const cutoff = computeCutoff("1w", now());
     expect(cutoff.toString()).toBe("2026-04-30T12:00:00Z");
   });
 
-  test("6m → 180 Tage zurück (Approximation)", () => {
+  test("6m → 180 days ago (approximation)", () => {
     const cutoff = computeCutoff("6m", now());
     expect(cutoff.toString()).toBe("2025-11-08T12:00:00Z");
   });
 
-  test("10y → 3650 Tage zurück", () => {
+  test("10y → 3650 days ago", () => {
     const cutoff = computeCutoff("10y", now());
     // Approximation: 10×365=3650 days. Leap years cause a difference of ~2–3 days,
     // which is acceptable for retention cleanup.
     expect(cutoff.toString()).toBe("2016-05-09T12:00:00Z");
   });
 
-  test("0d → now (Edge-Case, akzeptiert)", () => {
+  test("0d → now (edge case, accepted)", () => {
     const cutoff = computeCutoff("0d", now());
     expect(cutoff.toString()).toBe(now().toString());
   });
 
-  test("invalid format wirft InvalidKeepForError", () => {
+  test("Invalid format throws InvalidKeepForError", () => {
     expect(() => computeCutoff("30days", now())).toThrow(InvalidKeepForError);
     expect(() => computeCutoff("abc", now())).toThrow(InvalidKeepForError);
     expect(() => computeCutoff("", now())).toThrow(InvalidKeepForError);
@@ -58,7 +58,7 @@ describe("isPastCutoff", () => {
     expect(isPastCutoff({ referenceTimestamp: past, keepFor: "30d", now: now() })).toBe(true);
   });
 
-  test("Row 29 Tage alt + keepFor 30d → noch nicht abgelaufen (false)", () => {
+  test("Row 29 days old + keepFor 30d → not yet expired (false)", () => {
     const recent = now().subtract({ hours: 29 * 24 });
     expect(isPastCutoff({ referenceTimestamp: recent, keepFor: "30d", now: now() })).toBe(false);
   });

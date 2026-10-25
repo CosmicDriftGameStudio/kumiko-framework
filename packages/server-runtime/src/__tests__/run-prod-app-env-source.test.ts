@@ -58,7 +58,7 @@ describe("runProdApp boot-mode env-source", () => {
     await handle.stop();
   });
 
-  test("boot-mode constructs no eager Redis client — kein TCP-Connect auf REDIS_URL", async () => {
+  test("boot-mode constructs no eager Redis client, making no TCP connection to REDIS_URL", async () => {
     // Core guarantee, verified through the network rather than a constructor spy:
     // REDIS_URL points to a local listener — `new Redis(...)` connects eagerly,
     // so boot must exit first; otherwise the listener would count a connection.

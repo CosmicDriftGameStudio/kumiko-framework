@@ -105,7 +105,7 @@ beforeEach(async () => {
   );
 });
 
-describe("Issue #1038 — ctx.events.tryAppend", () => {
+describe("ctx.events.tryAppend", () => {
   test("happy path: first append on a fresh aggregate returns { ok: true, event }", async () => {
     const aggregateId = crypto.randomUUID();
 

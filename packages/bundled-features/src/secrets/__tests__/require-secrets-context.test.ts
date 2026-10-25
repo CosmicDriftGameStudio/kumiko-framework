@@ -26,7 +26,7 @@ function makeRawSecretsContext(): SecretsContext {
 }
 
 describe("requireSecretsContext :: FileProviderContext surface", () => {
-  test("succeeds with secrets + auditUserId present (Worker-Pfad mit SYSTEM_USER_ID)", () => {
+  test("succeeds with secrets + auditUserId present (worker path with SYSTEM_USER_ID)", () => {
     const fileProviderCtx = {
       secrets: makeRawSecretsContext(),
       auditUserId: SYSTEM_USER_ID,

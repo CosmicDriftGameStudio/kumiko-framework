@@ -110,7 +110,7 @@ describe("TextContentEditor — role-based write-access", () => {
     expect(screen.queryByRole("button", { name: /^speichern/i })).toBeNull();
   });
 
-  test("Admin-Role (publicstatus-Convention, ohne TenantAdmin-dual-Tag) sieht Read-only-Banner", () => {
+  test("Admin role (publicstatus convention, without TenantAdmin dual tag) sees Read-only banner", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Admin"] });
     const Editor = getEditor();
@@ -132,7 +132,7 @@ describe("TextContentEditor — role-based write-access", () => {
 });
 
 describe("TextContentEditor — en locale", () => {
-  test("TenantAdmin sieht englische Labels statt hartcodiertem Deutsch (#1754)", () => {
+  test("TenantAdmin sees English labels instead of hardcoded German", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
     const Editor = getEditor();
@@ -145,7 +145,7 @@ describe("TextContentEditor — en locale", () => {
 });
 
 describe("TextContentEditor — handleSave", () => {
-  test("reicht das geladene folder unverändert an den Write-Payload durch (#898)", async () => {
+  test("passes the loaded folder through unchanged to the write payload", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
     const write = mock(() => Promise.resolve({ isSuccess: true, data: { isNew: false } }));
@@ -169,7 +169,7 @@ describe("TextContentEditor — handleSave", () => {
   // always undefined here — the write payload must fall back to the loaded
   // entry's own contentFormat ("plain") instead of silently defaulting to
   // "markdown" via the write schema's contentFormatSchema.default("markdown").
-  test("sendet das geladene contentFormat unverändert mit, statt es auf markdown zu defaulten", async () => {
+  test("sends the loaded contentFormat unchanged instead of defaulting it to markdown", async () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
     const write = mock(() => Promise.resolve({ isSuccess: true, data: { isNew: false } }));

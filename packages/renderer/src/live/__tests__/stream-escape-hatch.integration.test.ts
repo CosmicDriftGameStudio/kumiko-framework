@@ -232,7 +232,7 @@ describe("ctx.db.unsafeRaw() from a stream handler — gated by the handler's ow
   });
 });
 
-describe("ctx.dispatch.queryAs(nonSystemUser, ...) from a stream handler — gated like write/query (fw#2876)", () => {
+describe("ctx.dispatch.queryAs(nonSystemUser, ...) from a stream handler — gated like write/query", () => {
   test("WITHOUT escapeHatch: a foreign user fails with identity_switch_denied", async () => {
     const dispatcher = await buildDispatcherFor(user);
     let thrown: unknown;

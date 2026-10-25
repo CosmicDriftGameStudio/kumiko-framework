@@ -162,7 +162,7 @@ function requireAction(id: string): DataTableRowAction {
   return action;
 }
 
-describe("entityList navigate row-action with an entity-target (fw#2228)", () => {
+describe("entityList navigate row-action with an entity-target", () => {
   test("clicking the row action calls nav.navigate with { entity, id }, not a screenId", async () => {
     capturedRowActions = undefined;
     const navigateCalls: NavTarget[] = [];
@@ -267,7 +267,7 @@ function renderProjectionListScreen(
   );
 }
 
-describe("projectionList navigate row-action with an entity-target (fw#2228)", () => {
+describe("projectionList navigate row-action with an entity-target", () => {
   test("entity-target with entityId calls nav.navigate with { entity, id } and forwards params via setSearchParams", async () => {
     capturedRowActions = undefined;
     const navigateCalls: NavTarget[] = [];
@@ -401,7 +401,7 @@ function renderProjectionDetailScreen(
   );
 }
 
-describe("projectionDetail navigate action with an entity-target (fw#2228)", () => {
+describe("projectionDetail navigate action with an entity-target", () => {
   test("entity-target with entityId calls nav.navigate with { entity, id } and forwards params via setSearchParams", async () => {
     const navigateCalls: NavTarget[] = [];
     const searchParamsCalls: Record<string, string | null>[] = [];

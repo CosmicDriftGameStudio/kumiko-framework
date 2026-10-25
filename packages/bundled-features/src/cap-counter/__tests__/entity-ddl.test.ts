@@ -8,7 +8,7 @@ function pgTypeOf(table: unknown, dbName: string): string | undefined {
   return cols?.find((c) => c.name === dbName)?.pgType;
 }
 
-describe("capCounterEntity — DDL (#1205 regression)", () => {
+describe("capCounterEntity — DDL", () => {
   test("value column is bigint, not double precision", () => {
     const table = buildEntityTable("cap-counter", capCounterEntity);
     expect(pgTypeOf(table, "value")).toBe("bigint");

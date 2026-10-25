@@ -59,7 +59,7 @@ export function RefinanceCreditCard() { return <div />; }`,
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
-  describe("raw form HTML (infra#748)", () => {
+  describe("raw form HTML", () => {
     test("flags <input> when the file imports from kumiko-renderer/web", () => {
       const sf = parse(
         `import { Field } from "@cosmicdrift/kumiko-renderer/web";
@@ -115,7 +115,7 @@ export function ProposalPanel() {
       expect(violations[0]?.message).toContain("raw form HTML");
     });
 
-    test("flags raw form HTML when only kumiko-renderer (types) instead of -renderer-web is imported — the designer gap (infra#748 follow-up)", () => {
+    test("flags raw form HTML when only kumiko-renderer (types) instead of -renderer-web is imported — the designer gap", () => {
       const sf = parse(
         `import type { FormFieldSpec } from "@cosmicdrift/kumiko-framework/engine";
 export function PatternForm() { return <input value="x" />; }`,

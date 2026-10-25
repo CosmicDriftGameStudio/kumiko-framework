@@ -9,7 +9,7 @@ import { defineCommand } from "./registry";
 //
 // Sub-commands:
 //   kumiko new app <kebab-name>   — scaffold the app skeleton
-//   (kumiko new feature → siehe `kumiko create` für jetzt; DX-2 wird das vereinheitlichen)
+//   (kumiko new feature → see `kumiko create` for now; DX-2 will unify this)
 
 export const newCommand = defineCommand({
   id: "new",

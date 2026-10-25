@@ -160,7 +160,7 @@ describe("extraRoutes: entry:anonymous", () => {
   });
 });
 
-describe("extraRoutes: entry:anonymous under /api/* (kumiko-framework#3050 bypass fix)", () => {
+describe("extraRoutes: entry:anonymous under /api/*", () => {
   const apiPingRoute: AnonymousExtraRoute = {
     method: "GET",
     path: "/api/public-ping",
@@ -193,7 +193,7 @@ describe("extraRoutes: entry:anonymous under /api/* (kumiko-framework#3050 bypas
   });
 });
 
-describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymous write)", () => {
+describe("extraRoutes: entry:anonymous deps.write", () => {
   const writeRoute: AnonymousExtraRoute = {
     method: "POST",
     path: "/api/anon-write-probe",

@@ -43,6 +43,12 @@ import {
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
+import {
+  canonicalCalleeText,
+  declarationBaseCallee,
+  TEST_DECLARATION_CALLEE,
+  testFrameworkAliases,
+} from "./_lib/test-callee";
 
 // Playwright dirs sit outside every manifest's sourceRoots/testGlobs, and
 // scenario helpers next to the specs (not just *.spec.ts) carry the timeouts too.
@@ -75,9 +81,6 @@ const TIMEOUT_RAISING_CALLEES: ReadonlySet<string> = new Set(["test.setTimeout",
 const SET_TIMEOUT_CALLEE = /(^|\.)setTimeout$/;
 const SET_DEFAULT_TIMEOUT_CALLEE = /(^|\.)setDefaultTimeout$/;
 const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
-const TEST_FRAMEWORK_MODULES: ReadonlySet<string> = new Set(["bun:test", "@playwright/test"]);
-const TEST_DECLARATION_CALLEE =
-  /^(test|it|describe)(\.(skip|only|todo|if|each|failing|concurrent|serial|skipIf|runIf|todoIf))*$/;
 
 const HOOK_DECLARATION_CALLEE = /^(beforeAll|beforeEach|afterAll|afterEach)$/;
 
@@ -151,34 +154,6 @@ function hasTimeoutProperty(node: Node | undefined): boolean {
       return false;
     })
   );
-}
-
-// Maps local names imported from the test framework to their exported name;
-// "" marks a namespace import (`import * as bt`), whose member access is stripped.
-function testFrameworkAliases(sf: SourceFile): ReadonlyMap<string, string> {
-  const aliases = new Map<string, string>();
-  for (const decl of sf.getImportDeclarations()) {
-    if (!TEST_FRAMEWORK_MODULES.has(decl.getModuleSpecifierValue())) continue;
-    const namespaceImport = decl.getNamespaceImport();
-    if (namespaceImport !== undefined) aliases.set(namespaceImport.getText(), "");
-    for (const named of decl.getNamedImports()) {
-      const alias = named.getAliasNode();
-      if (alias !== undefined) aliases.set(alias.getText(), named.getName());
-    }
-  }
-  return aliases;
-}
-
-function canonicalCalleeText(text: string, aliases: ReadonlyMap<string, string>): string {
-  const [head = "", ...rest] = text.split(".");
-  const imported = aliases.get(head);
-  if (imported === undefined) return text;
-  return (imported === "" ? rest : [imported, ...rest]).join(".");
-}
-
-// `test.each(rows)(…)` and `test.if(cond)(…)` call the result of a call.
-function declarationBaseCallee(callee: Node): Node {
-  return Node.isCallExpression(callee) ? declarationBaseCallee(callee.getExpression()) : callee;
 }
 
 // An identifier can be the Playwright test body (`test(title, details, body)`) or an options

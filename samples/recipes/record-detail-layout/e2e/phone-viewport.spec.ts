@@ -6,9 +6,7 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test("record-detail-layout — tab strip fits the phone viewport width (fw#3234)", async ({
-  page,
-}) => {
+test("record-detail-layout — tab strip fits the phone viewport width", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
   await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();

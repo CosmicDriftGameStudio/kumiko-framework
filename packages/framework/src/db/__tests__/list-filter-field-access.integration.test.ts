@@ -63,7 +63,7 @@ type ListResult = {
   readonly total?: number;
 };
 
-describe("list() field-level read access gates filter/sort (fw#2629)", () => {
+describe("list() field-level read access gates filter/sort", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

@@ -100,7 +100,7 @@ function renderEditCapturingForm(
   return { captured };
 }
 
-describe("RenderEdit — screen.description as form subtitle (fw#2723)", () => {
+describe("RenderEdit screen.description as form subtitle", () => {
   test("a screen with description renders it as the form's subtitle", () => {
     const screen: EntityEditScreenDefinition = {
       id: "widget-edit",

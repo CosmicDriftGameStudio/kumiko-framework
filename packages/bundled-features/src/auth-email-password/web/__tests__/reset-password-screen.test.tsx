@@ -13,20 +13,20 @@ afterAll(() => {
 installFetchMock();
 
 describe("ResetPasswordScreen", () => {
-  test("ohne Token in URL UND ohne token-Prop → missing-token-Page", () => {
+  test("without a token in the URL and without the token prop → missing-token page", () => {
     // jsdom default location is "about:blank" → search = ""
     renderWithProviders(<ResetPasswordScreen />);
     expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
-  test("mit token-Prop → Form rendert", () => {
+  test("with token prop → form renders", () => {
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
     expect(screen.getByLabelText(/^New password/)).toBeTruthy();
     expect(screen.getByLabelText(/^Confirm password/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save password" })).toBeTruthy();
   });
 
-  test("Passwort < 8 Zeichen → client-side error, kein fetch-Call", async () => {
+  test("Password < 8 characters → client-side error, no fetch call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -41,7 +41,7 @@ describe("ResetPasswordScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("mismatch zwischen Passwort und Confirm → client-side error", async () => {
+  test("mismatch between password and Confirm → client-side error", async () => {
     renderWithProviders(<ResetPasswordScreen token="abc" />);
     fireEvent.change(screen.getByLabelText(/^New password/), {
       target: { value: "validpass1" },
@@ -56,7 +56,7 @@ describe("ResetPasswordScreen", () => {
     });
   });
 
-  test("happy path: gültiges Passwort → fetch-Call + success-State", async () => {
+  test("happy path: valid password → fetch call + success state", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -81,7 +81,7 @@ describe("ResetPasswordScreen", () => {
     });
   });
 
-  test("server invalid_reset_token → mapped i18n-error im UI", async () => {
+  test("server invalid_reset_token → mapped i18n-error in the UI", async () => {
     const errBody = JSON.stringify({
       error: { code: "invalid_reset_token", details: { reason: "invalid_reset_token" } },
     });

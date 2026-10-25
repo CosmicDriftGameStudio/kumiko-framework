@@ -56,7 +56,7 @@ describe("record subject key round-trip", () => {
     expect(() => subjectKeyForRecord("bad:name", UUID_A)).toThrow();
   });
 
-  test("subjectKeyForRecord rejects entity names that subjectIdSchema (forget-subject) could never shred (fw#2801)", () => {
+  test("subjectKeyForRecord rejects entity names that subjectIdSchema (forget-subject) could never shred", () => {
     expect(() => subjectKeyForRecord("v2.digest", UUID_A)).toThrow();
     expect(() => subjectKeyForRecord("_internal", UUID_A)).toThrow();
     expect(() => subjectKeyForRecord("3rd", UUID_A)).toThrow();

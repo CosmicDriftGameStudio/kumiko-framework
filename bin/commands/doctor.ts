@@ -62,7 +62,7 @@ export const doctorCommand = defineCommand({
       checks.push({
         name: "docker services",
         ok: false,
-        hint: "docker desktop starten / daemon hängt",
+        hint: "start docker desktop / daemon is hanging",
       });
     } else if (dockerPs.status === -1) {
       checks.push({

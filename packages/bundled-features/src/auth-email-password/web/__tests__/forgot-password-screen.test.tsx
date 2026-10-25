@@ -20,7 +20,7 @@ describe("ForgotPasswordScreen", () => {
     expect(screen.getByRole("button", { name: "Request link" })).toBeTruthy();
   });
 
-  test("submit ruft /api/auth/request-password-reset mit der Email", async () => {
+  test("submit calls /api/auth/request-password-reset with the email", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -41,7 +41,7 @@ describe("ForgotPasswordScreen", () => {
     });
   });
 
-  test("nach erfolgreichem Submit: success-Banner + 'Back to login'-Link", async () => {
+  test("after successful submit: success banner + 'Back to login' link", async () => {
     renderWithProviders(<ForgotPasswordScreen />);
     fireEvent.change(screen.getByLabelText(/^Email/), {
       target: { value: "user@example.com" },
@@ -54,7 +54,7 @@ describe("ForgotPasswordScreen", () => {
     expect(screen.getByRole("link", { name: /Back to sign in/i })).toBeTruthy();
   });
 
-  test("server 5xx → error-banner statt Success-State", async () => {
+  test("server 5xx → error banner instead of success state", async () => {
     globalThis.fetch = mock(
       async () => new Response(null, { status: 500 }),
     ) as unknown as typeof fetch;

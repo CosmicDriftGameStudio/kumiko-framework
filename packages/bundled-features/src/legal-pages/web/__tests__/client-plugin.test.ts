@@ -20,19 +20,19 @@ function collect(
 }
 
 describe("legalPagesClient", () => {
-  test("ohne navId: kein navProvider (server-only-Consumer leaken keinen Node)", () => {
+  test("without navId: no navProvider (server-only consumers do not leak a Node)", () => {
     const def = legalPagesClient();
     expect(def.name).toBe("legal-pages");
     expect(def.navProviders).toBeUndefined();
   });
 
-  test("mit navId: Provider hängt unter exakt dieser (pass-through) QN", () => {
+  test("with navId: provider is mounted under exactly this (pass-through) QN", () => {
     const navId = "publicstatus:nav:legal";
     const def = legalPagesClient({ navId });
     expect(Object.keys(def.navProviders ?? {})).toEqual([navId]);
   });
 
-  test("Provider unwrappt den Legal-Container: Top-Level sind die slug-Folder", () => {
+  test("Provider unwraps the legal container: top-level entries are the slug folders", () => {
     const navId = "publicstatus:nav:legal";
     const provider = legalPagesClient({ navId }).navProviders?.[navId];
     if (provider === undefined) throw new Error("provider missing");

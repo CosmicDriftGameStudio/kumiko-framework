@@ -317,7 +317,7 @@ function buildExposureTestFeature() {
   });
 }
 
-describe("#2700 — explicit agent.expose:false on an entity handler, both directions", () => {
+describe("explicit agent.expose:false on an entity handler, both directions", () => {
   function buildExposureCatalog() {
     const registry = createRegistry([buildExposureTestFeature()]);
     const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });

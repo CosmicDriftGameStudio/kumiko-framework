@@ -32,7 +32,7 @@ describe("generateDownloadToken", () => {
     expect(t1.hash).not.toBe(t2.hash);
   });
 
-  test("Token URL-safe (kein +/= im base64url)", async () => {
+  test("URL-safe token (no +/= in base64url)", async () => {
     // Probabilistic: generate 20 times and verify that none contain unsafe characters.
     // Guards against using btoa alone (which produces + / =).
     for (let i = 0; i < 20; i++) {

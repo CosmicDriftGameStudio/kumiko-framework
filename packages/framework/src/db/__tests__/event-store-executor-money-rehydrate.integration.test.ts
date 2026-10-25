@@ -74,7 +74,7 @@ beforeEach(async () => {
   );
 });
 
-describe("event-store-executor — money column rehydration through raw SQL (fw#1855)", () => {
+describe("event-store-executor — money column rehydration through raw SQL", () => {
   const exec = createEventStoreExecutor(table, entity, { entityName: "moneyOrder" });
 
   test("list(): money column arrives as { amount, currency }, not the raw minor-units integer", async () => {

@@ -102,7 +102,7 @@ async function seedEvent(
 }
 
 describe("my-audit-log", () => {
-  test("user sieht nur seine eigenen events (cross-user-Isolation)", async () => {
+  test("user sees only their own events (cross-user isolation)", async () => {
     await seedEvent(alice.id, tenantA, "user.requested-deletion", { foo: "alice" });
     await seedEvent(bob.id, tenantA, "user.requested-deletion", { foo: "bob" });
 
@@ -127,7 +127,7 @@ describe("my-audit-log", () => {
     expect((bobRow.payload as { foo: string }).foo).toBe("bob");
   });
 
-  test("Account-weite Sicht: User sieht events aus anderen Tenants (DSGVO Art. 15)", async () => {
+  test("Account-wide view: User sees events from other tenants (GDPR Art. 15)", async () => {
     const tenantB = testTenantId(2);
     await seedEvent(alice.id, tenantA, "user.x", { from: "tenantA" });
     await seedEvent(alice.id, tenantB, "user.y", { from: "tenantB" });
@@ -141,7 +141,7 @@ describe("my-audit-log", () => {
     expect(fromTenants).toEqual(["tenantA", "tenantB"]);
   });
 
-  test("filter eventType + payload kommt mit", async () => {
+  test("filter by eventType + payload is included", async () => {
     await seedEvent(alice.id, tenantA, "user.requested-deletion", { gracePeriodEnd: "2026-06-01" });
     await seedEvent(alice.id, tenantA, "user.lifted-restriction", {});
 
@@ -155,7 +155,7 @@ describe("my-audit-log", () => {
   });
 });
 
-describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("my-audit-log without an ambient Temporal global", () => {
   test("from/to filter works without deleting globalThis.Temporal for handler-internal state", async () => {
     // Seed with Temporal intact — only the handler call runs ambient-free,
     // mirroring the audit feature's regression test (going through
@@ -183,7 +183,7 @@ describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", (
   });
 });
 
-describe("list-download-attempts — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("list-download-attempts without an ambient Temporal global", () => {
   test("from/to filter works without relying on globalThis.Temporal", async () => {
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
@@ -220,8 +220,8 @@ describe("list-download-attempts — kumiko-framework#1525: no ambient Temporal 
   });
 });
 
-describe("download-attempt retention :: disk-bomb-Schutz bei Brute-Force", () => {
-  test("Entity-Default ist 90d hardDelete (kein unbounded growth)", () => {
+describe("download-attempt retention protects against disk bombs during brute force", () => {
+  test("Entity default is 90d hardDelete (no unbounded growth)", () => {
     expect(downloadAttemptEntity.retention).toBeDefined();
     expect(downloadAttemptEntity.retention?.keepFor).toBe("90d");
     expect(downloadAttemptEntity.retention?.strategy).toBe("hardDelete");
@@ -230,7 +230,7 @@ describe("download-attempt retention :: disk-bomb-Schutz bei Brute-Force", () =>
 });
 
 describe("list-download-attempts (DPO operator-query)", () => {
-  test("Admin kann queryen, Member nicht", async () => {
+  test("Admins can query; Members cannot", async () => {
     await seedUser(alice, "alice@example.com");
     // Admin allowed
     const ok = await stack.http.queryOk<{ rows: unknown[] }>(LIST_ATTEMPTS, {}, admin);

@@ -191,7 +191,7 @@ describe("dispatcher.write", () => {
     }
   });
 
-  test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
+  test("ctx.user is a convenience alias for event.user (same value)", async () => {
     // Verifies that the handler can access ctx.user without using the
     // typo-resistant event.user path. Compare both with the same SessionUser
     // to ensure they refer to the same object.
@@ -939,7 +939,7 @@ describe("dispatcher feature-gate", () => {
     if (!writeOpen.isSuccess) expect(writeOpen.error.code).not.toBe("feature_disabled");
   });
 
-  test("Sprint 8a: per-tenant gating — Tenant A passes, Tenant B gets feature_disabled", async () => {
+  test("per-tenant gating: Tenant A passes, Tenant B gets feature_disabled", async () => {
     // Verifies that the dispatcher calls effectiveFeatures with user.tenantId,
     // allowing the resolver to return different sets per tenant: one tenant
     // sees the feature and the other does not.
@@ -975,7 +975,7 @@ describe("dispatcher feature-gate", () => {
     }
   });
 
-  test("Sprint 8a: ctx.hasFeature is current-user-scoped", async () => {
+  test("ctx.hasFeature is current-user-scoped", async () => {
     // Ensures hasFeature() in handler bodies resolves against ctx.user.tenantId,
     // not a global set. Two tenants call hasFeature("toggled"): A gets true,
     // and B gets false.
@@ -1011,7 +1011,7 @@ describe("dispatcher feature-gate", () => {
     });
   });
 
-  test("issue #1233: ctx.hasFeature falls back to trialGate for a companion feature the tenant doesn't own", async () => {
+  test("ctx.hasFeature falls back to trialGate for a companion feature the tenant doesn't own", async () => {
     // Regression for the trial-tenant bug: a handler owned by an always-on
     // feature checks a DIFFERENT (trial-tier) feature via ctx.hasFeature.
     // The sync resolver never carries trial features, so without the

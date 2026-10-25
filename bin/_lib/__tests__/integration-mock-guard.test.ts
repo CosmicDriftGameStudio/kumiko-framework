@@ -59,12 +59,12 @@ describe("isMockGuardAllowlisted", () => {
   });
 });
 
-// 233/3: der eigentliche Integrationspfad (File-Walk → Allowlist-Exemption
-// → Mock-Erkennung → relPath in violations) gegen ein Temp-Verzeichnis.
-// Ein verschobener cwd oder falsch normalisierter relative()-Pfad würde
-// sonst still die Exemption oder die Erkennung aushebeln.
+// 233/3: the actual integration path (File-Walk → Allowlist-Exemption
+// → Mock detection → relPath in violations) against a temp directory.
+// A changed cwd or incorrectly normalized relative()-path would otherwise
+// silently bypass the exemption or detection.
 describe("scanForMocks — File-Walk-Integration", () => {
-  test("allowlistete Datei exempt, neue mock-haltige Datei als Violation, saubere Datei still", () => {
+  test("allowlisted file is exempt, new file containing mocks is a violation, clean file is silent", () => {
     const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
     const { join } = require("node:path");
     const { tmpdir } = require("node:os");

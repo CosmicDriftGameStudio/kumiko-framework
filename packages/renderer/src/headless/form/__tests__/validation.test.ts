@@ -215,7 +215,7 @@ describe("createFormController — validate(scope)", () => {
     expect(form.validate(["a"])).toBe(false);
   });
 
-  test("nested scope path matches issue root segment (#1898)", () => {
+  test("nested scope path matches issue root segment", () => {
     const schema = z.object({
       address: z.object({ city: z.string().min(1) }),
     });

@@ -117,8 +117,8 @@ function renderPayload(primitives: CorePrimitives, field: EditFieldViewModel): v
   );
 }
 
-describe("RenderField — format: json (fw#2312)", () => {
-  test("mit registriertem JsonView bekommt es den rohen, strukturierten Wert — keinen flachen String", () => {
+describe("RenderField — format: json", () => {
+  test("with a registered JsonView, it receives the raw, structured value — not a flat string", () => {
     const value = { user: { id: 1, roles: ["admin", "billing"] } };
     renderPayload(primitivesWithJsonView, payloadField(value));
     expect(capturedJsonView?.value).toBe(value);
@@ -126,19 +126,19 @@ describe("RenderField — format: json (fw#2312)", () => {
     expect(capturedText).toBeUndefined();
   });
 
-  test("renderer.indent wird an JsonView durchgereicht", () => {
+  test("renderer.indent is passed through to JsonView", () => {
     renderPayload(primitivesWithJsonView, payloadField({ a: 1 }, { format: "json", indent: 4 }));
     expect(capturedJsonView?.indent).toBe(4);
   });
 
-  test("ohne registriertes JsonView fällt es auf Text mit dem von applyFormatSpec formatierten String zurück", () => {
+  test("without a registered JsonView, it falls back to Text with the string formatted by applyFormatSpec", () => {
     const value = { a: 1 };
     renderPayload(primitivesWithoutJsonView, payloadField(value));
     expect(capturedJsonView).toBeUndefined();
     expect(capturedText?.children).toBe(JSON.stringify(value, null, 2));
   });
 
-  test("ein zirkulärer Wert erreicht JsonView unverändert — die Aufbereitung ist Sache der Primitive-Implementierung, nicht von RenderField", () => {
+  test("a circular value reaches JsonView unchanged — preparing it is the responsibility of the primitive implementation, not RenderField", () => {
     const circular: Record<string, unknown> = { name: "job-1" };
     circular["self"] = circular;
     expect(() => renderPayload(primitivesWithJsonView, payloadField(circular))).not.toThrow();
@@ -146,15 +146,15 @@ describe("RenderField — format: json (fw#2312)", () => {
   });
 });
 
-describe("RenderField — unsupported jsonb/embedded/files/images Fallback-Banner (fw#2312)", () => {
-  test("mit registriertem JsonView zeigt der Banner den Wert strukturiert statt als JSON.stringify-Einzeiler", () => {
+describe("RenderField — unsupported jsonb/embedded/files/images fallback banner", () => {
+  test("with a registered JsonView, the banner displays the value in structured form instead of as a JSON.stringify one-liner", () => {
     const value = { assignee: "user-1", tags: ["a", "b"] };
     renderPayload(primitivesWithJsonView, unrenderedJsonbField(value));
     expect(capturedJsonView?.value).toBe(value);
     expect(capturedText).toBeUndefined();
   });
 
-  test("ohne registriertes JsonView fällt der Banner auf Text variant=code mit dem alten Einzeiler zurück", () => {
+  test("without a registered JsonView, the banner falls back to Text variant=code with the old one-liner", () => {
     const value = { assignee: "user-1" };
     renderPayload(primitivesWithoutJsonView, unrenderedJsonbField(value));
     expect(capturedJsonView).toBeUndefined();

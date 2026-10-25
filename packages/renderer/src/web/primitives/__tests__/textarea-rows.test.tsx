@@ -31,7 +31,7 @@ function rowFactor(minHeight: string): number {
   return Number(match[1]);
 }
 
-describe("textarea rows → min-height (#2677)", () => {
+describe("textarea rows → min-height", () => {
   test("declared rows drive the min-height, not just the attribute", () => {
     const textarea = renderTextarea(16);
     expect(textarea.getAttribute("rows")).toBe("16");

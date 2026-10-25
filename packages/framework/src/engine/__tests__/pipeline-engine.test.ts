@@ -177,7 +177,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
     ).rejects.toThrow(/Unknown step kind "this-step-does-not-exist"/);
   });
 
-  it("defineWriteHandler throws a clear runtime error when both handler+perform are set (#3)", () => {
+  it("defineWriteHandler throws a clear runtime error when both handler+perform are set", () => {
     // Type-system rejects this via discriminated union (handler?: never /
     // perform?: never), but the error message ('Type X not assignable to
     // undefined') is opaque. The runtime guard fires regardless of how

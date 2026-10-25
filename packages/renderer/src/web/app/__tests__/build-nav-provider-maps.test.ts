@@ -15,7 +15,7 @@ function collection(id: string, kind: string): QualifiedContentCollection {
 }
 
 describe("buildNavProviderMaps", () => {
-  test("qualifiziert lokale nav-ids, lässt fertige QNs durch", () => {
+  test("qualifies local nav-ids and passes through already-qualified QNs", () => {
     const feature: ClientFeatureDefinition = {
       name: "cms",
       navProviders: { content: provider(), "app:nav:legal": provider() },
@@ -27,7 +27,7 @@ describe("buildNavProviderMaps", () => {
     expect(navEntities.get("cms:nav:content")).toEqual(["text-block"]);
   });
 
-  test("Collections werden unter ihrer Schema-QN registriert, mit SSE-Entities", () => {
+  test("collections are registered under their schema QN, with SSE entities", () => {
     const feature: ClientFeatureDefinition = {
       name: "template-resolver",
       navProvidersFromCollections: (collections) => ({
@@ -44,7 +44,7 @@ describe("buildNavProviderMaps", () => {
     expect(navEntities.get("mail:nav:prompts")).toEqual(["template-resource"]);
   });
 
-  test("ein expliziter navProvider gewinnt gegen den abgeleiteten — ohne Konflikt-Warnung", () => {
+  test("an explicit navProvider wins over the derived one without a conflict warning", () => {
     const explicitProvider = provider();
     const derivedFeature: ClientFeatureDefinition = {
       name: "template-resolver",
@@ -74,7 +74,7 @@ describe("buildNavProviderMaps", () => {
     }
   });
 
-  test("zwei explizite Provider auf derselben QN warnen weiterhin", () => {
+  test("continue warning about two explicit providers on the same QN", () => {
     const features: ClientFeatureDefinition[] = [
       { name: "a", navProviders: { "x:nav:content": provider() } },
       { name: "b", navProviders: { "x:nav:content": provider() } },
@@ -91,7 +91,7 @@ describe("buildNavProviderMaps", () => {
     }
   });
 
-  test("Feature ohne Collections-Factory bleibt unberührt von deklarierten Collections", () => {
+  test("a feature without a collections factory remains unaffected by declared collections", () => {
     const feature: ClientFeatureDefinition = { name: "cms", navProviders: { content: provider() } };
     const { navProviders } = buildNavProviderMaps([feature], [collection("templates", "mail")]);
     expect([...navProviders.keys()]).toEqual(["cms:nav:content"]);

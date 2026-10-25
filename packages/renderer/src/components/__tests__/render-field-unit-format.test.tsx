@@ -72,35 +72,35 @@ function renderUnderLocale(locale: string, field: EditFieldViewModel): void {
   );
 }
 
-describe("RenderField — unit-FormatSpec (fw#2187)", () => {
-  test("m2 rendert Zahl + m²-Suffix, locale-formatiert über das App-Locale", () => {
+describe("RenderField — unit-FormatSpec", () => {
+  test("m2 renders number + m² suffix, formatted according to the App locale", () => {
     renderUnderLocale("de-DE", livingSpaceField({ format: "unit", unit: "m2" }));
     expect(captured?.children).toBe("58 m²");
   });
 
-  test("ein anderes App-Locale ändert die Zahl-Formatierung (en-US: Punkt statt Komma)", () => {
+  test("a different App locale changes number formatting (en-US: period instead of comma)", () => {
     renderUnderLocale("en-US", livingSpaceField({ format: "unit", unit: "m2" }, 58.5));
     expect(captured?.children).toBe("58.5 m²");
   });
 
-  test("CLDR-sanktionierte Unit (km) rendert über Intl.NumberFormat(style:'unit')", () => {
+  test("CLDR-sanctioned unit (km) renders via Intl.NumberFormat(style:'unit')", () => {
     renderUnderLocale("en-US", livingSpaceField({ format: "unit", unit: "km" }, 3));
     expect(captured?.children).toBe("3 km");
   });
 
-  test("explizites renderer.locale gewinnt gegen das App-Locale", () => {
+  test("explicit renderer.locale takes precedence over the App locale", () => {
     renderUnderLocale("en-US", livingSpaceField({ format: "unit", unit: "m2", locale: "de-DE" }));
     expect(captured?.children).toBe("58 m²");
   });
 });
 
-describe("RenderField — App-Locale an FieldRendererOutput durchreichen (fw#2187)", () => {
-  test("number-FormatSpec ohne eigenes locale bekommt das App-Locale (de-DE, Komma statt Punkt)", () => {
+describe("RenderField — pass App locale through to FieldRendererOutput", () => {
+  test("number-FormatSpec without its own locale receives the App locale (de-DE, comma instead of period)", () => {
     renderUnderLocale("de-DE", livingSpaceField({ format: "number" }, 1234.5));
     expect(captured?.children).toBe("1.234,5");
   });
 
-  test("explicit locale: undefined still falls back to App-Locale (#2332)", () => {
+  test("explicit locale: undefined still falls back to App-Locale", () => {
     renderUnderLocale("de-DE", livingSpaceField({ format: "number", locale: undefined }, 1234.5));
     expect(captured?.children).toBe("1.234,5");
   });

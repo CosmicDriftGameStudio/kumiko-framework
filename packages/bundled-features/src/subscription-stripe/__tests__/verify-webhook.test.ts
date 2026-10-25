@@ -210,7 +210,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
     expect(event?.status).toBe(SubscriptionStatuses.canceled);
   });
 
-  test("invoice-event ohne subscription-reference → null (one-shot-invoice)", async () => {
+  test("invoice event without a subscription reference → null (one-shot invoice)", async () => {
     // Drift pin: a Stripe one-shot invoice is not recurring. The plugin
     // does not lazy-fetch because there is no subscription ID to fetch.
     // The foundation ignores it with a 200 response.
@@ -249,7 +249,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     }),
   );
 
-  test("metadata.tenantId fehlt → null (App-Owner-Bug, foundation 200 ignored)", async () => {
+  test("metadata.tenantId missing → null (app-owner bug, foundation answers 200 and ignores it)", async () => {
     const ev = buildSubscriptionEvent({});
     // @ts-expect-error — remove metadata for the test
     ev.data.object.metadata = {};
@@ -259,21 +259,21 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     expect(event).toBeNull();
   });
 
-  test("price-id im Mapping → korrekter tier-Wert", async () => {
+  test("price-id in mapping → correct tier value", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_business_yearly" }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event?.tier).toBe("business");
   });
 
-  test("price-id NICHT im Mapping → null", async () => {
+  test("price-id NOT in mapping → null", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_unknown_xyz" }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
   });
 
-  test("currentPeriodEnd wird aus subscription.items[0].current_period_end (Unix-sec) zu ISO konvertiert", async () => {
+  test("currentPeriodEnd is converted from subscription.items[0].current_period_end (Unix seconds) to ISO", async () => {
     const periodEndUnix = 1_780_000_000;
     const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: periodEndUnix }));
     const sig = await signEvent(payload);
@@ -344,7 +344,7 @@ describe("verifyAndParseStripeWebhook — cancelAt mapping", () => {
   });
 });
 
-describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("verifyAndParseStripeWebhook — no ambient Temporal global", () => {
   test("computes currentPeriodEnd without relying on globalThis.Temporal", async () => {
     const verify = asSubscriptionVerifier(
       verifyAndParseStripeWebhook(webhookRuntime(), {
@@ -366,7 +366,7 @@ describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temp
   });
 });
 
-describe("verifyAndParseStripeWebhook — transient Stripe lookup failure (#2793)", () => {
+describe("verifyAndParseStripeWebhook — transient Stripe lookup failure", () => {
   test("checkout.sessions.retrieve answered 503 by Stripe → ExtraRouteRejection 503 subscription_provider_transient", async () => {
     const stripeApi = Bun.serve({
       port: 0,
@@ -445,7 +445,7 @@ describe("mapStripeStatus — Stripe-status → normalized", () => {
     expect(mapStripeStatus("trialing")).toBe(SubscriptionStatuses.trialing);
   });
 
-  test("past_due / unpaid / paused → past_due (= grace-period im Plattform-Tier)", () => {
+  test("past_due / unpaid / paused → past_due (= grace period in the platform tier)", () => {
     // Drift pin: all three Stripe grace statuses map to the single
     // normalized "past_due" status. If Stripe introduces a fourth grace
     // status, it must be added explicitly rather than falling back to

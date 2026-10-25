@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
 import { Icon } from "../icons.tsx";
 
-describe("Icon (fw#3056 public export)", () => {
+describe("Icon (public export)", () => {
   test("renders the resolved icon in the DOM", () => {
     const { container } = render(<Icon name="trash" />);
     expect(container.querySelector("svg")).not.toBeNull();

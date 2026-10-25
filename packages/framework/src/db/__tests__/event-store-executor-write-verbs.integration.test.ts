@@ -131,7 +131,7 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
     expect(events).toHaveLength(1);
   });
 
-  test("forget: framework system user bypasses ownership (fw#2639 — GDPR erasure runs as SYSTEM)", async () => {
+  test("forget: framework system user bypasses ownership (GDPR erasure runs as SYSTEM)", async () => {
     const created = await crud.create({ email: "erase-me@test.de" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
 
@@ -507,7 +507,7 @@ const expectEntity = createEntity({
 });
 const expectTable = buildEntityTable("esWriteExpect", expectEntity);
 
-describe("event-store-executor write-verbs — expect precondition (#3024)", () => {
+describe("event-store-executor write-verbs — expect precondition", () => {
   const crud = createEventStoreExecutor(expectTable, expectEntity, {
     entityName: "esWriteExpect",
   });

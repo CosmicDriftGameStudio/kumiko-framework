@@ -113,7 +113,7 @@ describe("SystemAdmin can use jobs queries", () => {
   });
 });
 
-describe("jobs:query:list totalCount (fw#2312)", () => {
+describe("jobs:query:list totalCount", () => {
   test("without totalCount the shape carries no total field", async () => {
     const res = await stack.http.queryOk<{ rows: readonly unknown[]; total?: number }>(
       JobQueries.list,

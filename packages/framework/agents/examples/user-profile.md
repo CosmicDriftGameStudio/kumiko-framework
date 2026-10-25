@@ -141,7 +141,7 @@ describe("user-profile recipe — boot validation", () => {
     ]);
   });
 
-  test("change-email QN entspricht der dokumentierten Konstante", () => {
+  test("change-email QN matches the documented constant", () => {
     expect(UserProfileHandlers.changeEmail).toBe("user-profile:write:change-email");
   });
 });

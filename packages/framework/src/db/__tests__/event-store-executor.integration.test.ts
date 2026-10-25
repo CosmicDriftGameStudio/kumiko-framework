@@ -317,7 +317,7 @@ describe("event-store-executor — sensitive fields", () => {
   });
 });
 
-describe("event-store-executor — detail liefert die Stream-Version", () => {
+describe("event-store-executor — detail returns the stream version", () => {
   const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
 
   // Lifecycle writes via ctx.events.append advance the stream without changing row.version.
@@ -325,7 +325,7 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
   // entityEdit (which uses detail.version for optimistic locking) fail with
   // version_conflict. For example, incident:open can advance the stream to v2 while
   // the row remains at v1, preventing incident-edit from saving.
-  test("nach ctx.events.append-artigem Stream-Bump: detail.version == Stream, Update damit erfolgreich", async () => {
+  test("after a ctx.events.append-like stream bump: detail.version == Stream, update succeeds", async () => {
     const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
     expect(created.isSuccess).toBe(true);
     if (!created.isSuccess) return;
@@ -582,7 +582,7 @@ describe("event-store-executor — encrypted fields", () => {
     expect(after[0]?.secret_note).not.toBe(before[0]?.secret_note);
   });
 
-  test("update with skipUnchanged: true omits a resubmitted-but-unchanged encrypted field — no phantom re-encrypt (#464)", async () => {
+  test("update with skipUnchanged: true omits a resubmitted-but-unchanged encrypted field — no phantom re-encrypt", async () => {
     const created = await crud.create(
       { email: "noop-enc@test.de", secretNote: "same-note" },
       adminUser,
@@ -1083,7 +1083,7 @@ describe("event-store-executor — pii subject encryption", () => {
     expect(detail?.["email"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("without a kms adapter the engine is off: plaintext row (pre-#724 behavior)", async () => {
+  test("without a kms adapter the engine is off: plaintext row", async () => {
     const plainCrud = createEventStoreExecutor(piiTable, piiEntity, {
       entityName: "esExecPii",
     });

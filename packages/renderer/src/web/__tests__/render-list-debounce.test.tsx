@@ -88,7 +88,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange).toHaveBeenCalledWith("acme");
   });
 
-  test("searchValue-Update von außen syncs lokalen Buffer (Browser-Back)", () => {
+  test("External searchValue update syncs the local buffer (browser back)", () => {
     const onSearchChange = mock();
     const { rerender } = renderRL({ searchValue: "first", onSearchChange });
     const input = screen.getByDisplayValue("first") as HTMLInputElement;
@@ -114,7 +114,7 @@ describe("RenderList — Search-Debounce", () => {
     expect((screen.getByDisplayValue("second") as HTMLInputElement).value).toBe("second");
   });
 
-  test("Taste im selben Commit wie das Mount geht nicht verloren", () => {
+  test("A keystroke in the same commit as mounting is not lost", () => {
     const onSearchChange = mock();
     // The keystroke is delivered from a layout effect, i.e. inside the mount
     // commit and before RenderList's passive effects have run: an effect-based
@@ -152,7 +152,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange).toHaveBeenCalledWith("a");
   });
 
-  test("onSearchChange wird NICHT gerufen wenn lokal === searchValue (kein Echo)", () => {
+  test("onSearchChange is NOT called when local === searchValue (no echo)", () => {
     // If the parent sets searchValue to "x" while the local buffer is already
     // "x" (for example, due to cleanup timing), RenderList must not emit the
     // value again, or it would create a loop.
@@ -164,7 +164,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange).not.toHaveBeenCalled();
   });
 
-  test("verspätetes Echo des eigenen Emits überschreibt zwischenzeitlich getippte Tasten nicht", () => {
+  test("A delayed echo of its own emission does not overwrite keys typed in the meantime", () => {
     const onSearchChange = mock();
     const tree = (searchValue: string) => (
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
@@ -203,7 +203,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange).toHaveBeenLastCalledWith("abc");
   });
 
-  test("verspätetes Echo eines älteren Emits sendet den schon gesendeten neueren Wert nicht erneut", () => {
+  test("A delayed echo of an older emission does not resend the newer value that was already sent", () => {
     const onSearchChange = mock();
     const tree = (searchValue: string) => (
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
@@ -243,7 +243,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange.mock.calls).toEqual([["a"], ["ab"]]);
   });
 
-  test("externer Wechsel auf den zuletzt gesendeten Wert wird nach einem anderen externen Wert wieder übernommen", () => {
+  test("An external change to the last emitted value is adopted again after another external value", () => {
     const onSearchChange = mock();
     const tree = (searchValue: string) => (
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
@@ -275,7 +275,7 @@ describe("RenderList — Search-Debounce", () => {
     expect(input.value).toBe("ab");
   });
 
-  test("Echo eines älteren Emits nach einem neueren Emit überschreibt die Eingabe nicht", () => {
+  test("An echo of an older emission after a newer emission does not overwrite the input", () => {
     const onSearchChange = mock();
     const tree = (searchValue: string) => (
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>

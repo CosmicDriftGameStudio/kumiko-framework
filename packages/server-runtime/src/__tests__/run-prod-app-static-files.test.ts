@@ -80,7 +80,7 @@ describe("readStaticFile / serveDiskFile", () => {
     expect(await readStaticFile(dirPath)).toBeUndefined();
   });
 
-  test("readStaticFile through a file used as a directory segment → undefined (ENOTDIR), not a throw (#1504)", async () => {
+  test("readStaticFile through a file used as a directory segment → undefined (ENOTDIR), not a throw", async () => {
     const path = join(tmp, "index.html");
     await writeFile(path, "<html/>");
     // GET /index.html/x — "index.html" is a file, so treating it as a
@@ -261,7 +261,7 @@ describe("buildStaticFallback hostDispatch", () => {
     expect(await res.text()).toContain("hostDispatch: file not found: gone.html");
   });
 
-  test("a matched route's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
+  test("a matched route's own deliberate 404 stays 404, not masked as the SPA shell", async () => {
     // An index.html exists on disk, so the OLD status-only heuristic would
     // have served it with status 200 for ANY 404 — including one from a
     // matched route (e.g. file-derivatives' public-variant default-deny)

@@ -212,7 +212,7 @@ describe("rebuildProjection — happy path", () => {
     expect(result.lastProcessedEventId).toBe(0n);
   });
 
-  test("archived streams don't replay (fw#832) — stranded aggregate heals via archiveStream", async () => {
+  test("archived streams don't replay; stranded aggregate heals via archiveStream", async () => {
     // Healing pattern for legacy read-side deletes without events: an
     // aggregate whose live row was removed on the read side leaves a created
     // event without a deleted event, so every rebuild would resurrect the row
@@ -704,7 +704,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
   });
 });
 
-describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
+describe("rebuildProjection — live-tail catch-up", () => {
   test("a write committed during the replay window survives the swap (Phase 1 lost it)", async () => {
     const group = "00000000-0000-4000-8000-0000000000f1";
     await appendCreatedEvent(group, "a"); // event id 1
@@ -728,7 +728,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     expect(await getCount(group)).toBe(3);
   });
 
-  test("(#443) a lower-id write committed late during replay is recovered under the fence", async () => {
+  test("a lower-id write committed late during replay is recovered under the fence", async () => {
     // bigserial assigns ids at INSERT (pre-commit); a cross-aggregate write can
     // commit an id BELOW the cursor the unlocked drain already advanced past, and
     // the fenced final drain (`WHERE id > cursor`) never revisits it. Under the
@@ -780,7 +780,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     expect(await getCount(groupX)).toBe(1); // Fenced count re-check re-replayed the missed low-id event
   });
 
-  test("(656/1) a clean rebuild with no concurrency does not trigger the #443 recompute", async () => {
+  test("a clean rebuild with no concurrency does not trigger the recompute", async () => {
     // The shortfall-recompute rebuilds the shadow a 2nd time and re-replays
     // the whole log — correct on the rare path it guards, but a silent perf
     // regression if it fired on every rebuild. Its final values are identical
@@ -897,7 +897,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
   });
 });
 
-describe("rebuildProjection — stale-registry column fence (#835)", () => {
+describe("rebuildProjection — stale-registry column fence", () => {
   // Simulates the rolling-deploy race: a migration added a column to the live
   // table, but the pod running the rebuild still carries the old registry
   // (EntityTableMeta without that column). The rebuild must abort instead of

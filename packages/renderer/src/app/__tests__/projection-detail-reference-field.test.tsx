@@ -138,7 +138,7 @@ function renderDetailScreen(): ReturnType<typeof render> {
   );
 }
 
-describe("projectionDetail reference field resolves labels (fw#2662)", () => {
+describe("projectionDetail reference field resolves labels", () => {
   test("a field with refEntity metadata shows the resolved display name instead of the raw id", async () => {
     const { getByTestId } = renderDetailScreen();
 
@@ -147,7 +147,7 @@ describe("projectionDetail reference field resolves labels (fw#2662)", () => {
     });
   });
 
-  test("SYSTEM_USER_ID resolves to the system label instead of the raw id (fw#3103)", async () => {
+  test("SYSTEM_USER_ID resolves to the system label instead of the raw id", async () => {
     const { getByTestId } = renderDetailScreen();
 
     await waitFor(() => {

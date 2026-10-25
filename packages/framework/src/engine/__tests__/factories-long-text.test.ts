@@ -18,7 +18,7 @@ import { createLongTextField } from "../factories.ts";
 // =============================================================================
 
 describe("createLongTextField — runtime shape", () => {
-  test("kumiko-framework#2921: no argument throws — a longText field must declare a personal stance", () => {
+  test("Calling without arguments throws — a longText field must declare an explicit personal-data stance", () => {
     expect(() =>
       // @ts-expect-error overrides (with a personal stance) is now required
       createLongTextField(),

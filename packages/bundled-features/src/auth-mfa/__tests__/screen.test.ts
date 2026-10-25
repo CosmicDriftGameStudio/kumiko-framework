@@ -11,7 +11,7 @@ const feature = createAuthMfaFeature({
   challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
 });
 
-describe("auth-mfa enable screen — declarative secretMint (fw#2838)", () => {
+describe("auth-mfa enable screen — declarative secretMint", () => {
   test("is registered as a secretMint, not a custom screen", () => {
     const screen = feature.screens[MFA_ENABLE_SCREEN_ID];
     expect(screen?.type).toBe("secretMint");

@@ -217,7 +217,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
   // below — an isAdminActor check alone lets an Admin/TenantAdmin from a
   // DIFFERENT tenant restrict (and force-revoke the sessions of) a user
   // who was never a member of the admin's tenant.
-  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Active", async () => {
+  test("Admin from another tenant: 403 target_user_not_in_admin_tenant, status remains Active", async () => {
     const { userId } = await seedAliceWithMembership();
     const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
 
@@ -231,7 +231,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
-  test("SystemAdmin darf tenant-übergreifend restricten (platform-weiter Operator)", async () => {
+  test("SystemAdmin can restrict across tenants (platform-wide operator)", async () => {
     const { userId } = await seedAliceWithMembership();
     const systemAdmin = await mintActor({
       id: crypto.randomUUID(),
@@ -266,7 +266,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
   // a membership check, an Admin from a DIFFERENT tenant than the target
   // user could still pass the isAdminActor gate and flip the target's
   // status.
-  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Active", async () => {
+  test("Admin from another tenant: 403 target_user_not_in_admin_tenant, status remains Active", async () => {
     const { userId: targetId } = await seedAliceWithMembership();
     const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
 
@@ -280,7 +280,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
-  test("SystemAdmin darf tenant-übergreifend restricten (platform-weiter Operator) + revoked Sessions", async () => {
+  test("SystemAdmin can restrict across tenants (platform-wide operator) + revoked sessions", async () => {
     const { userId: targetId } = await seedAliceWithMembership();
     const loginRes = await login(ALICE_EMAIL, ALICE_PW);
     expect(loginRes.status).toBe(200);
@@ -341,7 +341,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
   // (no auto-tenant-filter — User status is intentionally global). Without
   // a membership check, an Admin from a DIFFERENT tenant than the target
   // user could still pass the access-gate and flip the target's status.
-  test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Restricted", async () => {
+  test("Admin from another tenant: 403 target_user_not_in_admin_tenant, status remains Restricted", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
     const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
 
@@ -355,7 +355,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
-  test("SystemAdmin darf tenant-übergreifend liften (platform-weiter Operator)", async () => {
+  test("SystemAdmin can lift across tenants (platform-wide operator)", async () => {
     const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
     const systemAdmin = await mintActor({
       id: crypto.randomUUID(),
@@ -368,14 +368,14 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
   });
 });
 
-describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () => {
+describe("Login block for Restricted/DeletionRequested/Deleted", () => {
   test("Active user login: 200 (regression check)", async () => {
     await seedAliceWithMembership(USER_STATUS.Active);
     const res = await login(ALICE_EMAIL, ALICE_PW);
     expect(res.status).toBe(200);
   });
 
-  test("Restricted user login: 422 account_restricted (eigener Code, kein collapse)", async () => {
+  test("Restricted user login: 422 account_restricted (own code, no collapse)", async () => {
     await seedAliceWithMembership(USER_STATUS.Restricted);
     const res = await login(ALICE_EMAIL, ALICE_PW);
     expect(res.status).toBe(422);
@@ -399,7 +399,7 @@ describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () =>
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
   });
 
-  test("Wrong password vor Status-Check (timing-equivalence): 422 invalid_credentials, NICHT account_restricted", async () => {
+  test("Wrong password before status check (timing equivalence): 422 invalid_credentials, NOT account_restricted", async () => {
     // A Restricted user with a WRONG password must NOT learn account_restricted:
     // invalid_credentials is returned first (see login.write.ts: the status
     // check occurs AFTER password-verify). Otherwise, an attacker without

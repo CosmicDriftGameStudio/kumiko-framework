@@ -259,7 +259,7 @@ afterEach(async () => {
   ]);
 });
 
-describe("search consumer: named domain events (#2765)", () => {
+describe("search consumer: named domain events", () => {
   test("named event on a searchable entity indexes from the projection row, not the payload", async () => {
     const created = await noteExecutor().create({ label: "original-label" }, admin, tenantDb());
     if (!created.isSuccess) throw new Error("create failed");

@@ -1,4 +1,4 @@
-// Sprint E.3 — Snapshot store.
+// Snapshot store.
 //
 // Pins two invariants for the framework-internal snapshot surface:
 //   1. saveSnapshot + loadLatestSnapshot round-trip a state.
@@ -9,9 +9,8 @@
 // Latency gates live in event-store/__tests__/perf.integration.test.ts
 // (isolated via `bun run test:integration:perf`).
 
-// Bun.SQL-only setup. KEIN postgres-js, KEIN createTestDb.
-// Event-store functions expect DbRunner (= postgres-js) but Bun.SQL
-// ist strukturell kompatibel (beide haben .unsafe()/.begin()) — kein Cast nötig.
+// The event-store functions take a raw client; createTestDb exposes one via
+// asRawClient, so no cast is needed here.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SnapshotReducer } from "@cosmicdrift/kumiko-types/snapshot-types";

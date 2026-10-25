@@ -35,7 +35,7 @@ describe("billingFoundationFeature — shape", () => {
     expect(createBillingFoundationFeature().name).toBe("billing-foundation");
   });
 
-  test("does NOT require config (Multi-Provider — config liegt in den Plugins)", () => {
+  test("does NOT require config (Multi-Provider — config lives in the plugins)", () => {
     // Drift pin: the foundation has no global `provider` config key. The
     // webhook URL carries providerName as a path parameter and every mounted
     // plugin is active at once. Adding `r.requires({ features: ["config"] })`
@@ -47,7 +47,7 @@ describe("billingFoundationFeature — shape", () => {
     expect(createBillingFoundationFeature().requires).not.toContain("secrets");
   });
 
-  test("foundation has NO config-keys (alle config-keys liegen in den Plugins)", () => {
+  test("foundation has NO config-keys (all config keys live in the plugins)", () => {
     // Multi-provider constraint: the foundation must not export config keys,
     // because that would force a global price-to-tier map. The map exists only
     // per plugin because Stripe price IDs, PayPal plan IDs, and Apple product IDs
@@ -74,21 +74,21 @@ describe("billingFoundationFeature — events + projection + handlers registered
     expect(events["invoice-payment-failed"]).toBeDefined();
   });
 
-  test("subscription-projection registriert mit 5 apply-keys", () => {
+  test("subscription-projection registered with 5 apply keys", () => {
     const proj = createBillingFoundationFeature().projections["subscription"];
     expect(proj).toBeDefined();
     const applyKeys = Object.keys(proj?.apply ?? {});
     expect(applyKeys).toHaveLength(5);
   });
 
-  test("process-event write-handler registriert mit erwarteter QN", () => {
+  test("process-event write-handler registered with expected QN", () => {
     expect(createBillingFoundationFeature().writeHandlers["process-event"]).toBeDefined();
     expect(SubscriptionFoundationHandlers.processEvent).toBe(
       "billing-foundation:write:process-event",
     );
   });
 
-  test("process-event ist SystemAdmin-only (programmatic-only entry-point)", () => {
+  test("process-event is SystemAdmin-only (programmatic-only entry-point)", () => {
     const handler = createBillingFoundationFeature().writeHandlers["process-event"];
     const access = handler?.access as { roles?: readonly string[] } | undefined;
     expect(access?.roles).toEqual(["SystemAdmin"]);
@@ -120,7 +120,7 @@ describe("normalized constants — provider-agnostic event-types + statuses", ()
     ]);
   });
 
-  test("Statuses normalized über Stripe + Mollie", () => {
+  test("Statuses normalized across Stripe + Mollie", () => {
     expect(Object.values(SubscriptionStatuses)).toEqual([
       "active",
       "trialing",
@@ -283,7 +283,7 @@ describe("createBillingFoundationFeature — catalog.contact validation", () => 
   });
 });
 
-describe("billingFoundationFeature — dormant billing-plans screen (#3316 P9)", () => {
+describe("billingFoundationFeature — dormant billing-plans screen", () => {
   test("not registered without a catalog", () => {
     const feature = createBillingFoundationFeature({ baseUrl: "https://example.com" });
     expect(feature.screens[BILLING_PLANS_SCREEN_ID]).toBeUndefined();

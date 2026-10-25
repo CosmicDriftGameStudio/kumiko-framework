@@ -134,7 +134,7 @@ describe("renderApexPage", () => {
     expect(mobileOpen).toBeGreaterThan(hiddenDefault);
   });
 
-  test("APEX_NAV_TOGGLE_RESPONSIVE_CSS's mobile-open rules outrank APEX_NAV_MENU_CSS's hidden default regardless of concatenation order (fw#2125)", () => {
+  test("APEX_NAV_TOGGLE_RESPONSIVE_CSS's mobile-open rules outrank APEX_NAV_MENU_CSS's hidden default regardless of concatenation order", () => {
     // money-horse/show-pony/the docs sample call renderApexHeader() standalone and
     // concatenate APEX_NAV_MENU_CSS with their own page CSS in whatever order they
     // choose — they don't control ordering relative to APEX_STRUCTURAL_CSS's
@@ -389,7 +389,7 @@ describe("renderApexPage", () => {
     expect(html).toContain("</script>");
   });
 
-  test("header .nav rule doesn't reset the .container's horizontal padding (#2038)", () => {
+  test("header .nav rule doesn't reset the .container's horizontal padding", () => {
     const html = renderApexPage(page());
     const navRule = html.match(/\.nav\s*\{[^}]*\}/)?.[0];
     expect(navRule).toBeDefined();

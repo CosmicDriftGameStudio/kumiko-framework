@@ -18,7 +18,7 @@ const wallClockSchema = z.iso.datetime({ local: true });
 const DATETIME_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 describe("timestamp Konvertierung (Helpers)", () => {
-  test("UTC: lokale Eingabe wird als Z-Instant emittiert, Instant bleibt erhalten", () => {
+  test("UTC: local input emits a Z instant, instant remains unchanged", () => {
     const emitted = inputValueToTimestamp("2026-06-08T21:09", false);
     if (emitted === undefined) throw new Error("expected emitted value");
     expect(utcSchema.safeParse(emitted).success).toBe(true);
@@ -26,24 +26,24 @@ describe("timestamp Konvertierung (Helpers)", () => {
     expect(new Date(emitted).getTime()).toBe(new Date("2026-06-08T21:09").getTime());
   });
 
-  test("wallClock: Eingabe geht offset-los durch und passt das local-Schema", () => {
+  test("wallClock: input passes through without an offset and matches the local schema", () => {
     const emitted = inputValueToTimestamp("2026-06-08T21:09", true);
     expect(emitted).toBe("2026-06-08T21:09");
     expect(wallClockSchema.safeParse(emitted).success).toBe(true);
   });
 
-  test("leere Eingabe → undefined (Feld geleert)", () => {
+  test("empty input → undefined (field cleared)", () => {
     expect(inputValueToTimestamp("", false)).toBeUndefined();
     expect(inputValueToTimestamp("", true)).toBeUndefined();
   });
 
-  test("UTC-Instant aus dem Server wird als lokale Wall-Clock angezeigt", () => {
+  test("UTC instant from the server is displayed as a local wall clock", () => {
     const display = timestampToInputValue("2026-06-08T19:09:00.000Z");
     expect(display).toMatch(DATETIME_LOCAL);
     expect(new Date(`${display}`).getTime()).toBe(new Date("2026-06-08T19:09:00.000Z").getTime());
   });
 
-  test("offset-loser Wert wird nur auf Minuten gekürzt", () => {
+  test("offset-less value is truncated to minutes only", () => {
     expect(timestampToInputValue("2026-06-08T21:09:33")).toBe("2026-06-08T21:09");
     expect(timestampToInputValue("")).toBe("");
   });

@@ -379,7 +379,7 @@ describe("composeFeatures wiring — asymmetric activation", () => {
     suite.emailTransport.sent.length = 0;
   });
 
-  test("nur passwordReset gesetzt → reset-flow live, verify-flow fail-closed", async () => {
+  test("only passwordReset configured → reset flow live, verify flow fail-closed", async () => {
     await seedUser(suite.stack, { email: "alice@example.com", password: "any-pw-1234" });
 
     const resetRes = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
@@ -400,7 +400,7 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   });
 });
 
-describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", () => {
+describe("composeFeatures wiring — accountLockout", () => {
   // Verifies that authOptions.accountLockout is forwarded like
   // passwordReset and emailVerification. The regression was that runDevApp did
   // not accept the option at all (no field on RunDevAppAuthOptions) and
@@ -468,7 +468,7 @@ describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", ()
   });
 });
 
-describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
+describe("composeFeatures wiring — fail-closed without authOptions", () => {
   // The white-box variant in compose-features.test.ts only checks
   // Object.keys(writeHandlers); this verifies the user-visible behavior: when the user exists and
   // POST request-password-reset is called, the wrapper path must produce a mail.
@@ -494,7 +494,7 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
     suite.emailTransport.sent.length = 0;
   });
 
-  test("authOptions fehlt → POST returnt enumeration-safe 200, ABER NULL Mails (der echte Bug-Beweis)", async () => {
+  test("authOptions missing → POST returns enumeration-safe 200, BUT NO emails (the actual bug proof)", async () => {
     // The user exists, proving that the missing mail is caused by the
     // composeFeatures configuration rather than enumeration-safe user lookup.
     await seedUser(suite.stack, { email: "noop@example.com", password: "any-pw-1234" });

@@ -213,7 +213,7 @@ describe("Second audit — LISTEN gauge", () => {
     }
   });
 
-  test("a non-connection pre-check failure leaves the LISTEN gauge at 1 (fw#3252)", async () => {
+  test("a non-connection pre-check failure leaves the LISTEN gauge at 1", async () => {
     const metricEvents: MetricEvent[] = [];
     const meter = new RecordingMeter((e) => metricEvents.push(e));
     const recordingProvider: ObservabilityProvider = {

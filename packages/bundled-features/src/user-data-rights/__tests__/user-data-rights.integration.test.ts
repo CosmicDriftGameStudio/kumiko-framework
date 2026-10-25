@@ -46,7 +46,7 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.name).toBe("user-data-rights");
   });
 
-  test("EXT_USER_DATA-Extension ist registriert (andere Features koennen useExtension dranhaengen)", () => {
+  test("EXT_USER_DATA extension is registered (other features can attach via useExtension)", () => {
     expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
   });
 
@@ -57,11 +57,11 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(requires).toContain("compliance-profiles");
   });
 
-  test("usesApi compliance.forTenant fuer Grace-Period-Resolution", () => {
+  test("usesApi compliance.forTenant for Grace-Period-Resolution", () => {
     expect(userDataRights.usedApis.has("compliance.forTenant")).toBe(true);
   });
 
-  test("usesApi retention.policyFor fuer blockDelete-Konsultation (S2.D3 wired)", () => {
+  test("usesApi retention.policyFor for blockDelete consultation", () => {
     expect(userDataRights.usedApis.has("retention.policyFor")).toBe(true);
   });
 });

@@ -20,20 +20,20 @@ describe("isComponentRendererRef", () => {
     expect(isComponentRendererRef({ react: null })).toBeUndefined();
   });
 
-  test("leerer oder fehlender __component → undefined", () => {
+  test("empty or missing __component → undefined", () => {
     expect(isComponentRendererRef({ react: {} })).toBeUndefined();
     expect(isComponentRendererRef({ react: { __component: "" } })).toBeUndefined();
   });
 });
 
 describe("applyFormatSpec", () => {
-  test("null/undefined/leer → leerer String (priority rendert stattdessen emptyLabel)", () => {
+  test("null/undefined/empty → empty string (priority renders emptyLabel instead)", () => {
     expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
   });
 
-  test("boolean: true → ✓, false → leer (defaults)", () => {
+  test("boolean: true → ✓, false → empty (defaults)", () => {
     expect(applyFormatSpec({ format: "boolean" }, true)).toBe("✓");
     expect(applyFormatSpec({ format: "boolean" }, false)).toBe("");
   });
@@ -52,11 +52,11 @@ describe("applyFormatSpec", () => {
     expect(applyFormatSpec({ format: "currency", symbol: "$" }, "99.90")).toBe("99.90 $");
   });
 
-  test("currency: kein symbol → reiner Wert", () => {
+  test("currency: no symbol → plain value", () => {
     expect(applyFormatSpec({ format: "currency" }, 42)).toBe("42");
   });
 
-  test("number/decimal: locale-formatiert via Intl.NumberFormat (fw#2160)", () => {
+  test("number/decimal: locale-formatted via Intl.NumberFormat", () => {
     for (const format of ["number", "decimal"] as const) {
       expect(applyFormatSpec({ format }, 245.5)).toBe(
         new Intl.NumberFormat(undefined).format(245.5),
@@ -67,7 +67,7 @@ describe("applyFormatSpec", () => {
     }
   });
 
-  test("bigInt: locale-formatiert (immer Integer auf der Wire — z.number().int().safe())", () => {
+  test("bigInt: locale-formatted (always an integer on the wire — z.number().int().safe())", () => {
     // schema-builder.ts case "bigInt": mode:"number" round-trip, safe up to
     // 2^53 — bigInt fields are a plain JS number on the wire, never a bigint
     // primitive or string, so the same formatNumberCell path applies.
@@ -79,13 +79,13 @@ describe("applyFormatSpec", () => {
     );
   });
 
-  test("number: nicht-numerischer/NaN/Infinity Value fällt auf String zurück", () => {
+  test("number: non-numeric/NaN/Infinity value falls back to string", () => {
     expect(applyFormatSpec({ format: "number" }, "not-a-number")).toBe("not-a-number");
     expect(applyFormatSpec({ format: "number" }, Number.NaN)).toBe("NaN");
     expect(applyFormatSpec({ format: "number" }, Number.POSITIVE_INFINITY)).toBe("Infinity");
   });
 
-  test("number: ungültiges BCP-47 locale wirft nicht, fällt auf String zurück", () => {
+  test("number: invalid BCP-47 locale does not throw, falls back to string", () => {
     expect(() =>
       applyFormatSpec({ format: "number", locale: "not-a-locale!!" }, 245.5),
     ).not.toThrow();
@@ -97,7 +97,7 @@ describe("applyFormatSpec", () => {
     expect(applyFormatSpec({ format: "priority", prefix: "P" }, 3)).toBe("P3");
   });
 
-  test("priority: benutzerdefinierter emptyLabel + kein prefix", () => {
+  test("priority: custom emptyLabel + no prefix", () => {
     expect(applyFormatSpec({ format: "priority", emptyLabel: "none" }, 0)).toBe("none");
     expect(applyFormatSpec({ format: "priority" }, 5)).toBe("5");
   });
@@ -125,26 +125,26 @@ describe("applyFormatSpec", () => {
 });
 
 describe("defaultCellRender", () => {
-  test("null/undefined/leerer String → leerer String", () => {
+  test("null/undefined/empty string → empty string", () => {
     expect(defaultCellRender(null, "text")).toBe("");
     expect(defaultCellRender(undefined, "text")).toBe("");
     expect(defaultCellRender("", "text")).toBe("");
   });
 
-  test("boolean → ✓ bei true, leer bei false", () => {
+  test("boolean → ✓ for true, empty for false", () => {
     expect(defaultCellRender(true, "boolean")).toBe("✓");
     expect(defaultCellRender(false, "boolean")).toBe("");
   });
 
-  test("select → humanizeSlug (kebab → Title Case), wenn kein optionLabel", () => {
+  test("select → humanizeSlug (kebab → Title Case), when no optionLabel", () => {
     expect(defaultCellRender("degraded-performance", "select")).toBe("Degraded performance");
   });
 
-  test("select → registriertes optionLabel gewinnt vor humanizeSlug", () => {
+  test("select → registered optionLabel takes precedence over humanizeSlug", () => {
     expect(defaultCellRender("op-x", "select", { "op-x": "Operativ X" })).toBe("Operativ X");
   });
 
-  test("multiSelect → Werte gejoint mit ', ', optionLabel gewinnt vor humanizeSlug pro Wert (fw#2491)", () => {
+  test("multiSelect → values joined with ', ', optionLabel takes precedence over humanizeSlug for each value", () => {
     expect(
       defaultCellRender(["op-x", "degraded-performance"], "multiSelect", {
         "op-x": "Operativ X",
@@ -152,19 +152,19 @@ describe("defaultCellRender", () => {
     ).toBe("Operativ X, Degraded performance");
   });
 
-  test("multiSelect → leeres Array liefert leeren String", () => {
+  test("multiSelect → empty array returns an empty string", () => {
     expect(defaultCellRender([], "multiSelect")).toBe("");
   });
 
-  test("multiSelect → einzelner Nicht-Array-Wert wird wie select behandelt (defensive)", () => {
+  test("multiSelect → single non-array value is handled like select (defensive)", () => {
     expect(defaultCellRender("op-x", "multiSelect", { "op-x": "Operativ X" })).toBe("Operativ X");
   });
 
-  test("text → String-Repräsentation", () => {
+  test("text → String representation", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
   });
 
-  test("date/timestamp → locale wird durchgereicht (de-DE vs en-US liefern verschiedene Strings)", () => {
+  test("date/timestamp → locale is passed through (de-DE vs en-US produce different strings)", () => {
     for (const [type, value] of [
       ["date", "2026-07-18"],
       ["timestamp", "2026-07-18T12:30:00.000Z"],
@@ -177,7 +177,7 @@ describe("defaultCellRender", () => {
     }
   });
 
-  test("ISO-Zeitstempel-Warnung feuert in production nicht, in development für dieselbe Spalte schon", () => {
+  test("ISO timestamp warning does not fire in production, but does in development for the same column", () => {
     const prevNodeEnv = process.env.NODE_ENV;
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
@@ -199,7 +199,7 @@ describe("defaultCellRender", () => {
     }
   });
 
-  test("text-Spalte mit vollem ISO-8601-Zeitstempel warnt einmal pro Spalte, Wert bleibt unverändert (fw#2569)", () => {
+  test("text column with a full ISO-8601 timestamp warns once per column, value remains unchanged", () => {
     const prevNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
     const warn = spyOn(console, "warn").mockImplementation(() => {});
@@ -242,7 +242,7 @@ describe("defaultCellRender", () => {
     }
   });
 
-  test("number/decimal → locale-formatiert, kein roher Dezimalpunkt (fw#2160)", () => {
+  test("number/decimal → locale-formatted, no raw decimal point", () => {
     expect(defaultCellRender(42, "number")).toBe(new Intl.NumberFormat(undefined).format(42));
     expect(defaultCellRender(245.5, "decimal")).toBe(
       new Intl.NumberFormat(undefined).format(245.5),
@@ -251,7 +251,7 @@ describe("defaultCellRender", () => {
     expect(new Intl.NumberFormat("de-DE").format(245.5)).toBe("245,5");
   });
 
-  test("number/decimal → explicit locale param wins over the runtime default (fw#2437)", () => {
+  test("number/decimal → explicit locale param wins over the runtime default", () => {
     expect(defaultCellRender(245.5, "number", undefined, "de-DE")).toBe(
       new Intl.NumberFormat("de-DE").format(245.5),
     );
@@ -264,13 +264,13 @@ describe("defaultCellRender", () => {
     );
   });
 
-  test("money → { amount, currency } formatiert, kein [object Object]", () => {
+  test("money → { amount, currency } formatted, not [object Object]", () => {
     const result = defaultCellRender({ amount: 450, currency: "EUR" }, "money");
     expect(result).not.toBe("[object Object]");
     expect(result.replace(/[^0-9]/g, "")).toBe("45000");
   });
 
-  test("money → JPY ohne Nachkommastellen (currencyDecimals)", () => {
+  test("money → JPY without fractional digits (currencyDecimals)", () => {
     const result = defaultCellRender({ amount: 1000, currency: "JPY" }, "money");
     const expected = new Intl.NumberFormat(undefined, {
       style: "currency",
@@ -301,16 +301,16 @@ describe("defaultCellRender", () => {
     expect(result.replace(/[^0-9]/g, "")).toBe("1500");
   });
 
-  test("money → unerwarteter Value-Shape fällt auf String zurück", () => {
+  test("money → unexpected Value shape falls back to string", () => {
     expect(defaultCellRender(45000, "money")).toBe("45000");
   });
 
-  test("money → invalid currency does not throw, falls back to [object Object] like pre-regression (#1494)", () => {
+  test("money → invalid currency does not throw, falls back to [object Object]", () => {
     expect(() => defaultCellRender({ amount: 1, currency: "" }, "money")).not.toThrow();
     expect(defaultCellRender({ amount: 1, currency: "" }, "money")).toBe("[object Object]");
   });
 
-  test("money → explicit locale param wins over guessLocale's navigator fallback (fw#2437)", () => {
+  test("money → explicit locale param wins over guessLocale's navigator fallback", () => {
     const value = { amount: 1234.5, currency: "EUR" };
     const de = defaultCellRender(value, "money", undefined, "de-DE");
     const en = defaultCellRender(value, "money", undefined, "en-US");

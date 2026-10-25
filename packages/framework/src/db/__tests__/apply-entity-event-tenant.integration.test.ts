@@ -82,7 +82,7 @@ function syntheticCreateEvent(payload: Record<string, unknown>): StoredEvent {
 }
 
 describe("applyEntityEvent — tenantId-Defaulting", () => {
-  test("payload OHNE tenantId → row.tenantId fällt auf event.tenantId zurück (Replay-Default)", async () => {
+  test("payload WITHOUT tenantId → row.tenantId falls back to event.tenantId (Replay default)", async () => {
     const event = syntheticCreateEvent({ name: "without-tenantId-in-payload" });
     const result = await applyEntityEvent(
       event,
@@ -97,7 +97,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     expect(row?.["name"]).toBe("without-tenantId-in-payload");
   });
 
-  test("payload MIT tenantId überschreibt event.tenantId (seed-Override-Case)", async () => {
+  test("payload WITH tenantId overrides event.tenantId (seed override case)", async () => {
     // seedTenantMembership reality: the operator (event.tenantId =
     // OPERATOR) writes a membership in the target tenant (payload
     // .tenantId = TARGET). The row belongs to the target tenant.
@@ -118,7 +118,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     expect(row?.["tenantId"]).not.toBe(TENANT_OPERATOR);
   });
 
-  test("payload.tenantId === '' (empty string) → wirft (fail-loud, kein silent fallback)", async () => {
+  test("payload.tenantId === '' (empty string) → throws (fail-loud, no silent fallback)", async () => {
     // Critical for tenant isolation: silently falling back to event.tenantId
     // would write a bug payload (form input without a trim check, broken
     // hook, etc.) to the operator tenant, even though the caller code
@@ -133,7 +133,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     ).rejects.toThrow(/payload\.tenantId set but invalid/);
   });
 
-  test("payload.tenantId === null → wirft (fail-loud)", async () => {
+  test("payload.tenantId === null → throws (fail-loud)", async () => {
     // Mirror case. A JSON payload can contain literal null (for example, a
     // hook set the value to null instead of unsetting it). There must be
     // no silent fallback here either—this is critical for tenant isolation.
@@ -146,7 +146,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     ).rejects.toThrow(/payload\.tenantId set but invalid/);
   });
 
-  test("Spread-Reihenfolge: payload-Felder bleiben erhalten, framework-Defaults nicht überschrieben", async () => {
+  test("Spread order: payload fields remain intact, framework defaults are not overwritten", async () => {
     // Negative anchor: id/version/insertedAt/insertedById must NOT come
     // from the payload; they come from the event. Reversing the order in
     // values() would make this test fail.

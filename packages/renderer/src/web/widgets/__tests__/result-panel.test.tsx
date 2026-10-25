@@ -16,7 +16,7 @@ const ROWS = [
 ];
 
 describe("ResultTable", () => {
-  test("card=true wrapt in den gerundeten Border-Container mit bg-muted-Header", () => {
+  test("card=true wraps it in the rounded border container with bg-muted header", () => {
     const { container } = render(
       <ResultTable columns={COLUMNS} rows={ROWS} rowKey={(r) => String(r.year)} card testId="rt" />,
     );
@@ -25,7 +25,7 @@ describe("ResultTable", () => {
     expect(screen.getByText("2026")).toBeTruthy();
   });
 
-  test("ohne card kein Wrapper (bare default)", () => {
+  test("without card, no wrapper (bare default)", () => {
     const { container } = render(
       <ResultTable columns={COLUMNS} rows={ROWS} rowKey={(r) => String(r.year)} testId="rt" />,
     );
@@ -83,7 +83,7 @@ describe("ComparisonTable", () => {
   const cols = ["A", "B"];
   const metrics = [{ label: "Zins", value: (col: string) => `${col}-Zins` }];
 
-  test("card=true wrapt in den gerundeten Border-Container mit bg-muted-Header", () => {
+  test("card=true wraps it in the rounded border container with bg-muted header", () => {
     const { container } = render(
       <ComparisonTable
         columns={cols}
@@ -100,7 +100,7 @@ describe("ComparisonTable", () => {
     expect(screen.getByText("A-Zins")).toBeTruthy();
   });
 
-  test("ohne card kein Wrapper (bare default)", () => {
+  test("without card, no wrapper (bare default)", () => {
     const { container } = render(
       <ComparisonTable
         columns={cols}

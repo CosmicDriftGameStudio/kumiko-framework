@@ -63,7 +63,7 @@ function renderReadOnly(locale: string, grouping: boolean | undefined): string {
   return screen.getByTestId("field-value-population").textContent ?? "";
 }
 
-describe("RenderField — read-only number grouping (fw#3234)", () => {
+describe("RenderField — read-only number grouping", () => {
   test("groups thousands by default, locale-aware", () => {
     expect(renderReadOnly("en-US", undefined)).toBe("2,021");
     expect(renderReadOnly("de-DE", undefined)).toBe("2.021");

@@ -39,7 +39,7 @@ afterAll(async () => {
 });
 
 describe("seedComplianceProfile", () => {
-  test("kann eu-dsgvo direkt seeden, for-tenant liefert das Profile", async () => {
+  test("can seed eu-dsgvo directly, for-tenant returns the profile", async () => {
     const tenantId = testTenantId(200);
     const user = createTestUser({ id: 200, tenantId, roles: ["TenantAdmin"] });
 
@@ -64,7 +64,7 @@ describe("seedComplianceProfile", () => {
     expect(result.profile.key).toBe("swiss-dsg");
   });
 
-  test("default skip: zweiter Boot-Call ohne update überschreibt nicht", async () => {
+  test("default skip: second boot call without update does not overwrite", async () => {
     const tenantId = testTenantId(204);
 
     await seedComplianceProfile(stack.db, { tenantId, profileKey: "eu-dsgvo" });
@@ -85,7 +85,7 @@ describe("seedComplianceProfile", () => {
     expect(events).toHaveLength(2);
   });
 
-  test("kann minimal-no-region direkt seeden (Migration-Edge-Case, ohne set-profile-Zod-Engung)", async () => {
+  test("can seed minimal-no-region directly (migration edge case, without set-profile Zod restriction)", async () => {
     const tenantId = testTenantId(202);
     const user = createTestUser({ id: 202, tenantId, roles: ["TenantAdmin"] });
 
@@ -100,7 +100,7 @@ describe("seedComplianceProfile", () => {
     expect(result.profile.key).toBe("minimal-no-region");
   });
 
-  test("Override wird persistiert + im for-tenant deep-merged zurueckgelesen", async () => {
+  test("Override is persisted + read back deep-merged in for-tenant", async () => {
     const tenantId = testTenantId(203);
     const user = createTestUser({ id: 203, tenantId, roles: ["TenantAdmin"] });
 

@@ -152,14 +152,14 @@ async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<vo
 // these in-flight renders. A fresh process has no such accumulation.
 // The QN-Drift-Pins + formatDate describes below are pure-logic and CI-stable.
 describe("ExportSection", () => {
-  test("idle: Intro + Request-Button, Texte übersetzt (keine rohen Keys)", async () => {
+  test("idle: Intro + Request button, translated text (no raw keys)", async () => {
     const { view } = renderExportSection({});
     await waitForMount(view);
     expect(view.getByTestId("privacy-export-request")).toBeTruthy();
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
   });
 
-  test("export done: Download-Button + Verfügbar-bis-Datum", async () => {
+  test("export done: Download button + available-until date", async () => {
     const { view } = renderExportSection({
       exportStatus: {
         hasJob: true,
@@ -173,7 +173,7 @@ describe("ExportSection", () => {
     expect(ready.textContent).not.toContain("T00:00");
   });
 
-  test("export failed: Fehler-Banner + Re-Request möglich", async () => {
+  test("export failed: Error banner + re-request available", async () => {
     const { view } = renderExportSection({
       exportStatus: { hasJob: true, job: { id: "job-9", status: EXPORT_JOB_STATUS.Failed } },
     });
@@ -182,7 +182,7 @@ describe("ExportSection", () => {
     expect(view.getByTestId("privacy-export-request")).toBeTruthy();
   });
 
-  test("export pending: in-progress Banner, kein Request-Button", async () => {
+  test("export pending: in-progress banner, no request button", async () => {
     const { view } = renderExportSection({
       exportStatus: { hasJob: true, job: { id: "job-1", status: EXPORT_JOB_STATUS.Pending } },
     });
@@ -191,7 +191,7 @@ describe("ExportSection", () => {
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
 
-  test("Export-Request dispatcht den korrekten Handler-QN", async () => {
+  test("Export-Request dispatches the correct handler-QN", async () => {
     const { view, writes } = renderExportSection({});
     await waitForMount(view);
     fireEvent.click(view.getByTestId("privacy-export-request"));
@@ -201,7 +201,7 @@ describe("ExportSection", () => {
     expect(writes[0]?.type).toBe(UserDataRightsHandlers.requestExport);
   });
 
-  test("Download-Button dispatcht downloadByJob mit der korrekten jobId", async () => {
+  test("Download button dispatches downloadByJob with the correct jobId", async () => {
     const { view, queries } = renderExportSection({
       exportStatus: {
         hasJob: true,
@@ -269,7 +269,7 @@ describe("QN-Drift-Pins (client-Konstanten vs. Feature-Originale)", () => {
     expect(USER_ME_QUERY).toBe(UserQueries.me);
   });
 
-  test("EXPORT_JOB_STATUS-Mirror deckt sich mit dem Schema-Original", () => {
+  test("EXPORT_JOB_STATUS mirror matches the schema original", () => {
     expect(EXPORT_JOB_STATUS).toEqual(SCHEMA_EXPORT_JOB_STATUS);
   });
 });

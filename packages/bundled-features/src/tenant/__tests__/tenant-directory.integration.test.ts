@@ -77,7 +77,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("tenant:query:tenant-directory (fw#3142)", () => {
+describe("tenant:query:tenant-directory", () => {
   test("is the lookup source the renderer uses for tenant:tenant references", () => {
     expect(REFERENCE_LOOKUP_SOURCES["tenant:tenant"]).toEqual({
       queryQn: TenantQueries.tenantDirectory,

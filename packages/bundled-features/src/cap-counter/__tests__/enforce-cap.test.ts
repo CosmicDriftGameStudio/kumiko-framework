@@ -363,7 +363,7 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  test("soft-hit → notifier feuert (ohne dedup, Caller-Verantwortung)", async () => {
+  test("soft-hit → notifier fires (no deduplication, caller responsibility)", async () => {
     const ctx = stubRollingCtx([{ amount: 6000 }, { amount: 5000 }]);
     const notify = mock();
     const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
@@ -377,7 +377,7 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
     });
   });
 
-  test("zwei aufeinanderfolgende soft-hit-Calls → notifier 2× (kein Dedup)", async () => {
+  test("two consecutive soft-hit calls → notifier 2× (no deduplication)", async () => {
     // The rolling counter does not track lastSoftWarnedAt; the caller must
     // deduplicate notifications itself (for example, with a cache entry or
     // hourly cron). This detects a refactor that adds deduplication without
@@ -408,14 +408,14 @@ describe("currentCalendarMonthStartIso", () => {
 // =============================================================================
 
 describe("aggregate-id namespaces — drift-pin", () => {
-  test("calendar capCounterAggregateId stable für (tenant, capName, period)", async () => {
+  test("calendar capCounterAggregateId stable for (tenant, capName, period)", async () => {
     const { capCounterAggregateId } = await import("../aggregate-id.ts");
     expect(capCounterAggregateId("tenant-1", "cap-x", "2026-05-01T00:00:00Z")).toBe(
       "2e74a706-7cc1-51ca-a1a7-89e5c5bccb7e",
     );
   });
 
-  test("rolling rollingCapAggregateId stable für (tenant, capName)", async () => {
+  test("rolling rollingCapAggregateId stable for (tenant, capName)", async () => {
     const { rollingCapAggregateId } = await import("../aggregate-id.ts");
     // Pin the exact UUID output. Changing the namespace UUID in
     // aggregate-id.ts would invalidate the tenant's entire rolling-counter
@@ -425,7 +425,7 @@ describe("aggregate-id namespaces — drift-pin", () => {
     );
   });
 
-  test("calendar und rolling produzieren UNTERSCHIEDLICHE UUIDs für gleiches Tupel", async () => {
+  test("calendar and rolling produce DIFFERENT UUIDs for the same tuple", async () => {
     const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.ts");
     // Even if someone passes "1970-01-01..." as periodStart to the calendar
     // path, its UUID must not collide with the rolling aggregate; otherwise

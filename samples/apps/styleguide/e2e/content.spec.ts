@@ -6,7 +6,7 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test("Content +: neue Seite anlegen → erscheint live im Nav-Tree", async ({ page }) => {
+test("Content +: create a new page → appears live in the Nav-Tree", async ({ page }) => {
   await page.goto("/item-list");
 
   // Der statische Content-Provider-Knoten ist in der Sidebar.

@@ -176,7 +176,7 @@ async function failures(user: SessionUser, payload: unknown = {}): Promise<Failu
   return body.data.rows;
 }
 
-describe("jobs:query:failures (fw#3079)", () => {
+describe("jobs:query:failures", () => {
   test("the triggering tenant reads its own failed job, scoped by subject", async () => {
     await generate(userA, "campaign-1", "fail");
     await generate(userA, "campaign-2", "budget");
@@ -318,7 +318,7 @@ describe("jobs:query:failures (fw#3079)", () => {
   });
 });
 
-describe("jobs:query:failures read access for app roles (fw#3927)", () => {
+describe("jobs:query:failures read access for app roles", () => {
   const member = createTestUser({ id: 7, tenantId: tenantA, roles: ["PropertyManager"] });
 
   async function queryAs(readRoles: readonly string[] | undefined): Promise<Response> {

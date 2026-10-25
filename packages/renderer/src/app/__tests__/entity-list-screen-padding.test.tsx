@@ -118,13 +118,13 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
   return captured;
 }
 
-describe("entityList screen padding (fw#2640)", () => {
+describe("entityList screen padding", () => {
   test("the list screen marks its table as the screen body", async () => {
     expect((await captureListProps()).screenPadding).toBe(true);
   });
 });
 
-describe("entityList fillHeight (fw#3381)", () => {
+describe("entityList fillHeight", () => {
   test("fills the shell height by default (scrollBody)", async () => {
     expect((await captureListProps()).scrollBody).toBe(true);
   });

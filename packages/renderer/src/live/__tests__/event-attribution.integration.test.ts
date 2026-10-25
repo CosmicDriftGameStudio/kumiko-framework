@@ -195,7 +195,7 @@ async function originOf(type: string): Promise<Origin> {
   return (row?.["metadata"] ?? {}) as Origin;
 }
 
-describe("#3043 — event attribution from the execution scope", () => {
+describe("event attribution from the execution scope", () => {
   test("dispatch path: ctx.events.append stamps the handler and its feature", async () => {
     await stack.http.writeOk(PLACE_HANDLER, { item: "widget" }, admin);
 

@@ -18,7 +18,7 @@ function row(over: Partial<AuthUserRow> = {}): AuthUserRow {
   return { id: "00000000-0000-4000-8000-000000000001", passwordHash: "x", ...over };
 }
 
-describe("login.write gates (fw#1284)", () => {
+describe("login.write gates", () => {
   test("gateEnforceEmailVerified rejects when strict and unverified", () => {
     const g = gateEnforceEmailVerified(row({ emailVerified: false }), true);
     expect(g.ok).toBe(false);
@@ -64,7 +64,7 @@ describe("login.write gates (fw#1284)", () => {
     expect(g.session.timezone).toBe("Asia/Tokyo");
   });
 
-  test("gateBuildSession omits timezone when the user never set one (fw#1636)", async () => {
+  test("gateBuildSession omits timezone when the user never set one", async () => {
     const g = await gateBuildSession(
       authClaimsCtx,
       "00000000-0000-4000-8000-000000000001",

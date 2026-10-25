@@ -6,7 +6,7 @@ function unavailable(): BunAuditUnavailableError {
 }
 
 describe("retryWhileUnavailable", () => {
-  test("3 Fehlversuche → Fehler nach 3 Attempts", async () => {
+  test("3 failed attempts → error after 3 attempts", async () => {
     let calls = 0;
     await expect(
       retryWhileUnavailable(
@@ -20,7 +20,7 @@ describe("retryWhileUnavailable", () => {
     expect(calls).toBe(3);
   });
 
-  test("Erfolg im 2. Versuch → Ergebnis + genau 1 Sleep", async () => {
+  test("Success on the 2nd attempt → result + exactly 1 sleep", async () => {
     let calls = 0;
     let sleeps = 0;
     const result = await retryWhileUnavailable(
@@ -43,7 +43,7 @@ describe("retryWhileUnavailable", () => {
     expect(sleeps).toBe(1);
   });
 
-  test("Nicht-Unavailable-Fehler → 1 Attempt, kein Retry", async () => {
+  test("Non-Unavailable error → 1 attempt, no retry", async () => {
     let calls = 0;
     await expect(
       retryWhileUnavailable(
@@ -57,7 +57,7 @@ describe("retryWhileUnavailable", () => {
     expect(calls).toBe(1);
   });
 
-  test("Timeout-Budget erschöpft vor einem Versuch → Fehler ohne weiteren Call", async () => {
+  test("Timeout budget exhausted before an attempt → error without another call", async () => {
     let calls = 0;
     let now = 0;
     await expect(
@@ -73,7 +73,7 @@ describe("retryWhileUnavailable", () => {
     expect(calls).toBe(1);
   });
 
-  test("schneller Fehlschlag laesst dem naechsten Versuch fast das ganze Budget, nicht ein Drittel", async () => {
+  test("a quick failure leaves the next attempt nearly the entire budget, not a third", async () => {
     const timeoutMs = 90_000;
     let now = 0;
     const receivedBudgets: number[] = [];
@@ -90,7 +90,7 @@ describe("retryWhileUnavailable", () => {
     expect(receivedBudgets).toEqual([90_000, 89_000, 88_000]);
   });
 
-  test("ein haengender Versuch verbraucht das gesamte Budget → kein weiterer Versuch", async () => {
+  test("a hanging attempt consumes the entire budget → no further attempt", async () => {
     const timeoutMs = 90_000;
     let now = 0;
     let calls = 0;
@@ -116,7 +116,7 @@ describe("retryWhileUnavailable", () => {
     expect(now).toBeLessThanOrEqual(timeoutMs);
   });
 
-  test("Budget erschöpft → stderr der letzten Unavailable-Error bleibt in der Fehlermeldung", async () => {
+  test("Budget exhausted → stderr from the last Unavailable error remains in the error message", async () => {
     let calls = 0;
     let now = 0;
     const stderrText =
@@ -138,7 +138,7 @@ describe("retryWhileUnavailable", () => {
     expect(calls).toBe(1);
   });
 
-  test("Timeout-bedingter Kill zeigt in der Meldung als Timeout, nicht als Netzwerkfehler", async () => {
+  test("Timeout-caused kill is shown in the message as a timeout, not a network error", async () => {
     let error: unknown;
     try {
       await retryWhileUnavailable(

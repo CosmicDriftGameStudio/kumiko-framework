@@ -163,7 +163,7 @@ describe("user-session userData-hooks", () => {
     );
   }
 
-  test("export liefert ip/userAgent, aber keine Session-Id (jti)", async () => {
+  test("export returns ip/userAgent, but no Session-Id (jti)", async () => {
     await seedSession(uuid(1), "sess-user-1", TENANT_A);
 
     const result = await userSessionExportHook(ctx("sess-user-1"));
@@ -174,7 +174,7 @@ describe("user-session userData-hooks", () => {
     expect(result?.rows[0]?.["id"]).toBeUndefined();
   });
 
-  test("delete entfernt Sessions des Users, Cross-Tenant bleibt", async () => {
+  test("delete removes the user's sessions, cross-tenant sessions remain", async () => {
     await seedSession(uuid(2), "sess-user-2", TENANT_A);
     await seedSession(uuid(3), "sess-user-2", TENANT_B);
 
@@ -202,7 +202,7 @@ describe("api-token userData-hooks", () => {
     );
   }
 
-  test("export liefert Token-Metadata ohne tokenHash", async () => {
+  test("export returns token metadata without tokenHash", async () => {
     await seedToken(uuid(10), "pat-user-1");
 
     const result = await apiTokenExportHook(ctx("pat-user-1"));
@@ -234,7 +234,7 @@ describe("in-app-message userData-hooks", () => {
     );
   }
 
-  test("export liefert Messages, delete entfernt sie", async () => {
+  test("export returns messages, delete removes them", async () => {
     await seedMessage("inapp-user-1", "Export fertig");
 
     const result = await inAppMessageExportHook(ctx("inapp-user-1"));
@@ -263,7 +263,7 @@ describe("tenant-invitation userData-hooks", () => {
     );
   }
 
-  test("export matcht Invitations über die User-Email", async () => {
+  test("export matches invitations by the user's email", async () => {
     await seedUser(uuid(20));
     await seedInvitation(uuid(21), `user-${uuid(20)}@example.com`, "admin-1");
 
@@ -296,7 +296,7 @@ describe("tenant-invitation userData-hooks", () => {
     expect(String(rows[0]?.["email"])).toBe(`forgotten-${uuid(25)}@anonymized.invalid`);
   });
 
-  test("userEmailBeforeDelete hat Vorrang (User-Row schon anonymisiert)", async () => {
+  test("userEmailBeforeDelete takes precedence (user row already anonymized)", async () => {
     await seedInvitation(uuid(26), "vanished@example.com", "admin-1");
 
     await tenantInvitationDeleteHook(
@@ -308,7 +308,7 @@ describe("tenant-invitation userData-hooks", () => {
     expect(rows).toHaveLength(0);
   });
 
-  test("Inviter-Forget severs invitedBy, Row bleibt (gehört dem Invitee)", async () => {
+  test("Inviter forget severs invitedBy, row remains (belongs to the invitee)", async () => {
     // userId must be a real UUID because the email lookup queries read_users.id (uuid).
     const inviter = uuid(28);
     await seedInvitation(uuid(27), "someone-else@example.com", inviter);
@@ -334,7 +334,7 @@ describe("notification-preference userData-hooks", () => {
     );
   }
 
-  test("export liefert Prefs, forget purged sie via Executor", async () => {
+  test("export returns prefs, forget purges them via Executor", async () => {
     await seedPreference(uuid(30), "pref-user-1");
 
     const result = await notificationPreferenceExportHook(ctx("pref-user-1"));
@@ -359,7 +359,7 @@ describe("config-value userData-hooks", () => {
     );
   }
 
-  test("export + forget treffen NUR user-scoped Rows, tenant-scope bleibt", async () => {
+  test("export + forget affect ONLY user-scoped rows, tenant scope remains", async () => {
     await seedConfig(uuid(40), "ui.theme", "cfg-user-1");
     await seedConfig(uuid(41), "tenant.brand", null);
 
@@ -379,7 +379,7 @@ describe("config-value userData-hooks", () => {
   });
 });
 
-describe("delivery-attempt userData-hooks (#799)", () => {
+describe("delivery-attempt userData-hooks", () => {
   async function seedAttempt(id: string, recipientId: string, tenantId: string): Promise<void> {
     await asRawClient(full.db).unsafe(
       `INSERT INTO store_delivery_attempts
@@ -470,7 +470,7 @@ describe("delivery-attempt userData-hooks (#799)", () => {
   });
 });
 
-describe("job-run userData-hooks (#799)", () => {
+describe("job-run userData-hooks", () => {
   async function seedRun(id: string, triggeredById: string | null): Promise<void> {
     await asRawClient(full.db).unsafe(
       `INSERT INTO store_job_runs
@@ -497,8 +497,8 @@ describe("job-run userData-hooks (#799)", () => {
   });
 });
 
-describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt Crash", () => {
-  test("alle gegateten Hooks no-open auf dem Minimal-Stack", async () => {
+describe("Presence gating: Source feature not mounted → null/no-op instead of a crash", () => {
+  test("all gated hooks no-open on the minimal stack", async () => {
     const minCtx = {
       db: createTenantDb({ db: minimal.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: minimal.registry,

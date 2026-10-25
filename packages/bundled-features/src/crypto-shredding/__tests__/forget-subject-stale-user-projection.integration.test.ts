@@ -90,7 +90,7 @@ async function userRow(userId: string) {
   return { status: row?.["status"], isDeleted: row?.["isDeleted"] };
 }
 
-describe("forget-subject for a user whose stream is deleted but whose status is still active (#3817)", () => {
+describe("forget-subject for a user whose stream is deleted but whose status is still active", () => {
   test("closes the login door via a user.updated event and survives a read_users rebuild", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);

@@ -126,14 +126,14 @@ describe("LoginScreen", () => {
     });
   });
 
-  test("forgotPasswordHref-prop → Link rendert mit korrektem href", () => {
+  test("forgotPasswordHref prop → Link renders with the correct href", () => {
     renderWithProviders(<LoginScreen forgotPasswordHref="/forgot-password" />);
     const link = screen.getByRole("link", { name: /Forgot password/i });
     expect(link).toBeTruthy();
     expect(link.getAttribute("href")).toBe("/forgot-password");
   });
 
-  test("ohne forgotPasswordHref → KEIN Link (Login bleibt minimalistisch)", () => {
+  test("without forgotPasswordHref → no link (login remains minimal)", () => {
     renderWithProviders(<LoginScreen />);
     expect(screen.queryByRole("link", { name: /Forgot password/i })).toBeNull();
   });
@@ -141,7 +141,7 @@ describe("LoginScreen", () => {
   // The login screen is often the only public page of an admin domain —
   // without an accessible legal notice, the domain violates legal-notice
   // requirements.
-  test("legalLinks-prop → Impressum/Datenschutz-Links mit korrekten hrefs", () => {
+  test("legalLinks prop → Impressum/Datenschutz links with correct hrefs", () => {
     renderWithProviders(
       <LoginScreen
         legalLinks={[
@@ -158,7 +158,7 @@ describe("LoginScreen", () => {
     expect(privacy.getAttribute("href")).toBe("/legal/datenschutz");
   });
 
-  test("ohne legalLinks → kein Legal-Footer (Opt-in der App)", () => {
+  test("without legalLinks → no legal footer (app opt-in)", () => {
     renderWithProviders(<LoginScreen />);
     expect(screen.queryByTestId("login-legal-links")).toBeNull();
   });
@@ -216,7 +216,7 @@ describe("LoginScreen", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
-    test("rate_limited → inline hint statt success", async () => {
+    test("rate_limited → inline hint instead of success", async () => {
       requestEmailVerificationMock.mockResolvedValueOnce({
         ok: false,
         error: { reason: "rate_limited" },
@@ -245,7 +245,7 @@ describe("LoginScreen", () => {
       });
     });
 
-    test("Email-Änderung nach Failure → Resend-Button verschwindet (anti-typo-Falle)", async () => {
+    test("Email change after failure → resend button disappears (anti-typo trap)", async () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
       expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
@@ -258,7 +258,7 @@ describe("LoginScreen", () => {
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
     });
 
-    test("invalid_credentials → KEIN Resend-Button (nur bei email_not_verified)", async () => {
+    test("invalid_credentials → no resend button (only for email_not_verified)", async () => {
       const session = makeSessionApi({
         status: "unauthenticated",
         user: null,

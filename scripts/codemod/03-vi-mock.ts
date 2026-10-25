@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
-// Codemod 03: vi.mock → mock.module mit Hoisting-Check
+// Codemod 03: vi.mock → mock.module with hoisting check
 //
-// Wichtig: vi.mock wird in vitest AUTOMATISCH gehoist (über alle Top-Level-
-// Statements + Imports). bun:test's mock.module hoistet NICHT. Wenn vi.mock
-// in der Mitte einer Test-Datei steht und davor schon module-Verwendung
-// passiert, ändert sich Semantik beim Drop-in-Rename.
+// Important: vi.mock is AUTOMATICALLY hoisted (across all top-level-
+// statements + imports). bun:test's mock.module does NOT hoist. If vi.mock
+// is in the middle of a test file and module usage has already happened
+// before it, semantics change with the drop-in rename.
 //
-// Diese Codemod:
-//   1. Findet alle vi.mock(...) Calls
-//   2. Prüft ob das ERSTE Statement nach Imports ist (sicher)
-//   3. Wenn ja: rename → mock.module
-//   4. Wenn nein: warn-listen, manueller Review nötig
+// This codemod:
+//   1. Finds all vi.mock(...) calls
+//   2. Checks whether it is the FIRST statement after imports (safe)
+//   3. If yes: rename → mock.module
+//   4. If no: add to warning list, manual review needed
 //
-// Spezialfall: vi.mock mit factory die vi.importActual nutzt →
-// kompletter Pattern-Rewrite. Wegen Komplexität: warn-listen für manual.
+// Special case: vi.mock with a factory that uses vi.importActual →
+// complete pattern rewrite. Due to complexity: add to warning list for manual review.
 
 import { Project, SyntaxKind, type SourceFile, type CallExpression, Node } from "ts-morph";
 import { resolve } from "node:path";
@@ -28,7 +28,7 @@ type Verdict =
   | { kind: "warn-hoisted-vars"; call: CallExpression };
 
 function analyzeViMock(sf: SourceFile, call: CallExpression): Verdict {
-  // Ist die Call-Expression in einem ExpressionStatement das auf Top-Level liegt?
+  // Is the call expression in an ExpressionStatement that is at top level?
   const stmt = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
   if (!stmt) return { kind: "warn-hoisting", call, reason: "not in ExpressionStatement" };
 
@@ -37,23 +37,23 @@ function analyzeViMock(sf: SourceFile, call: CallExpression): Verdict {
     return { kind: "warn-hoisting", call, reason: "vi.mock not at top-level (nested in block/function)" };
   }
 
-  // Prüfe ob vi.importActual in der factory referenziert ist
-  // (komplexes Pattern, manual review besser)
+  // Check whether vi.importActual is referenced in the factory
+  // (complex pattern, manual review is better)
   const callText = call.getText();
   if (callText.includes("vi.importActual")) {
     return { kind: "warn-importactual", call };
   }
 
-  // Prüfe ob vi.hoisted in derselben Datei steht
+  // Check whether vi.hoisted is present in the same file
   if (sf.getFullText().includes("vi.hoisted(")) {
     return { kind: "warn-hoisted-vars", call };
   }
 
-  // Position: stmt sollte VOR allen non-import-statements stehen
+  // Position: stmt should come BEFORE all non-import-statements
   const stmtIdx = sf.getStatements().indexOf(stmt);
   if (stmtIdx === -1) return { kind: "warn-hoisting", call, reason: "stmt not in source statements" };
 
-  // Alle Statements VOR diesem stmt dürfen nur ImportDeclarations sein
+  // All statements BEFORE this stmt may only be ImportDeclarations
   for (let i = 0; i < stmtIdx; i++) {
     const earlier = sf.getStatements()[i];
     if (!earlier) continue;

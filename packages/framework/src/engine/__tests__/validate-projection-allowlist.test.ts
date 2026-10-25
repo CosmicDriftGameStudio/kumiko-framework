@@ -258,7 +258,7 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
-  it("does NOT recurse into unregistered step-kind sub-arrays — defineStep is the registration gate (#15)", () => {
+  it("does NOT recurse into unregistered step-kind sub-arrays — defineStep is the registration gate", () => {
     // Pins the contract: walkAllSteps recurses ONLY into
     // sub-arrays whose step-kind is registered with `subPaths` via
     // defineStep. Hand-crafted instances with unregistered kinds are
@@ -296,7 +296,7 @@ describe("validateProjectionAllowlist", () => {
     expect(() => validateProjectionAllowlist([featureWithUnknownSubBuilder])).not.toThrow();
   });
 
-  it("DOES recurse into sub-arrays of step-kinds registered with subPaths via defineStep (#15)", () => {
+  it("DOES recurse into sub-arrays of step-kinds registered with subPaths via defineStep", () => {
     // Inverse of the previous test: when a NEW sub-step-builder
     // self-registers via defineStep({ subPaths: [...] }), the boot-
     // validator picks up the recursion automatically — no central
@@ -472,7 +472,7 @@ describe("validateProjectionAllowlist", () => {
     });
   });
 
-  it("rejects two features registering r.entity on the same table (#8)", () => {
+  it("rejects two features registering r.entity on the same table", () => {
     // Without this guard, the second r.entity() silently overwrites the
     // first in the validator's aggregate-tables map — and a later
     // unsafeProjection error against that table would name the WRONG

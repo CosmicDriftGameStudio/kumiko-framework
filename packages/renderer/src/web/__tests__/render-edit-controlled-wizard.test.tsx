@@ -25,7 +25,7 @@ import { act, fireEvent, render, screen } from "./test-utils.tsx";
 // Controlled mode. onChange reports values out, onControlsReady
 // hands the caller patch()/validate()/getValues() bound to this instance —
 // all without an entity-write and without remounting RenderEdit.
-describe("RenderEdit — controlled mode (#1887)", () => {
+describe("RenderEdit — controlled mode", () => {
   test("onChange fires with the current values, the changes-delta, and dirty on typing", () => {
     const seen: RenderEditChangeState<TestValues>[] = [];
     render(
@@ -168,7 +168,7 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     expect(controls?.getValues().count).toBe("Acme".length);
   });
 
-  test("onControlsReady fires before the mount-time onChange call (fw#1899)", () => {
+  test("onControlsReady fires before the mount-time onChange call", () => {
     // A prefilled `initial` derives a dependent field on mount via
     // controls.patch() from inside onChange — this only works if controls
     // are already handed out by the time onChange fires for the first time.
@@ -388,7 +388,7 @@ describe("RenderEdit — controlled mode (#1887)", () => {
 // coverage for the VIN-decode shape: a decode result reveals a different
 // set of follow-up fields per car, and a field a previous decode revealed
 // must fall back when a later decode clears it.
-describe("RenderEdit — FieldConditions react to extension patch() (#1916)", () => {
+describe("RenderEdit — FieldConditions react to extension patch()", () => {
   type VehicleValues = {
     title: string;
     vin?: string;
@@ -761,7 +761,7 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
-  test("Zurück preserves already-entered values without validating", async () => {
+  test("Back preserves already-entered values without validating", async () => {
     // count.min(1) with initial count=0 makes step 2 invalid on arrival —
     // if Back ran validate() it would be blocked from returning to step 1.
     const schema = z.object({

@@ -381,7 +381,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     expect(calendarRow).toBeNull();
   });
 
-  test("enforceRollingCap summiert mehrere increment-events innerhalb des Windows", async () => {
+  test("enforceRollingCap sums multiple increment events within the window", async () => {
     const admin = adminFor(902);
     await incrementRolling(admin, "ai-tokens-7d", 1000);
     await incrementRolling(admin, "ai-tokens-7d", 2500);
@@ -431,7 +431,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     expect(result["currentValue"]).toBe(12000);
   });
 
-  test("rolling-counter-Stream isoliert pro (tenant, capName) — fremder cap zählt nicht", async () => {
+  test("rolling-counter stream is isolated per (tenant, capName) — a different cap does not count", async () => {
     const admin = adminFor(905);
     await incrementRolling(admin, "ai-tokens-7d", 9999);
     await incrementRolling(admin, "egress-bytes-24h", 100);
@@ -448,7 +448,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     expect(result["value"]).toBe(100);
   });
 
-  test("rolling-counter ist tenant-isoliert — tenant A's increments leaken nicht zu tenant B", async () => {
+  test("rolling-counter is tenant-isolated — tenant A's increments do not leak to tenant B", async () => {
     const adminA = adminFor(906);
     const adminB = adminFor(907);
     await incrementRolling(adminA, "rolling-iso", 5000);
@@ -474,7 +474,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
 // because the flag is no longer null.
 
 describe("scenario 6: notification-wiring (calendar)", () => {
-  test("soft-hit-Crossing → notifier feuert UND mark-soft-warned-handler kippt das DB-Flag", async () => {
+  test("soft-hit crossing → notifier fires AND mark-soft-warned-handler flips the DB flag", async () => {
     recordedNotifications.length = 0;
     const admin = adminFor(1001);
     const NOTIFY_PERIOD = "2026-06-01T00:00:00Z";
@@ -534,7 +534,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     expect(recordedNotifications).toHaveLength(0);
   });
 
-  test("hard-hit → CapExceededError, notifier feuert NICHT (throw kommt vor notify)", async () => {
+  test("hard-hit → CapExceededError, notifier does NOT fire (throw comes before notify)", async () => {
     recordedNotifications.length = 0;
     const admin = adminFor(1003);
     await increment(admin, "cap-notify-hard", 1200);
@@ -551,7 +551,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
 });
 
 describe("scenario 7: notification-wiring (rolling, no dedup)", () => {
-  test("rolling-soft-hit feuert notifier bei JEDEM Aufruf — kein lastSoftWarnedAt-tracking", async () => {
+  test("rolling-soft-hit fires notifier on EVERY call — no lastSoftWarnedAt tracking", async () => {
     recordedNotifications.length = 0;
     const admin = adminFor(1101);
     await incrementRolling(admin, "cap-notify-rolling", 6000);

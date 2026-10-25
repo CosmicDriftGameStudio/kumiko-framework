@@ -7,16 +7,16 @@ const HOUR_MS = 3_600_000;
 const start = 1_700_000_000_000;
 
 describe("isTrialActive", () => {
-  test("innerhalb des Fensters → aktiv", () => {
+  test("within the window → active", () => {
     expect(isTrialActive(start, start + 10 * 24 * HOUR_MS, 720)).toBe(true);
     expect(isTrialActive(start, start, 720)).toBe(true);
   });
 
-  test("exakt am Fenster-Ende → nicht mehr aktiv (halb-offen)", () => {
+  test("exactly at the end of the window → no longer active (half-open)", () => {
     expect(isTrialActive(start, start + 720 * HOUR_MS, 720)).toBe(false);
   });
 
-  test("nach dem Fenster → inaktiv", () => {
+  test("after the window → inactive", () => {
     expect(isTrialActive(start, start + 721 * HOUR_MS, 720)).toBe(false);
     expect(isTrialActive(start, start + 31 * 24 * HOUR_MS, 720)).toBe(false);
   });

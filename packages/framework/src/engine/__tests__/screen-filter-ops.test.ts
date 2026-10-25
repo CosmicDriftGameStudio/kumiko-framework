@@ -5,7 +5,7 @@ import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts"
 
 const COMPARABLE: ScreenFilterOp[] = ["eq", "ne", "lt", "gt", "lte", "gte", "in"];
 
-describe("getAllowedFilterOps — decimal is comparable (#343/1)", () => {
+describe("getAllowedFilterOps — decimal is comparable", () => {
   test("decimal yields the full comparable op-set, not the empty default", () => {
     const ops = getAllowedFilterOps(createDecimalField({ precision: 10, scale: 2 }));
     expect([...ops].sort()).toEqual([...COMPARABLE].sort());

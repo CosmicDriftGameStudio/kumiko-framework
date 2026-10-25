@@ -61,7 +61,7 @@ describe("event-store: append + load", () => {
     expect(events[0]?.metadata.userId).toBe(userA);
   });
 
-  test("kumiko-framework#1490: subsequent append doesn't rely on globalThis.Temporal", async () => {
+  test("subsequent append doesn't rely on globalThis.Temporal", async () => {
     const aggregateId = uuid();
     const first = await append(testDb.db, {
       aggregateId,
@@ -427,7 +427,7 @@ describe("event-store: tenant isolation", () => {
   });
 });
 
-describe("event-store: loadAggregate aggregateType filter (#2979)", () => {
+describe("loadAggregate aggregateType filter", () => {
   test("without aggregateType, both types on one aggregateId are returned (no breaking change)", async () => {
     const aggregateId = uuid();
     await append(testDb.db, {

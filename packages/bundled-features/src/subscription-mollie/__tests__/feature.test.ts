@@ -43,19 +43,19 @@ describe("createSubscriptionMollieFeature — shape", () => {
 });
 
 describe("createSubscriptionMollieFeature — module-load validation", () => {
-  test("throws bei empty apiKey", () => {
+  test("throws for empty apiKey", () => {
     expect(() => createSubscriptionMollieFeature({ ...VALID_OPTIONS, apiKey: "" })).toThrow(
       /apiKey is empty/,
     );
   });
 
-  test("throws bei empty webhookUrl", () => {
+  test("throws for empty webhookUrl", () => {
     expect(() => createSubscriptionMollieFeature({ ...VALID_OPTIONS, webhookUrl: "" })).toThrow(
       /webhookUrl is empty/,
     );
   });
 
-  test("throws bei priceToTier ↔ priceToConfig drift (priceId nur in tier)", () => {
+  test("throws for priceToTier ↔ priceToConfig drift (priceId only in tier)", () => {
     expect(() =>
       createSubscriptionMollieFeature({
         ...VALID_OPTIONS,
@@ -65,7 +65,7 @@ describe("createSubscriptionMollieFeature — module-load validation", () => {
     ).toThrow(/missing config:.*plan_business/);
   });
 
-  test("throws bei priceToTier ↔ priceToConfig drift (priceId nur in config)", () => {
+  test("throws for priceToTier ↔ priceToConfig drift (priceId only in config)", () => {
     expect(() =>
       createSubscriptionMollieFeature({
         ...VALID_OPTIONS,

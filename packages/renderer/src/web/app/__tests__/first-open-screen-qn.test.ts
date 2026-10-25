@@ -31,7 +31,7 @@ describe("firstOpenScreenQn", () => {
     expect(firstOpenScreenQn(features)).toBe("shop:screen:catalog");
   });
 
-  test("skips a dormant open screen that has no nav entry (#1258)", () => {
+  test("skips a dormant open screen that has no nav entry", () => {
     const features: readonly FeatureSchema[] = [
       feature({
         featureName: "auth-mfa",

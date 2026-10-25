@@ -9,7 +9,7 @@ import {
 } from "../write-error-info.ts";
 
 describe("failNotFound", () => {
-  test("baut WriteFailure mit reason=not_found + entity-id-details", () => {
+  test("builds WriteFailure with reason=not_found + entity-id details", () => {
     const f = failNotFound("invoice", "inv-1");
     expect(f.isSuccess).toBe(false);
     expect(f.error.code).toBe("not_found");
@@ -56,14 +56,14 @@ describe("failTransition", () => {
     });
   });
 
-  test("baut sichtbare message mit allowed-Liste", () => {
+  test("builds visible message with allowed list", () => {
     const f = failTransition("draft", "paid", ["sent", "cancelled"]);
     const details = f.error.details as { message: string };
     expect(details.message).toContain('"draft" → "paid"');
     expect(details.message).toContain("sent, cancelled");
   });
 
-  test("leeres allowed → message zeigt 'none' (Terminal-State)", () => {
+  test("empty allowed list → message shows 'none' (terminal state)", () => {
     const f = failTransition("paid", "draft", []);
     const details = f.error.details as { message: string; allowed: readonly string[] };
     expect(details.allowed).toEqual([]);
@@ -78,7 +78,7 @@ describe("failTransition", () => {
 // cross-test pollution would be costly because other suites pin the production
 // path.
 describe("toWriteErrorInfo — dev cause-snapshot", () => {
-  test("InternalError mit cause exposed cause-Snapshot in details (dev)", async () => {
+  test("InternalError with cause exposes cause snapshot in details (dev)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info.ts");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
@@ -97,7 +97,7 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
     }
   });
 
-  test("Production: InternalError lässt details undefined (kein Stack-Leak)", async () => {
+  test("Production: InternalError leaves details undefined (no stack leak)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info.ts");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "production";
@@ -110,7 +110,7 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
     }
   });
 
-  test("InternalError MIT bereits gesetztem details → Author-details gewinnt (kein Overwrite)", async () => {
+  test("InternalError with already-set details → author details win (no overwrite)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info.ts");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";

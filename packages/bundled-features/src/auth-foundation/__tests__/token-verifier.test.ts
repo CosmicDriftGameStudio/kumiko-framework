@@ -101,7 +101,7 @@ describe("validateTokenVerifierMultiplicity", () => {
     );
   });
 
-  test("0 tokenVerifier + sessionStore → no throw (session-only / #1570)", () => {
+  test("0 tokenVerifier + sessionStore → no throw (session-only)", () => {
     const registry = createRegistry([createAuthFoundationFeature(), storeProvider()]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).not.toThrow();
   });

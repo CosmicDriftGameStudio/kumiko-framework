@@ -160,7 +160,7 @@ describe("validateBoot — PII annotations", () => {
     expect(() => validateBoot([feature])).toThrow(/multiple subject-key annotations/);
   });
 
-  test("naked sensitive (no pii/encrypted) throws — event log needs ciphertext-at-rest (#967)", () => {
+  test("naked sensitive (no pii/encrypted) throws — event log needs ciphertext-at-rest", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "vault",
@@ -249,7 +249,7 @@ describe("validateBoot — PII annotations", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  describe("nullable owner needs whenAbsent (fw#3654)", () => {
+  describe("nullable owner needs whenAbsent", () => {
     function commentFeature(withWhenAbsent: boolean, ownerRequired: boolean) {
       return defineFeature("test", (r) => {
         r.entity({
@@ -947,7 +947,7 @@ describe("validateBoot — retention", () => {
     expect(String(matchingWarn?.[0])).not.toContain("Forget will return error");
   });
 
-  test("blockDelete without any subject-annotated field stays silent (#1622)", () => {
+  test("blockDelete without any subject-annotated field stays silent", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "lease",
@@ -969,7 +969,7 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  test("blockDelete with only a subjectRef-only field does not warn about EXT_USER_DATA delete hook (#2338)", () => {
+  test("blockDelete with only a subjectRef-only field does not warn about EXT_USER_DATA delete hook", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "lease",
@@ -1002,7 +1002,7 @@ describe("validateBoot — retention", () => {
     ],
     ["tenantOwned", { personal: "tenant" as const, find: "none" as const }],
   ])(
-    "blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)",
+    "blockDelete warns when subjectRef coexists with anonymizable %s field",
     (_label, personal) => {
       const feature = defineFeature("test", (r) => {
         r.entity({
@@ -1099,7 +1099,7 @@ describe("validateBoot — retention", () => {
   });
 });
 
-describe("validateBoot — lookupable / blind-index (#818)", () => {
+describe("validateBoot — lookupable / blind-index", () => {
   test("lookupable on subject-annotated text field passes", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
@@ -1155,7 +1155,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
     expect(() => validateBoot([feature])).toThrow(/only apply to text fields/);
   });
 
-  test("searchable combined with a subject annotation passes (#1610)", () => {
+  test("searchable combined with a subject annotation passes", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "user",
@@ -1190,7 +1190,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
     expect(() => validateBoot([feature])).toThrow(/sortable/);
   });
 
-  test("searchable combined with sensitive throws (#1610)", () => {
+  test("searchable combined with sensitive throws", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "user",

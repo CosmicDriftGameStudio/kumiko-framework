@@ -449,7 +449,7 @@ describe("custom-fields integration — define resurrection (B1)", () => {
   });
 });
 
-describe("custom-fields integration — no PII: `sensitive` rejected, every value in the log (#972)", () => {
+describe("custom-fields integration — no PII: `sensitive` rejected, every value in the log", () => {
   test("define-tenant-field with `sensitive` is rejected at the schema boundary", async () => {
     const err = await stack.http.writeErr(
       "custom-fields:write:define-tenant-field",
@@ -801,7 +801,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(sf["label"]).toEqual({ de: "Priorität", en: "Priority" });
   });
 
-  test("update ohne label entfernt ein bestehendes Label (Vollersatz-Semantik)", async () => {
+  test("update without a label removes an existing label (full-replacement semantics)", async () => {
     await defineField("property", "weight", "number");
     await updateField("weight", {
       serializedField: { type: "number" },
@@ -815,7 +815,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(sf["label"]).toBeUndefined();
   });
 
-  test("zwei sequentielle Updates ohne version_conflict (skipOptimisticLock)", async () => {
+  test("two sequential updates without version_conflict (skipOptimisticLock)", async () => {
     await defineField("property", "stage", "text");
     await updateField("stage", { displayOrder: 1 });
     await updateField("stage", { displayOrder: 2 });
@@ -823,7 +823,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(Number(row?.["display_order"])).toBe(2);
   });
 
-  test("update auf nicht-existente Definition → 404", async () => {
+  test("update of a non-existent definition → 404", async () => {
     const err = await stack.http.writeErr(
       "custom-fields:write:update-tenant-field",
       {
@@ -839,7 +839,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(err.httpStatus).toBe(404);
   });
 
-  test("type-Wechsel → 422 field_type_immutable, Bestand unverändert", async () => {
+  test("type change → 422 field_type_immutable, existing data unchanged", async () => {
     await defineField("property", "color", "text");
     const err = await stack.http.writeErr(
       "custom-fields:write:update-tenant-field",
@@ -863,7 +863,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(row?.["type"]).toBe("text");
   });
 
-  test("update ohne serializedField.type → 200, gespeicherter Typ bleibt und ist weiter im serializedField", async () => {
+  test("update without serializedField.type → 200, stored type remains and is still in serializedField", async () => {
     await defineField("property", "budget", "number");
     await updateField("budget", {
       serializedField: { min: 0, max: 10 },
@@ -894,7 +894,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     await setCustomField("property", propertyId, "budget", 10);
   });
 
-  test("define-tenant-field ohne serializedField.type → Validierungsfehler, nichts gespeichert", async () => {
+  test("define-tenant-field without serializedField.type → validation error, nothing stored", async () => {
     const err = await stack.http.writeErr(
       "custom-fields:write:define-tenant-field",
       {
@@ -911,7 +911,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(await fetchDefinitionRow(admin.tenantId, "typeless")).toBeUndefined();
   });
 
-  test("Cross-Tenant: fremde (entityName,fieldKey) → 404, Owner-Definition unverändert", async () => {
+  test("Cross-tenant: foreign (entityName,fieldKey) → 404, owner definition unchanged", async () => {
     await defineField("property", "secret", "text");
     // Use an explicit foreign tenant; createTestUser without tenantId would use
     // the same default test tenant as `admin`.
@@ -962,7 +962,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
   });
 });
 
-describe("custom-fields integration — official host-entity rebuild (#759)", () => {
+describe("custom-fields integration — official host-entity rebuild", () => {
   test("rebuildProjection replays customField.set/cleared + fieldDefinition.deleted", async () => {
     await defineField("property", "color", "text");
     await defineField("property", "doomed", "text");

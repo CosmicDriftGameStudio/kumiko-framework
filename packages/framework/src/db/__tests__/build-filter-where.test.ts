@@ -14,7 +14,7 @@ describe("buildFilterWhere", () => {
     expect(buildFilterWhere("status", "eq", null)).toEqual({ status: null });
   });
 
-  test("ne with null: wraps null in a { ne } clause (IS NOT NULL downstream, #2015)", () => {
+  test("ne with null: wraps null in a { ne } clause (IS NOT NULL downstream)", () => {
     expect(buildFilterWhere("status", "ne", null)).toEqual({ status: { ne: null } });
   });
 

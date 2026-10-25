@@ -241,7 +241,7 @@ defineFeature("f", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("resolves a local const identifier arg via the raw-ref sentinel (#1009)", () => {
+  test("resolves a local const identifier arg via the raw-ref sentinel", () => {
     const result = parseInline(`
 const dep = "auth";
 defineFeature("f", (r) => {
@@ -283,7 +283,7 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("keeps a computed feature-name arg as a raw-ref sentinel instead of failing (#1009)", () => {
+  test("keeps a computed feature-name arg as a raw-ref sentinel instead of failing", () => {
     const result = parseInline(`
 const someFeature = { name: "billing" };
 defineFeature("f", (r) => {
@@ -313,7 +313,7 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("keeps a computed key arg as a raw-ref sentinel instead of failing (#1009)", () => {
+  test("keeps a computed key arg as a raw-ref sentinel instead of failing", () => {
     const result = parseInline(`
 const cfg = { key: "auth:config:jwt-ttl" };
 defineFeature("f", (r) => {
@@ -1707,7 +1707,7 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("resolves a same-file identifier arg to its object-literal form (#1007)", () => {
+  test("resolves a same-file identifier arg to its object-literal form", () => {
     const result = parseInline(`
 const h = {
   name: "task:archive",
@@ -1726,7 +1726,7 @@ defineFeature("f", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("keeps an unresolvable ref (import, factory call) as an opaque pattern instead of failing (#1007)", () => {
+  test("keeps an unresolvable ref (import, factory call) as an opaque pattern instead of failing", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.writeHandler(eventCreateHandler);
@@ -2832,7 +2832,7 @@ defineFeature("f", (r) => {
 // that motivated this regression — inline here (not the live external repo path) so this
 // test doesn't depend on the show-pony checkout being present in this repo's CI.
 
-describe("show-pony-shaped feature (regression, #998)", () => {
+describe("show-pony-shaped feature", () => {
   const result = parseInline(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventEntity } from "./schema";
@@ -2851,7 +2851,7 @@ defineFeature("showpony", (r) => {
 });
 `);
 
-  test("requires()'s computed name and entity's imported const resolve via the raw-ref sentinel (#998/#1009 fix)", () => {
+  test("requires()'s computed name and entity's imported const resolve via the raw-ref sentinel", () => {
     expect(result.patterns[0]).toMatchObject({
       kind: "requires",
       featureNames: [{ __raw: "someFeature.name" }, "config"],
@@ -2863,7 +2863,7 @@ defineFeature("showpony", (r) => {
     });
   });
 
-  test("writeHandler/queryHandler(handlerRef) resolve as opaque patterns (#998/#1007 fix)", () => {
+  test("writeHandler/queryHandler(handlerRef) resolve as opaque patterns", () => {
     expect(result.patterns).toMatchObject([
       { kind: "requires" },
       { kind: "entity" },
@@ -2873,7 +2873,7 @@ defineFeature("showpony", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("an imported registrar-wrapper stays invisible when its file can't be resolved (in-memory project, #1008)", () => {
+  test("an imported registrar-wrapper stays invisible when its file can't be resolved (in-memory project)", () => {
     // parseInline uses an in-memory ts-morph Project — "./register/screens"
     // isn't a real file, so resolveModuleFile() returns undefined and the
     // wrapper is skipped like any other unresolvable call. Real cross-file
@@ -2883,7 +2883,7 @@ defineFeature("showpony", (r) => {
   });
 });
 
-describe("cross-file registrar-wrapper resolution against a real filesystem Project (#1008)", () => {
+describe("cross-file registrar-wrapper resolution against a real filesystem Project", () => {
   const fixture = resolve(__dirname, "fixtures/cross-file-registrar/feature.ts");
   const result = parseFeatureFile(fixture);
 
@@ -2906,7 +2906,7 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
 // This is the dominant real-world style across the framework's own
 // bundled-features (see extension-names.ts), and previously ParseErrored
 // on every such call.
-describe("cross-file imported-constant name resolution against a real filesystem Project (#1746)", () => {
+describe("cross-file imported-constant name resolution against a real filesystem Project", () => {
   const fixture = resolve(__dirname, "fixtures/cross-file-name-const/feature.ts");
   const result = parseFeatureFile(fixture);
 

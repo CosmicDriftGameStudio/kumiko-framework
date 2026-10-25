@@ -6,23 +6,21 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test.describe("MoneyInput im echten Browser (#1856)", () => {
+test.describe("MoneyInput in a real browser", () => {
   test.beforeEach(async ({ page }) => {
     page.on("pageerror", (err) => console.log("[browser pageerror]", err.message));
     await page.goto("/money");
     await expect(page.getByTestId("section-money-a")).toBeVisible();
   });
 
-  test(".fill() auf frischem, unfokussiertem Feld committet den getippten Wert", async ({
-    page,
-  }) => {
+  test(".fill() on a fresh, unfocused field commits the typed value", async ({ page }) => {
     const input = page.locator("#money-a");
     await input.fill("100,00");
     await input.blur();
     await expect.poll(() => page.locator("body").getAttribute("data-money-a")).toBe("10000");
   });
 
-  test("erneutes .fill() auf bereits fokussiertem Feld committet den neuen Wert", async ({
+  test("calling .fill() again on an already focused field commits the new value", async ({
     page,
   }) => {
     const input = page.locator("#money-a");
@@ -46,7 +44,7 @@ test.describe("MoneyInput im echten Browser (#1856)", () => {
     await expect.poll(() => page.locator("body").getAttribute("data-money-b")).toBe("20000");
   });
 
-  test("echtes Tippen (pressSequentially) nach Tab-Fokus bleibt unverändert korrekt", async ({
+  test("real typing (pressSequentially) after tab focus remains unchanged and correct", async ({
     page,
   }) => {
     const a = page.locator("#money-a");
@@ -58,7 +56,7 @@ test.describe("MoneyInput im echten Browser (#1856)", () => {
     await expect.poll(() => page.locator("body").getAttribute("data-money-b")).toBe("1234");
   });
 
-  test("Klick in ein bereits befülltes Feld selektiert alles (bewusstes Select-all-on-focus) — ein Tastendruck ersetzt den ganzen Wert statt anzuhängen", async ({
+  test("Clicking into an already populated field selects everything (intentional select-all-on-focus) — one keystroke replaces the entire value instead of appending", async ({
     page,
   }) => {
     const a = page.locator("#money-a");

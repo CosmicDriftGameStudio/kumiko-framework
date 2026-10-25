@@ -15,7 +15,7 @@ describe("sanitizeZipFilename", () => {
     expect(sanitizeZipFilename("CamelCase-File_v2.docx")).toBe("CamelCase-File_v2.docx");
   });
 
-  test("Path-Traversal: '../' → kein '..' im Output", () => {
+  test("Path traversal: '../' → no '..' in output", () => {
     // A user could upload "../../etc/passwd" as fileName. Without sanitization,
     // extraction could write outside the ZIP root. Collapse `..` sequences and
     // strip leading dots, dashes, and underscores. The result intentionally
@@ -75,7 +75,7 @@ describe("sanitizeZipFilename", () => {
     expect(sanitizeZipFilename(".bashrc")).toBe("bashrc");
   });
 
-  test("Unicode chars (non-ASCII) werden zu underscore + ggf. fallback", () => {
+  test("Unicode characters (non-ASCII) become underscores + fallback if needed", () => {
     // The "résumé" basename becomes "r_sum_". Its leading character is "r",
     // so stripping leading characters from "._-" does not change it.
     expect(sanitizeZipFilename("résumé.pdf")).toBe("r_sum_.pdf");
@@ -95,7 +95,7 @@ describe("buildFileRefZipPath", () => {
     expect(path).toBe(`files/${TENANT}/abc-123-report.pdf`);
   });
 
-  test("Path-Traversal im fileName wird sanitized (kein '..' im Final-Path)", () => {
+  test("Path traversal in fileName is sanitized (no '..' in final path)", () => {
     const path = buildFileRefZipPath({
       tenantId: TENANT,
       fileRefId: "abc",
@@ -106,7 +106,7 @@ describe("buildFileRefZipPath", () => {
     expect(path.split("/").length).toBe(3); // exakt 3 segments: files / tenantId / sanitized-basename
   });
 
-  test("Path ist deterministic — gleicher Input → gleicher Output", () => {
+  test("Path is deterministic — same input → same output", () => {
     const args = { tenantId: TENANT, fileRefId: "x", fileName: "y.txt" };
     expect(buildFileRefZipPath(args)).toBe(buildFileRefZipPath(args));
   });

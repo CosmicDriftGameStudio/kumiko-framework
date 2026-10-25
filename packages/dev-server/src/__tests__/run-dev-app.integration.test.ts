@@ -106,7 +106,7 @@ describe("runDevApp — auth.mail fail-fast on missing JWT_SECRET", () => {
   });
 });
 
-describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
+describe("runDevApp — auth allowedOrigins forwarding", () => {
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runDevApp", async () => {
     await expect(
       runDevApp({
@@ -309,7 +309,7 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
 // a forgotten sessions mount left session-list silently empty instead of
 // saying anything. Unlike prod, dev warns rather than aborts —
 // mirrors assertPiiBootInvariants' dev/prod split.
-describe("runDevApp — session boot gate (#2027)", () => {
+describe("runDevApp — session boot gate", () => {
   const ADMIN = {
     email: "session-gate-dev@example.eu",
     password: "test-pw-strong-1234",

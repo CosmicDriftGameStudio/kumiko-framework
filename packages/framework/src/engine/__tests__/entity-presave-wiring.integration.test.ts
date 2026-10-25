@@ -124,7 +124,7 @@ const CODE_CREATE = "presave-wiring-code:write:code:create";
 const CODE_UPDATE = "presave-wiring-code:write:code:update";
 const THROWING_CREATE = "presave-wiring-throw:write:thing:create";
 
-describe("preSave hooks — real dispatcher path (#1672)", () => {
+describe("preSave hooks use the real dispatcher path", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

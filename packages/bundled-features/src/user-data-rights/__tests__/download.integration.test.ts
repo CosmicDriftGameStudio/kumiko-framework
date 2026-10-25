@@ -334,7 +334,7 @@ describe("download-by-token :: error paths", () => {
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
   });
 
-  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
+  test("provider without getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
     // Exercises the operator misconfiguration path: a provider without
     // getSignedUrl support (for example, an incorrectly mounted local
     // filesystem provider) returns 422 rather than 404. The specific
@@ -366,7 +366,7 @@ describe("download-by-token :: error paths", () => {
 });
 
 describe("download-by-job :: happy path", () => {
-  test("session-auth: Job-Owner → returns signed URL + audit (IP aus X-Forwarded-For)", async () => {
+  test("session-auth: Job owner → returns signed URL + audit (IP from X-Forwarded-For)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
     // The UI click runs as a direct download-by-job query (client sends
@@ -447,7 +447,7 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     expect(row?.useCount).toBe(0);
   });
 
-  test("no query token (fragment-Pfad) → serviert Interstitial-HTML statt 400", async () => {
+  test("no query token (fragment path) → serves interstitial HTML instead of 400", async () => {
     const res = await stack.app.fetch(
       new Request("http://test/user-export/by-token", { method: "GET" }),
     );
@@ -468,7 +468,7 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     expect(body).toContain("/user-export/by-token");
   });
 
-  test("POST-Exchange (Fragment-Pfad): happy-path + IP/UA-Audit aus httpRoute-Headers", async () => {
+  test("POST-Exchange (fragment path): happy path + IP/UA audit from httpRoute headers", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
 
     // trustedProxyHops=1 here → the resolver trusts the last XFF entry, not
@@ -543,7 +543,7 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
-  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported (job-Pfad)", async () => {
+  test("provider without getSignedUrl → 422 unprocessable signedUrlNotSupported (job path)", async () => {
     // Same as the token path: the operator misconfig must also surface as
     // 422 on the UI click path, not 404.
     const { jobId } = await seedDoneJobWithToken();

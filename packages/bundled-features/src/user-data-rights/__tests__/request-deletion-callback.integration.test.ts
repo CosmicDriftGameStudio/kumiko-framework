@@ -99,7 +99,7 @@ async function seedAlice(email: string = "alice@example.com"): Promise<void> {
 }
 
 describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
-  test("happy: callback feuert mit userEmail + tenantId + gracePeriodEnd nach Status-Flip", async () => {
+  test("happy: callback fires with userEmail + tenantId + gracePeriodEnd after status flip", async () => {
     const ORIGINAL_EMAIL = "alice.callback.requested@example.com";
     await seedAlice(ORIGINAL_EMAIL);
 
@@ -165,7 +165,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     expect(state.calls).toHaveLength(0);
   });
 
-  test("user mit leerem email-Feld → callback NICHT gefeuert (skip ohne crash)", async () => {
+  test("user with empty email field → callback not fired (skip without crash)", async () => {
     // Edge case: the user row has email="" (for example, after prior
     // anonymization left the status hanging). Skipping the callback prevents
     // invalid callback arguments.

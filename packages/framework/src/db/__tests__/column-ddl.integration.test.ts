@@ -86,7 +86,7 @@ describe("renderTableDdl — column types", () => {
     expect(ddl[0]).toContain('"created" timestamp with time zone DEFAULT now() NOT NULL');
   });
 
-  test("date notNull — real PG date, not timestamptz (kumiko-framework#1924)", () => {
+  test("date notNull — real PG date, not timestamptz", () => {
     const t = pgTable("t_date", { publishedAt: plainDate("published_at").notNull() });
     // biome-ignore lint/suspicious/noExplicitAny: DDL test uses cast for mock tables
     const ddl = renderTableDdl(t as any);

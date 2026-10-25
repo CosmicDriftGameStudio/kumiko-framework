@@ -121,7 +121,7 @@ function jobCtx(): JobContext {
   } as unknown as JobContext; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/log
 }
 
-describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
+describe("auth-mfa KEK-rotation job", () => {
   test("rotation rewraps totpSecret onto the current KEK, and a full projection rebuild still decrypts correctly", async () => {
     const user = createTestUser({ id: 1, roles: ["User"] });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
@@ -179,7 +179,7 @@ describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
   });
 });
 
-describe("auth-mfa KEK-rotation job — unrecognized values are not silently skipped (kumiko-framework#1541)", () => {
+describe("auth-mfa KEK-rotation job — unrecognized values are not silently skipped", () => {
   test("a non-envelope totpSecret is counted failed, never alreadyCurrent, and is left untouched", async () => {
     // Reset provider to V1 so a freshly-enabled row is "current" (nothing to
     // rotate) — the garbage field is the only failure we expect.

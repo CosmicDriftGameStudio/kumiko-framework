@@ -165,10 +165,10 @@ function resolveTscBin(): { readonly command: string; readonly argsPrefix: reado
   return { command: "bunx", argsPrefix: ["tsc"] };
 }
 
-// tsc -b kann mit exit≠0 enden OHNE eine Zeile die auf `/ error TS\d+:/` matcht
-// (Spawn-Fehler, Config-Load-Fehler, `error TS6053:` ohne führendes Space).
-// Ohne expliziten Hinweis druckt der Runner sonst "0 error(s) across 0
-// workspace(s)" und exitet 1 → CI rot, Ursache unsichtbar (#386/1).
+// tsc -b can exit≠0 WITHOUT a line matching `/ error TS\d+:/`
+// (Spawn errors, config-load errors, `error TS6053:` without a leading space).
+// Without an explicit hint, the runner otherwise prints "0 error(s) across 0
+// workspace(s)" and exits 1 → CI red, cause invisible (#386/1).
 export function describeUnparseableTscFailure(
   result: { readonly status: number | null; readonly error?: Error },
   combined: string,

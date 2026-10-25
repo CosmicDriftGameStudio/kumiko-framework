@@ -47,7 +47,7 @@ describe("GET /metrics", () => {
     expect(body).toContain("puppeteer_render_errors_total 0");
   });
 
-  test("Content-Type ist text/plain mit Prometheus-version", async () => {
+  test("Content-Type is text/plain with Prometheus version", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/metrics");
     expect(res.headers.get("Content-Type")).toContain("text/plain");
@@ -56,7 +56,7 @@ describe("GET /metrics", () => {
 });
 
 describe("POST /render — Auth", () => {
-  test("ohne Authorization-Header → 401", async () => {
+  test("without Authorization header → 401", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/render", {
       method: "POST",
@@ -124,7 +124,7 @@ describe("POST /render — Validation", () => {
     expect(body.maxBytes).toBe(CONFIG.maxHtmlBytes);
   });
 
-  test("image-snapshot mit invalid width → 400", async () => {
+  test("image-snapshot with invalid width → 400", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/render", {
       method: "POST",

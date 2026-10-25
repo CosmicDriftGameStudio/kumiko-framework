@@ -82,7 +82,7 @@ afterAll(async () => {
 });
 
 describe("runSchemaApply", () => {
-  test("Greenfield: leere DB → Infra-Tabellen + App-Migration appliziert → 0", async () => {
+  test("Greenfield: empty DB → infrastructure tables + app migration applied → 0", async () => {
     expect(await runSchemaApply({ ...APPLY, appCwd })).toBe(0);
 
     expect(await tableExists(conn.db, "public.kumiko_events")).toBe(true);
@@ -91,12 +91,12 @@ describe("runSchemaApply", () => {
     expect(await tableExists(conn.db, "public.read_thing")).toBe(true);
   });
 
-  test("Re-Run auf Bestands-DB ist idempotent → 0 (Infra no-op, Migrations skipped)", async () => {
+  test("Re-run on an existing DB is idempotent → 0 (infrastructure no-op, migrations skipped)", async () => {
     expect(await runSchemaApply({ ...APPLY, appCwd })).toBe(0);
     expect(await tableExists(conn.db, "public.read_thing")).toBe(true);
   });
 
-  test("rebuild-Marker für nicht-registrierte Tabelle → kein Crash, 0, aber laut warnen (522/3, #2464)", async () => {
+  test("rebuild marker for an unregistered table → no crash, 0, but warn loudly (522/3)", async () => {
     writeFileSync(
       join(migDir, "0002_more.sql"),
       `CREATE TABLE "read_more" ("id" text PRIMARY KEY);`,
@@ -115,7 +115,7 @@ describe("runSchemaApply", () => {
     error.mockRestore();
   });
 
-  test("failed projection rebuild stays queued and is retried on a later apply with zero new migrations (#2464)", async () => {
+  test("failed projection rebuild stays queued and is retried on a later apply with zero new migrations", async () => {
     // Isolate from any pending-rebuild rows the earlier tests in this file left.
     await asRawClient(conn.db).unsafe(`DROP TABLE IF EXISTS kumiko_pending_rebuilds`);
 

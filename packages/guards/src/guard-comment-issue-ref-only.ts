@@ -41,7 +41,7 @@ const SCAN: ScanSpec = {
 const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
 
 // `fw#12`, `#1234`, `kumiko-framework#3`, `oven-sh/bun#5`; `&#39;` is an HTML entity.
-const REFERENCE_RE = /(?<!&)[\w./-]*#\d+(?![\w])/g;
+export const REFERENCE_RE = /(?<!&)[\w./-]*#\d+(?![\w])/g;
 // Not preceded by a path/word character and not followed by `/`, `-` or `.ext`, so file names such
 // as `round2.ts` or `phase1.sql` are not planning labels, while a sentence-final "Phase 2." is.
 const PLANNING_WORD_RE =

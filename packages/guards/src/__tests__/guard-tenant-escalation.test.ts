@@ -106,7 +106,7 @@ describe("Check A: role-input handlers need an escalation test", () => {
     expect(findRoleInputHandlers(sfs)).toHaveLength(0);
   });
 
-  test("resolves an outlined schema const (schema: FooSchema shape, #1556-adjacent)", () => {
+  test("resolves an outlined schema const (schema: FooSchema shape)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/handlers/add.write.ts": `
 declare function defineWriteHandler(cfg: unknown): unknown;
@@ -245,7 +245,7 @@ export const h = defineWriteHandler({
     expect(found[0]?.name).toBe("toggle-enabled.write.ts");
   });
 
-  test("flags the ungated handler (#1556 shape)", () => {
+  test("flags the ungated handler", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-rights/handlers/restrict-account.write.ts":
         userWrite({ gated: false }),
@@ -330,7 +330,7 @@ export const h = defineWriteHandler({
   // The real handler is openToAll with a runtime isAdminActor() gate,
   // not access.admin — keying the check on the access preset alone would have
   // missed the very bug it exists for.
-  test("flags an openToAll handler with a payload userId (real #1556 shape)", () => {
+  test("flags an openToAll handler with a payload userId", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-rights/handlers/restrict-account.write.ts":
         userWrite({ gated: false, roles: "undefined, openToAll: true" }),

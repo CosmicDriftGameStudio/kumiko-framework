@@ -19,7 +19,7 @@ import { ComparisonTable, ResultPanel, ResultTable } from "../result-panel.tsx";
 import { useDraft } from "../use-draft.ts";
 
 describe("useDraft", () => {
-  test("field() liefert verdrahtete Props, onChange patcht den Draft", () => {
+  test("field() provides wired props, onChange patches the draft", () => {
     const { result } = renderHook(() => useDraft<{ sum: number | undefined }>({ sum: 100 }));
     expect(result.current.field("sum")).toMatchObject({ id: "sum", name: "sum", value: 100 });
     act(() => result.current.field("sum").onChange(250));
@@ -34,7 +34,7 @@ describe("useDraft", () => {
     expect(result.current.draft.a).toBe(1);
   });
 
-  test("idPrefix verhindert doppelte DOM-ids bei mehreren useDraft-Formularen mit gleichem Feldnamen", () => {
+  test("idPrefix prevents duplicate DOM ids across multiple useDraft forms with the same field name", () => {
     const a = renderHook(() =>
       useDraft<{ sum: number | undefined }>({ sum: 1 }, { idPrefix: "a" }),
     );
@@ -49,7 +49,7 @@ describe("useDraft", () => {
 });
 
 describe("NumberField", () => {
-  test("rendert Label und meldet Zahl bei Eingabe", () => {
+  test("renders a label and reports a number on input", () => {
     const onChange = mock();
     render(<NumberField label="Summe" id="sum" name="sum" value={300} onChange={onChange} />);
     expect(screen.getByText("Summe")).toBeTruthy();
@@ -64,7 +64,7 @@ describe("NumberField", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
-  test("MoneyField/PercentField rendern als beschriftetes Zahlenfeld ohne Einheit-Badge", () => {
+  test("MoneyField/PercentField render as a labeled number field without a unit badge", () => {
     const noop = (): void => {};
     const { rerender } = render(
       <MoneyField label="Betrag (€)" id="b" name="b" value={1} onChange={noop} />,
@@ -78,7 +78,7 @@ describe("NumberField", () => {
 });
 
 describe("DetailList emphasize", () => {
-  test("emphasize hebt Label und Wert hervor", () => {
+  test("emphasize highlights the label and value", () => {
     render(
       <DetailList
         testId="dl"
@@ -94,12 +94,12 @@ describe("DetailList emphasize", () => {
 });
 
 describe("ResultPanel", () => {
-  test("empty zeigt den Platzhalter, keine Liste", () => {
+  test("empty shows the placeholder, not a list", () => {
     render(<ResultPanel title="Ergebnis" empty emptyText="Werte eingeben" />);
     expect(screen.getByText("Werte eingeben")).toBeTruthy();
   });
 
-  test("gefüllt zeigt Kennzahlen und children", () => {
+  test("filled shows metrics and children", () => {
     render(
       <ResultPanel title="Ergebnis" rows={[{ label: "Rate", value: "890 €" }]}>
         <span>extra</span>
@@ -111,7 +111,7 @@ describe("ResultPanel", () => {
 });
 
 describe("ResultTable", () => {
-  test("rendert Header, Zeilen und rechtsbündige Zahlenspalte", () => {
+  test("renders the header, rows, and a right-aligned numeric column", () => {
     render(
       <ResultTable
         testId="rt"
@@ -133,7 +133,7 @@ describe("ResultTable", () => {
 describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
   const noopStr = (): void => {};
 
-  test("SelectField rendert Label und den aktuell gewählten Wert", () => {
+  test("SelectField renders the label and the currently selected value", () => {
     render(
       <SelectField
         label="Land"
@@ -158,7 +158,7 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
     expect(onChange).toHaveBeenCalledWith("Neu");
   });
 
-  test("DateField rendert mit Wert", () => {
+  test("DateField renders with a value", () => {
     render(
       <DateField
         label="Datum"
@@ -188,7 +188,7 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
 });
 
 describe("ResultPanel footer", () => {
-  test("rendert den footer-Slot", () => {
+  test("renders the footer slot", () => {
     render(
       <ResultPanel
         title="R"
@@ -203,7 +203,7 @@ describe("ResultPanel footer", () => {
 });
 
 describe("RangeField", () => {
-  test("meldet den Slider-Wert als Zahl", () => {
+  test("reports the slider value as a number", () => {
     const onChange = mock();
     render(
       <RangeField
@@ -231,7 +231,7 @@ describe("FileField", () => {
     expect(screen.getByText("Bild")).toBeTruthy();
   });
 
-  test('variant="image" mit gesetzter FileRef zeigt Preview + Remove-Button', () => {
+  test('variant="image" with a set FileRef shows a preview + Remove button', () => {
     render(
       <FileField
         label="Bild"
@@ -263,7 +263,7 @@ describe("FileField", () => {
     expect(onChange).toHaveBeenCalledWith(null);
   });
 
-  test("entityType/fieldName reichen bis in den /api/files-Upload-Request durch", async () => {
+  test("entityType/fieldName are forwarded to the /api/files upload request", async () => {
     const originalFetch = global.fetch;
     const fetchSpy = mock(
       async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ id: "file-1" })),
@@ -305,12 +305,12 @@ describe("Button size", () => {
       </Button>
     );
   }
-  test("size=sm rendert die kompakte shadcn-Größe (h-8)", () => {
+  test("size=sm renders the compact shadcn size (h-8)", () => {
     render(<SizedButton size="sm" />);
     expect(screen.getByRole("button", { name: "X" }).className).toContain("h-8");
   });
 
-  test("ariaLabel gibt icon-only-Buttons einen zugänglichen Namen", () => {
+  test("ariaLabel gives icon-only buttons an accessible name", () => {
     function IconBtn(): ReactNode {
       const { Button } = usePrimitives();
       return (
@@ -323,7 +323,7 @@ describe("Button size", () => {
     expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
   });
 
-  test('width="full" streckt den Button (w-full)', () => {
+  test('width="full" stretches the button (w-full)', () => {
     function WideBtn(): ReactNode {
       const { Button } = usePrimitives();
       return (
@@ -338,7 +338,7 @@ describe("Button size", () => {
 });
 
 describe("ComparisonTable", () => {
-  test("transponierte Matrix mit Best-Highlight je Kennzahl", () => {
+  test("transposed matrix with a best highlight for each metric", () => {
     const cols = [
       { name: "A", rate: 900 },
       { name: "B", rate: 850 },

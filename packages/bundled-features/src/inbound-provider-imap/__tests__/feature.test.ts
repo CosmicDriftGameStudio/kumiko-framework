@@ -63,7 +63,7 @@ describe("cursor — UIDVALIDITY:lastUid", () => {
     assertUidValidity(null, "18");
   });
 
-  test("providerMessageId bindet UIDVALIDITY (UID allein ist nicht stabil)", () => {
+  test("providerMessageId includes UIDVALIDITY (UID alone is not stable)", () => {
     expect(buildProviderMessageId("17", 42)).toBe("17:42");
     expect(buildProviderMessageId("18", 42)).not.toBe(buildProviderMessageId("17", 42));
   });
@@ -74,18 +74,18 @@ describe("normalizeReferences", () => {
     expect(normalizeReferences({ references: ["<a@x>", "<b@x>"] })).toEqual(["a@x", "b@x"]);
   });
 
-  test("whitespace-getrennter string wird gesplittet", () => {
+  test("whitespace-separated string is split", () => {
     expect(normalizeReferences({ references: "<a@x> <b@x>" })).toEqual(["a@x", "b@x"]);
   });
 
-  test("ohne References fällt In-Reply-To als Thread-Anker ein", () => {
+  test("falls back to In-Reply-To as thread anchor when References is absent", () => {
     expect(normalizeReferences({ inReplyTo: "<parent@x>" })).toEqual(["parent@x"]);
     expect(normalizeReferences({})).toEqual([]);
   });
 });
 
 describe("credential document", () => {
-  test("password-Dokument parsed mit Defaults (port 993, secure)", () => {
+  test("password document is parsed with defaults (port 993, secure)", () => {
     const r = parseImapCredentialDocument(
       JSON.stringify({ host: "imap.example.com", user: "u@example.com", password: "pw" }),
     );
@@ -95,20 +95,20 @@ describe("credential document", () => {
     expect(r.doc.secure).toBe(true);
   });
 
-  test("weder password noch accessToken → abgelehnt", () => {
+  test("neither password nor accessToken → rejected", () => {
     const r = parseImapCredentialDocument(
       JSON.stringify({ host: "imap.example.com", user: "u@example.com" }),
     );
     expect(r.ok).toBe(false);
   });
 
-  test("kein JSON → abgelehnt", () => {
+  test("non-JSON → rejected", () => {
     expect(parseImapCredentialDocument("not-json").ok).toBe(false);
   });
 });
 
 describe("mapImapError — typisierte Fehlerklassen (Plan §2)", () => {
-  test("Auth-Fehler → InboundAuthError (kein Retry, needs re-connect)", () => {
+  test("Auth error → InboundAuthError (no retry, needs re-connect)", () => {
     expect(isInboundAuthError(mapImapError(new Error("Authentication failed"), "h"))).toBe(true);
     expect(isInboundAuthError(mapImapError(new Error("Invalid credentials (Failure)"), "h"))).toBe(
       true,
@@ -122,7 +122,7 @@ describe("mapImapError — typisierte Fehlerklassen (Plan §2)", () => {
     );
   });
 
-  test("Unbekanntes → transient (retry schadet nicht)", () => {
+  test("Unknown errors → transient (retry is harmless)", () => {
     expect(isInboundTransientError(mapImapError(new Error("weird server burp"), "h"))).toBe(true);
   });
 });

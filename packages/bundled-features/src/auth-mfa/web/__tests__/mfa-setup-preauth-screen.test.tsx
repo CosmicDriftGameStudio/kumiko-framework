@@ -61,7 +61,7 @@ beforeEach(() => {
 });
 
 describe("MfaSetupPreauthScreen", () => {
-  test("rendert Titel + Start-Button, kein Setup-Bereich vor dem Start", () => {
+  test("renders title + Start button, no setup section before starting", () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
@@ -72,7 +72,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(screen.queryByLabelText(/^Code from your authenticator app/)).toBeNull();
   });
 
-  test("Start-Klick → postet preauthSetupToken+accountLabel, danach QR + Recovery-Codes", async () => {
+  test("Clicking Start → posts preauthSetupToken+accountLabel, then QR + recovery codes", async () => {
     const fetchMock = mock(async () => jsonResponse(startBody));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     render(
@@ -102,7 +102,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(screen.getByText(/code-2/)).toBeTruthy();
   });
 
-  test("Bestätigen-Button bleibt disabled bis Recovery-Codes bestätigt + 6-stelliger Code eingegeben", async () => {
+  test("Confirm button remains disabled until recovery codes are confirmed + 6-digit code entered", async () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
@@ -132,7 +132,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("sechste Ziffer bestätigt automatisch → postet setupToken+code, danach onSuccess", async () => {
+  test("sixth digit automatically confirms → posts setupToken+code, then onSuccess", async () => {
     const onSuccess = mock(() => {});
     render(
       <Wrapper>
@@ -168,7 +168,7 @@ describe("MfaSetupPreauthScreen", () => {
     });
   });
 
-  test("enable-start schlägt fehl → übersetztes Fehler-Banner, kein Setup-Bereich", async () => {
+  test("enable-start fails → translated error banner, no setup section", async () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({ isSuccess: false, error: "mfa_already_enabled" }),
     ) as unknown as typeof fetch;
@@ -202,7 +202,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  test("ohne onCancel → kein 'Back to login'-Button", () => {
+  test("without onCancel → no 'Back to login' button", () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
@@ -211,7 +211,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(screen.queryByRole("button", { name: "Back to login" })).toBeNull();
   });
 
-  test("confirm schlägt mit invalid_totp_code fehl → übersetztes Banner, onSuccess NICHT gefeuert, Formular weiter bedienbar", async () => {
+  test("confirm fails with invalid_totp_code → translated banner, onSuccess NOT called, form remains usable", async () => {
     const onSuccess = mock(() => {});
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -259,7 +259,7 @@ describe("MfaSetupPreauthScreen", () => {
   // non-null — the intro block (with the only "start setup" button) never
   // came back, leaving the user stuck without a reload (which loses the
   // preauthSetupToken entirely).
-  test("confirm schlägt mit invalid_setup_token fehl → Neustart-Pfad: Start-Button kommt zurück (#1470)", async () => {
+  test("confirm fails with invalid_setup_token → restart path: Start button returns", async () => {
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
@@ -292,7 +292,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });
 
-  test("confirm schlägt mit invalid_challenge_token fehl → auch Neustart-Pfad (#1470)", async () => {
+  test("confirm fails with invalid_challenge_token → restart path too", async () => {
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
@@ -325,7 +325,7 @@ describe("MfaSetupPreauthScreen", () => {
   // retryAfterSeconds from error.details (see mfa-client.test.ts), but the
   // screen used to drop it and show a generic "too many attempts" banner
   // with no wait-time. Pins that the seconds actually reach the UI.
-  test("confirm schlägt mit too_many_attempts fehl → Banner zeigt retryAfterSeconds (#1470)", async () => {
+  test("confirm fails with too_many_attempts → banner shows retryAfterSeconds", async () => {
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("preauth-enable-start")) return jsonResponse(startBody);
@@ -361,7 +361,7 @@ describe("MfaSetupPreauthScreen", () => {
 
   // Server validates z.string().length(6): a 7th pasted digit is cut off
   // instead of reaching the server as invalid_body.
-  test("7-stelliger Paste wird auf 6 Ziffern gekürzt und so gesendet", async () => {
+  test("7-digit paste is truncated to 6 digits and sent that way", async () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />

@@ -33,7 +33,7 @@ async function* slowChunks(chunks: Uint8Array[], delayMs: number): AsyncIterable
 }
 
 describe("FileStorageProvider.writeStream — in-memory", () => {
-  test("schreibt 3 chunks + read liefert konkateniert zurueck", async () => {
+  test("writes 3 chunks and read returns them concatenated", async () => {
     const provider = createInMemoryFileProvider();
     const chunks = [
       new Uint8Array([1, 2, 3]),
@@ -46,7 +46,7 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
     expect(Array.from(data)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  test("leerer Stream → leere Datei", async () => {
+  test("empty stream → empty file", async () => {
     const provider = createInMemoryFileProvider();
     await provider.writeStream("empty.bin", fromChunks([]));
 
@@ -54,7 +54,7 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
     expect(data.byteLength).toBe(0);
   });
 
-  test("mimeType-Option wird in der gespeicherten Entry erhalten", async () => {
+  test("mimeType option is preserved in the stored Entry", async () => {
     // There is no direct read path for mimeType, so we verify it through
     // the existing marker (the write path shares the storage shape).
     // This symmetry test checks that write() and writeStream() with the
@@ -82,7 +82,7 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     await rm(basePath, { recursive: true, force: true });
   });
 
-  test("schreibt + read roundtrip mit chunked source", async () => {
+  test("write/read roundtrip with a chunked source", async () => {
     const provider = createLocalProvider(basePath);
     const chunks = [new Uint8Array([10, 20, 30]), new Uint8Array([40, 50, 60])];
     await provider.writeStream("dir/foo.bin", fromChunks(chunks));
@@ -99,7 +99,7 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     expect(stats.isFile()).toBe(true);
   });
 
-  test("atomar: bei wirfendem Stream entsteht KEIN final-Pfad-File", async () => {
+  test("atomic: a throwing stream produces no file at the final path", async () => {
     const provider = createLocalProvider(basePath);
 
     async function* failingSource(): AsyncIterable<Uint8Array> {
@@ -114,7 +114,7 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     expect(await provider.exists("dir/half.bin")).toBe(false);
   });
 
-  test("atomar: nach Failure ist KEIN final-Pfad-File da (.tmp-Leak ist best-effort)", async () => {
+  test("atomic: after failure, there is no file at the final path (.tmp leak is best effort)", async () => {
     // The final path is never visible in a partially written state. Depending
     // on OS timing, tmp files may briefly remain during destruction; this
     // affects only operational hygiene, because no reader looks for
@@ -138,7 +138,7 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
     }
   });
 
-  test("ueberschreibt existing file atomar (rename ueber bestehenden Pfad)", async () => {
+  test("atomically overwrites existing file (rename over existing path)", async () => {
     const provider = createLocalProvider(basePath);
 
     await provider.write("k", new Uint8Array([1, 1, 1]));
@@ -169,7 +169,7 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
   // only the resulting semantics. The caller can therefore provide a
   // lazy async iterable, such as a ZIP stream.
 
-  test("Source mit Promise-delays wird korrekt verarbeitet", async () => {
+  test("Source with Promise delays is processed correctly", async () => {
     const provider = createInMemoryFileProvider();
 
     async function* lazySource(): AsyncIterable<Uint8Array> {
@@ -187,7 +187,7 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
     expect(Array.from(data)).toEqual([1, 2, 3]);
   });
 
-  test("local-Provider streamt WAEHREND der Source yieldet (tmp-File existiert pre-completion)", async () => {
+  test("local provider streams while the source yields (tmp file exists before completion)", async () => {
     // This streaming-property test ensures that the local provider starts
     // writing the tmp file while the source is still yielding chunks,
     // rather than collecting every chunk first.

@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { createCrashTracker } from "../crash-tracker.ts";
 
 describe("createCrashTracker", () => {
-  test("erste maxCrashes Crashes sind erlaubt, der nächste nicht", () => {
+  test("The first maxCrashes crashes are allowed, but the next one is not", () => {
     const t = createCrashTracker({ maxCrashes: 3, windowMs: 10_000 });
     expect(t.noteCrash(1000)).toBe(true);
     expect(t.noteCrash(1100)).toBe(true);
@@ -16,7 +16,7 @@ describe("createCrashTracker", () => {
     expect(t.noteCrash(1300)).toBe(false);
   });
 
-  test("alte Crashes außerhalb des Fensters werden geprunt", () => {
+  test("Old crashes outside the window are pruned", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(500);
@@ -27,7 +27,7 @@ describe("createCrashTracker", () => {
     expect(t.crashCountInWindow(1500)).toBe(2);
   });
 
-  test("crashCountInWindow zählt nur, was im Fenster liegt", () => {
+  test("crashCountInWindow counts only crashes within the window", () => {
     const t = createCrashTracker({ maxCrashes: 5, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(0);
@@ -35,7 +35,7 @@ describe("createCrashTracker", () => {
     expect(t.crashCountInWindow(2000)).toBe(1);
   });
 
-  test("crashCountInWindow prunt lazy auch ohne vorheriges noteCrash", () => {
+  test("crashCountInWindow also prunes lazily without a previous noteCrash", () => {
     // Important: crashCountInWindow must be correct independently, not only
     // as a consequence of a previous noteCrash. Otherwise its name is misleading.
     const t = createCrashTracker({ maxCrashes: 5, windowMs: 1000 });
@@ -47,7 +47,7 @@ describe("createCrashTracker", () => {
     expect(t.crashCountInWindow(2000)).toBe(0);
   });
 
-  test("Boundary: Crash genau am Fenster-Endpoint bleibt im Fenster", () => {
+  test("Boundary: A crash exactly at the window endpoint remains in the window", () => {
     // Inclusive endpoint: cutoff = now - windowMs. A crash at t=cutoff
     // must still count. Here: now=1000, windowMs=1000 → cutoff=0.
     // A previous crash at t=0 must not be pruned as old.
@@ -59,14 +59,14 @@ describe("createCrashTracker", () => {
     expect(t.noteCrash(1000)).toBe(false);
   });
 
-  test("Mehrere Crashes am gleichen Timestamp zählen einzeln", () => {
+  test("Multiple crashes at the same timestamp are counted individually", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     expect(t.noteCrash(500)).toBe(true);
     expect(t.noteCrash(500)).toBe(true);
     expect(t.noteCrash(500)).toBe(false);
   });
 
-  test("Nach Wartezeit > windowMs ist das Limit zurückgesetzt", () => {
+  test("After waiting > windowMs, the limit is reset", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(100);
@@ -76,7 +76,7 @@ describe("createCrashTracker", () => {
     expect(t.crashCountInWindow(2000)).toBe(1);
   });
 
-  test("maxCrashes=1 erlaubt genau einen Crash pro Fenster", () => {
+  test("maxCrashes=1 allows exactly one crash per window", () => {
     const t = createCrashTracker({ maxCrashes: 1, windowMs: 1000 });
     expect(t.noteCrash(0)).toBe(true);
     expect(t.noteCrash(500)).toBe(false);

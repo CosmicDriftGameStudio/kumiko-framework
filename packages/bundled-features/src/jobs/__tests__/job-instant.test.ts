@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import { parseJobInstant } from "../job-instant.ts";
 
-describe("parseJobInstant — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("parseJobInstant does not require an ambient Temporal global", () => {
   test("parses an ISO instant without relying on globalThis.Temporal", async () => {
     const instant = await withoutAmbientTemporal(() => parseJobInstant("2026-01-01T00:00:00Z"));
     expect(instant.toString()).toBe("2026-01-01T00:00:00Z");

@@ -4,7 +4,7 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test("Faceted-Filter: Status=Draft filtert serverseitig, Reset hebt auf", async ({ page }) => {
+test("Faceted filter: Status=Draft filters server-side, reset clears it", async ({ page }) => {
   await page.goto("/item-list");
   await expect(page.getByText("Demo item #1")).toBeVisible();
   // Ausgangslage: alle 8 Seed-Rows da (Review/Published/Archived sichtbar).

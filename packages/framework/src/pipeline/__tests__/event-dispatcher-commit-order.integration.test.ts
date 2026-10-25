@@ -288,7 +288,7 @@ describe("event-dispatcher — commit order vs. id order", () => {
     expect(pendingGaps).toEqual([]);
   });
 
-  test("skipPoisonEvent skips the event that failed, not a healthy late-committing writer in a pending gap (#3217)", async () => {
+  test("skipPoisonEvent skips the event that failed, not a healthy late-committing writer in a pending gap", async () => {
     const seen: string[] = [];
     const consumer: EventConsumer = {
       name: "commitorder:skip-poison-consumer",

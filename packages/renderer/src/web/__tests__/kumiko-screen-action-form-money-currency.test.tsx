@@ -60,7 +60,7 @@ async function typeText(testId: string, value: string): Promise<void> {
   await user.type(input, value);
 }
 
-describe("actionForm money field currency source (fw#2839)", () => {
+describe("actionForm money field currency source", () => {
   test("untouched literal-declared money field submits { amount: 0, currency }, not a bare 0", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     render(
@@ -190,7 +190,7 @@ describe("actionForm money field currency source (fw#2839)", () => {
   });
 });
 
-describe("secretMint money field currency source (fw#2839)", () => {
+describe("secretMint money field currency source", () => {
   const mintScreen = {
     id: "mint-credit",
     type: "secretMint",

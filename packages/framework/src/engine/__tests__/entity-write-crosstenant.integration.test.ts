@@ -169,7 +169,7 @@ async function eventCreatedBy(aggregateId: string, verb: string): Promise<string
 
 const updatedEventTenantId = (aggregateId: string) => eventTenantId(aggregateId, "updated");
 
-describe("entity write/list handlers: none vs. escapeHatch (fw#2650/fw#2915)", () => {
+describe("entity write/list handlers: none vs. escapeHatch", () => {
   test("escapeHatch handler: SystemAdmin updates a row owned by another tenant, reported as acknowledge-cross-tenant", async () => {
     escapeHatchAuditEvents.length = 0;
     const created = await noneStack.http.writeOk<{ id: string }>(

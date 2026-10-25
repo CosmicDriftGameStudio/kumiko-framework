@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useDisclosure } from "../use-disclosure.ts";
 
 describe("useDisclosure", () => {
-  test("open/close/toggle steuern den Zustand", () => {
+  test("open/close/toggle control the state", () => {
     const { result } = renderHook(() => useDisclosure());
     expect(result.current.open).toBe(false);
     act(() => result.current.onOpen());
@@ -14,7 +14,7 @@ describe("useDisclosure", () => {
     expect(result.current.open).toBe(true);
   });
 
-  test("Callbacks sind referenz-stabil über Re-Renders", () => {
+  test("Callbacks are referentially stable across re-renders", () => {
     const { result, rerender } = renderHook(() => useDisclosure(true));
     const first = result.current;
     rerender();

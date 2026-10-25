@@ -8,7 +8,7 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test("submit-flow: Form-Submit → Dispatcher.write → List-Refresh zeigt neuen Eintrag", async ({
+test("submit-flow: Form submit → Dispatcher.write → List refresh shows new entry", async ({
   page,
 }) => {
   const errors: string[] = [];

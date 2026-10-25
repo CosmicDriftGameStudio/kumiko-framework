@@ -59,7 +59,7 @@ const localePacks: ReadonlyArray<readonly [string, Readonly<Record<string, strin
   ["de", localeDeBundle],
 ];
 
-describe("members status filter labels are localized in every shipped locale (fw#2376)", () => {
+describe("members status filter labels are localized in every shipped locale", () => {
   // A hardcoded toEqual() array here would fail with a confusing "array
   // mismatch" the moment a facet/column/nav-label key is added to the
   // members screen — instead of the clear "key not translated" failure a

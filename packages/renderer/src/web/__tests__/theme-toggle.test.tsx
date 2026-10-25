@@ -39,7 +39,7 @@ function renderWithMode(stub: StubApi, ui: ReactNode) {
 }
 
 describe("ThemeToggle", () => {
-  test("rendert Default-Unicode-Icon (☾) im light-Mode", () => {
+  test("renders default Unicode icon (☾) in light mode", () => {
     const stub = makeStub("light");
     renderWithMode(stub, <ThemeToggle testId="t" />);
     const btn = screen.getByTestId("t");
@@ -47,7 +47,7 @@ describe("ThemeToggle", () => {
     expect(btn.textContent).not.toContain("☀");
   });
 
-  test("rendert Default-Unicode-Icon (☀) im dark-Mode", () => {
+  test("renders default Unicode icon (☀) in dark mode", () => {
     const stub = makeStub("dark");
     renderWithMode(stub, <ThemeToggle testId="t" />);
     const btn = screen.getByTestId("t");
@@ -55,7 +55,7 @@ describe("ThemeToggle", () => {
     expect(btn.textContent).not.toContain("☾");
   });
 
-  test("Custom-Icons werden durchgereicht (Icon-Slots überschreiben Defaults)", () => {
+  test("Custom icons are passed through (icon slots override defaults)", () => {
     const stub = makeStub("light");
     renderWithMode(
       stub,
@@ -77,7 +77,7 @@ describe("ThemeToggle", () => {
     expect(stub.toggleMode).toHaveBeenCalledTimes(1);
   });
 
-  test("aria-label und title spiegeln den Mode-Übergang", () => {
+  test("aria-label and title mirror the mode transition", () => {
     const lightStub = makeStub("light");
     const { unmount } = renderWithMode(
       lightStub,

@@ -47,7 +47,7 @@ async function boot(): Promise<KumikoServerHandle> {
 }
 
 describe("createKumikoServer", () => {
-  test("bootet den Kumiko-Stack + legt die Feature-Tables an", async () => {
+  test("boots the Kumiko stack and creates the feature tables", async () => {
     const h = await boot();
     const rows = await asRawClient(h.stack.db).unsafe(
       `SELECT to_regclass('public.kumiko_server_probe') IS NOT NULL AS "exists"`,
@@ -141,7 +141,7 @@ describe("createKumikoServer", () => {
     await reader.cancel();
   });
 
-  test("unbekannter Pfad → forwarded an den Hono-Stack", async () => {
+  test("unknown path → forwarded to the Hono stack", async () => {
     const h = await boot();
     // /api/ghost is not registered, so Hono returns 404. The response must come
     // from the stack rather than the dev-server layer; checking that it is neither

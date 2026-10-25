@@ -63,7 +63,7 @@ describe("assertExistsIn — DbConnection + explizite tenantId", () => {
     expect(r).toBeInstanceOf(NotFoundError);
   });
 
-  test("ISOLATION: fremder Tenant → NotFoundError (existiert, aber nicht im Scope)", async () => {
+  test("ISOLATION: foreign tenant → NotFoundError (exists, but outside scope)", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
       value: ID_B, // belongs to tenantB
@@ -72,7 +72,7 @@ describe("assertExistsIn — DbConnection + explizite tenantId", () => {
     expect(r).toBeInstanceOf(NotFoundError);
   });
 
-  test("zusätzliches where matcht → null (existiert)", async () => {
+  test("additional where matches → null (exists)", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
       value: ID_A,
@@ -103,7 +103,7 @@ describe("assertExistsIn — TenantDb auto-filter", () => {
 });
 
 describe("assertExistsIn — Fehler-Benennung + where", () => {
-  test("expliziter entityName override gewinnt", async () => {
+  test("explicit entityName override wins", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
       value: MISSING,
@@ -113,7 +113,7 @@ describe("assertExistsIn — Fehler-Benennung + where", () => {
     expect(r?.message).toContain("Bestellung");
   });
 
-  test("zusätzliches where narrowt → existierende id + falscher name = NotFound", async () => {
+  test("additional where narrows → existing id + wrong name = NotFound", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
       value: ID_A,

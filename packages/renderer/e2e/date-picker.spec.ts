@@ -14,14 +14,14 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
-test.describe("DateInput calendar (#369) im echten Browser", () => {
+test.describe("DateInput calendar in a real browser", () => {
   test.beforeEach(async ({ page }) => {
     page.on("pageerror", (err) => console.log("[browser pageerror]", err.message));
     await page.goto("/date");
     await expect(page.getByTestId("section-date")).toBeVisible();
   });
 
-  test("Header nicht doppelt: genau 2 Selects, kein aria-hidden Jahres-Label daneben", async ({
+  test("Header is not duplicated: exactly 2 selects, no aria-hidden year label beside it", async ({
     page,
   }) => {
     await page.getByRole("button", { name: "Open calendar" }).click();
@@ -45,7 +45,7 @@ test.describe("DateInput calendar (#369) im echten Browser", () => {
     await expect.poll(() => page.locator("body").getAttribute("data-date")).toBe("2021-03-15");
   });
 
-  test("Jahres-Dropdown: Sprung auf 2030 ohne Monats-Klicken", async ({ page }) => {
+  test("Year dropdown: jump to 2030 without clicking the month", async ({ page }) => {
     await page.getByRole("button", { name: "Open calendar" }).click();
     await expect(page.getByRole("grid")).toBeVisible();
 

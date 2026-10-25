@@ -140,7 +140,7 @@ describe("resolveAnonymousAccessFromRegistry — fail-closed trust", () => {
   });
 });
 
-describe("resolveAnonymousAccessFromRegistry — opt-in only (#1452)", () => {
+describe("resolveAnonymousAccessFromRegistry — opt-in only", () => {
   test("a mounted tenantResolver provider alone does not make anonymousAccess defined", async () => {
     const registry = createRegistry([createAuthFoundationFeature(), resolverProvider("subdomain")]);
     const result = await resolveAnonymousAccessFromRegistry(undefined, { db: fakeDb, registry });

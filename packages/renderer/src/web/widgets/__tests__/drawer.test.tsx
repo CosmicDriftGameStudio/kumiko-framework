@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
 import { Drawer } from "../drawer.tsx";
 
 describe("Drawer", () => {
-  test("rendert Titel + Inhalt wenn open", () => {
+  test("renders title + content when open", () => {
     render(
       <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
         <div>Body</div>
@@ -13,7 +13,7 @@ describe("Drawer", () => {
     expect(screen.getByText("Body")).toBeTruthy();
   });
 
-  test("footer wrappt (flex-wrap), damit viele Aktionen nicht über den Panel-Rand laufen", () => {
+  test("footer wraps (flex-wrap) so many actions do not run past the panel edge", () => {
     render(
       <Drawer
         open={true}
@@ -52,7 +52,7 @@ describe("Drawer", () => {
   });
 
   describe("showCloseButton", () => {
-    test("default true: Close-Button im Header vorhanden", () => {
+    test("default true: Close button present in the header", () => {
       render(
         <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
           <div>Body</div>
@@ -61,7 +61,7 @@ describe("Drawer", () => {
       expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
     });
 
-    test("false: kein Close-Button, Titel und Maximieren bleiben", () => {
+    test("false: no Close button, title and maximize remain", () => {
       render(
         <Drawer
           open={true}
@@ -87,7 +87,7 @@ describe("Drawer", () => {
       return overlay as HTMLElement;
     }
 
-    test("default: keine Blur, 20% Abdunklung", () => {
+    test("default: no blur, 20% dimming", () => {
       render(
         <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
           <div>Body</div>
@@ -113,7 +113,7 @@ describe("Drawer", () => {
       expect(getOverlay().style.backdropFilter).toBe("blur(4px)");
     });
 
-    test("backdrop={{ dimPercent: 0 }}: keine Abdunklung", () => {
+    test("backdrop={{ dimPercent: 0 }}: no dimming", () => {
       render(
         <Drawer
           open={true}
@@ -371,7 +371,7 @@ describe("Drawer", () => {
       }
     }
 
-    test("clamps an out-of-range defaultWidthPx on initial render, before any interaction (fw#1965)", () => {
+    test("clamps an out-of-range defaultWidthPx on initial render, before any interaction", () => {
       render(
         <Drawer
           open={true}
@@ -385,7 +385,7 @@ describe("Drawer", () => {
       );
       expect(screen.getByRole("separator").getAttribute("aria-valuenow")).toBe("800");
     });
-    test("Startbreite folgt max(600px, 37.5vw) wenn resize.defaultWidthPx fehlt", () => {
+    test("Initial width follows max(600px, 37.5vw) when resize.defaultWidthPx is missing", () => {
       withViewportWidth(1920, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
@@ -396,7 +396,7 @@ describe("Drawer", () => {
       });
     });
 
-    test("Startbreite clamped auf effectiveMaxWidthPx wenn 37.5vw ueber MAX_WIDTH_PX hinauslaeuft", () => {
+    test("Initial width is clamped to effectiveMaxWidthPx when 37.5vw exceeds MAX_WIDTH_PX", () => {
       withViewportWidth(8000, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
@@ -412,7 +412,7 @@ describe("Drawer", () => {
       });
     });
 
-    test("resize.defaultWidthPx wird ebenfalls gegen effectiveMaxWidthPx geclamped", () => {
+    test("resize.defaultWidthPx is also clamped against effectiveMaxWidthPx", () => {
       withViewportWidth(2000, () => {
         render(
           <Drawer
@@ -429,7 +429,7 @@ describe("Drawer", () => {
       });
     });
 
-    test("Startbreite clamped auf 600px Minimum bei schmalem Viewport", () => {
+    test("Initial width is clamped to a 600px minimum on a narrow viewport", () => {
       withViewportWidth(800, () => {
         render(
           <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer" resize={{}}>
@@ -440,7 +440,7 @@ describe("Drawer", () => {
       });
     });
 
-    test("resize.defaultWidthPx schlägt die Viewport-Formel", () => {
+    test("resize.defaultWidthPx takes precedence over the viewport formula", () => {
       withViewportWidth(3000, () => {
         render(
           <Drawer
@@ -562,7 +562,7 @@ describe("Drawer", () => {
       expect(handle.getAttribute("aria-valuenow")).toBe("484");
     });
 
-    test("PointerDown on the handle locks text selection, PointerUp restores it (fw#1965)", () => {
+    test("PointerDown on the handle locks text selection, PointerUp restores it", () => {
       render(
         <Drawer
           open={true}

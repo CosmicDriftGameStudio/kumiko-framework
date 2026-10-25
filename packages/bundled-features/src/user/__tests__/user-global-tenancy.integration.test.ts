@@ -57,7 +57,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("ctx.db.global(userTable) — cross-tenant identity access (fw#2858)", () => {
+describe("Cross-tenant identity access via ctx.db.global(userTable)", () => {
   test("a handler in tenant A reads the user via db.global(userTable).fetchOne", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,

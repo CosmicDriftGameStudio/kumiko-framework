@@ -44,6 +44,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-i18n-locale-mount` | Guard: app mount points must register the German locale feature when the repo depends on @cosmicdrift/kumiko-locale-de. | - |
 | `guard-i18n-locale-terminology` | Guard: locale bundle values must follow Mandant/Organización terminology. | `kumiko-lint-ignore i18n-locale-terminology` |
 | `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. "Loading tenants…"). | `kumiko-lint-ignore i18n-ui-strings` |
+| `guard-ignore-tag-reason` | Ignore-Tag-Reason Guard: every `kumiko-lint-ignore <slug> <reason>` comment states a real reason. | - |
 | `guard-import-extensions` | Guard: relative imports in TypeScript sources name the source file (`./foo.ts`), not the emitted one (`./foo.js`). | - |
 | `guard-internal-subpath-imports` | Guard: keeps the row-level-security escape hatches out of consumer code. | - |
 | `guard-lib-test-coverage` | lib/ is the home of extracted logic (computation, parsing, mapping) — the no-logic-in-views guard pushes it there, this guard ensures it is also TESTED at the new location. | `kumiko-lint-ignore lib-test-coverage` |
@@ -74,6 +75,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-test-stack-drift` | Guard: *.integration.ts / *.integration.test.ts files must not construct a parallel server stack. | - |
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns. | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
+| `guard-test-title` | Test-title guard: the title of a `test`/`it`/`describe` (including `.each`, `.skip`, `.only`, `.todo` and `.if` chains) is English and carries no issue or PR reference. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
 | `guard-unsafe-array-param` | Warns when a `.unsafe(sql, [...])` parameter list holds a JS array (or a spread). | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |

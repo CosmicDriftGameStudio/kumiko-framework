@@ -97,7 +97,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("systemScope default rate limit (fw#2861)", () => {
+describe("systemScope default rate limit", () => {
   test("explicit rateLimit still wins over the systemScope default", async () => {
     calls.length = 0;
     const res = await stack.http.write("rl-default:write:explicit", {}, admin);

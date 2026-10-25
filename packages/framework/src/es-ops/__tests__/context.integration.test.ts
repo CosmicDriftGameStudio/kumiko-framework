@@ -137,7 +137,7 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
 // --- Read-Helpers --------------------------------------------------------
 
 describe("SeedMigrationContext.findUserByEmail (integration)", () => {
-  test("liest existing user-row korrekt + maps tenant_id → tenantId", async () => {
+  test("correctly reads an existing user row and maps tenant_id → tenantId", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const tenantId = "00000000-0000-4000-8000-000000000099";
     await asRawClient(testDb.db).unsafe(
@@ -156,7 +156,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
     expect(found).toEqual({ id: userId, email: "admin@example.com", tenantId });
   });
 
-  test("liefert null bei unknown email (kein throw)", async () => {
+  test("returns null for unknown email (does not throw)", async () => {
     const ctx = createSeedMigrationContext({
       dispatcher,
       dbRunner: testDb.db,
@@ -167,7 +167,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
 });
 
 describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
-  test("parst JSON-encoded roles-Spalte zu string[]", async () => {
+  test("parses the JSON-encoded roles column into string[]", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const aggId1 = "00000000-0000-4000-8000-0000000000a1";
     const aggId2 = "00000000-0000-4000-8000-0000000000a2";
@@ -202,7 +202,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     expect(m2?.roles).toEqual(["User"]);
   });
 
-  test("stream-tenant != payload-tenant wird korrekt ausgewiesen (Driver-Bug)", async () => {
+  test("correctly reports stream-tenant != payload-tenant (Driver-Bug)", async () => {
     // Reproduces the publicstatus driver case: seedTenantMembership was called
     // with by=systemAdmin, so executor.tenantId=
     // SYSTEM_TENANT_ID is stored as events.tenant_id, while payload.tenantId
@@ -253,7 +253,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     expect(memberships[0]?.roles).toEqual([]);
   });
 
-  test("liefert leere Liste bei userId ohne memberships", async () => {
+  test("returns an empty list for a userId with no memberships", async () => {
     const ctx = createSeedMigrationContext({
       dispatcher,
       dbRunner: testDb.db,
@@ -262,7 +262,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     expect(memberships).toEqual([]);
   });
 
-  test("membership ohne v1-Event wird vom INNER JOIN ausgefiltert (Drift-Detection)", async () => {
+  test("membership without a v1 event is filtered out by INNER JOIN (drift detection)", async () => {
     // Prevents data drift: a read row without an event row is not a valid
     // ES aggregate state. The row is excluded instead of returning a partial
     // result with a missing stream tenant, which would cause difficult-to-
@@ -284,7 +284,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
 });
 
 describe("SeedMigrationContext.findTenants (integration)", () => {
-  test("returnt alle Tenants sortiert nach inserted_at", async () => {
+  test("returns all tenants sorted by inserted_at", async () => {
     await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_tenants (id, name, key, inserted_at) VALUES
         ('00000000-0000-4000-8000-000000000002'::uuid, 'Beta',  'beta',  '2026-01-02'),
@@ -330,7 +330,7 @@ describe("SeedMigrationContext.findTenants under an active PII KMS (integration)
 // --- skippable + env-flag (Integration) ---------------------------------
 
 describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
-  test("skippable=true + env-flag='1' → kein Marker in DB", async () => {
+  test("skippable=true + env-flag='1' → no marker in DB", async () => {
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-skip-via-env.ts",
@@ -368,7 +368,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
     }
   });
 
-  test("skippable=true OHNE env-flag → läuft normal", async () => {
+  test("skippable=true WITHOUT env-flag → runs normally", async () => {
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-skippable-but-no-flag.ts",
@@ -403,7 +403,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
 // --- ctx.db Escape-Hatch (Integration) -----------------------------------
 
 describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
-  test("ctx.db kann für eigene Lookups genutzt werden (read-only)", async () => {
+  test("ctx.db can be used for custom lookups (read-only)", async () => {
     await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_tenants (id, name, key) VALUES
         ('00000000-0000-4000-8000-000000000007'::uuid, 'Lucky', 'lucky')

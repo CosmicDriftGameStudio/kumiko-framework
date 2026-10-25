@@ -28,7 +28,7 @@
  * single-feature samples, framework internals) have no feature boundary
  * and are skipped.
  *
- * Escape hatch: `// kumiko-lint-ignore cross-feature-import [reason]`
+ * Escape hatch: `// kumiko-lint-ignore cross-feature-import <reason>`
  * on the same line as the import, or on the line directly above.
  *
  * Usage:
@@ -220,7 +220,7 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 export const guard: AstGuard = {
   name: "Cross-Feature-Import Guard",
   scan: SCAN,
-  hint: `Import from the feature's barrel ("../<feature>") instead of its internals. Escape hatch: "// ${IGNORE_TAG} [reason]" on the import line.`,
+  hint: `Import from the feature's barrel ("../<feature>") instead of its internals. Escape hatch: "// ${IGNORE_TAG} <reason>" on the import line.`,
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

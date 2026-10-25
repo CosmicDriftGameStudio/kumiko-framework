@@ -10,7 +10,7 @@ if (SecretReveal === undefined) {
   throw new Error("defaultPrimitives.SecretReveal is not registered");
 }
 
-describe("DefaultSecretReveal (fw#2548 / fw#2838)", () => {
+describe("DefaultSecretReveal", () => {
   test("without qr, renders the value as monospaced text", () => {
     render(
       <SecretReveal

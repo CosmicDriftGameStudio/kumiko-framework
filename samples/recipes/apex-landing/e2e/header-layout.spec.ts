@@ -7,7 +7,7 @@
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { renderLanding, SAMPLE_PLANS } from "../src/feature";
 
-test("header keeps the page's horizontal padding below 1120px (#2038)", async ({ page }) => {
+test("header keeps the page's horizontal padding below 1120px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.setContent(renderLanding({ plans: SAMPLE_PLANS }), {
     waitUntil: "domcontentloaded",

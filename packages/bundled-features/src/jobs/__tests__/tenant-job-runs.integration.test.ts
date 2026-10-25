@@ -221,7 +221,7 @@ async function generate(
   expect((await res.json()).isSuccess).toBe(true);
 }
 
-describe("jobs:query:tenant-runs (fw#3616)", () => {
+describe("jobs:query:tenant-runs", () => {
   test("a job that never starts (no worker running) reads as queued with queuedAt and no startedAt right after the enqueue", async () => {
     // Event-triggered (handleEvent)
     await generate(userA, "c1", "succeed");
@@ -741,7 +741,7 @@ describe("tenant run outcome under concurrency", () => {
   });
 });
 
-describe("jobs:query:tenant-runs read access for app roles (fw#3927)", () => {
+describe("jobs:query:tenant-runs read access for app roles", () => {
   const member = createTestUser({ id: 7, tenantId: tenantA, roles: ["PropertyManager"] });
 
   async function queryAs(readRoles: readonly string[] | undefined): Promise<Response> {

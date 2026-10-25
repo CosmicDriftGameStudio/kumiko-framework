@@ -232,7 +232,7 @@ describe("readiness:query:status", () => {
     expect(status.ready).toBe(true);
   });
 
-  test("SystemAdmin-gated required Key zählt im Verdict des TenantAdmin (277/1)", async () => {
+  test("SystemAdmin-gated required Key counts in the TenantAdmin verdict", async () => {
     const admin = adminFor(605);
 
     const status = await statusFor(admin);
