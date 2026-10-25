@@ -19,7 +19,9 @@ export type ProbeVerdict =
   | { readonly status: "ok"; readonly message: ProbeText }
   | { readonly status: "skipped"; readonly message: ProbeText };
 
-export type ProbeContext = JobContext & {
+// Probes read through adapters and fixtures. The run job's dispatch, event emitter and
+// escape-hatch powers (system identity, cross-tenant reads) stay with the job.
+export type ProbeContext = Pick<JobContext, "db" | "registry" | "obs" | "tz" | "services"> & {
   readonly probeRunId: string;
   readonly tenantId: TenantId;
   readonly triggeredByUserId: string;

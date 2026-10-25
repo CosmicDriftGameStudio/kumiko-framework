@@ -65,6 +65,11 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "feature-toggles:event:toggle-set": label("feature-toggle-set"),
 };
 
+// Streams whose payload holds rows that only a SystemAdmin or a single owner may read: a
+// readiness probe run stores system-probe and personal-mailbox results next to the tenant's
+// own. Below SystemAdmin the audit log leaves these streams out entirely.
+export const SYSTEM_ADMIN_ONLY_AGGREGATE_TYPES: readonly string[] = ["probe-run"];
+
 // Framework system events (kumiko:system:*) are engine plumbing, never audit-worthy on their own.
 export const FRAMEWORK_SYSTEM_EVENT_TYPES: readonly string[] = [
   ...WORKFLOW_SYSTEM_EVENT_DEFS.keys(),

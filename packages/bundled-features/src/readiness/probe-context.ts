@@ -44,7 +44,11 @@ export async function buildProbeContext(
   tenantId: TenantId,
 ): Promise<ProbeContext> {
   return {
-    ...ctx,
+    db: ctx.db,
+    registry: ctx.registry,
+    obs: ctx.obs,
+    tz: ctx.tz,
+    services: ctx.services,
     probeRunId: run.id,
     tenantId,
     triggeredByUserId: run.triggeredByUserId,

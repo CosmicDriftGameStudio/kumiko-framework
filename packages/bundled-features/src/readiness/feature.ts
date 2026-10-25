@@ -72,6 +72,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
         retries: 0,
         escapeHatch: {
           reason: "looks up the run starter's address via the system-only user auth lookup",
+          grants: ["systemIdentity"],
         },
         // Inline so the feature-AST reader can parse the job; the logic lives in run-probes-job.ts.
         handler: (payload, ctx) => runProbesJob(payload, ctx),
