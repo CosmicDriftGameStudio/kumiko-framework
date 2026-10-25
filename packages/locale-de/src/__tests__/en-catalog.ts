@@ -407,6 +407,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "cap-counter:nav.cap-list": "Caps",
   "cap-overview.cards.empty": "No caps configured for this tenant.",
   "cap-overview.cards.loading": "Loading usage…",
+  "cap-overview.cards.noneLeft": "None left",
+  "cap-overview.cards.remaining": "{amount} left",
+  "cap-overview.cards.viewAll": "View all usage",
   "cap-overview.errors.filterFieldUnsupported":
     "Filtering by this field is not supported, or tier was filtered more than once.",
   "cap-overview.errors.progressPrimitiveMissing":

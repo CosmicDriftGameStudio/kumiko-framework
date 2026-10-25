@@ -424,6 +424,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "cap-counter:nav.cap-list": "Límites",
   "cap-overview.cards.empty": "No hay límites configurados para esta organización.",
   "cap-overview.cards.loading": "Cargando datos de uso…",
+  "cap-overview.cards.noneLeft": "Nada disponible",
+  "cap-overview.cards.remaining": "Quedan {amount}",
+  "cap-overview.cards.viewAll": "Ver todo el uso",
   "cap-overview.errors.filterFieldUnsupported":
     "No se admite filtrar por este campo, o tier se filtró más de una vez.",
   "cap-overview.errors.progressPrimitiveMissing":

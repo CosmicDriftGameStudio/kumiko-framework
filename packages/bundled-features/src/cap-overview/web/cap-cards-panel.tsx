@@ -1,6 +1,12 @@
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
-import { useLocale, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  useLocale,
+  useNav,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
+import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   EmptyState,
   StatCard,
@@ -9,10 +15,10 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import { Database, FileText, Gauge, Hash, Mail, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import type { CapIconKey, CapUsageTone, CapUsageWithMeta } from "../types.ts";
+import type { CapIconKey, CapUnit, CapUsageTone, CapUsageWithMeta } from "../types.ts";
 import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
-import { CapOverviewQueries } from "./constants.ts";
+import { CapOverviewQueries, MY_CAPS_SCREEN_ID } from "./constants.ts";
 import { isCapNotIncluded } from "./usage-math.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
@@ -49,9 +55,93 @@ function readCapKeys(value: unknown): ReadonlySet<string> | undefined {
   return new Set(value.filter((entry): entry is string => typeof entry === "string"));
 }
 
-export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNode {
+function ViewAllLink(): ReactNode {
+  const t = useTranslation();
+  const { Link } = usePrimitives();
+  const nav = useNav();
+  const target = { screenId: MY_CAPS_SCREEN_ID };
+  return (
+    <Link
+      href={nav.hrefFor(target)}
+      onPress={() => nav.navigate(target)}
+      variant="muted"
+      testId="cap-cards-view-all"
+    >
+      {t("cap-overview.cards.viewAll")}
+    </Link>
+  );
+}
+
+function CapUsageSummaryRow({ cap }: { readonly cap: CapUsageWithMeta }): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
+  const remainingText =
+    isMeasured(cap) && cap.limit !== null && cap.limit > 0
+      ? remainingLabel(t, Math.max(cap.limit - cap.used, 0), cap.unit, locale)
+      : undefined;
+  if (cap.percent === null && remainingText === undefined) return null;
+  return (
+    <div className="flex items-center gap-2">
+      {cap.percent !== null && (
+        <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
+      )}
+      {remainingText !== undefined && (
+        <span className="text-sm text-muted-foreground" data-testid="cap-card-remaining">
+          {remainingText}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function remainingLabel(
+  t: Translate,
+  rest: number,
+  unit: CapUnit | undefined,
+  locale: string,
+): string {
+  return rest > 0
+    ? t("cap-overview.cards.remaining", { amount: formatCapAmount(rest, unit, locale) })
+    : t("cap-overview.cards.noneLeft");
+}
+
+function CapCard({ cap }: { readonly cap: CapUsageWithMeta }): ReactNode {
+  const t = useTranslation();
+  const locale = useLocale().locale();
+  const Icon = cap.icon !== undefined ? CAP_ICONS[cap.icon] : undefined;
+  // An unlimited, measured cap has neither a badge nor a bar; StatCard still
+  // wraps any defined child in a spacing div, so pass undefined then.
+  const notIncluded = isCapNotIncluded(cap.limit);
+  const body =
+    !notIncluded && (!isMeasured(cap) || cap.limit !== null) ? (
+      <div className="flex flex-col gap-2">
+        <CapUsageSummaryRow cap={cap} />
+        <CapUsageBar usage={cap} showLabel={false} />
+      </div>
+    ) : undefined;
+  return (
+    <StatCard
+      icon={Icon !== undefined ? <Icon className="size-4" /> : undefined}
+      label={t(cap.label)}
+      value={
+        notIncluded
+          ? t("cap-overview.notIncluded")
+          : !isMeasured(cap)
+            ? EMPTY_VALUE_PLACEHOLDER
+            : cap.limit === null
+              ? formatCapAmount(cap.used, cap.unit, locale)
+              : formatCapUsedOfLimit(cap.used, cap.limit, cap.unit, locale)
+      }
+      {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
+      testId="cap-card"
+    >
+      {body}
+    </StatCard>
+  );
+}
+
+export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNode {
+  const t = useTranslation();
   const { Banner } = usePrimitives();
   const tenantId =
     typeof filterParams?.["tenantId"] === "string" ? filterParams["tenantId"] : undefined;
@@ -76,58 +166,27 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
   }
 
   return (
-    <div
-      // Arbitrary bracket values (grid-cols-[repeat(...)]) never compiled:
-      // styles.css's Tailwind v4 @source scan only covers renderer/web/src,
-      // renderer/src and samples/**/src (see its comment) — bundled-features
-      // isn't scanned, so a class unique to this file has no generated rule
-      // and silently no-ops (the grid fell back to one implicit column,
-      // stacking every card full-width). Reusing the exact classes
-      // dashboard-body.tsx's own panel grid already uses guarantees the
-      // rule exists, since that file IS in the scanned surface.
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      data-testid="cap-cards-panel"
-    >
-      {query.loading && rows.length === 0 && (
-        <div className="text-sm text-muted-foreground">{t("cap-overview.cards.loading")}</div>
-      )}
-      {rows.map((cap) => {
-        const Icon = cap.icon !== undefined ? CAP_ICONS[cap.icon] : undefined;
-        // An unlimited, measured cap has neither a badge nor a bar; StatCard still
-        // wraps any defined child in a spacing div, so pass undefined then.
-        const notIncluded = isCapNotIncluded(cap.limit);
-        const body =
-          !notIncluded && (!isMeasured(cap) || cap.limit !== null) ? (
-            <div className="flex flex-col gap-2">
-              {cap.percent !== null && (
-                <div className="flex items-center justify-between gap-2">
-                  <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
-                </div>
-              )}
-              <CapUsageBar usage={cap} showLabel={false} />
-            </div>
-          ) : undefined;
-        return (
-          <StatCard
-            key={cap.id}
-            icon={Icon !== undefined ? <Icon className="size-4" /> : undefined}
-            label={t(cap.label)}
-            value={
-              notIncluded
-                ? t("cap-overview.notIncluded")
-                : !isMeasured(cap)
-                  ? EMPTY_VALUE_PLACEHOLDER
-                  : cap.limit === null
-                    ? formatCapAmount(cap.used, cap.unit, locale)
-                    : formatCapUsedOfLimit(cap.used, cap.limit, cap.unit, locale)
-            }
-            {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
-            testId="cap-card"
-          >
-            {body}
-          </StatCard>
-        );
-      })}
+    <div className="flex flex-col gap-2">
+      <div
+        // Arbitrary bracket values (grid-cols-[repeat(...)]) never compiled:
+        // styles.css's Tailwind v4 @source scan only covers renderer/web/src,
+        // renderer/src and samples/**/src (see its comment) — bundled-features
+        // isn't scanned, so a class unique to this file has no generated rule
+        // and silently no-ops (the grid fell back to one implicit column,
+        // stacking every card full-width). Reusing the exact classes
+        // dashboard-body.tsx's own panel grid already uses guarantees the
+        // rule exists, since that file IS in the scanned surface.
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        data-testid="cap-cards-panel"
+      >
+        {query.loading && rows.length === 0 && (
+          <div className="text-sm text-muted-foreground">{t("cap-overview.cards.loading")}</div>
+        )}
+        {rows.map((cap) => (
+          <CapCard key={cap.id} cap={cap} />
+        ))}
+      </div>
+      {capKeys !== undefined && <ViewAllLink />}
     </div>
   );
 }

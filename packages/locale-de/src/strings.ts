@@ -426,6 +426,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-counter:nav.cap-list": "Limits",
   "cap-overview.cards.empty": "Für diesen Mandanten sind keine Caps konfiguriert.",
   "cap-overview.cards.loading": "Lade Nutzungsdaten …",
+  "cap-overview.cards.noneLeft": "Nichts mehr frei",
+  "cap-overview.cards.remaining": "Noch {amount} frei",
+  "cap-overview.cards.viewAll": "Alle Kontingente ansehen",
   "cap-overview.errors.filterFieldUnsupported":
     "Filtern nach diesem Feld wird nicht unterstützt, oder Tier wurde mehrfach gefiltert.",
   "cap-overview.errors.progressPrimitiveMissing": "Nutzungsbalken nicht verfügbar.",

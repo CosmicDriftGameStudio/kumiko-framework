@@ -53,5 +53,5 @@ detail: A dashboard panel of kind custom takes params, static values laid over t
 feature: cap-overview
 type: improvement
 title: CapCardsPanel can be limited to specific cap keys via params.capKeys
-detail: A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server.
+detail: A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server. Each limited cap card also shows how much is left (or that nothing is), next to the percent chip, and a limited panel adds a link to the full usage screen.
 -->
