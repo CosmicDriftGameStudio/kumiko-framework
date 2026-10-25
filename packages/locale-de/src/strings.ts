@@ -1040,6 +1040,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "metrics:jobStatus.queued": "In Warteschlange",
   "metrics:jobStatus.running": "Läuft",
   "mfa.disable.submit": "Deaktivieren",
+  "mfa.disable.done": "Zwei-Faktor-Authentifizierung ist jetzt ausgeschaltet.",
   "mfa.enable.confirm.done": "Zwei-Faktor-Authentifizierung ist jetzt aktiviert.",
   "mfa.enable.confirm.submit": "Aktivieren",
   "mfa.enable.reveal.qr": "Diesen QR-Code scannen",

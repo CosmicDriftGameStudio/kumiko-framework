@@ -86,6 +86,9 @@ export const mfaDisableScreen: ActionFormScreenDefinition = {
   layout: { sections: [{ fields: ["code"] }] },
   submitLabel: i18nKey("mfa.disable.submit"),
   submitStyle: "danger",
+  successMessage: i18nKey("mfa.disable.done"),
+  // The used code is spent; clearing it keeps the form from looking like it still waits.
+  resetOnSuccess: true,
   cancelTarget: false,
   access: {
     openToAll: {

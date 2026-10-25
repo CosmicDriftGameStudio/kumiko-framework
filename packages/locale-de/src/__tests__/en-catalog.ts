@@ -1007,6 +1007,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "metrics:jobStatus.queued": "Queued",
   "metrics:jobStatus.running": "Running",
   "mfa.disable.submit": "Disable",
+  "mfa.disable.done": "Two-factor authentication is now turned off.",
   "mfa.enable.confirm.done": "Two-factor authentication is now enabled.",
   "mfa.enable.confirm.submit": "Enable",
   "mfa.enable.reveal.qr": "Scan this QR code",
