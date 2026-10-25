@@ -33,6 +33,7 @@ export async function runProbesJob(_payload: Record<string, unknown>, ctx: JobCo
   const run = await ctx.db.fetchOne<PendingRunRow>(probeRunsTable, {
     status: PROBE_RUN_STATUS.Pending,
   });
+  // skip: no pending run left, e.g. a second trigger after the first job already claimed it.
   if (!run) return;
 
   const executor = createSystemUser(tenantId);

@@ -99,7 +99,7 @@ import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-desi
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
-import { ADMIN_NAV_QN, adminNavFeature } from "./app/admin-nav-feature";
+import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
 import { capOverviewLabelsFeature } from "./app/cap-overview-labels-feature";
@@ -166,7 +166,7 @@ export const APP_FEATURES = [
   }),
   patScopeLabelsFeature,
   adminNavFeature,
-  createReadinessFeature({ nav: { parent: ADMIN_NAV_QN } }),
+  createReadinessFeature({ nav: { parent: ADMIN_NAV_QN, workspaces: ADMIN_NAV_WORKSPACES } }),
 
   // delivery + channels
   createDeliveryFeature(),
