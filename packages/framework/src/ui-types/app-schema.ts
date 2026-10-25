@@ -53,6 +53,10 @@ export type FeatureSchema = {
   // toAppSchema()) — treated as "not missing" so search bars keep rendering
   // exactly as before this flag existed.
   readonly searchAdapterMissing?: boolean;
+  // Query QN (as passed to dispatcher.query) -> entities its handler declares via
+  // liveEntities, for useQuery({ live: true }); only handlers of this feature
+  // with a non-empty list. Per feature so a tenant feature toggle strips it.
+  readonly queryLiveEntities?: Readonly<Record<string, readonly string[]>>;
 };
 
 // A content collection as it reaches the client: the declaration plus the

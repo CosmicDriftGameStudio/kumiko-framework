@@ -377,7 +377,10 @@ export function buildProjectionRowActions(options: {
   return out.length > 0 ? out : undefined;
 }
 
-type OpenToolbarDrawer = (action: ToolbarAction & { readonly kind: "drawer" }) => void;
+type OpenToolbarDrawer = (
+  action: ToolbarAction & { readonly kind: "drawer" },
+  initialValues?: Readonly<Record<string, unknown>>,
+) => void;
 
 function buildNavigateToolbarAction(
   action: RelatedListToolbarAction & { readonly kind: "navigate" },
@@ -416,9 +419,10 @@ function buildNavigateToolbarAction(
 }
 
 function buildDrawerToolbarAction(
-  action: ToolbarAction & { readonly kind: "drawer" },
+  action: RelatedListToolbarAction & { readonly kind: "drawer" },
   translate: Translate,
   openDrawer: OpenToolbarDrawer,
+  record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
   const actionIcon = resolveActionIcon(action.id);
   return {
@@ -427,15 +431,19 @@ function buildDrawerToolbarAction(
     ...(action.style !== undefined && { style: action.style }),
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
-    onTrigger: () => openDrawer(action),
+    onTrigger: () =>
+      action.params !== undefined && record !== undefined
+        ? openDrawer(action, evalRowExtractor(action.params, record))
+        : openDrawer(action),
   };
 }
 
 function buildWriteHandlerToolbarAction(
-  action: ToolbarAction & { readonly kind: "writeHandler" },
+  action: RelatedListToolbarAction & { readonly kind: "writeHandler" },
   translate: Translate,
   refetch: () => Promise<unknown>,
   dispatcher: Dispatcher,
+  record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
   const actionIcon = resolveActionIcon(action.id);
   return {
@@ -448,7 +456,11 @@ function buildWriteHandlerToolbarAction(
       confirmLabel: translate(action.confirmLabel),
     }),
     onTrigger: async () => {
-      const result = await dispatcher.write(action.handler, action.payload ?? {});
+      const extracted =
+        action.params !== undefined && record !== undefined
+          ? evalRowExtractor(action.params, record)
+          : undefined;
+      const result = await dispatcher.write(action.handler, { ...action.payload, ...extracted });
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
       }
@@ -516,17 +528,19 @@ export function buildProjectionToolbarActions(options: {
       out.push(buildNavigateToolbarAction(action, translate, nav, host, navigatePrefill, record));
       continue;
     }
+    // Fail closed like `visible`: params need the parent record they are extracted from.
+    if (action.params !== undefined && record === undefined) continue;
     if (action.kind === "drawer") {
       if (openDrawer === undefined) {
         warnDrawerActionDropped("toolbarAction", action.id);
         continue;
       }
-      out.push(buildDrawerToolbarAction(action, translate, openDrawer));
+      out.push(buildDrawerToolbarAction(action, translate, openDrawer, record));
       continue;
     }
     // writeHandler — skip without a dispatcher instead of crashing (same as rowActions).
     if (dispatcher === undefined) continue;
-    out.push(buildWriteHandlerToolbarAction(action, translate, refetch, dispatcher));
+    out.push(buildWriteHandlerToolbarAction(action, translate, refetch, dispatcher, record));
   }
   return out.length > 0 ? out : undefined;
 }

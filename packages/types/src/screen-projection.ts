@@ -2,7 +2,7 @@ import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { NavIconKey } from "./nav-icon.ts";
 import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
-import type { DashboardPanelVisibility, DashboardStatTone } from "./screen-dashboard.ts";
+import type { DashboardStatTone, ScreenVisibility } from "./screen-dashboard.ts";
 import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
@@ -93,7 +93,7 @@ export type ProjectionListScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
-  readonly visibleWhen?: DashboardPanelVisibility;
+  readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly query: string;
@@ -225,7 +225,7 @@ export type ProjectionDetailScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
-  readonly visibleWhen?: DashboardPanelVisibility;
+  readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly query: string;

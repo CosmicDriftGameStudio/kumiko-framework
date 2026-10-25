@@ -29,21 +29,29 @@ export function checkQueryRef(
   throw new Error(`${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`);
 }
 
-// visibleWhen queries are run with an empty payload by the client gate, so a query
-// that requires input would fail on every call and the screen/panel would stay
-// unavailable with no hint.
+const PROBE_ROUTE_ID = "00000000-0000-4000-8000-000000000000";
+
+// Panel gates run with an empty payload; a screen gate with `idParam` runs with the route id
+// under that key. A query needing anything more would fail on every call and the
+// screen/panel would stay unavailable with no hint.
 function checkVisibleWhenQueryRef(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   query: string,
   buildPrefix: () => string,
+  idParam?: string,
 ): void {
   checkQueryRef(queryHandlers, query, buildPrefix);
   const handler = queryHandlers.get(query);
-  // skip: nothing to check for an unknown handler (checkQueryRef already threw) or an input-free query
-  if (handler === undefined || handler.schema.safeParse({}).success) return;
+  if (handler === undefined) return;
+  const probe = idParam === undefined ? {} : { [idParam]: PROBE_ROUTE_ID };
+  // skip: the query parses what the gate sends
+  if (handler.schema.safeParse(probe).success) return;
   throw new Error(
-    `${buildPrefix()} query "${query}" requires input; visibleWhen queries run with an empty payload. ` +
-      "Make the query's input fields optional or use a query without required input.",
+    idParam === undefined
+      ? `${buildPrefix()} query "${query}" requires input; visibleWhen queries run with an empty payload. ` +
+          "Make the query's input fields optional, use a query without required input, or (projectionDetail only) set visibleWhen.idParam to receive the route id."
+      : `${buildPrefix()} query "${query}" requires input beyond idParam "${idParam}"; visibleWhen queries run with only the route id under that key. ` +
+          `Make the other input fields optional or fix idParam "${idParam}".`,
   );
 }
 
@@ -220,10 +228,18 @@ function checkScreenQueryRefs(
   screen: ScreenDefinition,
 ): void {
   if (screen.visibleWhen !== undefined) {
+    const { idParam } = screen.visibleWhen;
+    if (idParam !== undefined && screen.type !== "projectionDetail") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen.idParam is only supported on projectionDetail, ` +
+          "where the route always carries a record id. Remove idParam or use a projectionDetail screen.",
+      );
+    }
     checkVisibleWhenQueryRef(
       queryHandlers,
       screen.visibleWhen.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen`,
+      idParam,
     );
   }
   if (screen.type === "projectionList") {

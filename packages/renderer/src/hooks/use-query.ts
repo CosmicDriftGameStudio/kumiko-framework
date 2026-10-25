@@ -3,7 +3,10 @@ import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-cont
 import type { QuerySlot } from "../context/query-pool.ts";
 import type { DispatcherError } from "../headless/index.ts";
 import { useLiveEvents } from "../sse/live-events.tsx";
+import { subscribeToEntities, useLiveEntitiesForQuery } from "./live-query-entities.ts";
 import { createLiveRefetchScheduler } from "./live-refetch-scheduler.ts";
+
+export { entityFromQueryType } from "./live-query-entities.ts";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires
 // whenever `type` or the serialized payload change, and exposes a
@@ -34,11 +37,11 @@ export type UseQueryOptions = {
   // dep-change. Useful for lazy queries that only run after a user
   // action. `refetch()` still works as an imperative trigger.
   readonly enabled?: boolean;
-  // When true, subscribe to SSE events for the entity this query
-  // targets and refetch on any create/update/delete/restore event.
-  // The entity-name is parsed from the query type using Kumiko's
-  // `<feature>:query:<entity>:<verb>` convention — if the type
-  // doesn't follow that shape, live-mode is a no-op.
+  // When true, subscribe to SSE events and refetch on any
+  // create/update/delete/restore event of the query's entities: the one parsed
+  // from the `<feature>:query:<entity>:<verb>` type plus the handler's
+  // `liveEntities` (projected into FeatureSchema.queryLiveEntities, read via
+  // useAppFeatures — without an AppFeaturesProvider only the parsed one).
   readonly live?: boolean;
   // Re-runs the query every N ms while enabled. Ticks are silent (no
   // `loading` flip) and skipped while a fetch is still in flight. Only
@@ -50,17 +53,6 @@ export type UseQueryOptions = {
   // waiting leaves the line without taking a slot. Unset = no cap.
   readonly concurrency?: number;
 };
-
-// Extract the entity-name from a standard Kumiko query type. Returns
-// undefined for non-conforming types so the live-mode silently skips
-// them instead of subscribing to a channel no event will ever match.
-export function entityFromQueryType(type: string): string | undefined {
-  // Expected shape: "<feature>:query:<entity>:<verb>"
-  const parts = type.split(":");
-  if (parts.length !== 4) return undefined;
-  if (parts[1] !== "query") return undefined;
-  return parts[2];
-}
 
 function isValidConcurrency(value: number | undefined): value is number {
   return value !== undefined && Number.isFinite(value) && value >= 1;
@@ -172,19 +164,19 @@ export function useQuery<TData = unknown>(
   // A separate effect ensures changes to `live` or `type` update the
   // subscription lifecycle exactly once.
   const subscribeLive = useLiveEvents();
+  const liveEntities = useLiveEntitiesForQuery(type);
   useEffect(() => {
     // skip: live mode or query disabled, no SSE subscription needed
     if (!live || !enabled) return;
-    const entity = entityFromQueryType(type);
-    // skip: query type has no mapped entity, nothing to subscribe to
-    if (entity === undefined) return;
+    // skip: no entity to listen on, nothing to subscribe to
+    if (liveEntities.length === 0) return;
     const scheduler = createLiveRefetchScheduler(() => runFetch(true));
-    const unsubscribe = subscribeLive(entity, scheduler.trigger);
+    const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduler.trigger);
     return () => {
       unsubscribe();
       scheduler.dispose();
     };
-  }, [live, enabled, type, runFetch, subscribeLive]);
+  }, [live, enabled, liveEntities, runFetch, subscribeLive]);
 
   return { data, error, loading, refetch: run };
 }

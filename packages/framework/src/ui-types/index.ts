@@ -143,6 +143,7 @@ export type {
   RowFieldExtractor,
   ScreenDefinition,
   ScreenSlots,
+  ScreenVisibility,
   SecretMintConfirmStep,
   SecretMintScreenDefinition,
   SecretsEditScreenDefinition,

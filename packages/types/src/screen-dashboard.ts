@@ -351,6 +351,14 @@ export type DashboardPanelVisibility = {
   readonly eq: string | number | boolean | null;
 };
 
+// Screen-level gate. Panels keep the empty-payload DashboardPanelVisibility; a screen that
+// shows one record can hand its route id to the gate query.
+export type ScreenVisibility = DashboardPanelVisibility & {
+  /** Payload key that receives the screen's route id (projectionDetail only). Without it
+   *  the gate query runs with an empty payload. */
+  readonly idParam?: string;
+};
+
 // Embedded redirect/cancelTarget navigate away from the dashboard — targets meant for tiles omit both.
 export type DashboardScreenPanel = {
   readonly kind: "screen";
@@ -450,7 +458,7 @@ export type DashboardScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
-  readonly visibleWhen?: DashboardPanelVisibility;
+  readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly panels: readonly DashboardPanelDefinition[];

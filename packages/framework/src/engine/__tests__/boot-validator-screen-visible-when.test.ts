@@ -8,7 +8,13 @@ const OPEN = { openToAll: { reason: "test handler callable by any signed-in test
 
 type GatedScreen = Pick<ScreenDefinition, "visibleWhen" | "fallback">;
 
-function gatedFeature(gate: GatedScreen, upgradeGate: GatedScreen = {}) {
+function gatedFeature(
+  gate: GatedScreen,
+  upgradeGate: GatedScreen = {},
+  gatedScreen: { readonly type: "projectionList" | "projectionDetail" } = {
+    type: "projectionList",
+  },
+) {
   return defineFeature("demo", (r) => {
     r.queryHandler({
       name: "tier:scoped-status",
@@ -20,6 +26,20 @@ function gatedFeature(gate: GatedScreen, upgradeGate: GatedScreen = {}) {
     r.queryHandler({
       name: "tier:status",
       schema: z.object({}),
+      handler: async () => ({ enabled: true }),
+      access: OPEN,
+      outputSchema: z.object({ enabled: z.boolean() }),
+    });
+    r.queryHandler({
+      name: "tier:detail-status",
+      schema: z.object({ recordId: z.string().uuid() }),
+      handler: async () => ({ enabled: true }),
+      access: OPEN,
+      outputSchema: z.object({ enabled: z.boolean() }),
+    });
+    r.queryHandler({
+      name: "tier:detail-status-extra",
+      schema: z.object({ recordId: z.string().uuid(), other: z.string() }),
       handler: async () => ({ enabled: true }),
       access: OPEN,
       outputSchema: z.object({ enabled: z.boolean() }),
@@ -37,17 +57,28 @@ function gatedFeature(gate: GatedScreen, upgradeGate: GatedScreen = {}) {
       columns: ["name"],
       ...upgradeGate,
     });
-    r.screen({
-      id: "items",
-      type: "projectionList",
-      query: "demo:query:items:list",
-      columns: ["name"],
-      ...gate,
-    });
+    if (gatedScreen.type === "projectionDetail") {
+      r.screen({
+        id: "items",
+        type: "projectionDetail",
+        query: "demo:query:items:list",
+        layout: { sections: [{ title: "s", fields: ["name"] }] },
+        ...gate,
+      });
+    } else {
+      r.screen({
+        id: "items",
+        type: "projectionList",
+        query: "demo:query:items:list",
+        columns: ["name"],
+        ...gate,
+      });
+    }
     r.translations({
       keys: {
         "screen:items.title": { de: "Artikel", en: "Items" },
         "screen:upgrade.title": { de: "Upgrade", en: "Upgrade" },
+        "entity:__projection-detail__:field:name": { de: "Name", en: "Name" },
       },
     });
   });
@@ -114,5 +145,49 @@ describe("validateBoot — screen visibleWhen", () => {
     const visibleWhen = { query: "demo:query:tier:status", field: "enabled", eq: true };
     const feature = gatedFeature({ visibleWhen, fallback: "upgrade" }, { visibleWhen });
     expect(() => validateBoot([feature])).toThrow(/fallback "upgrade" has its own visibleWhen/);
+  });
+
+  describe("idParam", () => {
+    const detailGate = (query: string) => ({
+      visibleWhen: { query, field: "enabled", eq: true, idParam: "recordId" },
+    });
+
+    test("accepts a query with a required id on projectionDetail", () => {
+      const feature = gatedFeature(
+        detailGate("demo:query:tier:detail-status"),
+        {},
+        {
+          type: "projectionDetail",
+        },
+      );
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("rejects the same query without idParam, pointing at idParam", () => {
+      const feature = gatedFeature(
+        { visibleWhen: { query: "demo:query:tier:detail-status", field: "enabled", eq: true } },
+        {},
+        { type: "projectionDetail" },
+      );
+      expect(() => validateBoot([feature])).toThrow(/requires input; .*set visibleWhen\.idParam/);
+    });
+
+    test("rejects idParam on a screen type without a route id", () => {
+      const feature = gatedFeature(detailGate("demo:query:tier:detail-status"));
+      expect(() => validateBoot([feature])).toThrow(
+        /Screen "items" \(projectionList\) visibleWhen\.idParam is only supported on projectionDetail/,
+      );
+    });
+
+    test("rejects a query that needs another required field besides the id", () => {
+      const feature = gatedFeature(
+        detailGate("demo:query:tier:detail-status-extra"),
+        {},
+        {
+          type: "projectionDetail",
+        },
+      );
+      expect(() => validateBoot([feature])).toThrow(/requires input beyond idParam "recordId"/);
+    });
   });
 });

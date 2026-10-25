@@ -151,7 +151,13 @@ export function stripDisabledFeaturesFromAppSchema(
 
   const features = schema.features.map((feature) => {
     if (disabled.has(feature.featureName)) {
-      const { navs: _navs, contentCollections: _collections, workspaces: _ws, ...rest } = feature;
+      const {
+        navs: _navs,
+        contentCollections: _collections,
+        workspaces: _ws,
+        queryLiveEntities: _live,
+        ...rest
+      } = feature;
       return { ...rest, screens: screensKeptForFallback(feature) };
     }
     if (orphanedNavQns.size === 0 || feature.navs === undefined) return feature;

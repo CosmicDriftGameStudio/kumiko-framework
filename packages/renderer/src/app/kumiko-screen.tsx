@@ -1,7 +1,7 @@
 import type {
-  DashboardPanelVisibility,
   DashboardScreenDefinition,
   ScreenDefinition,
+  ScreenVisibility,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
@@ -120,6 +120,8 @@ export function KumikoScreen({
   const body =
     screen.visibleWhen !== undefined ? (
       <ScreenVisibilityGate
+        key={entityId}
+        entityId={entityId}
         featureName={schema.featureName}
         visibleWhen={screen.visibleWhen}
         fallback={screen.fallback}
@@ -139,21 +141,33 @@ export function KumikoScreen({
 }
 
 function ScreenVisibilityGate({
+  entityId,
   featureName,
   visibleWhen,
   fallback,
   translate,
   children,
 }: {
+  readonly entityId: string | undefined;
   readonly featureName: string;
-  readonly visibleWhen: DashboardPanelVisibility;
+  readonly visibleWhen: ScreenVisibility;
   readonly fallback: string | undefined;
   readonly translate?: Translate;
   readonly children: ReactNode;
 }): ReactNode {
-  const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
+  // An idParam gate without a route id has nothing to ask: treated as hidden, never queried.
+  const missingRouteId = visibleWhen.idParam !== undefined && entityId === undefined;
+  const result = useQuery<Readonly<Record<string, unknown>>>(
+    visibleWhen.query,
+    visibleWhen.idParam !== undefined && entityId !== undefined
+      ? { [visibleWhen.idParam]: entityId }
+      : {},
+    { live: true, enabled: !missingRouteId },
+  );
   const wasShown = useRef(false);
-  const verdict = evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
+  const verdict = missingRouteId
+    ? "hidden"
+    : evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
   useEffect(() => {
     if (verdict === "visible") wasShown.current = true;
   }, [verdict]);
@@ -162,7 +176,14 @@ function ScreenVisibilityGate({
     return <QueryLoadingBanner />;
   }
   if (fallback !== undefined) {
-    return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
+    return (
+      <FallbackScreen
+        featureName={featureName}
+        fallback={fallback}
+        translate={translate}
+        {...(visibleWhen.idParam !== undefined && entityId !== undefined && { entityId })}
+      />
+    );
   }
   return (
     <>
@@ -186,7 +207,9 @@ function FallbackScreen({
   featureName,
   fallback,
   translate,
+  entityId,
 }: {
+  readonly entityId?: string;
   readonly featureName: string;
   readonly fallback: string;
   readonly translate?: Translate;
@@ -204,7 +227,12 @@ function FallbackScreen({
   }
   return (
     <LockedHeaderScope standInScreenId={lastSegment(target.qn)}>
-      <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />
+      <KumikoScreen
+        schema={target.schema}
+        qn={target.qn}
+        translate={translate}
+        {...(entityId !== undefined && { entityId })}
+      />
     </LockedHeaderScope>
   );
 }
