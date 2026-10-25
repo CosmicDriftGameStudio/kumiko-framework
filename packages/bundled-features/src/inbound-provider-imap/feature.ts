@@ -39,7 +39,10 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ImapFlow, MailboxObject } from "imapflow";
+import { connectMailboxHandler } from "./connect-mailbox.ts";
+import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
 import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document.ts";
+import { INBOUND_PROVIDER_IMAP_I18N } from "./i18n.ts";
 import {
   assertUidValidity,
   coerceDate,
@@ -51,9 +54,9 @@ import {
   parseImapCursor,
   toRawInboundMessage,
 } from "./imap-client.ts";
+import { imapConnectScreen } from "./screens.ts";
 
-const FEATURE_NAME = "inbound-provider-imap";
-export const IMAP_PROVIDER_KEY = "imap";
+export { IMAP_PROVIDER_KEY } from "./constants.ts";
 
 export { setImapMailHostLookup } from "./imap-client.ts";
 
@@ -274,7 +277,7 @@ export function createInboundProviderImapFeature() {
     FEATURE_NAME,
     (r) => {
       r.describe(
-        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.',
+        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a mailbox through the "Connect mailbox" form on the mail accounts list (`connect-mailbox` checks the login first, then creates the account and its credential secret in one transaction); programmatic setups store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.',
       );
       r.uiHints({
         displayLabel: "Inbound Mail · IMAP",
@@ -285,6 +288,9 @@ export function createInboundProviderImapFeature() {
       r.requires({ features: ["secrets"] });
       r.envSchema(mailAllowedPrivateHostsEnvSchema);
       r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
+      r.writeHandler(connectMailboxHandler);
+      r.screen(imapConnectScreen);
+      r.translations({ keys: INBOUND_PROVIDER_IMAP_I18N });
     },
     { dedupeOptions: {} },
   );

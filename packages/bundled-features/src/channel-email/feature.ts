@@ -4,11 +4,13 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { EMAIL_APP_TRANSPORT_EXTENSION, EMAIL_APP_TRANSPORT_USAGE } from "./app-transport.ts";
 import { createEmailChannel, type EmailChannelOptions } from "./email-channel.ts";
 import { smtpEnvSchema } from "./env.ts";
 
 export function createChannelEmailFeature(options: EmailChannelOptions) {
   const channel = createEmailChannel(options);
+  const appTransport = options.transport ?? null;
 
   const feature = defineFeature("channel-email", (r) => {
     r.describe(
@@ -23,6 +25,10 @@ export function createChannelEmailFeature(options: EmailChannelOptions) {
     r.envSchema(smtpEnvSchema);
 
     r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
+    r.extendsRegistrar(EMAIL_APP_TRANSPORT_EXTENSION, { onRegister: () => {} });
+    r.useExtension(EMAIL_APP_TRANSPORT_EXTENSION, EMAIL_APP_TRANSPORT_USAGE, {
+      transport: appTransport,
+    });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME, {
       mode: channel.mode,
       resolve: channel.resolve,

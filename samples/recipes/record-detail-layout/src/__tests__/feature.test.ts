@@ -63,10 +63,11 @@ describe("record-detail-layout showcase — registration", () => {
     ]);
   });
 
-  test("screen-level actions carry a refresh-order navigate action", () => {
+  test("screen-level actions carry refresh-order and keep download-invoice inline", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order"]);
+    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order", "download-invoice"]);
+    expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 
   test("relatedList columns collapse string shorthand into the object form", () => {

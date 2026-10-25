@@ -2,12 +2,14 @@ export const MAIL_PROBE_KEYS = {
   area: "mail-foundation.probe.area",
   label: "mail-foundation.probe.send-test-mail.label",
   accepted: "mail-foundation.probe.send-test-mail.accepted",
+  platformAccepted: "mail-foundation.probe.send-test-mail.platform-accepted",
   notConfigured: "mail-foundation.probe.not-configured",
   noRecipient: "mail-foundation.probe.no-recipient",
   hostNotFound: "mail-foundation.probe.host-not-found",
   setupIncomplete: "mail-foundation.probe.setup-incomplete",
   setupFailed: "mail-foundation.probe.setup-failed",
   sendRejected: "mail-foundation.probe.send-rejected",
+  platformSendRejected: "mail-foundation.probe.platform-send-rejected",
 } as const;
 
 export const MAIL_FOUNDATION_I18N = {
@@ -21,7 +23,10 @@ export const MAIL_FOUNDATION_I18N = {
   [MAIL_PROBE_KEYS.area]: { en: "Email" },
   [MAIL_PROBE_KEYS.label]: { en: "Test email to the person who started the check" },
   [MAIL_PROBE_KEYS.accepted]: { en: "Accepted by the mail server" },
-  [MAIL_PROBE_KEYS.notConfigured]: { en: "No own email sending set up" },
+  [MAIL_PROBE_KEYS.platformAccepted]: {
+    en: "Sent via the platform sender, accepted by its mail server",
+  },
+  [MAIL_PROBE_KEYS.notConfigured]: { en: "No email sending set up" },
   [MAIL_PROBE_KEYS.noRecipient]: {
     en: "No email address known for the person who started the check",
   },
@@ -32,5 +37,8 @@ export const MAIL_FOUNDATION_I18N = {
   [MAIL_PROBE_KEYS.setupFailed]: { en: "Email sending could not be set up with these settings" },
   [MAIL_PROBE_KEYS.sendRejected]: {
     en: "The mail server did not accept the test email, check address, port and login",
+  },
+  [MAIL_PROBE_KEYS.platformSendRejected]: {
+    en: "The platform mail server did not accept the test email",
   },
 } as const;

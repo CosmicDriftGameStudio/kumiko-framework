@@ -250,6 +250,14 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Ihr Anbieter muss sie erlauben.",
   "tier-admin.explainer":
     "Weisen Sie einem Mandanten ein Tier ohne Kauf zu. Die manuelle Zuweisung bleibt bestehen, auch wenn sich die Abrechnung später automatisch aktualisiert.",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Der IMAP-Server ist nicht erreichbar oder nicht erlaubt. Prüfen Sie den Servernamen.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Der IMAP-Server hat die Anmeldung abgelehnt. Prüfen Sie Benutzername und Passwort.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfen Sie Port und TLS-Einstellung.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Keine Verbindung zum IMAP-Server. Prüfen Sie Servernamen und Port.",
 };
 
 export function germanBundleFor(address: GermanAddress): Readonly<Record<string, string>> {

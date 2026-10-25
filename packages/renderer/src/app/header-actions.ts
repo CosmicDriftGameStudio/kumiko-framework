@@ -44,6 +44,27 @@ export function compactHeaderPrimary(
   return canStandAsIconButton(iconAction) ? { action: iconAction, iconOnly: true } : undefined;
 }
 
+export type SplitHeaderActions = {
+  readonly buttons: readonly RenderEditAction[];
+  readonly menu: readonly RenderEditAction[];
+};
+
+// The primary action leads the visible buttons, the declared inline actions follow it,
+// everything else goes into the menu.
+export function splitHeaderActions(
+  actions: readonly RenderEditAction[],
+  preferredId?: string,
+  inlineIds?: readonly string[],
+): SplitHeaderActions {
+  const primary = primaryHeaderAction(actions, preferredId);
+  const others = actions.filter((action) => action.id !== primary?.id);
+  const inline = others.filter((action) => inlineIds?.includes(action.id) === true);
+  return {
+    buttons: primary === undefined ? inline : [primary, ...inline],
+    menu: others.filter((action) => !inline.includes(action)),
+  };
+}
+
 export function orderPlainHeaderActions(
   actions: readonly RenderEditAction[],
   preferredId?: string,

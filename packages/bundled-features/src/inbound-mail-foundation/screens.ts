@@ -12,6 +12,11 @@ import {
 
 export const MAIL_ACCOUNT_LIST_SCREEN_ID = "mail-accounts";
 export const MAIL_ACCOUNT_EDIT_SCREEN_ID = "mail-account-edit";
+export const MAIL_ACCOUNT_LIST_SCREEN_QN = "inbound-mail-foundation:screen:mail-accounts";
+// Registered by inbound-provider-imap, which needs the IMAP client to check the login. The
+// renderer drops a navigate action whose target screen is not mounted, so the toolbar button
+// only shows in apps that mount that provider.
+export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
 
 export const MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX = "inboundMail.accounts.status.";
 
@@ -71,6 +76,15 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
       style: "danger",
       confirm: i18nKey("inboundMail.accounts.disconnect.confirm"),
       visible: { field: "status", ne: InboundMailAccountStatuses.disconnected },
+    },
+  ],
+  toolbarActions: [
+    {
+      kind: "navigate",
+      id: "connect-imap",
+      label: i18nKey("inboundMail.accounts.connectImap"),
+      screen: IMAP_CONNECT_SCREEN_ID,
+      style: "primary",
     },
   ],
   access: MAIL_ACCOUNT_ADMIN_ACCESS,

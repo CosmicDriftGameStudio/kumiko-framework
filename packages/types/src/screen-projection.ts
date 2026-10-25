@@ -279,6 +279,10 @@ export type ProjectionDetailScreenDefinition = {
    *  action); default precedence is `edit`, then `style: "primary"`, then the
    *  first action. */
   readonly primaryAction?: string;
+  /** Action ids that stay visible buttons next to the primary action when the rest
+   *  collapses into the menu. Same id rules as `primaryAction`; the phone header keeps
+   *  its single icon button. */
+  readonly inlineActions?: readonly string[];
   /** How head fields render. Default "text" — plain text instead of a
    *  disabled Input, since every field on this screen type is forced
    *  readOnly anyway (there is no write path, see the shim doc above).

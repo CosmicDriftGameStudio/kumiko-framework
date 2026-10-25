@@ -8,7 +8,7 @@ import type { ErrorNotice } from "./error-reference.tsx";
 import {
   compactHeaderPrimary,
   orderPlainHeaderActions,
-  primaryHeaderAction,
+  splitHeaderActions,
 } from "./header-actions.ts";
 
 // Header actions bar: <=2 actions render as plain buttons; >2 with an
@@ -26,11 +26,14 @@ export function HeaderActionsBar({
   collapseAfterPrimary = false,
   compact = false,
   preferredPrimaryId,
+  inlineActionIds,
   PageHeader,
   overflowTestId = "kumiko-screen-projection-detail-actions-overflow",
 }: {
   /** `primaryAction` of the screen: wins over the edit/primary-style precedence. */
   readonly preferredPrimaryId?: string;
+  /** `inlineActions` of the screen: stay buttons next to the primary instead of the menu. */
+  readonly inlineActionIds?: readonly string[];
   /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
   readonly collapseAfterPrimary?: boolean;
   /** Phone-width shell header: an icon-only primary button, the rest in the shell's overflow menu. */
@@ -88,25 +91,26 @@ export function HeaderActionsBar({
       </>
     );
   }
-  const primary = primaryHeaderAction(actions, preferredPrimaryId);
-  const rest = actions.filter((a) => a.id !== primary?.id);
+  const { buttons, menu } = splitHeaderActions(actions, preferredPrimaryId, inlineActionIds);
   return (
     <>
-      {primary !== undefined && (
+      {buttons.map((action) => (
         <RenderEditActionButton
-          key={primary.id}
-          action={primary}
+          key={action.id}
+          action={action}
           Button={Button}
           Dialog={Dialog}
           hideIcon
           onError={onError}
         />
+      ))}
+      {menu.length > 0 && (
+        <ActionOverflowMenu
+          label={t("kumiko.list.row-actions.more")}
+          testId={overflowTestId}
+          items={menu.map(toMenuItem)}
+        />
       )}
-      <ActionOverflowMenu
-        label={t("kumiko.list.row-actions.more")}
-        testId={overflowTestId}
-        items={rest.map(toMenuItem)}
-      />
       {pendingActionDialog}
     </>
   );

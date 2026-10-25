@@ -2035,6 +2035,24 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Buzón",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
+  "inboundMail.accounts.connectImap": "Conectar buzón",
+  "screen:mail-account-connect-imap.title": "Conectar buzón",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nombre",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Correo electrónico",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Servidor IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Puerto",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nombre de usuario",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Contraseña",
+  "inboundMail.imap.connect.server": "Inicio de sesión en el servidor",
+  "inboundMail.imap.connect.submit": "Comprobar y conectar",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "No se puede acceder al servidor IMAP o no está permitido. Revisa el nombre del servidor.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "El servidor IMAP rechazó el inicio de sesión. Revisa el usuario y la contraseña.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La conexión cifrada falló. Revisa el puerto y la opción TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "No hay conexión con el servidor IMAP. Revisa el nombre del servidor y el puerto.",
   "sessions.mine.current.yes": "Esta sesión",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",
@@ -2176,7 +2194,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "Correo de prueba a la persona que inició la comprobación",
   "mail-foundation.probe.send-test-mail.accepted": "Aceptado por el servidor de correo",
-  "mail-foundation.probe.not-configured": "No hay envío de correo propio configurado",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Enviado con el remitente de la plataforma, aceptado por su servidor de correo",
+  "mail-foundation.probe.not-configured": "No hay envío de correo configurado",
   "mail-foundation.probe.no-recipient":
     "No se conoce ninguna dirección de correo de la persona que inició la comprobación",
   "mail-foundation.probe.host-not-found":
@@ -2187,6 +2207,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "No se pudo configurar el envío de correo con estos ajustes",
   "mail-foundation.probe.send-rejected":
     "El servidor de correo no aceptó el correo de prueba, revisa dirección, puerto e inicio de sesión",
+  "mail-foundation.probe.platform-send-rejected":
+    "El servidor de correo de la plataforma no aceptó el correo de prueba",
   "inbound-mail-foundation.probe.area": "Correo entrante",
   "inbound-mail-foundation.probe.mailboxes.label": "Buzones conectados",
   "inbound-mail-foundation.probe.mailbox": "Buzón {name}",

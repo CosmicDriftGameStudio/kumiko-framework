@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 import type { KumikoExtensionOptionsMap } from "@cosmicdrift/kumiko-types/extension-options-map";
 import { createAuthFoundationFeature } from "../auth-foundation/feature.ts";
 import { createBillingFoundationFeature } from "../billing-foundation/feature.ts";
+import { createChannelEmailFeature } from "../channel-email/feature.ts";
+import { createInMemoryTransport } from "../channel-email/types.ts";
 import { createCustomFieldsFeature } from "../custom-fields/feature.ts";
 import { createDeliveryFeature } from "../delivery/feature.ts";
 import { createDocumentIngestFoundationFeature } from "../document-ingest-foundation/feature.ts";
@@ -50,6 +52,7 @@ const TYPED_EXTENSION_POINTS = [
   "documentIngestProvider",
   "signupHandover",
   "assignableRole",
+  "emailAppTransport",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
@@ -63,6 +66,7 @@ const UNTYPED_BY_DESIGN: Record<string, string> = {
 const DECLARING_FEATURE_DIRS = [
   "auth-foundation",
   "billing-foundation",
+  "channel-email",
   "custom-fields",
   "delivery",
   "document-ingest-foundation",
@@ -104,6 +108,10 @@ function allRegistrarExtensionNames(): readonly string[] {
   const features = [
     createAuthFoundationFeature(),
     createBillingFoundationFeature(),
+    createChannelEmailFeature({
+      transport: createInMemoryTransport(),
+      resolveEmail: async () => null,
+    }),
     createCustomFieldsFeature(),
     createDeliveryFeature(),
     createDocumentIngestFoundationFeature(),

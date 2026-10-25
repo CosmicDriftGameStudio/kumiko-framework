@@ -2062,6 +2062,24 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Boîte mail",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
+  "inboundMail.accounts.connectImap": "Connecter une boîte mail",
+  "screen:mail-account-connect-imap.title": "Connecter une boîte mail",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nom",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Adresse e-mail",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Serveur IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Port",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nom d'utilisateur",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Mot de passe",
+  "inboundMail.imap.connect.server": "Connexion au serveur",
+  "inboundMail.imap.connect.submit": "Vérifier et connecter",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Le serveur IMAP est injoignable ou n'est pas autorisé. Vérifiez le nom du serveur.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Le serveur IMAP a refusé la connexion. Vérifiez le nom d'utilisateur et le mot de passe.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La connexion chiffrée a échoué. Vérifiez le port et le réglage TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Aucune connexion au serveur IMAP. Vérifiez le nom du serveur et le port.",
   "sessions.mine.current.yes": "Cette session",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Appareil",
@@ -2203,7 +2221,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "E-mail de test à la personne qui a lancé la vérification",
   "mail-foundation.probe.send-test-mail.accepted": "Accepté par le serveur de messagerie",
-  "mail-foundation.probe.not-configured": "Aucun envoi d'e-mails propre configuré",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Envoyé via l'expéditeur de la plateforme, accepté par son serveur de messagerie",
+  "mail-foundation.probe.not-configured": "Aucun envoi d'e-mails configuré",
   "mail-foundation.probe.no-recipient":
     "Aucune adresse e-mail connue pour la personne qui a lancé la vérification",
   "mail-foundation.probe.host-not-found":
@@ -2214,6 +2234,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "L'envoi d'e-mails n'a pas pu être configuré avec ces réglages",
   "mail-foundation.probe.send-rejected":
     "Le serveur de messagerie n'a pas accepté l'e-mail de test, vérifiez l'adresse, le port et l'identifiant",
+  "mail-foundation.probe.platform-send-rejected":
+    "Le serveur de messagerie de la plateforme n'a pas accepté l'e-mail de test",
   "inbound-mail-foundation.probe.area": "E-mails entrants",
   "inbound-mail-foundation.probe.mailboxes.label": "Boîtes aux lettres connectées",
   "inbound-mail-foundation.probe.mailbox": "Boîte aux lettres {name}",

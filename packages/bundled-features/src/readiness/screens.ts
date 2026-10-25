@@ -142,6 +142,8 @@ export function systemCheckScreen(dormant: boolean): ProjectionDetailScreenDefin
     access: ACCESS,
     actions: RUN_ACTIONS,
     primaryAction: "run-check",
+    // The paid run is the only way to test AI extraction, so it must not hide in the menu.
+    inlineActions: ["run-paid-check"],
     metrics: RESULT_METRICS,
     metricsStyle: "tiles",
     layout: {

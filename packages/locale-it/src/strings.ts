@@ -2041,6 +2041,24 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Casella di posta",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
+  "inboundMail.accounts.connectImap": "Collega casella",
+  "screen:mail-account-connect-imap.title": "Collega casella",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nome",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Indirizzo e-mail",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Server IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Porta",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nome utente",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Password",
+  "inboundMail.imap.connect.server": "Accesso al server",
+  "inboundMail.imap.connect.submit": "Verifica e collega",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Il server IMAP non è raggiungibile o non è consentito. Controlla il nome del server.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Il server IMAP ha rifiutato l'accesso. Controlla nome utente e password.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La connessione cifrata non è riuscita. Controlla la porta e l'opzione TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Nessuna connessione al server IMAP. Controlla nome del server e porta.",
   "sessions.mine.current.yes": "Questa sessione",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",
@@ -2183,7 +2201,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "E-mail di prova alla persona che ha avviato il controllo",
   "mail-foundation.probe.send-test-mail.accepted": "Accettata dal server di posta",
-  "mail-foundation.probe.not-configured": "Nessun invio e-mail proprio configurato",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Inviata tramite il mittente della piattaforma, accettata dal suo server di posta",
+  "mail-foundation.probe.not-configured": "Nessun invio e-mail configurato",
   "mail-foundation.probe.no-recipient":
     "Nessun indirizzo e-mail noto per la persona che ha avviato il controllo",
   "mail-foundation.probe.host-not-found":
@@ -2194,6 +2214,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Non è stato possibile configurare l'invio e-mail con queste impostazioni",
   "mail-foundation.probe.send-rejected":
     "Il server di posta non ha accettato l'e-mail di prova, controlla indirizzo, porta e accesso",
+  "mail-foundation.probe.platform-send-rejected":
+    "Il server di posta della piattaforma non ha accettato l'e-mail di prova",
   "inbound-mail-foundation.probe.area": "Posta in arrivo",
   "inbound-mail-foundation.probe.mailboxes.label": "Caselle di posta collegate",
   "inbound-mail-foundation.probe.mailbox": "Casella {name}",

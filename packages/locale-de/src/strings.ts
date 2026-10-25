@@ -2042,6 +2042,24 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Postfach",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
+  "inboundMail.accounts.connectImap": "Postfach verbinden",
+  "screen:mail-account-connect-imap.title": "Postfach verbinden",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Name",
+  "inbound-provider-imap:entity:__action-form__:field:address": "E-Mail-Adresse",
+  "inbound-provider-imap:entity:__action-form__:field:host": "IMAP-Server",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Port",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Benutzername",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Passwort",
+  "inboundMail.imap.connect.server": "Anmeldung am Server",
+  "inboundMail.imap.connect.submit": "Prüfen und verbinden",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Der IMAP-Server ist nicht erreichbar oder nicht erlaubt. Prüfe den Servernamen.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Der IMAP-Server hat die Anmeldung abgelehnt. Prüfe Benutzername und Passwort.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfe Port und TLS-Einstellung.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Keine Verbindung zum IMAP-Server. Prüfe Servernamen und Port.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",
@@ -2184,7 +2202,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "Testmail an die Person, die den Check gestartet hat",
   "mail-foundation.probe.send-test-mail.accepted": "Vom Mailserver angenommen",
-  "mail-foundation.probe.not-configured": "Kein eigener E-Mail-Versand eingerichtet",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Über den Plattform-Versand verschickt, vom Mailserver angenommen",
+  "mail-foundation.probe.not-configured": "Kein E-Mail-Versand eingerichtet",
   "mail-foundation.probe.no-recipient":
     "Keine E-Mail-Adresse der Person bekannt, die den Check gestartet hat",
   "mail-foundation.probe.host-not-found": "Mailserver nicht gefunden, Serveradresse prüfen",
@@ -2194,6 +2214,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Mailversand ließ sich mit diesen Einstellungen nicht einrichten",
   "mail-foundation.probe.send-rejected":
     "Der Mailserver hat die Testmail nicht angenommen, Adresse, Port und Anmeldung prüfen",
+  "mail-foundation.probe.platform-send-rejected":
+    "Der Mailserver der Plattform hat die Testmail nicht angenommen",
   "inbound-mail-foundation.probe.area": "E-Mail-Eingang",
   "inbound-mail-foundation.probe.mailboxes.label": "Verbundene Postfächer",
   "inbound-mail-foundation.probe.mailbox": "Postfach {name}",

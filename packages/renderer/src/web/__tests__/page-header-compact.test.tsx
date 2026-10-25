@@ -399,6 +399,40 @@ describe("compact shell header with a projection detail", () => {
     expect(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeTruthy();
     expect(screen.queryByTestId("shell-header-overflow-trigger")).toBeNull();
   });
+
+  test("desktop keeps inlineActions as text buttons next to the primary; only the rest goes into the menu", async () => {
+    setViewportWidth(DESKTOP);
+    renderDetail({ ...schema, screens: [{ ...detailScreen, inlineActions: ["duplicate"] }] });
+    await waitFor(() => screen.getByTestId("render-edit-action-edit"));
+
+    expect(screen.getByTestId("render-edit-action-duplicate").textContent).toBe(
+      "actions.duplicate",
+    );
+    fireEvent.pointerDown(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow"), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-archive"),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate"),
+    ).toBeNull();
+  });
+
+  test("desktop shows no menu when every action besides the primary is inline", async () => {
+    setViewportWidth(DESKTOP);
+    renderDetail({
+      ...schema,
+      screens: [{ ...detailScreen, inlineActions: ["duplicate", "archive"] }],
+    });
+    await waitFor(() => screen.getByTestId("render-edit-action-edit"));
+
+    expect(screen.getByTestId("render-edit-action-duplicate")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-action-archive")).toBeTruthy();
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeNull();
+  });
 });
 
 describe("PageHeader overflowItems", () => {

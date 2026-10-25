@@ -792,10 +792,11 @@ describe("record-detail-layout showcase — registration", () => {
     ]);
   });
 
-  test("screen-level actions carry a refresh-order navigate action", () => {
+  test("screen-level actions carry refresh-order and keep download-invoice inline", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order"]);
+    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order", "download-invoice"]);
+    expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 
   test("relatedList columns collapse string shorthand into the object form", () => {
@@ -883,7 +884,8 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //      section carries extra chrome of its own).
 //   4. The payments tab's emptyState picks its text from the order record through `variants`.
 //   5. A screen-level `actions` entry (fw#3234) renders next to the header,
-//      not inside any tab's Card.
+//      not inside any tab's Card. `inlineActions` keeps download-invoice a visible
+//      button next to it where the page header would otherwise fold it into the menu.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
@@ -1012,7 +1014,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
           screen: "order-detail",
           icon: "refresh",
         },
+        {
+          kind: "navigate",
+          id: "download-invoice",
+          label: "order-desk.action.downloadInvoice",
+          screen: "order-detail",
+          icon: "download",
+        },
       ],
+      inlineActions: ["download-invoice"],
       access: { roles: ["Support", "Admin"] },
     });
   });

@@ -1,4 +1,8 @@
 import {
+  type EmailTransport,
+  findEmailAppTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import {
   createSystemUser,
   type FeatureRegistrar,
   type ProbeContext,
@@ -30,6 +34,36 @@ function transportFailureKey(error: unknown): string {
     : MAIL_PROBE_KEYS.setupFailed;
 }
 
+async function ownTenantTransport(ctx: ProbeContext): Promise<EmailTransport | null> {
+  const { configResolver, secrets } = ctx.services;
+  if (!configResolver) return null;
+  const config = createConfigAccessor(
+    ctx.registry,
+    configResolver,
+    ctx.tenantId,
+    createSystemUser(ctx.tenantId).id,
+    ctx.db,
+  );
+  return tenantMailTransport({
+    tenantId: ctx.tenantId,
+    config,
+    registry: ctx.registry,
+    secrets,
+  }).catch((error: unknown) => {
+    throw probeFailure(ctx, error, transportFailureKey(error));
+  });
+}
+
+// Same order as channel-email for tenant mails: the tenant's own provider, else the app sender.
+async function probeTransport(
+  ctx: ProbeContext,
+): Promise<{ readonly transport: EmailTransport; readonly viaPlatform: boolean } | null> {
+  const own = await ownTenantTransport(ctx);
+  if (own !== null) return { transport: own, viaPlatform: false };
+  const platform = findEmailAppTransport(ctx.registry);
+  return platform === null ? null : { transport: platform, viaPlatform: true };
+}
+
 // The mail goes to whoever started the check; the address never appears in the stored result.
 export function registerMailProbe(r: FeatureRegistrar<"mail-foundation">): void {
   r.probe({
@@ -40,31 +74,14 @@ export function registerMailProbe(r: FeatureRegistrar<"mail-foundation">): void 
     label: MAIL_PROBE_KEYS.label,
     fixScreen: MAIL_SETTINGS_SCREEN_QN,
     run: async (ctx) => {
-      const { configResolver, secrets } = ctx.services;
-      if (!configResolver) {
-        return { status: "skipped", message: { key: MAIL_PROBE_KEYS.notConfigured } };
-      }
-      const config = createConfigAccessor(
-        ctx.registry,
-        configResolver,
-        ctx.tenantId,
-        createSystemUser(ctx.tenantId).id,
-        ctx.db,
-      );
-      const transport = await tenantMailTransport({
-        tenantId: ctx.tenantId,
-        config,
-        registry: ctx.registry,
-        secrets,
-      }).catch((error: unknown) => {
-        throw probeFailure(ctx, error, transportFailureKey(error));
-      });
-      if (transport === null) {
+      const resolved = await probeTransport(ctx);
+      if (resolved === null) {
         return { status: "skipped", message: { key: MAIL_PROBE_KEYS.notConfigured } };
       }
       if (ctx.triggeredByEmail === undefined) {
         return { status: "skipped", message: { key: MAIL_PROBE_KEYS.noRecipient } };
       }
+      const { transport, viaPlatform } = resolved;
       await transport
         .send({
           to: ctx.triggeredByEmail,
@@ -73,9 +90,13 @@ export function registerMailProbe(r: FeatureRegistrar<"mail-foundation">): void 
           html: `<p>${PROBE_TEXT}</p>`,
         })
         .catch((error: unknown) => {
-          throw probeFailure(ctx, error, MAIL_PROBE_KEYS.sendRejected);
+          const key = viaPlatform
+            ? MAIL_PROBE_KEYS.platformSendRejected
+            : MAIL_PROBE_KEYS.sendRejected;
+          throw probeFailure(ctx, error, key);
         });
-      return { status: "ok", message: { key: MAIL_PROBE_KEYS.accepted } };
+      const accepted = viaPlatform ? MAIL_PROBE_KEYS.platformAccepted : MAIL_PROBE_KEYS.accepted;
+      return { status: "ok", message: { key: accepted } };
     },
   });
 }
