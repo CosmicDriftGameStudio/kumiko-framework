@@ -141,6 +141,18 @@ function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["row
   return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
 }
 
+type EmptyStateViewModel = NonNullable<EditRelatedListSectionViewModel["emptyState"]>;
+
+function pickEmptyStateText(
+  emptyState: EmptyStateViewModel | undefined,
+  record: Readonly<Record<string, unknown>>,
+): Pick<EmptyStateViewModel, "title" | "description"> | undefined {
+  if (emptyState === undefined) return undefined;
+  return (
+    emptyState.variants?.find((variant) => evalFieldCondition(variant.when, record)) ?? emptyState
+  );
+}
+
 export function RelatedListSection({
   section,
   parentId,
@@ -462,12 +474,13 @@ export function RelatedListSection({
     onOpenDrawer,
     refetchSelfAndHost,
   ]);
+  const emptyStateText = pickEmptyStateText(section.emptyState, record);
   const emptyStateContent =
-    section.emptyState !== undefined ? (
+    emptyStateText !== undefined ? (
       <>
-        <Text>{section.emptyState.title}</Text>
-        {section.emptyState.description !== undefined && (
-          <Text variant="small">{section.emptyState.description}</Text>
+        <Text>{emptyStateText.title}</Text>
+        {emptyStateText.description !== undefined && (
+          <Text variant="small">{emptyStateText.description}</Text>
         )}
         {emptyStateActionButton !== undefined && (
           <RenderEditActionButton

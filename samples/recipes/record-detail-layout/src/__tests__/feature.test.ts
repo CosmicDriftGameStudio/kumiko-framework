@@ -78,6 +78,21 @@ describe("record-detail-layout showcase — registration", () => {
   });
 });
 
+describe("record-detail-layout showcase — empty states", () => {
+  test("the payments tab declares a record-dependent empty text ahead of its default", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const payments = screen.layout.sections.find((section) => section.id === "payments");
+    if (payments?.kind !== "relatedList") throw new Error("expected the payments relatedList");
+    expect(payments.emptyState).toEqual({
+      title: "order-desk.payments.empty",
+      variants: [
+        { when: { field: "status", eq: "pending" }, title: "order-desk.payments.empty-pending" },
+      ],
+    });
+  });
+});
+
 describe("record-detail-layout showcase — boot-validator catches author mistakes", () => {
   test("metric with an empty label fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {

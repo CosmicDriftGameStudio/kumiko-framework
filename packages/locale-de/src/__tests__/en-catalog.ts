@@ -2082,7 +2082,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "readiness.probe.cache.ok": "Cache reachable",
   "readiness.probe.search.label": "Search",
   "readiness.probe.search.ok": "Search reachable",
-  "readiness.probe.paid-not-requested": "Not run, paid checks were not requested",
+  "readiness.probe.search.unavailable": "The search service does not answer",
+  "readiness.probe.paid-not-requested": "Only via “Test AI extraction”",
   "readiness.probe.no-targets": "Nothing to check",
   "readiness.probe.timeout": "No answer after {seconds} seconds",
   "readiness.probe.failed": "The check failed",
@@ -2100,6 +2101,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "readiness.screen.latest.description":
     "Real calls against mail, storage, search and the other connected services. A failed row links to the screen that fixes it.",
   "readiness.screen.latest.empty": "No results yet. Start a check.",
+  "readiness.screen.latest.running": "The check is running. Results appear when it is done.",
+  "readiness.screen.latest.nothing-to-check": "There is nothing to check for this tenant.",
+  "readiness.screen.latest.abandoned": "The run was stopped before it returned results.",
   "readiness.screen.history.title": "History",
   "readiness.screen.history.description":
     "Earlier runs, newest first. Open one to see its results.",

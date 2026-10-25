@@ -2127,7 +2127,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "readiness.probe.cache.ok": "Caché accesible",
   "readiness.probe.search.label": "Búsqueda",
   "readiness.probe.search.ok": "Búsqueda accesible",
-  "readiness.probe.paid-not-requested": "No ejecutada, no se solicitaron comprobaciones de pago",
+  "readiness.probe.search.unavailable": "El servicio de búsqueda no responde",
+  "readiness.probe.paid-not-requested": "Solo con «Probar la extracción con IA»",
   "readiness.probe.no-targets": "Nada que comprobar",
   "readiness.probe.timeout": "Sin respuesta tras {seconds} segundos",
   "readiness.probe.failed": "La comprobación ha fallado",
@@ -2145,6 +2146,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "readiness.screen.latest.description":
     "Llamadas reales a correo, almacenamiento, búsqueda y los demás servicios conectados. Una fila fallida enlaza a la pantalla que lo soluciona.",
   "readiness.screen.latest.empty": "Aún no hay resultados. Inicie una comprobación.",
+  "readiness.screen.latest.running":
+    "La comprobación está en curso. Los resultados aparecen cuando termine.",
+  "readiness.screen.latest.nothing-to-check": "No hay nada que comprobar para este inquilino.",
+  "readiness.screen.latest.abandoned": "La ejecución se detuvo antes de devolver resultados.",
   "readiness.screen.history.title": "Historial",
   "readiness.screen.history.description":
     "Ejecuciones anteriores, las más recientes primero. Abra una para ver sus resultados.",

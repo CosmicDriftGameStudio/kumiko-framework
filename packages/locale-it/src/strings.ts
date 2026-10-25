@@ -2133,8 +2133,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "readiness.probe.cache.ok": "Cache raggiungibile",
   "readiness.probe.search.label": "Ricerca",
   "readiness.probe.search.ok": "Ricerca raggiungibile",
-  "readiness.probe.paid-not-requested":
-    "Non eseguito, i controlli a pagamento non sono stati richiesti",
+  "readiness.probe.search.unavailable": "Il servizio di ricerca non risponde",
+  "readiness.probe.paid-not-requested": "Solo tramite «Prova l'estrazione con IA»",
   "readiness.probe.no-targets": "Niente da controllare",
   "readiness.probe.timeout": "Nessuna risposta dopo {seconds} secondi",
   "readiness.probe.failed": "Il controllo non è riuscito",
@@ -2152,6 +2152,11 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "readiness.screen.latest.description":
     "Chiamate reali verso posta, archiviazione, ricerca e gli altri servizi collegati. Una riga non riuscita rimanda alla schermata che lo risolve.",
   "readiness.screen.latest.empty": "Ancora nessun risultato. Avvia un controllo.",
+  "readiness.screen.latest.running": "Il controllo è in corso. I risultati appaiono al termine.",
+  "readiness.screen.latest.nothing-to-check":
+    "Non c'è nulla da controllare per questa organizzazione.",
+  "readiness.screen.latest.abandoned":
+    "L'esecuzione è stata interrotta prima di restituire risultati.",
   "readiness.screen.history.title": "Cronologia",
   "readiness.screen.history.description":
     "Esecuzioni precedenti, le più recenti per prime. Aprine una per vederne i risultati.",

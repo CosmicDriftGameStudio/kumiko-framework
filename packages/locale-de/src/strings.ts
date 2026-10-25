@@ -2134,8 +2134,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "readiness.probe.cache.ok": "Cache erreichbar",
   "readiness.probe.search.label": "Suche",
   "readiness.probe.search.ok": "Suche erreichbar",
-  "readiness.probe.paid-not-requested":
-    "Nicht gelaufen, kostenpflichtige Prüfungen wurden nicht angefordert",
+  "readiness.probe.search.unavailable": "Der Suchdienst antwortet nicht",
+  "readiness.probe.paid-not-requested": "Nur über „KI-Auslesen testen“",
   "readiness.probe.no-targets": "Nichts zu prüfen",
   "readiness.probe.timeout": "Keine Antwort nach {seconds} Sekunden",
   "readiness.probe.failed": "Die Prüfung ist fehlgeschlagen",
@@ -2153,6 +2153,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "readiness.screen.latest.description":
     "Echte Aufrufe gegen Mail, Speicher, Suche und die übrigen angebundenen Dienste. Eine fehlgeschlagene Zeile verlinkt auf die Maske, die das behebt.",
   "readiness.screen.latest.empty": "Noch keine Ergebnisse. Mit „Check starten“ prüfen.",
+  "readiness.screen.latest.running":
+    "Der Check läuft. Die Ergebnisse erscheinen, sobald er fertig ist.",
+  "readiness.screen.latest.nothing-to-check": "Für diesen Mandanten gibt es nichts zu prüfen.",
+  "readiness.screen.latest.abandoned":
+    "Der Lauf wurde abgebrochen, bevor er Ergebnisse geliefert hat.",
   "readiness.screen.history.title": "Verlauf",
   "readiness.screen.history.description":
     "Frühere Läufe, neueste zuerst. Ein Klick öffnet den Lauf.",

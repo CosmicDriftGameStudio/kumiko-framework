@@ -1,5 +1,6 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import type { RUN_OUTCOME } from "./constants.ts";
 import { PROBE_RUN_STATUS } from "./schema/probe-run.ts";
 
 const probeTextSchema = z.object({
@@ -38,7 +39,7 @@ export type VisibleProbeResult = Omit<StoredProbeResult, "label" | "message" | "
   readonly fixScreen?: string;
 };
 
-export type RunOutcome = "ok" | "failed" | "running";
+export type RunOutcome = (typeof RUN_OUTCOME)[keyof typeof RUN_OUTCOME];
 
 export type ResultCounts = {
   readonly okCount: number;

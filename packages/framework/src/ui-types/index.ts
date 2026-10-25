@@ -129,6 +129,8 @@ export type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RecordHeaderSubtitlePart,
+  RelatedListEmptyStateSpec,
+  RelatedListEmptyStateVariant,
   RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,

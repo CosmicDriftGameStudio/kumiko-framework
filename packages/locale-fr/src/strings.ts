@@ -2154,8 +2154,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "readiness.probe.cache.ok": "Cache accessible",
   "readiness.probe.search.label": "Recherche",
   "readiness.probe.search.ok": "Recherche accessible",
-  "readiness.probe.paid-not-requested":
-    "Non exécutée, les vérifications payantes n'ont pas été demandées",
+  "readiness.probe.search.unavailable": "Le service de recherche ne répond pas",
+  "readiness.probe.paid-not-requested": "Uniquement via « Tester l'extraction par IA »",
   "readiness.probe.no-targets": "Rien à vérifier",
   "readiness.probe.timeout": "Aucune réponse après {seconds} secondes",
   "readiness.probe.failed": "La vérification a échoué",
@@ -2173,6 +2173,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "readiness.screen.latest.description":
     "Appels réels vers la messagerie, le stockage, la recherche et les autres services connectés. Une ligne en échec renvoie vers l'écran qui permet de corriger.",
   "readiness.screen.latest.empty": "Pas encore de résultats. Lancez une vérification.",
+  "readiness.screen.latest.running":
+    "La vérification est en cours. Les résultats apparaissent une fois terminée.",
+  "readiness.screen.latest.nothing-to-check": "Il n'y a rien à vérifier pour cette organisation.",
+  "readiness.screen.latest.abandoned": "L'exécution a été arrêtée avant de renvoyer des résultats.",
   "readiness.screen.history.title": "Historique",
   "readiness.screen.history.description":
     "Exécutions précédentes, les plus récentes d'abord. Ouvrez-en une pour voir ses résultats.",

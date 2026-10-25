@@ -11,7 +11,8 @@
 //      one `extension` section (a plugin-mounted component, fw#3234 padding-
 //      parity check — every tab kind must sit in the same Card padding, no
 //      section carries extra chrome of its own).
-//   4. A screen-level `actions` entry (fw#3234) renders next to the header,
+//   4. The payments tab's emptyState picks its text from the order record through `variants`.
+//   5. A screen-level `actions` entry (fw#3234) renders next to the header,
 //      not inside any tab's Card.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
@@ -108,6 +109,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
               "method",
               "status",
             ],
+            emptyState: {
+              title: "order-desk.payments.empty",
+              variants: [
+                {
+                  when: { field: "status", eq: "pending" },
+                  title: "order-desk.payments.empty-pending",
+                },
+              ],
+            },
           },
           {
             id: "details",

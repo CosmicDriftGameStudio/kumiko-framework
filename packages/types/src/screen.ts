@@ -277,6 +277,8 @@ export type {
   FieldFillAction,
   FormWidth,
   ListEmptyStateSpec,
+  RelatedListEmptyStateSpec,
+  RelatedListEmptyStateVariant,
   RelatedListRowTone,
 } from "./screen-entity-edit.ts";
 export { relatedListGroupHeaderLabel, relatedListGroupKey } from "./screen-entity-edit.ts";
