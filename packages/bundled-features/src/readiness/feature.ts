@@ -60,6 +60,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
       r.requires({ features: ["config"] });
       r.requires({ features: ["secrets"] });
       r.optionalRequires("user");
+      r.adoptsBundledLists();
 
       r.translations({ keys: READINESS_I18N });
       r.entity({ name: "probe-run", ...probeRunEntity });
@@ -72,7 +73,8 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
         escapeHatch: {
           reason: "looks up the run starter's address via the system-only user auth lookup",
         },
-        handler: runProbesJob,
+        // Inline so the feature-AST reader can parse the job; the logic lives in run-probes-job.ts.
+        handler: (payload, ctx) => runProbesJob(payload, ctx),
       });
       registerBuiltInProbes(r);
       r.bootCheck(({ features }) => validateProbeTranslations(features));
