@@ -43,8 +43,8 @@ detail: An i18nText cell renders the text in the user's language. An enumOption 
 <!-- kumiko-changes
 feature: renderer
 type: fix
-title: No repeated screen title on detail screens, header actions as high as the header controls
-detail: A projectionDetail without a record title no longer repeats the screen title above its sections when the shell header already shows it. Screen actions in the shell header are now as high as the header's own controls (h-8) instead of the toolbar height.
+title: No repeated screen title on detail screens, header actions as high as the header controls, embedded table description first
+detail: A projectionDetail without a record title no longer repeats the screen title above its sections when the shell header already shows it. Screen actions in the shell header are now as high as the header's own controls (h-8) instead of the toolbar height. An embedded table (one that does not fill the screen height) shows its description above its toolbar, right under the section title.
 -->
 
 <!-- kumiko-changes
