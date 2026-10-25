@@ -1,29 +1,29 @@
 // kumiko-feature-version: 1
 //
-// newsletter — Demo-Feature, das tier-engine + cap-counter + die
-// mail-foundation Plugin-API zusammenbringt.
+// newsletter — demo feature that brings together tier-engine + cap-counter + the
+// mail-foundation plugin API.
 //
-// **Was passiert beim send-Handler:**
-//   1. Pre-Call (via withCapEnforcement-Wrapper):
-//      a) Tenant-Tier aus ctx.config lesen
-//      b) Tier → cap-limit aus DEMO_TIER_MAP mappen
-//      c) enforceCapAndMaybeNotify ruft enforceCap → bei
-//         soft-hit-crossing den Notifier (sendet Warning-Mail über
-//         dieselbe mail-foundation, an den Admin) UND dispatched
+// **What happens in the send handler:**
+//   1. Pre-call (via the withCapEnforcement wrapper):
+//      a) Read the tenant tier from ctx.config
+//      b) Map tier → cap limit from DEMO_TIER_MAP
+//      c) enforceCapAndMaybeNotify calls enforceCap → on a
+//         soft-hit crossing the notifier (sends a warning mail via
+//         the same mail-foundation, to the admin) AND dispatches
 //         mark-soft-warned
-//   2. Inner Handler: createTransportForTenant → transport.send
-//   3. Post-Success: increment-cap-Counter um 1
+//   2. Inner handler: createTransportForTenant → transport.send
+//   3. Post-success: increment the cap counter by 1
 //
-// **Beobachtbar im InMemory-Inbox** (mail-transport-inmemory):
-//   - Die "echten" Newsletter-Mails (an event.payload.to)
-//   - Die Soft-Hit-Warning-Mails (an admin@tenant.demo, beim ersten
-//     überschreiten)
+// **Observable in the in-memory inbox** (mail-transport-inmemory):
+//   - The "real" newsletter mails (to event.payload.to)
+//   - The soft-hit warning mails (to admin@tenant.demo, on the first
+//     crossing)
 //
-// **Tier-Switching:** primary-source ist die `subscription`-row aus
-// billing-foundation (= produktiver Pfad: Stripe/Mollie webhook
-// schreibt → tier ändert sich). Fallback ist der config-key
-// "newsletter:config:tier" — den nutzt die Demo-README für manuelles
-// Switchen ohne Provider, plus tier-engine-only-Tests behalten so ihren
+// **Tier switching:** the primary source is the `subscription` row from
+// billing-foundation (= productive path: a Stripe/Mollie webhook
+// writes → the tier changes). The fallback is the config key
+// "newsletter:config:tier" — the demo README uses it for manual
+// switching without a provider, and tier-engine-only tests keep their
 // existing flow.
 
 import {
@@ -103,20 +103,20 @@ const innerSendHandler: WriteHandlerDef = {
 // =============================================================================
 
 /**
- * Tenant-Tier auflösen.
+ * Resolve the tenant tier.
  *
- * **Reihenfolge:**
- *   1. subscription-row aus billing-foundation (= produktiver
- *      Pfad). Wenn die row existiert, trumpft sie den config-fallback —
- *      auch im canceled-Status (= Tenant fällt auf free zurück, NICHT
- *      auf einen verwaisten config="pro"-override).
- *   2. config-key "newsletter:config:tier" (= Demo-README-Pfad ohne
- *      Provider; auch der tier-engine-only-Pfad der ursprünglichen
- *      Tests bleibt so grün).
+ * **Order:**
+ *   1. subscription row from billing-foundation (= productive
+ *      path). If the row exists, it beats the config fallback —
+ *      even in canceled status (= the tenant falls back to free, NOT
+ *      to an orphaned config="pro" override).
+ *   2. config key "newsletter:config:tier" (= demo README path without
+ *      a provider; the tier-engine-only path of the original
+ *      tests stays green too).
  *   3. Default "free".
  *
- * Whitelist-Filter via TIER_NAMES verhindert Tippos ("Pro" / "Premium"),
- * die sonst silent zu free fallen würden.
+ * The whitelist filter via TIER_NAMES prevents typos ("Pro" / "Premium")
+ * that would otherwise silently fall back to free.
  */
 function isValidTierName(value: string): value is TierName {
   return (TIER_NAMES as readonly string[]).includes(value);
@@ -143,8 +143,8 @@ async function resolveTier(ctx: ReservationContext): Promise<TierName> {
   return "free";
 }
 
-/** Notifier-Factory: bauen einen SoftHitNotifier der die Warnung über
- *  dieselbe mail-foundation an den Tenant-Admin schickt. */
+/** Notifier factory: builds a SoftHitNotifier that sends the warning via
+ *  the same mail-foundation to the tenant admin. */
 function buildSoftHitNotifier(ctx: ReservationContext): SoftHitNotifier {
   return async (info) => {
     const transport = await createTransportForTenant(
@@ -194,9 +194,9 @@ const wrappedSendHandler = withCapEnforcement(innerSendHandler, async (_event, c
 // =============================================================================
 
 export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
-  // Hard-deps: mail-foundation für Plugin-API + config für tier-Wahl +
-  // cap-counter (transitiv via withCapEnforcement, aber explicit ist
-  // klarer für boot-Validator-Errors).
+  // Hard deps: mail-foundation for the plugin API + config for the tier choice +
+  // cap-counter (transitive via withCapEnforcement, but explicit is
+  // clearer for boot-validator errors).
   r.requires({ features: ["config"] });
   r.requires({ features: ["cap-counter"] });
   r.requires({ features: [createMailFoundationFeature().name] });
@@ -216,7 +216,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.writeHandler(wrappedSendHandler);
 });
 
-/** QN für den send-Handler — exportiert damit Tests + Clients ohne
- *  Hand-Ableitung zugreifen. */
+/** QN for the send handler — exported so tests + clients can access it
+ *  without deriving it by hand. */
 export const NEWSLETTER_SEND_QN = "newsletter:write:send";
 export const NEWSLETTER_TIER_CONFIG_KEY = "newsletter:config:tier";

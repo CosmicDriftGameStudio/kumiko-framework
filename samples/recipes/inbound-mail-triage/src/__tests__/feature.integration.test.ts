@@ -188,7 +188,7 @@ describe("inbound-mail triage sample", () => {
         data: { duplicate: boolean };
       };
       expect(replayBody.data.duplicate).toBe(true);
-      // Trigger-Nachlauf abwarten, dann Idempotenz prüfen.
+      // Wait for the trigger follow-up, then check idempotency.
       await new Promise((resolve) => setTimeout(resolve, 500));
       expect(triageInbox.size).toBe(1);
     } finally {

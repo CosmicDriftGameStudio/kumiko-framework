@@ -1,7 +1,7 @@
-// Re-exports — eine Datei pro Entity, Index sammelt sie. So kann
-// das Feature später weitere Entities (z.B. tag.ts, comment.ts)
-// hinzufügen ohne dass feature.ts oder web/index.ts ihre Imports
-// ändern müssen.
+// Re-exports — one file per entity, the index collects them. That way
+// the feature can later add further entities (e.g. tag.ts, comment.ts)
+// without feature.ts or web/index.ts having to change
+// their imports.
 
 export {
   itemActiveScreen,

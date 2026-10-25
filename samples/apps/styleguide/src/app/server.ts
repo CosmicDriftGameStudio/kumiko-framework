@@ -39,8 +39,8 @@ await runDevApp({
     aiSettingsFeature,
     workboardFeature,
   ],
-  // Aktiviert die Upload-Routes (/api/files) + ctx.services.files für den Avatar-
-  // Stresstest. In-Memory reicht für die Demo (nicht-persistent).
+  // Enables the upload routes (/api/files) + ctx.services.files for the avatar
+  // stress test. In-memory is enough for the demo (non-persistent).
   files: { storageProvider: createInMemoryFileProvider() },
   port: Number.parseInt(process.env["PORT"] ?? "4180", 10),
   clientEntry: "./src/app/client.tsx",

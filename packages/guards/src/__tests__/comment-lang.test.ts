@@ -199,6 +199,43 @@ describe("kumiko-guards comment-lang — tooling repos", () => {
   });
 });
 
+describe("kumiko-guards comment-lang — framework repo scope", () => {
+  test("scans every manifest source root, not only packages/*/src", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "comment-lang-framework-"));
+    try {
+      writeRepo(dir, {
+        name: "kumiko-framework",
+        layout: {
+          manifest: {
+            kind: "framework",
+            sourceRoots: ["packages/*/src", "packages/*/bin", "samples", "scripts", "bin"],
+            testGlobs: ["packages/*/src/**/*.test.ts"],
+          },
+        },
+      });
+      const german = "// Dieser Wert wird nicht benötigt\n";
+      for (const rel of [
+        "samples/apps/demo/a.ts",
+        "bin/b.ts",
+        "scripts/c.ts",
+        "packages/pkg/bin/d.ts",
+      ]) {
+        mkdirSync(join(dir, rel, ".."), { recursive: true });
+        writeFileSync(join(dir, rel), german, "utf-8");
+      }
+
+      const result = await run(["bun", CLI_PATH, "comment-lang", "--list", "--no-baseline"], dir);
+
+      expect(result.stdout).toContain("samples/apps/demo/a.ts:1");
+      expect(result.stdout).toContain("bin/b.ts:1");
+      expect(result.stdout).toContain("scripts/c.ts:1");
+      expect(result.stdout).toContain("packages/pkg/bin/d.ts:1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("scanGermanComments — division vs regex", () => {
   test("a division before a trailing German comment is not scanned as a regex", () => {
     const src = "const half = width / 2; // deutscher Kommentar hier über die Breite\n";

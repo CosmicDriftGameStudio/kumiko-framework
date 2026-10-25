@@ -1,10 +1,10 @@
-// Dispatcher-Round-Trip: tippe in Edit-Form, submit → MockDispatcher
-// schreibt In-Memory → Renderer navigiert zur List → Row taucht auf.
+// Dispatcher round trip: type into the edit form, submit → MockDispatcher
+// writes in memory → renderer navigates to the list → row shows up.
 //
-// Beweist den Vertrag zwischen renderer/web (createKumikoApp + Form-
-// Controller + List-View) und einem Dispatcher der das write/query-
-// Interface erfüllt. Wenn die Sample-E2Es brennen ist's oft DB/Auth —
-// dieser Test isoliert auf den Renderer-Layer.
+// Proves the contract between renderer/web (createKumikoApp + form
+// controller + list view) and a dispatcher that fulfills the write/query
+// interface. When the sample E2Es are on fire it is often DB/auth —
+// this test isolates on the renderer layer.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -28,13 +28,13 @@ test("submit-flow: Form submit → Dispatcher.write → List refresh shows new e
   await page.getByTestId("field-label").locator("input").fill(label);
   await page.getByTestId("render-edit-submit").click();
 
-  // useNavigateToListAfter im KumikoScreen routed nach Erfolg auf den
-  // List-Screen. Wir warten auf die Tabelle statt auf eine URL-Änderung.
+  // useNavigateToListAfter in KumikoScreen routes to the list
+  // screen after success. We wait for the table instead of a URL change.
   await expect(page.getByTestId("render-list-table")).toBeVisible();
 
-  // Row-Lookup über die label-Zelle. MockDispatcher hat die Row in
-  // tables.set("thing", ...) gespeichert; query "test:query:thing:list"
-  // lieferte sie zurück.
+  // Row lookup via the label cell. MockDispatcher stored the row in
+  // tables.set("thing", ...); query "test:query:thing:list"
+  // returned it.
   const labelCell = page.locator('[data-testid^="cell-"][data-testid$="-label"]', {
     hasText: label,
   });

@@ -1,12 +1,12 @@
 // @runtime dev
-// App-Schema für die `kumiko-schema`-CLI (generate | validate). Komponiert die
-// App-Features einmal und leitet beide CLI-Inputs ab. CLI importiert via
-// dynamic-import.
+// App schema for the `kumiko-schema` CLI (generate | validate). Composes the
+// app features once and derives both CLI inputs. The CLI imports via
+// dynamic import.
 //
-// **Convention:** dieses File exportiert
-//   - `ENTITY_METAS: readonly EntityTableMeta[]`  (Pflicht — generate + validate)
-//   - `FEATURES: readonly FeatureDefinition[]`    (optional — aktiviert
-//     `kumiko-schema validate`s validateBoot-Layer; ohne wird er übersprungen)
+// **Convention:** this file exports
+//   - `ENTITY_METAS: readonly EntityTableMeta[]`  (required — generate + validate)
+//   - `FEATURES: readonly FeatureDefinition[]`    (optional — activates
+//     the validateBoot layer of `kumiko-schema validate`; without it that layer is skipped)
 
 import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";

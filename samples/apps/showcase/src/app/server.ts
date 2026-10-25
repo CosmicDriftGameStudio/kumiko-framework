@@ -1,9 +1,9 @@
 // @runtime dev
 //
-// Dev-Server für den Showcase. KEIN Auth — der Showcase ist eine UI-
-// Primitive-Spielwiese, Login-Reibung ist hier kontraproduktiv. Auto-
-// Mint-JWT-Mode aktiv (TestUsers.admin) → direkt im Edit-Screen.
-// Wer Auth-Pfade testen will: ui-walkthrough oder workspaces.
+// Dev server for the showcase. NO auth — the showcase is a UI
+// primitive playground, login friction is counterproductive here. Auto-
+// mint JWT mode active (TestUsers.admin) → straight into the edit screen.
+// To test auth paths: ui-walkthrough or workspaces.
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -14,7 +14,7 @@ import { seedShowcaseItems } from "./seed-items";
 
 await runDevApp({
   features: [localeDe(), itemsFeature, demosFeature],
-  // PORT-env überschreibbar — konsistent zu publicstatus / ui-walkthrough.
+  // PORT env overridable — consistent with publicstatus / ui-walkthrough.
   port: Number.parseInt(process.env["PORT"] ?? "4175", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
@@ -24,7 +24,7 @@ await runDevApp({
   // existierenden packages/*/src — bei neuen Packages muss man nichts
   // anpassen.
   watchDirs: ["./src", "../../../packages/*/src"],
-  // ~200 Items damit der Pager (pageSize 50) was zum Blättern hat.
-  // Idempotent — re-running den dev-server seedet nicht doppelt.
+  // ~200 items so the pager (pageSize 50) has something to page through.
+  // Idempotent — re-running the dev server does not seed twice.
   seeds: [seedShowcaseItems],
 });

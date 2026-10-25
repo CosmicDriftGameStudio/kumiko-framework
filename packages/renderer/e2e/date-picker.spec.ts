@@ -1,16 +1,16 @@
-// DateInput im echten Chromium — #369 (vereinheitlichter Date-Picker).
-// jsdom rendert kein CSS und das Header-Duplikat ist ein aria-hidden
-// <span>, daher fängt erst der Browser den sichtbaren Doppel-Header.
+// DateInput in real Chromium — #369 (unified date picker).
+// jsdom renders no CSS and the header duplicate is an aria-hidden
+// <span>, so only the browser catches the visible double header.
 //
-// Drei Asserts:
-//   1. Header NICHT doppelt — rdps Default-Dropdown rendert je Monat/Jahr
-//      ein <select> UND ein begleitendes aria-hidden <span> mit demselben
-//      Label. Ohne rdps eigene Positionierungs-CSS (die unsere custom
-//      classNames aushebeln) wird BEIDES sichtbar → der gemeldete Bug.
-//      Unser custom Dropdown lässt das Span weg → genau 2 Selects, kein
-//      Jahres-Label-Span daneben.
-//   2. Tippen ins Feld → onChange feuert ISO yyyy-mm-dd.
-//   3. Jahres-Dropdown springt direkt aufs Zieljahr (kein 120×-Klicken).
+// Three asserts:
+//   1. Header NOT doubled — rdp's default dropdown renders a <select> per month/year
+//      AND an accompanying aria-hidden <span> with the same
+//      label. Without rdp's own positioning CSS (which our custom
+//      classNames override) BOTH become visible → the reported bug.
+//      Our custom dropdown omits the span → exactly 2 selects, no
+//      year label span next to them.
+//   2. Typing into the field → onChange fires ISO yyyy-mm-dd.
+//   3. The year dropdown jumps straight to the target year (no 120× clicking).
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -30,9 +30,9 @@ test.describe("DateInput calendar in a real browser", () => {
     // captionLayout="dropdown" → ein Monats- + ein Jahres-<select>.
     await expect(page.getByRole("combobox")).toHaveCount(2);
 
-    // Der eigentliche Bug-Wächter: ein aria-hidden <span>, dessen Text
-    // exakt eine vierstellige Jahreszahl ist, ist das rdp-Default-Duplikat
-    // neben dem Jahres-<select>. Mit dem Fix existiert es nicht.
+    // The actual bug guard: an aria-hidden <span> whose text is
+    // exactly a four-digit year is the rdp default duplicate
+    // next to the year <select>. With the fix it does not exist.
     await expect(
       page.locator('span[aria-hidden="true"]').filter({ hasText: /^\d{4}$/ }),
     ).toHaveCount(0);

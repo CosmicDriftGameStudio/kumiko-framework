@@ -1,11 +1,11 @@
-// Browser-Entry für renderer/e2e. Routet nach window.location.pathname:
-//   /combobox  → standalone ComboboxInput-Test-Page (Browser-Reality
-//                des Mouse-Click-Bugs reproduzieren ohne AppSchema)
+// Browser entry for renderer/e2e. Routes by window.location.pathname:
+//   /combobox  → standalone ComboboxInput test page (reproduce the browser reality
+//                of the mouse-click bug without an AppSchema)
 //   /date      → DateInput
 //   /money     → MoneyInput
 //   /signup    → SignupScreen via createPublicSurface (auth e2e)
 //   /mfa-verify → MfaVerifyScreen via createPublicSurface (auth e2e)
-//   sonst      → createKumikoApp mit MockDispatcher (Standard-Smoke-Suite)
+//   otherwise  → createKumikoApp with MockDispatcher (standard smoke suite)
 
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, StrictMode } from "react";
@@ -74,8 +74,8 @@ async function boot(): Promise<void> {
       rejectWriteIds: controlWindow.__E2E_REJECT_WRITE_IDS__,
     }),
     holdWrites: controlWindow.__E2E_HOLD_WRITES__ === true,
-    // Test-Pages können vor dem Boot via window.__E2E_SEED__ Pre-Daten
-    // einfüttern; ohne Seed startet jeder Test mit leerer In-Memory-DB.
+    // Test pages can feed pre-data via window.__E2E_SEED__ before boot;
+    // without a seed every test starts with an empty in-memory DB.
     seed: ((globalThis as { __E2E_SEED__?: Record<string, unknown[]> }).__E2E_SEED__ ??
       {}) as Record<string, readonly { id: string; [key: string]: unknown }[]>,
   });

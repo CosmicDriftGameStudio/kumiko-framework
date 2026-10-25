@@ -1,5 +1,5 @@
-// Browser-Entry für Marketing-Demo. Zwei Features (assets, helpdesk),
-// shared shell, alles aus dem Framework-Default.
+// Browser entry for the marketing demo. Two features (assets, helpdesk),
+// shared shell, everything from the framework defaults.
 
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp } from "@cosmicdrift/kumiko-renderer/web";

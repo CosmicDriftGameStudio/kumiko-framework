@@ -1,6 +1,6 @@
-// AppShell für Marketing-Demo. DefaultAppShell mit Brand-Wortmarke
-// „Kumiko Demo", Light-Mode-default (kein Theme-Toggle für screenshots
-// damit immer der gleiche Look).
+// AppShell for the marketing demo. DefaultAppShell with brand wordmark
+// "Kumiko Demo", light mode default (no theme toggle for screenshots
+// so the look is always the same).
 
 import { type AppSchema, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";

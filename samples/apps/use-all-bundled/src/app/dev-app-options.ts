@@ -1,14 +1,14 @@
 // @runtime dev
 //
-// Dev-/Screenshot-Server für das use-all-bundled Sample. runDevApp mischt im
-// auth-Mode die 4 Standard-Features (config/user/tenant/auth) automatisch via
-// composeFeatures(includeBundled) dazu — exakt die 4, die APP_FEATURES bewusst
-// auslässt — und seedet den Admin im onAfterSetup. So rendert EINE App alle
-// bundled-feature-Screens für die Doku-Previews.
+// Dev/screenshot server for the use-all-bundled sample. In auth mode runDevApp
+// mixes in the 4 standard features (config/user/tenant/auth) automatically via
+// composeFeatures(includeBundled) — exactly the 4 that APP_FEATURES deliberately
+// omits — and seeds the admin in onAfterSetup. That way ONE app renders all
+// bundled feature screens for the docs previews.
 //
-// globalRoles SystemAdmin: schaltet die Plattform-Screens frei (tenant-list,
-// user-list, tier-admin, GDPR-Inspector). anonymousAccess + extraContext.text
-// Content: die öffentlichen legal-pages-Routen (/legal/*).
+// globalRoles SystemAdmin: unlocks the platform screens (tenant-list,
+// user-list, tier-admin, GDPR inspector). anonymousAccess + extraContext.text
+// content: the public legal-pages routes (/legal/*).
 
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
@@ -21,10 +21,10 @@ import { notesFeature } from "./notes-feature";
 import { appScreensFeature } from "./screens-feature";
 import { seedScreenshotData } from "./seed";
 
-// tier-admin rendert mit dem bare createTierEngineFeature() (aus APP_FEATURES) den
-// ehrlichen Empty-State ("no TierMap configured"). Eine konfigurierte tierMap
-// würde den Resolver auf jedem Write aktivieren (inkl. Login) und braucht
-// per-Tenant Tier-Assignments — disproportional für einen Preview-Screenshot.
+// tier-admin renders the honest empty state ("no TierMap configured") with the
+// bare createTierEngineFeature() (from APP_FEATURES). A configured tierMap
+// would activate the resolver on every write (incl. login) and needs
+// per-tenant tier assignments — disproportionate for a preview screenshot.
 
 export const devAppOptions = {
   // notesFeature is dev-only (app-owned tag host) — see notes-feature.ts for why

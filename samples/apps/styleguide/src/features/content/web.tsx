@@ -1,9 +1,9 @@
-// Client-Seite des Content-Stresstests: der navProvider hängt sich an den
-// statischen `content`-Nav-Knoten (QN "content:nav:content"), lädt die Seiten
-// per /api/query und emittiert sie als Tree-Leaves. navEntities ["page"]
-// abonniert die Live-Events → nach einem Create erscheint die neue Seite
-// sofort im Sidebar-Tree. Der content:edit-Resolver rendert das Anlege-
-// Formular (leeres target) bzw. die Detail-Ansicht (target mit id).
+// Client side of the content stress test: the navProvider attaches to the
+// static `content` nav node (QN "content:nav:content"), loads the pages
+// via /api/query and emits them as tree leaves. navEntities ["page"]
+// subscribes to the live events → after a create the new page appears
+// immediately in the sidebar tree. The content:edit resolver renders the create
+// form (empty target) or the detail view (target with id).
 
 import type {
   TargetRef,

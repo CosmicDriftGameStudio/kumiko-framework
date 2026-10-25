@@ -1,7 +1,7 @@
-// Demos-Feature — Web-Plattform-Plugin. ClientFeatureDefinition mit
-// den React-DOM-Components für die custom-Screens. createKumikoApp
-// merged das in den CustomScreens-Context, KumikoScreen schaut darin
-// nach wenn ein Schema-Screen `type: "custom"` hat.
+// Demos feature — web platform plugin. ClientFeatureDefinition with
+// the React DOM components for the custom screens. createKumikoApp
+// merges that into the CustomScreens context, KumikoScreen looks there
+// when a schema screen has `type: "custom"`.
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { demosTranslations } from "../i18n";

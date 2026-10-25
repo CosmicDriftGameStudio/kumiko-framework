@@ -31,10 +31,10 @@ const REQUIRED_I18N = {
   "screen:config-demo-user.title": { de: "Persönlich", en: "Personal" },
 } as const;
 
-// Self-Populating Settings-Hub: jeder Key mit `mask` erscheint automatisch im
-// Hub — kein r.screen/r.nav mehr. buildConfigFeatureSchema gruppiert nach Scope
-// (Plattform/Organisation/Persönlich) und leitet Felder aus dem Key-Typ ab.
-// mask.title ist der i18n-Key des Feld-Labels, mask.order die Reihenfolge.
+// Self-populating settings hub: every key with `mask` appears automatically in the
+// hub — no more r.screen/r.nav. buildConfigFeatureSchema groups by scope
+// (platform/organization/personal) and derives fields from the key type.
+// mask.title is the i18n key of the field label, mask.order the order.
 export const configDemoFeature = defineFeature("config-demo", (r) => {
   r.translations({ keys: REQUIRED_I18N });
   r.requires({ features: ["config"] });

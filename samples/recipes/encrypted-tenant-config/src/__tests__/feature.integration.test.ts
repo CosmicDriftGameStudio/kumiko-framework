@@ -1,6 +1,6 @@
-// End-to-End: Tenant-Admin setzt Stripe-API-Key → DB hat ciphertext →
-// charge-handler liest entschlüsselt → caller sieht charge-id, NIE den
-// Key. Plus: zwei Tenants haben getrennte Keys.
+// End to end: tenant admin sets the Stripe API key → DB has ciphertext →
+// the charge handler reads it decrypted → caller sees the charge id, NEVER the
+// key. Plus: two tenants have separate keys.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -90,7 +90,7 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
   });
 
   test("charge-handler reads the decrypted key + uses it", async () => {
-    // Charge ohne gesetzten Key → schlägt mit klarer Error fehl
+    // Charge without a set key → fails with a clear error
     const noKey = await stack.http.write(
       "billing:write:charge",
       { amount: 1000, customerRef: "cust_42" },
@@ -119,9 +119,9 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
       acmeAdmin,
     );
 
-    // Tenant-B macht charge OHNE eigenen Key → fehlschlägt (sieht
-    // den acme-Key NICHT). Beweis: per-tenant config-row, nicht globale
-    // Variable.
+    // Tenant B does a charge WITHOUT its own key → fails (does NOT see
+    // the acme key). Proof: per-tenant config row, not a global
+    // variable.
     const res = await stack.http.write(
       "billing:write:charge",
       { amount: 500, customerRef: "globex_cust" },

@@ -1,8 +1,8 @@
-// Login-Helper für die Workspaces-E2Es. Pattern ist 1:1 wie im ui-
-// walkthrough-Sample (siehe ../../../ui-walkthrough/e2e/_helpers/login.ts
-// für die ausführliche Begründung). Kurzform: POST direkt auf
-// /api/auth/login, Playwrights page.request teilt das Cookie-Jar mit
-// dem page-Context, anschließendes goto bootet authentifiziert.
+// Login helper for the workspaces E2Es. The pattern is 1:1 as in the ui-
+// walkthrough sample (see ../../../ui-walkthrough/e2e/_helpers/login.ts
+// for the detailed rationale). Short form: POST directly to
+// /api/auth/login, Playwright's page.request shares the cookie jar with
+// the page context, a subsequent goto boots authenticated.
 
 import type { Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";

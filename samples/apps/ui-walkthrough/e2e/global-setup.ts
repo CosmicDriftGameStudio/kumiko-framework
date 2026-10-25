@@ -1,7 +1,7 @@
-// Playwright globalSetup — spawnt den bun-Emitter vor allen Tests.
-// Zweck: framework-runtime läuft in ISOLIERTEM bun-Subprozess, NICHT
-// im Playwright-worker. Das schreibt die E2E-Daten-JSON, und
-// generated.spec.ts liest sie als reine Datei ohne framework-Chain.
+// Playwright globalSetup — spawns the bun emitter before all tests.
+// Purpose: framework-runtime runs in an ISOLATED bun subprocess, NOT
+// in the Playwright worker. It writes the E2E data JSON, and
+// generated.spec.ts reads it as a plain file without a framework chain.
 
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";

@@ -7,8 +7,8 @@ import {
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
-// Literal Tailwind-Klassen (kein `bg-${token}`) — der v4-Scanner generiert nur
-// Klassen die wörtlich im Source stehen.
+// Literal Tailwind classes (no `bg-${token}`) — the v4 scanner only generates
+// classes that appear literally in the source.
 const SWATCHES: ReadonlyArray<readonly [string, string]> = [
   ["background", "bg-background"],
   ["foreground", "bg-foreground"],
@@ -114,7 +114,7 @@ interface Dividend {
   readonly amount: string;
   readonly bars: readonly Bar[];
 }
-// kumiko-lint-ignore no-logic-in-views demo: inline Chart-Daten-Prep für die Gallery-Fixtures (Lesbarkeit des Demos > Extraktion)
+// kumiko-lint-ignore no-logic-in-views demo: inline chart data prep for the gallery fixtures (demo readability > extraction)
 function bars(heights: readonly [number, number, number, number]): readonly Bar[] {
   return heights.map((h, i) => ({ k: "abcd"[i] as string, h }));
 }
@@ -164,7 +164,7 @@ function Badge({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
-// Select-Attrappe (shadcn-Select-Trigger-Look) für statische Showcase-Blöcke.
+// Select stand-in (shadcn select trigger look) for static showcase blocks.
 function SelectStub({ value }: { value: string }): ReactNode {
   return (
     <div className="border-input bg-background flex h-9 items-center justify-between rounded-md border px-3 text-sm">
@@ -359,7 +359,7 @@ export function Gallery(): ReactNode {
           <div className="flex items-center gap-3 p-2">
             <div className="relative min-w-0 flex-1">
               <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
-              {/* kumiko-lint-ignore primitives-discipline readOnly search-pill visual (rounded-full mit inset Icon) — Muster-Demo, kein Formularfeld */}
+              {/* kumiko-lint-ignore primitives-discipline readOnly search-pill visual (rounded-full with inset icon) — pattern demo, not a form field */}
               <input
                 className="bg-muted/50 placeholder:text-muted-foreground focus-visible:ring-ring h-10 w-full rounded-full border-none pl-9 pr-4 text-sm outline-none focus-visible:ring-2"
                 placeholder="Search holdings or tickers…"
@@ -744,10 +744,10 @@ export function Gallery(): ReactNode {
       </Block>
 
       <Block id="tags" title="Tags — bundled-feature layout">
-        {/* ponytail: faithful Layout-Nachbau des TagSection (tags/web) mit den
-            echten Primitiven + statischen Daten — die Live-Version hängt am
-            Dispatcher. Verifiziert die Inline-Create-Row (Input wächst,
-            Add-Button bündig daneben). */}
+        {/* ponytail: faithful layout replica of the TagSection (tags/web) with the
+            real primitives + static data — the live version hangs off the
+            dispatcher. Verifies the inline create row (input grows,
+            add button flush beside it). */}
         <div className="flex max-w-md flex-col gap-4">
           <Field id="tg-select" label="Tags">
             <Input
@@ -778,9 +778,9 @@ export function Gallery(): ReactNode {
       </Block>
 
       <Block id="nav" title="Navigation">
-        {/* ponytail: statischer Nachbau des Nav-Standards — die LIVE-Nav ist
-            die Sidebar links (NavTree), hier isoliert für die Doku. */}
-        {/* kumiko-lint-ignore primitives-discipline nav-surface demo (Navigations-Fläche, kein Card) */}
+        {/* ponytail: static replica of the nav standard — the LIVE nav is
+            the sidebar on the left (NavTree), isolated here for the docs. */}
+        {/* kumiko-lint-ignore primitives-discipline nav-surface demo (navigation surface, not a card) */}
         <div className="bg-card w-60 rounded-lg border p-3 text-sm shadow-sm">
           <div className="text-muted-foreground/70 px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider">
             Workspace

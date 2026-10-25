@@ -1,7 +1,7 @@
-// Entity + Screen-Definitionen. WIRD vom Server in feature.ts via
-// r.entity/r.screen registriert; die Browser-seitige Spiegelung
-// (clientSchema mit navs/workspaces) ist obsolet — der Client lädt das
-// aufgelöste AppSchema selbst über die authentifizierte GET /api/schema.
+// Entity + screen definitions. IS registered by the server in feature.ts via
+// r.entity/r.screen; the browser-side mirror
+// (clientSchema with navs/workspaces) is obsolete — the client loads the
+// resolved AppSchema itself via the authenticated GET /api/schema.
 
 import type {
   EntityDefinition,

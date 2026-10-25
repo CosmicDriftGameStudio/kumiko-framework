@@ -1,5 +1,5 @@
-// AppShell mit WorkspaceShell statt DefaultAppShell — Multi-Persona-
-// App mit URL-driven Workspace-Switch und Nav-Tree-Filter pro Rolle.
+// AppShell with WorkspaceShell instead of DefaultAppShell — multi-persona
+// app with URL-driven workspace switch and nav tree filter per role.
 
 import {
   DefaultTopbarActions,

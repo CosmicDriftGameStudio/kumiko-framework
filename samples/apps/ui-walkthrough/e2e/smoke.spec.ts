@@ -1,13 +1,13 @@
-// Handgeschriebener Smoke-Durchstich. Beweist end-to-end dass der
-// Kumiko-Stack im Browser ankommt:
-//   createKumikoServer → Bun.build(client.tsx) → HTTP+JWT-Cookie
+// Hand-written smoke run-through. Proves end to end that the
+// Kumiko stack arrives in the browser:
+//   createKumikoServer → Bun.build(client.tsx) → HTTP+JWT cookie
 //   → createKumikoApp → PrimitivesProvider → RoutedScreen → DefaultForm
 //
-// Bewusst minimal — wir prüfen Rendering + sauberen Start, keine
-// Business-Logik. Create/Update kommen in separaten Specs.
+// Deliberately minimal — we check rendering + clean startup, no
+// business logic. Create/update come in separate specs.
 //
-// Der Editor-Screen ist die Landing-Route, weil clientSchema.screens
-// mit editScreen beginnt (siehe samples/ui-walkthrough/src/feature-schema.ts).
+// The editor screen is the landing route because clientSchema.screens
+// begins with editScreen (see samples/ui-walkthrough/src/feature-schema.ts).
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";

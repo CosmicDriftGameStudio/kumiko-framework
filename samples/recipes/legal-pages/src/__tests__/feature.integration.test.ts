@@ -35,7 +35,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, templateResourceEntity);
   await createEventsTable(db);
 
-  // Seed Pflicht-Blocks für SYSTEM_TENANT (DE Impressum + DSE)
+  // Seed required blocks for SYSTEM_TENANT (DE imprint + privacy policy)
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
@@ -82,8 +82,8 @@ afterAll(async () => {
 
 describe("legal-pages sample", () => {
   test("all LEGAL_ROUTES are reachable via stack.app", async () => {
-    // Smoke-Test: jede Route gibt entweder 200 (gerendert) oder 404
-    // (Block fehlt). Nie 5xx — die Server-Pipeline läuft sauber durch.
+    // Smoke test: every route returns either 200 (rendered) or 404
+    // (block missing). Never 5xx — the server pipeline runs through cleanly.
     for (const route of LEGAL_ROUTES) {
       const res = await stack.app.request(route.path);
       expect([200, 404]).toContain(res.status);

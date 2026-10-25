@@ -1,30 +1,30 @@
-// Login-Helper für Sample-E2Es.
+// Login helper for sample E2Es.
 //
-// Hintergrund: src/server.ts wired `auth: { loginHandler, … }` ein, also
-// kein Auto-Mint-JWT mehr auf GET /. Tests müssen sich vor dem ersten
-// `page.goto("/")` authentifizieren — sonst rendert der SessionProvider
-// den LoginScreen statt der App.
+// Background: src/server.ts wires in `auth: { loginHandler, … }`, so
+// no more auto-mint JWT on GET /. Tests must authenticate before the first
+// `page.goto("/")` — otherwise the SessionProvider renders
+// the LoginScreen instead of the app.
 //
-// Implementation: POST direkt gegen /api/auth/login. Playwrights
-// page.request teilt das Cookie-Jar mit dem page-Context, also landen
-// kumiko_auth (HttpOnly-JWT) und kumiko_csrf (JS-lesbar) automatisch im
-// Browser. Anschließendes goto("/") bootet als authentifizierter User.
+// Implementation: POST directly to /api/auth/login. Playwright's
+// page.request shares the cookie jar with the page context, so
+// kumiko_auth (HttpOnly JWT) and kumiko_csrf (JS-readable) land in the
+// browser automatically. A subsequent goto("/") boots as the authenticated user.
 //
-// Bewusst NICHT über die Login-Form geklickt: der Auth-Flow selbst hat
-// seine eigenen E2Es. Hier wollen wir nur "user ist drin", nicht "Login
-// funktioniert".
+// Deliberately NOT clicked through the login form: the auth flow itself has
+// its own E2Es. Here we only want "user is in", not "login
+// works".
 //
-// File-Position: lokal im Sample, nicht in bundled-features. Solange es
-// nur einen Consumer gibt (diesen Sample), wäre eine vorzeitige
-// Extraktion premature abstraction. Sobald ein zweiter Sample dieselbe
-// Logik braucht, kann die Function nach `auth-email-password/testing`
-// migrieren.
+// File location: local to the sample, not in bundled-features. As long as
+// there is only one consumer (this sample), an early
+// extraction would be a premature abstraction. Once a second sample
+// needs the same logic, the function can migrate to
+// `auth-email-password/testing`.
 
 import type { Cookie, Page } from "@playwright/test";
-// Direkt aus auth-constants — NIEMALS via seed.ts oder bundled-features.
-// Diese ziehen `vitest` als transitive dep (framework/testing → vitest)
-// und kollidieren mit Playwrights expect über das Object.prototype-
-// Symbol $$jest-matchers-object.
+// Straight from auth-constants — NEVER via seed.ts or bundled-features.
+// Those pull in `vitest` as a transitive dep (framework/testing → vitest)
+// and collide with Playwright's expect via the Object.prototype
+// symbol $$jest-matchers-object.
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";
 
 // The login route allows 20 requests per minute and IP. One login per user and worker keeps

@@ -1,17 +1,17 @@
-// In-memory Dispatcher für renderer/e2e. Implementiert das
-// Dispatcher-Interface aus @cosmicdrift/kumiko-renderer/headless ohne HTTP-Layer — der
-// Mock lebt im Browser-Bundle, jeder Playwright-Page-Boot bekommt
-// einen fresh Mock mit fresh State.
+// In-memory dispatcher for renderer/e2e. Implements the
+// dispatcher interface from @cosmicdrift/kumiko-renderer/headless without an HTTP layer — the
+// mock lives in the browser bundle, every Playwright page boot gets
+// a fresh mock with fresh state.
 //
-// Wire-Format: createKumikoApp ruft dispatcher.write/query mit
-// QN-strings ("<feature>:write:<entity>:<verb>"). Der Mock parst die
-// QN, leitet `verb` aus dem letzten Segment ab und arbeitet auf einer
-// per-entity-Map. Reicht für CRUD-Smoke-Tests.
+// Wire format: createKumikoApp calls dispatcher.write/query with
+// QN strings ("<feature>:write:<entity>:<verb>"). The mock parses the
+// QN, derives `verb` from the last segment and works on a
+// per-entity map. Sufficient for CRUD smoke tests.
 //
-// Bewusst simpel: kein optimistic-locking, kein soft-delete, keine
-// validation — diese Pfade werden gegen den echten Stack in apps/
-// ui-walkthrough getestet. Hier nur "renderer ruft dispatcher mit
-// erwarteten QNs an, dispatcher antwortet im erwarteten Format".
+// Deliberately simple: no optimistic locking, no soft delete, no
+// validation — those paths are tested against the real stack in apps/
+// ui-walkthrough. Here only "renderer calls the dispatcher with
+// the expected QNs, the dispatcher answers in the expected format".
 
 import type {
   BatchResult,
@@ -36,8 +36,8 @@ export const FAILING_WRITE_REQUEST_ID = "req-7f9c2a1e-4b3d-4c8a-9e21-5d6f0a1b2c3
 type Row = Record<string, unknown> & { id: string };
 
 export type MockDispatcherState = {
-  /** Pre-seed Daten — z.B. um List-Renderings zu testen ohne erst create
-   *  zu rufen. Keys sind entity-Names (so wie sie in der QN auftauchen). */
+  /** Pre-seed data — e.g. to test list renderings without calling create
+   *  first. Keys are entity names (as they appear in the QN). */
   readonly seed?: Readonly<Record<string, readonly Row[]>>;
   /** Row ids whose writes answer with an access error, like a row the user may not change. */
   readonly rejectWriteIds?: readonly string[];
@@ -81,8 +81,8 @@ function parseQn(qn: string): {
   };
 }
 
-// Read-only Store-Stub für statusStore. Tests interessieren sich nicht
-// für Online/Offline-Transitions — der Status ist immer "online".
+// Read-only store stub for statusStore. Tests do not care about
+// online/offline transitions — the status is always "online".
 const ONLINE_STORE: Store<DispatcherStatus> = {
   getSnapshot: () => "online",
   subscribe: () => () => {},

@@ -1,6 +1,6 @@
-// AppShell mit Brand und User-Menü im Sidebar-Footer. Tenant-, Sprach- und
-// Theme-Wahl hängen im User-Menü. Tenant-Name-Mapping bleibt im Shell —
-// App-spezifische Logik, kein Framework-Konzept.
+// AppShell with brand and user menu in the sidebar footer. Tenant, language and
+// theme choice live in the user menu. Tenant name mapping stays in the shell —
+// app-specific logic, not a framework concept.
 
 import {
   TenantMenuItems,

@@ -1,12 +1,12 @@
-// Local dev-server für das cap-billing-demo Sample.
+// Local dev server for the cap-billing-demo sample.
 //
-// Demo-Story: Newsletter-Send mit per-Tier-Cap (free=10/month, pro=
-// 100/month). Mails landen im in-memory-transport, abrufbar über die
-// Helper aus @cosmicdrift/kumiko-bundled-features/mail-transport-inmemory.
+// Demo story: newsletter send with a per-tier cap (free=10/month, pro=
+// 100/month). Mails land in the in-memory transport, retrievable via the
+// helpers from @cosmicdrift/kumiko-bundled-features/mail-transport-inmemory.
 //
-// Vorbedingungen (siehe README): Postgres + Redis via `bun kumiko dev`;
-// Migrations via `bun kumiko migrate apply` (aktuell nur die Default-
-// Tabellen — das Demo nutzt keine eigene Entity-Projektion).
+// Prerequisites (see README): Postgres + Redis via `bun kumiko dev`;
+// migrations via `bun kumiko migrate apply` (currently only the default
+// tables — the demo has no entity projection of its own).
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";

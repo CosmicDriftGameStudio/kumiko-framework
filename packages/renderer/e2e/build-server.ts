@@ -1,10 +1,10 @@
-// Tiny Bun-Server der das e2e-Bundle baut und ausliefert. Pendant zum
-// dev-server in @cosmicdrift/kumiko-dev-server, aber radikal abgespeckt — kein
-// Postgres, keine Auth, keine Schema-Injection; Tailwind läuft einmal beim
-// Start (Layout-Specs messen echte Boxen). Reicht
-// für renderer/e2e weil:
-//   - der MockDispatcher den Stack komplett ersetzt
-//   - das AppSchema explizit an createKumikoApp übergeben wird
+// Tiny Bun server that builds and serves the e2e bundle. Counterpart to the
+// dev server in @cosmicdrift/kumiko-dev-server, but radically stripped down — no
+// Postgres, no auth, no schema injection; Tailwind runs once at
+// startup (layout specs measure real boxes). Sufficient
+// for renderer/e2e because:
+//   - the MockDispatcher replaces the stack completely
+//   - the AppSchema is passed to createKumikoApp explicitly
 
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -20,7 +20,7 @@ const port = Number(process.env["PORT"] ?? 4176);
 const built = await Bun.build({
   entrypoints: [ENTRY],
   target: "browser",
-  // Sourcemap für lesbare Stack-Traces wenn Playwright-Tests fail'n.
+  // Sourcemap for readable stack traces when Playwright tests fail.
   sourcemap: "linked",
 });
 
@@ -76,10 +76,10 @@ Bun.serve({
       return new Response(css, { headers: { "Content-Type": "text/css; charset=utf-8" } });
     }
     if (url.pathname === "/api/sse" || url.pathname.startsWith("/sse")) {
-      // useQuery({ live: true }) öffnet eine EventSource auf /sse — ohne
-      // korrekte SSE-Antwort kommt eine "MIME type text/html"-Console-
-      // Error. Long-lived Empty-Stream: Connection bleibt offen, keine
-      // Events, kein Reconnect-Loop.
+      // useQuery({ live: true }) opens an EventSource on /sse — without a
+      // proper SSE response there is a "MIME type text/html" console
+      // error. Long-lived empty stream: the connection stays open, no
+      // events, no reconnect loop.
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(new TextEncoder().encode(": connected\n\n"));

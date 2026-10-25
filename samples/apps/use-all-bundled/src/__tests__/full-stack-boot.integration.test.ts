@@ -1,8 +1,8 @@
-// DB-Runtime-Gate für use-all-bundled (223/1): nach dem Wegfall des
-// postgres-smoke-Jobs war der echte Boot aller Bundled-Features gegen
-// Postgres+Redis durch nichts mehr gegated — boot.test.ts stoppt vor
-// der DB. Dieser Test bootet den vollen Stack (schema apply inklusive)
-// und treibt eine echte HTTP-Round-Trip durch den Dispatcher.
+// DB runtime gate for use-all-bundled (223/1): after the postgres-smoke
+// job was dropped, the real boot of all bundled features against
+// Postgres+Redis was no longer gated by anything — boot.test.ts stops before
+// the DB. This test boots the full stack (schema apply included)
+// and drives a real HTTP round trip through the dispatcher.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";

@@ -29,12 +29,12 @@ No dedicated automated tests in this folder yet — use it as a composition samp
 
 ```ts
 // kumiko-feature-version: 1
-// Demo-Feature für den Designer-Skeleton (C5).
-// Enthält bewusst Patterns aus den 3 hand-rollten View-Kategorien:
-//   - entity      → Tabelle der Fields
-//   - writeHandler → Header + Code-Blocks (schema + handler)
-//   - nav         → ID/Label/Screen-Card
-// Plus optionalRequires + metric als JSON-Dump-Fallback.
+// Demo feature for the designer skeleton (C5).
+// Deliberately contains patterns from the 3 hand-rolled view categories:
+//   - entity      → table of fields
+//   - writeHandler → header + code blocks (schema + handler)
+//   - nav         → ID/label/screen card
+// Plus optionalRequires + metric as a JSON dump fallback.
 
 import { createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";

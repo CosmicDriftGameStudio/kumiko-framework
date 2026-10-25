@@ -1,11 +1,11 @@
-// Reine Daten für den Marketing-Seed — Templates + Personen-Listen.
-// Logik und Random-Erzeugung leben in seed.ts. Trennung weil sich
-// Daten häufiger ändern als Logik (mehr Items, andere Namen) und der
-// Diff-Lärm den Seed-Algorithmus nicht überlagern soll.
+// Pure data for the marketing seed — templates + people lists.
+// Logic and random generation live in seed.ts. Split because
+// data changes more often than logic (more items, different names) and the
+// diff noise should not drown out the seed algorithm.
 //
-// Type-Felder leiten direkt aus den Schema-Konstanten ab (AssetType,
-// AssetDepartment, etc.) — Schema-Änderung an den `options` macht hier
-// sofort einen Compile-Error, kein silent drift.
+// Type fields derive directly from the schema constants (AssetType,
+// AssetDepartment, etc.) — a schema change to the `options` causes
+// an immediate compile error here, no silent drift.
 
 import type { AssetDepartment, AssetType } from "../features/assets/schema";
 import type { TicketCategory, TicketDepartment } from "../features/helpdesk/schema";
@@ -302,8 +302,8 @@ export const ASSET_TEMPLATES: ReadonlyArray<AssetTemplate> = [
   },
 ];
 
-// Erste Position leer → Math.floor(r() * length) kann „nicht ausgeliehen"
-// treffen ohne Sonderfall. Wird nur für status==="lent" konsultiert.
+// First position empty → Math.floor(r() * length) can hit "not lent"
+// without a special case. Only consulted for status==="lent".
 export const OWNERS: ReadonlyArray<string> = [
   "",
   "Alex Morgan",

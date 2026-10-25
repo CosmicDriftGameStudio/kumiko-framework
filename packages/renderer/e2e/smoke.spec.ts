@@ -1,12 +1,12 @@
-// Smoke-Test fürs renderer/e2e-Setup. Beweist drei Sachen:
+// Smoke test for the renderer/e2e setup. Proves three things:
 //
-//   1. Bundle baut ohne Fehler (Bun.build sieht alle Imports auflösen)
-//   2. createKumikoApp mountet im Browser ohne Console-Errors
-//   3. DefaultAppShell rendert Brand + NavTree + erstes Screen
+//   1. The bundle builds without errors (Bun.build sees all imports resolve)
+//   2. createKumikoApp mounts in the browser without console errors
+//   3. DefaultAppShell renders brand + NavTree + first screen
 //
-// Wenn das brennt, liegt's am Mount-Pfad — nicht an einer einzelnen
-// Komponente. Spezifischere Specs (primitives, layout) ergänzen ab
-// hier ohne dass dieser Test angefasst werden muss.
+// If this is on fire, the cause is the mount path — not a single
+// component. More specific specs (primitives, layout) add on from
+// here without this test having to be touched.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -21,13 +21,13 @@ test("renderer/e2e: bundle bootet, DefaultAppShell rendert NavTree + Edit-Form",
 
   await page.goto("/");
 
-  // Brand sitzt im Sidebar-Header — beweist dass DefaultAppShell mit
-  // dem hand-übergebenen schema rendert (kein Server-Inject).
+  // The brand sits in the sidebar header — proves that DefaultAppShell renders with
+  // the hand-passed schema (no server inject).
   await expect(page.getByText("Renderer-Web E2E")).toBeVisible();
 
-  // NavTree zeigt die navs aus dem Test-Schema. "Things" + "New Thing"
-  // sind explizit in fixtures/schema.ts deklariert; wenn das Schema
-  // nicht beim Renderer ankommt, wären die Strings nicht da.
+  // NavTree shows the navs from the test schema. "Things" + "New Thing"
+  // are declared explicitly in fixtures/schema.ts; if the schema
+  // does not reach the renderer, the strings would not be there.
   await expect(page.getByText("Things")).toBeVisible();
   await expect(page.getByText("New Thing")).toBeVisible();
 

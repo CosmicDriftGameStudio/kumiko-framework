@@ -5,9 +5,9 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { demoEntity } from "../features/demo/feature";
 
-// Gibt der List-View echte Rows mit Status-/Flag-Vielfalt. price (money)
-// bleibt leer — der Money-Input zeigt sich im Edit-Screen, im Seed lassen wir
-// ihn weg um nicht von der money-Payload-Form abzuhängen.
+// Gives the list view real rows with status/flag variety. price (money)
+// stays empty — the money input shows in the edit screen, in the seed we leave
+// it out to avoid depending on the money payload shape.
 const STATUSES = ["draft", "review", "published", "archived"] as const;
 
 // Fixed across boots (unlike the framework-minted ids for every other seed

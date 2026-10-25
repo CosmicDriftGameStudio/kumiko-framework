@@ -1,7 +1,7 @@
-// Config-Stresstest (server). Die shadcn-Referenz-Designs NICHT handgebaut,
-// sondern 1:1 aus dem Schema erzeugt — um zu sehen was die Auto-UI trägt und
-// wo sie an Grenzen stößt. Erster Fall: "Shipping Address" (flache Form,
-// 2-Felder-Reihen, Custom-Submit-Label).
+// Config stress test (server). The shadcn reference designs are NOT hand-built
+// but generated 1:1 from the schema — to see what the auto-UI supports and
+// where it hits limits. First case: "Shipping Address" (flat form,
+// 2-field rows, custom submit label).
 
 import {
   createBooleanField,
@@ -83,10 +83,10 @@ export const examplesFeature = defineFeature("examples", (r) => {
   r.translations({ keys: EXAMPLES_I18N });
   r.crud("shipping", shippingEntity, editFormOnly);
 
-  // EINE titellose Section: Card-Titel + Subtitle (aus i18n) tragen den
-  // Kontext, die Felder fließen direkt darunter. street/apt/saveAsDefault
-  // spannen beide Spalten (volle Breite), city/state + zip/country teilen
-  // sich je eine Reihe.
+  // ONE untitled section: card title + subtitle (from i18n) carry the
+  // context, the fields flow directly below. street/apt/saveAsDefault
+  // span both columns (full width), city/state + zip/country share
+  // one row each.
   r.screen({
     id: "shipping-edit",
     type: "entityEdit",

@@ -33,11 +33,11 @@ await runProdApp({
   // every bundled feature mounted. Real apps wire createPgKmsAdapter(...).
   kms: new InMemoryKmsAdapter(),
   blindIndexKey: Buffer.alloc(32, 7).toString("base64"),
-  // migrations default ("./kumiko/migrations") — Boot-mode springt vor dem
-  // Schema-Drift-Gate raus, der Pfad ist hier nur der runProdApp-Default.
-  // auth.admin triggert composeFeatures(includeBundled:true) — auto-mounts
-  // config + user + tenant + auth-email-password. Boot-mode exitiert
-  // bevor admin-Seeding läuft, der Wert ist nur ein Stub für die Typen.
+  // migrations default ("./kumiko/migrations") — boot mode exits before the
+  // schema drift gate, the path here is only the runProdApp default.
+  // auth.admin triggers composeFeatures(includeBundled:true) — auto-mounts
+  // config + user + tenant + auth-email-password. Boot mode exits
+  // before admin seeding runs, the value is only a stub for the types.
   auth: {
     admin: {
       email: "smoke@use-all-bundled.local",

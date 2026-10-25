@@ -1,7 +1,7 @@
-// Marketing-Screenshot-Szenarien.
+// Marketing screenshot scenarios.
 //
-// Jeder Case ist eine bewusste Marketing-Story — beweist eine USP
-// visuell. Neuer Eintrag = neues PNG beim nächsten `bun screenshots`.
+// Each case is a deliberate marketing story — it proves a USP
+// visually. A new entry = a new PNG on the next `bun screenshots`.
 
 import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 

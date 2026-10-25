@@ -1,7 +1,7 @@
-// Demo-Komponente für das statische `icon`-Feld eines Dashboard-stat-Panels:
-// über dieselbe extensionSectionComponents-Registry wie custom-Panels
-// aufgelöst, ignoriert aber den Entity-/Filter-Kontext (ein reines Icon hat
-// keinen Bezug dazu).
+// Demo component for the static `icon` field of a dashboard stat panel:
+// resolved via the same extensionSectionComponents registry as custom panels,
+// but ignores the entity/filter context (a plain icon has
+// no relation to it).
 
 import type { ReactNode } from "react";
 

@@ -127,9 +127,9 @@ Proves end-to-end over real `/api/write` without auth:
 ### src/__tests__/feature.integration.test.ts
 
 ```ts
-// Beweist: composeApexAccountApp() bootet (volle Account-Komposition inkl.
-// auth + user-data-rights) UND der anonyme email-verifizierte Deletion-Flow
-// läuft end-to-end durch /api/write OHNE Auth (anonymousAccess).
+// Proves: composeApexAccountApp() boots (full account composition incl.
+// auth + user-data-rights) AND the anonymous email-verified deletion flow
+// runs end to end through /api/write WITHOUT auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -238,21 +238,21 @@ describe("apex-surface-auth recipe", () => {
 ### src/feature.ts
 
 ```ts
-// apex-surface-auth Recipe — der evidente Weg für öffentlichen Apex-Content.
+// apex-surface-auth recipe — the evident way for public apex content.
 //
-// Eine Kumiko-App hat eine öffentliche Apex-Präsenz (Landing/Login) UND eine
-// schema-getriebene Admin-UI. Die Admin-UI mountet via createKumikoApp (volles
-// Schema). Die Apex mountet via createPublicSurface — schema-LOS, anonym
-// erreichbar, kein Admin-Nav/Topologie-Leak. Beide teilen Locale + Primitives.
+// A Kumiko app has a public apex presence (landing/login) AND a
+// schema-driven admin UI. The admin UI mounts via createKumikoApp (full
+// schema). The apex mounts via createPublicSurface — schema-LESS, anonymously
+// reachable, no admin nav/topology leak. Both share locale + primitives.
 //
-// Dieses Recipe zeigt:
-//   1. Server: die Feature-Komposition für die 4 Account-Flows + den anonymen,
-//      email-verifizierten Deletion-Flow (Lockout-sicher).
-//   2. Client (Kommentar unten + README): wie createPublicSurface + AuthShell
-//      die Screens in der Apex-Chrome mounten.
+// This recipe shows:
+//   1. Server: the feature composition for the 4 account flows + the anonymous,
+//      email-verified deletion flow (lockout-safe).
+//   2. Client (comment below + README): how createPublicSurface + AuthShell
+//      mount the screens in the apex chrome.
 //
-// CLIENT-WIRING (apex.tsx der App — renderer/web, hier nur als Referenz, da
-// Recipes keine Browser-Deps ziehen):
+// CLIENT-WIRING (the app's apex.tsx — renderer/web, only a reference here, since
+// recipes pull in no browser deps):
 //
 //   import {
 //     ForgotPasswordScreen, SignupScreen, createLoginRoute,
@@ -264,8 +264,8 @@ describe("apex-surface-auth recipe", () => {
 //   } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 //   import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 //
-//   // AuthShell: die Auth-Card rendert in der Marketing-Chrome statt
-//   // Fullscreen. Default (ohne Provider) bleibt der Fullscreen-Wrapper.
+//   // AuthShell: the auth card renders inside the marketing chrome instead of
+//   // fullscreen. Default (without a provider) stays the fullscreen wrapper.
 //   const shell = ({ children }) => (
 //     <MarketingChrome>
 //       <AuthShellProvider shell={(card) => <div className="py-12 flex justify-center">{card}</div>}>
@@ -274,12 +274,12 @@ describe("apex-surface-auth recipe", () => {
 //     </MarketingChrome>
 //   );
 //
-//   // createLoginRoute — NICHT LoginScreen direkt rendern: die Route
-//   // braucht die Challenge-Swap-Logik für einen zweiten Faktor. Ohne die
-//   // (z.B. raw <LoginScreen />) bleibt ein MFA-enrolter User beim Login
-//   // hängen, sobald die App irgendwann auth-mfa mountet. Mountet die App
-//   // auth-mfa, `mfaVerifyScreen: MfaVerifyScreen` (aus
-//   // "@cosmicdrift/kumiko-bundled-features/auth-mfa/web") ergänzen.
+//   // createLoginRoute — do NOT render LoginScreen directly: the route
+//   // needs the challenge-swap logic for a second factor. Without it
+//   // (e.g. a raw <LoginScreen />) an MFA-enrolled user gets stuck at login
+//   // as soon as the app mounts auth-mfa at some point. If the app mounts
+//   // auth-mfa, add `mfaVerifyScreen: MfaVerifyScreen` (from
+//   // "@cosmicdrift/kumiko-bundled-features/auth-mfa/web").
 //   const LoginRoute = createLoginRoute({ loginScreenProps: { signupHref: "/signup" } });
 //
 //   createPublicSurface({
@@ -296,8 +296,8 @@ describe("apex-surface-auth recipe", () => {
 //   });
 //
 //
-// SERVER-WIRING: die App aktiviert `anonymousAccess` (defaultTenantId = der
-// Apex-Host-Tenant), damit /api/write die anonymen Deletion-Handler erreicht:
+// SERVER-WIRING: the app enables `anonymousAccess` (defaultTenantId = the
+// apex host tenant) so /api/write reaches the anonymous deletion handlers:
 //
 //   runProdApp({ features: composeApexAccountApp({...}), envSchema,
 //                anonymousAccess: { defaultTenantId: APEX_TENANT_ID } })
@@ -318,20 +318,20 @@ import {
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ApexAccountAppOptions = {
-  /** HMAC-Secret für das Deletion-Verify-Token. */
+  /** HMAC secret for the deletion verify token. */
   readonly deletionTokenSecret: string;
-  /** Apex-Route des Confirm-Screens; der Handler hängt das Token als
-   *  URL-Fragment an (`#token=`). */
+  /** Apex route of the confirm screen; the handler appends the token as a
+   *  URL fragment (`#token=`). */
   readonly deletionVerifyUrl: string;
-  /** Versand des Verify-Magic-Links. MUSS non-blocking sein (enqueue) — ein
-   *  synchroner Send würde ein Timing-Oracle für Account-Enumeration öffnen. */
+  /** Sending the verify magic link. MUST be non-blocking (enqueue) — a
+   *  synchronous send would open a timing oracle for account enumeration. */
   readonly sendDeletionVerificationEmail: SendDeletionVerificationEmailFn;
 };
 
-// Volle Feature-Komposition für die öffentlichen Account-Flows. Die
-// user-data-rights-Options aktivieren den anonymen Deletion-Flow; die übrigen
-// Features liefern Login/Register/PW (auth-email-password) + die
-// Require-Kette (user-data-rights → data-retention + compliance-profiles +
+// Full feature composition for the public account flows. The
+// user-data-rights options enable the anonymous deletion flow; the remaining
+// features provide login/register/PW (auth-email-password) + the
+// require chain (user-data-rights → data-retention + compliance-profiles +
 // sessions).
 export function composeApexAccountApp(opts: ApexAccountAppOptions): FeatureDefinition[] {
   return [

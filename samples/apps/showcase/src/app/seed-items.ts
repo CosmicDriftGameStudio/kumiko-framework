@@ -1,20 +1,20 @@
-// Seed für die Showcase-Item-Liste — ~200 items damit der Pager 4
-// Seiten hat zum Durchklicken (pageSize: 50). Geht durch den normalen
-// Dispatcher (showcase:write:item:create) — das hängt sich an alle
-// Pipeline-Stufen (Validation, Field-Defaults, Read-Side-Update,
-// Search-Index, Audit) genau wie ein echter HTTP-Request, also bricht
-// auch nicht wenn das Schema sich ändert (softDelete, neue Felder).
+// Seed for the showcase item list — ~200 items so the pager has 4
+// pages to click through (pageSize: 50). Goes through the normal
+// dispatcher (showcase:write:item:create) — that hooks into all
+// pipeline stages (validation, field defaults, read-side update,
+// search index, audit) just like a real HTTP request, so it does not
+// break when the schema changes (softDelete, new fields).
 //
-// Idempotent: wenn schon ≥100 items existieren, skip — der Server wird
-// bei jedem Restart neu geseeded sonst.
+// Idempotent: if ≥100 items already exist, skip — otherwise the server is
+// re-seeded on every restart.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;
 
-// Determinist-Pseudo-Random damit Seeds reproduzierbar sind. Mulberry32
-// reicht für Demo-Distribution; kein Crypto, kein "echter" Zufall.
+// Deterministic pseudo-random so seeds are reproducible. Mulberry32
+// is enough for demo distribution; no crypto, no "real" randomness.
 function mulberry32(seed: number): () => number {
   let s = seed;
   return () => {
@@ -83,10 +83,10 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
     const priority = Math.min(5, Math.floor(rng() * rng() * 6) + 1);
     const dueOffsetDays = Math.floor(rng() * 90) - 30;
     const due = now.add({ hours: dueOffsetDays * 24 });
-    // Zod-Validation für type:"date" verlangt YYYY-MM-DD (siehe
-    // schema-builder buildInsertSchema). dialect.toDriver() coercd das
-    // zu start-of-day UTC bevor die DB es sieht — Caller-API bleibt
-    // wie der Author sie erwartet.
+    // Zod validation for type:"date" requires YYYY-MM-DD (see
+    // schema-builder buildInsertSchema). dialect.toDriver() coerces that
+    // to start-of-day UTC before the DB sees it — the caller API stays
+    // as the author expects it.
     const dueDate = due.toString().slice(0, 10);
 
     const res = await stack.http.write(

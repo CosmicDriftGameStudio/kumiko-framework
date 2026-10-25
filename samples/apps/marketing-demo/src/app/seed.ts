@@ -1,12 +1,12 @@
-// Seed für Marketing-Demo. Plausible Daten — Asset-Tracker mit ~30
-// realistischen Items (Laptops, Drucker, Werkzeuge), Helpdesk mit ~20
-// echten-aussehenden Tickets. Geht durch den normalen Dispatcher
-// (assets:write:asset:create, helpdesk:write:ticket:create) damit alle
-// Pipeline-Stufen (Validation, Audit, Search-Index) wie bei echten
-// Requests laufen.
+// Seed for the marketing demo. Plausible data — asset tracker with ~30
+// realistic items (laptops, printers, tools), helpdesk with ~20
+// real-looking tickets. Goes through the normal dispatcher
+// (assets:write:asset:create, helpdesk:write:ticket:create) so all
+// pipeline stages (validation, audit, search index) run as with real
+// requests.
 //
-// Daten leben in seed-data.ts (Templates + Personen-Listen). Hier bleibt
-// nur Logik: Random-Generator, Datums-Helper, der eigentliche Seed.
+// Data lives in seed-data.ts (templates + people lists). Only logic
+// stays here: random generator, date helper, the actual seed.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -23,8 +23,8 @@ import {
   TICKET_TEMPLATES,
 } from "./seed-data";
 
-// YYYY-MM-DD-Helper über Temporal.PlainDate — Date-API ist im Repo per
-// No-Date-API-Guard verboten.
+// YYYY-MM-DD helper via Temporal.PlainDate — the Date API is banned in the repo by the
+// no-Date-API guard.
 function formatPlainDate(year: number, month: number, day: number): string {
   return Temporal.PlainDate.from({ year, month, day }).toString();
 }
@@ -103,17 +103,17 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
   const existingTickets = await countTicketsForTenant(stack.db, tenantId);
   if (existingTickets < 10) {
     const r = rng(7);
-    // Anker für dueDate: 2026-05-01 — bewusst konstant, damit Screenshots
-    // reproduzierbar bleiben (auch wenn der Seed später läuft).
+    // Anchor for dueDate: 2026-05-01 — deliberately constant so screenshots
+    // stay reproducible (even if the seed runs later).
     const today = Temporal.PlainDate.from({ year: 2026, month: 5, day: 1 });
     for (const tpl of TICKET_TEMPLATES) {
       const severity = pick(TICKET_SEVERITIES, r, "medium");
       const status = pick(TICKET_STATUSES, r, "open");
       const reporter = pick(REPORTERS, r, "Anna Weber");
       const assignee = pick(ASSIGNEES, r, "");
-      // dueDate: -3 bis +14 Tage — Mix aus überfällig + bald.
+      // dueDate: -3 to +14 days — mix of overdue + soon.
       const dueDate = today.add({ days: Math.floor(r() * 18) - 3 }).toString();
-      // spentMinutes: 0 für offene, mehr für bearbeitete/gelöste.
+      // spentMinutes: 0 for open, more for in-progress/resolved.
       const spentMinutes =
         status === "open"
           ? Math.floor(r() * 15)

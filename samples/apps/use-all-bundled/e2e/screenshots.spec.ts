@@ -1,9 +1,9 @@
 // @runtime test
-// Feature-Reference-Previews: rendert pro bundled feature EINEN repräsentativen
-// Screen über Theme × Viewport in EINEM Lauf nach
-// <dir>/<name>/<locale>/<theme>/<viewport>.png (bedient den ScreenshotPreview-
-// Switcher 1:1). Locale ist en — die Docs sind englisch; der Switcher schaltet
-// nur Theme + Viewport. Der Szenario-Name = der Feature-Name in den Docs.
+// Feature reference previews: renders ONE representative screen per bundled
+// feature across theme × viewport in ONE run to
+// <dir>/<name>/<locale>/<theme>/<viewport>.png (serves the ScreenshotPreview
+// switcher 1:1). Locale is en — the docs are English; the switcher only switches
+// theme + viewport. The scenario name = the feature name in the docs.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

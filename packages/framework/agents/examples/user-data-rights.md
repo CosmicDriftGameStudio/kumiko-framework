@@ -134,15 +134,15 @@ export const features = [
 ### src/__tests__/feature.integration.test.ts
 
 ```ts
-// User-Data-Rights Recipe — Integration-Test.
+// User-data-rights recipe — integration test.
 //
-// Pinst dass die zwei Hooks aus feature.ts genau das tun was die Recipe-
-// README verspricht:
-//   1. Notes des Users landen via export-Hook im Bundle-Snippet.
-//   2. Forget-Cleanup-Cron entfernt die Notes via delete-Hook (strategy
+// Pins that the two hooks from feature.ts do exactly what the recipe
+// README promises:
+//   1. The user's notes land in the bundle snippet via the export hook.
+//   2. The forget-cleanup cron removes the notes via the delete hook (strategy
 //      "delete", default).
-//   3. Strategy "anonymize" (HR-Override) setzt authorId=null statt zu
-//      löschen — Row bleibt für Multi-User-Refs intakt.
+//   3. Strategy "anonymize" (HR override) sets authorId=null instead of
+//      deleting — the row stays intact for multi-user refs.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -436,23 +436,23 @@ describe("user-data-rights recipe :: retention run removes a hardDelete entity's
 ### src/feature.ts
 
 ```ts
-// User-Data-Rights — Recipe
+// User-Data-Rights — recipe
 //
-// Wie eine App-Domain DSGVO-Pipeline integriert: pro Entity einen
-// (export, delete)-Hook ueber EXT_USER_DATA. Forget-Cron, Export-ZIP-Bau
-// und Magic-Link-Versand kommen vollstaendig aus user-data-rights —
-// App-Author schreibt nur die zwei Hooks pro Entity.
+// How an app domain integrates the GDPR pipeline: one
+// (export, delete) hook per entity via EXT_USER_DATA. Forget cron, export ZIP build
+// and magic link delivery come entirely from user-data-rights —
+// the app author writes only the two hooks per entity.
 //
-// Demo-Domain: minimaler Note-Service. Note hat (id, tenantId, authorId,
-// title, body). Pinst:
-//   1. Hook export liefert Note-Rows als JSON-Snippet ins Export-Bundle.
-//   2. Hook delete entfernt Note-Rows beim Forget-Cleanup-Cron.
+// Demo domain: minimal note service. A note has (id, tenantId, authorId,
+// title, body). Pins:
+//   1. The export hook delivers note rows as a JSON snippet into the export bundle.
+//   2. The delete hook removes note rows during the forget-cleanup cron.
 //
-// Was nicht im Recipe ist (siehe samples/apps/user-data-rights-demo
-// fuer eine vollstaendige App):
+// What is not in the recipe (see samples/apps/user-data-rights-demo
+// for a complete app):
 //   - Strategy-aware delete (anonymize vs hardDelete)
-//   - HTTP-Endpoints fuer create/list
-//   - Compliance-Profile-Wiring + Cron-Scheduling
+//   - HTTP endpoints for create/list
+//   - Compliance profile wiring + cron scheduling
 
 import {
   deleteMany,

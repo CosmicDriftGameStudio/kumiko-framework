@@ -1,8 +1,8 @@
-// End-to-End-Beweis für die EINE Nav (Visual-Tree-Merge): der statische
-// `Content`-Knoten zieht seine Children aus einem nav-provider, das „+"
-// öffnet die Create-Maske im EditorPanel, und nach dem Anlegen erscheint
-// die neue Seite LIVE im Sidebar-Tree (SSE über treeEntities ["page"]) —
-// ohne Reload. Genau der „Content + → pricing"-Flow.
+// End-to-end proof for the ONE nav (visual-tree merge): the static
+// `Content` node pulls its children from a nav provider, the "+"
+// opens the create form in the EditorPanel, and after creating, the
+// new page appears LIVE in the sidebar tree (SSE via treeEntities ["page"]) —
+// without a reload. Exactly the "Content + → pricing" flow.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -27,7 +27,7 @@ test("Content +: create a new page → appears live in the Nav-Tree", async ({ p
   // dass die Seite neu geladen wurde.
   await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
 
-  // Sicht-Beleg (nicht committed): Sidebar mit Content + neu angelegter Seite.
+  // Visual proof (not committed): sidebar with Content + newly created page.
   if (process.env["SCREENSHOT"] === "1") {
     // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/content-nav-demo.png" });

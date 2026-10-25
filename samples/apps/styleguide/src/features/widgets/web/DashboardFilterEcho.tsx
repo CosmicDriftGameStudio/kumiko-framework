@@ -1,6 +1,6 @@
-// Demo-Komponente für den `custom`-Dashboard-Panel-Typ: zeigt, dass eine
-// eingehängte App-Komponente ihre Daten selbst holt und den aktuell
-// gewählten Screen-Filter-Wert über `filterParams` sieht (siehe
+// Demo component for the `custom` dashboard panel type: shows that an
+// attached app component fetches its data itself and sees the currently
+// selected screen filter value via `filterParams` (see
 // DashboardFilterDefinition in feature.ts).
 
 import { type ExtensionSectionProps, useTranslation } from "@cosmicdrift/kumiko-renderer";

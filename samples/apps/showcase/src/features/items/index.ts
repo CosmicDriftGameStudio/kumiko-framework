@@ -1,6 +1,6 @@
-// Public-Surface des Items-Features. Server importiert `itemsFeature`,
-// Web-Client importiert `itemsClient`. schema/ ist intern, wird nicht
-// re-exported — nur feature.ts und web/index.ts dürfen darauf zugreifen.
+// Public surface of the items feature. The server imports `itemsFeature`,
+// the web client imports `itemsClient`. schema/ is internal, not
+// re-exported — only feature.ts and web/index.ts may access it.
 
 export { itemsFeature } from "./feature";
 export { itemsClient } from "./web";
