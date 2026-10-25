@@ -8,9 +8,9 @@ import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigResolver, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { createFileProviderForTenant } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { createConfigAccessor } from "../../config/index.ts";
-import { createFileProviderForTenant } from "../../file-foundation/index.ts";
+import { createConfigAccessor } from "../config/index.ts";
 
 export interface TenantStorageResolverCtx {
   readonly registry: Registry;

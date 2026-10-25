@@ -45,6 +45,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { MAIL_FOUNDATION_I18N } from "./i18n.ts";
+import { registerMailProbe } from "./probe.ts";
 
 const FEATURE_NAME = "mail-foundation";
 
@@ -173,6 +174,7 @@ export function createMailFoundationFeature() {
       r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
 
       r.translations({ keys: MAIL_FOUNDATION_I18N });
+      registerMailProbe(r);
 
       return {
         /** Config-key-handle for the provider-selector. */

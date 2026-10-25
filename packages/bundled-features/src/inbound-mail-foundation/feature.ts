@@ -80,6 +80,7 @@ import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
 import { listMessagesQuery } from "./handlers/list-messages.query.ts";
 import { updateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
+import { registerMailboxProbe } from "./probe.ts";
 import {
   applyInboundMessageReceived,
   applyMailAccountConnected,
@@ -203,6 +204,7 @@ export function createInboundMailFoundationFeature() {
       r.screen(mailAccountListScreen);
       r.screen(mailAccountEditScreen);
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
+      registerMailboxProbe(r);
 
       // Entity-specific GDPR destroy hooks — the gdpr-storage boot validator
       // checks the EXT_TENANT_DATA registration for each tenant-subject entity.
