@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 export const BUILD_AND_VENDOR_DIR_NAMES: readonly string[] = [
   "node_modules",
@@ -68,15 +69,26 @@ export function envWithoutGitRepositoryOverrides(): Record<string, string> {
 // a codemod must not rewrite them.
 function withoutGitIgnored(cwd: string, files: readonly string[]): readonly string[] {
   if (files.length === 0) return files;
-  const result = Bun.spawnSync({
-    cmd: ["git", "check-ignore", "--stdin", "-z"],
-    cwd,
-    env: envWithoutGitRepositoryOverrides(),
-    stdin: Buffer.from(`${files.join("\0")}\0`),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (result.exitCode !== GIT_CHECK_IGNORE_SOME_IGNORED) return files;
+  const result = runGitCheckIgnore(cwd, files);
+  if (result === undefined || result.exitCode !== GIT_CHECK_IGNORE_SOME_IGNORED) return files;
   const ignored = new Set(result.stdout.toString().split("\0"));
   return files.filter((file) => !ignored.has(file));
+}
+
+function runGitCheckIgnore(cwd: string, files: readonly string[]) {
+  try {
+    return Bun.spawnSync({
+      cmd: ["git", "check-ignore", "--stdin", "-z"],
+      cwd,
+      env: envWithoutGitRepositoryOverrides(),
+      stdin: Buffer.from(`${files.join("\0")}\0`),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  } catch (error) {
+    // Build images such as the customer-app builder ship without git; like outside a repository,
+    // there is no .gitignore to honour then.
+    if (errorCodeOf(error) === "ENOENT") return undefined;
+    throw error;
+  }
 }

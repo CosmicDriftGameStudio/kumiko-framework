@@ -67,6 +67,30 @@ describe("collectSourceFiles", () => {
     );
   });
 
+  it("collects unfiltered files when git is not installed", () => {
+    withTree(
+      (root) => {
+        mkdirSync(join(root, "empty-bin"));
+        writeFileSync(join(root, ".gitignore"), "generated/\n");
+        mkdirSync(join(root, "generated"));
+        writeFileSync(join(root, "generated", "client.ts"), "export {};\n");
+        writeFileSync(join(root, "a.ts"), "export {};\n");
+      },
+      (root) => {
+        const originalPath = process.env["PATH"];
+        process.env["PATH"] = join(root, "empty-bin");
+        try {
+          expect(collectSourceFiles([root], { isMigratableFile: isTsFile }).sort()).toEqual([
+            join(root, "a.ts"),
+            join(root, "generated", "client.ts"),
+          ]);
+        } finally {
+          process.env["PATH"] = originalPath;
+        }
+      },
+    );
+  });
+
   it("honours extra skipped directory names", () => {
     withTree(
       (root) => {
