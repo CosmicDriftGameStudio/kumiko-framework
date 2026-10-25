@@ -52,7 +52,12 @@ describe("use-all-bundled boot", () => {
       authOptions: AUTH_COMPOSE_OPTIONS,
     });
     // The sample's own label features ship no Spanish copy; every framework-owned feature must.
-    const sampleOwned = ["personal-access-tokens", "cap-overview-labels", "collection-labels"];
+    const sampleOwned = [
+      "personal-access-tokens",
+      "cap-overview-labels",
+      "collection-labels",
+      "admin-nav",
+    ];
     let message = "";
     try {
       validateBoot(withEs, { requiredLocales: ["es", "en", "de"] });

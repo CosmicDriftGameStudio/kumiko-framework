@@ -98,11 +98,11 @@ describe("readiness run-probes with injected clock", () => {
     await start(systemAdmin);
     await stack.drainJobs();
     const { rows } = await stack.http.queryOk<{
-      rows: { probe: string; status: string; message: { key: string } }[];
+      rows: { probe: string; status: string; message: { i18nKey: string } }[];
     }>(ReadinessQueries.latestResults, {}, systemAdmin);
 
     const cache = rows.find((row) => row.probe === "readiness:probe:cache");
     expect(cache?.status).toBe("skipped");
-    expect(cache?.message.key).toBe(ProbeTextKeys.notConfigured);
+    expect(cache?.message.i18nKey).toBe(ProbeTextKeys.notConfigured);
   });
 });

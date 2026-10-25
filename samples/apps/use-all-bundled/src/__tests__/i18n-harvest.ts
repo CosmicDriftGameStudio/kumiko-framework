@@ -27,6 +27,7 @@ function bundledFeaturesPackageJson(): { readonly exports: Readonly<Record<strin
 const SAMPLE_OWNED_FEATURES: ReadonlySet<string> = new Set([
   "cap-overview-labels",
   "collection-labels",
+  "admin-nav",
   "locale-de",
 ]);
 

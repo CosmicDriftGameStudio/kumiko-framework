@@ -33,8 +33,8 @@ type Row = {
   probe: string;
   status: string;
   targetId?: string;
-  label: { key: string; params?: { name: string } };
-  message: { key: string };
+  label: { i18nKey: string; i18nParams?: { name: string } };
+  message: { i18nKey: string };
 };
 
 let stack: TestStack;
@@ -110,9 +110,9 @@ describe("mailbox probe", () => {
 
     const rows = await mailboxRows(starter);
 
-    expect(rows.map((row) => row.label.params?.name).sort()).toEqual(["Mine", "Team"]);
+    expect(rows.map((row) => row.label.i18nParams?.name).sort()).toEqual(["Mine", "Team"]);
     expect(
-      rows.every((row) => row.status === "ok" && row.message.key === PROBE_KEYS.reachable),
+      rows.every((row) => row.status === "ok" && row.message.i18nKey === PROBE_KEYS.reachable),
     ).toBe(true);
     expect(JSON.stringify(rows)).not.toContain("secret-mailbox.example");
   });
@@ -127,7 +127,7 @@ describe("mailbox probe", () => {
 
     const broken = rows.find((row) => row.targetId === brokenId);
     expect(broken?.status).toBe("failed");
-    expect(broken?.message.key).toBe(PROBE_KEYS.authFailed);
+    expect(broken?.message.i18nKey).toBe(PROBE_KEYS.authFailed);
     expect(rows.filter((row) => row.status === "ok")).toHaveLength(1);
     expect(JSON.stringify(rows)).not.toContain("bad password");
   });

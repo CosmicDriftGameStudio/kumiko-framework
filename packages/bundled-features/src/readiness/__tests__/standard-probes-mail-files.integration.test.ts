@@ -50,7 +50,12 @@ const failingFiles = defineFeature("probe-failing-files", (r) => {
   });
 });
 
-type Row = { probe: string; status: string; message: { key: string }; label: { key: string } };
+type Row = {
+  probe: string;
+  status: string;
+  message: { i18nKey: string };
+  label: { i18nKey: string };
+};
 
 let stack: TestStack;
 let nextTenant = 900;
@@ -128,7 +133,7 @@ describe("mail probe", () => {
     const row = find(await resultsOf(admin), MAIL_PROBE);
 
     expect(row?.status).toBe("failed");
-    expect(row?.message.key).toBe(ProbeTextKeys.failed);
+    expect(row?.message.i18nKey).toBe(ProbeTextKeys.failed);
   });
 
   test("a tenant without its own provider is skipped as not configured", async () => {
@@ -137,7 +142,7 @@ describe("mail probe", () => {
     const row = find(await resultsOf(admin), MAIL_PROBE);
 
     expect(row?.status).toBe("skipped");
-    expect(row?.message.key).toBe("mail-foundation.probe.not-configured");
+    expect(row?.message.i18nKey).toBe("mail-foundation.probe.not-configured");
   });
 
   test("a starter without a known address is skipped", async () => {
@@ -147,7 +152,7 @@ describe("mail probe", () => {
     const row = find(await resultsOf(admin), MAIL_PROBE);
 
     expect(row?.status).toBe("skipped");
-    expect(row?.message.key).toBe("mail-foundation.probe.no-recipient");
+    expect(row?.message.i18nKey).toBe("mail-foundation.probe.no-recipient");
   });
 });
 
@@ -180,7 +185,7 @@ describe("storage probe", () => {
     const row = find(await resultsOf(admin), FILES_PROBE);
 
     expect(row?.status).toBe("failed");
-    expect(row?.message.key).toBe(ProbeTextKeys.failed);
+    expect(row?.message.i18nKey).toBe(ProbeTextKeys.failed);
   });
 
   test("a tenant without a provider is skipped as not configured", async () => {
@@ -189,6 +194,6 @@ describe("storage probe", () => {
     const row = find(await resultsOf(admin), FILES_PROBE);
 
     expect(row?.status).toBe("skipped");
-    expect(row?.message.key).toBe("file-foundation.probe.not-configured");
+    expect(row?.message.i18nKey).toBe("file-foundation.probe.not-configured");
   });
 });
