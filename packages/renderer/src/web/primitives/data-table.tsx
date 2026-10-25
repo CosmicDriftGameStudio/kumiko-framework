@@ -46,8 +46,11 @@ export function DefaultDataTable(props: DataTableProps): ReactNode {
   // compete with the topbar.
   return (
     <div className={wrapperClassName(model)}>
+      {/* An embedded table sits under its section title, so the description reads first
+          there; a full-height list keeps it below the toolbar it pads against. */}
+      {!model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
       {hasToolbar && renderToolbar(model, facetCluster)}
-      {renderToolbarDescription(model, hasToolbar)}
+      {model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
       {renderTableContent(model)}
     </div>
   );
