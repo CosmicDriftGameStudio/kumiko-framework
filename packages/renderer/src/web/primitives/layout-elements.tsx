@@ -47,7 +47,7 @@ export function DefaultSection({
   const TitleTag = insideScreenForm ? "h2" : "h3";
   const titleBlock =
     title !== undefined || subtitle !== undefined ? (
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-48 flex-1 flex-col gap-1">
         {title !== undefined && (
           <TitleTag
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
@@ -72,7 +72,7 @@ export function DefaultSection({
     ) : null;
   const header =
     titleBlock !== null || actions !== undefined ? (
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         {titleBlock}
         {actions !== undefined && (
           <div

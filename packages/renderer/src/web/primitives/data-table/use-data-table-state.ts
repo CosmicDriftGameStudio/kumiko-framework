@@ -1,4 +1,5 @@
 import { type Dispatch, type SetStateAction, useId, useState } from "react";
+import { useIsEmbeddedScreen } from "../../../context/embedded-screen-context.tsx";
 import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
 import { useIsNarrowViewport } from "../use-narrow-viewport.ts";
@@ -35,6 +36,7 @@ export type DataTableModel = Omit<DataTableProps, "columns"> & {
   readonly rowTestId: (row: ListRowViewModel) => string;
   readonly expansion: RowExpansion | undefined;
   readonly fillsHeight: boolean;
+  readonly insideEmbeddedScreen: boolean;
   readonly selection: ReturnType<typeof useBulkSelection>;
   readonly headerRowRef: ReturnType<typeof useMeasuredColumnWidths>["headerRowRef"];
   readonly pins: ColumnPins<ListColumnViewModel>;
@@ -113,6 +115,7 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
   const expansion = resolveRowExpansion(props);
   const isRowExpandable = expansion !== undefined;
   const fillsHeight = scrollBody === true;
+  const insideEmbeddedScreen = useIsEmbeddedScreen();
   const selection = useBulkSelection({
     bulk,
     rows,
@@ -171,6 +174,7 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
     rowTestId,
     expansion,
     fillsHeight,
+    insideEmbeddedScreen,
     selection,
     headerRowRef,
     pins,

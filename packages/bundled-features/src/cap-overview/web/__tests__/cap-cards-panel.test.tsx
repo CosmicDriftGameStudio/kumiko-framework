@@ -319,6 +319,7 @@ describe("CapCardsPanel", () => {
     const link = screen.getByTestId("cap-cards-view-all");
     expect(link.getAttribute("href")).toBe("/my-caps");
     expect(link.textContent).toBe("View all usage");
+    expect(link.className).toContain("text-primary");
     fireEvent.click(link);
     expect(navigateSpy).toHaveBeenCalledWith({ screenId: "my-caps" });
   });
