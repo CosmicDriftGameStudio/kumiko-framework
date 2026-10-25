@@ -14,7 +14,7 @@ export type TitleModel = {
   readonly formSubtitle: string | undefined;
   readonly titleInSettingsHeader: boolean;
   readonly usesFieldFlow: boolean;
-  readonly recordTitleInHeaderRegion: boolean;
+  readonly titleInHeaderRegion: boolean;
   readonly stepRail: boolean;
   readonly upNextSection: EditSectionViewModel | undefined;
   readonly sectionNavItems: readonly FormSectionNavItem[];
@@ -150,13 +150,10 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
     // floating as a heading above the band.
     titleInSettingsHeader: footer.isSettingsList && !layout.titleInShell,
     usesFieldFlow: layout.isScreenForm || state.insideDrawer,
-    // The caller's headerRegion already shows the record title in the shell page
-    // header, so the type title ("Release") above the form would repeat it.
-    recordTitleInHeaderRegion:
-      headerRegion !== undefined &&
-      recordTitle !== undefined &&
-      PageHeader !== undefined &&
-      state.pageHeaderSlotAvailable,
+    // The caller's headerRegion fills the shell page header with the record title
+    // or, without one, the screen title, so a form title above the sections repeats it.
+    titleInHeaderRegion:
+      headerRegion !== undefined && PageHeader !== undefined && state.pageHeaderSlotAvailable,
     stepRail: state.isWizard && layout.isScreenForm && StepBar !== undefined,
     upNextSection:
       screen.layout.wizard?.aside?.upNext === true ? filteredSections[currentStep + 1] : undefined,

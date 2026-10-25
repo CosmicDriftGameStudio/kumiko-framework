@@ -91,7 +91,7 @@ describe("RenderEdit — title block next to a headerRegion", () => {
     expect(renderFormProps(screenWith("name"))[0]?.title).toBeUndefined();
   });
 
-  test("without recordTitleField the form title stays", () => {
-    expect(renderFormProps(screenWith(undefined))[0]?.title).toBe("widget-edit");
+  test("without recordTitleField the shell header shows the screen title, so the form title is dropped too", () => {
+    expect(renderFormProps(screenWith(undefined))[0]?.title).toBeUndefined();
   });
 });
