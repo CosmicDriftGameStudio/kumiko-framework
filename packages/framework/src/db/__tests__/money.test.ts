@@ -42,17 +42,17 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
     expect(flat).toEqual({ buyingPrice: 5679916, buyingPriceCurrency: "EUR" });
   });
 
-  test("primitive number (legacy) wird akzeptiert + entity.defaultCurrency angehängt", () => {
+  test("primitive number (legacy) is accepted and entity.defaultCurrency is appended", () => {
     const flat = flattenMoney({ buyingPrice: 450 }, orderEntity);
     expect(flat).toEqual({ buyingPrice: 45000, buyingPriceCurrency: "EUR" });
   });
 
-  test("primitive number nutzt USD wenn entity.defaultCurrency = USD", () => {
+  test("primitive number uses USD when entity.defaultCurrency = USD", () => {
     const flat = flattenMoney({ fee: 1.99 }, usdEntity);
     expect(flat).toEqual({ fee: 199, feeCurrency: "USD" });
   });
 
-  test("expliziter <name>Currency im Payload überschreibt nicht", () => {
+  test("explicit <name>Currency in the payload is not overwritten", () => {
     const flat = flattenMoney({ buyingPrice: 450, buyingPriceCurrency: "USD" }, orderEntity);
     // If already set, do not overwrite it—the caller's explicit value wins.
     expect(flat["buyingPriceCurrency"]).toBe("USD");
@@ -74,7 +74,7 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
     });
   });
 
-  test("andere Felder bleiben unverändert", () => {
+  test("other fields remain unchanged", () => {
     const flat = flattenMoney(
       { label: "Premium", buyingPrice: { amount: 1, currency: "EUR" } },
       orderEntity,
@@ -82,13 +82,13 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
     expect(flat["label"]).toBe("Premium");
   });
 
-  test("null/undefined money-Field wird ignoriert (kein crash)", () => {
+  test("null/undefined money field is ignored (no crash)", () => {
     const flat = flattenMoney({ buyingPrice: undefined, sellingPrice: null }, orderEntity);
     expect(flat["buyingPrice"]).toBeUndefined();
     expect(flat["sellingPrice"]).toBeNull();
   });
 
-  test("Framework-Default 'EUR' wenn entity.defaultCurrency nicht gesetzt", () => {
+  test("Framework default 'EUR' when entity.defaultCurrency is not set", () => {
     const noCurrencyEntity: EntityDefinition = createEntity({
       fields: { fee: createMoneyField() },
     });
@@ -96,7 +96,7 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
     expect(flat["feeCurrency"]).toBe("EUR");
   });
 
-  test("ist pure — input wird nicht mutiert", () => {
+  test("is pure — input is not mutated", () => {
     const input = { buyingPrice: { amount: 450, currency: "EUR" } };
     const before = JSON.stringify(input);
     flattenMoney(input, orderEntity);
@@ -119,7 +119,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     expect(out.amountMinor).toBe(out.amountScaled);
   });
 
-  test("PG-BIGINT als String wird zu number gecastet", () => {
+  test("PG-BIGINT as a string is cast to number", () => {
     // The Postgres driver sometimes returns BIGINT as a string (safe for values >2^53).
     const out = rehydrateMoney({ buyingPrice: "45000", buyingPriceCurrency: "EUR" }, orderEntity);
     expect(out["buyingPrice"]).toEqual({
@@ -130,7 +130,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     });
   });
 
-  test("fehlende Currency-Spalte fällt auf entity.defaultCurrency", () => {
+  test("missing Currency column falls back to entity.defaultCurrency", () => {
     const out = rehydrateMoney({ buyingPrice: 45000 }, orderEntity);
     expect(out["buyingPrice"]).toEqual({
       amount: 450,
@@ -140,7 +140,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     });
   });
 
-  test("amountScaled bleibt exakter Integer über mehrere Additionen (fw#1830)", () => {
+  test("amountScaled remains an exact integer over multiple additions", () => {
     const rows = [10, 20, 30].map(
       (minor) =>
         rehydrateMoney({ buyingPrice: minor, buyingPriceCurrency: "EUR" }, orderEntity)[
@@ -152,7 +152,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     expect(a!.amountScaled + b!.amountScaled).toBe(c!.amountScaled);
   });
 
-  test("null/undefined amount → Field wird aus Output entfernt", () => {
+  test("null/undefined amount → field is removed from output", () => {
     const out = rehydrateMoney({ buyingPrice: null, buyingPriceCurrency: "EUR" }, orderEntity);
     expect(out["buyingPrice"]).toBeUndefined();
   });
@@ -173,7 +173,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     });
   });
 
-  test("Round-Trip: flatten dann rehydrate ergibt dasselbe amount/currency, plus amountScaled", () => {
+  test("Round-Trip: flatten then rehydrate yields the same amount/currency, plus amountScaled", () => {
     const original = {
       buyingPrice: { amount: 450.5, currency: "EUR" },
       sellingPrice: { amount: 56799.16, currency: "USD" },
@@ -202,26 +202,26 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
     });
   });
 
-  test("ist pure — input wird nicht mutiert", () => {
+  test("is pure — input is not mutated", () => {
     const input = { buyingPrice: 45000, buyingPriceCurrency: "EUR" };
     const before = JSON.stringify(input);
     rehydrateMoney(input, orderEntity);
     expect(JSON.stringify(input)).toBe(before);
   });
 
-  test("korrupte string-amount (kein number) → loud throw, kein silent drop", () => {
+  test("corrupt string amount (not a number) → loud throw, no silent drop", () => {
     expect(() =>
       rehydrateMoney({ buyingPrice: "not-a-number", buyingPriceCurrency: "EUR" }, orderEntity),
     ).toThrow(/not a safe integer — DB corruption/);
   });
 
-  test("fractional string amount (fw#1833) → loud throw statt amountScaled mit Nachkommastelle", () => {
+  test("fractional string amount → loud throw instead of amountScaled with a fractional part", () => {
     expect(() =>
       rehydrateMoney({ buyingPrice: "45000.7", buyingPriceCurrency: "EUR" }, orderEntity),
     ).toThrow(/not a safe integer — DB corruption/);
   });
 
-  test("string amount jenseits von Number.MAX_SAFE_INTEGER → loud throw statt Präzisionsverlust", () => {
+  test("string amount beyond Number.MAX_SAFE_INTEGER → loud throw instead of precision loss", () => {
     expect(() =>
       rehydrateMoney({ buyingPrice: "9007199254740993", buyingPriceCurrency: "EUR" }, orderEntity),
     ).toThrow(/not a safe integer — DB corruption/);
@@ -235,7 +235,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
 });
 
 describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => {
-  test("Update-Changes-Payload mit money geht durch flatten + zurück durch rehydrate", () => {
+  test("Update changes payload with money passes through flatten + back through rehydrate", () => {
     // Simulates the executor's flow: changes → flatten → DB → rehydrate
     const changes = { buyingPrice: { amount: 990, currency: "USD" } };
     const flat = flattenMoney(changes, orderEntity);
@@ -264,7 +264,7 @@ describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => 
 });
 
 describe("flattenMoney — Strict-Mode Throw", () => {
-  test("string als Wert (statt number/object) → loud throw", () => {
+  test("string as a value (instead of number/object) → loud throw", () => {
     expect(() => flattenMoney({ buyingPrice: "100" }, orderEntity)).toThrow(
       /expects \{ amount, currency \} object or number/,
     );

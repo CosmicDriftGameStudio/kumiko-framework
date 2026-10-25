@@ -17,8 +17,8 @@ import { createMockDispatcher, render } from "./test-utils.tsx";
 
 const { Field } = defaultPrimitives;
 
-describe("DefaultField hideLabel (fw#1870)", () => {
-  test("hideLabel kollabiert das Label visuell zu sr-only", () => {
+describe("DefaultField hideLabel", () => {
+  test("hideLabel visually collapses the label to sr-only", () => {
     const view = render(
       <Field id="f1" label="Maps to" hideLabel testId="field">
         <input id="f1" />
@@ -27,7 +27,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
     expect(view.getByText("Maps to").closest("label")?.className).toContain("sr-only");
   });
 
-  test("Label bleibt per htmlFor mit dem Control verknüpft, auch versteckt", () => {
+  test("Label remains linked to the control via htmlFor, even when hidden", () => {
     const view = render(
       <Field id="f1" label="Maps to" hideLabel testId="field">
         <input id="f1" />
@@ -36,7 +36,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
     expect(view.getByLabelText("Maps to")).toBeTruthy();
   });
 
-  test("ohne hideLabel bleibt das Label sichtbar (kein sr-only)", () => {
+  test("without hideLabel, the label remains visible (not sr-only)", () => {
     const view = render(
       <Field id="f1" label="Maps to" testId="field">
         <input id="f1" />
@@ -45,7 +45,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
     expect(view.getByText("Maps to").closest("label")?.className).not.toContain("sr-only");
   });
 
-  test("hideLabel wirkt auch bei layout=inline (BooleanField-Pfad)", () => {
+  test("hideLabel also works with layout=inline (BooleanField path)", () => {
     const view = render(
       <Field id="f1" label="Maps to" layout="inline" hideLabel testId="field">
         <input id="f1" type="checkbox" />
@@ -172,7 +172,7 @@ const FIELD_WIDGETS: ReadonlyArray<readonly [string, ReactElement]> = [
   ],
 ];
 
-describe("form-fields.tsx hideLabel pass-through (fw#1870/#1871)", () => {
+describe("form-fields.tsx hideLabel pass-through", () => {
   test.each(FIELD_WIDGETS)(
     "%s collapses its label to sr-only and keeps it htmlFor-linked",
     (_name, element) => {
@@ -185,7 +185,7 @@ describe("form-fields.tsx hideLabel pass-through (fw#1870/#1871)", () => {
 
 // AiTextField builds its own <Field> instead of going through form-fields.tsx
 // — a separate widget, so it needs its own pass-through check.
-describe("AiTextField hideLabel pass-through (fw#1871#1)", () => {
+describe("AiTextField hideLabel pass-through", () => {
   test("collapses its label to sr-only and keeps it htmlFor-linked", () => {
     const dispatcher = createMockDispatcher({});
     const view = render(

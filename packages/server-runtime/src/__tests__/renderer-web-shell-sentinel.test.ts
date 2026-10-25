@@ -13,8 +13,8 @@ const fallback = {
 };
 const appOwned = { path: "/app/src/styles.css", isRendererWebFallback: false };
 
-describe("assertRendererWebShellPresent (#359 CSS-completeness guard)", () => {
-  test("fallback + fehlende Shell-Sentinel-Klasse → wirft mit src/styles.css-Hinweis", () => {
+describe("assertRendererWebShellPresent", () => {
+  test("fallback + missing Shell sentinel class → throws with src/styles.css hint", () => {
     expect(() => assertRendererWebShellPresent(".some-other{display:flex}", fallback)).toThrow(
       /min-h-screen/,
     );
@@ -23,13 +23,13 @@ describe("assertRendererWebShellPresent (#359 CSS-completeness guard)", () => {
     );
   });
 
-  test("fallback + Shell-Sentinel vorhanden → kein Throw", () => {
+  test("fallback + Shell sentinel present → does not throw", () => {
     expect(() =>
       assertRendererWebShellPresent(".min-h-screen{min-height:100vh}", fallback),
     ).not.toThrow();
   });
 
-  test("app-eigenes styles.css (kein Fallback) → nie asserten, auch ohne Sentinel", () => {
+  test("app-owned styles.css (no fallback) → never asserts, even without sentinel", () => {
     expect(() => assertRendererWebShellPresent("", appOwned)).not.toThrow();
   });
 });

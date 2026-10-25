@@ -41,7 +41,7 @@ export const crud = createEventStoreExecutor(fooTable, fooEntity, { entityName: 
 `;
 
 describe("collectEsTables", () => {
-  test("findet fooTable als ES-Tabelle ueber den createEventStoreExecutor-Call", () => {
+  test("finds fooTable as an ES table via the createEventStoreExecutor call", () => {
     const project = makeProject({ "/repo/foo.ts": SINGLE_FILE_PRELUDE });
     const tables = collectEsTables(project.getSourceFiles());
     expect(tables.size).toBe(1);
@@ -50,7 +50,7 @@ describe("collectEsTables", () => {
     expect(ids[0]).toContain("fooTable");
   });
 
-  test("ignoriert Calls die nicht createEventStoreExecutor sind", () => {
+  test("ignores calls that are not createEventStoreExecutor", () => {
     const project = makeProject({
       "/repo/foo.ts": `
         declare const t: unknown;
@@ -77,7 +77,7 @@ export const fooTable = buildEntityTable("foo_tbl", fooEntity);
 `;
 
 describe("collectEntityProjectionTables", () => {
-  test("verlinkt r.entity → buildEntityTable über das geteilte entity-Symbol (nicht den Namen)", () => {
+  test("links r.entity → buildEntityTable via the shared entity symbol (not the name)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
@@ -101,7 +101,7 @@ describe("collectEntityProjectionTables", () => {
     expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(1);
   });
 
-  test("r.unmanagedTable(deriveEntityTableMeta(...)) wird NICHT gesammelt — das ist der #498-Fix-Pfad", () => {
+  test("r.unmanagedTable(deriveEntityTableMeta(...)) is NOT collected — this is the fix path", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         declare function deriveEntityTableMeta(name: string, e: unknown): unknown;
@@ -164,7 +164,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     expect(hits[0]?.receiver).toBe("ctx.db");
   });
 
-  test("BLOCK: updateMany(ctx.db, fooTable, ...) auf eine r.entity-Table (#498-sessions-Form)", () => {
+  test("BLOCK: updateMany(ctx.db, fooTable, ...) on an r.entity table", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
@@ -285,7 +285,7 @@ describe("scanDirectWrites :: files and arguments that name no ES table", () => 
 });
 
 describe("scanDirectWrites :: tx-Receiver context-aware", () => {
-  test("ALLOW: tx.insert(fooTable) innerhalb r.projection({apply: ...}) als direct value", () => {
+  test("ALLOW: tx.insert(fooTable) inside r.projection({apply: ...}) as a direct value", () => {
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         function setup(r: { projection: (def: unknown) => void }) {
@@ -303,7 +303,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     expect(hits).toHaveLength(0);
   });
 
-  test("ALLOW: tx.insert(fooTable) innerhalb r.projection({apply: { [EVENT]: ... }}) als nested map", () => {
+  test("ALLOW: tx.insert(fooTable) inside r.projection({apply: { [EVENT]: ... }}) as a nested map", () => {
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         function setup(r: { projection: (def: unknown) => void }) {
@@ -337,7 +337,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     expect(hits).toHaveLength(0);
   });
 
-  test("BLOCK: tx.update(fooTable) innerhalb db.transaction(...) — Sub-Tx, kein apply", () => {
+  test("BLOCK: tx.update(fooTable) inside db.transaction(...) — sub-tx, not apply", () => {
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         async function bad(db: { transaction: (fn: (tx: { update: (t: unknown) => { set: (v: unknown) => Promise<void> } }) => Promise<void>) => Promise<void> }) {
@@ -368,7 +368,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     expect(hits[0]?.kind).toBe("tx-outside-apply");
   });
 
-  test("BLOCK: nested arrow innerhalb apply-projection — innerer Sub-Tx-Receiver ist nicht in TX_RECEIVER_NAMES", () => {
+  test("BLOCK: nested arrow inside apply-projection — inner sub-tx receiver is not in TX_RECEIVER_NAMES", () => {
     // Edge case: arrow inside apply, but the inner receiver is named
     // `innerTx` (not in TX_RECEIVER_NAMES) → falls under the non-tx-receiver
     // block. Pins that only the exact tx/trx/handle names trigger the apply
@@ -435,8 +435,8 @@ describe("scanDirectWrites :: table argument wrapped in casts", () => {
   });
 });
 
-describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)", () => {
-  test("BLOCK auf einer r.entity-Projection-Table wird erkannt, keine Canary-Fehlmeldung (Merge-vor-Null-Check-Fix)", () => {
+describe("guard.run() :: entity-only repository (no createEventStoreExecutor anymore)", () => {
+  test("BLOCK on an r.entity projection table is detected, no canary false positive (merge-before-null-check fix)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         declare const db: { update: (t: unknown) => { set: (v: unknown) => { where: (w: unknown) => Promise<void> } } };

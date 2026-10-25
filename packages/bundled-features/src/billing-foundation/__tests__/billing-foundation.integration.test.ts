@@ -241,7 +241,7 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
 });
 
 describe("scenario 2: webhook-update upserts subscription, archiviert weiteren event", () => {
-  test("zweiter event für selben Tenant → subscription geupdated, beide events in audit", async () => {
+  test("second event for same tenant → subscription updated, both events in audit", async () => {
     const admin = adminFor(3002);
 
     // create
@@ -286,8 +286,8 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
   });
 });
 
-describe("scenario 3: idempotency — webhook-retry mit selber providerEventId", () => {
-  test("zweiter call mit gleichem providerEventId → duplicate=true, kein zweiter event-row", async () => {
+describe("idempotency — webhook retry with same providerEventId", () => {
+  test("second call with same providerEventId → duplicate=true, no second event row", async () => {
     const admin = adminFor(3003);
 
     const first = (await stack.http.writeOk(
@@ -333,7 +333,7 @@ describe("scenario 3: idempotency — webhook-retry mit selber providerEventId",
 });
 
 describe("scenario 4: tenant-isolation", () => {
-  test("Tenant A's subscription leakt nicht in die Liste von Tenant B", async () => {
+  test("Tenant A's subscription does not leak into Tenant B's list", async () => {
     const adminA = adminFor(3004);
     const adminB = adminFor(3005);
 
@@ -375,7 +375,7 @@ describe("scenario 4: tenant-isolation", () => {
     expect(subsB.rows[0]?.["tier"]).toBe("business");
   });
 
-  test("Idempotency-Anker ist tenant-scoped — selber providerEventId für ZWEI Tenants ist NICHT duplicate", async () => {
+  test("Idempotency anchor is tenant-scoped — same providerEventId for TWO tenants is NOT duplicate", async () => {
     // Edge case: although Stripe event IDs are globally unique, an app owner
     // could use multiple Stripe accounts (for example, a test/production mix
     // during development) and receive the same event ID. The aggregate ID is
@@ -485,7 +485,7 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
 // =============================================================================
 
 describe("scenario 6: create-checkout-session — Plugin-routing", () => {
-  test("happy-path: valid provider → URL durchgereicht + plugin mit korrekten args aufgerufen", async () => {
+  test("happy path: valid provider → URL passed through + plugin called with correct args", async () => {
     mockCheckoutCalls.length = 0;
     // Not 3009 — scenario 5 reuses that tenant number and leaves it with a
     // non-terminal "pro" subscription; openCheckout's new existing-
@@ -518,7 +518,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     });
   });
 
-  test("provider not registered → klarer error mit known-list", async () => {
+  test("provider not registered → clear error with known list", async () => {
     const admin = adminFor(3010);
     const error = await stack.http.writeErr(
       "billing-foundation:write:create-checkout-session",
@@ -533,7 +533,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(JSON.stringify(error)).toMatch(/not registered/);
   });
 
-  test("optional providerCustomerId wird durchgereicht (Plan-Wechsel-Flow)", async () => {
+  test("optional providerCustomerId is passed through (plan change flow)", async () => {
     mockCheckoutCalls.length = 0;
     // Not 3012 — that tenant already gets its own subscription in the
     // crypto-shredding test further down and would collide.
@@ -569,7 +569,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(mockCheckoutCalls[0]?.providerCustomerId).toBe("cus_existing_xyz");
   });
 
-  test("fremde providerCustomerId wird abgelehnt (foreign_provider_customer)", async () => {
+  test("foreign providerCustomerId is rejected (foreign_provider_customer)", async () => {
     mockCheckoutCalls.length = 0;
     const other = adminFor(3019);
     await stack.http.writeOk(
@@ -602,7 +602,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(mockCheckoutCalls).toHaveLength(0);
   });
 
-  test("fremde providerCustomerId wird auch im mode:payment abgelehnt", async () => {
+  test("foreign providerCustomerId is also rejected in mode:payment", async () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3020);
     const error = await stack.http.writeErr(
@@ -622,7 +622,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(mockCheckoutCalls).toHaveLength(0);
   });
 
-  test("optional mode wird durchgereicht (One-off-Payment-Flow, fw#2755)", async () => {
+  test("optional mode is passed through (one-off payment flow)", async () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3014);
     await stack.http.writeOk(
@@ -640,7 +640,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(mockCheckoutCalls[0]?.mode).toBe("payment");
   });
 
-  test("mode omitted → plugin receives no mode field (Regression-Pin für bestehende Aufrufer)", async () => {
+  test("mode omitted → plugin receives no mode field", async () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3015);
     await stack.http.writeOk(
@@ -699,7 +699,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     });
   });
 
-  test("Tenant ohne subscription → 'no active subscription'-error", async () => {
+  test("Tenant without a subscription → 'no active subscription' error", async () => {
     const admin = adminFor(3011);
     const error = await stack.http.writeErr(
       "billing-foundation:write:create-portal-session",
@@ -710,8 +710,8 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
   });
 });
 
-describe("scenario 8: cancel-event setzt status auf canceled, behält subscription-row", () => {
-  test("subscription.canceled event flippt status, subscription-row bleibt", async () => {
+describe("cancel event sets status to canceled, keeps subscription row", () => {
+  test("subscription.canceled event flips status, subscription row remains", async () => {
     const admin = adminFor(3008);
 
     await stack.http.writeOk(
@@ -861,7 +861,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("cus_3011");
   });
 
-  test("crypto-shredding: erasing the tenant's subject key makes the event-log payload permanently unreadable (#800)", async () => {
+  test("crypto-shredding: erasing the tenant's subject key makes the event-log payload permanently unreadable", async () => {
     const admin = adminFor(3012);
     await stack.http.writeOk(
       SubscriptionFoundationHandlers.processEvent,

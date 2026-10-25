@@ -259,7 +259,7 @@ describe("auth-routes cookieDomain", () => {
     });
   }
 
-  test("ohne cookieDomain: kein Domain-Attribut auf den Cookies", async () => {
+  test("without cookieDomain: no Domain attribute on the cookies", async () => {
     const { app } = await buildApp();
     const res = await login(app);
     expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).not.toMatch(/Domain=/i);
@@ -276,7 +276,7 @@ describe("auth-routes cookieDomain", () => {
   // As with logout, setting cookieDomain must also invalidate the host-only variant.
   // Otherwise, after deployment, the old host-only cookie can coexist with the new
   // Domain cookie, and the server may read the stale one depending on the environment.
-  test("login: cookieDomain invalidiert zusätzlich die host-only-Variante", async () => {
+  test("login: cookieDomain also invalidates the host-only variant", async () => {
     const { app } = await buildApp({ cookieDomain: "example.eu" });
     const raw = (await login(app)).headers.getSetCookie();
     const authCookies = raw.filter((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`));
@@ -290,7 +290,7 @@ describe("auth-routes cookieDomain", () => {
     );
   });
 
-  test("ohne cookieDomain: KEIN zusätzlicher host-only-Delete beim Login", async () => {
+  test("without cookieDomain: no additional host-only deletion on login", async () => {
     const { app } = await buildApp();
     const raw = (await login(app)).headers.getSetCookie();
     // Exactly one Set-Cookie per name; no Max-Age=0 deletion.
@@ -300,7 +300,7 @@ describe("auth-routes cookieDomain", () => {
     );
   });
 
-  test("switch-tenant: rotierte Cookies tragen das Domain-Attribut", async () => {
+  test("switch-tenant: rotated cookies carry the Domain attribute", async () => {
     const otherTenant = TestUsers.otherTenant;
     const dispatcher = createStubDispatcher({
       async query(type: string, _payload: unknown, _user: SessionUser): Promise<unknown> {
@@ -332,7 +332,7 @@ describe("auth-routes cookieDomain", () => {
     expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
   });
 
-  test("logout löscht beide Varianten: mit Domain UND host-only", async () => {
+  test("logout deletes both variants: with Domain AND host-only", async () => {
     const { app, validToken } = await buildApp({ cookieDomain: "example.eu" });
     const res = await app.request("/api/auth/logout", {
       method: "POST",

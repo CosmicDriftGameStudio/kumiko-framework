@@ -260,7 +260,7 @@ describe("blind-index rebuild + forget", () => {
     expect(await fetchOne(tdb, personTable, { email: "marc@example.com" })).toBeUndefined();
   });
 
-  test("erased subject → column drift excludes bidx (#916, not counted)", async () => {
+  test("erased subject → column drift excludes bidx from counting", async () => {
     // Pre-swap, live still holds the OLD bidx hash while the shadow already
     // computed NULL for the erased subject — a real live-vs-shadow divergence,
     // but the exact legitimate class countColumnDrift is designed to ignore.
@@ -293,7 +293,7 @@ describe("blind-index rebuild + forget", () => {
     expect(await fetchOne(tdb, personTable, { email: "marc@example.com" })).toBeUndefined();
   });
 
-  test("nullBlindIndexesForSubject skips missing projection tables (fw#2550)", async () => {
+  test("nullBlindIndexesForSubject skips missing projection tables", async () => {
     const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
     if (!created.isSuccess) throw new Error("create failed");
     expect((await rawRow(String(created.data.id)))["email_bidx"]).not.toBeNull();

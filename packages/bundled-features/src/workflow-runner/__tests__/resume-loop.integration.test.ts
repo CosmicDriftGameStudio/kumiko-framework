@@ -375,7 +375,7 @@ describe("workflow-runner resume loop", () => {
     ).toHaveLength(1);
   });
 
-  test("a second resume-due-runs tick landing before pending-projection deletes the row resumes exactly once (fw#2552/1)", async () => {
+  test("a second resume-due-runs tick landing before pending-projection deletes the row resumes exactly once", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(idempotentResumeWorkflow.name, runKey);
     const pastIso = T.Now.instant().subtract({ hours: 1 }).toString();

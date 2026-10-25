@@ -114,7 +114,7 @@ describe("EmbeddedListInput — header + rows", () => {
   });
 });
 
-describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1854)", () => {
+describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", () => {
   const rows = [{ description: "Widget A", quantity: 2, amount: 1000 }];
 
   test("desktop viewport mounts only the table, not the card layout", () => {
@@ -137,7 +137,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts (#1
     }
   });
 
-  test("mobile viewport at mount never creates the desktop table — no mount-then-discard flicker (fw#1868)", () => {
+  test("mobile viewport at mount never creates the desktop table — no mount-then-discard flicker", () => {
     // The old useIsMobile hook only set its value in a useEffect, so the
     // very first render always mounted the desktop table (isMobile=false)
     // before an effect swapped in the mobile cards — even on a phone. Since
@@ -498,7 +498,7 @@ describe("EmbeddedListInput — paste", () => {
   });
 });
 
-describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
+describe("EmbeddedListInput — Enter-to-add-row", () => {
   test("Enter on a select trigger in the last cell does not append a row", () => {
     const columns: readonly EmbeddedListColumn[] = [
       {
@@ -551,7 +551,7 @@ describe("EmbeddedListInput — Enter-to-add-row (#1839)", () => {
   });
 });
 
-describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () => {
+describe("EmbeddedListInput — auto-focus into wrapped cell types", () => {
   test("a date first-column focuses the inner DateField input, not the wrapper div", () => {
     const columns: readonly EmbeddedListColumn[] = [
       { field: "due", label: "Due", type: "date", required: false, derived: false },
@@ -598,7 +598,7 @@ describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () 
     expect(document.activeElement).toBe(focusable);
   });
 
-  test("a timestamp first-column focuses the inner TimestampInput date field, not the wrapper div (#1839)", () => {
+  test("a timestamp first-column focuses the inner TimestampInput date field, not the wrapper div", () => {
     const columns: readonly EmbeddedListColumn[] = [
       { field: "loggedAt", label: "Logged at", type: "timestamp", required: false, derived: false },
       { field: "desc", label: "Desc", type: "text", required: false, derived: false },
@@ -698,7 +698,7 @@ describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () 
   });
 });
 
-describe("EmbeddedListInput — currency (#1839)", () => {
+describe("EmbeddedListInput — currency", () => {
   const currencyColumns: readonly EmbeddedListColumn[] = [
     { field: "description", label: "Description", type: "text", required: true, derived: false },
     { field: "amount", label: "Amount", type: "money", required: false, derived: false },
@@ -776,7 +776,7 @@ describe("EmbeddedListInput — totals follow the app locale, not the browser lo
   });
 });
 
-describe("EmbeddedListInput — desktop table width (solon#107)", () => {
+describe("EmbeddedListInput — desktop table width", () => {
   const columns: readonly EmbeddedListColumn[] = [
     { field: "description", label: "Description", type: "text", required: true, derived: false },
     { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
@@ -868,7 +868,7 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
 // is the only piece of this behavior a unit test can actually exercise; the rest
 // of this describe block covers what's left: that the DOM only exposes one
 // real scroll container, and that a fresh table always opens scrolled left.
-describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
+describe("EmbeddedListInput — horizontal scroll", () => {
   describe("computeScrollAffordance", () => {
     test("no affordance when content fits (scrollWidth <= clientWidth)", () => {
       expect(computeScrollAffordance(0, 500, 500)).toEqual({

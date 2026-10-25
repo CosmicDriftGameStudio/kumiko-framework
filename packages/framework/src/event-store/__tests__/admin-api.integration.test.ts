@@ -204,7 +204,7 @@ describe("appendRaw — single event", () => {
     ).rejects.toBeInstanceOf(VersionConflictError);
   });
 
-  test("appendRaw distinguishes an idempotency-key replay from a version conflict (#1499)", async () => {
+  test("appendRaw distinguishes an idempotency-key replay from a version conflict", async () => {
     const idempotencyKey = uuid();
     await appendRaw(
       testDb.db,

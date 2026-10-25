@@ -41,7 +41,7 @@ afterAll(async () => {
   await testDb.cleanup();
 });
 
-describe("global entity tenantId invariant (fw#2858)", () => {
+describe("global entity tenantId invariant", () => {
   test("create with an explicit foreign tenantId throws AccessDeniedError", async () => {
     const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     await expect(

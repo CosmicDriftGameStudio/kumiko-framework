@@ -13,12 +13,12 @@ afterAll(() => {
 installFetchMock();
 
 describe("VerifyEmailScreen", () => {
-  test("ohne Token → missing-token-Page", () => {
+  test("without a token → missing-token page", () => {
     renderWithProviders(<VerifyEmailScreen />);
     expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
-  test("mit Token + 200 → success-state nach auto-submit", async () => {
+  test("with a token + 200 → success state after auto-submit", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -36,7 +36,7 @@ describe("VerifyEmailScreen", () => {
     });
   });
 
-  test("mit Token + 422 → error-state", async () => {
+  test("with a token + 422 → error state", async () => {
     const errBody = JSON.stringify({
       error: {
         code: "invalid_verification_token",

@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { assertSessionBootInvariants } from "../session-boot-gate.ts";
 
-describe("assertSessionBootInvariants (#1372)", () => {
+describe("assertSessionBootInvariants", () => {
   test("no auth → no throw", () => {
     expect(() =>
       assertSessionBootInvariants({
@@ -36,7 +36,7 @@ describe("assertSessionBootInvariants (#1372)", () => {
 // dev/prod split — dev-server had no equivalent gate at all before
 // this: a forgotten sessions mount silently left session-list empty with no
 // signal. Mirrors assertPiiBootInvariants' dev/prod split (warn vs abort).
-describe("assertSessionBootInvariants — dev mode (#2027)", () => {
+describe("assertSessionBootInvariants in dev mode", () => {
   test("dev: auth without sessionStore → warns, does NOT throw", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {

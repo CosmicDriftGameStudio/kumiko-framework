@@ -28,7 +28,7 @@ function StatusProbe(): ReactNode {
 }
 
 describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStatus", () => {
-  test("initial-status: Probe rendert 'online' nach Provider-Mount", () => {
+  test("initial-status: Probe renders 'online' after provider mount", () => {
     const fetch = mock() as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
@@ -41,7 +41,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
     expect(screen.getByTestId("status").textContent).toBe("online");
   });
 
-  test("network-fail flippt Probe von 'online' nach 'offline'", async () => {
+  test("network-fail flips Probe from 'online' to 'offline'", async () => {
     const fetch = mock(async () => {
       throw new Error("ECONNREFUSED");
     }) as unknown as typeof globalThis.fetch;
@@ -65,7 +65,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("offline"));
   });
 
-  test("recovery flippt Probe zurück auf 'online'", async () => {
+  test("recovery flips Probe back to 'online'", async () => {
     let failNext = true;
     const fetch = mock(async () => {
       if (failNext) {
@@ -99,7 +99,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("online"));
   });
 
-  test("statusStore ist read-only auf dem public Dispatcher-Type", () => {
+  test("statusStore is read-only on the public Dispatcher type", () => {
     const fetch = mock() as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 

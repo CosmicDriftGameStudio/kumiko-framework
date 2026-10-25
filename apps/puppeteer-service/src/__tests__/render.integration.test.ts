@@ -22,7 +22,7 @@ afterAll(async () => {
 });
 
 describe("POST /render — echtes Puppeteer-Rendering", () => {
-  test("kind=document-pdf liefert valid PDF mit magic-bytes %PDF-", async () => {
+  test("kind=document-pdf returns a valid PDF with magic bytes %PDF-", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/render", {
       method: "POST",
@@ -48,7 +48,7 @@ describe("POST /render — echtes Puppeteer-Rendering", () => {
     expect(bytes[4]).toBe(0x2d); // -
   });
 
-  test("kind=image-snapshot liefert valid PNG mit magic-bytes", async () => {
+  test("kind=image-snapshot returns a valid PNG with magic bytes", async () => {
     const { app } = createApp(CONFIG);
     const res = await app.request("/render", {
       method: "POST",
@@ -73,7 +73,7 @@ describe("POST /render — echtes Puppeteer-Rendering", () => {
     expect(bytes[3]).toBe(0x47); // G
   });
 
-  test("Metrics-Counter wird nach echtem Render erhöht", async () => {
+  test("Metrics counter is incremented after a real render", async () => {
     const { app, metrics } = createApp(CONFIG);
     const initialPdfCount = metrics.rendersTotal.pdf;
     await app.request("/render", {
@@ -91,7 +91,7 @@ describe("POST /render — echtes Puppeteer-Rendering", () => {
 
 // The page.on("request") + abort wiring is also covered chromium-free by
 // egress-guard-wiring.test.ts; this block proves the end-to-end abort against a real local server.
-describe("Egress-Guard (enterprise#267) im echten Render", () => {
+describe("Egress guard in a real render", () => {
   test("img src to loopback is aborted (requestCount stays 0); render still succeeds", async () => {
     // Loopback server: requestCount stays 0 iff the guard aborts before connect.
     // The data: URI continue-path guarantee and RFC1918/metadata CIDR blocking
@@ -131,7 +131,7 @@ describe("Egress-Guard (enterprise#267) im echten Render", () => {
 });
 
 describe("countPdfPages gegen ein ECHTES Chromium-PDF (87/1)", () => {
-  test("mehrseitiger Content → countPdfPages zählt > 1 Seite", async () => {
+  test("multi-page content → countPdfPages counts > 1 page", async () => {
     const { app } = createApp(CONFIG);
     // ~60 paragraphs with forced breaks reliably blow past an A4 page.
     const blocks = Array.from(
@@ -159,7 +159,7 @@ describe("countPdfPages gegen ein ECHTES Chromium-PDF (87/1)", () => {
 const PIXEL_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
-describe("Dokument mit Briefkopf", () => {
+describe("Document with letterhead", () => {
   test("invoice with letterhead: header, footer and a table spanning pages", async () => {
     const { app } = createApp(CONFIG);
     const rows = Array.from(

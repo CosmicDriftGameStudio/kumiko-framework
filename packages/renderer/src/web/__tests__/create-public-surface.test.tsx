@@ -64,7 +64,7 @@ describe("createPublicSurface", () => {
     expect(screen.queryByTestId("signup")).toBeNull();
   });
 
-  test("ohne Match → fallback", async () => {
+  test("no match → fallback", async () => {
     setPath("/nope");
     mountRoot();
     await mount({
@@ -100,7 +100,7 @@ describe("createPublicSurface", () => {
     expect(document.body.textContent).not.toContain("topology");
   });
 
-  test("clientFeatures: providers werden gestackt, gates aber NICHT (Surface bleibt öffentlich)", async () => {
+  test("clientFeatures: providers are stacked, but gates are NOT (surface remains public)", async () => {
     const Ctx = createContext("absent");
     function MarkerProvider({ children }: { readonly children: ReactNode }): ReactNode {
       return <Ctx.Provider value="present">{children}</Ctx.Provider>;
@@ -164,7 +164,7 @@ describe("createPublicSurface", () => {
     expect(screen.getByTestId("greeting").textContent).toBe("Schön, dass Sie da sind");
   });
 
-  test("fehlendes #root → wirft mit hilfreicher Message", () => {
+  test("missing #root → throws with helpful message", () => {
     expect(() => createPublicSurface({ dispatcher: dispatcher(), routes: [] })).toThrow(
       /#root not found/,
     );

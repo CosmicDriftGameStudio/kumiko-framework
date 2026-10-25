@@ -283,7 +283,7 @@ describe("pending-rebuilds queue", () => {
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 
-  test("clear is scoped to the snapshot migration_id — a concurrent re-queue survives (#328)", async () => {
+  test("clear is scoped to the snapshot migration_id — a concurrent re-queue survives", async () => {
     // Snapshot read: table queued for migration 0001.
     writeRebuildMarker(markerDir, "0001_counts.sql", ["read_pending_counts"]);
     await queueRebuildsFromMarkers(testDb.db, {

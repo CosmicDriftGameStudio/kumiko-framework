@@ -151,7 +151,7 @@ describe("StripeCtxRuntime.clientForCtx", () => {
     await expect(rt.ctx.clientForCtx(ctx)).rejects.toBeInstanceOf(UnconfiguredError);
   });
 
-  test("throws loudly on a malformed (non-JSON) stored credential (#393/2)", async () => {
+  test("throws loudly on a malformed (non-JSON) stored credential", async () => {
     // The store round-trips backing:"secrets" values JSON-encoded; a raw,
     // un-quoted value reaching parseStoredSecret means corruption — it must
     // throw, not silently fall through to undefined/fallback.

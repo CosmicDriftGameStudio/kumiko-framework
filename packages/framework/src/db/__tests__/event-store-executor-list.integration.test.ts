@@ -68,14 +68,14 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     }
   }
 
-  test("ohne totalCount: response hat KEIN total-Feld (extra COUNT gespart)", async () => {
+  test("without totalCount: response has NO total field (avoids extra COUNT)", async () => {
     await seed(5);
     const res = await exec.list({ limit: 50 }, admin, tdb);
     expect(res.rows).toHaveLength(5);
     expect("total" in res).toBe(false);
   });
 
-  test("mit totalCount=true: response hat total = N", async () => {
+  test("with totalCount=true: response has total = N", async () => {
     await seed(7);
     const res = await exec.list({ limit: 50, totalCount: true }, admin, tdb);
     expect(res.rows).toHaveLength(7);
@@ -93,7 +93,7 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     expect(res.total).toBe(10);
   });
 
-  test("offset >= total: leere rows, total bleibt korrekt", async () => {
+  test("offset >= total: empty rows, total remains correct", async () => {
     await seed(3);
     const res = await exec.list(
       { limit: 10, offset: 100, sort: "rank", sortDirection: "asc", totalCount: true },
@@ -104,7 +104,7 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     expect(res.total).toBe(3);
   });
 
-  test("cursor wins über offset (kombination ist Caller-bug, defensiv)", async () => {
+  test("cursor wins over offset (combination is a caller bug, defensive)", async () => {
     // If the caller accidentally sets BOTH—for example, a migration script
     // that mixes cursor pagination with page numbers—cursor must win because
     // it is database-stable. The offset is ignored.
@@ -138,10 +138,10 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
   });
 });
 
-describe("event-store-executor.list — stable order (#2198)", () => {
+describe("event-store-executor.list — stable order", () => {
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
-  test("offset paging mit identischem sort-Wert: keine Row auf beiden Seiten, Union = alle Rows", async () => {
+  test("offset paging with identical sort value: no row on both pages, union = all rows", async () => {
     // All rows share the same rank value. Postgres picks a Top-N heapsort
     // for LIMIT queries, which is not stable across ties — and different
     // offsets sort differently-sized heaps (LIMIT 3 OFFSET 0 sorts the
@@ -181,7 +181,7 @@ describe("event-store-executor.list — stable order (#2198)", () => {
     expect(allIds.size).toBe(total);
   });
 
-  test("cursor paging ohne sort: jede Row genau einmal", async () => {
+  test("cursor paging without sort: each row exactly once", async () => {
     // Plain sequential inserts keep heap physical order == uuidv7 id order,
     // so a Seq Scan without ORDER BY happens to come out sorted anyway and
     // the missing-ORDER-BY bug stays invisible. Delete half the rows and
@@ -222,7 +222,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     }
   }
 
-  test("filter eq: nur die rank=5 row", async () => {
+  test("filter eq: only the rank=5 row", async () => {
     await seed(10);
     const res = await exec.list(
       {
@@ -237,7 +237,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([5]);
   });
 
-  test("filter ne: alle außer rank=2", async () => {
+  test("filter ne: all except rank=2", async () => {
     await seed(5);
     const res = await exec.list(
       {
@@ -329,7 +329,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["title"])).toEqual(["d-1", "d-2"]);
   });
 
-  test("filters[] gte+lte AND, kombiniert mit offset-Paging: zweite Seite korrekt", async () => {
+  test("filters[] gte+lte AND, combined with offset paging: second page is correct", async () => {
     await seed(10);
     const res = await exec.list(
       {
@@ -366,7 +366,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([1, 3, 5]);
   });
 
-  test("filter in mit empty-array: leeres Resultat (keine Match-All-Falle)", async () => {
+  test("filter in with empty array: empty result (no match-all trap)", async () => {
     await seed(5);
     const res = await exec.list(
       {
@@ -381,7 +381,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows).toHaveLength(0);
   });
 
-  test("filter ne mit value null: matcht rows mit gesetztem Feld (#2015)", async () => {
+  test("filter ne with value null: matches rows with the field set", async () => {
     // rank is optional — before the fix, `ne` compiled to `rank <> NULL`,
     // which is never true in SQL and returned 0 rows.
     await seed(3);
@@ -399,7 +399,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([0, 1, 2]);
   });
 
-  test("filter eq mit value null: matcht rows mit ungesetztem Feld (#2015)", async () => {
+  test("filter eq with value null: matches rows with the field unset", async () => {
     await seed(3);
     await exec.create({ title: "no-rank" }, admin, tdb);
     const res = await exec.list(
@@ -413,7 +413,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["title"])).toEqual(["no-rank"]);
   });
 
-  test("filter unknown-field: silent skip — kein Crash, alle rows zurück", async () => {
+  test("filter unknown-field: silent skip — no crash, all rows returned", async () => {
     // The boot validator normally prevents this; runtime defense handles a
     // test or caller sending a bogus field directly to the executor.
     // Returning all rows is preferable to entering a crash loop.
@@ -446,7 +446,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.total).toBe(4);
   });
 
-  test("filters[] AND: zwei dynamische Filter werden mit AND verknüpft", async () => {
+  test("filters[] AND: two dynamic filters are combined with AND", async () => {
     await seed(10);
     const res = await exec.list(
       {
@@ -479,7 +479,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([2, 4, 8]);
   });
 
-  test("statischer filter + dynamische filters[] kombinieren mit AND", async () => {
+  test("combine static filter + dynamic filters[] with AND", async () => {
     await seed(10);
     const res = await exec.list(
       {
@@ -496,7 +496,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([3, 5, 9]);
   });
 
-  test("filters[] mit leerem in-Array: leeres Resultat (kein Match-All)", async () => {
+  test("filters[] with empty in-array: empty result (no match-all)", async () => {
     await seed(5);
     const res = await exec.list(
       {
@@ -512,14 +512,14 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
   });
 });
 
-describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-Fix #1)", () => {
+describe("event-store-executor.list — runtime SearchAdapter", () => {
   // Verifies that the executor accepts a searchAdapter from runtimeOptions
   // when none was supplied through options.searchAdapter at build time.
   // defaultEntityQueryHandler uses this path because the executor has no
   // context adapter available at definition time.
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
-  test("ohne searchAdapter: search-Param wirft statt still zu verpuffen (#2032)", async () => {
+  test("without searchAdapter: search parameter throws instead of silently doing nothing", async () => {
     for (let i = 0; i < 3; i++) {
       await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
     }
@@ -536,7 +536,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     });
   });
 
-  test("mit runtimeOptions.searchAdapter: search filtert auf returned IDs", async () => {
+  test("with runtimeOptions.searchAdapter: search filters by returned IDs", async () => {
     for (let i = 0; i < 3; i++) {
       await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
     }
@@ -609,7 +609,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     expect(belowCap.searchTruncated).toBeUndefined();
   });
 
-  test("mit search ohne match (Adapter returnt []): leere rows + no DB-Query", async () => {
+  test("with search without a match (adapter returns []): empty rows + no DB query", async () => {
     for (let i = 0; i < 3; i++) {
       await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
     }
@@ -703,7 +703,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
   });
 });
 
-describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", () => {
+describe("event-store-executor.list — keyset cursor with custom sort", () => {
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
   async function collectPages(
@@ -728,7 +728,7 @@ describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", 
     return { ids, iterations };
   }
 
-  test("Issue-Repro: Seite 2 dupliziert nicht mehr die letzte Zeile von Seite 1 und überspringt nicht die älteste", async () => {
+  test("Page 2 no longer duplicates the last row of page 1 or skips the oldest", async () => {
     await exec.create({ title: "re-1001", dueDate: "2026-01-15" }, admin, tdb);
     await exec.create({ title: "re-1002", dueDate: "2026-02-15" }, admin, tdb);
     await exec.create({ title: "re-1003", dueDate: "2026-03-15" }, admin, tdb);
@@ -757,7 +757,7 @@ describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", 
   });
 
   test.each(["asc", "desc"] as const)(
-    "Voll-Sweep mit Ties (sort=dueDate, %s) matcht die Referenz-Abfrage exakt",
+    "Full sweep with ties (sort=dueDate, %s) exactly matches the reference query",
     async (direction) => {
       // Interleaved seed order (round-robin across dueDates) decorrelates
       // uuidv7 id order from dueDate order — a grouped seed (all of date A,
@@ -787,7 +787,7 @@ describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", 
   );
 
   test.each(["asc", "desc"] as const)(
-    "Voll-Sweep mit NULL dueDate (%s) matcht die Referenz-Abfrage exakt",
+    "Full sweep with NULL dueDate (%s) exactly matches the reference query",
     async (direction) => {
       const seedPlan: Array<{ title: string; dueDate?: string }> = [
         { title: "n-1" },
@@ -825,7 +825,7 @@ describe("event-store-executor.list — keyset cursor mit custom sort (#2265)", 
     },
   );
 
-  test("Rückwärtskompatibilität: legacy id-only Cursor + custom sort wirft nicht und fällt auf die id-Grenze zurück", async () => {
+  test("Backward compatibility: legacy id-only cursor + custom sort does not throw and falls back to the id boundary", async () => {
     const created: string[] = [];
     for (let i = 0; i < 5; i++) {
       const res = await exec.create({ title: `legacy-${i}`, dueDate: "2026-05-01" }, admin, tdb);

@@ -56,7 +56,7 @@ async function eventTenantIds(aggregateId: string): Promise<string[]> {
   return rows.map((r) => r!["tenantId"] as string);
 }
 
-describe("systemStream stream-tenant routing (#497)", () => {
+describe("systemStream stream-tenant routing", () => {
   test("systemStream entity: created event lands on SYSTEM_TENANT_ID", async () => {
     const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const res = await systemExec.create({ name: "a" }, user, db);

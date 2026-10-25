@@ -295,7 +295,7 @@ describe("invite-create", () => {
     expect(rows[0]?.["tenantId"]).toBe(TENANT_A_ID);
   });
 
-  test("Resend: second invite for the same email reuses the row but mints a new token and invalidates the previous one (#2174)", async () => {
+  test("Resend: second invite for the same email reuses the row but mints a new token and invalidates the previous one", async () => {
     const firstToken = await inviteEmail(BOB_EMAIL, "Admin");
     const secondToken = await inviteEmail(BOB_EMAIL, "Editor");
 
@@ -367,7 +367,7 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.inviteEmailMismatch);
   });
 
-  test("Already-Member: Bob ist schon Member → invited role is added, existing role kept, alreadyMember=true", async () => {
+  test("Already-Member: Bob is already a member → invited role is added, existing role kept, alreadyMember=true", async () => {
     await seedTenantMembership(stack.db, {
       userId: bobId,
       tenantId: TENANT_A_ID,
@@ -525,7 +525,7 @@ describe("invite-accept (Branch 1: logged-in)", () => {
 });
 
 describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
-  test("Bob (nicht eingeloggt) accepts mit email+password → JWT + membership", async () => {
+  test("Bob (not logged in) accepts with email and password → JWT + membership", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Editor");
 
     const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
@@ -701,7 +701,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     expect(retryRes.status).toBe(200);
   });
 
-  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+  test("common password → 400 (schema rejects breach-list password)", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
       token,
@@ -772,7 +772,7 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(rows[0]?.["locale"]).toBe("de-DE");
   });
 
-  test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
+  test("common password → 400 (schema rejects breach-list password)", async () => {
     const token = await inviteEmail(CAROL_EMAIL, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
       token,
@@ -998,7 +998,7 @@ describe("invite-accept-with-login/signup-complete defense-in-depth (637/1)", ()
 });
 
 describe("Single-Use-Burn (alle Branches)", () => {
-  test("Branch 1: zweiter accept mit gleichem Token → invalid", async () => {
+  test("second accept with same token → invalid", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
     await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
 
@@ -1079,7 +1079,7 @@ describe("remove-member cancels the removed member's open invitations", () => {
 });
 
 describe("cancel-invitation", () => {
-  test("Admin cancellt → status=cancelled + token weg, accept wird invalid", async () => {
+  test("Admin cancels → status=cancelled + token gone, accept becomes invalid", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
 
     // Find invitationId
@@ -1098,7 +1098,7 @@ describe("cancel-invitation", () => {
 });
 
 describe("invitations-query (pending list)", () => {
-  test("Admin sieht nur pending invitations", async () => {
+  test("Admin sees only pending invitations", async () => {
     await inviteEmail(BOB_EMAIL, "Admin");
     await inviteEmail(CAROL_EMAIL, "Editor");
 

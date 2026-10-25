@@ -432,7 +432,7 @@ describe("KumikoScreen / configEdit", () => {
   // RenderEdit passed the same appendix callback as both labelAppendix and
   // fieldAppendix, so the badge and standard disclosure appeared twice,
   // before and after the input, on every settings screen with default values.
-  test("Source-Badge und Standard-Disclosure erscheinen genau einmal pro Feld", async () => {
+  test("Source badge and standard disclosure appear exactly once per field", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
         if (qn === "config:query:cascade") {
@@ -493,7 +493,7 @@ describe("KumikoScreen / configEdit", () => {
   // reload: customSubmit rebased only the form state (controller.rebase) but
   // did not refetch values or the cascade, unlike onReset.
   // After a successful save, both queries must run again.
-  test("save refetcht values + cascade — Disclosure nach Speichern aktuell, nicht erst nach Reload", async () => {
+  test("save refetches values + cascade — Disclosure is up to date after saving, not only after reloading", async () => {
     const queryCalls: Record<string, number> = {};
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
@@ -561,7 +561,7 @@ describe("KumikoScreen / configEdit", () => {
 
   // The cascade disclosure button (below the input) opens and closes
   // the level panel; the open/close cycle is pinned here as an interaction.
-  test("#432/1: cascade disclosure toggles the level panel open and closed", async () => {
+  test("cascade disclosure toggles the level panel open and closed", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
         if (qn === "config:query:cascade") {

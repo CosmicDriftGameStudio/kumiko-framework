@@ -183,7 +183,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
 // undefined, the queue-depth poller's `if (context.meter)` guard skipped
 // silently, and `/metrics` showed the kumiko_job_queue_depth HELP/TYPE
 // header but never a single data line — forever, with no error anywhere.
-describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME meter as buildServer (#1046)", () => {
+describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME meter as buildServer", () => {
   test("passing an explicit observability provider makes the queue-depth poller emit real data for BOTH lanes", async () => {
     const registry = createRegistry([wiringFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
@@ -254,7 +254,7 @@ const featureGateJobFeature = defineFeature("featuregate", (r) => {
   );
 });
 
-describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effectiveFeatures (#1253)", () => {
+describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effectiveFeatures", () => {
   test("job handler reads the same effectiveFeatures resolver as the command-dispatcher's feature-gate", async () => {
     featuresSeenByJob.length = 0;
     const registry = createRegistry([featureGateJobFeature]);

@@ -69,7 +69,7 @@ describe("UserMenu", () => {
     await user.click(screen.getByTestId("user-menu-logout"));
     expect(session.logout).toHaveBeenCalledTimes(1);
   });
-  test("sidebar variant: NavUser-Row zeigt Name + Email, Dropdown trägt Logout", async () => {
+  test("sidebar variant: NavUser-Row shows name + email, dropdown contains logout", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({
       user: { id: "u1", email: "alice@example.com", displayName: "Alice Wonder", globalRoles: [] },

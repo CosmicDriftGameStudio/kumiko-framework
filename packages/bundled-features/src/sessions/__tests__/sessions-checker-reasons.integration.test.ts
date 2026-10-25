@@ -179,7 +179,7 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
   });
 });
 
-describe("sessions with active KMS (#820): ip/userAgent are userOwned PII", () => {
+describe("sessions with active KMS: ip/userAgent are userOwned PII", () => {
   test("sessionCreator stores ciphertext at rest, mine returns plaintext", async () => {
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));

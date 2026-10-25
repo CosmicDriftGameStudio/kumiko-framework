@@ -559,7 +559,7 @@ describe("createFormController — submit()", () => {
     expect(disp.writeSpy).not.toHaveBeenCalled();
   });
 
-  test("cross-field refine still blocks submit when validateScope is set (#1907)", async () => {
+  test("cross-field refine still blocks submit when validateScope is set", async () => {
     const schema = z
       .object({ title: z.string().min(1), note: z.string() })
       .refine((v) => v.title !== v.note, { message: "title and note must differ" });
@@ -578,7 +578,7 @@ describe("createFormController — submit()", () => {
     expect(disp.writeSpy).not.toHaveBeenCalled();
   });
 
-  test("intentional empty clear survives second submit after rebase (#1858)", async () => {
+  test("intentional empty clear survives second submit after rebase", async () => {
     const schema = z.object({ title: z.string().min(1), note: z.string().optional() });
     const disp = makeDispatcher();
     const form = createFormController({

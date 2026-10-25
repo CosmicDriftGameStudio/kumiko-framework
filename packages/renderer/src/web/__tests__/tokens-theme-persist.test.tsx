@@ -59,7 +59,7 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  test("Mount-Restore: erster Hook-Mount übernimmt die gespeicherte Wahl ins DOM", () => {
+  test("Mount-Restore: the first hook mount applies the stored choice to the DOM", () => {
     // Test the actual integration path: do not isolate applyStoredThemeMode;
     // seed localStorage BEFORE mounting, so the mount itself must set the
     // .dark class.
@@ -82,7 +82,7 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
-  test("applyStoredThemeMode ohne gespeicherte Wahl lässt den HTML-Default stehen", () => {
+  test("applyStoredThemeMode without a stored choice leaves the HTML default unchanged", () => {
     document.documentElement.classList.add("dark");
     applyStoredThemeMode();
     // No stored value means the HTML default remains unchanged.

@@ -62,7 +62,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
   });
 
-  test("managed new NULLABLE column → NO rebuild (in-place ADD COLUMN reicht; Rebuild würde die Spalte wischen, #835)", () => {
+  test("managed new NULLABLE column → NO rebuild (in-place ADD COLUMN is sufficient; Rebuild would wipe the column)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: false }),
@@ -70,7 +70,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
   });
 
-  test("managed new NOT-NULL column ohne Default → rebuild (recreate, kann nicht in-place)", () => {
+  test("managed new NOT-NULL column without a default → rebuild (recreate, cannot be done in-place)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: true }),
@@ -78,7 +78,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
 
-  test("managed dropped column → rebuild (Tabelle wird DROP+CREATE'd, neu füllen)", () => {
+  test("managed dropped column → rebuild (table is DROP+CREATE'd, refill)", () => {
     const prev = snapshotFromMetas([
       meta("read_a", { name: "old", pgType: "text", notNull: false }),
     ]);
@@ -96,7 +96,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
 
-  test("managed new UNIQUE index → rebuild (recreate, könnte an Dups scheitern)", () => {
+  test("managed new UNIQUE index → rebuild (recreate, could fail on duplicates)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", undefined, [{ name: "read_a_id_uq", columns: ["id"], unique: true }]),
@@ -104,7 +104,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
 
-  test("unmanaged tables are never rebuilt (echte Daten, keine Projektion)", () => {
+  test("unmanaged tables are never rebuilt (real data, not a projection)", () => {
     const prev = snapshotFromMetas([meta("u_a", undefined, [], "unmanaged")]);
     const next = snapshotFromMetas([
       meta("u_a", { name: "title", pgType: "text", notNull: true }, [], "unmanaged"),
@@ -156,7 +156,7 @@ describe("write/read marker", () => {
     }
   });
 
-  test("version-mismatch marker → [] (graceful degradation, blockt v2 nicht als v1)", () => {
+  test("version-mismatch marker → [] (graceful degradation, does not treat v2 as v1)", () => {
     const dir = tmpDir();
     try {
       writeFileSync(

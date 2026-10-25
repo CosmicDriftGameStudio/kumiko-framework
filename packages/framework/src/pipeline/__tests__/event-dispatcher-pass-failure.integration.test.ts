@@ -106,7 +106,7 @@ function buildDispatcher(consumers: readonly EventConsumer[], meter: Meter): Eve
   });
 }
 
-describe("event-dispatcher — pass-level throw survives the rolled-back tx (#2616)", () => {
+describe("event-dispatcher — pass-level throw survives the rolled-back tx", () => {
   test("logs via console.error when context.log is absent", async () => {
     const flaky = "passfailure:flaky-log";
     const consumer: EventConsumer = { name: flaky, handler: async () => {} };

@@ -459,7 +459,7 @@ describe("scenario 8: entityEdit round-trip via convention QNs", () => {
   });
 });
 
-describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
+describe("global role mutation and elevation guard", () => {
   test("SystemAdmin updates target user roles to SystemAdmin", async () => {
     const created = await seedUser({ email: "promotee@example.com", displayName: "Promotee" });
     const loaded = await stack.http.queryOk<Record<string, unknown>>(
@@ -654,7 +654,7 @@ describe("scenario 5: global roles mutation & elevation guard (#2388)", () => {
   });
 });
 
-describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
+describe("last active SystemAdmin protection", () => {
   test("refuses removing/demoting the last active SystemAdmin", async () => {
     const onlyAdmin = await seedUser({
       email: "only-admin@example.com",

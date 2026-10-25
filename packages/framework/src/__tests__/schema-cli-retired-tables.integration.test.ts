@@ -29,7 +29,7 @@ const LEGACY_MIGRATION = `CREATE TABLE IF NOT EXISTS "read_job_runs" ("id" uuid 
 -- DESTRUCTIVE: DROP TABLE IF EXISTS "read_job_runs";  -- uncomment + ensure backup
 `;
 
-describe("retired framework tables (fw#3531)", () => {
+describe("retired framework tables", () => {
   let testDb: BunTestDb;
   let prevDbUrl: string | undefined;
   let dbUrl: string;

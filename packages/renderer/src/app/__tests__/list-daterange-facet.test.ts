@@ -122,7 +122,7 @@ describe("dateRange facet → query params", () => {
   });
 });
 
-describe("dateRange facet timezone edge (issue #3104)", () => {
+describe("dateRange facet timezone edge", () => {
   test("an event at 23:59 of the `to` day falls inside the range", () => {
     const { from, to } = payload({
       "createdAt.from": ["2020-06-14"],

@@ -139,7 +139,7 @@ function resetCaptured(): void {
   for (const key of Object.keys(captured)) delete captured[key];
 }
 
-describe("EntityEditCreateBody — navigate params as initial values (#1680)", () => {
+describe("EntityEditCreateBody — navigate params as initial values", () => {
   test("URL searchParams from rowAction navigate prefill the create form", () => {
     resetCaptured();
     renderWithNav(

@@ -80,7 +80,7 @@ async function rawRow(id: string): Promise<Record<string, unknown>> {
   return row;
 }
 
-describe("projection-rebuild — blind-index loss guard (fw#3091)", () => {
+describe("projection-rebuild blind-index loss guard", () => {
   test("populated bidx column + no key in this process → rebuild throws, live table untouched", async () => {
     const created = await crud.create({ email: "marc@example.com" }, admin, tdb);
     if (!created.isSuccess) throw new Error("create failed");

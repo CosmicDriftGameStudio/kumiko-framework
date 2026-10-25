@@ -10,7 +10,7 @@ import { collectTableMetas } from "@cosmicdrift/kumiko-framework/db";
 import { createDeliveryFeature } from "../delivery/feature.ts";
 import { createSecretsFeature } from "../secrets/feature.ts";
 
-describe("ride-along schema metas reach the generator (framework#347)", () => {
+describe("ride-along schema metas reach the generator", () => {
   test("secrets read_tenant_secrets: envelope/metadata/last_rotated_at + (tenant,key) uniqueIndex", () => {
     const meta = collectTableMetas([createSecretsFeature()]).find(
       (m) => m.tableName === "read_tenant_secrets",

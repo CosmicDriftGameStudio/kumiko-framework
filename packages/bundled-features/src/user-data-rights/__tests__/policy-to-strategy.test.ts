@@ -15,15 +15,15 @@ describe("policyToStrategy", () => {
     expect(policyToStrategy("softDelete")).toBe("delete");
   });
 
-  test("anonymize → anonymize (Row bleibt, PII raus)", () => {
+  test("anonymize → anonymize (Row remains, PII removed)", () => {
     expect(policyToStrategy("anonymize")).toBe("anonymize");
   });
 
-  test("blockDelete → anonymize (Aufbewahrungs-Pflicht respektieren, Row bleibt physisch)", () => {
+  test("blockDelete → anonymize (Respect retention requirement, Row remains physically)", () => {
     expect(policyToStrategy("blockDelete")).toBe("anonymize");
   });
 
-  test("null (keine Policy konfiguriert) → delete (Default = Row weg)", () => {
+  test("null (no policy configured) → delete (Default = Row removed)", () => {
     expect(policyToStrategy(null)).toBe("delete");
   });
 });

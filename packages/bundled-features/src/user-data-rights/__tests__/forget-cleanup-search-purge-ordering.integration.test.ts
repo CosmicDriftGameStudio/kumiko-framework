@@ -104,7 +104,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-test("fw#1611: search purge finds + removes a row's doc even when a delete-hook hard-deletes that row in the same run", async () => {
+test("search purge finds + removes a row's doc even when a delete-hook hard-deletes that row in the same run", async () => {
   const now = getTemporal().Now.instant();
 
   await seedRowViaEventStore(stack.db, userTable, {

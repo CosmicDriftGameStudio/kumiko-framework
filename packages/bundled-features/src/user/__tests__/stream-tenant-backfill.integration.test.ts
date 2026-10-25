@@ -87,7 +87,7 @@ function seedUserRow(id: string, tenantId: TenantId, version: number) {
   );
 }
 
-describe("backfillUserStreamTenants (#762)", () => {
+describe("backfillUserStreamTenants", () => {
   test("legacy stream: retenanted to SYSTEM, versions contiguous, executor write works again", async () => {
     await appendUserEvent(LEGACY_USER, T1, 0, "user.created", { email: "l@example.com" });
     await appendUserEvent(LEGACY_USER, T1, 1, "user.updated", { changes: { displayName: "L" } });
@@ -118,7 +118,7 @@ describe("backfillUserStreamTenants (#762)", () => {
     expect(writeRes.isSuccess).toBe(true);
   });
 
-  test("split stream (legacy + post-#497 SYSTEM events) merges in global id order", async () => {
+  test("split stream (legacy + later SYSTEM events) merges in global id order", async () => {
     // Legacy: created + updated on T1 (v1, v2). Then a later lifecycle
     // write appended v1 on SYSTEM — the split the raw changeset SQL trips on.
     await appendUserEvent(SPLIT_USER, T1, 0, "user.created", { email: "s@example.com" });

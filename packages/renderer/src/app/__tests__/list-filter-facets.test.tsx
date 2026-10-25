@@ -147,7 +147,7 @@ function stubDispatcherByType(
   };
 }
 
-describe("entityList facets — unchanged after the shared buildFilterFacets/buildFilterPayload extraction (fw#2224)", () => {
+describe("entityList facets — unchanged after the shared buildFilterFacets/buildFilterPayload extraction", () => {
   test("a filterable boolean field renders as a facet, and toggling it sends a coerced boolean in payload.filters", async () => {
     queryCalls = [];
     capturedProps = undefined;
@@ -192,7 +192,7 @@ describe("entityList facets — unchanged after the shared buildFilterFacets/bui
   });
 });
 
-describe("projectionList filter + facets (fw#2224)", () => {
+describe("projectionList filter + facets", () => {
   test("screen.filter is sent verbatim in the query payload", async () => {
     queryCalls = [];
     const screen: ProjectionListScreenDefinition = {
@@ -484,7 +484,7 @@ describe("projectionList filter + facets (fw#2224)", () => {
 // payload.filters — its two bounds go out as the top-level params the screen
 // declares. A screen may declare it as its only facet, so the wiring must not
 // hang off the option-facet path.
-describe("projectionList dateRange facet (fw#3104)", () => {
+describe("projectionList dateRange facet", () => {
   const dateRangeScreen: ProjectionListScreenDefinition = {
     id: "event-list",
     type: "projectionList",

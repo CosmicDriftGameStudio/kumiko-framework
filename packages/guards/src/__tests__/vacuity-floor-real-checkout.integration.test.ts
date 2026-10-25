@@ -13,7 +13,7 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
   // narrowed-to-zero result — never a silent floor violation nobody looks at.
   // Only file counts matter here: parsing every file through ts-morph pushed
   // this test past its 15 s budget on CI.
-  test("jeder Guard bekommt Dateien oder ist legitim leer", () => {
+  test("every guard gets files or is legitimately empty", () => {
     const roots = resolveRepoRoots();
     expect(roots.length).toBeGreaterThan(0);
     const problems = GUARDS.flatMap((guard) => {
@@ -27,7 +27,7 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
     expect(problems).toEqual([]);
   });
 
-  test("der lokale Repo-Root liefert eine positive Source-Surface und Dateien für eine Source-Scan-Spec", () => {
+  test("the local repo root provides a positive source surface and files for a source-scan spec", () => {
     const roots = resolveRepoRoots();
     expect(roots.length).toBeGreaterThan(0);
     const spec: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };

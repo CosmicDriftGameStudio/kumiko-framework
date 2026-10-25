@@ -368,7 +368,7 @@ function resetState() {
 // =============================================================================
 
 describe("withCapEnforcement — calendar", () => {
-  test("under-cap: handler läuft, counter inkrementiert um 1 pro success", async () => {
+  test("under-cap: handler runs, counter increments by 1 per success", async () => {
     resetState();
     const admin = adminFor(1201);
 
@@ -383,7 +383,7 @@ describe("withCapEnforcement — calendar", () => {
     expect(recordedNotifications).toHaveLength(0);
   });
 
-  test("hard-hit: handler läuft NICHT, counter NICHT weiter inkrementiert", async () => {
+  test("hard-hit: handler does not run, counter does not increment further", async () => {
     resetState();
     const admin = adminFor(1203);
     // limit=5, soft=1.1×5=5.5, hard=1.2×5=6. Because the counter is an integer,
@@ -410,7 +410,7 @@ describe("withCapEnforcement — calendar", () => {
     expect(afterBlocked!["value"]).toBe(6);
   });
 
-  test("failed handler: counter NICHT inkrementiert (cap-quota nicht verbrannt)", async () => {
+  test("failed handler: counter is not incremented (cap quota not consumed)", async () => {
     resetState();
     const admin = adminFor(1204);
 
@@ -436,7 +436,7 @@ describe("withCapEnforcement — calendar", () => {
 // =============================================================================
 
 describe("withRollingCapEnforcement — rolling", () => {
-  test("under-cap: handler läuft, increment-rolling-events accumulieren", async () => {
+  test("under-cap: handler runs, rolling increment events accumulate", async () => {
     resetState();
     const admin = adminFor(1301);
 
@@ -463,7 +463,7 @@ describe("withRollingCapEnforcement — rolling", () => {
     expect(sendCallCount).toBe(6); // the handler was not called again
   });
 
-  test("failed handler: kein increment-rolling-event hinzugefügt (cap-quota nicht verbrannt)", async () => {
+  test("failed handler: no rolling increment event is added (cap quota not consumed)", async () => {
     // Mirrors the calendar test "failed handler: counter not incremented". Proves
     // that the rolling wrapper provides the same atomicity contract: only successful
     // handlers consume quota.

@@ -105,7 +105,7 @@ describe("use-all-bundled boot", () => {
   // Tabellen, `kumiko schema generate` liest ENTITY_METAS. Divergieren die
   // Mengen, sind Tests grün während der erste Prod-Write crasht (Tabelle
   // fehlt in den Migrations).
-  test("ENTITY_METAS covers every table the test-stack would auto-push (#255)", () => {
+  test("ENTITY_METAS covers every table the test-stack would auto-push", () => {
     const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
     const missing: string[] = [];
     for (const f of composedFeatures) {
@@ -117,7 +117,7 @@ describe("use-all-bundled boot", () => {
     expect(missing).toEqual([]);
   });
 
-  test("projection-only and store-only tables land in ENTITY_METAS (#255)", () => {
+  test("projection-only and store-only tables land in ENTITY_METAS", () => {
     const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
     // billing-foundation registers read_subscriptions only as r.projection —
     // before the #255 fix that table was missing from migrations. jobs'

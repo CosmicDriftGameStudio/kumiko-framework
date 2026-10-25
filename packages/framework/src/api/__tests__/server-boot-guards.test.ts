@@ -185,7 +185,7 @@ describe("buildServer — feature httpRoute PUT mounting", () => {
   });
 });
 
-describe("buildServer — search-adapter boot warning (#2051)", () => {
+describe("buildServer — search-adapter boot warning", () => {
   const searchableFeature = defineFeature("has-search", (r) => {
     r.entity({
       name: "note",

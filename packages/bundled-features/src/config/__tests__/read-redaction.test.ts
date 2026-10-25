@@ -46,7 +46,7 @@ describe("read-redaction — cascade redaction strips every inherited platform r
     expect(out.source).toBe("missing");
   });
 
-  test("strips the app-override rung too — the #376 leak via ENV-bridged value", () => {
+  test("strips the app-override rung too — the leak via ENV-bridged value", () => {
     const out = redactInheritedCascade(
       cascade([
         level("system-row", "secret", true),

@@ -69,7 +69,7 @@ describe("RenderList — column-renderer registry", () => {
     expect(screen.getByTestId("cell-r1-color").textContent).toBe("42 €");
   });
 
-  test("__component-renderer mit Provider → Component wird gemountet, value+row+column kommen an", () => {
+  test("__component-renderer with Provider → Component is mounted, value+row+column are passed in", () => {
     const screenWithComp: EntityListScreenDefinition = {
       ...baseScreen,
       columns: ["title", { field: "color", renderer: { react: { __component: "ColorSwatch" } } }],
@@ -91,7 +91,7 @@ describe("RenderList — column-renderer registry", () => {
     expect(screen.getByTestId("swatch-row-title").textContent).toBe("Alpha");
   });
 
-  test("__component-renderer ohne Registry-Eintrag → console.warn + Default-Fallback", () => {
+  test("__component-renderer without registry entry → console.warn + default fallback", () => {
     const screenWithUnknown: EntityListScreenDefinition = {
       ...baseScreen,
       columns: [

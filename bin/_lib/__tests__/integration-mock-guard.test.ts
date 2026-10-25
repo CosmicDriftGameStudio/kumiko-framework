@@ -64,7 +64,7 @@ describe("isMockGuardAllowlisted", () => {
 // Ein verschobener cwd oder falsch normalisierter relative()-Pfad würde
 // sonst still die Exemption oder die Erkennung aushebeln.
 describe("scanForMocks — File-Walk-Integration", () => {
-  test("allowlistete Datei exempt, neue mock-haltige Datei als Violation, saubere Datei still", () => {
+  test("allowlisted file is exempt, new file containing mocks is a violation, clean file is silent", () => {
     const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
     const { join } = require("node:path");
     const { tmpdir } = require("node:os");

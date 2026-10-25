@@ -30,7 +30,7 @@ describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", ()
   });
 });
 
-describe("createPersonalAccessTokensFeature — tokenVerifier registration (#1369)", () => {
+describe("createPersonalAccessTokensFeature — tokenVerifier registration", () => {
   test('registers via r.useExtension(EXT_TOKEN_VERIFIER, "pat", ...) instead of a patResolver field', () => {
     const feature = createPersonalAccessTokensFeature({ scopes: {} });
     expect(feature.extensionUsages).toHaveLength(1);
@@ -46,7 +46,7 @@ describe("createPersonalAccessTokensFeature — tokenVerifier registration (#136
   });
 });
 
-describe("createPersonalAccessTokensFeature — declarative screens (fw#2548 Teil B)", () => {
+describe("createPersonalAccessTokensFeature — declarative screens", () => {
   test('registers no screen of type "custom"', () => {
     const feature = createPersonalAccessTokensFeature({ scopes: {} });
     const screens = Object.values(feature.screens);
@@ -145,7 +145,7 @@ describe("createPersonalAccessTokensFeature — listScreen option", () => {
   });
 });
 
-describe("patGrantOptions (fw#2548 Teil B)", () => {
+describe("patGrantOptions", () => {
   test("a read-only domain yields only <domain>:read", () => {
     const scopes: PatScopeConfig = { billing: { label: "Billing", read: ["billing:query:*"] } };
     expect(patGrantOptions(scopes)).toEqual(["billing:read"]);
@@ -177,7 +177,7 @@ describe("patGrantOptions (fw#2548 Teil B)", () => {
   });
 });
 
-describe("patScopeOptionTranslations (fw#2548 Teil B)", () => {
+describe("patScopeOptionTranslations", () => {
   test("option-label keys match the renderer's actual resolution convention (fieldOptionLabelKey)", () => {
     const scopes: PatScopeConfig = {
       billing: { label: "Billing", read: ["billing:query:*"], write: ["billing:write:*"] },

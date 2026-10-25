@@ -2,13 +2,13 @@ import { describe, expect, mock, test } from "bun:test";
 import { resizeImageBeforeUpload } from "../resize-image.ts";
 
 describe("resizeImageBeforeUpload", () => {
-  test("lässt Nicht-Bilder unverändert", async () => {
+  test("leaves non-images unchanged", async () => {
     const file = new File(["hi"], "report.pdf", { type: "application/pdf" });
     const result = await resizeImageBeforeUpload(file);
     expect(result).toBe(file);
   });
 
-  test("fehlt OffscreenCanvas, bleibt das Bild unverändert", async () => {
+  test("leaves the image unchanged when OffscreenCanvas is unavailable", async () => {
     const originalOffscreenCanvas = globalThis.OffscreenCanvas;
     // @ts-expect-error simulate a browser without OffscreenCanvas support
     globalThis.OffscreenCanvas = undefined;
@@ -21,19 +21,19 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("lässt SVGs unverändert (Vektor würde beim Re-Encode zerstört)", async () => {
+  test("leaves SVGs unchanged (the vector would be destroyed during re-encoding)", async () => {
     const file = new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" });
     const result = await resizeImageBeforeUpload(file);
     expect(result).toBe(file);
   });
 
-  test("lässt GIFs unverändert (Animation würde auf ein Frame kollabieren)", async () => {
+  test("leaves GIFs unchanged (the animation would collapse to a single frame)", async () => {
     const file = new File(["gif"], "anim.gif", { type: "image/gif" });
     const result = await resizeImageBeforeUpload(file);
     expect(result).toBe(file);
   });
 
-  test("skaliert auf maxEdge herunter und behält das Seitenverhältnis", async () => {
+  test("scales down to maxEdge and preserves the aspect ratio", async () => {
     const bitmap = { close: mock(() => {}), height: 2000, width: 4000 };
     let capturedWidth = 0;
     let capturedHeight = 0;
@@ -70,7 +70,7 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("konvertiert nicht-erhaltbare Formate zu jpeg und passt die Extension an", async () => {
+  test("converts non-preservable formats to jpeg and adjusts the extension", async () => {
     class FakeOffscreenCanvas {
       getContext() {
         return { drawImage: mock(() => {}) };
@@ -102,7 +102,7 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("gibt die Bitmap frei, wenn kein 2d-Kontext verfügbar ist, und liefert das Original", async () => {
+  test("releases the bitmap when no 2d context is available and returns the original", async () => {
     const bitmap = { close: mock(() => {}), height: 100, width: 100 };
     class NoContextCanvas {
       getContext() {
@@ -126,7 +126,7 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("benennt nach dem tatsächlich erzeugten Blob-Typ, nicht dem angeforderten", async () => {
+  test("names after the actually generated Blob type, not the requested one", async () => {
     // A browser without webp encoding support silently falls back to png
     // (spec behavior of convertToBlob) — naming must follow the blob, or a
     // ".webp" file ends up holding png bytes with a matching-looking mimeType.
@@ -161,7 +161,7 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("belässt ein bereits optimiertes Bild unverändert, wenn der Re-Encode es vergrößern würde", async () => {
+  test("leaves an already optimized image unchanged if re-encoding would make it larger", async () => {
     // A small in-spec PNG (e.g. palette-optimized) round-tripped through a
     // canvas can come back as a bigger full-RGBA blob — the size guard must
     // then keep serving the original bytes instead of the larger re-encode.
@@ -194,7 +194,7 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
-  test("fällt bei Decode-Fehlern auf die Originaldatei zurück", async () => {
+  test("falls back to the original file on decode errors", async () => {
     class FakeOffscreenCanvas {
       getContext() {
         return { drawImage: mock(() => {}) };

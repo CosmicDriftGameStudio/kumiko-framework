@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stringifyNavParams } from "../app/row-actions.ts";
 
 describe("stringifyNavParams", () => {
-  test("plain object encodes as JSON (fw#2763)", () => {
+  test("plain object encodes as JSON", () => {
     const result = stringifyNavParams({ price: { amount: 12.5, currency: "EUR" } });
     expect(result["price"]).toBe(JSON.stringify({ amount: 12.5, currency: "EUR" }));
   });

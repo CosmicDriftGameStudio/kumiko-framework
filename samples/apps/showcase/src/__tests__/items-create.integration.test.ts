@@ -26,7 +26,7 @@ afterAll(async () => {
   await stack?.cleanup();
 });
 
-test("item:create akzeptiert Seed-Payload mit dueDate=YYYY-MM-DD", async () => {
+test("item:create accepts seed payload with dueDate=YYYY-MM-DD", async () => {
   const result = await stack.http.writeOk<{ id: string }>(
     "showcase:write:item:create",
     {
@@ -42,7 +42,7 @@ test("item:create akzeptiert Seed-Payload mit dueDate=YYYY-MM-DD", async () => {
   expect(result.id).toBeDefined();
 });
 
-test("item:list returnt das angelegte item zurück", async () => {
+test("item:list returns the created item", async () => {
   const list = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     "showcase:query:item:list",
     {},
@@ -51,7 +51,7 @@ test("item:list returnt das angelegte item zurück", async () => {
   expect(list.rows.length).toBeGreaterThan(0);
 });
 
-test("item:list mit pagination-payload (limit + totalCount) liefert total", async () => {
+test("item:list with pagination payload (limit + totalCount) returns total", async () => {
   // pinst Tier-2.6d Server-Seite: totalCount: true → executor.list
   // macht extra COUNT-Query und gibt total mit. Der Pager im Renderer
   // hängt davon ab — ohne diese Server-Side wäre total stets undefined
@@ -73,7 +73,7 @@ test("item:list mit pagination-payload (limit + totalCount) liefert total", asyn
 // (priority-Werte 100-104) damit sie unabhängig von anderen Tests in
 // derselben Suite stabil sind. status="active"/"draft" reicht für eq/ne,
 // priority für lt/gt/in.
-test("filter eq (HTTP): status=active liefert nur active items", async () => {
+test("filter eq (HTTP): status=active returns only active items", async () => {
   await stack.http.writeOk(
     "showcase:write:item:create",
     {
@@ -108,7 +108,7 @@ test("filter eq (HTTP): status=active liefert nur active items", async () => {
   expect(filtered.rows.every((r) => r["status"] === "active")).toBe(true);
 });
 
-test("filter ne (HTTP): status!=draft schließt drafts aus", async () => {
+test("filter ne (HTTP): status!=draft excludes drafts", async () => {
   const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     "showcase:query:item:list",
     { limit: 200, filter: { field: "status", op: "ne", value: "draft" } },
@@ -174,7 +174,7 @@ test("filter in (HTTP): priority IN [...] inkl. empty-array → leeres Resultat"
   expect(empty.rows).toHaveLength(0);
 });
 
-test("filter undefined (HTTP): default-Pfad, alle Items zurück (keine Regression)", async () => {
+test("filter undefined (HTTP): default path returns all items (no regression)", async () => {
   // Pinst dass Caller ohne filter den vorherigen Pfad bekommt — kein
   // versteckter "match-none"-Default oder Schema-Drift in der Zod-Pipe.
   // Nutzt einen frisch angelegten Test-Marker damit auch bei isolierter
@@ -199,7 +199,7 @@ test("filter undefined (HTTP): default-Pfad, alle Items zurück (keine Regressio
   expect(all.rows.find((r) => r["title"] === "no-filter-marker")).toBeDefined();
 });
 
-test("actionForm Tier 2.7d (HTTP): submit mit nur title+priority erstellt item via item:create", async () => {
+test("actionForm (HTTP): submit with only title+priority creates item via item:create", async () => {
   // Pinst Tier-2.7d End-to-End: itemQuickAddScreen schickt nur 2
   // Felder (title + priority), während itemEntity insgesamt 6 Felder
   // hat. Defaults im Insert-Schema (status="draft", isDone=false,
@@ -225,7 +225,7 @@ test("actionForm Tier 2.7d (HTTP): submit mit nur title+priority erstellt item v
   expect(found?.["status"]).toBe("draft"); // Server-default greift
 });
 
-test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, list+detail liefern UUID zurück", async () => {
+test("Reference field: parent + child, child stores parentId, list+detail return UUID", async () => {
   // Pinst End-to-End dass das `reference`-Field-Type:
   //   1) eine UUID-Spalte in der DB anlegt (table-builder)
   //   2) die UUID via Zod-Validator akzeptiert (schema-builder)
@@ -266,7 +266,7 @@ test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, lis
   expect(detail["parentId"]).toBe(parent.id);
 });
 
-test("Tier 2.7e Remote-Combobox: list mit search-Param geht durch die Pipeline ohne Crash", async () => {
+test("Remote combobox: list with search parameter passes through the pipeline without crashing", async () => {
   // Pinst die HTTP-Pipeline für search: Zod-Validation, Handler,
   // executor mit ctx.services.searchAdapter durchgereicht. Echtes Filter-
   // Verhalten ist im executor-Unit-Integrationstest (event-store-
@@ -281,7 +281,7 @@ test("Tier 2.7e Remote-Combobox: list mit search-Param geht durch die Pipeline o
   expect(Array.isArray(result.rows)).toBe(true);
 });
 
-test("Tier 2.7e Server-Eagerload: detail mit reference-Feld liefert _refs.parentId mit resolved Row", async () => {
+test("Server eager load: detail with reference field returns _refs.parentId with resolved row", async () => {
   // Pinst dass entity-handlers.detail nach executor.detail eine
   // enrichRowWithReferences-Stage durchläuft und die referenced
   // parent-Row als _refs.parentId mitschickt.
@@ -322,7 +322,7 @@ test("Tier 2.7e Server-Eagerload: detail mit reference-Feld liefert _refs.parent
   expect(parentRef?.title).toBe("eagerload-parent");
 });
 
-test("Tier 2.7e Audit-Fix #8: detail mit multi-reference liefert _refs.relatedIds als Array", async () => {
+test("detail with multi-reference returns _refs.relatedIds as an array", async () => {
   // Symmetrisch zum list-multi-Test, aber für detail. Multi-Reference
   // im detail-Pfad geht durch enrichRowWithReferences.
   const tag1 = await stack.http.writeOk<{ id: string }>(
@@ -372,7 +372,7 @@ test("Tier 2.7e Audit-Fix #8: detail mit multi-reference liefert _refs.relatedId
   expect(refIds).toEqual([tag1.id, tag2.id].sort());
 });
 
-test("Tier 2.7e Audit-Fix #8: list mit single-reference liefert _refs.parentId resolved Object", async () => {
+test("list with single-reference returns _refs.parentId resolved object", async () => {
   // Symmetrisch zum detail-single-Test, aber für list. Single-
   // Reference im list-Pfad geht durch enrichWithReferences.
   const parent = await stack.http.writeOk<{ id: string }>(
@@ -418,7 +418,7 @@ test("Tier 2.7e Audit-Fix #8: list mit single-reference liefert _refs.parentId r
   expect(parentRef?.title).toBe("list-single-parent");
 });
 
-test("Tier 2.7e Server-Eagerload: list liefert _refs für relatedIds (multi-reference)", async () => {
+test("Server eager load: list returns _refs for relatedIds (multi-reference)", async () => {
   // Pinst Multi-Reference-Eagerload: list-row hat _refs.relatedIds
   // als Array der resolved rows (nicht nur UUIDs).
   const a = await stack.http.writeOk<{ id: string }>(

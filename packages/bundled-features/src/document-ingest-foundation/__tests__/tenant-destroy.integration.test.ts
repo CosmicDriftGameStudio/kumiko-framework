@@ -106,7 +106,7 @@ async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promi
   return String(result.data.id);
 }
 
-describe("document-ingest-foundation :: tenant destroy (#3196)", () => {
+describe("document-ingest-foundation :: tenant destruction", () => {
   test("purges documentExtract rows for the destroyed tenant, leaving another tenant's row untouched", async () => {
     await seedTenant(tenantA);
     await seedTenant(tenantB);

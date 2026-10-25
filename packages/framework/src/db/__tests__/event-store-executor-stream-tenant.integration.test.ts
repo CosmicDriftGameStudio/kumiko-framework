@@ -47,7 +47,7 @@ async function createOwnerRow(): Promise<string> {
   return String(created.data.id);
 }
 
-describe("executor streamTenantId (#3607)", () => {
+describe("executor streamTenantId", () => {
   test("a system-mode db writes to the row's stream with the operator as actor", async () => {
     const id = await createOwnerRow();
     const systemDb = createTenantDb({

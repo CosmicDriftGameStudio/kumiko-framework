@@ -47,7 +47,7 @@ describe("toStoredEvent", () => {
     expect(ev.createdBy).toBe("user-1");
   });
 
-  test("Feld-Vollständigkeit: das Mapping deckt genau die StoredEvent-Keys ab", () => {
+  test("Field completeness: the mapping covers exactly the StoredEvent keys", () => {
     // Guards required fields staying in sync with StoredEvent (event-store.ts);
     // optional fields consistently omitted on both sides must be added manually.
     const expectedKeys: ReadonlyArray<keyof StoredEvent> = [

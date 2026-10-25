@@ -125,7 +125,7 @@ describe("guard-i18n-locale-mount — client mount points", () => {
     expect(findViolations([sf])).toHaveLength(0);
   });
 
-  test("raw LocaleProvider without a de fallback bundle is flagged (kumiko-studio#191 shape)", () => {
+  test("raw LocaleProvider without a de fallback bundle is flagged", () => {
     const project = gatedProject();
     const sf = project.createSourceFile(
       "/repo/src/auth-mount.tsx",
@@ -419,7 +419,7 @@ describe("guard-i18n-locale-mount — server-side localeDe()", () => {
 // (`createKumikoApp({ ...APP_OPTIONS, locale })`) instead of being a literal
 // property at the call site, so the lookup follows the spread's source.
 describe("guard-i18n-locale-mount — options object spread resolution", () => {
-  test("createKumikoApp({ ...APP_OPTIONS, locale }) where APP_OPTIONS carries clientFeatures with localeDeClient() is clean (offlot-app#296 shape)", () => {
+  test("createKumikoApp({ ...APP_OPTIONS, locale }) where APP_OPTIONS carries clientFeatures with localeDeClient() is clean", () => {
     const project = gatedProject();
     const options = project.createSourceFile(
       "/repo/src/app-options.tsx",

@@ -3,7 +3,7 @@ import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
-describe("validateBoot — detailFor screens (fw#2163)", () => {
+describe("validateBoot — detailFor screens", () => {
   test("two screens with the same detailFor fail boot, naming both screen ids", () => {
     const feature = defineFeature("demo", (r) => {
       r.entity({

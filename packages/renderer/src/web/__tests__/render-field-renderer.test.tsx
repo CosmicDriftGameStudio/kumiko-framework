@@ -52,7 +52,7 @@ function withRenderers(ui: ReactNode, map: Record<string, typeof StatusBadge>): 
   return <ColumnRenderersProvider value={map}>{ui}</ColumnRenderersProvider>;
 }
 
-describe("RenderField — field.renderer on a readOnly head field (fw#2245)", () => {
+describe("RenderField — field.renderer on a readOnly head field", () => {
   test("FormatSpec renderer formats the value instead of a disabled Input", () => {
     render(
       <RenderEdit

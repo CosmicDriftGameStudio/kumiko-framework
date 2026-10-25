@@ -127,7 +127,7 @@ describe("jsonb — strings inside", () => {
 });
 
 describe("jsonb — numbers + special", () => {
-  test("bigint-grenzen als number (in JSON)", async () => {
+  test("bigint boundaries as a number (in JSON)", async () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
       // JSON has no bigint, so the largest value that must survive is Number.MAX_SAFE_INTEGER.
       const v = { large: 9007199254740991, negativeLarge: -9007199254740991 };
@@ -238,7 +238,7 @@ describe("jsonb — UPDATE roundtrip (separate from INSERT)", () => {
     });
   });
 
-  test("UPDATE with empty {} → leeres Objekt überschrieben", async () => {
+  test("UPDATE with empty {} → empty object replaces existing value", async () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
       const ins = (await insertOne<{ id: string }>(db, meta, { data: { foo: "bar" } }))!;
       await updateMany(db, meta, { data: {} }, { id: ins.id });

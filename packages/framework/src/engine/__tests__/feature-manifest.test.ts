@@ -13,7 +13,7 @@ const boolKey = {
   access: { read: ["anonymous"], write: ["anonymous"] },
 } as const;
 
-describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", () => {
+describe("buildManifestFromRegistry — deterministic codepoint sort", () => {
   // `bZeta` vs `balpha`: localeCompare orders these case-insensitively
   // (balpha < bZeta), but a codepoint sort puts uppercase 'Z' (U+005A) ahead of
   // lowercase 'a' (U+0061) — the two comparators DISAGREE. The manifest is
@@ -48,7 +48,7 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
     ]);
   });
 
-  test("featureNames filter — nur genannte Features im Manifest", () => {
+  test("featureNames filter — only the specified features in the manifest", () => {
     const registry = createRegistry([
       defineFeature("alpha", () => {}),
       defineFeature("beta", () => {}),
@@ -81,7 +81,7 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
     }
   });
 
-  test("tier: undefined — weder per-Feature noch top-level vorhanden", () => {
+  test("tier: undefined — neither per-feature nor top-level present", () => {
     const registry = createRegistry([defineFeature("basic", () => {})]);
 
     const manifest = buildManifestFromRegistry(registry, { source: "test" });

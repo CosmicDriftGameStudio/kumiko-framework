@@ -44,14 +44,14 @@ function wrapper(nav: NavApi): (props: { children: ReactNode }) => ReactNode {
   return ({ children }) => <NavProvider value={nav}>{children}</NavProvider>;
 }
 describe("useListUrlState", () => {
-  test("Default-State: kein URL-Param → sort=null, q='', page=1", () => {
+  test("Default state: no URL parameter → sort=null, q='', page=1", () => {
     const nav = makeNav();
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toBeNull();
     expect(result.current.q).toBe("");
     expect(result.current.page).toBe(1);
   });
-  test("liest sort+dir aus URL-Params (mit screenId-Prefix)", () => {
+  test("reads sort+dir from URL parameters (with screenId prefix)", () => {
     const nav = makeNav({ "orders.sort": "createdAt", "orders.dir": "desc" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toEqual({ field: "createdAt", dir: "desc" });
@@ -79,7 +79,7 @@ describe("useListUrlState", () => {
       "orders.page": null, // page reset on sort change
     });
   });
-  test("setSort(null) löscht sort+dir+page", () => {
+  test("setSort(null) deletes sort+dir+page", () => {
     const nav = makeNav({
       "orders.sort": "name",
       "orders.dir": "asc",
@@ -95,7 +95,7 @@ describe("useListUrlState", () => {
       "orders.page": null,
     });
   });
-  test("setQ schreibt q + resettet page (Sort bleibt unangetastet)", () => {
+  test("setQ writes q + resets page (sort remains untouched)", () => {
     const nav = makeNav({
       "orders.sort": "name",
       "orders.dir": "asc",
@@ -112,7 +112,7 @@ describe("useListUrlState", () => {
     // Sort must not appear in the captures: a search change keeps the sort order.
     expect(nav.captures[0]).not.toHaveProperty("orders.sort");
   });
-  test("setQ('') löscht den q-Key", () => {
+  test("setQ('') deletes the q key", () => {
     const nav = makeNav({ "orders.q": "acme" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -123,7 +123,7 @@ describe("useListUrlState", () => {
       "orders.page": null,
     });
   });
-  test("setPage(1) löscht den Key (Default-Page = unprefixed URL)", () => {
+  test("setPage(1) deletes the key (default page = unprefixed URL)", () => {
     const nav = makeNav({ "orders.page": "5" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -131,7 +131,7 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({ "orders.page": null });
   });
-  test("setPage(N>1) speichert die Page als String", () => {
+  test("setPage(N>1) stores the page as a string", () => {
     const nav = makeNav();
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -170,7 +170,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  test("setFilter mit leerem Array löscht den Facet-Key", () => {
+  test("setFilter with an empty array deletes the facet key", () => {
     const nav = makeNav({ "orders.f.status": "draft" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     act(() => {
@@ -199,7 +199,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  test("setDateRange mit leerer Grenze löscht nur diesen Key", () => {
+  test("setDateRange with an empty boundary deletes only that key", () => {
     const nav = makeNav({
       "orders.f.createdAt.from": "2020-06-10",
       "orders.f.createdAt.to": "2020-06-14",
@@ -215,7 +215,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  test("clearFilters löscht auch die Zeitraum-Grenzen", () => {
+  test("clearFilters also deletes the date range boundaries", () => {
     const nav = makeNav({
       "orders.f.createdAt.from": "2020-06-10",
       "orders.f.createdAt.to": "2020-06-14",
@@ -231,7 +231,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  test("clearFilters löscht alle aktiven .f.<field>-Keys", () => {
+  test("clearFilters deletes all active .f.<field>-keys", () => {
     const nav = makeNav({
       "orders.f.status": "draft",
       "orders.f.active": "true",

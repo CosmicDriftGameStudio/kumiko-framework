@@ -116,7 +116,7 @@ describe("legal-pages :: GET /legal/privacy (EN, not seeded)", () => {
 });
 
 describe("legal-pages :: edge-cases", () => {
-  test("Block existiert mit body=null → Route returnt 404 statt leerer HTML", async () => {
+  test("Block exists with body=null → route returns 404 instead of empty HTML", async () => {
     // seedTextBlock permits body=null as a legitimate stub state.
     // Routes must treat this as "not configured", NOT as a valid empty page
     // (which would falsely present a GDPR-required page as existing).
@@ -144,7 +144,7 @@ describe("legal-pages :: edge-cases", () => {
     expect(body).toContain("Tenant-Admin");
   });
 
-  test("Markdown-Body mit <script> wird escaped (XSS-Härtung)", async () => {
+  test("Markdown body containing <script> is escaped (XSS hardening)", async () => {
     // Server rendering is hardened against untrusted tenant authors:
     // Raw HTML in the Markdown body is escaped as text (not passed through).
     await seedTextBlock(db, {
@@ -256,7 +256,7 @@ describe("legal-pages :: boot gate wiring", () => {
 // Boot check called directly (without the dev-server job-runner path) —
 // verifies that the logic detects blocks missing in SYSTEM_TENANT.
 describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () => {
-  test("legal-pages serven SYSTEM_TENANT-Texte auch wenn tenantResolver einen anderen Tenant zurückgibt", async () => {
+  test("legal-pages serve SYSTEM_TENANT text even when tenantResolver returns a different tenant", async () => {
     // Simulates publicstatus's setup: a host-based tenantResolver resolves
     // the tenant subdomain to a tenant ID. Without the X-Tenant fix,
     // /legal/impressum for tenant-x.example.com would query tenant-x's
@@ -301,8 +301,8 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
   });
 });
 
-describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regression)", () => {
-  test("custom wrapLayout bekommt den passenden slug pro Route, nicht immer imprint", async () => {
+describe("legal-pages :: wrapLayout receives route.slug", () => {
+  test("custom wrapLayout receives the matching slug per route, not always imprint", async () => {
     const seenSlugs: (string | undefined)[] = [];
     const customStack = await setupTestStack({
       features: [
@@ -547,7 +547,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     };
   }
 
-  test("alle Pflicht-Blocks vorhanden → log.info, kein throw", async () => {
+  test("all required blocks present → log.info, no throw", async () => {
     const { api } = fakeTemplateResolver([
       { slug: "imprint", lang: "de", title: "I", content: "body" },
       { slug: "privacy", lang: "de", title: "P", content: "body" },
@@ -565,7 +565,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     expect(warns).toHaveLength(0);
   });
 
-  test("missing blocks + NODE_ENV=production → throws mit slug-Liste", async () => {
+  test("missing blocks + NODE_ENV=production → throws with slug list", async () => {
     const { api } = fakeTemplateResolver([]);
     await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(
@@ -574,7 +574,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     });
   });
 
-  test("missing blocks + NODE_ENV!=production → log.warn, kein throw", async () => {
+  test("missing blocks + NODE_ENV!=production → log.warn, no throw", async () => {
     const { api } = fakeTemplateResolver([]);
     const warns: string[] = [];
     await withEnv({ NODE_ENV: "development" }, async () => {
@@ -591,13 +591,13 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     });
   });
 
-  test("ctx ohne templateResolver → InternalError mit Wiring-Hinweis", async () => {
+  test("ctx without templateResolver → InternalError with wiring hint", async () => {
     await expect(runLegalPagesBootCheck({ services: { extensions: {} } })).rejects.toThrow(
       /templateResolver missing.*extraContext/s,
     );
   });
 
-  test("Block existiert aber content ist null → wird als missing gezählt", async () => {
+  test("Block exists but content is null → counted as missing", async () => {
     const { api } = fakeTemplateResolver([
       { slug: "imprint", lang: "de", title: "I", content: null },
       { slug: "privacy", lang: "de", title: "P", content: "body" },
@@ -640,7 +640,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     });
   });
 
-  test("custom requiredBlock (es privacy) vorhanden → kein throw", async () => {
+  test("custom requiredBlock (es privacy) present → no throw", async () => {
     const { api } = fakeTemplateResolver([
       { slug: "imprint", lang: "es", title: "I", content: "x" },
       { slug: "privacy", lang: "es", title: "P", content: "x" },

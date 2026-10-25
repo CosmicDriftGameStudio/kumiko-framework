@@ -37,7 +37,7 @@ function buildClient() {
 }
 
 describe("createMollieCheckoutSession", () => {
-  test("mode omitted defaults to sequenceType 'first' (mandate-setup, Regression-Pin für bestehende Aufrufer)", async () => {
+  test("mode omitted defaults to sequenceType 'first' (mandate-setup, regression safeguard for existing callers)", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
       getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
@@ -85,7 +85,7 @@ describe("createMollieCheckoutSession", () => {
     );
   });
 
-  test("mode='payment': sequenceType wird zu 'oneoff' (One-off-Top-up, kein Mandate-setup)", async () => {
+  test("mode='payment': sequenceType becomes 'oneoff' (one-off top-up, no Mandate-setup)", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
       getCheckoutUrl: () => "https://www.mollie.com/checkout/topup",

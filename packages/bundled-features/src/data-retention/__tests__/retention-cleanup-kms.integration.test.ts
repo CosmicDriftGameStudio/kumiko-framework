@@ -136,7 +136,7 @@ async function seedUserOwned(
   return rowId;
 }
 
-describe("runRetentionCleanup :: hardDelete crypto-shredding (Refs #2057)", () => {
+describe("runRetentionCleanup :: hardDelete crypto-shredding", () => {
   test("erases a recordOwned row's own key, leaves a userOwned row's owner key untouched", async () => {
     const tenantId = testTenantId(9);
     const ownerUserId = crypto.randomUUID();

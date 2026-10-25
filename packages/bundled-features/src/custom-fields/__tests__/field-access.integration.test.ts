@@ -323,7 +323,7 @@ describe("fail-closed on corrupt serialized_field", () => {
     });
   });
 
-  test("set: legacy `sensitive`-key definition (#972) → unprocessable field_definition_corrupt, not a 500", async () => {
+  test("set: legacy `sensitive`-key definition → unprocessable field_definition_corrupt, not a 500", async () => {
     const propertyId = "99999999-9999-4000-8000-000000000009";
     await defineField("legacyPii", { type: "text" });
     await asRawClient(stack.db).unsafe(

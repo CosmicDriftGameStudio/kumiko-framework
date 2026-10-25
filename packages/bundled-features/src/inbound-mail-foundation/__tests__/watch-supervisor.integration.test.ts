@@ -541,7 +541,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
   });
 });
 
-describe("watch-supervisor — multi-worker watch coordination (#1719)", () => {
+describe("watch-supervisor — multi-worker watch coordination", () => {
   // Counts only watch-path ingests (payload.providerCursor === "watch") —
   // the reconciliation poll is deliberately N-fold (every worker polls
   // every account) and would otherwise inflate this count regardless of

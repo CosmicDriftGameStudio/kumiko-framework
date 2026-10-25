@@ -138,7 +138,7 @@ beforeEach(async () => {
   await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable, eventsTable]);
 });
 
-describe("#608 unified file-storage :: route upload + GDPR erasure hit one store", () => {
+describe("unified file-storage :: route upload + GDPR erasure hit one store", () => {
   test("a file uploaded via /api/files lands in the file-foundation store and forget erases it", async () => {
     const userId = uuid(1);
     // The uploader is also the forget subject (DeletionRequested + grace passed).

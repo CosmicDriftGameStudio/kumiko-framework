@@ -5,7 +5,7 @@ import { LoginScreen } from "../login-screen.tsx";
 import { renderWithProviders } from "./test-utils.tsx";
 
 describe("AuthCard / AuthShell", () => {
-  test("ohne Provider → Default-Fullscreen-Wrapper (rückwärtskompatibel)", () => {
+  test("without a provider → default fullscreen wrapper (backward-compatible)", () => {
     const { container } = renderWithProviders(
       <AuthCard title="Login">
         <div data-testid="body">body</div>
@@ -16,7 +16,7 @@ describe("AuthCard / AuthShell", () => {
     expect(container.querySelector("[data-testid=body]")).not.toBeNull();
   });
 
-  test("mit Provider → App-Shell ersetzt Fullscreen-Wrapper, Card bleibt", () => {
+  test("with a provider → App shell replaces fullscreen wrapper, card remains", () => {
     function Shell({ card }: { readonly card: ReactNode }): ReactNode {
       return <div data-testid="apex-chrome">{card}</div>;
     }

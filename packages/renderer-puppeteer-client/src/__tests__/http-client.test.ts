@@ -76,7 +76,7 @@ describe("postRender :: Happy-Path", () => {
   });
 });
 
-describe("postRender :: 4xx (kein Retry)", () => {
+describe("postRender :: 4xx (no retry)", () => {
   test("400 → RendererError invalid_payload sofort", async () => {
     const fetchMock = mock().mockResolvedValueOnce(
       mockResponse(400, { error: "invalid_payload", details: "missing kind" }),
@@ -86,7 +86,7 @@ describe("postRender :: 4xx (kein Retry)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1); // NO retry
   });
 
-  test("401 → RendererError invalid_payload (token-Problem, kein Retry)", async () => {
+  test("401 → RendererError invalid_payload (token problem, no retry)", async () => {
     const fetchMock = mock().mockResolvedValueOnce(mockResponse(401, { error: "unauthorized" }));
     installFetchMock(fetchMock);
     await expect(postRender(CONFIG, PAYLOAD)).rejects.toThrow(RendererError);
@@ -116,7 +116,7 @@ describe("postRender :: 5xx", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  test("3x 502 → alle Retries erschöpft, RendererError code=unavailable", async () => {
+  test("3x 502 → all retries exhausted, RendererError code=unavailable", async () => {
     const fetchMock = mock().mockResolvedValue(mockResponse(502, { error: "bad gateway" }));
     installFetchMock(fetchMock);
     try {
@@ -146,7 +146,7 @@ describe("postRender :: 5xx", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  test("504 (timeout vom service) → final, kein Retry", async () => {
+  test("504 (service timeout) → final, no retry", async () => {
     const fetchMock = mock().mockResolvedValue(mockResponse(504, { error: "render_failed" }));
     installFetchMock(fetchMock);
     await expect(postRender(CONFIG, PAYLOAD)).rejects.toMatchObject({ code: "other" });
@@ -190,8 +190,8 @@ describe("postRender :: client timeout", () => {
   });
 });
 
-describe("postRender :: network-error (mit Retry)", () => {
-  test("fetch throws (network down) → retry, dann success", async () => {
+describe("postRender :: network error (with retry)", () => {
+  test("fetch throws (network down) → retry, then success", async () => {
     const pdfBytes = new Uint8Array([0x25]);
     const fetchMock = mock()
       .mockRejectedValueOnce(new Error("ECONNREFUSED"))

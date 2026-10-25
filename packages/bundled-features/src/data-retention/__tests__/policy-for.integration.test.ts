@@ -69,7 +69,7 @@ afterAll(async () => {
 });
 
 describe("data-retention :: policy-for query (S2.D3)", () => {
-  test("ohne Override + ohne Entity-Default + ohne Preset → source=none", async () => {
+  test("without override + without entity default + without preset → source=none", async () => {
     const user = createTestUser({
       id: 1,
       tenantId: testTenantId(1),
@@ -85,7 +85,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     expect(result.source).toBe("none");
   });
 
-  test("mit Override → resolver liefert source=override + override-Werte", async () => {
+  test("with override → resolver returns source=override + override values", async () => {
     const tenantId = testTenantId(2);
     const user = createTestUser({ id: 2, tenantId, roles: ["TenantAdmin"] });
 
@@ -106,7 +106,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     expect(result.policy?.reference).toBe("lastSeenAt");
   });
 
-  test("Override nur strategy + keine Base → source=override-incomplete (Sprint 2.D1 Audit-Cycle-Fix greift)", async () => {
+  test("override with strategy only + no base → source=override-incomplete (the audit cycle fix applies)", async () => {
     const tenantId = testTenantId(3);
     const user = createTestUser({ id: 3, tenantId, roles: ["TenantAdmin"] });
 
@@ -125,7 +125,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     expect(result.policy).toBeNull();
   });
 
-  test("Override mit Schema-Violation in DB → console.warn, fallback (source=none)", async () => {
+  test("override with schema violation in DB → console.warn, fallback (source=none)", async () => {
     const tenantId = testTenantId(4);
     const user = createTestUser({ id: 4, tenantId, roles: ["TenantAdmin"] });
 
@@ -149,7 +149,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     expect(result.source).toBe("none");
   });
 
-  test("Cross-Tenant-Isolation: Tenant A's Override greift nicht für Tenant B", async () => {
+  test("Cross-tenant isolation: Tenant A's override does not apply to Tenant B", async () => {
     const tenantA = testTenantId(5);
     const tenantB = testTenantId(6);
     const userA = createTestUser({ id: 5, tenantId: tenantA, roles: ["TenantAdmin"] });

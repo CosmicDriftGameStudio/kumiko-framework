@@ -7,7 +7,7 @@ function pgTypeOf(table: unknown, dbName: string): string | undefined {
   return cols?.find((c) => c.name === dbName)?.pgType;
 }
 
-describe("jobRunEntity — DDL (#1205 regression)", () => {
+describe("jobRunEntity DDL", () => {
   test("duration column is integer, not double precision", () => {
     const table = buildEntityTable("read_job_runs", jobRunEntity);
     expect(pgTypeOf(table, "duration")).toBe("integer");

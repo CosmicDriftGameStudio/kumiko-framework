@@ -145,7 +145,7 @@ function renderScreen(opts: {
   );
 }
 
-describe("projectionDetail singleton (fw#2312)", () => {
+describe("projectionDetail singleton", () => {
   test("singleton + no path id renders the record instead of the missing-id banner", async () => {
     const queries: Array<{ type: string; payload: unknown }> = [];
     const { queryByTestId, getByTestId } = renderScreen({

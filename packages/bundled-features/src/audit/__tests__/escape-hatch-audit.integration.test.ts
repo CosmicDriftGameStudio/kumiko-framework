@@ -134,7 +134,7 @@ describe("createEscapeHatchAuditSink — persists audit:event:escape-hatch-used"
   });
 });
 
-describe("the escape-hatch audit is durable (#3607)", () => {
+describe("the escape-hatch audit is durable", () => {
   test("the audit entry survives a handler rollback and is persisted when the dispatch returns", async () => {
     const error = await stack.http.writeErr(
       "escape-hatch-audit-failing-probe:write:unsafe-raw-then-fail",

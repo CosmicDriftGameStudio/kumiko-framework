@@ -181,7 +181,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("config KEK-rotation job — unrecognized values are not silently skipped (kumiko-framework#1513)", () => {
+describe("config KEK-rotation job — unrecognized values are not silently skipped", () => {
   test("a non-envelope row is counted failed, never alreadyCurrent, and is left untouched", async () => {
     const beforeRow = await readRawValue(GARBAGE_KEY);
     expect(beforeRow.value).toBe(GARBAGE_VALUE);
@@ -217,7 +217,7 @@ describe("config KEK-rotation job — unrecognized values are not silently skipp
   });
 });
 
-describe("config KEK-rotation job — version-N to version-N+1 (kumiko-framework#1187)", () => {
+describe("config KEK-rotation job — version-N to version-N+1", () => {
   test("rotation rewraps the value onto the current KEK, and a full projection rebuild still lands on it", async () => {
     const beforeRow = await readRawValue();
     expect(JSON.parse(beforeRow.value).kekVersion).toBe(1);

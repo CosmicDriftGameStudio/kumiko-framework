@@ -40,7 +40,7 @@ describe("groupBlocksByFolder", () => {
   test("leeres Array → leeres Array", () => {
     expect(groupBlocksByFolder([])).toEqual([]);
   });
-  test("folder=null → Root-Node ohne Folder (innerhalb Content-Wrapper)", () => {
+  test("folder=null → Root node without Folder (inside Content wrapper)", () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", folder: null })]));
     expect(nodes).toHaveLength(1);
     const root = nodes[0];
@@ -55,7 +55,7 @@ describe("groupBlocksByFolder", () => {
     expect(root.children).toBeUndefined();
     expect(root.icon).toBe("file");
   });
-  test('folder="page" → Folder-Container mit child', () => {
+  test('folder="page" → Folder container with child', () => {
     const nodes = inside(
       groupBlocksByFolder([block({ slug: "hero", folder: "page", title: "Hero" })]),
     );
@@ -73,7 +73,7 @@ describe("groupBlocksByFolder", () => {
     expect(child.label).toBe("Hero");
     expect(child.target?.args).toEqual({ slug: "hero", locale: "de" });
   });
-  test("mehrere Slugs gleicher Folder → ein Folder mit mehreren children", () => {
+  test("multiple slugs in the same Folder → one Folder with multiple children", () => {
     const nodes = inside(
       groupBlocksByFolder([
         block({ slug: "hero", folder: "page", title: "Hero" }),
@@ -91,7 +91,7 @@ describe("groupBlocksByFolder", () => {
     const labels = children.map((c) => c.label);
     expect(labels).toEqual(["Hero", "CTA", "Footer"]);
   });
-  test("mixed root + folder → root-nodes zuerst, dann Folders", () => {
+  test("mixed root + folder → root nodes first, then Folders", () => {
     const nodes = inside(
       groupBlocksByFolder([
         block({ slug: "imprint", folder: null }),
@@ -124,11 +124,11 @@ describe("groupBlocksByFolder", () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", content: "content" })]));
     expect(nodes[0]?.state).toBe("filled");
   });
-  test("title leer → fallback auf slug als label", () => {
+  test("title empty → fallback to slug as label", () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "untitled-block", title: "" })]));
     expect(nodes[0]?.label).toBe("untitled-block");
   });
-  test('V.1.6a multi-level folder ("page/marketing") wird genested gerendert', () => {
+  test('V.1.6a multi-level folder ("page/marketing") is rendered nested', () => {
     const nodes = inside(
       groupBlocksByFolder([block({ slug: "hero", folder: "page/marketing", title: "Hero" })]),
     );
@@ -190,7 +190,7 @@ describe("groupBlocksByFolder", () => {
     expect(folder?.icon).toBe("folder");
     expect(folder?.target).toBeUndefined();
   });
-  test("tenantIdOverride wird in die Edit-Target-Args gereicht (SystemAdmin SYSTEM-Tenant-Content)", () => {
+  test("tenantIdOverride is passed to the Edit-Target-Args (SystemAdmin SYSTEM-Tenant-Content)", () => {
     const nodes = inside(
       groupBlocksByFolder(
         [block({ slug: "imprint", folder: null }), block({ slug: "hero", folder: "page" })],
@@ -211,11 +211,11 @@ describe("groupBlocksByFolder", () => {
       tenantIdOverride: "00000000-0000-4000-8000-000000000000",
     });
   });
-  test("ohne tenantIdOverride bleiben die Args frei davon (Default: Session-Tenant)", () => {
+  test("without tenantIdOverride, the Args remain free of it (Default: Session-Tenant)", () => {
     const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", folder: null })]));
     expect(nodes[0]?.target?.args).toEqual({ slug: "imprint", locale: "de" });
   });
-  test("Wrapper-Folder 'Content' umschließt alle blocks", () => {
+  test("Wrapper Folder 'Content' encloses all blocks", () => {
     // Wrapper convention: groupBlocksByFolder returns ONE node
     // (the wrapper), content sits one level deeper.
     const result = groupBlocksByFolder([block({ slug: "imprint" })]);

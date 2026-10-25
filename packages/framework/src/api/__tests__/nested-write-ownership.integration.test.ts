@@ -217,7 +217,7 @@ beforeEach(async () => {
   ]);
 });
 
-describe("nested-write parent-row ownership check (fw#2861)", () => {
+describe("nested-write parent-row ownership check", () => {
   test("(a) cross-tenant: existing role-only parent row in tenant B, tenant-A caller -> access_denied, zero task rows", async () => {
     // Seed the foreign row in tenant B.
     const seedRes = await stack.http.write(
@@ -243,7 +243,7 @@ describe("nested-write parent-row ownership check (fw#2861)", () => {
     expect(dbTasks).toHaveLength(0);
   });
 
-  test("(a2) cross-tenant parent row returned WITHOUT tenantId key -> access_denied, zero task rows (#2912)", async () => {
+  test("(a2) cross-tenant parent row returned WITHOUT tenantId key -> access_denied, zero task rows", async () => {
     const seedRes = await stack.http.write(
       "nested-own:write:project3:create",
       { name: "cross-tenant-bare" },

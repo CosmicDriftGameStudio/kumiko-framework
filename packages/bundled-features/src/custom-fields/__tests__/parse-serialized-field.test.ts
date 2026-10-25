@@ -9,7 +9,7 @@ describe("parseSerializedField", () => {
     expect(parsed).toEqual({ type: "text", retention: { keepFor: "30d", strategy: "delete" } });
   });
 
-  test("throws on a stored definition with the removed `sensitive` key (#972)", () => {
+  test("throws on a stored definition with the removed `sensitive` key", () => {
     expect(() => parseSerializedField('{"type":"text","sensitive":true}')).toThrow(
       /custom fields don't support PII/,
     );

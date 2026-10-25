@@ -329,7 +329,7 @@ describe("scenario 1b: consentId from webhook metadata is persisted", () => {
   });
 });
 
-describe("scenario 2: invalid sig → 401, kein DB-write", () => {
+describe("invalid signature → 401, foundation sees no event", () => {
   test("wrong webhook-secret → 401, foundation sieht keinen event", async () => {
     const tenantStringId = testTenantId(4002);
     const stripeEvent = buildStripeSubscriptionEvent({
@@ -366,7 +366,7 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
 });
 
 describe("scenario 3: idempotency via Stripe-retry", () => {
-  test("derselbe Stripe-event 2× → 2. Mal foundation duplicate=true, kein zweiter event-row", async () => {
+  test("same Stripe event 2× → second attempt foundation duplicate=true, no second event row", async () => {
     const tenantStringId = testTenantId(4003);
     const stripeEvent = buildStripeSubscriptionEvent({
       eventId: "evt_4003_retry",
@@ -448,7 +448,7 @@ describe("scenario 3b: late delivery of an older Stripe event", () => {
 });
 
 describe("scenario 4: ignored event-types pass through", () => {
-  test("customer.created → 200 ignored, kein dispatch", async () => {
+  test("customer.created → 200 ignored, no dispatch", async () => {
     const tenantStringId = testTenantId(4004);
     const stripeEvent = buildStripeSubscriptionEvent({
       eventId: "evt_4004_ignored",
@@ -538,7 +538,7 @@ const SEEDED_WEBHOOK_SECRET = "whsec_runtime_seeded_distinct";
 const SEEDED_API_KEY = "sk_test_runtime_seeded";
 
 describe("scenario 5: runtime-secret resolution", () => {
-  test("seeded system-secret schlägt factory-fallback: sig gegen seeded secret → 200 + DB-row", async () => {
+  test("seeded system secret overrides factory fallback: signature against seeded secret → 200 + DB row", async () => {
     // Set both keys via config:write:set (backing:"secrets") as SystemAdmin,
     // exactly as the generated Sysadmin-configEdit screen or the bridge seed
     // dispatches in production. The value is JSON-serialized and envelope-
@@ -593,7 +593,7 @@ describe("scenario 5: runtime-secret resolution", () => {
     expect(subs.rows[0]?.["tier"]).toBe("pro");
   });
 
-  test("sig gegen den (jetzt obsoleten) fallback-secret → 401, wenn system-secret gesetzt ist", async () => {
+  test("signature against the (now obsolete) fallback secret → 401 when system secret is set", async () => {
     // Drift pin for precedence: after the system secret is set, the old
     // environment/fallback secret must no longer verify.
     const payload = JSON.stringify(
@@ -622,7 +622,7 @@ describe("scenario 5: runtime-secret resolution", () => {
 
 const BILLING_LIVE_CONFIG_QN = "subscription-stripe:config:billing-live";
 
-describe("scenario 6: billing-live gate end-to-end (#104)", () => {
+describe("billing-live gate end-to-end", () => {
   let gateStack: TestStack;
 
   beforeAll(async () => {
@@ -682,7 +682,7 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
     cancelUrl: "https://app.example.com/cancel",
   };
 
-  test("default-off → feature_disabled; config-flip → Gate öffnet (Handle-Resolution real)", async () => {
+  test("default-off → feature_disabled; config-flip → gate opens (real handle resolution)", async () => {
     const tenantAdmin = createTestUser({
       id: 6001,
       tenantId: testTenantId(6001),

@@ -143,7 +143,7 @@ describe("DefaultInput select → widget choice is independent of the UI languag
 
 // A "" value is the unselected placeholder, not a real choice — a radio
 // group can't render an unchecked-everything state as its own segment.
-describe("DefaultInput select → placeholder option is excluded from the segmented control (#2606 follow-up)", () => {
+describe("DefaultInput select → placeholder option is excluded from the segmented control", () => {
   test("the placeholder does not render as its own segment and is not counted", () => {
     render(
       <Field id="language" label="Language" testId="field-language">

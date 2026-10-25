@@ -21,11 +21,11 @@ const shop = createShopFeature();
 const registry = createRegistry([shop]);
 
 describe("e2e-generator sample — shop feature", () => {
-  test("validateBoot akzeptiert das Feature", () => {
+  test("validateBoot accepts the feature", () => {
     expect(() => validateBoot([shop])).not.toThrow();
   });
 
-  test("generateE2ESpec liefert alle vier Kinds für das List+Edit-Paar", () => {
+  test("generateE2ESpec returns all four kinds for the List+Edit pair", () => {
     const specs = generateE2ESpec(registry);
     const kinds = specs.map((s) => s.kind).sort();
     expect(kinds).toEqual([
@@ -36,7 +36,7 @@ describe("e2e-generator sample — shop feature", () => {
     ]);
   });
 
-  test("list-has-fixture-row referenziert den Create-Handler + nutzt name als Identifying", () => {
+  test("list-has-fixture-row references the Create handler + uses name as the identifying field", () => {
     const specs = generateE2ESpec(registry);
     const row = specs.find((s) => s.kind === "list-has-fixture-row");
     if (row?.kind !== "list-has-fixture-row") throw new Error("unreachable");
@@ -51,7 +51,7 @@ describe("e2e-generator sample — shop feature", () => {
     expect(row.fixture["listPrice"]).toEqual({ amount: 1, currency: "EUR" });
   });
 
-  test("edit-validates-required listet nur echte required-Felder (name, price)", () => {
+  test("edit-validates-required lists only actual required fields (name, price)", () => {
     const specs = generateE2ESpec(registry);
     const validates = specs.find((s) => s.kind === "edit-validates-required");
     if (validates?.kind !== "edit-validates-required") throw new Error("unreachable");
@@ -77,7 +77,7 @@ describe("e2e-generator sample — shop feature", () => {
     expect(opsByField.has("listPrice")).toBe(false);
   });
 
-  test("Output ist JSON-serialisierbar (Prozess-Grenze zu Playwright-Worker)", () => {
+  test("Output is JSON-serializable (process boundary to Playwright worker)", () => {
     // Das Sample-Feature muss sich rundtrippen lassen: TestSpec → JSON.stringify →
     // JSON.parse. Im produktiven Setup schreibt ein bun-Subprozess (globalSetup)
     // die JSON auf Platte, der Playwright-Worker liest sie — kein runtime-Import

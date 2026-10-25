@@ -32,7 +32,7 @@ describe("delivery screens + handler access alignment", () => {
     expect(rolesOf(delivery.queryHandlers["log"]?.access)).toEqual([...access.admin]);
   });
 
-  test("access option narrows the delivery-log screen and its log handler together (#2033)", () => {
+  test("access option narrows the delivery-log screen and its log handler together", () => {
     const delivery = createDeliveryFeature({ access: access.systemAdmin });
     const screen = delivery.screens[DELIVERY_LOG_SCREEN_ID];
     expect(rolesOf(screen?.access)).toEqual([...access.systemAdmin]);

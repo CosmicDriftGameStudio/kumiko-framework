@@ -268,7 +268,7 @@ describe("PAT auth", () => {
   });
 });
 
-describe("PAT with active KMS (#820): token name is userOwned PII", () => {
+describe("PAT with active KMS: token name is userOwned PII", () => {
   test("create stores ciphertext at rest, list returns the plaintext name", async () => {
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
@@ -466,7 +466,7 @@ describe("PAT revoke on password change (#security)", () => {
   });
 });
 
-describe("PAT list projection (fw#2548 Teil B)", () => {
+describe("PAT list projection", () => {
   test("the minted plaintext token is returned exactly once and never by query:mine", async () => {
     const actor = await actorFor("secret-once@example.com");
     const token = await mintToken(actor);

@@ -17,7 +17,7 @@ function renderFieldWithIssues(issues: readonly FieldIssue[]) {
 }
 
 describe("DefaultField / errors.validation.* i18n", () => {
-  test("invalid_format zeigt übersetzten Text statt rohem Key", () => {
+  test("invalid_format shows translated text instead of raw key", () => {
     const view = renderFieldWithIssues([
       { path: "startsAt", code: "invalid_format", i18nKey: "errors.validation.invalid_format" },
     ]);
@@ -82,7 +82,7 @@ describe("DefaultField / errors.validation.* i18n", () => {
     expect(view.container.textContent).toContain("minimum: 3");
   });
 
-  test("alle Server-/Zod-Codes sind in beiden Default-Bundles übersetzt", async () => {
+  test("all server/Zod codes are translated in both default bundles", async () => {
     const { kumikoDefaultTranslations } = await import("../../index.ts");
     const codes = [
       "invalid_type",

@@ -184,7 +184,7 @@ async function seedPayment(user: typeof tenantA, eventIdSuffix: string): Promise
   );
 }
 
-describe("billing-foundation :: tenant destroy (#3196)", () => {
+describe("billing-foundation :: tenant destroy", () => {
   test("deletes the subscription row for the destroyed tenant, archives its stream, leaves another tenant's row untouched", async () => {
     await seedTenant(tenantA);
     await seedTenant(tenantB);

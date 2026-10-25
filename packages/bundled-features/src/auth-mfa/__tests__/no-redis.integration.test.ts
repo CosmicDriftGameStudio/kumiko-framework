@@ -114,7 +114,7 @@ async function seedEnabledMfa(user: SessionUser): Promise<void> {
   if (!result.isSuccess) throw new Error(`seedEnabledMfa failed: ${result.error.code}`);
 }
 
-describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
+describe("auth-mfa handlers — ctx.redis unset", () => {
   test("verify: fails closed with internal_error instead of skipping the brute-force cap/burn", async () => {
     const user = createTestUser({ tenantId: TENANT_ID });
     const { token } = signMfaChallengeToken(

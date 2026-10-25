@@ -10,7 +10,7 @@ const FILE_ID = "11111111-2222-4333-8444-555555555555";
 
 // alt="" makes the <img> presentational (no accessible role), so
 // getByRole("img") wouldn't find it — query the DOM directly instead.
-describe("FileUploadInput — image variant preview src (#1950)", () => {
+describe("FileUploadInput — image variant preview src", () => {
   test("with imageVariant set, the <img> src requests the named variant", () => {
     const { container } = render(
       <FileUploadInput
@@ -34,7 +34,7 @@ describe("FileUploadInput — image variant preview src (#1950)", () => {
   });
 });
 
-describe("FileUploadInput — camera capture (#1953)", () => {
+describe("FileUploadInput — camera capture", () => {
   test("with capture set, the <input type=file> carries the capture attribute", () => {
     const { container } = render(
       <FileUploadInput

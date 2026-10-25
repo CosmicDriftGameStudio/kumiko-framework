@@ -48,11 +48,11 @@ describe("mailTransportInMemoryFeature — plugin-registration", () => {
 });
 
 describe("getInbox / clearInbox — per-tenant buffer helpers", () => {
-  test("getInbox liefert empty-array für unbekannten Tenant", () => {
+  test("getInbox returns an empty array for an unknown tenant", () => {
     expect(getInbox("never-touched-tenant")).toEqual([]);
   });
 
-  test("clearInbox auf nicht-existierenden Tenant ist no-op (kein throw)", () => {
+  test("clearInbox on a nonexistent tenant is a no-op (does not throw)", () => {
     // Defensive: a demo test may call clearInbox before the first send,
     // so the call must not throw.
     expect(() => clearInbox("not-yet-existing")).not.toThrow();

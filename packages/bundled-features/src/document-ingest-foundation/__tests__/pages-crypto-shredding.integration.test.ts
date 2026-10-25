@@ -87,7 +87,7 @@ async function rawPages(id: string): Promise<string> {
   return String(rows[0]?.pages);
 }
 
-describe("documentExtract.pages — tenant-subject encryption (#1621)", () => {
+describe("documentExtract.pages — tenant-subject encryption", () => {
   test("stored as tenant-subject ciphertext, not master-key ciphertext", async () => {
     const id = await createExtract("file-1");
 

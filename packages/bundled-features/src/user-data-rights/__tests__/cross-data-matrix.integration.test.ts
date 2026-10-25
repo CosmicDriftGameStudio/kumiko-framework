@@ -266,7 +266,7 @@ describe("Cross-Data-Matrix :: Export bundelt 3 Provider-Features (user + fileRe
     expect(String(noteSnippetB?.rows[0]?.["title"])).toBe("note-B-1");
   });
 
-  test("Other-User-Isolation: Bobs notes nicht in Alices Bundle", async () => {
+  test("Other-User-Isolation: Bob's notes are not in Alice's bundle", async () => {
     await seedUser(ALICE_ID, { email: "alice@example.com" });
     await seedUser(BOB_ID, { email: "bob@example.com" });
     await seedMembership(ALICE_ID, TENANT_A);

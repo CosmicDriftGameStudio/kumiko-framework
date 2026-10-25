@@ -120,7 +120,7 @@ describe("where — WhereOperator", () => {
     });
   });
 
-  test("bare array als IN-Shortcut", async () => {
+  test("bare array as IN shortcut", async () => {
     await withTable(strNumCols, async ({ db, meta }) => {
       await insertMany(db, meta, [
         { label: "x", score: 10 },
@@ -182,7 +182,7 @@ describe("where — WhereOperator", () => {
   });
 });
 
-describe("where — date column (kumiko-framework#1924)", () => {
+describe("where — date column", () => {
   test("plain 'yyyy-mm-dd' string equality matches the seeded row", async () => {
     await withTable(dateCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ day: "2026-03-15" }, { day: "2026-03-16" }]);
@@ -191,7 +191,7 @@ describe("where — date column (kumiko-framework#1924)", () => {
     });
   });
 
-  test("Temporal.Instant filter value still matches (compat cushion for pre-#1924 callers)", async () => {
+  test("Temporal.Instant filter value still matches (compatibility for existing callers)", async () => {
     // Before this fix, `date` was TIMESTAMPTZ and callers built where-filters
     // with a Temporal.Instant (e.g. Temporal.Now.instant()). prepareValue
     // anchors it at UTC before binding, so existing filter code doesn't

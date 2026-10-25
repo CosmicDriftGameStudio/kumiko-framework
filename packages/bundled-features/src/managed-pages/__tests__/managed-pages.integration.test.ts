@@ -131,7 +131,7 @@ describe("managed-pages :: server-render route rate limit", () => {
 });
 
 describe("managed-pages :: server-render route", () => {
-  test("published Page → 200 mit gerendertem Markdown", async () => {
+  test("published Page → 200 with rendered Markdown", async () => {
     const res = await stack.app.request("http://a.example.com/p/about");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
@@ -141,7 +141,7 @@ describe("managed-pages :: server-render route", () => {
     expect(html).toContain('lang="en"');
   });
 
-  test("Draft (unpublished) → 404 für anonyme Besucher", async () => {
+  test("Draft (unpublished) → 404 for anonymous visitors", async () => {
     const res = await stack.app.request("http://a.example.com/p/secret");
     expect(res.status).toBe(404);
   });
@@ -151,7 +151,7 @@ describe("managed-pages :: server-render route", () => {
     expect(res.status).toBe(404);
   });
 
-  test("Host ohne Tenant (resolveApexTenant null) → 404", async () => {
+  test("Host without Tenant (resolveApexTenant null) → 404", async () => {
     const res = await stack.app.request("http://unknown.example.com/p/about");
     expect(res.status).toBe(404);
   });
@@ -199,8 +199,8 @@ describe("managed-pages :: Cache + Security-Header", () => {
   });
 });
 
-describe("managed-pages :: XSS-Härtung", () => {
-  test("<script> im Page-Body wird escaped", async () => {
+describe("managed-pages :: XSS hardening", () => {
+  test("<script> in Page body is escaped", async () => {
     await seedPage(stack.db, {
       tenantId: TENANT_A,
       slug: "xss",
@@ -218,7 +218,7 @@ describe("managed-pages :: XSS-Härtung", () => {
 });
 
 describe("managed-pages :: Admin-Screens registriert", () => {
-  test("entityList + entityEdit Screens sind im Feature deklariert", () => {
+  test("entityList + entityEdit Screens are declared in the feature", () => {
     const ids = Object.keys(managed.screens);
     expect(ids).toContain("page-list");
     expect(ids).toContain("page-edit");
@@ -281,7 +281,7 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
     expect(afterDelete).toBeFalsy();
   });
 
-  test("normaler User darf nicht erstellen (access_denied)", async () => {
+  test("regular User cannot create (access_denied)", async () => {
     const error = await stack.http.writeErr(
       "managed-pages:write:page:create",
       { slug: "denied", lang: "en", title: "x", body: null },
@@ -290,7 +290,7 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
     expectErrorIncludes(error, "access_denied");
   });
 
-  test("Cross-Tenant-Isolation: List zeigt nur eigene Pages", async () => {
+  test("Cross-Tenant-Isolation: List shows only its own Pages", async () => {
     await stack.http.writeOk(
       "managed-pages:write:page:create",
       { slug: "tenant-a-only", lang: "en", title: "A only", body: "x", published: false },
@@ -440,7 +440,7 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
   const pageAdminA = createTestUser({ id: 14, roles: ["TenantAdmin"], tenantId: TENANT_A });
   const pageAdminB = createTestUser({ id: 15, roles: ["TenantAdmin"], tenantId: TENANT_B });
 
-  test("listet nur published Pages des Tenants, SQL-gefiltert (Drafts fehlen)", async () => {
+  test("lists only published Pages for the Tenant, SQL-filtered (Drafts omitted)", async () => {
     const res = await stack.http.queryOk<{
       pages: Array<{ slug: string; lang: string; title: string }>;
     }>("managed-pages:query:by-tenant-published", {}, pageAdminA);
@@ -449,7 +449,7 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
     expect(slugs).not.toContain("secret");
   });
 
-  test("Cross-Tenant-Isolation: TENANT_B sieht nur eigene Slugs, keine von TENANT_A", async () => {
+  test("Cross-Tenant-Isolation: TENANT_B sees only its own Slugs, none from TENANT_A", async () => {
     const res = await stack.http.queryOk<{ pages: Array<{ slug: string; title: string }> }>(
       "managed-pages:query:by-tenant-published",
       {},
@@ -465,11 +465,11 @@ describe("managed-pages :: Branding (Config + Render)", () => {
   const adminA = createTestUser({ id: 20, roles: ["TenantAdmin"], tenantId: TENANT_A });
   const adminB = createTestUser({ id: 21, roles: ["TenantAdmin"], tenantId: TENANT_B });
 
-  test("configEdit-Screen branding-settings ist registriert", () => {
+  test("configEdit-Screen branding-settings is registered", () => {
     expect(Object.keys(managed.screens)).toContain("branding-settings");
   });
 
-  test("Custom-CSS-Key NICHT registriert ohne allowCustomCss (fail-closed-by-construction)", async () => {
+  test("Custom-CSS-Key NOT registered without allowCustomCss (fail-closed-by-construction)", async () => {
     // With allowCustomCss=false, the branding-custom-css key is not registered and
     // writes are rejected. This preserves the fail-closed behavior if keys are
     // ever registered unconditionally.
@@ -481,7 +481,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(error).toBeTruthy();
   });
 
-  test("valides Branding (Hex + https + Preset) wird gesetzt und im Render angewandt", async () => {
+  test("valid Branding (Hex + https + Preset) is set and applied in rendering", async () => {
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.accentColor, value: "#ff8800" },
@@ -520,7 +520,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(html).toContain('<meta name="description" content="Acme status and docs">');
   });
 
-  test("invalide Accent-Farbe (kein Hex, CSS-Injection-Versuch) → Write abgelehnt", async () => {
+  test("invalid Accent color (not hex, CSS injection attempt) → Write rejected", async () => {
     const error = await stack.http.writeErr(
       "config:write:set",
       { key: BRANDING_QN.accentColor, value: "red; } body{display:none}" },
@@ -538,7 +538,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expectErrorIncludes(error, "invalid_format");
   });
 
-  test("leerer Wert (clear) ist erlaubt — Pattern allow-empty", async () => {
+  test("empty value (clear) is allowed — Pattern allow-empty", async () => {
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.siteUrl, value: "https://acme.test" },
@@ -549,7 +549,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(branding.siteUrl).toBe("");
   });
 
-  test("über-langer Title (>200) → Write abgelehnt (Server-Längen-Cap)", async () => {
+  test("overlong Title (>200) → Write rejected (Server length cap)", async () => {
     const error = await stack.http.writeErr(
       "config:write:set",
       { key: BRANDING_QN.title, value: "x".repeat(201) },
@@ -558,7 +558,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expectErrorIncludes(error, "invalid_format");
   });
 
-  test("Cross-Tenant-Isolation: TENANT_A-Branding leakt nicht auf TENANT_B", async () => {
+  test("Cross-Tenant-Isolation: TENANT_A Branding does not leak to TENANT_B", async () => {
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.accentColor, value: "#0033cc" },
@@ -659,7 +659,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     await cssStack.cleanup();
   });
 
-  test("custom-css Config-Key ist registriert wenn allowCustomCss (Write ok)", async () => {
+  test("custom-css Config-Key is registered when allowCustomCss (Write ok)", async () => {
     await cssStack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
@@ -693,7 +693,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).toContain("[data-tenant-content]{overflow:hidden}");
   });
 
-  test("gespeichertes Angriffs-CSS wird am Render sanitized (Write-Gate-Bypass-Abwehr)", async () => {
+  test("stored attack CSS is sanitized during rendering (Write-Gate-Bypass defense)", async () => {
     // The length-cap pattern permits storage; the render sanitizer is the actual
     // allowlist gate, so each attack vector is tested separately.
     const attack =
@@ -712,7 +712,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).toContain("color: red");
   });
 
-  test("Gate AUS (Toggle off für Tenant B): kein Tenant-CSS trotz gespeichertem Wert", async () => {
+  test("Gate OFF (Toggle off for Tenant B): no Tenant CSS despite stored value", async () => {
     await cssStack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
@@ -725,7 +725,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).not.toContain("overflow:hidden");
   });
 
-  test("configEdit-Screen zeigt das customCss-Feld wenn allowCustomCss", () => {
+  test("configEdit-Screen displays the customCss field when allowCustomCss", () => {
     const screen = managedWithCss.screens["branding-settings"];
     expect(screen).toBeTruthy();
     expect(JSON.stringify(screen)).toContain("branding-custom-css");
@@ -803,7 +803,7 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
     await authStack.cleanup();
   });
 
-  test("published Page → 200 (systemQuery-Render-Pfad übersteht authoritative resolver)", async () => {
+  test("published Page → 200 (systemQuery render path survives authoritative resolver)", async () => {
     const res = await authStack.app.request("http://a.example.com/p/about");
     expect(res.status).toBe(200);
     const html = await res.text();
@@ -811,7 +811,7 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
     expect(html).toContain("<strong>A</strong>");
   });
 
-  test("Cross-Tenant-Isolation: Host löst den jeweils eigenen Tenant auf", async () => {
+  test("Cross-Tenant-Isolation: Host resolves the respective Tenant", async () => {
     const a = await (await authStack.app.request("http://a.example.com/p/about")).text();
     const b = await (await authStack.app.request("http://b.example.com/p/about")).text();
     expect(a).toContain("About A");
@@ -820,7 +820,7 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
     expect(b).not.toContain("About A");
   });
 
-  test("X-Tenant-Header auf der Render-Route ist wirkungslos — Host bleibt allein maßgeblich", async () => {
+  test("X-Tenant-Header on the render route has no effect — Host remains the sole authority", async () => {
     // The render route resolves the tenant only through resolveApexTenant(host),
     // never through the client header. Unlike query/write dispatch, it has no
     // X-Tenant override path, so a conflicting header is ignored: the response

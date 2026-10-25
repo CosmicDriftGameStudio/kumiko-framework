@@ -112,8 +112,8 @@ describe("TenantSwitcher", () => {
   });
 });
 
-describe("TenantSwitcher — key-only-Fallback im geöffneten Dropdown", () => {
-  test("Membership ohne name rendert ihren key als Dropdown-Label", async () => {
+describe("TenantSwitcher — key-only fallback in the open dropdown", () => {
+  test("Membership without a name renders its key as the dropdown label", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({
       activeTenantId: "00000000-0000-4000-8000-000000000001",

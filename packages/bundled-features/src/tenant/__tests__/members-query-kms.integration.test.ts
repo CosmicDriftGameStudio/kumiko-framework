@@ -62,7 +62,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("members query — decrypt-on-read with an active KMS (#1252)", () => {
+describe("members query — decrypt-on-read with an active KMS", () => {
   test("email and displayName come back as plaintext, not ciphertext", async () => {
     // KMS active BEFORE the seed — seedUser runs through the executor, so
     // the row reflects the encrypted prod state.

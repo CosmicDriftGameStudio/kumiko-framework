@@ -32,7 +32,7 @@ function defPayload(fieldKey: string) {
   };
 }
 
-describe("custom-fields — fieldDefinitionWriteRoles (#2296)", () => {
+describe("custom-fields fieldDefinitionWriteRoles", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

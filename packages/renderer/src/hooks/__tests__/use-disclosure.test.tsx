@@ -14,7 +14,7 @@ describe("useDisclosure", () => {
     expect(result.current.open).toBe(true);
   });
 
-  test("Callbacks sind referenz-stabil über Re-Renders", () => {
+  test("Callbacks are referentially stable across re-renders", () => {
     const { result, rerender } = renderHook(() => useDisclosure(true));
     const first = result.current;
     rerender();

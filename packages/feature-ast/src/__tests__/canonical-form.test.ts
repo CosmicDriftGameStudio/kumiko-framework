@@ -191,20 +191,20 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
   const sourceFile = project.createSourceFile("canonical.ts", CANONICAL_FEATURE);
   const result = parseSourceFile(sourceFile);
 
-  test("featureName wird gelesen", () => {
+  test("featureName is read", () => {
     expect(result.featureName).toBe("todoList");
   });
 
-  test("alle r.* Calls werden ohne Errors extrahiert", () => {
+  test("all r.* calls are extracted without errors", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("kein UnknownPattern — jede r.*-Methode ist erkannt", () => {
+  test("no UnknownPattern — every r.* method is recognized", () => {
     const unknowns = result.patterns.filter((p) => p.kind === "unknown");
     expect(unknowns).toEqual([]);
   });
 
-  test("alle Pattern-Kinds sind erfasst", () => {
+  test("all pattern kinds are covered", () => {
     const kinds: ReadonlySet<string> = new Set(result.patterns.map((p) => p.kind));
     const expected = [
       // Static
@@ -341,7 +341,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("job: name + handlerBody.raw enthält den Closure-Body", () => {
+  test("job: name + handlerBody.raw contains the closure body", () => {
     const job = result.patterns.find((p) => p.kind === "job");
     expect(job).toMatchObject({ kind: "job", jobName: "cleanupExpired" });
     if (job?.kind === "job") {
@@ -363,7 +363,7 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     }
   });
 
-  test("authClaims: fnBody.raw enthält den Handler-Body", () => {
+  test("authClaims: fnBody.raw contains the handler body", () => {
     const ac = result.patterns.find((p) => p.kind === "authClaims");
     expect(ac).toMatchObject({ kind: "authClaims" });
     if (ac?.kind === "authClaims") {

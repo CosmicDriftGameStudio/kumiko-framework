@@ -46,7 +46,7 @@ function rawWorkerQueue(queueNamePrefix: string): Queue {
   return queue;
 }
 
-describe("bounded job retention (fw#3199)", () => {
+describe("bounded job retention", () => {
   test("completed jobs from every enqueue path are swept after the age once a later job completes", async () => {
     const queueNamePrefix = uniquePrefix("completed");
     const tenants = ["ret-a", "ret-b"] as TenantId[];

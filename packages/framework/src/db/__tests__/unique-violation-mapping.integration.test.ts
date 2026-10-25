@@ -68,7 +68,7 @@ beforeEach(async () => {
 // =============================================================================
 
 describe("F8 — entity-level unique-violation auf create", () => {
-  test("zweiter create mit selber email → unique_violation 409 (nicht internal_error 500)", async () => {
+  test("second create with same email → unique_violation 409 (not internal_error 500)", async () => {
     const first = await exec.create(
       { email: "alice@example.com", displayName: "Alice 1" },
       admin,
@@ -92,7 +92,7 @@ describe("F8 — entity-level unique-violation auf create", () => {
     expect(details.constraintName).toBe("read_unique_users_tenant_email_uniq");
   });
 
-  test("DB-Beweis: nach 23505-conflict ist nur die erste Row in der Projection", async () => {
+  test("DB proof: after 23505 conflict, only the first row is in the projection", async () => {
     await exec.create({ email: "bob@example.com", displayName: "Bob 1" }, admin, tdb);
     const second = await exec.create(
       { email: "bob@example.com", displayName: "Bob 2" },
@@ -169,8 +169,8 @@ describe("F8 — a projection violation must not poison the enclosing transactio
   });
 });
 
-describe("F8 — restore touch'd nur isDeleted, kein 23505-Pfad", () => {
-  test("restore einer soft-gedeleteten row mit unique-field läuft konfliktfrei durch", async () => {
+describe("restore only touches isDeleted, no 23505 path", () => {
+  test("restoring a soft-deleted row with a unique field proceeds without conflict", async () => {
     // Audit assumption: restore mutates only isDeleted=false and does not touch
     // unique fields. The unique index is global, with no partial-WHERE-NOT-isDeleted
     // in the framework's table builder, so a concurrent create using the same email

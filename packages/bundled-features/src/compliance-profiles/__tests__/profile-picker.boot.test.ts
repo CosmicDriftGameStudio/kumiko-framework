@@ -32,7 +32,7 @@ describe("compliance profile screen + handler access alignment", () => {
     void ComplianceProfileHandlers;
   });
 
-  test("access option narrows the profile-picker screen and its set-profile handler together (#2033)", () => {
+  test("access option narrows the profile-picker screen and its set-profile handler together", () => {
     const feature = createComplianceProfilesFeature({ access: access.systemAdmin });
     const screen = feature.screens[COMPLIANCE_PROFILE_SCREEN_ID];
     expect(rolesOf(screen?.access)).toEqual([...access.systemAdmin]);

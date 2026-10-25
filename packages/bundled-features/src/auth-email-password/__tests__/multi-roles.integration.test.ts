@@ -122,7 +122,7 @@ async function login(
 }
 
 describe("multi-roles: login mergt globale + membership-roles", () => {
-  test("user mit ['SystemAdmin'] global + ['Admin'] auf tenantA → session hat beide", async () => {
+  test("user with global ['SystemAdmin'] + ['Admin'] on tenantA → session has both", async () => {
     const userId = await seedUser("syadmin@example.com", "pw-long-enough", ["SystemAdmin"]);
     await addMembership(userId, tenantA, ["Admin"]);
 
@@ -137,7 +137,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     expect(user.roles.sort()).toEqual(["Admin", "SystemAdmin"]);
   });
 
-  test("user OHNE globale rollen → nur membership-roles in der session", async () => {
+  test("user WITHOUT global roles → only membership roles in the session", async () => {
     const userId = await seedUser("plain@example.com", "pw-long-enough");
     await addMembership(userId, tenantA, ["Admin"]);
 
@@ -145,7 +145,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     expect(user.roles).toEqual(["Admin"]);
   });
 
-  test("globale rollen + tenant-rollen mit overlap → dedupliziert (kein doppeltes Admin)", async () => {
+  test("global roles + tenant roles with overlap → deduplicated (no duplicate Admin)", async () => {
     const userId = await seedUser("dup@example.com", "pw-long-enough", ["Admin", "SystemAdmin"]);
     await addMembership(userId, tenantA, ["Admin", "User"]);
 
@@ -155,7 +155,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
 });
 
 describe("multi-roles: privilege-escalation blocked via field-level write-access", () => {
-  test("Tenant-Admin (ohne SystemAdmin) kann user.roles NICHT setzen via update", async () => {
+  test("Tenant-Admin (without SystemAdmin) cannot set user.roles via update", async () => {
     // A Tenant-Admin with ["Admin"] on tenantA attempts to grant SystemAdmin to
     // a target user through user:write:user:update. The target starts with no
     // globalRoles.
@@ -187,7 +187,7 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
     expect(body.error?.details?.reason).toBe("field_access_denied");
   });
 
-  test("Self-update mit roles → blocked (kein Privilege-Selbst-Erteilung)", async () => {
+  test("Self-update with roles → blocked (no self-granting of privileges)", async () => {
     // Even if the handler's isSelf check bypasses the ownership guard, field-level
     // write access on roles still prevents a user from granting themselves
     // SystemAdmin.
@@ -213,8 +213,8 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
   });
 });
 
-describe("multi-roles: switch-tenant erhält globale rollen", () => {
-  test("switch von tenantA → tenantB → SystemAdmin bleibt, tenant-roles wechseln", async () => {
+describe("multi-roles: switch-tenant retains global roles", () => {
+  test("switch from tenantA → tenantB → SystemAdmin remains, tenant roles switch", async () => {
     const userId = await seedUser("syadmin2@example.com", "pw-long-enough", ["SystemAdmin"]);
     await addMembership(userId, tenantA, ["Admin"]);
     await addMembership(userId, tenantB, ["User"]);
@@ -233,7 +233,7 @@ describe("multi-roles: switch-tenant erhält globale rollen", () => {
     expect([...switchBody.roles].sort()).toEqual(["SystemAdmin", "User"]);
   });
 
-  test("switch ohne globale rollen → roles wechseln 1:1 zu membership", async () => {
+  test("switch without global roles → roles switch 1:1 to membership", async () => {
     const userId = await seedUser("plain2@example.com", "pw-long-enough");
     await addMembership(userId, tenantA, ["Admin"]);
     await addMembership(userId, tenantB, ["User"]);

@@ -717,7 +717,7 @@ describe("createRegistry", () => {
     expect(registry.getSearchableFields("nonexistent")).toEqual([]);
   });
 
-  test("returns searchable reference fields for entity, without leaking them into getSearchableFields (fw#2660)", () => {
+  test("returns searchable reference fields for entity, without leaking them into getSearchableFields", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -754,7 +754,7 @@ describe("createRegistry", () => {
     expect(registry.getSearchableReferences("nonexistent")).toEqual([]);
   });
 
-  test("throws at boot when a searchable reference field has no explicit labelField (fw#2660)", () => {
+  test("throws at boot when a searchable reference field has no explicit labelField", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -777,7 +777,7 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).toThrow(/labelField/);
   });
 
-  test("throws at boot when searchable is combined with multiple on a reference field (fw#2660)", () => {
+  test("throws at boot when searchable is combined with multiple on a reference field", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "tag",
@@ -892,7 +892,7 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).not.toThrow();
   });
 
-  test("returns sortable reference fields for entity, without leaking them into getSortableFields (fw#2741)", () => {
+  test("returns sortable reference fields for entity, without leaking them into getSortableFields", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -928,7 +928,7 @@ describe("createRegistry", () => {
     expect(registry.getSortableReferences("nonexistent")).toEqual([]);
   });
 
-  test("resolves a cross-feature sortable reference to its bare entity name (fw#2741)", () => {
+  test("resolves a cross-feature sortable reference to its bare entity name", () => {
     const users = defineFeature("users", (r) => {
       r.entity({
         name: "user",
@@ -961,7 +961,7 @@ describe("createRegistry", () => {
     ]);
   });
 
-  test("optionsQuery leaves searchable/sortable on the labelField column (fw#2780)", () => {
+  test("optionsQuery leaves searchable/sortable on the labelField column", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -1003,7 +1003,7 @@ describe("createRegistry", () => {
     ]);
   });
 
-  test("throws at boot when a sortable reference field has no explicit labelField (fw#2741)", () => {
+  test("throws at boot when a sortable reference field has no explicit labelField", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -1026,7 +1026,7 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).toThrow(/labelField/);
   });
 
-  test("throws at boot when a sortable reference field uses labelField: 'id' (fw#2741)", () => {
+  test("throws at boot when a sortable reference field uses labelField: 'id'", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "customer",
@@ -1054,7 +1054,7 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).toThrow(/labelField/);
   });
 
-  test("throws at boot when sortable is combined with multiple on a reference field (fw#2741)", () => {
+  test("throws at boot when sortable is combined with multiple on a reference field", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity({
         name: "tag",
@@ -1223,7 +1223,7 @@ describe("createApp", () => {
     ).not.toThrow();
   });
 
-  test("validates stream handler roles against app-defined roles (#1442)", () => {
+  test("validates stream handler roles against app-defined roles", () => {
     const feature = defineFeature("admin", (r) => {
       r.streamHandler("admin.tail", z.object({}), async function* () {}, {
         access: { roles: ["SuperAdmin"] },
@@ -1238,7 +1238,7 @@ describe("createApp", () => {
     ).toThrow(/unknown role.*SuperAdmin/i);
   });
 
-  test("passes when stream handler roles are valid (#1442)", () => {
+  test("passes when stream handler roles are valid", () => {
     const feature = defineFeature("admin", (r) => {
       r.streamHandler("admin.tail", z.object({}), async function* () {}, {
         access: { roles: ["Admin"] },
@@ -1691,7 +1691,7 @@ describe("createApp", () => {
     );
   });
 
-  test("rejects totalsMatch entry whose sub-field is not a money sub-field (fw#1839)", () => {
+  test("rejects totalsMatch entry whose sub-field is not a money sub-field", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "invoice",
@@ -1713,7 +1713,7 @@ describe("createApp", () => {
     );
   });
 
-  test("rejects totalsMatch entry whose sibling field is not a money field on the entity (fw#1839)", () => {
+  test("rejects totalsMatch entry whose sibling field is not a money field on the entity", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "invoice",
@@ -1735,7 +1735,7 @@ describe("createApp", () => {
     );
   });
 
-  test("rejects totalsMatch entry whose sibling field does not exist on the entity (fw#1839)", () => {
+  test("rejects totalsMatch entry whose sibling field does not exist on the entity", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "invoice",
@@ -1756,7 +1756,7 @@ describe("createApp", () => {
     );
   });
 
-  test("accepts a valid totalsMatch entry (fw#1839)", () => {
+  test("accepts a valid totalsMatch entry", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "invoice",
@@ -2449,7 +2449,7 @@ describe("registry boot validation", () => {
     }
   });
 
-  test("multi-trigger: einer der Targets fehlt → Boot-Reject", () => {
+  test("multi-trigger: one of the targets is missing → boot rejection", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({ name: "order", ...createEntity({ table: "Orders", fields: {} }) });
       r.writeHandler({

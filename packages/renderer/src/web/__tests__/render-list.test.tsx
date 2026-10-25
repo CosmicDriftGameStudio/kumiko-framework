@@ -162,7 +162,7 @@ describe("RenderList — slots.header", () => {
     slots: { header: { react: { __component: "list-cap-header" } } },
   };
 
-  test("rendert die header-Component in der Toolbar, nicht über dem Titel (#12)", () => {
+  test("renders the header component in the toolbar, not above the title", () => {
     render(
       <ExtensionSectionsProvider value={{ "list-cap-header": ListHeader }}>
         <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
@@ -182,12 +182,12 @@ describe("RenderList — slots.header", () => {
     expect(toolbar.contains(header)).toBe(true);
   });
 
-  test("ohne slots.header wird nichts gerendert (kein Crash)", () => {
+  test("without slots.header, nothing is rendered (no crash)", () => {
     render(<RenderList screen={listScreen} entity={taskEntity} rows={[]} featureName="tasks" />);
     expect(screen.queryByTestId("list-header-slot")).toBeNull();
   });
 
-  test("slots.header gesetzt, aber Component nicht registriert → kein Crash, kein Header", () => {
+  test("slots.header set, but component not registered → no crash, no header", () => {
     spyOn(console, "warn").mockImplementation(() => {});
     render(
       <ExtensionSectionsProvider value={{}}>
@@ -211,7 +211,7 @@ afterEach(() => {
 // toolbar's facet cluster must render for a screen with no option-dropdown
 // facets at all — otherwise the whole filter is invisible on the one screen
 // the feature exists for.
-describe("RenderList dateRange facet (fw#3104)", () => {
+describe("RenderList dateRange facet", () => {
   const rows = [{ id: "1", title: "Foo", status: "open", isUrgent: false, priority: 3 }];
 
   test("renders both date inputs when it is the only facet", () => {

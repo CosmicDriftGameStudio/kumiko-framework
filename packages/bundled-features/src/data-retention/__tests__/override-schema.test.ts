@@ -5,12 +5,12 @@ import { describe, expect, test } from "bun:test";
 import { retentionOverrideSchema } from "../override-schema.ts";
 
 describe("retentionOverrideSchema — accept-Faelle", () => {
-  test("Empty Object ist valid (alle Felder optional, Resolver-Fallback)", () => {
+  test("Empty Object is valid (all fields optional, resolver fallback)", () => {
     const result = retentionOverrideSchema.safeParse({});
     expect(result.success).toBe(true);
   });
 
-  test("Nur keepFor — ist valid", () => {
+  test("keepFor only — is valid", () => {
     const result = retentionOverrideSchema.safeParse({ keepFor: "30d" });
     expect(result.success).toBe(true);
   });
@@ -40,7 +40,7 @@ describe("retentionOverrideSchema — accept-Faelle", () => {
 });
 
 describe("retentionOverrideSchema — reject-Faelle (Drift-Schutz)", () => {
-  test('M3: strategy: "delete" wird rejected (kein gueltiger Strategy-Wert)', () => {
+  test('strategy: "delete" is rejected (not a valid strategy value)', () => {
     const result = retentionOverrideSchema.safeParse({ strategy: "delete" });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -75,7 +75,7 @@ describe("retentionOverrideSchema — reject-Faelle (Drift-Schutz)", () => {
     expect(result.success).toBe(false);
   });
 
-  test("keepFor nur Zahl ohne Suffix rejected", () => {
+  test("keepFor with only a number and no suffix is rejected", () => {
     const result = retentionOverrideSchema.safeParse({ keepFor: "30" });
     expect(result.success).toBe(false);
   });

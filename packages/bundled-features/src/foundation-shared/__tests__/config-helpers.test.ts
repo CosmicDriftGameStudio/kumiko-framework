@@ -10,21 +10,21 @@ import { InternalError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/
 import { requireDefined, requireNonEmpty } from "../config-helpers.ts";
 
 describe("requireDefined", () => {
-  test("undefined → wirft mit featureName + label + Misconfig-Hinweis", () => {
+  test("undefined → throws with featureName + label + misconfiguration hint", () => {
     expect(() => requireDefined(undefined, "ai-foundation", "apiKey")).toThrow(
       "ai-foundation: 'apiKey' config key resolved to undefined — registry misconfigured (no value + no default)",
     );
   });
 
-  test("undefined → wirft InternalError (500): Dev-Bug, kein Tenant-Gap", () => {
+  test("undefined → throws InternalError (500): dev bug, not a tenant gap", () => {
     expect(() => requireDefined(undefined, "ai-foundation", "apiKey")).toThrow(InternalError);
   });
 
-  test("defined Wert → unverändert zurück", () => {
+  test("defined value → returned unchanged", () => {
     expect(requireDefined("sk-123", "ai-foundation", "apiKey")).toBe("sk-123");
   });
 
-  test("falsy-aber-defined Werte passieren (Check ist === undefined, nicht falsy)", () => {
+  test("falsy-but-defined values pass (check is === undefined, not falsy)", () => {
     // A falsy check here would reject a numeric key with value 0
     // or an empty-string default. requireNonEmpty is the stricter helper.
     expect(requireDefined(0, "f", "n")).toBe(0);
@@ -33,7 +33,7 @@ describe("requireDefined", () => {
     expect(requireDefined(null, "f", "n")).toBeNull();
   });
 
-  test("Objekt-Wert → identische Referenz zurück (generischer Typ erhalten)", () => {
+  test("object value → same reference returned (generic type preserved)", () => {
     const cfg = { host: "smtp.example.com", port: 587 };
     expect(requireDefined(cfg, "mail-foundation", "smtp")).toBe(cfg);
   });
@@ -46,7 +46,7 @@ describe("requireNonEmpty", () => {
     );
   });
 
-  test("leerer String → wirft empty-Message mit Default-uiHint", () => {
+  test("empty string → throws empty-message with default uiHint", () => {
     expect(() => requireNonEmpty("", "file-foundation", "bucket")).toThrow(
       "file-foundation: 'bucket' is empty — tenant must configure it before use. Set via tenant-admin UI or seed-handler.",
     );
@@ -64,23 +64,23 @@ describe("requireNonEmpty", () => {
     }
   });
 
-  test("leerer String mit custom uiHint → Hint landet in der Message", () => {
+  test("empty string with custom uiHint → hint appears in the message", () => {
     expect(() =>
       requireNonEmpty("", "ai-foundation", "model", "Choose a model in Settings → AI."),
     ).toThrow("is empty — tenant must configure it before use. Choose a model in Settings → AI.");
   });
 
-  test("non-empty Wert → unverändert zurück", () => {
+  test("non-empty value → returned unchanged", () => {
     expect(requireNonEmpty("smtp.example.com", "mail-foundation", "host")).toBe("smtp.example.com");
   });
 
-  test("reiner Whitespace → wirft empty-Message (getrimmt, gilt als leer)", () => {
+  test("pure whitespace → throws empty-message (trimmed, treated as empty)", () => {
     expect(() => requireNonEmpty("   ", "mail-foundation", "host")).toThrow(
       "mail-foundation: 'host' is empty — tenant must configure it before use.",
     );
   });
 
-  test("umgebender Whitespace wird vom Rückgabewert getrimmt", () => {
+  test("surrounding whitespace is trimmed from the return value", () => {
     expect(requireNonEmpty("  smtp.example.com  ", "mail-foundation", "host")).toBe(
       "smtp.example.com",
     );

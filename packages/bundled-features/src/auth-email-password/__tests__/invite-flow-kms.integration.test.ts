@@ -319,7 +319,7 @@ describe("auth flows with active KMS + blind index", () => {
     expect(loginRes.status).toBe(200);
   });
 
-  test("tenant:query:invitations decrypts the invited email under active KMS (#1931)", async () => {
+  test("tenant:query:invitations decrypts the invited email under active KMS", async () => {
     await inviteEmail(CAROL_EMAIL, "Editor");
 
     const list = (await stack.http.queryOk(

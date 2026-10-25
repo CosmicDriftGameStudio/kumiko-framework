@@ -62,7 +62,7 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/options\.reason must be a non-empty string/);
   });
 
-  test("rejects an EntityTableMeta whose source is not 'unmanaged' (#1209)", () => {
+  test("rejects an EntityTableMeta whose source is not 'unmanaged'", () => {
     const managedEntity = createEntity({
       table: "rt_probe_managed",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
@@ -75,7 +75,7 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/requires source: "unmanaged"/);
   });
 
-  test("rejects a table name with the reserved read_ prefix (#1220/#1208)", () => {
+  test("rejects a table name with the reserved read_ prefix", () => {
     expect(() =>
       defineUnmanagedTable({
         tableName: "read_rt_probe",
@@ -251,7 +251,7 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
   });
 });
 
-describe("createRegistry — store tables with PII-annotated fields (#820)", () => {
+describe("createRegistry — store tables with PII-annotated fields", () => {
   const piiEntity = createEntity({
     table: "rt_pii_probe",
     fields: {

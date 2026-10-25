@@ -38,7 +38,7 @@ describe("scaffoldAppFeature", () => {
     }
   });
 
-  test("feature.ts registriert nur — Entity aus schema/, Keys aus i18n.ts", () => {
+  test("feature.ts registers only the entity from schema/ and keys from i18n.ts", () => {
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
     expect(feature).toContain("defineFeature(PRODUCT_CATALOG_FEATURE");
@@ -52,7 +52,7 @@ describe("scaffoldAppFeature", () => {
     expect(feature).not.toContain("fields:");
   });
 
-  test("Starter erfüllt Boot-Constraints: sortable-Feld, defaultSort, i18n-Pflichtkeys", () => {
+  test("Scaffold satisfies boot constraints: sortable field, defaultSort, required i18n keys", () => {
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const entity = readFileSync(
       join(appRoot, "src/features/product-catalog/schema/product-catalog-item.ts"),
@@ -66,7 +66,7 @@ describe("scaffoldAppFeature", () => {
     expect(i18n).toContain('"product-catalog:entity:product-catalog-item:field:title"');
   });
 
-  test("web/index.ts ist Client-Stub, __tests__ enthält validateBoot-Test", () => {
+  test("web/index.ts is a client stub, __tests__ contains a validateBoot test", () => {
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const web = readFileSync(join(appRoot, "src/features/product-catalog/web/index.ts"), "utf-8");
     expect(web).not.toContain("@runtime");
@@ -159,7 +159,7 @@ describe("scaffoldAppFeature", () => {
     expect(healed).toMatch(/\]\s*as const;/);
   });
 
-  test("gescaffoldetes Feature bootet wirklich (validateBoot über dynamic import)", async () => {
+  test("The scaffolded feature actually boots (validateBoot via dynamic import)", async () => {
     // Scaffold inside the repository rather than os.tmpdir: only there does the dynamic
     // import "@cosmicdrift/kumiko-framework/engine" resolve through node_modules.
     const repoTmp = mkdtempSync(join(import.meta.dir, ".tmp-scaffold-"));

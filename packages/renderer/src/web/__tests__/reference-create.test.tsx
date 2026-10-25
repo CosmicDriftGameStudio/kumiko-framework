@@ -81,8 +81,8 @@ function makeDispatcher({ returnsId = true }: { readonly returnsId?: boolean } =
   return { ...dispatcher, writes };
 }
 
-describe("Reference-field create-in-place (#1681)", () => {
-  test("+ Create öffnet den Create-Screen des Zielfeatures, Submit wählt die neue id + refetcht die Liste", async () => {
+describe("Reference-field create-in-place", () => {
+  test("+ Create opens the target feature's create screen, Submit selects the new id and refetches the list", async () => {
     const user = userEvent.setup();
     const dispatcher = makeDispatcher();
 
@@ -190,7 +190,7 @@ describe("Reference-field create-in-place (#1681)", () => {
     );
   });
 
-  test("Cancel im Create-Dialog schließt ohne write, Reference-Feld bleibt leer", async () => {
+  test("Cancel in the create dialog closes without writing, reference field remains empty", async () => {
     const user = userEvent.setup();
     const dispatcher = makeDispatcher();
 

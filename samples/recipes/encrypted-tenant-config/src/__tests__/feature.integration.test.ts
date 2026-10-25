@@ -55,7 +55,7 @@ beforeEach(() => {
 });
 
 describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
-  test("DB hält ciphertext, NICHT plaintext", async () => {
+  test("DB stores ciphertext, NOT plaintext", async () => {
     const plaintextKey = "sk_live_super_secret_stripe_key_12345";
     await stack.http.writeOk(
       "config:write:set",
@@ -75,7 +75,7 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
     expect(stored).not.toContain("super_secret");
   });
 
-  test("config:query:values maskt encrypted-key mit ••••••", async () => {
+  test("config:query:values masks encrypted key with ••••••", async () => {
     await stack.http.writeOk(
       "config:write:set",
       { key: stripeApiKeyHandle.name, value: "sk_live_xyz", scope: "tenant" },
@@ -89,7 +89,7 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
     expect(cfg[stripeApiKeyHandle.name]?.value).toBe("••••••");
   });
 
-  test("charge-handler liest den entschlüsselten Key + nutzt ihn", async () => {
+  test("charge-handler reads the decrypted key + uses it", async () => {
     // Charge ohne gesetzten Key → schlägt mit klarer Error fehl
     const noKey = await stack.http.write(
       "billing:write:charge",

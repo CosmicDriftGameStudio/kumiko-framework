@@ -22,7 +22,7 @@ const entity = createEntity({
   },
 });
 
-describe("deriveEntityTableMeta — options.source (#1210)", () => {
+describe("deriveEntityTableMeta — options.source", () => {
   test("defaults to managed when omitted", () => {
     expect(deriveEntityTableMeta("source-probe", entity).source).toBe("managed");
   });
@@ -52,7 +52,7 @@ describe("deriveEntityTableMeta — options.source (#1210)", () => {
   });
 });
 
-describe("unmanaged builders reject read_ prefix (#1208)", () => {
+describe("unmanaged builders reject read_ prefix", () => {
   test("deriveEntityTableMeta(..., { source: unmanaged }) with read_ table throws", () => {
     const readEntity = createEntity({
       table: "read_source_probe",

@@ -69,7 +69,7 @@ describe("MfaVerifyScreen", () => {
     });
   });
 
-  test("falscher Code (invalid_totp_code) → Banner mit übersetztem Text", async () => {
+  test("invalid code (invalid_totp_code) → Banner with translated text", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ isSuccess: false, error: "invalid_totp_code" }), {
@@ -88,7 +88,7 @@ describe("MfaVerifyScreen", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  test("sechste Ziffer löst genau einen Submit aus, Nicht-Ziffern werden verworfen", async () => {
+  test("the sixth digit triggers exactly one submit, non-digits are discarded", async () => {
     const fetchMock = mock(
       async (_url: string, _init?: RequestInit) =>
         new Response(JSON.stringify({ isSuccess: false, error: "invalid_totp_code" }), {
@@ -111,7 +111,7 @@ describe("MfaVerifyScreen", () => {
     });
   });
 
-  test("Recovery-Modus: Textfeld, kein Auto-Submit, Submit-Button sendet den Code", async () => {
+  test("Recovery mode: text field, no auto-submit, submit button sends the code", async () => {
     const fetchMock = mock(
       async (_url: string, _init?: RequestInit) =>
         new Response(JSON.stringify({ isSuccess: false, error: "invalid_recovery_code" }), {
@@ -144,7 +144,7 @@ describe("MfaVerifyScreen", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  test("ohne onCancel → kein 'Back to login'-Button", () => {
+  test("without onCancel → no 'Back to login' button", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
     expect(screen.queryByRole("button", { name: "Back to login" })).toBeNull();
   });

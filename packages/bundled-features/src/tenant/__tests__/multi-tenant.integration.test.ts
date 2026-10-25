@@ -383,7 +383,7 @@ describe("disabled tenant", () => {
 // avoiding a login lockout). Runs as the final block with its own user and no
 // shared tenant state.
 
-describe("memberships batch-load (#324)", () => {
+describe("batch-loads memberships", () => {
   const batchUserId = "11111111-0000-4000-8000-000000000020";
   const driftTenantId = testTenantId(777);
 

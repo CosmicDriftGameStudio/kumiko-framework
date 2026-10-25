@@ -191,7 +191,7 @@ describe("dispatcher.write", () => {
     }
   });
 
-  test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
+  test("ctx.user is a convenience alias for event.user (same value)", async () => {
     // Verifies that the handler can access ctx.user without using the
     // typo-resistant event.user path. Compare both with the same SessionUser
     // to ensure they refer to the same object.
@@ -1011,7 +1011,7 @@ describe("dispatcher feature-gate", () => {
     });
   });
 
-  test("issue #1233: ctx.hasFeature falls back to trialGate for a companion feature the tenant doesn't own", async () => {
+  test("ctx.hasFeature falls back to trialGate for a companion feature the tenant doesn't own", async () => {
     // Regression for the trial-tenant bug: a handler owned by an always-on
     // feature checks a DIFFERENT (trial-tier) feature via ctx.hasFeature.
     // The sync resolver never carries trial features, so without the

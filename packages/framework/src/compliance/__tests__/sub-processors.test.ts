@@ -11,7 +11,7 @@ import {
 } from "../sub-processors.ts";
 
 describe("KUMIKO_SUB_PROCESSORS", () => {
-  test("Liste ist nicht leer (Plattform hat mindestens Hetzner)", () => {
+  test("List is not empty (platform has at least Hetzner)", () => {
     expect(KUMIKO_SUB_PROCESSORS.length).toBeGreaterThan(0);
   });
 
@@ -38,7 +38,7 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
     }
   });
 
-  test("Snapshot — explizit zu updaten bei jeder Liste-Aenderung", () => {
+  test("Snapshot — explicitly update whenever the list changes", () => {
     const summary = KUMIKO_SUB_PROCESSORS.map((sp) => ({
       name: sp.name,
       region: sp.region,
@@ -134,7 +134,7 @@ describe("getActiveSubProcessors / getPlannedSubProcessors", () => {
     expect(active.length + planned.length).toBe(KUMIKO_SUB_PROCESSORS.length);
   });
 
-  test("kein Sub-Processor in active hat status=planned", () => {
+  test("No active sub-processor has status=planned", () => {
     for (const sp of getActiveSubProcessors()) {
       expect(sp.status).not.toBe("planned");
     }
@@ -146,7 +146,7 @@ describe("getActiveSubProcessors / getPlannedSubProcessors", () => {
     }
   });
 
-  test("Scaleway: Backup-Mirror ist aktiv, Key Manager und Transactional Email sind geplant", () => {
+  test("Scaleway: Backup Mirror is active, Key Manager and Transactional Email are planned", () => {
     const active = getActiveSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
     const planned = getPlannedSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
     expect(active.map((sp) => sp.purpose)).toEqual(["Offsite Backup Mirror (Object Storage)"]);

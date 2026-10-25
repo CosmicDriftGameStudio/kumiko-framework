@@ -10,22 +10,22 @@ describe("defineTransitions — TransitionGraph API", () => {
     cancelled: [],
   });
 
-  test("canTransition: erlaubte Übergänge", () => {
+  test("canTransition: allowed transitions", () => {
     expect(transitions.canTransition("draft", "sent")).toBe(true);
     expect(transitions.canTransition("sent", "paid")).toBe(true);
     expect(transitions.canTransition("sent", "cancelled")).toBe(true);
   });
 
-  test("canTransition: verbotene Übergänge", () => {
+  test("canTransition: forbidden transitions", () => {
     expect(transitions.canTransition("draft", "paid")).toBe(false);
     expect(transitions.canTransition("paid", "draft")).toBe(false);
   });
 
-  test("canTransition: unbekannter from-State liefert false (kein Throw)", () => {
+  test("canTransition: unknown from-State returns false (no throw)", () => {
     expect(transitions.canTransition("unknown" as "draft", "sent")).toBe(false);
   });
 
-  test("allowedFrom: liefert die erlaubten Targets", () => {
+  test("allowedFrom: returns the allowed targets", () => {
     expect(transitions.allowedFrom("sent")).toEqual(["paid", "cancelled"]);
     expect(transitions.allowedFrom("draft")).toEqual(["sent"]);
   });
@@ -63,7 +63,7 @@ describe("assertTransition / guardTransition", () => {
   // (HTTP 422). guardTransition is a convenience wrapper with the same logic;
   // both paths must behave identically.
 
-  test("method-form: erlaubter Übergang läuft durch", () => {
+  test("method-form: allowed transition succeeds", () => {
     expect(() => transitions.assertTransition("draft", "sent")).not.toThrow();
   });
 
@@ -72,7 +72,7 @@ describe("assertTransition / guardTransition", () => {
     expect(() => guardTransition(transitions, "draft", "paid")).toThrow(UnprocessableError);
   });
 
-  test("rejects invalid transition mit details + i18nKey", () => {
+  test("rejects invalid transition with details + i18nKey", () => {
     try {
       transitions.assertTransition("draft", "paid");
     } catch (e) {
@@ -89,7 +89,7 @@ describe("assertTransition / guardTransition", () => {
     }
   });
 
-  test("error details: allowed-array aus der State-Machine", () => {
+  test("error details: allowed-array from the state machine", () => {
     try {
       transitions.assertTransition("sent", "draft");
     } catch (e) {
@@ -99,7 +99,7 @@ describe("assertTransition / guardTransition", () => {
     }
   });
 
-  test("rejects transition from unknown state mit allowed=[] (leeres Array)", () => {
+  test("rejects transition from unknown state with allowed=[] (empty array)", () => {
     try {
       transitions.assertTransition("unknown" as "draft", "sent");
     } catch (e) {

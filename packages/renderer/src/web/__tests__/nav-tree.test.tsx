@@ -108,7 +108,7 @@ describe("NavTree role-gating", () => {
   // user prop, so resolveNavigation saw user=undefined and hid ALL role-gated
   // navigation entries, even when the user actually had the required role.
 
-  test("user mit ['SystemAdmin','User'] sieht public + sysadmin, NICHT admin", () => {
+  test("user with ['SystemAdmin','User'] sees public + sysadmin, NOT admin", () => {
     render(
       <NavTree
         schema={makeRoleGatedSchema()}
@@ -120,14 +120,14 @@ describe("NavTree role-gating", () => {
     expect(screen.queryByText("Admin")).toBeNull();
   });
 
-  test("user mit ['Admin'] sieht public + admin, NICHT sysadmin", () => {
+  test("user with ['Admin'] sees public + admin, NOT sysadmin", () => {
     render(<NavTree schema={makeRoleGatedSchema()} user={{ id: "u1", roles: ["Admin"] }} />);
     expect(screen.getByText("Public")).toBeTruthy();
     expect(screen.getByText("Admin")).toBeTruthy();
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
 
-  test("OHNE user-prop (anonymous) → role-gated navs ausgeblendet, nur public sichtbar", () => {
+  test("Without user-prop (anonymous) → role-gated navs hidden, only public visible", () => {
     // This is the behavior caused by the production bug: when DefaultAppShell
     // fails to pass through user, resolveNavigation treats the request as
     // anonymous and hides all role-gated navigation entries.
@@ -137,7 +137,7 @@ describe("NavTree role-gating", () => {
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
 
-  test("multi-role-merge: user mit überlappenden rollen sieht beide", () => {
+  test("multi-role merge: user with overlapping roles sees both", () => {
     render(
       <NavTree
         schema={makeRoleGatedSchema()}
@@ -200,7 +200,7 @@ describe("NavTree", () => {
     warnSpy.mockRestore();
   });
 
-  test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
+  test("Section-Header (parent without screen) is a static label, children visible", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
     // Section "Data" is a STATIC heading (sidebar-07 pattern), not a toggle
@@ -223,7 +223,7 @@ describe("NavTree", () => {
     expect(screen.getByText("Active")).toBeTruthy();
   });
 
-  test("jedes Nav-Label-Span trägt title === Label, damit abgeschnittene Einträge per Hover lesbar sind", () => {
+  test("Each Nav-label span carries title === Label, so truncated entries are readable on hover", () => {
     const labels = [
       "Quarterly consolidated financial reporting overview",
       "Extraordinarily long linked parent entry label",
@@ -256,7 +256,7 @@ describe("NavTree", () => {
     }
   });
 
-  test("Parent mit Screen + children — Chevron-Click toggled, ohne Navigation", () => {
+  test("Parent with Screen + children — Chevron click toggles, without navigation", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
     // "Items" hat children Active+Backlog; default expanded
@@ -280,7 +280,7 @@ describe("NavTree", () => {
     expect(screen.getByText("Items")).toBeTruthy();
   });
 
-  test("Nav-Eintrag mit bekanntem icon rendert ein Lucide-Icon, ohne icon nur das Label", () => {
+  test("Nav entry with a known icon renders a Lucide icon; without an icon, only the label", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -362,7 +362,7 @@ describe("NavTree", () => {
     expectNavIcons(container, ["server", "mail", "download", "upload", "rocket"]);
   });
 
-  test("palette, link und share rendern Lucide-Icons (Share-/Branding-Nav)", () => {
+  test("palette, link, and share render Lucide icons (Share-/Branding-Nav)", () => {
     const schema = {
       featureName: "app",
       entities: {},
@@ -381,7 +381,7 @@ describe("NavTree", () => {
     expectNavIcons(container, ["palette", "link", "share"]);
   });
 
-  test("send und shield-check rendern Lucide-Icons", () => {
+  test("send and shield-check render Lucide icons", () => {
     const schema = {
       featureName: "app",
       entities: {},
@@ -407,7 +407,7 @@ describe("NavTree", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  test("unbekannter icon-Key fällt sauber auf reinen Text zurück (kein svg), aber warnt sichtbar", () => {
+  test("Unknown icon key falls back cleanly to plain text (no svg), but displays a warning", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -442,7 +442,7 @@ describe("NavTree", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  test("kein icon gesetzt warnt NICHT (Bundled Features ohne Icon sind kein Fehler)", () => {
+  test("No icon set does NOT warn (Bundled Features without an icon are not an error)", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -473,7 +473,7 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
     } satisfies FeatureSchema;
   }
 
-  test("Badge gekeyt auf bare nav-id sitzt im passenden Item, nicht in anderen", () => {
+  test("Badge keyed to bare nav-id appears in the matching item, not in others", () => {
     render(<NavTree schema={flatSchema()} navBadges={new Map([["tarif", <span>Pro</span>]])} />);
     const badge = screen.getByText("Pro");
     expect(screen.getByText("Tarif & Limits").closest("li")?.textContent).toContain("Pro");
@@ -483,12 +483,12 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
     expect(badge.parentElement?.className).toContain("ml-auto");
   });
 
-  test("ohne navBadges → kein Badge-Slot", () => {
+  test("Without navBadges → no badge slot", () => {
     render(<NavTree schema={flatSchema()} />);
     expect(screen.queryByText("Pro")).toBeNull();
   });
 
-  test("Key ohne passendes Item → nichts (silent), übrige Items rendern normal", () => {
+  test("Key without a matching item → nothing (silent), remaining items render normally", () => {
     render(
       <NavTree
         schema={flatSchema()}
@@ -772,7 +772,7 @@ describe("NavTree dynamic provider nodes", () => {
     restoreDispatch = undefined;
   });
 
-  test("provider:true-Knoten lädt seine Children lazy + rendert sie (default-expanded)", async () => {
+  test("provider:true node lazily loads and renders its children (default-expanded)", async () => {
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit([pageLeaf("apex"), pageLeaf("hero")]);
       return () => {};
@@ -787,7 +787,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(screen.getByText("hero")).toBeTruthy();
   });
 
-  test("createAction rendert ein Plus-Button der sein target dispatcht", async () => {
+  test("createAction renders a plus button that dispatches its target", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
       dispatched = t;
@@ -807,7 +807,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toEqual({ featureId: "cms", action: "create", args: { folder: "" } });
   });
 
-  test("createAction mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
+  test("createAction with screen renders a link to the correct route instead of dispatching", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
       dispatched = t;
@@ -840,7 +840,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toBeUndefined();
   });
 
-  test("actions[]-Eintrag mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
+  test("actions[] entry with screen renders a link to the correct route instead of dispatching", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
       dispatched = t;
@@ -872,7 +872,7 @@ describe("NavTree dynamic provider nodes", () => {
   // a schema handed straight to NavTree (as here, and as a provider-emitted
   // TreeNode at runtime) bypasses that — neither must not render a dead
   // button, it must warn once and drop the action.
-  test("actions[]-Eintrag ohne screen und ohne target rendert nichts und warnt einmal", async () => {
+  test("actions[] entry without screen and without target renders nothing and warns once", async () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const schema: FeatureSchema = {
@@ -901,7 +901,7 @@ describe("NavTree dynamic provider nodes", () => {
     }
   });
 
-  test("actions[]-Eintrag mit screen und target rendert den Link und warnt, dass target ignoriert wird", async () => {
+  test("actions[] entry with screen and target renders the link and warns that target is ignored", async () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const schema: FeatureSchema = {
@@ -937,7 +937,7 @@ describe("NavTree dynamic provider nodes", () => {
     }
   });
 
-  test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
+  test("target node dispatches on click (instead of a route link)", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
       dispatched = t;
@@ -991,7 +991,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(screen.getByText("pricing")).toBeTruthy();
   });
 
-  test("Provider-Subscription wird beim Re-Fire + Unmount sauber abgebaut (kein Leak)", async () => {
+  test("Provider subscription is properly cleaned up on re-fire + unmount (no leak)", async () => {
     // Every subscribe() returns a cleanup function. Invariant: at most ONE
     // subscription may be active at any time. Before an SSE re-fire, the
     // previous subscription must be removed; otherwise subscriptions
@@ -1063,7 +1063,7 @@ describe("NavTree live refresh coalescing", () => {
 // A node without a chevron (not expandable) has no chevron — the narrower
 // `right-1` spacing must only apply there.
 describe("NavTree Actions-Positionierung", () => {
-  test("expandable Knoten (mit Chevron) hält den weiten right-7-Abstand", async () => {
+  test("Expandable node (with Chevron) keeps the wide right-7 spacing", async () => {
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit([pageLeaf("apex")]);
       return () => {};
@@ -1081,7 +1081,7 @@ describe("NavTree Actions-Positionierung", () => {
     expect(actionsContainer?.className).not.toContain("right-1");
   });
 
-  test("nicht-expandable Knoten (kein Chevron) rückt auf right-1 auf", async () => {
+  test("Non-expandable node (no Chevron) shifts to right-1", async () => {
     const schema: FeatureSchema = {
       featureName: "cms",
       entities: {},
@@ -1116,7 +1116,7 @@ describe("NavTree Suchfeld", () => {
   // the i18n placeholder because the local i18n bundle may not contain the
   // new key, while CI does.
 
-  test("Filter blendet Nicht-Treffer aus, hält Treffer + deren Ancestors", () => {
+  test("Filter hides non-matches, keeps matches + their ancestors", () => {
     render(<NavTree schema={makeSchema()} />);
     const input = screen.getByRole("textbox") as HTMLInputElement;
 
@@ -1131,7 +1131,7 @@ describe("NavTree Suchfeld", () => {
     expect(screen.getByText("Data")).toBeTruthy();
   });
 
-  test("Filter ohne Treffer leert den Baum; Leeren stellt alles wieder her", () => {
+  test("Filter with no matches clears the tree; clearing it restores everything", () => {
     render(<NavTree schema={makeSchema()} />);
     const input = screen.getByRole("textbox") as HTMLInputElement;
 
@@ -1146,7 +1146,7 @@ describe("NavTree Suchfeld", () => {
 });
 
 describe("NavTree folder-open Icon", () => {
-  test("Folder-Knoten zeigt folder-open wenn expanded, folder wenn collapsed", async () => {
+  test("Folder node shows folder-open when expanded, folder when collapsed", async () => {
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit([{ label: "page", icon: "folder", children: [pageLeaf("hero")] }]);
       return () => {};

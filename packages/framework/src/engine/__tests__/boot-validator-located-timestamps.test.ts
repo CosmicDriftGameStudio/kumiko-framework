@@ -10,7 +10,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTimestampField, createTzField } from "../factories.ts";
 
 describe("validateBoot — locatedBy markers", () => {
-  test("manuelle Konstruktion mit korrektem Pair passiert (positive case)", () => {
+  test("manual construction with correct Pair succeeds (positive case)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "order",
@@ -26,7 +26,7 @@ describe("validateBoot — locatedBy markers", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("locatedBy zeigt auf nicht-existierendes Feld → Fehler beim Boot", () => {
+  test("locatedBy points to a non-existent field → error on boot", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "order",
@@ -42,7 +42,7 @@ describe("validateBoot — locatedBy markers", () => {
     expect(() => validateBoot([feature])).toThrow(/no field with that name exists/);
   });
 
-  test("locatedBy zeigt auf falschen Feld-Typ → Fehler beim Boot", () => {
+  test("locatedBy points to a field with the wrong type → error on boot", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "order",
@@ -63,7 +63,7 @@ describe("validateBoot — locatedBy markers", () => {
     expect(() => validateBoot([feature])).toThrow(/expected "tz"/);
   });
 
-  test("Fehlermeldung verweist auf createLocatedTimestampField als Fix", () => {
+  test("error message points to createLocatedTimestampField as the fix", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "order",
@@ -78,7 +78,7 @@ describe("validateBoot — locatedBy markers", () => {
     expect(() => validateBoot([feature])).toThrow(/createLocatedTimestampField/);
   });
 
-  test("Timestamp ohne locatedBy ist OK (reiner UTC-Instant)", () => {
+  test("Timestamp without locatedBy is OK (pure UTC instant)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "order",

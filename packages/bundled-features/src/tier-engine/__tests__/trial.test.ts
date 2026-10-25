@@ -12,11 +12,11 @@ describe("isTrialActive", () => {
     expect(isTrialActive(start, start, 720)).toBe(true);
   });
 
-  test("exakt am Fenster-Ende → nicht mehr aktiv (halb-offen)", () => {
+  test("exactly at the end of the window → no longer active (half-open)", () => {
     expect(isTrialActive(start, start + 720 * HOUR_MS, 720)).toBe(false);
   });
 
-  test("nach dem Fenster → inaktiv", () => {
+  test("after the window → inactive", () => {
     expect(isTrialActive(start, start + 721 * HOUR_MS, 720)).toBe(false);
     expect(isTrialActive(start, start + 31 * 24 * HOUR_MS, 720)).toBe(false);
   });

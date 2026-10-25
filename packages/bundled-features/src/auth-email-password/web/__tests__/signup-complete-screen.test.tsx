@@ -31,19 +31,19 @@ function fillPasswords(password: string, confirm: string): void {
 }
 
 describe("SignupCompleteScreen", () => {
-  test("ohne Token in URL UND ohne token-Prop → missing-token-Page", () => {
+  test("without a token in the URL and without a token prop → missing-token page", () => {
     renderWithProviders(<SignupCompleteScreen />);
     expect(screen.getByText(/missing a token/i)).toBeTruthy();
   });
 
-  test("mit token-Prop → Form rendert", () => {
+  test("with token prop → form renders", () => {
     renderWithProviders(<SignupCompleteScreen token="abc-token" />);
     expect(document.getElementById("signup-password")).toBeTruthy();
     expect(document.getElementById("signup-confirm-password")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Activate account" })).toBeTruthy();
   });
 
-  test("Passwort < 8 Zeichen → client-side error, kein fetch-Call", async () => {
+  test("Password < 8 characters → client-side error, no fetch call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -57,7 +57,7 @@ describe("SignupCompleteScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("happy path: gültiges Passwort → Bestätigung statt sofortigem Redirect, Weiter-Button trifft resolveLoggedInHref-Ziel", async () => {
+  test("happy path: valid password → confirmation instead of immediate redirect, Continue button targets resolveLoggedInHref", async () => {
     const assignMock = mock((_url: string | URL): void => {});
     const assignOrig = window.location.assign.bind(window.location);
     window.location.assign = assignMock as typeof window.location.assign;
@@ -107,7 +107,7 @@ describe("SignupCompleteScreen", () => {
     }
   });
 
-  test("MFA-pending: Weiter führt zum Login mit dem Signup-Landing-Pfad als next", async () => {
+  test("MFA-pending: Continue leads to login with the signup landing path as next", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -132,7 +132,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("MFA-pending ohne Landing-Pfad: Weiter führt zum nackten Login", async () => {
+  test("MFA-pending without landing path: Continue leads to bare login", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -150,7 +150,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("loggedInHref-Function bekommt die Rollen aus der signup-confirm-Response", async () => {
+  test("loggedInHref function receives the roles from the signup-confirm response", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -210,7 +210,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("String-Form bleibt unverändert gültig und ignoriert die Rollen", async () => {
+  test("String form remains valid unchanged and ignores the roles", async () => {
     renderWithProviders(<SignupCompleteScreen token="abc-token" loggedInHref="/fixed-landing" />);
     fillPasswords("validpass1", "validpass1");
     fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
@@ -222,7 +222,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("confirm-Antwort mit handover → loggedInHref-Function erhält handover", async () => {
+  test("confirm response with handover → loggedInHref function receives handover", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -255,7 +255,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("confirm-Antwort ohne handover → loggedInHref-Function bekommt Args ohne handover-Key", async () => {
+  test("confirm response without handover → loggedInHref function receives arguments without the handover key", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -288,7 +288,7 @@ describe("SignupCompleteScreen", () => {
     expect(receivedArgs).toStrictEqual({ tenantKey: "acme", roles: ["User"] });
   });
 
-  test("server landingPath gewinnt über loggedInHref", async () => {
+  test("server landingPath takes precedence over loggedInHref", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -314,7 +314,7 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
-  test("Server antwortet mfaSetupRequired → Aktiviert-Hinweis ohne Session, Continue führt zum Login", async () => {
+  test("Server responds mfaSetupRequired → activation notice without a session, Continue leads to login", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -344,7 +344,7 @@ describe("SignupCompleteScreen", () => {
     expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe("/sign-in");
   });
 
-  test("mismatch → client-side error, kein fetch-Call", async () => {
+  test("mismatch → client-side error, no fetch call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 

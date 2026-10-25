@@ -18,7 +18,7 @@ describe("schedulerIdForJobName", () => {
 });
 
 describe("bootJobIdForJobName", () => {
-  test("strips colons, same hazard as schedulerIdForJobName (fw#1604)", () => {
+  test("strips colons, same hazard as schedulerIdForJobName", () => {
     const id = bootJobIdForJobName("publicstatus:job:uptime-probe");
     expect(id).toBe("boot-publicstatus-job-uptime-probe");
     expect(id.includes(":")).toBe(false);

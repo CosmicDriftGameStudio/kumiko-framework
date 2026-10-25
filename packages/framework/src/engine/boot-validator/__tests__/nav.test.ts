@@ -239,7 +239,7 @@ describe("warnOnNavAccessInversion", () => {
   });
 });
 
-describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)", () => {
+describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
   let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
 
   beforeEach(() => {
@@ -293,7 +293,7 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
-  test("warns for a nav in no workspace whose screen nobody else reaches (solon#113)", () => {
+  test("warns for a nav in no workspace whose screen nobody else reaches", () => {
     const allNavQns = navMap([
       [
         "vehicles:nav:a",

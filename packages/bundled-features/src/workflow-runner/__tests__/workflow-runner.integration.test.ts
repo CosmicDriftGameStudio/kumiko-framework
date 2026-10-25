@@ -418,7 +418,7 @@ describe("workflow-runner event-trigger", () => {
     }
   });
 
-  test("suspension: a wait step suspends the run instead of failing it — resumable by framework#2513 Phase 2, no run-completed yet", async () => {
+  test("suspension: a wait step suspends the run instead of failing it, no run-completed yet", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(suspendingWorkflow.name, runKey);
 
@@ -431,7 +431,7 @@ describe("workflow-runner event-trigger", () => {
     ]);
   });
 
-  test("fw#2552/1: a second resume-run for the same (runId, stepIndex) before pending-projection deletes the row reports already-resumed and never re-runs the step", async () => {
+  test("a second resume-run for the same (runId, stepIndex) before pending-projection deletes the row reports already-resumed and never re-runs the step", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(doubleResumeWorkflow.name, runKey);
 
@@ -477,7 +477,7 @@ describe("workflow-runner event-trigger", () => {
     });
   });
 
-  test("fw#2552/1 regression: a step retried twice gets both retry attempts, the second resume is not swallowed as already-resumed", async () => {
+  test("a step retried twice gets both retry attempts, the second resume is not swallowed as already-resumed", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(doubleRetryWorkflow.name, runKey);
 

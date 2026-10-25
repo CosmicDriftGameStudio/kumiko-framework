@@ -90,7 +90,7 @@ async function idsWithCode(code: string): Promise<readonly unknown[]> {
   return page.rows.map((row) => row.id);
 }
 
-describe("crypto-shredding :: record forget of whenAbsent: self fields (fw#3811)", () => {
+describe("crypto-shredding :: forgetting a record's self fields whenAbsent", () => {
   test("shreds the ownerless row's self fields and blind index; tenant-keyed and owner-keyed values stay readable", async () => {
     const ownerless = await createSlip({ name: "gone name", code: "gone-code", note: "kept note" });
     const owned = await createSlip({ ownerId: OWNER, name: "owned name", code: "owned-code" });

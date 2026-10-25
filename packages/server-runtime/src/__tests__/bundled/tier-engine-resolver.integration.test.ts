@@ -255,7 +255,7 @@ describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)",
     await seedTenant(stack.db, { id: tenantId, key, name: key });
   }
 
-  test("seedTenant-Signup ohne tier-assignment: trialGate schaltet feat-pro im Fenster frei", async () => {
+  test("seedTenant-Signup without tier-assignment: trialGate enables feat-pro during the window", async () => {
     const usage = findTierResolverUsage(featuresWithTrial);
     if (!usage) throw new Error("setup failure: no trial resolver");
     const plugin = usage.options as TierResolverPlugin;
@@ -271,7 +271,7 @@ describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)",
     expect(await resolver.trialGate?.(tenantA, "feat-business")).toBe(false);
   });
 
-  test("inserted_at > 30 Tage: trialGate schließt", async () => {
+  test("inserted_at > 30 days: trialGate closes", async () => {
     const usage = findTierResolverUsage(featuresWithTrial);
     if (!usage) throw new Error("setup failure: no trial resolver");
     const plugin = usage.options as TierResolverPlugin;
@@ -286,7 +286,7 @@ describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)",
     expect(await resolver.trialGate?.(tenantB, "feat-pro")).toBe(false);
   });
 
-  test("ohne Trial-Option gibt es keinen trialGate", async () => {
+  test("Without the Trial option, there is no trialGate", async () => {
     const usage = findTierResolverUsage(features);
     if (!usage) throw new Error("setup failure");
     const plugin = usage.options as TierResolverPlugin;

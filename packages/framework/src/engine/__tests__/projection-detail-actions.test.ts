@@ -14,7 +14,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 // row to target on a detail screen and is rejected outright; navigate/
 // writeHandler actions get the same existence checks as entityList/
 // projectionList rowActions/toolbarActions.
-describe("validateBoot — projectionDetail actions (fw#2166)", () => {
+describe("validateBoot projectionDetail actions", () => {
   test("navigate action with rowClick: true throws, naming the screen and action", () => {
     const feature = defineFeature("app", (r) => {
       r.screen({

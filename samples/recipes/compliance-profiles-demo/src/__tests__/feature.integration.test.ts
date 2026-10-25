@@ -86,7 +86,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     expect(result.profile.tenantDestroyGracePeriod).toEqual({ days: 30 });
   });
 
-  test("Tenant B (Schweiz) → swiss-dsg: EDÖB + DE/FR/IT/EN-Sprachen", async () => {
+  test("Tenant B (Switzerland) → swiss-dsg: Swiss data protection authority + DE/FR/IT/EN languages", async () => {
     const result = await stack.http.queryOk<{
       profile: {
         key: string;

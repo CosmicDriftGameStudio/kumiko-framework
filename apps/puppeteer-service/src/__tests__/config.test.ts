@@ -41,7 +41,7 @@ describe("loadConfig", () => {
     );
   });
 
-  test("optional executablePath bleibt undefined", () => {
+  test("optional executablePath remains undefined", () => {
     const config = loadConfig({ PUPPETEER_AUTH_TOKEN: VALID_TOKEN });
     expect(config.puppeteerExecutablePath).toBeUndefined();
   });

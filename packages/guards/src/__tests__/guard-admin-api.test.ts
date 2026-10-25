@@ -21,8 +21,8 @@ function workspace(): string {
   return realpathSync(root);
 }
 
-describe("guard-admin-api — App-Repo-Scope (infra#502)", () => {
-  test("filesForGuard(guard) nimmt eine Datei aus einem flat-src/-App-Repo mit auf", () => {
+describe("guard-admin-api — App-Repo-Scope", () => {
+  test("filesForGuard(guard) includes a file from a flat-src/ app repo", () => {
     // Explicit `roots` (fixtureRoot), not resolveRepoRoots(): fails if the guard's scan stops reaching a kind "app" root.
     const ws = workspace();
     const moneyHorseDir = join(ws, "money-horse");
@@ -46,7 +46,7 @@ describe("guard-admin-api — App-Repo-Scope (infra#502)", () => {
     expect(files.map((f) => String(f.getFilePath()))).toContain(targetFile);
   });
 
-  test("ein tatsächlicher appendRaw-Aufruf in einem App-Repo-src/-Layout wird als Verstoß erkannt", () => {
+  test("an actual appendRaw call in an app-repo src/-layout is detected as a violation", () => {
     // The packages/samples/scripts-shaped ALLOWLIST regexes must not wave through a src/-layout path.
     const project = new Project({ useInMemoryFileSystem: true });
     const sf = project.createSourceFile(

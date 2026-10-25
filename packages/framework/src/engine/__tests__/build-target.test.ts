@@ -24,20 +24,20 @@ const textContentStub = createTreeActionsStub({
 });
 
 describe("buildTarget — NoArgs-Action", () => {
-  test("erzeugt TargetRef ohne args-Feld", () => {
+  test("creates TargetRef without args field", () => {
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect(ref).toEqual({ featureId: "text-content", action: "list" });
     expect("args" in ref).toBe(false);
   });
 
-  test("output ist frozen (immutable)", () => {
+  test("output is frozen (immutable)", () => {
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect(Object.isFrozen(ref)).toBe(true);
   });
 });
 
 describe("buildTarget — WithArgs-Action", () => {
-  test("erzeugt TargetRef mit args", () => {
+  test("creates TargetRef with args", () => {
     const ref = buildTarget({
       target: textContentStub,
       action: "edit",
@@ -50,7 +50,7 @@ describe("buildTarget — WithArgs-Action", () => {
     });
   });
 
-  test("args sind frozen — Mutation am Input-Objekt schlägt nicht durch", () => {
+  test("args are frozen — mutations to the input object do not affect it", () => {
     const inputArgs = { slug: "imprint" };
     const ref = buildTarget({
       target: textContentStub,
@@ -85,14 +85,14 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
   // while the test checks that valid input produces the correct result.
   // Runtime behavior must be tested rather than only compile-time behavior.
 
-  test("unbekannte action wird vom Compiler abgelehnt", () => {
+  test("unknown action is rejected by the compiler", () => {
     // @ts-expect-error — "delet" is not an action of textContentStub
     buildTarget({ target: textContentStub, action: "delet" });
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect(ref.action).toBe("list");
   });
 
-  test("falsche args-shape wird vom Compiler abgelehnt", () => {
+  test("incorrect args shape is rejected by the compiler", () => {
     // @ts-expect-error — slug must be a string, not a number
     buildTarget({ target: textContentStub, action: "edit", args: { slug: 42 } });
     // Runtime: korrekt-typed args liefern valid TargetRef
@@ -104,14 +104,14 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
     expect(ref.args).toEqual({ slug: "imprint" });
   });
 
-  test("args bei NoArgs-Action wird vom Compiler abgelehnt", () => {
+  test("args for a NoArgs action are rejected by the compiler", () => {
     // @ts-expect-error — list has no args, so the args field is not allowed
     buildTarget({ target: textContentStub, action: "list", args: { x: 1 } });
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect("args" in ref).toBe(false);
   });
 
-  test("fehlende args bei WithArgs-Action wird vom Compiler abgelehnt", () => {
+  test("missing args for a WithArgs action are rejected by the compiler", () => {
     // @ts-expect-error — edit requires args, but they are missing
     buildTarget({ target: textContentStub, action: "edit" });
     const ref = buildTarget({

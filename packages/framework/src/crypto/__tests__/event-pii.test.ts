@@ -163,7 +163,7 @@ describe("defineEvent piiFields validation", () => {
     ).toThrow(/owner field "id"/);
   });
 
-  test("omitting the options argument throws an explicit PII stance error (fw#2558)", () => {
+  test("omitting the options argument throws an explicit PII stance error", () => {
     expect(() =>
       defineFeature("mailer", (r) => {
         // @cast-boundary test-only — the type signature makes `options`

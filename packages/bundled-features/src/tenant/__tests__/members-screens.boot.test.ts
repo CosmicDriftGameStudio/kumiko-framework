@@ -54,7 +54,7 @@ describe("tenant members screen + handler access alignment", () => {
     }
   });
 
-  test("members screen timestamp columns declare renderer.format (fw#2569)", () => {
+  test("members screen timestamp columns declare renderer.format", () => {
     const tenant = createTenantFeature();
     const screen = tenant.screens[MEMBERS_SCREEN_ID];
     if (screen?.type !== "projectionList")

@@ -253,7 +253,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     expect(await rowCount()).toBe(1);
   });
 
-  test("single-user, sole live member, but a departed co-member's history remains → rows preserved (ent#346)", async () => {
+  test("single-user, sole live member, but a departed co-member's history remains → rows preserved", async () => {
     await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c5");
     await seed(stack.db).seedForgetUser(FORGET_USER);
     // Both memberships go through the REAL event-store executor (not the
@@ -362,7 +362,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     expect(await rowCount()).toBe(1);
   });
 
-  test("single-user, sole member removed and re-added → rows still erased (#2608)", async () => {
+  test("single-user, sole member removed and re-added → rows still erased", async () => {
     await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c7");
     await seed(stack.db).seedForgetUser(FORGET_USER);
 

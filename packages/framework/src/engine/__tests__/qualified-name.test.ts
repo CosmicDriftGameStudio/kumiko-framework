@@ -46,7 +46,7 @@ describe("qn()", () => {
     expect(qn("my-app", QnTypes.event, "user:created")).toBe("my-app:event:user:created");
   });
 
-  test("rejects a name that starts with '<scope>:<reserved-type>:' (#1991)", () => {
+  test("rejects a name that starts with '<scope>:<reserved-type>:'", () => {
     // The exact shape from the issue: an already-qualified string
     // ("ai-orchestration:query:duplicate-candidates") passed in as the short
     // name for a handler on the "ai-orchestration" feature.
@@ -55,7 +55,7 @@ describe("qn()", () => {
     ).toThrow(/double-qualification/);
   });
 
-  test("error suggests the corrected short name (#1991)", () => {
+  test("error suggests the corrected short name", () => {
     expect(() =>
       qn("ai-orchestration", "query", "ai-orchestration:query:duplicate-candidates"),
     ).toThrow(/Did you mean "duplicate-candidates"\?/);
@@ -70,13 +70,13 @@ describe("qn()", () => {
   // segment 1 — must hold together. Either alone is common, legitimate
   // sub-structure across the real codebase; these are the exact shapes that
   // regressed when the check first fired on either signal independently.
-  test("allows the scope repeating as an entity prefix without a reserved type next (#1991)", () => {
+  test("allows the scope repeating as an entity prefix without a reserved type next", () => {
     expect(qn("user", "write", "user:create")).toBe("user:write:user:create");
     expect(qn("accounts", "write", "accounts:create")).toBe("accounts:write:accounts:create");
     expect(qn("profile", "query", "profile:me")).toBe("profile:query:profile:me");
   });
 
-  test("allows a reserved type appearing mid-name without the scope repeating first (#1991)", () => {
+  test("allows a reserved type appearing mid-name without the scope repeating first", () => {
     expect(qn("events", "write", "event:create")).toBe("events:write:event:create");
     expect(qn("compliance-profiles", "query", "compliance:query:for-tenant")).toBe(
       "compliance-profiles:query:compliance:query:for-tenant",

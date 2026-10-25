@@ -12,7 +12,7 @@ describe("renderer-puppeteer-client :: Contract", () => {
     expect(feature.requires).toContain("renderer-foundation");
   });
 
-  test("puppeteerRender ist async function", () => {
+  test("puppeteerRender is an async function", () => {
     expect(typeof puppeteerRender).toBe("function");
     expect(puppeteerRender.constructor.name).toBe("AsyncFunction");
   });

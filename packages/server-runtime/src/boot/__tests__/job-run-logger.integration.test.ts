@@ -160,7 +160,7 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
   );
 });
 
-describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", () => {
+describe("startDevJobRunners attaches the dispatcher", () => {
   afterEach(() => {
     attachResults.length = 0;
     attachFailures.length = 0;

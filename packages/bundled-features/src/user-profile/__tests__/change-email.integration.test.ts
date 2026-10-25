@@ -118,7 +118,7 @@ async function seedLoginUser(opts: {
 }
 
 describe("change-email happy path", () => {
-  test("re-auth ok → Login nur noch mit neuer Email, emailVerified=false", async () => {
+  test("re-auth ok → Login only with new email, emailVerified=false", async () => {
     const seed = await seedLoginUser({ email: "old@example.com", password: "secret-pw-1" });
     const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });
 
@@ -170,7 +170,7 @@ describe("change-email access", () => {
 });
 
 describe("change-email guards", () => {
-  test("falsches Passwort → invalid_credentials, Email unverändert", async () => {
+  test("wrong password → invalid_credentials, email unchanged", async () => {
     const seed = await seedLoginUser({ email: "guard@example.com", password: "secret-pw-1" });
     const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });
 
@@ -223,7 +223,7 @@ describe("QN-Drift-Pins (client-Konstanten vs. Feature-Originale)", () => {
 });
 
 describe("danger-zone QN-Pin (ProfileScreen-Konstanten)", () => {
-  test("request-deletion + cancel-deletion sind unter den gepinnten QNs dispatchbar", async () => {
+  test("request-deletion + cancel-deletion can be dispatched under the pinned QNs", async () => {
     const seed = await seedLoginUser({ email: "danger@example.com", password: "secret-pw-1" });
     const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });
 

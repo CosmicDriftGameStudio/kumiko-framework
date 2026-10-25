@@ -374,7 +374,7 @@ describe("scenario 3b: ctx.files resolves through the file provider", () => {
   });
 });
 
-describe("scenario 3c: ctx.notify resolves through the notify factory (#1532)", () => {
+describe("scenario 3c: ctx.notify resolves through the notify factory", () => {
   test("job handler can call ctx.notify and the factory is bound to the job's system user + tenant", async () => {
     clearLog();
     const calls: Array<{ readonly notifierTenantId: string; readonly notificationType: string }> =
@@ -399,7 +399,7 @@ describe("scenario 3c: ctx.notify resolves through the notify factory (#1532)", 
   });
 });
 
-describe("scenario 3d: ctx.config resolves through the config accessor factory (#1532)", () => {
+describe("scenario 3d: ctx.config resolves through the config accessor factory", () => {
   test("job handler can call ctx.config and the factory receives a tenant-scoped db", async () => {
     clearLog();
     let receivedDb: unknown;
@@ -946,7 +946,7 @@ describe("error handling", () => {
     );
   });
 
-  test("ctx.dispatch.write throws before attachDispatcher() has run (framework#2043)", async () => {
+  test("ctx.dispatch.write throws before attachDispatcher() has run", async () => {
     clearLog();
     const failures: string[] = [];
     await withRunner(
@@ -1710,7 +1710,7 @@ describe("boot gates", () => {
   });
 });
 
-describe("runner lifecycle: immediate stop (fw#1805)", () => {
+describe("runner lifecycle: immediate stop", () => {
   test("stop() right after construction leaves no unhandled rejection", async () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => {

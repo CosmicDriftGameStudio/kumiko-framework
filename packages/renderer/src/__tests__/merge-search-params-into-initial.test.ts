@@ -157,7 +157,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["password"]).toBe("");
   });
 
-  test("password-format field is skipped even when a matching searchParam exists (fw#2548)", () => {
+  test("password-format field is skipped even when a matching searchParam exists", () => {
     const fields: Record<string, FieldDef> = {
       apiToken: { type: "text", format: "password", default: "unset" },
     };
@@ -177,7 +177,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["price"]).toBe(19.99);
   });
 
-  test("money-type field WITH a defaultCurrency merges the entityEdit payload shape (#1923)", () => {
+  test("money-type field WITH a defaultCurrency merges the entityEdit payload shape", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" }, undefined, "USD");
     expect(result["price"]).toEqual({ amount: 19.99, currency: "USD" });
@@ -189,7 +189,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["price"]).toEqual({ amount: 0, currency: "USD" });
   });
 
-  test("renderableFields set given: searchParam for a non-rendered field is ignored (#1708)", () => {
+  test("renderableFields set given: searchParam for a non-rendered field is ignored", () => {
     const fields: Record<string, FieldDef> = {
       status: { type: "text", default: "draft" },
       ownerId: { type: "text" },
@@ -268,7 +268,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     ).toEqual(["Admin"]);
   });
 
-  test("money-type field parses a JSON {amount, currency} param without a defaultCurrency (fw#2763)", () => {
+  test("money-type field parses a JSON {amount, currency} param without a defaultCurrency", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeWithAllFieldsUrlPrefillable(fields, {
       price: JSON.stringify({ amount: 19.99, currency: "CHF" }),
@@ -287,7 +287,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
   });
 
-  test("money-type field: bare number without a defaultCurrency keeps the number and warns (fw#2763)", () => {
+  test("money-type field: bare number without a defaultCurrency keeps the number and warns", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const fields: Record<string, FieldDef> = { price: { type: "money" } };
@@ -331,7 +331,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     }
   });
 
-  test("money-type field: a non-finite bare number falls back to the default (fw#2763)", () => {
+  test("money-type field: a non-finite bare number falls back to the default", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const fields: Record<string, FieldDef> = {
@@ -375,7 +375,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(mergeWithAllFieldsUrlPrefillable(fields, { qty: "Infinity" })["qty"]).toBe(5);
   });
 
-  describe("embeddedList prefill (fw#2764)", () => {
+  describe("embeddedList prefill", () => {
     const linesField = (extra: Partial<FieldDef> = {}): Record<string, FieldDef> => ({
       lines: {
         type: "embedded",
@@ -559,7 +559,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
 // the money branch fell through to a bare `0` that the handler's zod schema
 // rejected. `literalCurrencyOverrides` resolves a declared literal source with
 // no query; configEdit's plain-number contract depends on getting neither.
-describe("money currency sources on an entity-less form (fw#2839)", () => {
+describe("money currency sources on an entity-less form", () => {
   const amountField = (currency?: unknown): Record<string, FieldDef> => ({
     amount: { type: "money", ...(currency !== undefined && { currency }) } as FieldDef,
   });
@@ -574,7 +574,7 @@ describe("money currency sources on an entity-less form (fw#2839)", () => {
     expect(result["amount"]).toEqual({ amount: 0, currency: "CHF" });
   });
 
-  test("a literal source also carries into a URL-prefilled amount (fw#2763 path)", () => {
+  test("a literal source also carries into a URL-prefilled amount", () => {
     const fields = amountField({ kind: "literal", code: "CHF" });
     const result = mergeSearchParamsIntoInitial(fields, {
       searchParams: { amount: "42.50" },

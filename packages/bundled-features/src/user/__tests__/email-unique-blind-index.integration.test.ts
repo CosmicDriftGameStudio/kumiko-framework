@@ -69,7 +69,7 @@ afterEach(() => {
   resetBlindIndexKeyForTests();
 });
 
-describe("fw#2134 — email unique constraint on the blind-index column", () => {
+describe("email unique constraint on the blind-index column", () => {
   test("two concurrent creates with the same email: exactly one wins, loser fails on the bidx constraint", async () => {
     const email = "race@example.com";
     const tdb = createTenantDb({
@@ -113,7 +113,7 @@ describe("fw#2134 — email unique constraint on the blind-index column", () => 
     expect(survivors[0]?.n).toBe(1);
   });
 
-  test("a soft-deleted user's email becomes available for reuse (fw#2464)", async () => {
+  test("a soft-deleted user's email becomes available for reuse", async () => {
     // Soft-delete only flips isDeleted/deletedAt (apply-entity-event.ts) —
     // it never touches email/email_bidx, so the old row keeps carrying the
     // email's bidx hash. Before the partial bidx unique index was changed,

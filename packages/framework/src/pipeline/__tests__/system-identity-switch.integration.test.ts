@@ -601,7 +601,7 @@ describe("ctx.auth.resolveActiveMembership — gated like a SYSTEM queryAs/write
   });
 });
 
-describe("ctx.dispatch.queryAs/writeAs to a non-SYSTEM identity (fw#2876)", () => {
+describe("ctx.dispatch.queryAs/writeAs to a non-SYSTEM identity", () => {
   test("switching to the caller itself is free", async () => {
     const result = await stack.http.queryOk<{ roles: readonly string[]; tenantId: string }>(
       "idswitch-probe:query:query-as-self",

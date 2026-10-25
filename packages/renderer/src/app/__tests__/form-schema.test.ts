@@ -161,7 +161,7 @@ describe("buildFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  test("required multiSelect, empty array → issue on that field (#1925: has a combobox widget now)", () => {
+  test("required multiSelect, empty array → issue on that field", () => {
     const entity = entityWith({
       tags: { type: "multiSelect", required: true, options: ["a", "b"] },
     });

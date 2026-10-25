@@ -264,7 +264,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
   });
 });
 
-describe("tenant-owned field encryption (kumiko-platform#457)", () => {
+describe("tenant-owned field encryption", () => {
   test("tenant-owned field round-trips through the subject-KMS pipeline", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
@@ -291,7 +291,7 @@ describe("tenant-owned field encryption (kumiko-platform#457)", () => {
     expect(read["iban"]).toBe("DE89370400440532013000");
   });
 
-  test("tenant-annotated field becomes unreadable after subject erasure (Art. 17, kumiko-platform#461)", async () => {
+  test("tenant-annotated field becomes unreadable after subject erasure (Art. 17)", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
       fields: {
@@ -314,7 +314,7 @@ describe("tenant-owned field encryption (kumiko-platform#457)", () => {
   });
 });
 
-describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform#459)", () => {
+describe("encryptPiiValueForSubject / decryptPiiValueForSubject", () => {
   test("round-trips a single value for a tenant subject", async () => {
     const kms = new InMemoryKmsAdapter();
     const subject = { kind: "tenant" as const, tenantId: UUID_B };
@@ -355,7 +355,7 @@ describe("encryptPiiValueForSubject / decryptPiiValueForSubject (kumiko-platform
   });
 });
 
-describe("cross-subject decrypt leak (kumiko-framework#1190)", () => {
+describe("cross-subject decrypt leak", () => {
   test("ciphertext forged to a different-but-valid subject's DEK fails GCM auth, not just KeyNotFound", async () => {
     const kms = new InMemoryKmsAdapter();
     const subjectA = { kind: "tenant" as const, tenantId: UUID_A };
@@ -381,7 +381,7 @@ describe("cross-subject decrypt leak (kumiko-framework#1190)", () => {
   });
 });
 
-describe("cross-field decrypt leak (kumiko-framework#1263)", () => {
+describe("cross-field decrypt leak", () => {
   test("ciphertext cut-and-pasted into a different field of the SAME subject fails GCM auth", async () => {
     const kms = new InMemoryKmsAdapter();
     const subject = { kind: "user" as const, userId: UUID_A };

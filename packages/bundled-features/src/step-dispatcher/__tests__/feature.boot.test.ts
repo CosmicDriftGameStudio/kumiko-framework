@@ -5,7 +5,7 @@ import { DELIVER_MAX_PER_TENANT, DELIVER_RETRIES, StepDispatcherJobNames } from 
 import { createStepDispatcherFeature } from "../feature.ts";
 import { WEBHOOK_AUTH_SECRET_KEY_PREFIX } from "../webhook-runner.ts";
 
-describe("step-dispatcher (fw#2068)", () => {
+describe("step-dispatcher", () => {
   test("does not declare systemScope — no handler reads ctx.db/ctx.systemDb", () => {
     expect(createStepDispatcherFeature().systemScope).toBeFalsy();
   });

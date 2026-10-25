@@ -892,7 +892,7 @@ describe("boot-validator", () => {
     }
   });
 
-  test("does NOT warn on unique access roles by default — opt-in only (#1711)", () => {
+  test("does NOT warn on unique access roles by default — opt-in only", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const features = [
@@ -1489,7 +1489,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("fw#2639: a where-rule with an unqualified column inside a subquery fails boot", () => {
+    test("a where-rule with an unqualified column inside a subquery fails boot", () => {
       const features = [
         defineFeature("orders", (r) => {
           r.entity({
@@ -1521,7 +1521,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).toThrow(/unqualified/i);
     });
 
-    test("fw#2639: the same where-rule, correctly qualified, passes boot", () => {
+    test("the same where-rule, correctly qualified, passes boot", () => {
       const features = [
         defineFeature("orders", (r) => {
           r.entity({
@@ -2273,29 +2273,29 @@ describe("boot-validator", () => {
       });
     }
 
-    test("function-renderer → Throw (Function wird von JSON.stringify verworfen)", () => {
+    test("function-renderer → throws (Function is discarded by JSON.stringify)", () => {
       expect(() => validateBoot([shopFeature((v: unknown) => String(v))])).toThrow(
         /column "name" renderer is a function/,
       );
     });
 
-    test("undefined renderer → kein Throw (Spalte ohne Renderer)", () => {
+    test("undefined renderer → no throw (column without renderer)", () => {
       expect(() => validateBoot([shopFeature(undefined)])).not.toThrow();
     });
 
-    test("null renderer → kein Throw (skip)", () => {
+    test("null renderer → no throw (skip)", () => {
       expect(() => validateBoot([shopFeature(null)])).not.toThrow();
     });
 
-    test("object ohne react-Branch → kein Throw (z.B. native-only)", () => {
+    test("object without react branch → no throw (e.g. native-only)", () => {
       expect(() => validateBoot([shopFeature({ native: { __component: "X" } })])).not.toThrow();
     });
 
-    test("react-Branch ist non-object → Throw mit klarer Message", () => {
+    test("react branch is non-object → throws with a clear message", () => {
       expect(() => validateBoot([shopFeature({ react: 42 })])).toThrow(/non-object `react` branch/);
     });
 
-    test("react-Branch ohne __component-Schlüssel → kein Throw (skip)", () => {
+    test("react branch without __component key → no throw (skip)", () => {
       // {} and { __component: undefined } are not the string-keyed form under test.
       expect(() => validateBoot([shopFeature({ react: {} })])).not.toThrow();
     });
@@ -2312,7 +2312,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("react.__component nicht-leerer String → kein Throw (gültige Form)", () => {
+    test("react.__component non-empty string → no throw (valid form)", () => {
       expect(() =>
         validateBoot([shopFeature({ react: { __component: "ColorSwatch" } })]),
       ).not.toThrow();
@@ -2438,7 +2438,7 @@ describe("boot-validator", () => {
       });
     }
 
-    test("labeled component column on a non-field → kein Throw", () => {
+    test("labeled component column on a non-field → no throw", () => {
       expect(() =>
         validateBoot([
           noteFeature({
@@ -2482,7 +2482,7 @@ describe("boot-validator", () => {
   describe("entityList row-meta column — accepted by both boot validators", () => {
     for (const softDelete of [false, true]) {
       for (const [columnName, columnType] of Object.entries(LIST_ROW_META_COLUMNS)) {
-        test(`"${columnName}" (${columnType}) on a ${softDelete ? "softDelete" : "non-softDelete"} entity → kein Throw`, () => {
+        test(`"${columnName}" (${columnType}) on a ${softDelete ? "softDelete" : "non-softDelete"} entity → no throw`, () => {
           const feature = noteFeatureWithColumn(columnName, { softDelete });
           expect(() => validateBoot([feature])).not.toThrow();
           const fixed = withBootValidatorFixture([feature]);
@@ -2580,11 +2580,11 @@ describe("boot-validator", () => {
       });
     }
 
-    test("pageSize: positiv → kein Throw", () => {
+    test("pageSize: positive → no throw", () => {
       expect(() => validateBoot([makeFeature({ pageSize: 100 })])).not.toThrow();
     });
 
-    test("pageSize: 0 → Throw mit klarer Message", () => {
+    test("pageSize: 0 → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature({ pageSize: 0 })])).toThrow(
         /pageSize=0 — must be a positive integer/,
       );
@@ -2596,7 +2596,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("defaultSort.field: existiert + sortable=true → kein Throw", () => {
+    test("defaultSort.field: exists + sortable=true → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ defaultSort: { field: "name", dir: "asc" } })]),
       ).not.toThrow();
@@ -2653,13 +2653,13 @@ describe("boot-validator", () => {
       });
     }
 
-    test("filter.field existiert + filterable → kein Throw", () => {
+    test("filter.field exists + filterable → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ field: "status", op: "eq", value: "active" })]),
       ).not.toThrow();
     });
 
-    test("filter.field existiert NICHT → Throw mit klarer Message", () => {
+    test("filter.field does not exist → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature({ field: "ghost", op: "eq", value: "x" })])).toThrow(
         /filter references unknown field "ghost"/,
       );
@@ -2671,7 +2671,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("filter auf personal Feld → Throw, der List-Handler lehnt ihn zur Laufzeit ab", () => {
+    test("filter on a personal field → throws; the list handler rejects it at runtime", () => {
       const fields = {
         name: {
           type: "text",
@@ -2690,7 +2690,7 @@ describe("boot-validator", () => {
       ).toThrow(/filter references field "note" which is encrypted, personal or secret/);
     });
 
-    test("eq-Filter auf personal Feld mit Blind-Index → kein Throw, andere Ops → Throw", () => {
+    test("eq filter on a personal field with a blind index → no throw; other ops → throw", () => {
       const fields = {
         name: {
           type: "text",
@@ -2719,7 +2719,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("filter.op=gt auf number-Feld → kein Throw (vergleichbar)", () => {
+    test("filter.op=gt on a number field → no throw (comparable)", () => {
       expect(() =>
         validateBoot([
           makeFeature(
@@ -2737,7 +2737,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("filter.op=lte/gte auf number-Feld → kein Throw (vergleichbar)", () => {
+    test("filter.op=lte/gte on a number field → no throw (comparable)", () => {
       const fields = {
         name: {
           type: "text",
@@ -2760,19 +2760,19 @@ describe("boot-validator", () => {
       );
     });
 
-    test('filter.op="in" mit non-array value → Throw', () => {
+    test('filter.op="in" with a non-array value → throws', () => {
       expect(() =>
         validateBoot([makeFeature({ field: "status", op: "in", value: "active" })]),
       ).toThrow(/filter\.op "in" requires filter\.value to be a readonly array/);
     });
 
-    test('filter.op="in" mit array → kein Throw', () => {
+    test('filter.op="in" with an array → no throw', () => {
       expect(() =>
         validateBoot([makeFeature({ field: "status", op: "in", value: ["active", "pending"] })]),
       ).not.toThrow();
     });
 
-    test("filter.op=ne auf boolean → kein Throw, lt auf boolean → Throw", () => {
+    test("filter.op=ne on a boolean → no throw; lt on a boolean → throws", () => {
       const fields = {
         name: {
           type: "text",
@@ -2888,11 +2888,11 @@ describe("boot-validator", () => {
       });
     }
 
-    test("happy path: handler + fields + layout konsistent → kein Throw", () => {
+    test("happy path: handler + fields + layout consistent → no throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
-    test("handler nicht als write-handler registriert → Throw mit Hinweis", () => {
+    test("handler not registered as a write-handler → throws with a hint", () => {
       expect(() => validateBoot([makeFeature({ handler: "shop:query:invoice:list" })])).toThrow(
         /handler "shop:query:invoice:list" is not a registered write-handler/,
       );
@@ -2910,7 +2910,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("field ohne type-Discriminator → Throw", () => {
+    test("field without a type discriminator → throws", () => {
       expect(() => validateBoot([makeFeature({ fields: { note: { required: true } } })])).toThrow(
         /field "note" has no `type` set/,
       );
@@ -2919,34 +2919,34 @@ describe("boot-validator", () => {
     // An actionForm has no entity, so a money field there can't
     // inherit entity.defaultCurrency — undeclared, the renderer seeds a bare
     // `0` and the handler's zod schema rejects the submit.
-    describe("money field currency source (fw#2839)", () => {
+    describe("money field currency source", () => {
       const moneyForm = (currency?: unknown) =>
         makeFeature({
           fields: { amount: { type: "money", ...(currency !== undefined && { currency }) } },
           sections: [{ title: "Payment", fields: ["amount"] }],
         });
 
-      test("money field ohne currency → Throw, nennt Screen und Feld", () => {
+      test("money field without currency → throws, naming the screen and field", () => {
         expect(() => validateBoot([moneyForm()])).toThrow(
           /Screen "approve-invoice" \(actionForm\) money field "amount" must declare where its currency comes from/,
         );
       });
 
-      test("Fehlermeldung nennt beide gültigen Formen wörtlich", () => {
+      test("error message names both valid forms verbatim", () => {
         expect(() => validateBoot([moneyForm()])).toThrow(
           /currency: \{ kind: "literal", code: "EUR" \}[\s\S]*currency: \{ kind: "tenant" \}/,
         );
       });
 
-      test("currency: { kind: 'literal', code } → kein Throw", () => {
+      test("currency: { kind: 'literal', code } → no throw", () => {
         expect(() => validateBoot([moneyForm({ kind: "literal", code: "EUR" })])).not.toThrow();
       });
 
-      test("currency: { kind: 'tenant' } → kein Throw", () => {
+      test("currency: { kind: 'tenant' } → no throw", () => {
         expect(() => validateBoot([moneyForm({ kind: "tenant" })])).not.toThrow();
       });
 
-      test("literal mit leerem code → Throw", () => {
+      test("literal with an empty code → throws", () => {
         expect(() => validateBoot([moneyForm({ kind: "literal", code: "  " })])).toThrow(
           /empty or non-string `code`/,
         );
@@ -2958,7 +2958,7 @@ describe("boot-validator", () => {
         );
       });
 
-      test("non-money Felder bleiben unberührt", () => {
+      test("non-money fields remain unchanged", () => {
         expect(() => validateBoot([makeFeature()])).not.toThrow();
       });
 
@@ -2995,13 +2995,13 @@ describe("boot-validator", () => {
         });
       }
 
-      test("secretMint money field ohne currency → Throw", () => {
+      test("secretMint money field without currency → throws", () => {
         expect(() => validateBoot([mintFeature({ fee: { type: "money" } })])).toThrow(
           /Screen "mint-token" \(secretMint\) money field "fee" must declare where its currency comes from/,
         );
       });
 
-      test("secretMint confirm-Step money field ohne currency → Throw", () => {
+      test("secretMint confirm-step money field without currency → throws", () => {
         expect(() =>
           validateBoot([
             mintFeature(
@@ -3014,7 +3014,7 @@ describe("boot-validator", () => {
         );
       });
 
-      test("secretMint mit deklarierten Quellen in beiden Steps → kein Throw", () => {
+      test("secretMint with declared sources in both steps → no throw", () => {
         expect(() =>
           validateBoot([
             mintFeature(
@@ -3038,7 +3038,7 @@ describe("boot-validator", () => {
       ).toThrow(/section "Empty" with zero fields/);
     });
 
-    test("section mit leeren groups → Throw (leere Card)", () => {
+    test("section with empty groups → throws (empty card)", () => {
       expect(() =>
         validateBoot([makeFeature({ sections: [{ title: "Empty", groups: [] }] })]),
       ).toThrow(/section "Empty" with zero fields/);
@@ -3047,15 +3047,18 @@ describe("boot-validator", () => {
     test.each([
       ["fields: []", []],
       ["non-empty fields", ["name"]],
-    ])("section mit %s neben groups → Throw, Migration nennt fields: []", (_label, fields) => {
-      expect(() =>
-        validateBoot([
-          makeFeature({
-            sections: [{ title: "Both", fields, groups: [{ title: "G", fields: ["name"] }] }],
-          }),
-        ]),
-      ).toThrow(/section "Both" declares both fields and groups — remove `fields: \[\]`/);
-    });
+    ])(
+      "section with %s alongside groups → throws; migration names fields: []",
+      (_label, fields) => {
+        expect(() =>
+          validateBoot([
+            makeFeature({
+              sections: [{ title: "Both", fields, groups: [{ title: "G", fields: ["name"] }] }],
+            }),
+          ]),
+        ).toThrow(/section "Both" declares both fields and groups — remove `fields: \[\]`/);
+      },
+    );
 
     test("layout referenziert unknown field → Throw", () => {
       expect(() =>
@@ -3063,7 +3066,7 @@ describe("boot-validator", () => {
       ).toThrow(/layout references unknown field "ghost"/);
     });
 
-    test("section mit fields UND groups → Throw", () => {
+    test("section with fields AND groups → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3089,7 +3092,7 @@ describe("boot-validator", () => {
       ).toThrow(/layout references unknown field "ghost"/);
     });
 
-    test("valide groups → kein Throw", () => {
+    test("valid groups → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3107,7 +3110,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("redirect → existing screen-id im selben feature → kein Throw", () => {
+    test("redirect → existing screen-id in the same feature → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ redirect: "after-form", extraScreens: ["after-form"] })]),
       ).not.toThrow();
@@ -3120,7 +3123,7 @@ describe("boot-validator", () => {
     });
 
     // --- redirect object form with idFrom ---
-    test("redirect object → existing id-carrying screen → kein Throw", () => {
+    test("redirect object → existing id-carrying screen → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3131,7 +3134,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("redirect object mit idFrom → Screen ohne Id (custom) → Throw", () => {
+    test("redirect object with idFrom → screen without an ID (custom) → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3142,13 +3145,13 @@ describe("boot-validator", () => {
       ).toThrow(/redirect\.idFrom is set but target screen "after-form" \(custom\) carries no id/);
     });
 
-    test("redirect object → unknown screen-id → Throw (unwrap umgeht die Validierung nicht)", () => {
+    test("redirect object → unknown screen-id → throws (unwrap does not bypass validation)", () => {
       expect(() =>
         validateBoot([makeFeature({ redirect: { screen: "ghost-screen", idFrom: "leaseId" } })]),
       ).toThrow(/redirect "ghost-screen" does not resolve to a registered screen/);
     });
 
-    test("redirect object mit leerem idFrom → Throw", () => {
+    test("redirect object with an empty idFrom → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3159,7 +3162,7 @@ describe("boot-validator", () => {
       ).toThrow(/redirect\.idFrom is empty/);
     });
 
-    test("redirect object mit idFrom mit Leerzeichen → Throw", () => {
+    test("redirect object with an idFrom containing whitespace → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3171,7 +3174,7 @@ describe("boot-validator", () => {
     });
 
     // --- successLinks ---
-    test("successLinks → existing screens → kein Throw", () => {
+    test("successLinks → existing screens → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3230,7 +3233,7 @@ describe("boot-validator", () => {
       ).toThrow(/successLinks\[0\]\.idFrom is set but target screen "overview" \(custom\)/);
     });
 
-    test("successLinks without idFrom → screen that carries no id → kein Throw", () => {
+    test("successLinks without idFrom → screen that carries no id → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3270,7 +3273,7 @@ describe("boot-validator", () => {
       field: "suggestion",
     };
 
-    test("fillAction with a registered query, form-field affix and pick params → kein Throw", () => {
+    test("fillAction with a registered query, form-field affix and pick params → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3340,7 +3343,7 @@ describe("boot-validator", () => {
       ).toThrow(message);
     });
 
-    test("fillAction on a number field → kein Throw", () => {
+    test("fillAction on a number field → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3352,7 +3355,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("cancelTarget → existing screen-id → kein Throw", () => {
+    test("cancelTarget → existing screen-id → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ cancelTarget: "after-form", extraScreens: ["after-form"] })]),
       ).not.toThrow();
@@ -3364,12 +3367,12 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cancelTarget=false (Button abgeschaltet) → kein Throw", () => {
+    test("cancelTarget=false (button disabled) → no throw", () => {
       expect(() => validateBoot([makeFeature({ cancelTarget: false })])).not.toThrow();
     });
 
     // --- redirect/cancelTarget: cross-feature QN ---
-    test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+    test("redirect → fully qualified cross-feature QN → no throw", () => {
       const consumer = defineFeature("statements", (r) => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
       });
@@ -3389,7 +3392,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cancelTarget → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+    test("cancelTarget → fully qualified cross-feature QN → no throw", () => {
       const consumer = defineFeature("statements", (r) => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
       });
@@ -3401,7 +3404,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
+    test("extension section without a component → throws (parity with entityEdit)", () => {
       // `synthesizeActionFormScreen` passes the layout unchanged to RenderEdit;
       // without a react/native marker, an extension section would render empty
       // without an obvious error.
@@ -3411,12 +3414,12 @@ describe("boot-validator", () => {
       );
     });
 
-    test("extension section mit react component → kein Throw", () => {
+    test("extension section with a react component → no throw", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
     });
 
-    test("mode: wizard mit nur 1 Section → Throw", () => {
+    test("mode: wizard with only 1 section → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3427,7 +3430,7 @@ describe("boot-validator", () => {
       ).toThrow(/mode: "wizard" but only 1 section\(s\)/);
     });
 
-    test("mode: wizard mit Section ohne Titel → Throw", () => {
+    test("mode: wizard with a section without a title → throws", () => {
       const sections = [
         { title: "Step 1", fields: ["note"] },
         { title: "", fields: ["priority"] },
@@ -3437,7 +3440,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("mode: wizard mit >= 2 betitelten Sections → kein Throw", () => {
+    test("mode: wizard with >= 2 titled sections → no throw", () => {
       const sections = [
         { title: "Step 1", fields: ["note"] },
         { title: "Step 2", fields: ["priority"] },
@@ -3445,7 +3448,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ mode: "wizard", sections })])).not.toThrow();
     });
 
-    test("draft: true ohne gemountetes form-draft-Feature → Throw", () => {
+    test("draft: true without a mounted form-draft feature → throws", () => {
       const sections = [
         { title: "Step 1", fields: ["note"] },
         { title: "Step 2", fields: ["priority"] },
@@ -3455,7 +3458,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("draft: true mit gemountetem form-draft-Feature → kein Throw", () => {
+    test("draft: true with a mounted form-draft feature → no throw", () => {
       const sections = [
         { title: "Step 1", fields: ["note"] },
         { title: "Step 2", fields: ["priority"] },
@@ -3468,11 +3471,11 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("draft: true ohne mode: 'wizard' → Throw", () => {
+    test("draft: true without mode: 'wizard' → throws", () => {
       expect(() => validateBoot([makeFeature({ draft: true })])).toThrow(/mode is not "wizard"/);
     });
 
-    test("mode weggelassen (Default 'single') bleibt bestehendes Layout gültig → kein Throw", () => {
+    test("mode omitted (default 'single') keeps the existing layout valid → no throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
   });
@@ -3481,7 +3484,7 @@ describe("boot-validator", () => {
   // Mint-form → one-time reveal → confirm. Shares its six inline-form checks
   // with actionForm (validateInlineFormScreen), plus its own reveal.fields
   // checks: non-empty, unique `field`, non-empty `label`.
-  describe("secretMint screen (fw#2548)", () => {
+  describe("secretMint screen", () => {
     type SecretMintOverride = {
       readonly handler?: string | undefined;
       readonly fields?: Record<string, unknown>;
@@ -3567,11 +3570,11 @@ describe("boot-validator", () => {
       });
     }
 
-    test("happy path: handler + fields + layout + reveal konsistent → kein Throw", () => {
+    test("happy path: handler + fields + layout + reveal consistent → no throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
-    test("handler nicht als write-handler registriert → Throw", () => {
+    test("handler not registered as a write-handler → throws", () => {
       expect(() => validateBoot([makeFeature({ handler: "shop:query:token:list" })])).toThrow(
         /\(secretMint\) handler "shop:query:token:list" is not a registered write-handler/,
       );
@@ -3593,7 +3596,7 @@ describe("boot-validator", () => {
       ).toThrow(/\(secretMint\) layout references unknown field "ghost"/);
     });
 
-    test("redirect → existing screen-id → kein Throw", () => {
+    test("redirect → existing screen-id → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ redirect: "after-mint", extraScreens: ["after-mint"] })]),
       ).not.toThrow();
@@ -3611,7 +3614,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reveal.fields entry mit leerem field → Throw", () => {
+    test("reveal.fields entry with an empty field → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({ reveal: { fields: [{ field: "", label: "shop:reveal:token" }] } }),
@@ -3619,7 +3622,7 @@ describe("boot-validator", () => {
       ).toThrow(/has a reveal\.fields entry with an empty or non-string "field"/);
     });
 
-    test("reveal.fields mit doppeltem field → Throw", () => {
+    test("reveal.fields with a duplicate field → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3634,7 +3637,7 @@ describe("boot-validator", () => {
       ).toThrow(/reveal\.fields has a duplicate field "token"/);
     });
 
-    test("reveal.fields entry mit leerem label → Throw", () => {
+    test("reveal.fields entry with an empty label → throws", () => {
       expect(() =>
         validateBoot([makeFeature({ reveal: { fields: [{ field: "token", label: "" }] } })]),
       ).toThrow(/reveal\.fields entry "token" has an empty or non-string "label"/);
@@ -3765,14 +3768,14 @@ describe("boot-validator", () => {
       });
     }
 
-    test("unbekannter Screen-type → eigene Meldung statt Entity-Fehler", () => {
+    test("unknown screen type → custom message instead of entity error", () => {
       const feature = defineFeature("shop", (r) => {
         r.screen({ id: "mystery", type: "bogus" } as never);
       });
       expect(() => validateBoot([feature])).toThrow(/Screen "mystery" has unknown type "bogus"\./);
     });
 
-    test("happy path: alle 4 Checks bestanden → kein Throw", () => {
+    test("happy path: all 4 checks passed → no throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
@@ -3782,7 +3785,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("field ohne type-Discriminator → Throw", () => {
+    test("field without a type discriminator → throws", () => {
       expect(() =>
         validateBoot([makeFeature({ fields: { siteName: { required: true } } })]),
       ).toThrow(/field "siteName" has no `type` set/);
@@ -3800,7 +3803,7 @@ describe("boot-validator", () => {
       ).toThrow(/layout references unknown field "ghost"/);
     });
 
-    test("Field ohne configKeys-Eintrag → Throw mit Hinweis auf Mapping", () => {
+    test("field without a configKeys entry → throws with a hint about the mapping", () => {
       // `siteName` is present in the fields map but has no `configKeys` mapping.
       // Boot must fail because no value could be loaded at runtime.
       expect(() =>
@@ -3825,7 +3828,7 @@ describe("boot-validator", () => {
       ).toThrow(/Config key "shop:config:typo-here" is not declared in any feature registry/);
     });
 
-    test("camelCase-Quelle (multi-word) → kanonische kebab-QN matched, kein Throw", () => {
+    test("camelCase source (multi-word) → canonical kebab-case QN matches, no throw", () => {
       // Regression: `r.config` registers the camelCase object key
       // (`brandingTitle`), while the canonical QN is `shop:config:branding-title`
       // (defineFeature kebab-cases both). A configEdit screen referencing the
@@ -3845,7 +3848,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
-    test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
+    test("extension section without a component → throws (parity with entityEdit)", () => {
       // `synthesizeConfigEditScreen` passes the layout unchanged to RenderEdit;
       // without a react/native marker, an extension section would render empty
       // without an obvious error.
@@ -3855,7 +3858,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("extension section mit react component → kein Throw", () => {
+    test("extension section with a react component → no throw", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
     });
@@ -3877,7 +3880,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("mode: wizard mit nur 1 Section → Throw", () => {
+    test("mode: wizard with only 1 section → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3888,7 +3891,7 @@ describe("boot-validator", () => {
       ).toThrow(/\(configEdit\).*mode: "wizard" but only 1 section\(s\)/);
     });
 
-    test("draft: true ohne gemountetes form-draft-Feature → Throw", () => {
+    test("draft: true without a mounted form-draft feature → throws", () => {
       const sections = [
         { title: "Step 1", fields: ["siteName"] },
         { title: "Step 2", fields: ["maxUploadMb"] },
@@ -3926,17 +3929,17 @@ describe("boot-validator", () => {
       });
     }
 
-    test("extension section ohne react/native component → Throw", () => {
+    test("extension section without a react/native component → throws", () => {
       expect(() => validateBoot([makeFeature({})])).toThrow(
         /extension section "Custom Fields" has no component — declare a react\/native component marker/,
       );
     });
 
-    test("extension section mit react component → kein Throw", () => {
+    test("extension section with a react component → no throw", () => {
       expect(() => validateBoot([makeFeature({ react: "CustomFieldsPanel" })])).not.toThrow();
     });
 
-    test("extension section mit native component → kein Throw", () => {
+    test("extension section with a native component → no throw", () => {
       expect(() => validateBoot([makeFeature({ native: "CustomFieldsPanel" })])).not.toThrow();
     });
   });
@@ -3972,13 +3975,13 @@ describe("boot-validator", () => {
       });
     }
 
-    test("mode: wizard mit nur 1 Section → Throw", () => {
+    test("mode: wizard with only 1 section → throws", () => {
       expect(() =>
         validateBoot([makeFeature([{ title: "Step 1", fields: ["name"] }], "wizard")]),
       ).toThrow(/mode: "wizard" but only 1 section\(s\)/);
     });
 
-    test("mode: wizard mit Section ohne Titel → Throw", () => {
+    test("mode: wizard with a section without a title → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature([{ title: "Step 1", fields: ["name"] }, { fields: ["sku"] }], "wizard"),
@@ -3986,7 +3989,7 @@ describe("boot-validator", () => {
       ).toThrow(/sections\[1\] has no title/);
     });
 
-    test("mode: wizard mit >= 2 betitelten Sections → kein Throw", () => {
+    test("mode: wizard with >= 2 titled sections → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature(
@@ -4000,7 +4003,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("mode weggelassen (Default 'single') bleibt bestehendes Layout gültig → kein Throw", () => {
+    test("mode omitted (default 'single') keeps the existing layout valid → no throw", () => {
       expect(() =>
         validateBoot([makeFeature([{ title: "Details", fields: ["name", "sku"] }])]),
       ).not.toThrow();
@@ -4042,7 +4045,7 @@ describe("boot-validator", () => {
       });
     }
 
-    test("redirect → existing screen-id im selben feature → kein Throw", () => {
+    test("redirect → existing screen-id in the same feature → no throw", () => {
       expect(() => validateBoot([makeFeature("product-list", ["product-list"])])).not.toThrow();
     });
 
@@ -4052,12 +4055,12 @@ describe("boot-validator", () => {
       );
     });
 
-    test("kein redirect gesetzt → kein Throw (Default: Liste)", () => {
+    test("no redirect set → no throw (default: list)", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
     // --- redirect: cross-feature QN ---
-    test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
+    test("redirect → fully qualified cross-feature QN → no throw", () => {
       const consumer = defineFeature("statements", (r) => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
       });
@@ -4073,13 +4076,13 @@ describe("boot-validator", () => {
     });
 
     // --- redirect object form with idFrom (same rule as actionForm's) ---
-    test("redirect object → existing id-carrying screen → kein Throw", () => {
+    test("redirect object → existing id-carrying screen → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ screen: "product-edit", idFrom: "parentId" })]),
       ).not.toThrow();
     });
 
-    test("redirect object mit idFrom → Screen ohne Id (custom) → Throw", () => {
+    test("redirect object with idFrom → screen without an ID (custom) → throws", () => {
       expect(() =>
         validateBoot([
           makeFeature({ screen: "product-list", idFrom: "parentId" }, ["product-list"]),
@@ -4095,7 +4098,7 @@ describe("boot-validator", () => {
       ).toThrow(/redirect "ghost-screen" does not resolve to a registered screen/);
     });
 
-    test("redirect object mit leerem idFrom → Throw", () => {
+    test("redirect object with an empty idFrom → throws", () => {
       expect(() =>
         validateBoot([makeFeature({ screen: "product-list", idFrom: "  " }, ["product-list"])]),
       ).toThrow(/redirect\.idFrom is empty/);
@@ -4110,7 +4113,7 @@ describe("boot-validator", () => {
   // Only the static case (literal `true`, entity-level or screen-spec) is
   // checked; a dynamic FieldCondition can't be evaluated without runtime
   // form values and is a documented, accepted gap.
-  describe("no-widget field types + required (#1925)", () => {
+  describe("no-widget field types + required", () => {
     test("embedded field, entity-level required: true → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
@@ -4135,7 +4138,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("embedded field, entity-level required: true, screen-spec required: false override → kein Throw", () => {
+    test("embedded field, entity-level required: true, screen-spec required: false override → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4157,7 +4160,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("embedded field, entity-level required: true, screen-spec readOnly: true → kein Throw", () => {
+    test("embedded field, entity-level required: true, screen-spec readOnly: true → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4179,7 +4182,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("embedded field, entity-level required: true, dynamic screen-spec required condition → kein Throw (not statically resolvable)", () => {
+    test("embedded field, entity-level required: true, dynamic screen-spec required condition → no throw (not statically resolvable)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4223,7 +4226,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("files and images field, screen-spec required: true → kein Throw (FileListField widget)", () => {
+    test("files and images field, screen-spec required: true → no throw (FileListField widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4257,7 +4260,7 @@ describe("boot-validator", () => {
       }
     });
 
-    test("multiSelect field, entity-level required: true → kein Throw (has a combobox widget since #1925)", () => {
+    test("multiSelect field, entity-level required: true → no throw (has a combobox widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4279,7 +4282,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("embedded LIST field (multiple: true), entity-level required: true → kein Throw (has an EmbeddedListField grid widget since #1838)", () => {
+    test("embedded LIST field (multiple: true), entity-level required: true → no throw (has an EmbeddedListField grid widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4304,7 +4307,7 @@ describe("boot-validator", () => {
 
   // --- ReferenceFieldDef ---
   describe("reference field (Tier 2.7e-3)", () => {
-    test("reference auf bestehende Entity → kein Throw", () => {
+    test("reference to an existing Entity → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4369,7 +4372,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reference labelField=id ist immer ok (PK)", () => {
+    test("reference labelField=id is always valid (PK)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4392,7 +4395,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("self-reference (entity → entity) → kein Throw", () => {
+    test("self-reference (entity → entity) → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4410,7 +4413,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("reference mit multiple: true → kein Throw (Tier 2.7e-Multi)", () => {
+    test("reference with multiple: true → no throw (Tier 2.7e-Multi)", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4440,7 +4443,7 @@ describe("boot-validator", () => {
     });
 
     // --- Cross-Feature: "feature:entity" Form ---
-    test("cross-feature reference (feature:entity) → kein Throw", () => {
+    test("cross-feature reference (feature:entity) → no throw", () => {
       const features = [
         defineFeature("users", (r) => {
           r.entity({
@@ -4465,7 +4468,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("Audit-Fix #2: cross-feature reference ohne list-handler → Throw", () => {
+    test("cross-feature reference without a list-handler → throws", () => {
       const features = [
         defineFeature("users", (r) => {
           r.entity({
@@ -4493,7 +4496,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cross-feature reference auf unknown feature → Throw mit klarer Message", () => {
+    test("cross-feature reference to an unknown feature → throws with a clear message", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4511,7 +4514,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cross-feature reference auf unknown entity → Throw mit feature-context", () => {
+    test("cross-feature reference to an unknown entity → throws with feature context", () => {
       const features = [
         defineFeature("users", (r) => {
           r.entity({
@@ -4572,7 +4575,7 @@ describe("boot-validator", () => {
   // same target/labelField/query-handler checks as a top-level reference
   // field, so a bad "lines.productId" fails at boot instead of crashing
   // the Combobox at runtime.
-  describe("embedded-list reference sub-field (fw#1839)", () => {
+  describe("embedded-list reference sub-field", () => {
     test("reference sub-field targeting an unknown entity → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
@@ -4593,7 +4596,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reference sub-field with a valid target + registered list-handler → kein Throw", () => {
+    test("reference sub-field with a valid target + registered list-handler → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4646,7 +4649,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("reference optionsQuery naming a registered handler → kein Throw (fw#2780)", () => {
+    test("reference optionsQuery naming a registered handler → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4679,7 +4682,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    test("reference optionsQuery auf unregistrierten Handler → Throw (fw#2780)", () => {
+    test("reference optionsQuery on an unregistered handler → throws", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4708,7 +4711,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("leerer optionsQuery → Throw (fw#2780)", () => {
+    test("empty optionsQuery → throws", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4731,7 +4734,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).toThrow(/has an empty optionsQuery/);
     });
 
-    test("reference sub-field optionsQuery auf unregistrierten Handler → Throw mit parent.child-Pfad (fw#2780)", () => {
+    test("reference sub-field optionsQuery on an unregistered handler → throws with parent.child path", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity({
@@ -4828,17 +4831,17 @@ describe("boot-validator", () => {
       });
     }
 
-    test("navigate-target → registered screen → kein Throw", () => {
+    test("navigate-target → registered screen → no throw", () => {
       expect(() => validateBoot([makeFeature("product-edit", true)])).not.toThrow();
     });
 
-    test("navigate-target → unknown screen → Throw mit klarer Message", () => {
+    test("navigate-target → unknown screen → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature("ghost-screen", false)])).toThrow(
         /rowAction "edit" navigate-target "ghost-screen" does not resolve/,
       );
     });
 
-    test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
+    test("navigate-target → screen in ANOTHER feature → no throw (cross-feature)", () => {
       // A declarative list in the entity's owning feature can navigate to a
       // consumer application's custom editor in another feature. Runtime
       // resolves the bare ID application-wide, so the validator must allow it.
@@ -4906,7 +4909,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("cross-feature navigate to an entityEdit screen WITH entityId → kein Throw", () => {
+    test("cross-feature navigate to an entityEdit screen WITH entityId → no throw", () => {
       const list = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -4950,7 +4953,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([list, consumer])).not.toThrow();
     });
 
-    test("same-feature navigate to entityEdit WITHOUT entityId → kein Throw (same-feature fallback applies)", () => {
+    test("same-feature navigate to entityEdit WITHOUT entityId → no throw (same-feature fallback applies)", () => {
       const feature = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -4979,8 +4982,8 @@ describe("boot-validator", () => {
   });
 
   // --- rowAction navigate-target as an entity instead of a screen ---
-  describe("entityList rowAction kind=navigate entity-target (fw#2228)", () => {
-    test("entity-target resolving via detailFor → kein Throw", () => {
+  describe("entityList rowAction kind=navigate entity-target", () => {
+    test("entity-target resolving via detailFor → no throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -5005,7 +5008,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
-    test("entity-target with no detailFor screen anywhere → Throw mit klarer Message", () => {
+    test("entity-target with no detailFor screen anywhere → throws with a clear message", () => {
       const feature = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -5082,7 +5085,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("entity-target resolving cross-feature to a NON-entityEdit detailFor screen → kein Throw", () => {
+    test("entity-target resolving cross-feature to a NON-entityEdit detailFor screen → no throw", () => {
       // Mirrors the existing cross-feature screen-target case above, but via
       // detailFor resolution — the owning feature's list navigates to a
       // detail screen a consumer app registers for the entity.
@@ -5112,7 +5115,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([list, consumer])).not.toThrow();
     });
 
-    test("entity-target resolving cross-feature to an entityEdit detailFor screen WITHOUT entityId → kein Throw", () => {
+    test("entity-target resolving cross-feature to an entityEdit detailFor screen WITHOUT entityId → no throw", () => {
       // Regression guard: the cross-feature-entityEdit-needs-explicit-entityId
       // check (screen-target branch) must NOT fire for entity-targets — the
       // renderer always supplies an id for those (explicit entityId, else
@@ -5187,7 +5190,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("projectionList rowAction entity-target with explicit entityId → kein Throw", () => {
+    test("projectionList rowAction entity-target with explicit entityId → no throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -5323,7 +5326,7 @@ describe("boot-validator", () => {
   //     are covered above — this pins the drawer branch actually being
   //     reached (not skipped/mis-nested) at the other three sites, and the
   //     "action" actionLabel used by both non-list call sites. ---
-  describe("drawer-target reachability at the remaining RowAction call sites (fw#2710)", () => {
+  describe("drawer-target reachability at the remaining RowAction call sites", () => {
     test('projectionDetail.actions drawer-target unknown → throw with actionLabel "action"', () => {
       const feature = defineFeature("shop", (r) => {
         r.screen({
@@ -5531,7 +5534,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([feature])).toThrow(/defaultSort\.field "name" is not sortable/);
     });
 
-    test("projectionDetail relatedList defaultSort.field sortable → kein Throw", () => {
+    test("projectionDetail relatedList defaultSort.field sortable → no throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.queryHandler({
           name: "order-detail",
@@ -5580,7 +5583,7 @@ describe("boot-validator", () => {
       );
     });
 
-    test("distinct short-ids across features → kein Throw", () => {
+    test("distinct short-ids across features → no throw", () => {
       const a = defineFeature("shop", (r) => {
         r.screen({ id: "shop-settings", type: "custom", renderer: { react: "stub" } });
       });
@@ -5657,11 +5660,11 @@ describe("boot-validator", () => {
       });
     }
 
-    test("handler → registriert → kein Throw", () => {
+    test("handler → registered → no throw", () => {
       expect(() => validateBoot([makeFeature("shop:write:delete", true)])).not.toThrow();
     });
 
-    test("handler → nicht registriert → Throw mit klarer Message", () => {
+    test("handler → not registered → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature("shop:write:ghost", false)])).toThrow(
         /rowAction "delete" .*handler "shop:write:ghost" is not a registered write-handler/,
       );
@@ -5706,15 +5709,15 @@ describe("boot-validator", () => {
       });
     }
 
-    test("pick mit Row-Meta id + version → kein Throw (optimistic-lock-Standard)", () => {
+    test("pick with row metadata id + version → no throw (optimistic-lock standard)", () => {
       expect(() => validateBoot([makeFeature(["id", "version"])])).not.toThrow();
     });
 
-    test("pick mit Entity-Field → kein Throw", () => {
+    test("pick with an entity field → no throw", () => {
       expect(() => validateBoot([makeFeature(["id", "name"])])).not.toThrow();
     });
 
-    test("pick mit unknown Field → Throw mit klarer Message", () => {
+    test("pick with an unknown field → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature(["id", "ghost"])])).toThrow(
         /rowAction "archive" payload references unknown field "ghost"/,
       );
@@ -5726,7 +5729,7 @@ describe("boot-validator", () => {
   // columns to every row, so using them in pick/map/visible is valid. Soft-delete
   // columns (`isDeleted`/...) exist only on soft-delete entities and must still
   // fail validation when absent.
-  describe("entityList rowAction row-meta allowlist (#331, #323)", () => {
+  describe("entityList rowAction row-meta allowlist", () => {
     function makeFeature(opts: {
       pick?: readonly string[];
       map?: Record<string, string>;
@@ -5766,15 +5769,15 @@ describe("boot-validator", () => {
       });
     }
 
-    test("pick mit Base-Column tenantId → kein Throw", () => {
+    test("pick with base column tenantId → no throw", () => {
       expect(() => validateBoot([makeFeature({ pick: ["id", "tenantId"] })])).not.toThrow();
     });
 
-    test("visible.field auf Row-Meta (version) → kein Throw", () => {
+    test("visible.field on row metadata (version) → no throw", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "version" })])).not.toThrow();
     });
 
-    test("visible.field auf id → kein Throw (Aggregat-id immer vorhanden)", () => {
+    test("visible.field on id → no throw (aggregate id is always present)", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "id" })])).not.toThrow();
     });
 
@@ -5784,23 +5787,23 @@ describe("boot-validator", () => {
       );
     });
 
-    test("map-Extractor mit Base-Column tenantId → kein Throw", () => {
+    test("map extractor with base column tenantId → no throw", () => {
       expect(() => validateBoot([makeFeature({ map: { target: "tenantId" } })])).not.toThrow();
     });
 
-    test("map-Extractor mit unknown Field → Throw", () => {
+    test("map extractor with an unknown field → throws", () => {
       expect(() => validateBoot([makeFeature({ map: { target: "ghost" } })])).toThrow(
         /payload references unknown field "ghost"/,
       );
     });
 
-    test("softDelete-Entity: pick isDeleted → kein Throw", () => {
+    test("softDelete entity: pick isDeleted → no throw", () => {
       expect(() =>
         validateBoot([makeFeature({ pick: ["id", "isDeleted"], softDelete: true })]),
       ).not.toThrow();
     });
 
-    test("Nicht-softDelete-Entity: pick isDeleted → Throw (Spalte existiert nicht)", () => {
+    test("non-softDelete entity: pick isDeleted → throws (column does not exist)", () => {
       expect(() =>
         validateBoot([makeFeature({ pick: ["id", "isDeleted"], softDelete: false })]),
       ).toThrow(/references unknown field "isDeleted"/);
@@ -5832,17 +5835,17 @@ describe("boot-validator", () => {
       });
     }
 
-    test("navigate-target → registriert → kein Throw", () => {
+    test("navigate-target → registered → no throw", () => {
       expect(() => validateBoot([makeFeature("product-form", true)])).not.toThrow();
     });
 
-    test("navigate-target → unbekannt → Throw mit klarer Message", () => {
+    test("navigate-target → unknown → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature("ghost-form", false)])).toThrow(
         /toolbarAction "open-form" navigate-target "ghost-form" does not resolve/,
       );
     });
 
-    test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
+    test("navigate-target → screen in ANOTHER feature → no throw (cross-feature)", () => {
       const list = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -5896,11 +5899,11 @@ describe("boot-validator", () => {
       });
     }
 
-    test("handler → registriert → kein Throw", () => {
+    test("handler → registered → no throw", () => {
       expect(() => validateBoot([makeFeature("shop:write:sync", true)])).not.toThrow();
     });
 
-    test("handler → nicht registriert → Throw mit klarer Message", () => {
+    test("handler → not registered → throws with a clear message", () => {
       expect(() => validateBoot([makeFeature("shop:write:ghost", false)])).toThrow(
         /toolbarAction "sync" .*handler "shop:write:ghost" is not a registered write-handler/,
       );
@@ -5908,7 +5911,7 @@ describe("boot-validator", () => {
   });
 
   // --- toolbarAction drawer ---
-  describe("entityList toolbarAction drawer (fw#2225)", () => {
+  describe("entityList toolbarAction drawer", () => {
     function makeFeature(opts: {
       readonly targetId?: string;
       readonly targetType?: "actionForm" | "entityList";
@@ -6015,7 +6018,7 @@ describe("boot-validator", () => {
   });
 
   // --- entityList rowAction drawer ---
-  describe("entityList rowAction drawer (fw#2710)", () => {
+  describe("entityList rowAction drawer", () => {
     function makeFeature(opts: {
       readonly targetId?: string;
       readonly targetType?: "actionForm" | "entityList";
@@ -6088,7 +6091,7 @@ describe("boot-validator", () => {
   // different branch of validateScreens than entityList's. The params cases
   // pin the prefill check: a key the target actionForm doesn't declare is
   // dropped by the renderer, so it has to fail at boot instead.
-  describe("projectionList rowAction drawer (fw#2710)", () => {
+  describe("projectionList rowAction drawer", () => {
     function makeFeature(opts: {
       readonly targetId?: string;
       readonly params?: RowFieldExtractor;
@@ -6573,25 +6576,25 @@ describe("boot-validator", () => {
       });
     }
 
-    test("number-Field mit sortable: true → kein Throw", () => {
+    test("number field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([buildFeature("rank", { rank: { type: "number", sortable: true } })]),
       ).not.toThrow();
     });
 
-    test("money-Field mit sortable: true → kein Throw", () => {
+    test("money field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([buildFeature("price", { price: { type: "money", sortable: true } })]),
       ).not.toThrow();
     });
 
-    test("date-Field mit sortable: true → kein Throw", () => {
+    test("date field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([buildFeature("dueDate", { dueDate: { type: "date", sortable: true } })]),
       ).not.toThrow();
     });
 
-    test("timestamp-Field mit sortable: true → kein Throw", () => {
+    test("timestamp field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([
           buildFeature("createdAt", { createdAt: { type: "timestamp", sortable: true } }),
@@ -6599,13 +6602,13 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("boolean-Field mit sortable: true → kein Throw", () => {
+    test("boolean field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([buildFeature("isActive", { isActive: { type: "boolean", sortable: true } })]),
       ).not.toThrow();
     });
 
-    test("select-Field mit sortable: true → kein Throw", () => {
+    test("select field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([
           buildFeature("status", {
@@ -6615,7 +6618,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("locatedTimestamp-Field mit sortable: true → kein Throw", () => {
+    test("locatedTimestamp field with sortable: true → no throw", () => {
       expect(() =>
         validateBoot([
           buildFeature("pickup", { pickup: { type: "locatedTimestamp", sortable: true } }),
@@ -6623,7 +6626,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("number-Field OHNE sortable → Throw (sortable: true ist Pflicht)", () => {
+    test("number field WITHOUT sortable → throws (sortable: true is required)", () => {
       expect(() => validateBootRaw([buildFeature("rank", { rank: { type: "number" } })])).toThrow(
         /is not sortable/,
       );
@@ -6636,7 +6639,7 @@ describe("boot-validator", () => {
   // before the boot validator runs; this verifies that the authoring API rejects
   // them at its entry point with a clear message.
   describe("screen.id constraints", () => {
-    test('screen.id mit "." → defineFeature throws (kebab-case)', () => {
+    test('screen.id with "." → defineFeature throws (kebab-case)', () => {
       expect(() =>
         defineFeature("shop", (r) => {
           r.entity({
@@ -6655,7 +6658,7 @@ describe("boot-validator", () => {
       ).toThrow(/kebab-case/);
     });
 
-    test("screen.id im kebab-case → kein Throw", () => {
+    test("screen.id in kebab-case → no throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -6740,7 +6743,7 @@ describe("boot-validator — config key backing × scope", () => {
     );
   });
 
-  test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it, fw#1708 follow-up)", () => {
+  test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it)", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({
         name: "product",
@@ -6942,7 +6945,7 @@ describe("boot-validator — config key backing × scope", () => {
     );
   });
 
-  test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill, fw#1708)", () => {
+  test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill)", () => {
     const feature = defineFeature("housing", (r) => {
       r.entity({
         name: "unit",

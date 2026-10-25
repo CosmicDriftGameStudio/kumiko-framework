@@ -6,7 +6,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 import { resolveRetentionPolicy } from "../resolver.ts";
 
 describe("resolveRetentionPolicy — Layer-Resolution", () => {
-  test("Layer 1 Entity-Default greift wenn weder Preset noch Override", () => {
+  test("Layer 1 Entity-Default applies when neither preset nor override is present", () => {
     const entity = createEntity({
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete", reference: "createdAt" },
@@ -27,7 +27,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     });
   });
 
-  test("Layer 2 Preset überschreibt Entity-Default", () => {
+  test("Layer 2 preset overrides Entity-Default", () => {
     const entity = createEntity({
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "7d", strategy: "hardDelete" },
@@ -46,7 +46,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy?.reference).toBe("lastSeenAt");
   });
 
-  test("Layer 3 Override überschreibt Preset komplett", () => {
+  test("Layer 3 override completely overrides preset", () => {
     const result = resolveRetentionPolicy({
       entityName: "session",
       entityDef: null,
@@ -58,7 +58,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy?.keepFor).toBe("7d");
   });
 
-  test("Override mit nur keepFor übernimmt strategy/reference vom Preset", () => {
+  test("Override with only keepFor inherits strategy/reference from preset", () => {
     const result = resolveRetentionPolicy({
       entityName: "session",
       entityDef: null,
@@ -73,7 +73,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy?.reference).toBe("lastSeenAt");
   });
 
-  test("Entity ohne retention + kein Preset + kein Override → policy=null + source=none", () => {
+  test("Entity without retention + no preset + no override → policy=null + source=none", () => {
     const entity = createEntity({
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
     });
@@ -89,7 +89,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy).toBeNull();
   });
 
-  test("dsgvo-hgb invoice ist blockDelete 10y (Aufbewahrungspflicht)", () => {
+  test("dsgvo-hgb invoice is blockDelete 10y (retention obligation)", () => {
     const result = resolveRetentionPolicy({
       entityName: "invoice",
       entityDef: null,
@@ -102,7 +102,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy?.strategy).toBe("blockDelete");
   });
 
-  test("dsgvo-hgb order ist anonymize 6y (Order-PII raus, Geschäftsdaten bleiben)", () => {
+  test("dsgvo-hgb order is anonymize 6y (Order-PII removed, business data remains)", () => {
     const result = resolveRetentionPolicy({
       entityName: "order",
       entityDef: null,
@@ -115,7 +115,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     expect(result.policy?.strategy).toBe("anonymize");
   });
 
-  test("Override für Anwaltskanzlei: caseFile 6y blockDelete (nicht im Preset)", () => {
+  test("Override for law firm: caseFile 6y blockDelete (not in preset)", () => {
     const result = resolveRetentionPolicy({
       entityName: "caseFile",
       entityDef: null,
@@ -133,7 +133,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
 });
 
 describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
-  test("Override ohne keepFor + keine Base → policy=null, source=override-incomplete", () => {
+  test("Override without keepFor + no base → policy=null, source=override-incomplete", () => {
     const result = resolveRetentionPolicy({
       entityName: "ticket",
       entityDef: null,
@@ -145,7 +145,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
     expect(result.policy).toBeNull();
   });
 
-  test("Override ohne strategy + keine Base → policy=null, source=override-incomplete", () => {
+  test("Override without strategy + no base → policy=null, source=override-incomplete", () => {
     const result = resolveRetentionPolicy({
       entityName: "ticket",
       entityDef: null,
@@ -157,7 +157,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
     expect(result.policy).toBeNull();
   });
 
-  test("Override ohne keepFor aber Preset hat ein → fällt zurück + source=override", () => {
+  test("Override without keepFor but preset has one → falls back + source=override", () => {
     const result = resolveRetentionPolicy({
       entityName: "session",
       entityDef: null,
@@ -172,7 +172,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
 });
 
 describe("resolveRetentionPolicy — Edge-Cases", () => {
-  test("default-Preset ist leer → fällt zurück auf entity-default", () => {
+  test("default-Preset is empty → falls back to entity-default", () => {
     const entity = createEntity({
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete" },
@@ -188,7 +188,7 @@ describe("resolveRetentionPolicy — Edge-Cases", () => {
     expect(result.source).toBe("entity-default");
   });
 
-  test("Preset hat eintrag, override hat anderen entityName → override greift NUR für seinen entityName", () => {
+  test("Preset has an entry, override has a different entityName → override applies ONLY to its entityName", () => {
     const result = resolveRetentionPolicy({
       entityName: "audit-log",
       entityDef: null,

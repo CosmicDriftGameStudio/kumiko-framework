@@ -121,7 +121,7 @@ const screen: ProjectionListScreenDefinition = {
   columns: ["description"],
 };
 
-describe("ProjectionListBody — PagedRows shape guard (fw#2216)", () => {
+describe("ProjectionListBody — PagedRows shape guard", () => {
   test("a bare-array query response renders the bad-shape error banner, not an empty table", async () => {
     capturedProps = undefined;
     const { container } = renderProjectionList(screen, [{ id: "1", description: "acme" }]);

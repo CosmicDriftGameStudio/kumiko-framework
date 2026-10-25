@@ -20,7 +20,7 @@ describe("generateAdjNounName", () => {
     expect(NOUNS).toContain(noun!);
   });
 
-  test("mit suffix: <adj>-<noun>-<suffix>", () => {
+  test("with suffix: <adj>-<noun>-<suffix>", () => {
     const name = generateAdjNounName({ suffix: { length: 3 } });
     const parts = name.split("-");
     expect(parts).toHaveLength(3);
@@ -52,12 +52,12 @@ describe("generateAdjNounName", () => {
 });
 
 describe("generateNoConfusableId", () => {
-  test("returns string der gewünschten Länge", () => {
+  test("returns a string of the requested length", () => {
     expect(generateNoConfusableId(8)).toHaveLength(8);
     expect(generateNoConfusableId(1)).toHaveLength(1);
   });
 
-  test("nur Zeichen aus dem no-confusable-Alphabet", () => {
+  test("only characters from the no-confusable alphabet", () => {
     for (let i = 0; i < 50; i++) {
       const id = generateNoConfusableId(10);
       expect(id).toMatch(/^[a-z2-9]+$/);
@@ -70,7 +70,7 @@ describe("generateNoConfusableId", () => {
     expect(() => generateNoConfusableId(-3)).toThrow(/length must be ≥ 1/);
   });
 
-  test("Statistical: 200 IDs der Länge 8 → alle unique", () => {
+  test("Statistical: 200 IDs of length 8 → all unique", () => {
     // 32^8 = 1 Trillion combos → 200 picks haben praktisch 0 % Kollision.
     const ids = new Set<string>();
     for (let i = 0; i < 200; i++) {
@@ -81,7 +81,7 @@ describe("generateNoConfusableId", () => {
 });
 
 describe("generateUniqueName", () => {
-  test("isAvailable=true beim ersten Wurf → returnt clean (kein Suffix)", async () => {
+  test("isAvailable=true on the first try → returns clean (no suffix)", async () => {
     const seen: string[] = [];
     const name = await generateUniqueName({
       isAvailable: async (n) => {
@@ -95,7 +95,7 @@ describe("generateUniqueName", () => {
     expect(name.split("-")).toHaveLength(2);
   });
 
-  test("nach 3 Kollisionen wechselt zu Suffix-Mode", async () => {
+  test("after 3 collisions switches to suffix mode", async () => {
     const tried: string[] = [];
     const name = await generateUniqueName({
       maxCleanAttempts: 3,
@@ -115,7 +115,7 @@ describe("generateUniqueName", () => {
     expect(name).toBe(tried[3]!);
   });
 
-  test("wirft wenn maxTotalAttempts erschöpft", async () => {
+  test("throws when maxTotalAttempts is exhausted", async () => {
     await expect(
       generateUniqueName({
         isAvailable: async () => false,

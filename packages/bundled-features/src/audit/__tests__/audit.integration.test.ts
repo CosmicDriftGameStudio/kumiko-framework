@@ -451,7 +451,7 @@ describe("audit: list query", () => {
     expect(updated?.metadata).toMatchObject({ userId: admin.id });
   });
 
-  test("kumiko-framework#1525: from/to filter works without relying on globalThis.Temporal", async () => {
+  test("from/to filter works without relying on globalThis.Temporal", async () => {
     await createWidget(admin, "in-range");
     // createTzContext uses a static temporal-polyfill import; ensureTemporalPolyfill
     // re-assigns Temporal after teardown (value export). Full HTTP dispatch is

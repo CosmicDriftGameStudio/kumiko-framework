@@ -18,7 +18,7 @@ const pagedSchema = z.object({ rows: z.array(rowSchema), nextCursor: z.string().
 // their return value — so the boot-validator can catch a typo in a screen's
 // column/field references against a query's result instead of that typo
 // surfacing as a silently-empty field at runtime.
-describe("validateBoot — query output schema column refs (fw#2493)", () => {
+describe("validateBoot query output schema column refs", () => {
   test("projectionList column not in the paged query's row shape throws", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler({

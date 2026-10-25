@@ -21,7 +21,7 @@ async function indexValidity(): Promise<boolean | undefined> {
   return rows[0]?.indisvalid;
 }
 
-describe("ensureIdempotencyKeyIndex (#1499)", () => {
+describe("ensureIdempotencyKeyIndex", () => {
   test("repeated calls stay idempotent — index ends up valid, no throw", async () => {
     await ensureIdempotencyKeyIndex(testDb.db);
     await ensureIdempotencyKeyIndex(testDb.db);

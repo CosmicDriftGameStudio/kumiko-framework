@@ -95,7 +95,7 @@ async function blankBlindIndex(): Promise<void> {
   await asRawClient(stack.db).unsafe(`UPDATE "${userTable.tableName}" SET email_bidx = NULL`);
 }
 
-describe("seedAdminGuarded (offlot#114)", () => {
+describe("seedAdminGuarded", () => {
   test("re-seeding twice on an empty DB stays idempotent", async () => {
     const first = await seedAdminGuarded(stack.db, seedOptions);
     const second = await seedAdminGuarded(stack.db, seedOptions);

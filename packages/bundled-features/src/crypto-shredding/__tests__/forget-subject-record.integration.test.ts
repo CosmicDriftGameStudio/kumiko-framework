@@ -120,7 +120,7 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
-describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
+describe("crypto-shredding :: forget-subject (record subject)", () => {
   test("erases the row's ciphertext under the record namespace, proven via decrypt; a same-uuid user-forget never touches it", async () => {
     const tenantDb = createTenantDb({
       db: stack.db,
@@ -253,7 +253,7 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
 // stack with the tenant feature actually present so the two denial branches
 // (RECORD_ENTITY_NOT_REGISTERED, TARGET_RECORD_NOT_ADMIN_TENANT) get real
 // coverage.
-describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786", () => {
+describe("crypto-shredding :: forget-subject (record subject) tenant gate", () => {
   let gateStack: TestStack;
   let gateKms: InMemoryKmsAdapter;
 
@@ -487,7 +487,7 @@ function blockDeleteProbeExecutor() {
   });
 }
 
-describe("crypto-shredding :: forget-subject (record subject) retention gate, #2789", () => {
+describe("crypto-shredding :: forget-subject (record subject) retention gate", () => {
   let retentionStack: TestStack;
   let retentionKms: InMemoryKmsAdapter;
 
@@ -637,7 +637,7 @@ const overrideProbeFeature = defineFeature("forget-subject-override-probe", (r) 
   r.entity({ name: OVERRIDE_PROBE_ENTITY_NAME, ...overrideProbeEntity });
 });
 
-describe("crypto-shredding :: forget-subject (record subject) tenant retention policy, #2805", () => {
+describe("crypto-shredding :: forget-subject (record subject) tenant retention policy", () => {
   let policyStack: TestStack;
   const POLICY_TENANT: TenantId = testTenantId(25);
   const dpoPolicyUser = {

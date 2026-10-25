@@ -56,7 +56,7 @@ afterAll(async () => {
   resetPiiSubjectKmsForTests();
 });
 
-describe("tenants-missing-profile (#2089)", () => {
+describe("tenants-missing-profile", () => {
   test("SystemAdmin sees only the enabled tenant without a profile", async () => {
     const result = await stack.http.queryOk<{
       tenants: readonly { id: string; name: string }[];

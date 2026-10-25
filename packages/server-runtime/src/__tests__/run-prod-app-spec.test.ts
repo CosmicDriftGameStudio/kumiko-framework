@@ -84,7 +84,7 @@ describe("Bun.serve options for production", () => {
     expect(upgraded[0]?.server).toBe(server);
   });
 
-  test("port wird 1:1 durchgereicht, fetch reicht req + Socket-Adresse an den Handler weiter", async () => {
+  test("port is passed through 1:1, fetch passes req + socket address to the handler", async () => {
     let received: [Request, string | undefined] | undefined;
     const fetchHandler = (req: Request, socketAddress?: string) => {
       received = [req, socketAddress];
@@ -148,14 +148,14 @@ describe("SSE heartbeat cadence", () => {
     expect(SSE_HEARTBEAT_INTERVAL_MS).toBeLessThan(60_000);
   });
 
-  test("liegt nicht zu hoch — DefenseInDepth gegen Bun-Default-Drift", () => {
+  test("is not too high — defense in depth against Bun's default drift", () => {
     // If idleTimeout: 0 is removed, the heartbeat must not be the only protection below Bun's 10s
     // default. A limit of 30s provides some cushion while remaining well below three times that
     // default.
     expect(SSE_HEARTBEAT_INTERVAL_MS).toBeLessThanOrEqual(30_000);
   });
 
-  test("ist >= 5 s — Frequency-Wall gegen versehentliches Network-Spam", () => {
+  test("is >= 5 s — frequency wall against accidental network spam", () => {
     // 1000 anonymous viewers sending heartbeats must not flood the server with frames. At 5s,
     // 1000 clients produce 200 frames/s, which is acceptable; below 5s is more likely a typo
     // than an intentional choice.

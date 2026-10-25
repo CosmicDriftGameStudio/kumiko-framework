@@ -17,7 +17,7 @@ describe("KumikoScreen", () => {
   // in the Drawer primitive instead of navigating — reuses ActionFormBody
   // (no second form renderer), so submit/cancel/field-rendering all go
   // through the same RenderEdit path entityEdit/actionForm already use.
-  describe("entityList toolbarActions drawer-kind (fw#2225)", () => {
+  describe("entityList toolbarActions drawer-kind", () => {
     const noteForm: ActionFormScreenDefinition = {
       id: "task-note",
       type: "actionForm",
@@ -138,7 +138,7 @@ describe("KumikoScreen", () => {
   // rowActions kind:"drawer": row-level pendant to toolbarActions
   // kind:"drawer" above — same DrawerHost/useDrawerAction
   // machinery, generalized to also serve a row-derived prefill.
-  describe("entityList rowActions drawer-kind (fw#2710)", () => {
+  describe("entityList rowActions drawer-kind", () => {
     const noteForm: ActionFormScreenDefinition = {
       id: "task-note-drawer",
       type: "actionForm",
@@ -418,7 +418,7 @@ describe("KumikoScreen", () => {
   // filter field in the queryPayload. Otherwise Zod strict would reject an
   // empty `filter: undefined` as 400, or a "match-none" default drift would
   // arise.
-  test("entityList ohne screen.filter: queryPayload hat kein filter-Feld", async () => {
+  test("entityList without screen.filter: queryPayload has no filter field", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async (type: string, payload: unknown) => {
@@ -441,7 +441,7 @@ describe("KumikoScreen", () => {
     expect("filter" in payload).toBe(false);
   });
 
-  test("entityList rowActions visible-filter: hidden Action erscheint nicht im DOM", async () => {
+  test("entityList rowActions visible-filter: hidden action does not appear in the DOM", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -594,7 +594,7 @@ describe("KumikoScreen: entityList cell rendering", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
   }
 
-  test("a known status value renders a toned badge, not the muted default (#2579)", async () => {
+  test("a known status value renders a toned badge, not the muted default", async () => {
     await renderOrderList("orders:screen:order-list", [
       { id: "r1", title: "First", status: "active" },
     ]);
@@ -605,7 +605,7 @@ describe("KumikoScreen: entityList cell rendering", () => {
     expect(badge?.textContent).toBe("Active");
   });
 
-  test("an unmapped select value keeps the neutral pill (#2579)", async () => {
+  test("an unmapped select value keeps the neutral pill", async () => {
     await renderOrderList("orders:screen:order-list", [
       { id: "r1", title: "First", status: "unmapped-value" },
     ]);
@@ -615,7 +615,7 @@ describe("KumikoScreen: entityList cell rendering", () => {
     expect(badge?.className).not.toContain("text-status-ok");
   });
 
-  test("an Object.prototype key is not mistaken for a tone (#2579)", async () => {
+  test("an Object.prototype key is not mistaken for a tone", async () => {
     await renderOrderList("orders:screen:order-list", [
       { id: "r1", title: "First", status: "constructor" },
     ]);

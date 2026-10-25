@@ -132,7 +132,7 @@ describe("template-resolver :: findExact", () => {
     expect(result?.tenantId).toBe(TENANT_A);
   });
 
-  test("returnt null wenn Template nicht existiert", async () => {
+  test("returns null when template does not exist", async () => {
     const result = await api.findExact({
       tenantId: TENANT_A,
       slug: "does-not-exist",
@@ -142,7 +142,7 @@ describe("template-resolver :: findExact", () => {
     expect(result).toBeNull();
   });
 
-  test("scope='system' liest aus SYSTEM_TENANT_ID, nicht aus Caller-Tenant", async () => {
+  test("scope='system' reads from SYSTEM_TENANT_ID, not from caller tenant", async () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "exact-system",
@@ -182,7 +182,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     expect(result.scope).toBe("tenant");
   });
 
-  test("Stufe 2: system + requested locale (wenn kein Tenant-Override)", async () => {
+  test("Stage 2: system + requested locale (when there is no tenant override)", async () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "fallback-2",
@@ -202,7 +202,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     expect(result.locale).toBe("tr");
   });
 
-  test("Stufe 3: tenant + FALLBACK_LOCALE (wenn requested locale fehlt überall)", async () => {
+  test("Stage 3: tenant + FALLBACK_LOCALE (when requested locale is missing everywhere)", async () => {
     // No tr or system-tr row exists; only tenant-de exists.
     await seedTemplate({
       tenantId: TENANT_A,
@@ -296,7 +296,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     expect(result.locale).toBe("tr");
   });
 
-  test("wirft TemplateNotFoundError wenn nichts gefunden", async () => {
+  test("throws TemplateNotFoundError when nothing is found", async () => {
     await expect(
       api.resolveTemplate({
         tenantId: TENANT_A,
@@ -492,7 +492,7 @@ describe("template-resolver :: status filtering", () => {
 });
 
 describe("template-resolver :: tenant-isolation", () => {
-  test("Tenant B kann Tenant A's Template nicht via resolveTemplate sehen", async () => {
+  test("Tenant B cannot see Tenant A's Template via resolveTemplate", async () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "isolation-test",
@@ -513,7 +513,7 @@ describe("template-resolver :: tenant-isolation", () => {
     ).rejects.toThrow(TemplateNotFoundError);
   });
 
-  test("Tenant B kann Tenant A's Template nicht via findExact sehen", async () => {
+  test("Tenant B cannot see Tenant A's Template via findExact", async () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "isolation-find",
@@ -532,7 +532,7 @@ describe("template-resolver :: tenant-isolation", () => {
 });
 
 describe("template-resolver :: JSON-Parsing", () => {
-  test("variableSchema + linkedResources werden geparsed", async () => {
+  test("variableSchema + linkedResources are parsed", async () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "json-test",
@@ -554,7 +554,7 @@ describe("template-resolver :: JSON-Parsing", () => {
     expect(result.linkedResources).toEqual({ logo: "file_abc" });
   });
 
-  test("leerer variableSchema + linkedResources sind leere Objekte (nicht undefined)", async () => {
+  test("empty variableSchema + linkedResources are empty objects (not undefined)", async () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "json-empty",

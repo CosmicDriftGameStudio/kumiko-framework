@@ -37,7 +37,7 @@ function getTableConfig(table: any): {
 }
 
 describe("buildEntityTable — entity.indexes", () => {
-  test("composite unique-index landet als unique=true in Drizzle table-config", () => {
+  test("composite unique index is recorded as unique=true in Drizzle table config", () => {
     const entity = createEntity({
       fields: {
         key: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -59,7 +59,7 @@ describe("buildEntityTable — entity.indexes", () => {
     ]);
   });
 
-  test("composite non-unique-index landet als unique=false in Drizzle table-config", () => {
+  test("composite non-unique index is recorded as unique=false in Drizzle table config", () => {
     const entity = createEntity({
       fields: {
         startedAt: createTextField({ personal: false, reason: "test_fixture" }),
@@ -76,7 +76,7 @@ describe("buildEntityTable — entity.indexes", () => {
     expect(composite?.config.unique).toBe(false);
   });
 
-  test("custom name override wird respektiert", () => {
+  test("custom name override is respected", () => {
     const entity = createEntity({
       fields: {
         slug: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -101,7 +101,7 @@ describe("buildEntityTable — entity.indexes", () => {
     expect(() => buildEntityTable("page", entity)).toThrow(/index "[^"]+": where must be a sql/);
   });
 
-  test("ohne indexes — keine zusätzlichen Indices, kein Error", () => {
+  test("without indexes — no additional indexes, no error", () => {
     const entity = createEntity({
       fields: {
         title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -110,7 +110,7 @@ describe("buildEntityTable — entity.indexes", () => {
     expect(() => buildEntityTable("widget", entity)).not.toThrow();
   });
 
-  test("Spalten die keine DB-Spalte haben (multi-files) werden via Boot-Validator gecatched", () => {
+  test("Columns that do not have a DB column (multi-files) are caught by the boot validator", () => {
     // buildEntityTable silently skips missing columns; the boot validator throws.
     const entity = createEntity({
       fields: {
@@ -151,7 +151,7 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).toThrow(/empty columns list/);
   });
 
-  test("single-column index nur auf tenantId ist redundant", () => {
+  test("a single-column index on tenantId alone is redundant", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",
@@ -162,7 +162,7 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).toThrow(/redundant/);
   });
 
-  test("single-column UNIQUE auf tenantId ist erlaubt (1:1-Constraint)", () => {
+  test("a single-column UNIQUE on tenantId is allowed (1:1 constraint)", () => {
     // The `&& !def.unique` branch in entity-handler.ts ensures that a UNIQUE index
     // on tenantId alone is not a redundant read index, but a 1:1 constraint
     // (exactly one row per tenant). Only the non-unique variant above is
@@ -178,7 +178,7 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("composite mit tenantId ist OK (z.B. für unique über 3 Cols)", () => {
+  test("a composite index with tenantId is OK (e.g. for unique across 3 columns)", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",
@@ -192,7 +192,7 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("base columns (id, tenantId, version) sind erlaubt", () => {
+  test("base columns (id, tenantId, version) are allowed", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",

@@ -165,7 +165,7 @@ async function openProbeStream(token: string): Promise<{
   return { iter, release };
 }
 
-describe("access-invalidation mid-stream SSE teardown (#1561)", () => {
+describe("access-invalidation mid-stream SSE teardown", () => {
   const cases = [
     {
       name: "session revoke mid-stream terminates the open HTTP SSE stream",

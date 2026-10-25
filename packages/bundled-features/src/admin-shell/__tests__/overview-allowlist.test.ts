@@ -69,7 +69,7 @@ describe("overview query allowlist", () => {
   });
 });
 
-describe("overview screen panels vs allowlist (fw#2312 regression)", () => {
+describe("overview screen panels use only allowlisted, never forbidden, queries", () => {
   test("tenant-overview panels use only allowlisted, never forbidden, queries", () => {
     for (const query of panelQueries(TENANT_OVERVIEW_SCREEN_ID)) {
       expect(isOverviewQueryAllowed("tenant", query)).toBe(true);

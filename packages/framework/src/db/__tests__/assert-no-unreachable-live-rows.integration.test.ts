@@ -81,7 +81,7 @@ async function snapshotTable(): Promise<readonly Record<string, unknown>[]> {
   return rows as readonly Record<string, unknown>[];
 }
 
-describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
+describe("assert-no-unreachable-live-rows / ghost-row guard", () => {
   test("clean executor-only projection rebuilds without firing the guard", async () => {
     const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
     await crud.create({ email: "a@test.de", firstName: "Alice" }, adminUser, tdb);
@@ -169,7 +169,7 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     expect(result.columnDriftCount).toBe(21);
   });
 
-  test("archived stream (fw#832 tombstone) does NOT trip the guard", async () => {
+  test("archived stream (tombstone) does NOT trip the guard", async () => {
     // archiveStream never deletes the .created event — projection rebuild
     // deliberately excludes archived streams from replay (see projection-rebuild.ts),
     // so the row is wiped from live on swap. The guard only checks event EXISTENCE,

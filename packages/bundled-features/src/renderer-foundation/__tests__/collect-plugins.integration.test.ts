@@ -63,7 +63,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     expect(names).toEqual(["mail-html", "puppeteer"]);
   });
 
-  test("jeder Plugin behält seine kinds-Deklaration", () => {
+  test("Each plugin retains its kinds declaration", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const byName = new Map(plugins.map((p) => [p.name, p]));
     expect([...byName.get("mail-html")!.kinds]).toEqual(["mail"]);
@@ -102,7 +102,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     }
   });
 
-  test("Plugin.render mit echtem Pool fließt end-to-end durch", async () => {
+  test("Plugin.render with a real pool works end-to-end", async () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
     const plugin = api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" });

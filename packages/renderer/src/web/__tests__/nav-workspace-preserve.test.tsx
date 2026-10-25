@@ -60,7 +60,7 @@ function Probe(): React.ReactElement {
   );
 }
 
-describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne explizite workspaceId", () => {
+describe("useBrowserNavApi({ hasWorkspaces: true }) — preserves the workspace without an explicit workspaceId", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/admin/component-list");
   });
@@ -80,7 +80,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne ex
     expect(screen.getByTestId("entity-id").textContent).toBe("c1");
   });
 
-  test("navigate({ screenId }) (Toolbar-Fall 'Wartung planen') bleibt im Workspace", () => {
+  test("navigate({ screenId }) (Toolbar case 'Schedule maintenance') remains in the workspace", () => {
     render(
       <WorkspaceNav>
         <Probe />
@@ -118,7 +118,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne ex
     expect(window.location.pathname).toBe("/admin/maintenance-schedule-form");
   });
 
-  test("hrefFor erbt den Workspace — Anchor-Links zeigen nicht aus dem Workspace raus", () => {
+  test("hrefFor inherits the workspace — anchor links do not navigate outside the workspace", () => {
     render(
       <WorkspaceNav>
         <Probe />
@@ -127,7 +127,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne ex
     expect(screen.getByTestId("href-edit").textContent).toBe("/admin/component-edit/c1");
   });
 
-  test("ohne aktuelle Route (URL an der Root) bleibt das Target unverändert", () => {
+  test("without a current route (URL at the root), the target remains unchanged", () => {
     window.history.replaceState(null, "", "/");
     render(
       <WorkspaceNav>
@@ -143,7 +143,7 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne ex
   });
 });
 
-describe("useBrowserNavApi ohne Workspaces — Injection bleibt aus", () => {
+describe("useBrowserNavApi without workspaces — injection remains disabled", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/task-list");
   });
@@ -153,7 +153,7 @@ describe("useBrowserNavApi ohne Workspaces — Injection bleibt aus", () => {
     return <NavProvider value={api}>{children}</NavProvider>;
   }
 
-  test("navigate({ screenId }) bleibt flach: '/maintenance-schedule-form'", () => {
+  test("navigate({ screenId }) remains flat: '/maintenance-schedule-form'", () => {
     render(
       <FlatNav>
         <Probe />

@@ -158,7 +158,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     expect(remaining.length).toBe(0);
   });
 
-  test("Strategy=anonymize: authorId=null, Row bleibt (HR-Compliance-Pfad)", async () => {
+  test("Strategy=anonymize: authorId=null, row remains (HR-Compliance path)", async () => {
     await seedAlice();
     await seedNote(noteId(1), "stays-anonymous");
 

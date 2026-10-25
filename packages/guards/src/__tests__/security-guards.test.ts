@@ -15,7 +15,7 @@ const SECURITY_GUARD_NAMES = [
   "Tenant-Escalation Guard",
 ];
 
-describe("security guards — infra#787", () => {
+describe("security guards", () => {
   test("all five named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
     for (const name of SECURITY_GUARD_NAMES) {
       const guard = GUARDS.find((g) => g.name === name);

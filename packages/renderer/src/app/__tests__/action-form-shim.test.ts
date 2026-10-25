@@ -28,7 +28,7 @@ describe("synthesizeActionFormScreen", () => {
     expect(screen.layout).toEqual({ sections: [{ title: "Invite", fields: ["email"] }] });
   });
 
-  test("carries description through so RenderEdit can render it as the form subtitle (fw#2723)", () => {
+  test("carries description through so RenderEdit can render it as the form subtitle", () => {
     const withDescription = synthesizeActionFormScreen({
       id: "invite-user",
       type: "actionForm",
@@ -92,7 +92,7 @@ describe("synthesizeActionFormScreen", () => {
   });
 });
 
-describe("synthesizeSecretMintConfirmScreen (fw#2838)", () => {
+describe("synthesizeSecretMintConfirmScreen", () => {
   test("maps a secretMint's confirm step to the entityEdit shape RenderEdit expects, with a distinct id", () => {
     const screen = synthesizeSecretMintConfirmScreen(
       {

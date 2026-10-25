@@ -10,13 +10,13 @@ beforeAll(async () => {
 });
 
 describe("ctx.tz — defaults", () => {
-  test("ohne Options: tenant + user beide UTC", () => {
+  test("without options: tenant + user both UTC", () => {
     const tz = createTzContext();
     expect(tz.tenant).toBe("UTC");
     expect(tz.user).toBe("UTC");
   });
 
-  test("nur tenant gesetzt: user fällt auf tenant zurück", () => {
+  test("only tenant set: user falls back to tenant", () => {
     const tz = createTzContext({ tenant: "Europe/Berlin" });
     expect(tz.tenant).toBe("Europe/Berlin");
     expect(tz.user).toBe("Europe/Berlin");
@@ -30,7 +30,7 @@ describe("ctx.tz — defaults", () => {
 });
 
 describe("ctx.tz — now / today", () => {
-  test("now() liefert Temporal.Instant", () => {
+  test("now() returns Temporal.Instant", () => {
     const tz = createTzContext();
     const instant = tz.now();
     expect(typeof instant.epochMilliseconds).toBe("number");
@@ -38,13 +38,13 @@ describe("ctx.tz — now / today", () => {
     expect(Math.abs(instant.epochMilliseconds - Date.now())).toBeLessThan(5000);
   });
 
-  test("nowIn(tz) liefert ZonedDateTime in der richtigen Zone", () => {
+  test("nowIn(tz) returns ZonedDateTime in the correct zone", () => {
     const tz = createTzContext();
     const zdt = tz.nowIn("Europe/Berlin");
     expect(zdt.timeZoneId).toBe("Europe/Berlin");
   });
 
-  test("today(tz) liefert PlainDate ohne Zeit-Komponente", () => {
+  test("today(tz) returns PlainDate without a time component", () => {
     const tz = createTzContext();
     const today = tz.today("Europe/Lisbon");
     // PlainDate has no .hour property; if it did, it would be a
@@ -53,7 +53,7 @@ describe("ctx.tz — now / today", () => {
     expect(today.toString()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  test("todayRange(tz) liefert UTC-Instants für DB-Range-Query", () => {
+  test("todayRange(tz) returns UTC instants for DB range query", () => {
     const tz = createTzContext();
     const range = tz.todayRange("Europe/Berlin");
     // The difference between start and end is exactly 24h (or 23/25h during DST).
@@ -65,7 +65,7 @@ describe("ctx.tz — now / today", () => {
 });
 
 describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
-  test("parse(wallClock, tz) liefert ZonedDateTime mit korrekter UTC-Konvertierung", () => {
+  test("parse(wallClock, tz) returns ZonedDateTime with correct UTC conversion", () => {
     const tz = createTzContext();
     // 2026-04-03 10:00 Lisbon = 09:00 UTC (WEST = UTC+1)
     const zdt = tz.parse("2026-04-03T10:00:00", "Europe/Lisbon");
@@ -73,7 +73,7 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
     expect(zdt.toInstant().toString()).toBe("2026-04-03T09:00:00Z");
   });
 
-  test("toLocatedJson(zdt) liefert { at, tz } OHNE Offset-Marker", () => {
+  test("toLocatedJson(zdt) returns { at, tz } WITHOUT offset marker", () => {
     const tz = createTzContext();
     const zdt = tz.parse("2026-04-03T10:00:00", "Europe/Lisbon");
     const json = tz.toLocatedJson(zdt);
@@ -84,7 +84,7 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
     expect(json.at).not.toContain("+");
   });
 
-  test("fromLocatedJson({ at, tz }) ist Inverse zu toLocatedJson", () => {
+  test("fromLocatedJson({ at, tz }) is the inverse of toLocatedJson", () => {
     const tz = createTzContext();
     const original = tz.parse("2026-04-03T10:00:00", "Europe/Lisbon");
     const json = tz.toLocatedJson(original);
@@ -93,7 +93,7 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
     expect(restored.timeZoneId).toBe(original.timeZoneId);
   });
 
-  test("Round-Trip funktioniert über DST-Übergang (Lisbon-Sommerzeit-Ende)", () => {
+  test("Round-trip works across DST transition (Lisbon daylight saving time end)", () => {
     const tz = createTzContext();
     // 2026-10-25 in Lisbon: fall-back from 02:00 → 01:00. We use 14:00,
     // which is unambiguously in WET (UTC+0).
@@ -108,7 +108,7 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
 });
 
 describe("ctx.tz — Cross-Server-TZ Garantie", () => {
-  test("derselbe Wall-Clock+TZ liefert denselben UTC-Instant unabhängig vom Server-TZ", () => {
+  test("the same wall-clock time + TZ yields the same UTC instant regardless of server TZ", () => {
     // This is the core of the migration: a server in Berlin and one in
     // Tokyo send the same "Pickup 10:00 Lissabon"—both must produce the
     // same UTC instant. Temporal guarantees this by design; we verify it

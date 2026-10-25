@@ -32,7 +32,7 @@ beforeEach(async () => {
   await resetTestTables(stack.db, [userTable, eventsTable]);
 });
 
-describe("selectUsersDueForForgetCleanup — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("selectUsersDueForForgetCleanup — no ambient Temporal global", () => {
   test("string cutoff resolves without relying on globalThis.Temporal", async () => {
     const pastGracePeriodEnd = getTemporal().Now.instant().subtract({ hours: 1 });
     await seedRowViaEventStore(stack.db, userTable, {

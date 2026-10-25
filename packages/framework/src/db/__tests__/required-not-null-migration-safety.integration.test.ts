@@ -38,7 +38,7 @@ beforeEach(async () => {
 });
 
 describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
-  test("SET NOT NULL kracht wenn die Spalte NULL-Zeilen enthält", async () => {
+  test("SET NOT NULL fails when the column contains rows with NULL values", async () => {
     await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,7 +60,7 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
     expect(extractPgError(caught)?.code).toBe("23502");
   });
 
-  test("SET NOT NULL läuft sauber durch wenn alle Zeilen Werte haben", async () => {
+  test("SET NOT NULL runs cleanly when all rows have values", async () => {
     await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,7 +85,7 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
     expect(caught).toBeDefined();
   });
 
-  test("SET NOT NULL auf leerer Tabelle ist trivial sicher", async () => {
+  test("SET NOT NULL on an empty table is trivially safe", async () => {
     // Newly created with no rows—the case in which `migrate apply` runs after
     // a DB drop. This path must ALWAYS succeed; otherwise every Greenfield
     // deployment would fail.

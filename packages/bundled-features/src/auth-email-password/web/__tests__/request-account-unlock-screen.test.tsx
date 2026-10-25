@@ -58,7 +58,7 @@ describe("RequestAccountUnlockScreen", () => {
     );
   });
 
-  test("429 with retryAfterSeconds → requestUnlock.rateLimited banner (#1333)", async () => {
+  test("429 with retryAfterSeconds → requestUnlock.rateLimited banner", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ error: { details: { retryAfterSeconds: 180 } } }), {

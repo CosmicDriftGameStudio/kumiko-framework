@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { USER_STATUS, userEntity } from "../schema/user.ts";
 
 describe("USER_STATUS — Drift-Guard (S2.D2.5 N1)", () => {
-  test("Snapshot-Vergleich: USER_STATUS-Object und entity.fields.status.options synchron", () => {
+  test("Snapshot comparison: USER_STATUS object and entity.fields.status.options are synchronized", () => {
     const objectValues = Object.values(USER_STATUS).sort();
     // entity.fields.status uses createSelectField; options is the tuple
     const statusField = userEntity.fields["status"] as { options: readonly string[] };
@@ -19,7 +19,7 @@ describe("USER_STATUS — Drift-Guard (S2.D2.5 N1)", () => {
     expect(optionValues).toEqual(objectValues);
   });
 
-  test("USER_STATUS-Snapshot — explizit zu updaten bei Aenderungen", () => {
+  test("USER_STATUS snapshot — update explicitly when changes are made", () => {
     expect(USER_STATUS).toMatchInlineSnapshot(`
       {
         "Active": "active",
@@ -30,7 +30,7 @@ describe("USER_STATUS — Drift-Guard (S2.D2.5 N1)", () => {
     `);
   });
 
-  test("USER_STATUS-Werte sind camelCase (Convention fuer status-Strings)", () => {
+  test("USER_STATUS values are camelCase (convention for status strings)", () => {
     // All values must start with lowercase and contain no spaces
     for (const value of Object.values(USER_STATUS)) {
       expect(value).toMatch(/^[a-z][a-zA-Z]*$/);

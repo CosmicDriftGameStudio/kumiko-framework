@@ -117,7 +117,7 @@ describe("resolveSubjectForField", () => {
     ).toThrow(SubjectResolutionError);
   });
 
-  describe("userOwned owner chain (fw#3654)", () => {
+  describe("userOwned owner chain", () => {
     const nullableOwnerEntity = createEntity({
       fields: {
         body: createTextField({ personal: { of: "authorId", whenAbsent: "tenant" }, find: "none" }),
@@ -280,7 +280,7 @@ describe("collectPiiEncryptedFields", () => {
 
 const EVENT_TENANT = "6b2f4a0e-1c9d-4f3a-9d2e-0000000000e1" as TenantId;
 
-describe("resolveEventSubject (fw#2801)", () => {
+describe("resolveEventSubject", () => {
   test("personal: { of } → user subject from the named payload field", () => {
     const subject = resolveEventSubject(
       "note",
@@ -291,7 +291,7 @@ describe("resolveEventSubject (fw#2801)", () => {
     expect(subject).toEqual({ kind: "user", userId: UUID_A });
   });
 
-  test("personal: { of } with a missing owner value and no whenAbsent → throws (fw#2776)", () => {
+  test("personal: { of } with a missing owner value and no whenAbsent → throws", () => {
     expect(() =>
       resolveEventSubject(
         "note",
@@ -302,7 +302,7 @@ describe("resolveEventSubject (fw#2801)", () => {
     ).toThrow(/carries no id and the event declares no whenAbsent fallback/);
   });
 
-  test('personal: { of, whenAbsent: "plaintext" } with a missing owner → null (fw#2776)', () => {
+  test('personal: { of, whenAbsent: "plaintext" } with a missing owner → null', () => {
     const subject = resolveEventSubject(
       "note",
       { personal: { of: "authorId", whenAbsent: "plaintext" } },
@@ -312,7 +312,7 @@ describe("resolveEventSubject (fw#2801)", () => {
     expect(subject).toBeNull();
   });
 
-  test('personal: { of, whenAbsent: "tenant" } with a missing owner → envelope tenant (fw#2776)', () => {
+  test('personal: { of, whenAbsent: "tenant" } with a missing owner → envelope tenant', () => {
     const subject = resolveEventSubject(
       "note",
       { personal: { of: "authorId", whenAbsent: "tenant" } },
@@ -395,7 +395,7 @@ describe("resolveEventSubject (fw#2801)", () => {
     ).toThrow(/field "note"/);
   });
 
-  test('personal: "self" with an aggregateType that violates the record-entity pattern throws — mint must never outrun shred (fw#2801)', () => {
+  test('personal: "self" with an aggregateType that violates the record-entity pattern throws — mint must never outrun shred', () => {
     expect(() =>
       resolveEventSubject(
         "note",

@@ -62,7 +62,7 @@ describe("createLiveDispatcher", () => {
     expect(body.requestId).toBe("idem-99");
   });
 
-  test("write: generates a fresh requestId per invocation when none provided (#761)", async () => {
+  test("write: generates a fresh requestId per invocation when none provided", async () => {
     const { fetch, calls } = makeFetch({ body: { isSuccess: true, data: {} } });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
@@ -76,7 +76,7 @@ describe("createLiveDispatcher", () => {
     expect(first).not.toBe(second);
   });
 
-  test("batch: generates one requestId for the whole batch when none provided (#761)", async () => {
+  test("batch: generates one requestId for the whole batch when none provided", async () => {
     const { fetch, calls } = makeFetch({ body: { isSuccess: true, results: [] } });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
@@ -89,7 +89,7 @@ describe("createLiveDispatcher", () => {
     expect(typeof body.requestId).toBe("string");
   });
 
-  test("batch: propagates an explicit requestId (#761)", async () => {
+  test("batch: propagates an explicit requestId", async () => {
     const { fetch, calls } = makeFetch({ body: { isSuccess: true, results: [] } });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 

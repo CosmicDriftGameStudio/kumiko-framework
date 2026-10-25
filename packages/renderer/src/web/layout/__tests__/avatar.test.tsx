@@ -12,7 +12,7 @@ const colorClass = (className: string): string | undefined =>
   className.split(/\s+/).find((c) => c.startsWith("bg-"));
 
 describe("Avatar — Initials", () => {
-  test("Zwei-Wort-Label → Initialen beider Wörter (DH), role=img, aria-label", () => {
+  test("Two-word label → initials of both words (DH), role=img, aria-label", () => {
     render(<Avatar id="u1" label="Daniel Hennig" testId="av" />);
     const el = screen.getByTestId("av");
     expect(el.textContent).toBe("DH");
@@ -25,7 +25,7 @@ describe("Avatar — Initials", () => {
     expect(screen.getByTestId("av").textContent).toBe("DA");
   });
 
-  test("Email als Single-Token → erste 2 Buchstaben (alice@… → AL)", () => {
+  test("Email as a single token → first 2 letters (alice@… → AL)", () => {
     // The code comment claims "A", but the code returns "AL".
     // (split(/\s+/) does not split at '@'.) This test pins the current behavior.
     render(<Avatar id="u" label="alice@example.com" testId="av" />);
@@ -39,7 +39,7 @@ describe("Avatar — Initials", () => {
 });
 
 describe("Avatar — Farbwahl", () => {
-  test("deterministisch pro id (gleiche id → gleiche Color-Class, unabhängig vom Label)", () => {
+  test("Deterministic per id (same id → same Color-Class, regardless of label)", () => {
     const { unmount } = render(<Avatar id="stable-id" label="A B" testId="a1" />);
     const c1 = colorClass(screen.getByTestId("a1").className);
     unmount();

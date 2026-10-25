@@ -61,7 +61,7 @@ describe("Button", () => {
     expect(off.className).not.toContain("ring-primary/30");
   });
 
-  test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
+  test("disabled: attribute set + Tailwind classes for pointer-events/opacity", () => {
     render(
       <Button disabled testId="btn">
         Save
@@ -85,7 +85,7 @@ describe("Button", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  test("loading: Spinner ersetzt icon-Slot, Children bleiben sichtbar (kein Width-Jump) + ist disabled", () => {
+  test("loading: Spinner replaces icon slot, children remain visible (no width jump) + is disabled", () => {
     const onClick = mock();
     render(
       <Button loading onClick={onClick} testId="btn">
@@ -99,7 +99,7 @@ describe("Button", () => {
     expect(btn.querySelector("svg")).not.toBeNull();
   });
 
-  test("icon: rendert ein SVG vor dem Label, kein SVG ohne icon-Prop", () => {
+  test("icon: renders an SVG before the label, no SVG without icon prop", () => {
     render(
       <Button icon="trash" testId="btn">
         Delete
@@ -118,7 +118,7 @@ describe("Button", () => {
     expect(screen.getByTestId("btn-no-icon").querySelector("svg")).toBeNull();
   });
 
-  test("iconEnd: rendert ein SVG nach dem Label", () => {
+  test("iconEnd: renders an SVG after the label", () => {
     render(
       <Button iconEnd="arrow-right" testId="btn">
         Next
@@ -132,7 +132,7 @@ describe("Button", () => {
     expect(btn.lastChild).toBe(svg);
   });
 
-  test("danger-ghost: destruktiv eingefärbt, normales ghost nicht", () => {
+  test("danger-ghost: destructively colored, normal ghost is not", () => {
     render(
       <>
         <Button variant="danger-ghost" testId="danger">
@@ -233,7 +233,7 @@ describe("Banner", () => {
 });
 
 describe("Field", () => {
-  test("required fügt einen Stern ans Label an", () => {
+  test("required appends a star to the label", () => {
     render(
       <Field id="f1" label="Name" required testId="f">
         <input />
@@ -295,7 +295,7 @@ describe("Input kind mapping", () => {
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
-  test('kind="date": tippbares Text-Input mit locale-Datum, kein nativer date-Input', () => {
+  test('kind="date": typeable text input with locale date, no native date input', () => {
     // Default-DateInput uses a typeable text input with a
     // DayPicker popover instead of a native <input type="date">. The date is
     // displayed numerically according to the locale.
@@ -511,7 +511,7 @@ describe("Form", () => {
     expect(submitEvent.defaultPrevented).toBe(true);
   });
 
-  test("title rendert als Heading oben, Actions als Footer am Ende", () => {
+  test("title renders as a heading above, actions as a footer at the end", () => {
     render(
       <Form
         onSubmit={() => undefined}
@@ -529,7 +529,7 @@ describe("Form", () => {
     expect(actionsFooter.textContent).not.toContain("Eintrag bearbeiten");
   });
 
-  test("ohne title und actions: keine Action-Bar gerendert", () => {
+  test("without title and actions: no action bar rendered", () => {
     render(
       <Form onSubmit={() => undefined} testId="form">
         <div>content</div>
@@ -538,7 +538,7 @@ describe("Form", () => {
     expect(screen.queryByTestId("form-actions")).toBeNull();
   });
 
-  test("stickyActions: nur die primäre Action-Gruppe bekommt mobile-fixed-Klassen (fw#1918, fw#2606 follow-up)", () => {
+  test("stickyActions: only the primary action group gets mobile-fixed classes", () => {
     render(
       <Form
         onSubmit={() => undefined}
@@ -565,7 +565,7 @@ describe("Form", () => {
     expect(actionsFooter.className).toContain("max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]");
   });
 
-  test("ohne stickyActions: Footer bleibt im normalen Dokumentfluss", () => {
+  test("without stickyActions: Footer remains in the normal document flow", () => {
     render(
       <Form onSubmit={() => undefined} actions={<button type="submit">Save</button>} testId="form">
         <div>content</div>
@@ -587,7 +587,7 @@ describe("Form", () => {
   // to the bottom of the panel; only the innermost table wrapper
   // (primitives.test.tsx's DataTable coverage) keeps flex-1 to actually claim
   // the leftover height once the ancestor chain is force-shrunk.
-  test("fillHeight: form root caps at h-full/min-h-0, its card sizes to content instead of growing (fw#2778)", () => {
+  test("fillHeight: form root caps at h-full/min-h-0, its card sizes to content instead of growing", () => {
     render(
       <Form onSubmit={() => undefined} testId="form" fillHeight>
         <div>content</div>
@@ -641,7 +641,7 @@ describe("Form", () => {
 });
 
 describe("Banner padded", () => {
-  test("padded=true wraps in p-6 container für Page-State-Use", () => {
+  test("padded=true wraps in a p-6 container for page state use", () => {
     const { container } = render(
       <Banner padded variant="info" testId="banner">
         Loading…
@@ -654,7 +654,7 @@ describe("Banner padded", () => {
     expect(container.firstChild).toBe(wrapper);
   });
 
-  test("padded=undefined rendert ohne Wrapper (inline-Use)", () => {
+  test("padded=undefined renders without a wrapper (inline use)", () => {
     const { container } = render(
       <Banner variant="info" testId="banner">
         Inline
@@ -674,7 +674,7 @@ describe("Heading variants", () => {
     expect(screen.getByTestId("h").tagName).toBe("H1");
   });
 
-  test('variant="section" renders h2 mit uppercase styling', () => {
+  test('variant="section" renders h2 with uppercase styling', () => {
     render(
       <Heading variant="section" testId="h">
         Basics
@@ -687,7 +687,7 @@ describe("Heading variants", () => {
 });
 
 describe("Dialog", () => {
-  test("open=true rendert Dialog mit Title und Confirm/Cancel Buttons", () => {
+  test("open=true renders Dialog with title and Confirm/Cancel buttons", () => {
     const onConfirm = mock();
     const onOpenChange = mock();
     render(
@@ -717,7 +717,7 @@ describe("Dialog", () => {
     expect(screen.queryByTestId("hidden-dialog")).toBeNull();
   });
 
-  test("Confirm-Button feuert onConfirm und schließt den Dialog", async () => {
+  test("Confirm button fires onConfirm and closes the Dialog", async () => {
     const user = userEvent.setup();
     const onConfirm = mock();
     const onOpenChange = mock();
@@ -984,7 +984,7 @@ describe("Stack", () => {
 });
 
 describe("PageSection", () => {
-  test("wrappt children mit einheitlichem Padding", () => {
+  test("wraps children with consistent padding", () => {
     render(
       <PageSection testId="p">
         <span data-testid="child">x</span>
@@ -994,7 +994,7 @@ describe("PageSection", () => {
     expect(screen.getByTestId("child")).toBeDefined();
   });
 
-  test("renders the same padding classes as FormScreenShell (fw#2640)", () => {
+  test("renders the same padding classes as FormScreenShell", () => {
     render(
       <>
         <PageSection testId="page-pad">x</PageSection>
@@ -1019,7 +1019,7 @@ describe("PageSection", () => {
     expect(screen.getByTestId("sf-scroll").className).toContain("md:px-10");
   });
 
-  test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl (fw#2640)", () => {
+  test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl", () => {
     render(
       <>
         <PageSection testId="page-4xl" maxWidth="4xl">
@@ -1048,7 +1048,7 @@ describe("PageSection", () => {
     expect(screen.getByTestId("shell-explicit").className).not.toContain("max-w-full");
   });
 
-  test("FormScreenShell ohne Provider fällt auf 4xl zurück", () => {
+  test("FormScreenShell without Provider falls back to 4xl", () => {
     render(<FormScreenShell testId="shell-default">x</FormScreenShell>);
     expect(screen.getByTestId("shell-default").className).toContain("max-w-4xl");
   });
@@ -1060,7 +1060,7 @@ describe("PageSection", () => {
 });
 
 describe("JsonView", () => {
-  test("tokenisiert statt einen flachen String zu rendern — Keys/Strings/Zahlen/Booleans/null bekommen je eigene Klasse", () => {
+  test("tokenizes instead of rendering a flat string — keys/strings/numbers/booleans/null each get their own class", () => {
     render(
       <DefaultJsonView testId="jv" value={{ name: "job-1", attempts: 3, ok: true, error: null }} />,
     );
@@ -1071,7 +1071,7 @@ describe("JsonView", () => {
     expect(classNames.size).toBe(5);
   });
 
-  test("Whitespace bleibt erhalten (pre-wrap) — mehrzeiliger, eingerückter Output statt einer kollabierten Zeile", () => {
+  test("Whitespace is preserved (pre-wrap) — multiline, indented output instead of a collapsed line", () => {
     const value = { a: { b: 1 } };
     render(<DefaultJsonView testId="jv" value={value} />);
     const el = screen.getByTestId("jv");
@@ -1081,27 +1081,27 @@ describe("JsonView", () => {
     expect(el.textContent).toContain("\n");
   });
 
-  test("indent-Prop steuert die Einrückung wie bei JSON.stringify", () => {
+  test("indent prop controls indentation as in JSON.stringify", () => {
     const value = { a: 1 };
     render(<DefaultJsonView testId="jv" value={value} indent={4} />);
     expect(screen.getByTestId("jv").textContent).toBe(JSON.stringify(value, null, 4));
   });
 
-  test("zirkulärer Wert wirft nicht — rendert einen [Circular]-Marker statt die Seite zu killen", () => {
+  test("circular value does not throw — renders a [Circular] marker instead of killing the page", () => {
     const circular: Record<string, unknown> = { name: "job-1" };
     circular["self"] = circular;
     expect(() => render(<DefaultJsonView testId="jv" value={circular} />)).not.toThrow();
     expect(screen.getByTestId("jv").textContent).toContain("[Circular]");
   });
 
-  test("BigInt wirft nicht — wird als String serialisiert", () => {
+  test("BigInt does not throw — serialized as a string", () => {
     expect(() =>
       render(<DefaultJsonView testId="jv" value={{ amount: 9007199254740993n }} />),
     ).not.toThrow();
     expect(screen.getByTestId("jv").textContent).toContain("9007199254740993n");
   });
 
-  test("undefined wirft nicht", () => {
+  test("undefined does not throw", () => {
     expect(() => render(<DefaultJsonView testId="jv" value={undefined} />)).not.toThrow();
   });
 });

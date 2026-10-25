@@ -240,7 +240,7 @@ describe("buildConfigFeatureSchema — per-role cascade (system > tenant > user)
   });
 });
 
-describe("buildConfigFeatureSchema — machine-role does not leak into screen access (#406/2)", () => {
+describe("buildConfigFeatureSchema — machine-role does not leak into screen access", () => {
   // A mixed write-set (machine "system" + human "SystemAdmin") only arises via
   // an explicit write:-override (no preset produces the mix). The screen must
   // gate on the human role only — "system" is not carried by a real user and

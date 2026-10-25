@@ -236,7 +236,7 @@ describe("RelatedListSection column value type", () => {
   });
 });
 
-describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
+describe("RelatedListSection — tabs-mode card chrome", () => {
   test("hideTitle (tabs mode) renders the list without a Section wrapper, drops the table frame (the tab card frames it), and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
@@ -897,7 +897,7 @@ describe("RelatedListSection — rowActions", () => {
 // a drawer-kind rowAction to the injected `onOpenDrawer` callback. This
 // pins that hand-off, not the Drawer UI itself (covered by kumiko-screen's
 // own tests).
-describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
+describe("RelatedListSection — rowActions drawer-kind", () => {
   beforeEach(() => {
     resetDrawerActionWarningsForTests();
   });
@@ -973,7 +973,7 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
     expect(rtlScreen.queryByTestId("action-adjust-rent-item-7")).toBeNull();
   });
 
-  test("a dropped drawer rowAction without onOpenDrawer logs a dev warning naming the action id (fw#2733)", async () => {
+  test("a dropped drawer rowAction without onOpenDrawer logs a dev warning naming the action id", async () => {
     const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
@@ -1000,7 +1000,7 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
     }
   });
 
-  test("a drawer rowAction with onOpenDrawer wired renders without a dev warning (fw#2733)", async () => {
+  test("a drawer rowAction with onOpenDrawer wired renders without a dev warning", async () => {
     const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
@@ -1079,7 +1079,7 @@ function renderedRowOrder(): string[] {
     .map((el) => el.getAttribute("data-testid")?.replace("row-", "") ?? "");
 }
 
-describe("RelatedListSection — sorting (fw#2722)", () => {
+describe("RelatedListSection — sorting", () => {
   const unsortedRows = [
     { id: "r1", name: "Charlie", amount: 300 },
     { id: "r2", name: "Alice", amount: 100 },
@@ -1186,7 +1186,7 @@ describe("RelatedListSection — sorting (fw#2722)", () => {
   });
 });
 
-describe("RelatedListSection — truncation banner (fw#2722 review)", () => {
+describe("RelatedListSection — truncation banner", () => {
   test("nextCursor !== null renders a truncation banner", async () => {
     const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], "cursor-abc");
     renderRelatedList(dispatcher);
@@ -1364,7 +1364,7 @@ function renderWithDataTable(
   );
 }
 
-describe("RelatedListSection — search + facets (fw#2740)", () => {
+describe("RelatedListSection — search + facets", () => {
   const nameRows = [
     { id: "r1", name: "Alice" },
     { id: "r2", name: "Bob" },

@@ -101,7 +101,7 @@ describe("without tenant-settings mount", () => {
   });
 });
 
-describe("caller-supplied id (#2922)", () => {
+describe("caller-supplied id", () => {
   const noteEntity = createEntity({
     table: "read_tenant_default_notes",
     fields: {

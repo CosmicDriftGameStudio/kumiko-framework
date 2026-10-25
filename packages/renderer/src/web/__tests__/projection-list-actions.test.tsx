@@ -54,7 +54,7 @@ function makeDispatcher(write: Dispatcher["write"]): Dispatcher {
 }
 
 describe("projectionList writeHandler-Actions", () => {
-  test("Row-Action dispatcht den Handler mit Default-Payload {id}", async () => {
+  test("Row-Action dispatches the handler with the default payload {id}", async () => {
     const write = mock(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
@@ -72,7 +72,7 @@ describe("projectionList writeHandler-Actions", () => {
     expect(write.mock.calls[0]?.[1]).toEqual({ id: "m1" });
   });
 
-  test("Toolbar-Action dispatcht den Handler mit deklariertem Payload", async () => {
+  test("Toolbar-Action dispatches the handler with the declared payload", async () => {
     const write = mock(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
@@ -93,7 +93,7 @@ describe("projectionList writeHandler-Actions", () => {
   // See useRowActionTrigger: a swallowed write error appeared to the user as
   // "nothing happened". Row and toolbar actions on projectionList must use the
   // same error-surfacing path as entityList (a toast instead of a silent no-op).
-  test("Row-Action-Fehler wird als Toast surfaced, nicht verschluckt", async () => {
+  test("Row-Action error is surfaced as a toast, not swallowed", async () => {
     const write = mock(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
       error: { code: "internal_error", httpStatus: 500, message: "maintenance start failed" },
@@ -112,7 +112,7 @@ describe("projectionList writeHandler-Actions", () => {
     expect(await screen.findByText("maintenance start failed")).toBeTruthy();
   });
 
-  test("Toolbar-Action-Fehler wird als Toast surfaced, nicht verschluckt", async () => {
+  test("Toolbar-Action error is surfaced as a toast, not swallowed", async () => {
     const write = mock(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
       error: { code: "internal_error", httpStatus: 500, message: "maintenance sync failed" },
@@ -134,7 +134,7 @@ describe("projectionList writeHandler-Actions", () => {
 
 // toolbarActions kind:"drawer" — same shared ToolbarDrawerHost as
 // entityList, wired into ProjectionListBody's toolbarActions builder.
-describe("projectionList toolbarActions drawer-kind (fw#2225)", () => {
+describe("projectionList toolbarActions drawer-kind", () => {
   const noteForm: ActionFormScreenDefinition = {
     id: "maintenance-note",
     type: "actionForm",
@@ -204,7 +204,7 @@ describe("projectionList toolbarActions drawer-kind (fw#2225)", () => {
 // rowActions kind:"drawer" — buildProjectionRowActions is shared
 // between entityList and projectionList; this pins the projectionList call
 // site (openDrawer wired through ProjectionListBody).
-describe("projectionList rowActions drawer-kind (fw#2710)", () => {
+describe("projectionList rowActions drawer-kind", () => {
   const noteForm: ActionFormScreenDefinition = {
     id: "maintenance-note",
     type: "actionForm",

@@ -47,7 +47,7 @@ afterAll(async () => {
 });
 
 describe("compliance-profiles :: list-profiles", () => {
-  test("liefert die 3 wählbaren Profile mit Region + Sprachen", async () => {
+  test("returns the 3 selectable profiles with region + languages", async () => {
     const result = await stack.http.queryOk<{
       profiles: Array<{ key: string; region: string; languages: string[] }>;
     }>(LIST_PROFILES, {}, tenantAdmin);
@@ -59,7 +59,7 @@ describe("compliance-profiles :: list-profiles", () => {
     expect(swiss?.languages).toContain("fr");
   });
 
-  test("minimal-no-region ist NICHT in der Liste (kein Production-Default)", async () => {
+  test("minimal-no-region is NOT in the list (no Production default)", async () => {
     const result = await stack.http.queryOk<{ profiles: Array<{ key: string }> }>(
       LIST_PROFILES,
       {},
@@ -70,7 +70,7 @@ describe("compliance-profiles :: list-profiles", () => {
 });
 
 describe("compliance-profiles :: for-tenant", () => {
-  test("ohne Setting → minimal-no-region + warning=no-profile-selected", async () => {
+  test("without a setting → minimal-no-region + warning=no-profile-selected", async () => {
     const result = await stack.http.queryOk<{
       profile: { key: string };
       warning?: string;
@@ -94,7 +94,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.warning).toBeUndefined();
   });
 
-  test("set-profile ist idempotent — zweiter Call wechselt Profile", async () => {
+  test("set-profile is idempotent — second call switches profiles", async () => {
     await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
     await stack.http.writeOk(SET_PROFILE, { profileKey: "swiss-dsg" }, tenantAdmin);
 
@@ -105,7 +105,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.profile.breach.authorityContact).toBe("EDÖB Bern");
   });
 
-  test("set-profile mit Override merged auf base-profile", async () => {
+  test("set-profile with override merges onto base-profile", async () => {
     await stack.http.writeOk(
       SET_PROFILE,
       {
@@ -125,12 +125,12 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
   });
 
-  test("Member ohne TenantAdmin-Rolle bekommt 403 beim set-profile", async () => {
+  test("Member without TenantAdmin role gets 403 on set-profile", async () => {
     const result = await stack.http.write(SET_PROFILE, { profileKey: "eu-dsgvo" }, normalUser);
     expect(result.status).toBe(403);
   });
 
-  test("set-profile mit invalid JSON-Override wirft Error", async () => {
+  test("set-profile with invalid JSON override throws Error", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
       { profileKey: "eu-dsgvo", override: "not-valid-json" },
@@ -139,7 +139,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
-  test("set-profile mit Array statt Object als Override wirft Error", async () => {
+  test("set-profile with array instead of object as override throws Error", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
       { profileKey: "eu-dsgvo", override: JSON.stringify([{ foo: 1 }]) },
@@ -149,7 +149,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   // The schema restricts values to SELECTABLE_PROFILE_KEYS
-  test("set-profile mit minimal-no-region wird abgelehnt (X1)", async () => {
+  test("set-profile with minimal-no-region is rejected", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
       { profileKey: "minimal-no-region" },
@@ -159,7 +159,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   // Reject overrides with unknown top-level keys
-  test("set-profile mit unbekanntem Top-Level-Override-Key wirft Error (X2)", async () => {
+  test("set-profile with unknown top-level override key throws Error", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
       {
@@ -173,7 +173,7 @@ describe("compliance-profiles :: set-profile", () => {
 
   // Sub-level typos are checked with a path-specific assertion via
   // ValidationError.details.fields.
-  test("set-profile mit Sub-Level-Tippfehler liefert validation_error mit Path (Z3+M3)", async () => {
+  test("set-profile with a sub-level typo returns validation_error with Path", async () => {
     const err = await stack.http.writeErr(
       SET_PROFILE,
       {
@@ -192,7 +192,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(fields?.some((f) => f.path.includes("userRights"))).toBe(true);
   });
 
-  test("set-profile mit invalid retention-shape liefert validation_error mit Path (Z3+M3)", async () => {
+  test("set-profile with invalid retention shape returns validation_error with Path", async () => {
     const err = await stack.http.writeErr(
       SET_PROFILE,
       {
@@ -216,7 +216,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   // SystemAdmin can set profiles for a customer tenant via tenantIdOverride
-  test("SystemAdmin kann mit tenantIdOverride für anderen Tenant Profile setzen (F3)", async () => {
+  test("SystemAdmin can set profiles for another tenant with tenantIdOverride", async () => {
     const sysAdmin = createIsolatedTenantAdmin(51, ["SystemAdmin"]);
     const targetTenantAdmin = createIsolatedTenantAdmin(52);
 
@@ -244,7 +244,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   // tenantIdOverride as TenantAdmin → 403
-  test("TenantAdmin mit tenantIdOverride bekommt 403 (F3)", async () => {
+  test("TenantAdmin with tenantIdOverride gets 403", async () => {
     const someTenantAdmin = createIsolatedTenantAdmin(53);
     const result = await stack.http.write(
       SET_PROFILE,
@@ -256,7 +256,7 @@ describe("compliance-profiles :: set-profile", () => {
 });
 
 describe("compliance-profiles :: sub-processors (S1.4)", () => {
-  test("liefert active + planned Sub-Processors mit Pflicht-Feldern", async () => {
+  test("returns active + planned Sub-Processors with required fields", async () => {
     const result = await stack.http.queryOk<{
       active: Array<{ name: string; region: string; dpa: string; sccRequired?: boolean }>;
       planned: Array<{ name: string; status: string }>;
@@ -284,7 +284,7 @@ describe("compliance-profiles :: sub-processors (S1.4)", () => {
 });
 
 describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", () => {
-  test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no_profile_selected", async () => {
+  test("Tenant without profile selection → needsSelection=true, reason=no_profile_selected", async () => {
     // Use a fresh tenant so no profile has been selected; otherwise this test
     // would see the entry created by the preceding set-profile tests.
     const freshTenantAdmin = createIsolatedTenantAdmin(99);
@@ -298,7 +298,7 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
     expect(result.reason).toBe("no_profile_selected");
   });
 
-  test("Tenant mit eu-dsgvo-Wahl → needsSelection=false", async () => {
+  test("Tenant with eu-dsgvo selection → needsSelection=false", async () => {
     const setupAdmin = createIsolatedTenantAdmin(100);
     await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, setupAdmin);
 
@@ -315,13 +315,13 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
   // If a seedComplianceProfile helper introduces a migration edge case,
   // add a new test here.
 
-  test("Member-Rolle bekommt 403 (Banner ist Admin-only)", async () => {
+  test("Member role gets 403 (banner is admin-only)", async () => {
     const result = await stack.http.query(NEEDS_PROFILE, {}, normalUser);
     expect(result.status).toBe(403);
   });
 });
 
-describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing (#2063)", () => {
+describe("compliance-profiles :: needs-profile with access.systemAdmin narrowing", () => {
   let narrowedStack: TestStack;
   let narrowedDb: DbConnection;
 
@@ -339,7 +339,7 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
   // TenantAdmin can no longer reach the picker screen (access.systemAdmin
   // excludes TenantAdmin) — needsSelection must stop pointing them at a
   // screen they can't open.
-  test("TenantAdmin ohne Picker-Zugriff → needsSelection bleibt false, reason=picker_not_accessible_for_role", async () => {
+  test("TenantAdmin without picker access → needsSelection remains false, reason=picker_not_accessible_for_role", async () => {
     const excludedTenantAdmin = createIsolatedTenantAdmin(200);
     const result = await narrowedStack.http.queryOk<{
       needsSelection: boolean;
@@ -355,7 +355,7 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
   // the gate must intersect the caller's actual roles, not just check
   // whether TenantAdmin (the query's fixed call-access role) is among the
   // feature's configured picker roles.
-  test("TenantAdmin+SystemAdmin dual-role → needsSelection bleibt true (Picker via SystemAdmin erreichbar)", async () => {
+  test("TenantAdmin+SystemAdmin dual role → needsSelection remains true (picker accessible via SystemAdmin)", async () => {
     const dualRoleUser = createTestUser({
       id: 204,
       tenantId: testTenantId(204),
@@ -374,7 +374,7 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
   // `access` option is not passed 1:1 to the query dispatcher (otherwise
   // SystemAdmin could now call an endpoint only TenantAdmin used to be
   // allowed to call — widening access is not requested).
-  test("SystemAdmin darf needs-profile weiterhin nicht aufrufen (Call-Access unveraendert)", async () => {
+  test("SystemAdmin still may not call needs-profile (call access unchanged)", async () => {
     const systemAdmin = createTestUser({
       id: 201,
       tenantId: testTenantId(201),
@@ -384,7 +384,7 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
     expect(result.status).toBe(403);
   });
 
-  test("TenantAdmin mit bereits gesetztem Profile → needsSelection bleibt false, kein reason-Sonderfall", async () => {
+  test("TenantAdmin with an already selected profile → needsSelection remains false, no special reason case", async () => {
     const setupAdmin = createIsolatedTenantAdmin(202);
     // set-profile is also narrowed to access.systemAdmin — set up via
     // SystemAdmin to create the profile row for the read test.

@@ -199,7 +199,7 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     }
   });
 
-  test("retrieve fails with a network error → 503 rejection so Stripe retries (#2793)", async () => {
+  test("retrieve fails with a network error → 503 rejection so Stripe retries", async () => {
     const verify = verifyAndParseStripeWebhook(
       webhookRuntimeWithRetrieve(async () => {
         throw new Stripe.errors.StripeConnectionError({ message: "socket hang up" });

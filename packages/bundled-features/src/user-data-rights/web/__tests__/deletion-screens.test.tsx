@@ -79,14 +79,14 @@ describe("RequestAccountDeletionScreen", () => {
 });
 
 describe("ConfirmAccountDeletionScreen", () => {
-  test("ohne #token → missingToken, kein Confirm-Button", () => {
+  test("without #token → missingToken, no Confirm button", () => {
     window.history.replaceState({}, "", "/delete-account/confirm");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));
     expect(ui.getByText(/No token/)).toBeTruthy();
     expect(ui.queryByRole("button")).toBeNull();
   });
 
-  test("mit #token → Confirm dispatcht confirm-deletion-by-token + Success", async () => {
+  test("with #token → Confirm dispatches confirm-deletion-by-token + Success", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=tok-123");
     const calls: WriteCall[] = [];
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
@@ -97,7 +97,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     expect(calls[0]?.payload).toEqual({ token: "tok-123" });
   });
 
-  test("write-Failure → invalidToken-Banner, kein Success", async () => {
+  test("write-Failure → invalidToken-Banner, no Success", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=bad");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
     fireEvent.click(ui.getByRole("button"));

@@ -43,7 +43,7 @@ describe("Sidebar", () => {
     expect(footer?.contains(screen.getByTestId("f"))).toBe(true);
   });
 
-  test("nur children gesetzt — Header/Actions/Footer nicht gerendert", () => {
+  test("only children set — Header/Actions/Footer not rendered", () => {
     render(
       <Sidebar testId="sidebar">
         <span data-testid="n">nav</span>

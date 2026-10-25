@@ -191,12 +191,12 @@ describe("firstNavScreenId", () => {
     };
   }
 
-  test("nimmt nav.screen, NICHT nav.id (der prod-Bug)", () => {
+  test("uses nav.screen, NOT nav.id (the production bug)", () => {
     const app = appWithNavs([{ id: "components", screen: "demo:screen:component-list" }]);
     expect(firstNavScreenId(app, ["demo:nav:components"])).toBe("component-list");
   });
 
-  test("überspringt section-headers (nav ohne screen) zum nächsten member", () => {
+  test("skips section headers (nav without screen) to the next member", () => {
     const app = appWithNavs([
       { id: "settings" }, // section header, no screen
       { id: "settings-branding", screen: "demo:screen:branding-settings" },
@@ -206,21 +206,21 @@ describe("firstNavScreenId", () => {
     );
   });
 
-  test("returnt '' wenn alle members section-headers sind (caller MUSS guarden)", () => {
+  test("returns '' when all members are section headers (caller MUST guard)", () => {
     const app = appWithNavs([{ id: "settings" }, { id: "more-headers" }]);
     expect(firstNavScreenId(app, ["demo:nav:settings", "demo:nav:more-headers"])).toBe("");
   });
 
-  test("returnt '' bei unbekannter nav-QN (drift zwischen workspace.nav und registered navs)", () => {
+  test("returns '' for unknown nav-QN (drift between workspace.nav and registered navs)", () => {
     const app = appWithNavs([{ id: "real", screen: "demo:screen:real" }]);
     expect(firstNavScreenId(app, ["demo:nav:ghost"])).toBe("");
   });
 
-  test("returnt '' bei undefined navMembers", () => {
+  test("returns '' for undefined navMembers", () => {
     expect(firstNavScreenId(appWithNavs([]), undefined)).toBe("");
   });
 
-  test("returnt '' bei leerem navMembers-array", () => {
+  test("returns '' for an empty navMembers array", () => {
     expect(firstNavScreenId(appWithNavs([]), [])).toBe("");
   });
 });
@@ -750,7 +750,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     expect(screen.getByText("Vehicles")).toBeTruthy();
   });
 
-  test("Workspace-Filter respektiert features-übergreifende Membership", () => {
+  test("Workspace filter respects membership across features", () => {
     const app = {
       features: [
         {
@@ -805,7 +805,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
   // a bottom-fixed div beside the shell, outside the layout hierarchy and
   // potentially overlapping content on small viewports.
   // This regression check ensures the slot remains part of the layout.
-  test("sidebarFooter-Slot rendert unten in der Sidebar", () => {
+  test("sidebarFooter slot renders at the bottom of the sidebar", () => {
     const legacy = {
       featureName: "demo",
       entities: {},
@@ -838,7 +838,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     expect(footerContainer?.className).toContain("border-t");
   });
 
-  test("ohne sidebarFooter-Prop rendert die Sidebar ohne Footer-Slot (default)", () => {
+  test("without sidebarFooter prop, the sidebar renders without a footer slot (default)", () => {
     const legacy = {
       featureName: "demo",
       entities: {},
@@ -924,7 +924,7 @@ describe("WorkspaceShell — EINE Nav", () => {
     expect(screen.getByText("List")).toBeTruthy();
   });
 
-  test("aktives target in der URL rendert EditorPanel statt der screen-children", () => {
+  test("active target in the URL renders EditorPanel instead of the screen children", () => {
     // Clicking a target node persists the target in
     // searchParams (?t=feat:action&a_*=...). WorkspaceShell then renders
     // EditorPanel instead of RoutedScreen. Use a complete workspace+screen
@@ -997,7 +997,7 @@ describe("WorkspaceShell — EINE Nav", () => {
 // WorkspaceShell threads `user.roles` into a UserRolesProvider around
 // children. KumikoScreen reads that to gate role-restricted
 // screens at render time, not just via nav/workspace-switcher filtering.
-describe("WorkspaceShell wires user.roles into children for screen-level access (#1203)", () => {
+describe("WorkspaceShell wires user.roles into children for screen-level access", () => {
   const restrictedScreen: EntityListScreenDefinition = {
     id: "restricted",
     type: "entityList",

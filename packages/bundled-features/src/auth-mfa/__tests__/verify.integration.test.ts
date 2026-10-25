@@ -390,7 +390,7 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     }
   });
 
-  test("user row homed in a DIFFERENT tenant than the challenge → verify succeeds (#1235)", async () => {
+  test("user row homed in a DIFFERENT tenant than the challenge → verify succeeds", async () => {
     const { user, secret } = await enableMfaFor(8);
 
     // Re-home the read_users row into another tenant — the layout where:

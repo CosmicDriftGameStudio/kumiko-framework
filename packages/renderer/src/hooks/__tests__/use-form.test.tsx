@@ -25,7 +25,7 @@ function makeDispatcher(response?: WriteResult): Dispatcher & {
 }
 
 describe("useForm — mounted without a DispatcherProvider", () => {
-  test("does not throw on mount — fw#1999 regression", () => {
+  test("does not throw on mount", () => {
     const { result } = renderHook(() =>
       useForm({ initial: { title: "" }, submit: { type: "app:write:task:create" } }),
     );

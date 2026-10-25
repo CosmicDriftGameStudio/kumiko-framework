@@ -95,7 +95,7 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(cap.err.join("\n")).not.toContain("kumiko-schema");
   });
 
-  test("generate --help prints usage, exits 0, writes no migration (framework#2191)", async () => {
+  test("generate --help prints usage, exits 0, writes no migration", async () => {
     writeSchemaFile(appCwd, "tbl_a");
     const cap = captureOut();
     const code = await runSchemaCli(["generate", "--help"], appCwd, cap.out);

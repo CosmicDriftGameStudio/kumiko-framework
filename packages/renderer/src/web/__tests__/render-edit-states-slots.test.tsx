@@ -34,7 +34,7 @@ import {
   within,
 } from "./test-utils.tsx";
 
-describe("RenderEdit locked state (#1896)", () => {
+describe("RenderEdit locked state", () => {
   test("disabled renders every field inactive and the submit button inactive", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
@@ -99,7 +99,7 @@ describe("RenderEdit locked state (#1896)", () => {
     expect((titleInput as HTMLInputElement).disabled).toBe(false);
   });
 
-  test("disabled prevents the Delete button from invoking onDelete (fw#1909)", async () => {
+  test("disabled prevents the Delete button from invoking onDelete", async () => {
     const onDelete = mock(async () => {});
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
@@ -122,7 +122,7 @@ describe("RenderEdit locked state (#1896)", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
-  test("Delete sitzt in der secondary-Gruppe, Submit in der Haupt-Gruppe (fw#2568)", () => {
+  test("Delete is in the secondary group, Submit in the primary group", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <RenderEdit<TestValues>
@@ -142,7 +142,7 @@ describe("RenderEdit locked state (#1896)", () => {
     expect(submitButton.closest('[data-testid$="-actions-secondary"]')).toBeNull();
   });
 
-  test("disabled prevents picking a draft candidate from adopting it (fw#1909)", async () => {
+  test("disabled prevents picking a draft candidate from adopting it", async () => {
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-wizard-locked-draftpicker",
       type: "entityEdit",
@@ -906,7 +906,7 @@ describe("RenderEdit — slots.footer", () => {
     expect(primary.className).toContain("max-sm:fixed");
   });
 
-  test("without footerPrimary the footer-slot action stays in the secondary group (fw#1918 unchanged)", async () => {
+  test("without footerPrimary the footer-slot action stays in the secondary group", async () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <ExtensionSectionsProvider value={{ FooterExtra }}>
@@ -1125,7 +1125,7 @@ describe("RenderEdit — slots.footer", () => {
 // nothing on screen to explain it. What makes it safe is not per-tab scoping
 // (that would skip the field instead) but the opposite: validate everything,
 // then move the user to the tab holding the first error.
-describe("RenderEdit tabs mode (fw#3134)", () => {
+describe("RenderEdit tabs mode", () => {
   // Radix Tabs default to activationMode "automatic": the trigger activates on
   // focus, and a synthetic click never moves focus in happy-dom.
   function selectTab(id: string): void {
@@ -1506,7 +1506,7 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
   // tab. This test guards that entityEdit remains unaffected by the per-tab
   // Card unification, avoiding either per-tab Cards (wrong frame count) or a
   // titleless head Card (parity with the non-tabs entityEdit case above).
-  test("stays on the single shared head Card across tabs — unaffected by projectionDetail's per-tab Card unification (fw#3234)", () => {
+  test("stays on the single shared head Card across tabs — unaffected by projectionDetail's per-tab Card unification", () => {
     const { container } = render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <RenderEdit<TestValues>

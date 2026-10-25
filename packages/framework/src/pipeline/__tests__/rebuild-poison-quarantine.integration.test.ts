@@ -173,7 +173,7 @@ async function getCount(table: string): Promise<number | undefined> {
   return rows[0]?.item_count;
 }
 
-describe("rebuildProjection — poison event, strict default (#760)", () => {
+describe("rebuildProjection — poison event, strict default", () => {
   test("apply throw aborts the rebuild: status failed, no dead letters", async () => {
     await createItem("good-1");
     await createItem(POISON_JS);
@@ -193,7 +193,7 @@ describe("rebuildProjection — poison event, strict default (#760)", () => {
   });
 });
 
-describe("rebuildProjection — quarantine mode (#760)", () => {
+describe("rebuildProjection — quarantine mode", () => {
   test("js- and sql-poison events are skipped, recorded, and the rebuild completes", async () => {
     await createItem("good-1");
     await createItem(POISON_JS);
@@ -239,7 +239,7 @@ describe("rebuildProjection — quarantine mode (#760)", () => {
   });
 });
 
-describe("rebuildMultiStreamProjection — errorMode.rebuild.skipApplyErrors (#760)", () => {
+describe("rebuildMultiStreamProjection — errorMode.rebuild.skipApplyErrors", () => {
   async function appendMspEvent(name: string, expectedVersion: number): Promise<void> {
     await append(stack.db, {
       aggregateId: GROUP,

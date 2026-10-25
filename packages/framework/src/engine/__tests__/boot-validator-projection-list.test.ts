@@ -159,7 +159,7 @@ describe("validateBoot — projectionList screens", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("rejects hand-authored sortable on a projectionList screen (fw#2165 review)", () => {
+  test("rejects hand-authored sortable on a projectionList screen", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler({
         name: "schedule:list",
@@ -181,7 +181,7 @@ describe("validateBoot — projectionList screens", () => {
     expect(() => validateBoot([feature])).toThrow(/sortable is derived/);
   });
 
-  test("rejects hand-authored paginated on a projectionList screen (fw#2165 review)", () => {
+  test("rejects hand-authored paginated on a projectionList screen", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler({
         name: "schedule:list",
@@ -386,7 +386,7 @@ describe("validateBoot — projectionList screens", () => {
   // structural (filter) or checked against the declared columns (facets),
   // plus the same "does the bound query's schema actually accept this
   // param" check already does for search/sort.
-  describe("projectionList filter + facets (fw#2224)", () => {
+  describe("projectionList filter + facets", () => {
     test('filter.op "in" requires an array value', () => {
       const feature = defineFeature("ledger", (r) => {
         r.queryHandler({

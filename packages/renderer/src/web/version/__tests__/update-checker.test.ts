@@ -6,19 +6,19 @@ import { describe, expect, test } from "bun:test";
 import { isKumikoBuild, shouldShowUpdate } from "../update-checker.tsx";
 
 describe("shouldShowUpdate", () => {
-  test("andere Server-id als geladen → Banner", () => {
+  test("different server ID than loaded → banner", () => {
     expect(shouldShowUpdate("aaa", { id: "bbb", builtAt: "2026-06-18T00:00:00Z" })).toBe(true);
   });
 
-  test("gleiche id → kein Banner", () => {
+  test("same ID → no banner", () => {
     expect(shouldShowUpdate("aaa", { id: "aaa", builtAt: "2026-06-18T00:00:00Z" })).toBe(false);
   });
 
-  test("kein Server-Stand (Fetch-Fehler/kaputtes JSON → null) → kein Banner", () => {
+  test("no server version (fetch error/invalid JSON → null) → no banner", () => {
     expect(shouldShowUpdate("aaa", null)).toBe(false);
   });
 
-  test("kein geladener Stand (Dev/altes Bundle) → kein Banner, auch bei Server-Drift", () => {
+  test("no loaded version (Dev/old bundle) → no banner, even with server drift", () => {
     expect(shouldShowUpdate(undefined, { id: "bbb", builtAt: "2026-06-18T00:00:00Z" })).toBe(false);
     expect(shouldShowUpdate("", { id: "bbb", builtAt: "2026-06-18T00:00:00Z" })).toBe(false);
   });

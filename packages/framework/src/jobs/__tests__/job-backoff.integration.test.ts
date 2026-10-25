@@ -105,7 +105,7 @@ beforeEach(() => {
   fixedCustomStarts.length = 0;
 });
 
-describe("job backoff waits between retries (fw#3167)", () => {
+describe("job backoff waits between retries", () => {
   test('backoff: "exponential" without delayMs waits the default 1000ms base delay', async () => {
     await stack.http.writeOk(
       "backofffixture:write:trigger-exponential-default",

@@ -190,7 +190,7 @@ describe("entry point 3 — public route, default-deny", () => {
     expect(res.headers.get("Content-Type")).toBe("image/webp");
   });
 
-  test("publishing tenant A's photo does not publish tenant B's photo (#1983/1)", async () => {
+  test("publishing tenant A's photo does not publish tenant B's photo", async () => {
     const photoIdA = await createPhoto(user);
     const photoIdB = await createPhoto(userB);
     const fileIdA = await uploadPhoto(

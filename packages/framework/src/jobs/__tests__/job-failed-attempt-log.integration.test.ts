@@ -60,7 +60,7 @@ function failedLines(errors: readonly LogEntry[]): LogEntry[] {
   return errors.filter((entry) => entry.msg === "job failed");
 }
 
-describe("failed job attempts are logged (fw#3620)", () => {
+describe("failed job attempts are logged", () => {
   test("a throwing handler logs one line per attempt, final only on the last, without payload", async () => {
     const failFeature = defineFeature("failedlog", (r) => {
       r.job("always-fails", { trigger: { manual: true }, retries: 2 }, async () => {

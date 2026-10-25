@@ -177,7 +177,7 @@ async function persistedDeliveryTraces(): Promise<string> {
 }
 
 describe("run-export-jobs cron-context", () => {
-  test("Cron-Job-Kontext (configResolver, KEIN config) → Export läuft durch, bytesWritten > 0", async () => {
+  test("Cron job context (configResolver, no config) → Export completes, bytesWritten > 0", async () => {
     const jobId = await seedPendingJob();
     const job = stack.registry.getJob(JOB_QN);
     expect(job).toBeDefined();

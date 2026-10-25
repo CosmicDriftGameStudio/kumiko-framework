@@ -165,7 +165,7 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
     }
   });
 
-  test("seed-migration mit handler-QN-typo fail-t dry-run (vor write)", async () => {
+  test("seed-migration with handler-QN-typo fails in dry-run (before write)", async () => {
     // The seed dry-run validator must catch the camelCase typo
     // BEFORE the dispatcher attempts the write.
     const dir = makeTempSeedsDir([

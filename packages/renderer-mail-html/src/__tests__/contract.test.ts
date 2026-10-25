@@ -8,7 +8,7 @@ import { createRendererMailHtmlFeature } from "../feature";
 import { mailHtmlRender } from "../render";
 
 describe("renderer-mail-html :: RendererPlugin-Contract", () => {
-  test("mailHtmlRender ist eine Async-Function mit korrekter Signatur", () => {
+  test("mailHtmlRender is an async function with the correct signature", () => {
     expect(typeof mailHtmlRender).toBe("function");
     // Async-Function: returnt Promise<RenderResponse>
     const result = mailHtmlRender as unknown as RendererPlugin["render"];

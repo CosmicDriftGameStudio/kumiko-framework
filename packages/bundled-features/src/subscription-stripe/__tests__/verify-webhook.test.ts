@@ -210,7 +210,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
     expect(event?.status).toBe(SubscriptionStatuses.canceled);
   });
 
-  test("invoice-event ohne subscription-reference → null (one-shot-invoice)", async () => {
+  test("invoice event without a subscription reference → null (one-shot invoice)", async () => {
     // Drift pin: a Stripe one-shot invoice is not recurring. The plugin
     // does not lazy-fetch because there is no subscription ID to fetch.
     // The foundation ignores it with a 200 response.
@@ -273,7 +273,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     expect(event).toBeNull();
   });
 
-  test("currentPeriodEnd wird aus subscription.items[0].current_period_end (Unix-sec) zu ISO konvertiert", async () => {
+  test("currentPeriodEnd is converted from subscription.items[0].current_period_end (Unix seconds) to ISO", async () => {
     const periodEndUnix = 1_780_000_000;
     const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: periodEndUnix }));
     const sig = await signEvent(payload);
@@ -344,7 +344,7 @@ describe("verifyAndParseStripeWebhook — cancelAt mapping", () => {
   });
 });
 
-describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
+describe("verifyAndParseStripeWebhook — no ambient Temporal global", () => {
   test("computes currentPeriodEnd without relying on globalThis.Temporal", async () => {
     const verify = asSubscriptionVerifier(
       verifyAndParseStripeWebhook(webhookRuntime(), {
@@ -366,7 +366,7 @@ describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temp
   });
 });
 
-describe("verifyAndParseStripeWebhook — transient Stripe lookup failure (#2793)", () => {
+describe("verifyAndParseStripeWebhook — transient Stripe lookup failure", () => {
   test("checkout.sessions.retrieve answered 503 by Stripe → ExtraRouteRejection 503 subscription_provider_transient", async () => {
     const stripeApi = Bun.serve({
       port: 0,

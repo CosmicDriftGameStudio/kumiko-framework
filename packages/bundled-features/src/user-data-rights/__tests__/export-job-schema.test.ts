@@ -26,7 +26,7 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
     expect(values).toContain("failed");
   });
 
-  test("Status-Strings sind lowercase + nur a-z (Convention-Check, keine Sortier-Aussage)", () => {
+  test("Status strings are lowercase + contain only a-z (convention check, not a sorting assertion)", () => {
     // The test name is intentionally precise: we check the format, NOT
     // alphabetical sorting — the state machine does not care about sort
     // order, so reordering the constants would not be a bug.
@@ -70,13 +70,13 @@ describe("Export-Konfig in compliance-profiles", () => {
     });
   }
 
-  test("eu-dsgvo Default-TTL ist 7 Tage (sanity-Pin)", () => {
+  test("eu-dsgvo default TTL is 7 days (sanity pin)", () => {
     expect(COMPLIANCE_PROFILES["eu-dsgvo"].userRights.exportDownloadTtl).toEqual({
       days: 7,
     });
   });
 
-  test("Download-TTL <= 30d in jedem Profile (DSGVO-Auskunftsfrist als sanity-cap)", () => {
+  test("Download TTL <= 30d in every profile (GDPR access-request deadline as sanity cap)", () => {
     // The access-request deadline is 30d — keeping the download longer
     // than the response obligation has no purpose.
     for (const profileKey of [
@@ -111,11 +111,11 @@ describe("exportJobEntity Schema-Shape", () => {
     );
   });
 
-  test("Tabellen-Name ist read_export_jobs (snake_case-Convention)", () => {
+  test("Table name is read_export_jobs (snake_case convention)", () => {
     expect(exportJobEntity.table).toBe("read_export_jobs");
   });
 
-  test("status-Default ist pending (neue Job-Rows starten dort)", () => {
+  test("status default is pending (new job rows start there)", () => {
     const statusField = exportJobEntity.fields["status"];
     expect(statusField).toBeDefined();
     if (statusField && "default" in statusField) {
@@ -131,14 +131,14 @@ describe("exportJobEntity Schema-Shape", () => {
     }
   });
 
-  test("bytesWritten ist bigInt-Field (NICHT number) — pinst Atom-1b-Migration", () => {
+  test("bytesWritten is a bigInt field (NOT number)", () => {
     // Drift guard: if someone refactors this back to createNumberField,
     // the database round-trip test will fail (which is useful), but it
     // takes >1s. This check takes <1s and gives a clear error message.
     expect(exportJobEntity.fields.bytesWritten.type).toBe("bigInt");
   });
 
-  test("userId + requestedFromTenantId + status + requestedAt sind required", () => {
+  test("userId + requestedFromTenantId + status + requestedAt are required", () => {
     expect(exportJobEntity.fields["userId"]?.required).toBe(true);
     // requestedFromTenantId is load-bearing: the worker reads it for
     // profile resolution. Without required, an insert without a value
@@ -149,7 +149,7 @@ describe("exportJobEntity Schema-Shape", () => {
     expect(exportJobEntity.fields["requestedAt"]?.required).toBe(true);
   });
 
-  test("Lifecycle-Felder sind nullable (startedAt/completedAt/expiresAt/errorMessage/bytesWritten/downloadStorageKey)", () => {
+  test("Lifecycle fields are nullable (startedAt/completedAt/expiresAt/errorMessage/bytesWritten/downloadStorageKey)", () => {
     // The worker sets these fields, so they are null on insert.
     // required being undefined or false means the field is nullable.
     expect(exportJobEntity.fields.startedAt.required).not.toBe(true);

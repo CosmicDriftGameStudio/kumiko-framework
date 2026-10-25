@@ -417,7 +417,7 @@ describe("Verb-specific entity-handler factories", () => {
     expect(def.name).toBe("note:restore");
   });
 
-  test("defineEntityRestoreHandler ohne softDelete → throw (Runtime-Guard bleibt)", () => {
+  test("defineEntityRestoreHandler without softDelete → throw (runtime guard remains)", () => {
     expect(() => defineEntityRestoreHandler("note", noteEntity, adminAccess)).toThrow(
       /softDelete: true/,
     );

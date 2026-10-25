@@ -41,7 +41,7 @@ const queryProbeFeature = defineFeature("tz-cache-probe", (r) => {
   });
 });
 
-describe("ctx.tz.tenant against the real tenant feature (fw#1648)", () => {
+describe("ctx.tz.tenant against the real tenant feature", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
@@ -77,7 +77,7 @@ describe("ctx.tz.tenant against the real tenant feature (fw#1648)", () => {
 // prove the cache is actually consulted (config() isn't re-invoked on a
 // repeat read) and that config:write:set/reset correctly invalidate it —
 // own stack per describe so cache state never leaks across test files.
-describe("tenant:config:timezone dispatch cache (fw#2462)", () => {
+describe("tenant:config:timezone dispatch cache", () => {
   let stack: TestStack;
   let configCallCount: number;
 

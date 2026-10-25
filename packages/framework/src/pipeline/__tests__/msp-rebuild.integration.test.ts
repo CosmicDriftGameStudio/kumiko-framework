@@ -361,7 +361,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     expect(row).toMatchObject({ invoicesCents: 42_00, paymentsCents: 0 });
   });
 
-  test("rebuild handoff seeds a pending gap for a lower-id write still open during replay, and the live dispatcher delivers it exactly once (#3231)", async () => {
+  test("rebuild handoff seeds a pending gap for a lower-id write still open during replay, and the live dispatcher delivers it exactly once", async () => {
     const frank = "00000000-0000-4000-8000-00000000f106";
     await updateMany(
       stack.db,

@@ -34,7 +34,7 @@ const crossTenantJobs: ReadonlyArray<readonly [FeatureDefinition, string]> = [
   [createUserDataRightsFeature(), "run-forget-cleanup"],
 ];
 
-describe("bundled cross-tenant jobs declare escapeHatch (fw#2914)", () => {
+describe("bundled cross-tenant jobs declare escapeHatch", () => {
   for (const [feature, jobName] of crossTenantJobs) {
     test(`${feature.name}:${jobName}`, () => {
       const job = feature.jobs[jobName];

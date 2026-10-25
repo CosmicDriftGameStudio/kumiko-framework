@@ -49,7 +49,7 @@ describe("snapshotFromMetas", () => {
     expect(snap.version).toBe(1);
   });
 
-  test("sorts by codepoint, not locale — deterministic across ICU locales (#367)", () => {
+  test("sorts by codepoint, not locale — deterministic across ICU locales", () => {
     // localeCompare orders case-insensitively ("apple" < "Zebra"); codepoint
     // puts uppercase (U+005A) before lowercase (U+0061) → "Zebra" < "apple".
     // The snapshot JSON is byte-compared and the order carries into the
@@ -161,7 +161,7 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     expect(sql).not.toContain("WARN: destructive change");
   });
 
-  test("unmanaged: timestamptz → date type change emits an explicit UTC-anchored USING clause (kumiko-framework#1924)", () => {
+  test("unmanaged: timestamptz → date type change emits an explicit UTC-anchored USING clause", () => {
     // A bare `ALTER COLUMN ... TYPE date` (no USING) falls back to PG's
     // implicit ::date cast, which reads the session TimeZone — the exact
     // non-determinism this issue fixes. Managed tables never hit this path
@@ -217,7 +217,7 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
   });
 });
 
-describe("renderMigrationSql — changed index predicates (kumiko-framework#2492)", () => {
+describe("renderMigrationSql — changed index predicates", () => {
   test("diffSnapshots surfaces a whereSql-only change as a changed table (not silently dropped)", () => {
     // Regression for the scenario where an index keeps its name
     // and columns, only its partial-index predicate widens (adding the

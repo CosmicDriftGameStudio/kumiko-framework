@@ -190,7 +190,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(revokedForUserIds).toContain(body.user.id);
   });
 
-  test("a stored user timezone survives the preauth-confirm login (fw#1760)", async () => {
+  test("a stored user timezone survives the preauth-confirm login", async () => {
     const email = "tz-preauth@example.com";
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
     await updateUserViaEventStore(stack.db, userId, { timezone: "Asia/Tokyo" });
@@ -303,7 +303,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
   // regardless, logging the user's other devices out over an enrollment
   // attempt that was rejected. Regression: with status/membership checked
   // BEFORE the write, the revoke call must not fire at all for this case.
-  test("user restricted between start and confirm → invalid_setup_token, no session revoked (#1467)", async () => {
+  test("user restricted between start and confirm → invalid_setup_token, no session revoked", async () => {
     const email = "restricted-midflight@example.com";
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);

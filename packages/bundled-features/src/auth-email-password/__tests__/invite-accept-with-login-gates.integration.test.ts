@@ -343,7 +343,7 @@ describe("invite-accept-with-login: account-status gate", () => {
   });
 });
 
-describe("invite-accept-with-login: soft-deleted email predecessor (fw#2593)", () => {
+describe("invite-accept-with-login: soft-deleted email predecessor", () => {
   // read_users_email_unique is now a partial index (WHERE is_deleted = false),
   // so a soft-deleted row and a live row can share an email. The password
   // lookup must resolve the live row, never the soft-deleted one.

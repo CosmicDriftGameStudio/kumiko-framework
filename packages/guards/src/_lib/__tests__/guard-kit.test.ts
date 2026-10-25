@@ -299,7 +299,7 @@ describe("reportResults — exit-code is the count of failed guards", () => {
 
 // A `security: true` guard's own outcome is never the final
 // verdict — every finding must clear the injected per-repo baseline first.
-describe("runGuards — security guards apply the baseline (infra#787)", () => {
+describe("runGuards — security guards apply the baseline", () => {
   function securityGuard(violationFile: string): AstGuard {
     return {
       name: "sec-guard",
@@ -358,7 +358,7 @@ describe("runGuards — security guards apply the baseline (infra#787)", () => {
     expect(result?.ok).toBe(false);
   });
 
-  test("baseline headroom with no current violations only fails with strictSecurityBaseline (infra#790)", () => {
+  test("baseline headroom with no current violations only fails with strictSecurityBaseline", () => {
     const root = rootWithSourceFile("solon");
     const file = `${root.absPath}/src/present.ts`;
     const headroomGuard: AstGuard = {

@@ -249,7 +249,7 @@ describe("runWorkerApp", () => {
     }
   });
 
-  test("event-triggered job runs end-to-end with Temporal already defined (fw#1725 regression)", async () => {
+  test("event-triggered job runs end-to-end with Temporal already defined", async () => {
     const handle = await boot();
     const dispatchSystemWrite = makeDispatchSystemWrite(handle.entrypoint.dispatcher);
 

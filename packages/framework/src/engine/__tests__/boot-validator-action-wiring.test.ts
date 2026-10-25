@@ -39,7 +39,7 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/rowAction "sync" payload is a function/);
   });
 
-  test("rowAction writeHandler payload as declarative pick → kein Throw", () => {
+  test("rowAction writeHandler payload as declarative pick → does not throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({
         name: "product",
@@ -143,7 +143,7 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/toolbarAction "sync" payload is a function/);
   });
 
-  test("projectionDetail action payload as function → Throw (fw#2166)", () => {
+  test("projectionDetail action payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.screen({
         id: "order-detail",
@@ -491,7 +491,7 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/field "name" renderer is a function/);
   });
 
-  test("entityEdit field with declarative visible/readOnly/required → kein Throw", () => {
+  test("entityEdit field with declarative visible/readOnly/required → does not throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({
         name: "product",
@@ -544,7 +544,7 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/column "amount" renderer is a function/);
   });
 
-  test("projectionDetail relatedList column renderer as function → Throw (fw#2166)", () => {
+  test("projectionDetail relatedList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.screen({
         id: "order-detail",

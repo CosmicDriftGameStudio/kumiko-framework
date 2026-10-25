@@ -13,7 +13,7 @@ import { StatusBadge } from "../status-badge.tsx";
 import { StepBar } from "../step-bar.tsx";
 
 describe("StatusBadge", () => {
-  test("rendert Label mit Tone-Klassen", () => {
+  test("renders Label with tone classes", () => {
     render(
       <StatusBadge tone="ok" testId="badge">
         Operational
@@ -25,7 +25,7 @@ describe("StatusBadge", () => {
     expect(badge.className).toContain("bg-status-ok-surface");
   });
 
-  test("rendert den dekorativen Statuspunkt in der Textfarbe", () => {
+  test("renders the decorative status dot in the text color", () => {
     render(
       <StatusBadge tone="warn" testId="badge">
         Investigating
@@ -50,24 +50,24 @@ describe("StatusBadge", () => {
 });
 
 describe("ProgressBar", () => {
-  test("clampt value auf 0..1 und setzt aria", () => {
+  test("clamps value to 0..1 and sets aria", () => {
     render(<ProgressBar value={1.7} testId="bar" />);
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("100");
   });
 
-  test("tone success färbt die Füllung mit dem Status-ok-Token", () => {
+  test("tone success colors the fill with the status-ok token", () => {
     render(<ProgressBar value={1} tone="success" testId="bar" />);
     const fill = screen.getByTestId("bar").firstElementChild as HTMLElement;
     expect(fill.className).toContain("bg-status-ok");
     expect(fill.className).not.toContain("bg-primary");
   });
 
-  test("negative Werte werden 0", () => {
+  test("negative values become 0", () => {
     render(<ProgressBar value={-3} testId="bar" />);
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("0");
   });
 
-  test("NaN (z.B. aus done/total mit total=0) wird 0 statt NaN durchzureichen", () => {
+  test("NaN (e.g. from done/total with total=0) becomes 0 instead of passing through NaN", () => {
     render(<ProgressBar value={Number.NaN} testId="bar" />);
     const bar = screen.getByTestId("bar");
     expect(bar.getAttribute("aria-valuenow")).toBe("0");
@@ -75,7 +75,7 @@ describe("ProgressBar", () => {
     expect(fill.style.width).toBe("0%");
   });
 
-  test("className landet auf dem Wrapper, h-2 bleibt auf dem Testid-/Track-Element (fw#1970)", () => {
+  test("className lands on the wrapper, h-2 remains on the testId-/track element", () => {
     render(<ProgressBar value={0.5} testId="bar" className="mt-4" />);
     const bar = screen.getByTestId("bar");
     expect(bar.parentElement?.className).toContain("mt-4");
@@ -84,13 +84,13 @@ describe("ProgressBar", () => {
     expect(bar.className).not.toContain("mt-4");
   });
 
-  test("Füll-Element bildet den Wert über die Breite ab", () => {
+  test("the fill element maps the value to the width", () => {
     render(<ProgressBar value={0.5} testId="bar" />);
     const fill = screen.getByTestId("bar").firstElementChild as HTMLElement;
     expect(fill.style.width).toBe("50%");
   });
 
-  test("die testId sitzt auf der Track-Höhe, className erreicht den äußeren Wrapper", () => {
+  test("the testId is on the track height, className reaches the outer wrapper", () => {
     render(<ProgressBar value={0.5} testId="bar" className="mb-4" />);
     const track = screen.getByTestId("bar");
     const wrapper = track.parentElement as HTMLElement;
@@ -100,7 +100,7 @@ describe("ProgressBar", () => {
 });
 
 describe("StepBar", () => {
-  test("rendert einen Step-Eintrag pro Label mit sichtbarem Titel", () => {
+  test("renders one step entry per label with a visible title", () => {
     render(
       <StepBar
         steps={["Basics", "Industry", "Review"]}
@@ -114,7 +114,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-2").textContent).toContain("Review");
   });
 
-  test("markiert nur den aktiven Schritt via aria-current", () => {
+  test("marks only the active step via aria-current", () => {
     render(
       <StepBar
         steps={["Basics", "Industry", "Review"]}
@@ -128,7 +128,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-2").getAttribute("aria-current")).toBeNull();
   });
 
-  test("erledigte Schritte zeigen ein Häkchen statt der Nummer, kommende ihre Nummer", () => {
+  test("completed steps show a checkmark instead of the number, upcoming steps show their number", () => {
     render(
       <StepBar
         steps={["Basics", "Industry", "Review"]}
@@ -150,7 +150,7 @@ describe("StepBar", () => {
     expect(upcoming.textContent).toContain("3");
   });
 
-  test("erledigte Schritte bleiben für Screenreader als erledigt erkennbar", () => {
+  test("completed steps remain identifiable as completed to screen readers", () => {
     render(
       <StepBar
         steps={["Basics", "Industry"]}
@@ -162,7 +162,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-0").textContent).toContain("Done");
   });
 
-  test("mit onStepSelect springen erledigte Schritte zurück, aktueller und kommende sind keine Buttons", () => {
+  test("with onStepSelect, completed steps can be navigated back to, while the current and upcoming steps are not buttons", () => {
     const onStepSelect = mock((_index: number) => {});
     render(
       <StepBar
@@ -182,7 +182,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-2").tagName).toBe("SPAN");
   });
 
-  test("ohne onStepSelect bleiben erledigte Schritte reine Anzeige", () => {
+  test("without onStepSelect, completed steps remain display-only", () => {
     render(
       <StepBar
         steps={["Basics", "Industry"]}
@@ -194,7 +194,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-0").tagName).toBe("SPAN");
   });
 
-  test("narrowLayout steps hält die Schrittzeile auch schmal sichtbar, Label ganz ausgeblendet (keine doppelte Ansage)", () => {
+  test("narrowLayout steps keeps the step row visible even when narrow, with the label completely hidden (no duplicate announcement)", () => {
     render(
       <StepBar
         steps={["Auto", "Preis", "Fotos", "Kontakt"]}
@@ -212,7 +212,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-compact").className).not.toContain("sr-only");
   });
 
-  test("ohne narrowLayout bleibt die Schrittzeile unter sm ausgeblendet", () => {
+  test("without narrowLayout, the step row remains hidden below sm", () => {
     render(
       <StepBar
         steps={["Basics", "Industry"]}
@@ -227,7 +227,7 @@ describe("StepBar", () => {
   });
 
   for (const orientation of ["horizontal", "vertical"] as const) {
-    test(`selectableSteps="all" (${orientation}): kommende Chips sind Buttons mit Nummer und ohne Done-Label, der aktuelle nie`, () => {
+    test(`selectableSteps="all" (${orientation}): upcoming chips are buttons with a number and without a Done label, the current one never is`, () => {
       const onStepSelect = mock((_index: number) => {});
       render(
         <StepBar
@@ -253,7 +253,7 @@ describe("StepBar", () => {
       expect(current.getAttribute("aria-current")).toBe("step");
     });
 
-    test(`doneSteps (${orientation}) überstimmt die Position: ein späterer Schritt ist erledigt, ein früherer nicht`, () => {
+    test(`doneSteps (${orientation}) overrides the position: a later step is completed, an earlier one is not`, () => {
       render(
         <StepBar
           steps={["Basics", "Industry", "Review"]}
@@ -277,7 +277,7 @@ describe("StepBar", () => {
     });
   }
 
-  test("doneSteps ohne selectableSteps: nur erledigte Chips sind Buttons", () => {
+  test("doneSteps without selectableSteps: only completed chips are buttons", () => {
     render(
       <StepBar
         steps={["Basics", "Industry", "Review"]}
@@ -292,7 +292,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-2").tagName).toBe("BUTTON");
   });
 
-  test("rendert den compactLabel-Fallback für schmale Viewports", () => {
+  test("renders the compactLabel fallback for narrow viewports", () => {
     render(
       <StepBar
         steps={["Basics", "Industry"]}
@@ -400,7 +400,7 @@ describe("ModeSwitch variants", () => {
 });
 
 describe("ModeSwitch", () => {
-  test("markiert aktive Option und feuert onChange", () => {
+  test("marks the active option and fires onChange", () => {
     const onChange = mock((_v: string) => {});
     render(
       <ModeSwitch
@@ -432,7 +432,7 @@ describe("ModeSwitch", () => {
     expect(className).not.toContain(" h-8");
   });
 
-  test("#902: Buttons sind als zusammengehörige Gruppe gekennzeichnet", () => {
+  test("buttons are marked as a group", () => {
     render(
       <ModeSwitch
         value="a"
@@ -448,7 +448,7 @@ describe("ModeSwitch", () => {
 });
 
 describe("CollapsibleSection", () => {
-  test("async geflipptes defaultOpen öffnet nachträglich", () => {
+  test("async flipped defaultOpen opens afterward", () => {
     const { rerender, container } = render(
       <CollapsibleSection title="Erweitert" defaultOpen={false}>
         <span>Inhalt</span>
@@ -464,7 +464,7 @@ describe("CollapsibleSection", () => {
     expect(container.querySelector("details")?.open).toBe(true);
   });
 
-  test("Kopfzeile hat dieselbe Höhe wie Eingabefelder", () => {
+  test("header has the same height as input fields", () => {
     const { container } = render(
       <CollapsibleSection title="Erweitert">
         <span>Inhalt</span>
@@ -475,7 +475,7 @@ describe("CollapsibleSection", () => {
 });
 
 describe("DetailList", () => {
-  test("rendert Label/Wert-Paare als dl", () => {
+  test("renders label/value pairs as dl", () => {
     render(<DetailList rows={[{ label: "Name", value: "Acme" }]} testId="dl" />);
     expect(screen.getByText("Name").tagName).toBe("DT");
     expect(screen.getByText("Acme").tagName).toBe("DD");
@@ -483,7 +483,7 @@ describe("DetailList", () => {
 });
 
 describe("SectionCard", () => {
-  test("rendert Titel, Action-Slot und Children über das Card-Primitive", () => {
+  test("renders title, action slot, and children through the Card primitive", () => {
     render(
       <SectionCard title="Verlauf" action={<button type="button">Range</button>}>
         <span>Body</span>
@@ -496,7 +496,7 @@ describe("SectionCard", () => {
 });
 
 describe("StatCard", () => {
-  test("rendert Label, Wert, Delta und Sub-Zeile", () => {
+  test("renders label, value, delta, and sub-row", () => {
     render(
       <StatCard
         label="Restschuld"
@@ -535,7 +535,7 @@ describe("StatCard", () => {
     expect(labelBox?.className).toContain("basis-[7rem]");
   });
 
-  test("accentColor färbt den Icon-Chip inline", () => {
+  test("accentColor colors the icon chip inline", () => {
     const { container } = render(
       <StatCard
         icon={<svg aria-hidden="true" />}
@@ -551,14 +551,14 @@ describe("StatCard", () => {
 });
 
 describe("MiniStat", () => {
-  test("emphasize hebt die Kachel mit Ring hervor", () => {
+  test("emphasize highlights the tile with a ring", () => {
     render(<MiniStat label="Rate" value="890 €" emphasize testId="mini" />);
     expect(screen.getByTestId("mini").className).toContain("ring-1");
   });
 });
 
 describe("EmptyState", () => {
-  test("rendert Titel, Beschreibung und CTA", () => {
+  test("renders title, description, and CTA", () => {
     render(
       <EmptyState
         title="Noch keine Monitore"
@@ -577,7 +577,7 @@ describe("smoothPath", () => {
     expect(smoothPath([{ x: 1, y: 2 }])).toBe("M 1.0 2.0 L 1.0 2.0");
   });
 
-  test("glättet über Quadratic-Midpoints und endet am letzten Punkt", () => {
+  test("smooths via quadratic midpoints and ends at the last point", () => {
     const d = smoothPath([
       { x: 0, y: 0 },
       { x: 10, y: 20 },
@@ -590,7 +590,7 @@ describe("smoothPath", () => {
 });
 
 describe("StatusBarChart", () => {
-  test("rendert einen Bar pro Entry mit aria-Label", () => {
+  test("renders one bar per entry with an aria-label", () => {
     const { container } = render(
       <StatusBarChart
         ariaLabel="Uptime 90 Tage"
@@ -608,7 +608,7 @@ describe("StatusBarChart", () => {
     expect(screen.getByText("heute")).toBeTruthy();
   });
 
-  test("dense: fixed-size flat bars ohne Tick/Gradient, aria-Label + Tooltips bleiben", () => {
+  test("dense: fixed-size flat bars without tick/gradient, aria-label + tooltips remain", () => {
     const { container } = render(
       <StatusBarChart
         dense
@@ -629,7 +629,7 @@ describe("StatusBarChart", () => {
     expect(container.querySelectorAll("title").length).toBe(3); // aria title + 2 entry tooltips
   });
 
-  test("dense: level 0 bleibt als sichtbare Bar mit Tooltip erhalten", () => {
+  test("dense: level 0 remains a visible bar with a tooltip", () => {
     const { container } = render(
       <StatusBarChart
         dense
@@ -643,7 +643,7 @@ describe("StatusBarChart", () => {
     expect(rect?.querySelector("title")?.textContent).toBe("Februar: offen");
   });
 
-  test("dense: leere Entries reservieren keine 36px-Höhe", () => {
+  test("dense: empty entries do not reserve 36px of height", () => {
     const { container } = render(<StatusBarChart dense ariaLabel="Leer" entries={[]} />);
     const placeholder = container.querySelector("div[aria-hidden]");
     expect(placeholder?.className).toBe("h-3");
@@ -789,7 +789,7 @@ describe("TimeseriesChart axes and height", () => {
 });
 
 describe("TimeseriesChart", () => {
-  test("ein einzelner Messwert rendert einen Punkt statt emptyContent", () => {
+  test("a single data point renders a dot instead of emptyContent", () => {
     const { container } = render(
       <TimeseriesChart
         points={[{ atMs: 1000, value: 42 }]}
@@ -812,7 +812,7 @@ describe("TimeseriesChart", () => {
     expect(container.querySelectorAll("[data-reference-line]").length).toBe(1);
   });
 
-  test("ein einzelner Wert ohne Referenzlinie sitzt nicht am Rand", () => {
+  test("a single value without a reference line is not at the edge", () => {
     const { container } = render(
       <TimeseriesChart
         points={[{ atMs: 1000, value: 42 }]}
@@ -826,7 +826,7 @@ describe("TimeseriesChart", () => {
     expect(cy).toBeLessThan(54);
   });
 
-  test("ohne Messwert rendert emptyContent statt Chart", () => {
+  test("without a data value, renders emptyContent instead of the chart", () => {
     const { container } = render(
       <TimeseriesChart
         points={[{ atMs: 1000, value: null }]}
@@ -840,7 +840,7 @@ describe("TimeseriesChart", () => {
     expect(container.querySelector("svg")).toBeNull();
   });
 
-  test("rendert Linie + Fläche + Achsen-Labels", () => {
+  test("renders line + area + axis labels", () => {
     const { container } = render(
       <TimeseriesChart
         points={[
@@ -864,7 +864,7 @@ describe("TimeseriesChart", () => {
     { atMs: 1000, value: max },
   ];
 
-  test("Referenzlinie liegt auf der y-Skala der Datenreihe", () => {
+  test("reference line lies on the data series y scale", () => {
     const { container } = render(
       <TimeseriesChart
         points={flatSeries(200)}
@@ -879,7 +879,7 @@ describe("TimeseriesChart", () => {
     expect(line?.getAttribute("y2")).toBe("32");
   });
 
-  test("Referenzlinie über dem Datenmaximum erweitert die Skala", () => {
+  test("reference line above the data maximum extends the scale", () => {
     const { container } = render(
       <TimeseriesChart
         points={flatSeries(100)}
@@ -895,7 +895,7 @@ describe("TimeseriesChart", () => {
     );
   });
 
-  test("aria-describedby verweist auf desc mit den Linien-Labels", () => {
+  test("aria-describedby points to desc with the line labels", () => {
     const { container } = render(
       <TimeseriesChart
         points={flatSeries(200)}
@@ -917,7 +917,7 @@ describe("TimeseriesChart", () => {
     );
   });
 
-  test("ungültige Referenzwerte werden nicht gerendert", () => {
+  test("invalid reference values are not rendered", () => {
     const { container } = render(
       <TimeseriesChart
         points={flatSeries(200)}
@@ -935,7 +935,7 @@ describe("TimeseriesChart", () => {
     expect(container.querySelector("desc")).toBeNull();
   });
 
-  test("ohne Referenzlinien bleibt das Markup unverändert", () => {
+  test("without reference lines, the markup remains unchanged", () => {
     const props = {
       points: flatSeries(200),
       windowStartMs: 0,
@@ -962,7 +962,7 @@ describe("StackedAreaChart", () => {
   };
   const point = (atMs: number, value: number) => ({ atMs, value });
 
-  test("ohne Datenpunkt rendert emptyContent", () => {
+  test("without a data point, renders emptyContent", () => {
     const { container } = render(
       <StackedAreaChart
         {...baseProps}
@@ -974,7 +974,7 @@ describe("StackedAreaChart", () => {
     expect(container.querySelector("svg")).toBeNull();
   });
 
-  test("ein einzelner Bucket rendert einen Punkt statt emptyContent", () => {
+  test("a single bucket renders a dot instead of emptyContent", () => {
     const { container } = render(
       <StackedAreaChart
         {...baseProps}
@@ -989,7 +989,7 @@ describe("StackedAreaChart", () => {
     expect(container.innerHTML).not.toContain("NaN");
   });
 
-  test("zwei Buckets rendern weiter Flächen ohne Punkte", () => {
+  test("two buckets continue to render areas without points", () => {
     const { container } = render(
       <StackedAreaChart
         {...baseProps}
@@ -1001,7 +1001,7 @@ describe("StackedAreaChart", () => {
     expect(container.querySelectorAll('[data-testid="chart-band-edge-a"]').length).toBe(1);
   });
 
-  test("ein einzelner Bucket mit Summe 0 rendert emptyContent", () => {
+  test("a single bucket with sum 0 renders emptyContent", () => {
     const { container } = render(
       <StackedAreaChart
         {...baseProps}

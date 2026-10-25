@@ -110,7 +110,7 @@ function captureFormProps(fillHeight?: boolean): FormProps {
   return captured;
 }
 
-describe("entityEdit fillHeight (fw#3381)", () => {
+describe("entityEdit fillHeight", () => {
   test("default: form fills the height with a pinned action bar", () => {
     const props = captureFormProps();
     expect(props.fillHeight).toBe(true);

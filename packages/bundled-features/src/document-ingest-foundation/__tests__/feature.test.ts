@@ -19,7 +19,7 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(createDocumentIngestFoundationFeature().requires).toContain("config");
   });
 
-  test("declares tenant-lifecycle as a hard requirement — it hosts EXT_TENANT_DATA (#1621)", () => {
+  test("declares tenant-lifecycle as a hard requirement — it hosts EXT_TENANT_DATA", () => {
     expect(createDocumentIngestFoundationFeature().requires).toContain("tenant-lifecycle");
   });
 
@@ -29,14 +29,14 @@ describe("documentIngestFoundationFeature — shape", () => {
     ]);
   });
 
-  test("registers an entity-exact EXT_TENANT_DATA destroy hook (#1621)", () => {
+  test("registers an entity-exact EXT_TENANT_DATA destroy hook", () => {
     const usage = createDocumentIngestFoundationFeature().extensionUsages.find(
       (u) => u.extensionName === EXT_TENANT_DATA && u.entityName === "documentExtract",
     );
     expect(typeof usage?.options?.["destroy"]).toBe("function");
   });
 
-  test("documentExtract entity pins table name, field set, and pages subject-encryption (#1621)", () => {
+  test("documentExtract entity pins table name, field set, and pages subject-encryption", () => {
     expect(documentExtractEntity.table).toBe("read_document_extracts");
     expect(Object.keys(documentExtractEntity.fields)).toEqual([
       "fileRefId",
@@ -53,7 +53,7 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(documentExtractEntity.fields.meta).toMatchObject({ type: "jsonb" });
   });
 
-  test("exports writeIngestPages / readIngestPages for the encrypted pages wire format (#1549)", async () => {
+  test("exports writeIngestPages / readIngestPages for the encrypted pages wire format", async () => {
     const { readIngestPages, writeIngestPages } = await import("../pages.ts");
     const pages = [{ pageNumber: 1, text: "x" }];
     expect(readIngestPages(writeIngestPages(pages))).toEqual(pages);
@@ -126,7 +126,7 @@ describe("documentIngestFoundationFeature.exports — typed config handles", () 
     expect(createDocumentIngestFoundationFeature().configKeys["maxPagesPerFile"]?.default).toBe(50);
   });
 
-  test("ocrLanguage rejects a value that isn't a Tesseract -l argument (#1501)", () => {
+  test("ocrLanguage rejects a value that isn't a Tesseract -l argument", () => {
     const pattern = createDocumentIngestFoundationFeature().configKeys["ocrLanguage"]?.pattern;
     expect(pattern).toBeDefined();
     const re = new RegExp(pattern!.regex, pattern!.flags);
@@ -137,7 +137,7 @@ describe("documentIngestFoundationFeature.exports — typed config handles", () 
     expect(re.test("rm -rf /")).toBe(false);
   });
 
-  test("maxPagesPerFile is bounded so a tenant can't disable or unbound the cap (#1501)", () => {
+  test("maxPagesPerFile is bounded so a tenant can't disable or unbound the cap", () => {
     const bounds = createDocumentIngestFoundationFeature().configKeys["maxPagesPerFile"]?.bounds;
     expect(bounds).toEqual({ min: 1, max: 500 });
   });

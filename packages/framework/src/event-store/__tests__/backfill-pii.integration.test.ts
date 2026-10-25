@@ -343,7 +343,7 @@ describe("backfillEventPiiEncryption", () => {
     expect(system["address"]).toBe("ops@x.com");
   });
 
-  test('an absent owner with whenAbsent: "tenant" backfills under the tenant key (fw#2776)', async () => {
+  test('an absent owner with whenAbsent: "tenant" backfills under the tenant key', async () => {
     const p4 = generateId();
     await appendPlain(p4, "ping", PING_TENANT_EVENT_TYPE, {
       targetId: null,
@@ -399,7 +399,7 @@ describe("backfillEventPiiEncryption", () => {
     expect(second.failures).toEqual([]);
   });
 
-  test("dryRun mints no subject key (fw#2255) and predicts the real run's counters exactly", async () => {
+  test("dryRun mints no subject key and predicts the real run's counters exactly", async () => {
     const c1 = generateId();
     await appendPlain(c1, "contact", "contact.created", { id: c1, email: "a@x.com" });
 
@@ -425,7 +425,7 @@ describe("backfillEventPiiEncryption", () => {
   // a dry run) — the InMemoryKmsAdapter tests above can't see that, since
   // there is no row store to leak into. Run the same dry-run invariant
   // against PgKmsAdapter on real Postgres and assert on the table itself.
-  test("dryRun against PgKmsAdapter mints no row in kumiko_subject_keys (fw#2255)", async () => {
+  test("dryRun against PgKmsAdapter mints no row in kumiko_subject_keys", async () => {
     const c1 = generateId();
     await appendPlain(c1, "contact", "contact.created", { id: c1, email: "a@x.com" });
 
@@ -577,7 +577,7 @@ describe("backfillEventPiiEncryption", () => {
   });
 });
 
-describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
+describe("backfillEventPiiEncryption: owner-resolution chain", () => {
   async function insertNoteProjectionRow(id: string, authorId: string): Promise<void> {
     await asRawClient(testDb.db).unsafe(
       `INSERT INTO "${noteTable.tableName}" (id, tenant_id, author_id, body) VALUES ($1, $2, $3, $4)`,
@@ -738,7 +738,7 @@ describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
   });
 });
 
-describe("backfillEventPiiEncryption: whenAbsent owner chain (fw#3654)", () => {
+describe("backfillEventPiiEncryption: whenAbsent owner chain", () => {
   async function payloadOf(id: string, version: number): Promise<Record<string, unknown>> {
     const events = await loadAggregate(testDb.db, id, TENANT);
     return events[version]?.payload as Record<string, unknown>;
@@ -845,7 +845,7 @@ describe("backfillEventPiiEncryption: explicit null owner is not a missing owner
   });
 });
 
-describe("backfillEventPiiEncryption: owner re-key (fw#3670)", () => {
+describe("backfillEventPiiEncryption: owner re-key", () => {
   const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
   const OTHER_TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
 
@@ -1123,7 +1123,7 @@ describe("backfillEventPiiEncryption: owner re-key (fw#3670)", () => {
 // resolver.ts / pii-field-encryption.ts) special-cases subject kind, so the
 // expectation is that this backfill already covers it for lifecycle events
 // with zero new code — these tests pin that down rather than assume it.
-describe("backfillEventPiiEncryption: record subject (kumiko-framework#2786)", () => {
+describe("backfillEventPiiEncryption: record subject", () => {
   test("encrypts a lifecycle payload under record:<entity>:<id>, not user:<id>", async () => {
     const s1 = generateId();
     await appendPlain(s1, "survey", "survey.created", { id: s1, answer: "plaintext answer" });
@@ -1215,7 +1215,7 @@ describe("backfillEventPiiEncryption: record subject (kumiko-framework#2786)", (
   });
 });
 
-describe("backfillEventPiiEncryption: raw jsonb column type (fw#2253)", () => {
+describe("backfillEventPiiEncryption: raw jsonb column type", () => {
   // The UPDATE used to wrap outcome.payload in JSON.stringify before handing
   // it to the ::jsonb cast — Bun.SQL already serializes objects, so the
   // double encoding produced a jsonb STRING scalar instead of an object.
@@ -1247,7 +1247,7 @@ describe("backfillEventPiiEncryption: raw jsonb column type (fw#2253)", () => {
 // through the same resolveEventSubject (subject-resolver.ts). If they ever
 // diverged, an Art. 17 erase of one subject key would leave the same field's
 // other-path ciphertext readable under a different key.
-describe("backfillEventPiiEncryption: catalog subject kinds match live append (fw#2801)", () => {
+describe("backfillEventPiiEncryption: catalog subject kinds match live append", () => {
   test("user subject: backfill and live append encrypt under the same subject key", async () => {
     const preKmsId = generateId();
     await appendPlain(preKmsId, "ping", PING_EVENT_TYPE, {
@@ -1342,7 +1342,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
   });
 });
 
-describe("backfillEventPiiEncryption: whenAbsent self (fw#3811)", () => {
+describe("backfillEventPiiEncryption: whenAbsent self", () => {
   const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
 
   async function slipBody(id: string): Promise<string> {

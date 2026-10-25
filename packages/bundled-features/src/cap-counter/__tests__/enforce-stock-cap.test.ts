@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { enforceStockCap } from "../enforce-cap.ts";
 
 describe("enforceStockCap", () => {
-  test("hardSlot: Grenze ist exakt limit (kein Buffer)", () => {
+  test("hardSlot: limit is exact (no buffer)", () => {
     const at = (current: number) => enforceStockCap({ current, limit: 5, profile: "hardSlot" });
     expect(at(0).state).toBe("ok");
     expect(at(4).state).toBe("ok");
@@ -11,7 +11,7 @@ describe("enforceStockCap", () => {
     expect(at(6).state).toBe("exceeded");
   });
 
-  test("storage: 5% Buffer über dem limit", () => {
+  test("storage: 5% buffer above the limit", () => {
     const at = (current: number) => enforceStockCap({ current, limit: 100, profile: "storage" });
     expect(at(104).state).toBe("ok"); // 104 < 105 (=100×1.05)
     expect(at(105).state).toBe("exceeded");
@@ -23,11 +23,11 @@ describe("enforceStockCap", () => {
     expect(at(12).state).toBe("exceeded");
   });
 
-  test("limit 0 = keine Allowance → jede Anlage exceeded", () => {
+  test("limit 0 = no allowance → every insertion is exceeded", () => {
     expect(enforceStockCap({ current: 0, limit: 0, profile: "hardSlot" }).state).toBe("exceeded");
   });
 
-  test("Result trägt current + limit für die Caller-Fehlermeldung", () => {
+  test("Result includes current + limit for the caller error message", () => {
     expect(enforceStockCap({ current: 7, limit: 5, profile: "hardSlot" })).toEqual({
       state: "exceeded",
       current: 7,

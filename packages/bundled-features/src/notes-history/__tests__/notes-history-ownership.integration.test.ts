@@ -243,7 +243,7 @@ describe("notes-history integration — row ownership (where-rule)", () => {
   });
 });
 
-describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
+describe("unqualified where-rule fails closed, not open", () => {
   // Same shape as `teamOwnership` above, but the subquery's inner reference
   // is left unqualified (`entity_id` instead of `t.entity_id`/`${ctx.tableName}.entity_id`).
   // Postgres binds the unqualified name to the innermost table (`t`) first,

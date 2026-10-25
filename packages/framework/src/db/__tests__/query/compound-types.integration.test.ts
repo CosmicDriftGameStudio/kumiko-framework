@@ -31,7 +31,7 @@ const locatedTsCols = [
 ] as const;
 
 describe("money — roundtrip", () => {
-  test("EUR-Betrag: insert + fetchOne gibt gleichen bigint + currency zurück", async () => {
+  test("EUR amount: insert + fetchOne returns the same bigint + currency", async () => {
     await withTable(moneyCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, {
         price: 1234n,
@@ -59,7 +59,7 @@ describe("money — roundtrip", () => {
     });
   });
 
-  test("JPY-Currency roundtrip (kein Cent, ganzer Yen)", async () => {
+  test("JPY currency roundtrip (no cents, whole yen)", async () => {
     await withTable(moneyCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, {
         price: 150000n,
@@ -73,7 +73,7 @@ describe("money — roundtrip", () => {
     });
   });
 
-  test("großer Betrag (> 2^53 cents — bigint-Boundary, precision-loss-Guard)", async () => {
+  test("large amount (> 2^53 cents — bigint boundary, precision-loss guard)", async () => {
     await withTable(moneyCols, async ({ db, meta }) => {
       // Above Number.MAX_SAFE_INTEGER a number return would silently lose precision;
       // the bigint round-trip has to stay exact.
@@ -107,7 +107,7 @@ describe("locatedTimestamp — roundtrip", () => {
     });
   });
 
-  test("Timezone America/New_York bleibt als String erhalten", async () => {
+  test("Timezone America/New_York remains a string", async () => {
     await withTable(locatedTsCols, async ({ db, meta }) => {
       const ins = await insertOne<{ id: string }>(db, meta, {
         due_at_utc: "2026-01-15T13:00:00.000Z",

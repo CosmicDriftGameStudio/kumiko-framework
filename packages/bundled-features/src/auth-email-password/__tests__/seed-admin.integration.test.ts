@@ -57,7 +57,7 @@ beforeEach(async () => {
 });
 
 describe("seedAdmin", () => {
-  test("legt Tenants, User mit gehashtem Password und Memberships an — Login-Roundtrip funktioniert", async () => {
+  test("creates tenants, a user with a hashed password, and memberships — the login roundtrip works", async () => {
     const { id: userId } = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "secret-pw",
@@ -108,7 +108,7 @@ describe("seedAdmin", () => {
     expect(betaMembership[0]?.["roles"]).toBe(JSON.stringify(["User"]));
   });
 
-  test("emailVerified: true wird an seedUserWithPassword durchgereicht", async () => {
+  test("emailVerified: true is passed through to seedUserWithPassword", async () => {
     await seedAdmin(stack.db, {
       email: "verified@example.com",
       password: "secret-pw",
@@ -122,7 +122,7 @@ describe("seedAdmin", () => {
     expect(user?.["emailVerified"]).toBe(true);
   });
 
-  test("emailVerified: ohne Flag bleibt der User unverifiziert (Default)", async () => {
+  test("emailVerified: without the flag, the user remains unverified (default)", async () => {
     await seedAdmin(stack.db, {
       email: "unverified@example.com",
       password: "secret-pw",
@@ -135,7 +135,7 @@ describe("seedAdmin", () => {
     expect(user?.["emailVerified"]).toBe(false);
   });
 
-  test("idempotent: zweiter Aufruf no-op (kein Crash, Stand bleibt)", async () => {
+  test("idempotent: the second call is a no-op (no crash, state remains unchanged)", async () => {
     // Erstaufruf
     const { id: userId1 } = await seedAdmin(stack.db, {
       email: "admin@example.com",

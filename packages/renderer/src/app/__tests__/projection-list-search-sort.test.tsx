@@ -131,7 +131,7 @@ function renderProjectionList(
   );
 }
 
-describe("ProjectionListBody — search/sort capability wiring (fw#2165)", () => {
+describe("ProjectionListBody search/sort capability wiring", () => {
   test("search-capable screen: a URL search term lands in the query payload", async () => {
     queryCalls = [];
     renderProjectionList(

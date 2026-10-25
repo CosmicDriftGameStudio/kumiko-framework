@@ -395,7 +395,7 @@ describe("runProdApp", () => {
     expect(await withoutSocket.text()).toBe("unknown");
   });
 
-  test("extraRoutes: entry:signature dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+  test("extraRoutes: entry:signature dispatchSystemWrite writes as the target tenant's SystemAdmin, registry available", async () => {
     // Wiring for provider webhook routes (billing-foundation
     // createSubscriptionWebhookRoute): the route authenticates via
     // provider signature (verify()) and then writes past the JWT path
@@ -530,7 +530,7 @@ describe("runProdApp", () => {
     expect(res.headers.get("etag")).toBeTruthy();
   });
 
-  test("static-fallback: a matched extraRoute's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
+  test("static-fallback: a matched extraRoute's own deliberate 404 stays 404, not masked as the SPA shell", async () => {
     // tryHonoFirst used to treat ANY 404 as "no
     // route matched" and fall through to index.html with status 200 —
     // masking a matched route's intentional 404 (e.g. default-deny reads
@@ -562,7 +562,7 @@ describe("runProdApp", () => {
     expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
   });
 
-  test("static-fallback: an unknown SPA route still gets the SPA shell alongside a route that 404s (#2435)", async () => {
+  test("static-fallback: an unknown SPA route still gets the SPA shell alongside a route that 404s", async () => {
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>SPA shell</html>",
     });
@@ -585,7 +585,7 @@ describe("runProdApp", () => {
     expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
   });
 
-  test("static-fallback: an unmatched /api/* path stays a plain 404, no marker leak (#2435)", async () => {
+  test("static-fallback: an unmatched /api/* path stays a plain 404, no marker leak", async () => {
     // /api/* is a passthrough in buildStaticFallback (always Hono, never
     // the SPA shell) — bypasses tryHonoFirst entirely, so the strip at
     // that passthrough site is what's under test here. anonymousAccess is
@@ -607,7 +607,7 @@ describe("runProdApp", () => {
     expect(res.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
   });
 
-  test("no staticDir (split-deploy/API-only boot): a router-miss never leaks the internal marker header to the client (#2435)", async () => {
+  test("no staticDir (split-deploy/API-only boot): a router-miss never leaks the internal marker header to the client", async () => {
     // Without staticDir, fetchHandler is app.fetch directly — it never goes
     // through buildStaticFallback/tryHonoFirst, so the strip has to happen
     // at this bypass site too (run-prod-app.ts's fetchHandler assembly).
@@ -705,7 +705,7 @@ describe("runProdApp", () => {
     expect(await res.text()).toContain("SPA shell");
   });
 
-  test("static-fallback: non-GET ohne Hono-Match → 404, nicht SPA-Shell (#259)", async () => {
+  test("static-fallback: non-GET without a Hono match → 404, not the SPA shell", async () => {
     // Production scenario: a POST to a misconfigured webhook path (the route
     // was not mounted). Returning index.html with status 200 would tell the
     // provider the event was delivered, causing events to be silently lost.
@@ -726,7 +726,7 @@ describe("runProdApp", () => {
     expect(diskFile.status).toBe(404);
   });
 
-  test("static-fallback: HEAD auf SPA-Route bleibt 200 (spiegelt GET)", async () => {
+  test("static-fallback: HEAD on SPA route remains 200 (mirrors GET)", async () => {
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>SPA shell</html>",
     });
@@ -774,7 +774,7 @@ describe("runProdApp", () => {
     expect(adminBody).not.toContain("__KUMIKO_SCHEMA__");
   });
 
-  test("staticDir without hostDispatch: HTML never carries the schema; GET /api/schema needs a signed-in user (kumiko-framework#3314)", async () => {
+  test("staticDir without hostDispatch: HTML never carries the schema; GET /api/schema needs a signed-in user", async () => {
     // A real POST /api/auth/login round-trip needs the tenant/user bundled
     // features' own projection tables (e.g. read_tenants), which this
     // suite's boot() doesn't migrate (migrations: false, only the app's own
@@ -823,7 +823,7 @@ describe("runProdApp", () => {
     expect(res.status).toBe(401);
   });
 
-  test("extraContext.searchAdapter absent → GET /api/schema marks every feature searchAdapterMissing (#2062)", async () => {
+  test("extraContext.searchAdapter absent → GET /api/schema marks every feature searchAdapterMissing", async () => {
     const handle = await boot();
     const token = await handle.entrypoint.jwt.sign({
       id: "schema-probe-user",
@@ -844,7 +844,7 @@ describe("runProdApp", () => {
     expect(schema.features.every((f) => f.searchAdapterMissing === true)).toBe(true);
   });
 
-  test("extraContext.searchAdapter wired → GET /api/schema omits searchAdapterMissing (#2062)", async () => {
+  test("extraContext.searchAdapter wired → GET /api/schema omits searchAdapterMissing", async () => {
     const handle = await boot(undefined, {
       // Presence-only probe — run-prod-app's cast-boundary read only checks
       // truthiness, so a minimal stand-in is enough without pulling in the
@@ -887,7 +887,7 @@ describe("runProdApp", () => {
     expect(res.headers.get("Location")).toBe("https://target.example");
   });
 
-  test("hostDispatch: 404-Modus für unbekannte Hosts", async () => {
+  test("hostDispatch: 404 mode for unknown hosts", async () => {
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>fallback</html>",
     });
@@ -983,7 +983,7 @@ describe("runProdApp", () => {
     );
   });
 
-  test("hostDispatch: assets bleiben host-unabhängig erreichbar", async () => {
+  test("hostDispatch: assets remain accessible regardless of host", async () => {
     // /assets/* must bypass hostDispatch: the client loads bundles by absolute
     // URL, so host-based routing would be incorrect.
     const tmpStaticDir = await createTempStaticDir({
@@ -1119,7 +1119,7 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
   });
 
-  test("Hard Boot-Gate: pending kumiko-Migration → SchemaDriftError, kein Boot", async () => {
+  test("Hard Boot Gate: pending kumiko migration → SchemaDriftError, no boot", async () => {
     // Synthetic kumiko/migrations directory with a checked-in migration that
     // has not been applied (no _kumiko_migrations entry). runProdApp must abort
     // with SchemaDriftError before anything else is initialized.
@@ -1143,7 +1143,7 @@ describe("runProdApp", () => {
   });
 });
 
-describe("runProdApp — real Bun.serve socket resolves the client IP (fw#3260 addendum)", () => {
+describe("runProdApp — real Bun.serve socket resolves the client IP (addendum)", () => {
   // Every other test in this file drives handle.fetch()/entrypoint.app.fetch()
   // directly, which never goes through Bun.serve's real TCP socket — so none
   // of them can catch a regression where the socket address gets lost before
@@ -1273,7 +1273,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
     }
   });
 
-  test("eventDispatcher.disabled: kein lokaler Dispatcher gebaut", async () => {
+  test("eventDispatcher.disabled: no local dispatcher built", async () => {
     const handle = await boot(undefined, {
       eventDispatcher: { disabled: true },
     });
@@ -1361,7 +1361,7 @@ describe("runProdApp — auth retiredCookieDomains forwarding", () => {
   });
 });
 
-describe("runProdApp — session boot gate (#1262/#1275)", () => {
+describe("runProdApp — session boot gate", () => {
   const ADMIN = {
     email: "session-gate@example.eu",
     password: "test-pw-strong-1234",
@@ -1474,7 +1474,7 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
     await expect(boot(undefined, { kms: unhealthyKms })).rejects.toThrow(/KMS health check failed/);
   });
 
-  test("rateLimit flows from runProdApp through entrypoint into the L1/L2 middleware (#1101)", async () => {
+  test("rateLimit flows from runProdApp through entrypoint into the L1/L2 middleware", async () => {
     const handle = await boot(undefined, {
       rateLimit: { global: { limit: 1, windowSeconds: 60 } },
       anonymousAccess: { defaultTenantId: TENANT_ID },
@@ -1559,7 +1559,7 @@ describe("rate-limit defaults", () => {
   });
 });
 
-describe("hard PII boot gate (#818 step 2)", () => {
+describe("hard PII boot gate", () => {
   const gatePiiFeature = defineFeature("gate-pii", (r) => {
     r.entity({
       name: "gate-person",
@@ -1589,8 +1589,8 @@ describe("hard PII boot gate (#818 step 2)", () => {
 // options (observability, metrics). Wrong nesting or a renamed key in
 // ApiEntrypointOptions would silently no-op instead of erroring the boot,
 // and /metrics would stay 404 or empty.
-describe("runProdApp — /metrics endpoint (fw#1352)", () => {
-  test("observability (PrometheusMeter) + metrics.token wired → GET /metrics mit Bearer liefert OpenMetrics-Body", async () => {
+describe("runProdApp — /metrics endpoint", () => {
+  test("observability (PrometheusMeter) + metrics.token wired → GET /metrics with Bearer returns OpenMetrics body", async () => {
     const meter = createPrometheusMeter();
     meter.registerMetric({ name: "kumiko_probe_total", type: "counter" });
     meter.counter("kumiko_probe_total").inc(2);
@@ -1610,7 +1610,7 @@ describe("runProdApp — /metrics endpoint (fw#1352)", () => {
     expect(body).toMatch(/# EOF\n$/);
   });
 
-  test("ohne observability und ohne metrics-Option → /metrics ist keine Route (404)", async () => {
+  test("without observability and without metrics option → /metrics is not a route (404)", async () => {
     const handle = await boot();
 
     const res = await handle.entrypoint.app.fetch(new Request("http://test/metrics"));
@@ -1624,7 +1624,7 @@ describe("runProdApp — /metrics endpoint (fw#1352)", () => {
   // the level prod actually boots through (runProdApp), not
   // buildServer/createRedisSseBroker directly, which is why the tests above
   // were green while prod was broken.
-  describe("sseBroker wiring (fw#2630 Redis fanout)", () => {
+  describe("sseBroker wiring", () => {
     test("wires a Redis-backed sseBroker so SSE events fan out across replicas", async () => {
       const handle = await boot();
       const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:16379";

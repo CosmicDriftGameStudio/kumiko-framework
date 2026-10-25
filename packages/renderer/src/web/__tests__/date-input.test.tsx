@@ -22,7 +22,7 @@ describe("DateInput", () => {
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("04/23/2026");
   });
 
-  test("Eingabefeld ist leer bei leerem Wert", () => {
+  test("Input field is empty when value is empty", () => {
     render(<DateInput id="d" name="d" value="" onChange={() => undefined} locale="de-DE" />);
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
   });
@@ -34,14 +34,14 @@ describe("DateInput", () => {
     expect(onChange).toHaveBeenCalledWith("2026-04-23");
   });
 
-  test("kein nativer date-input im DOM (Radix-Popover-Pattern, nicht type=date)", () => {
+  test("No native date input in the DOM (Radix-Popover pattern, not type=date)", () => {
     render(
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,
     );
     expect(document.querySelector('input[type="date"]')).toBeNull();
   });
 
-  test("Kalender-Button sitzt im Feld (rechts, absolut) statt als eigener Button daneben", () => {
+  test("Calendar button sits inside the field (right, absolute) instead of as a separate button next to it", () => {
     render(
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,
     );
@@ -84,7 +84,7 @@ describe("DateInput", () => {
     expect(trigger.disabled).toBe(true);
   });
 
-  test("Popover öffnet auf Click und zeigt das DayPicker", async () => {
+  test("Popover opens on click and shows the DayPicker", async () => {
     const user = userEvent.setup();
     render(
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,

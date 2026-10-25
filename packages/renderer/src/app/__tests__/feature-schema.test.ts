@@ -29,7 +29,7 @@ describe("isAppSchema", () => {
 });
 
 describe("toAppSchema — workspaces-Hoist (Legacy-Form)", () => {
-  test("hebt feature-lokale workspaces auf App-Ebene und entfernt sie vom Feature", () => {
+  test("hoists feature-local workspaces to the app level and removes them from the feature", () => {
     const ws = [{ definition: { id: "admin", label: "Admin", navs: [] }, navMembers: [] }];
     const withWs: FeatureSchema = { ...feature, workspaces: ws };
     const app = toAppSchema(withWs);

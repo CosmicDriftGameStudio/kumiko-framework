@@ -13,7 +13,7 @@ function run(fileset: Record<string, string>): string[] {
 const LIB = "/src/features/demo/lib/calc.ts";
 
 describe("guard-lib-test-coverage — verlangt Test + namentliche Referenz", () => {
-  test("exportierte Funktion mit verknüpftem, referenzierendem Test → grün", () => {
+  test("exported function with a linked, referencing test → green", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
@@ -23,7 +23,7 @@ addFees(100);`,
     ).toHaveLength(0);
   });
 
-  test("exportierte Funktion ohne jeden Test → Datei-Verstoß", () => {
+  test("exported function without any test → file violation", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
@@ -31,7 +31,7 @@ addFees(100);`,
     ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
-  test("verknüpfter Test, aber Funktion nicht referenziert → Funktions-Verstoß", () => {
+  test("linked test, but function not referenced → function violation", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base; }
@@ -42,7 +42,7 @@ addFees(1);`,
     ).toEqual([expect.stringContaining('"subFees"')]);
   });
 
-  test("Test importiert die lib per NodeNext-.js-Spezifizierer → gilt als verknüpft", () => {
+  test("test imports the lib via a NodeNext .js specifier → counts as linked", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
@@ -52,7 +52,7 @@ addFees(100);`,
     ).toHaveLength(0);
   });
 
-  test("Fixture unter __tests__ ohne .test-Suffix ersetzt keinen Test → Verstoß bleibt", () => {
+  test("fixture under __tests__ without a .test suffix does not replace a test → violation remains", () => {
     expect(
       run({
         "/src/lib/calc.ts": `export function addFees(base: number): number { return base; }`,
@@ -62,7 +62,7 @@ export const sample = addFees(1);`,
     ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
-  test("Fixture unter __tests__ selbst ist keine lib-Quelle", () => {
+  test("fixture under __tests__ itself is not a lib source", () => {
     expect(
       run({
         "/src/lib/__tests__/fixtures.ts": `export function makeSample(): number { return 1; }`,
@@ -70,7 +70,7 @@ export const sample = addFees(1);`,
     ).toHaveLength(0);
   });
 
-  test("tsx-lib mit exportierter Funktion ohne Test → Verstoß", () => {
+  test("tsx lib with exported function without a test → violation", () => {
     expect(
       run({
         "/src/lib/foo.tsx": `export function renderFoo(): number { return 1; }`,
@@ -78,7 +78,7 @@ export const sample = addFees(1);`,
     ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
-  test("Scan-Scope erfasst .tsx und verschachtelte lib-Ebenen", () => {
+  test("scan scope includes .tsx and nested lib levels", () => {
     const within = guard.scan.scope === "source" ? (guard.scan.within ?? []) : [];
     const matches = (p: string) => within.some((g) => new Bun.Glob(g).match(p));
     expect(matches("lib/foo.tsx")).toBe(true);
@@ -87,7 +87,7 @@ export const sample = addFees(1);`,
     expect(matches("features/a/views/foo.ts")).toBe(false);
   });
 
-  test("Test importiert ein anderes Modul → gilt nicht als verknüpft", () => {
+  test("test imports another module → does not count as linked", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base; }`,
@@ -97,7 +97,7 @@ addFees(1);`,
     ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
-  test("Test eine Ebene über lib/ (features/<x>/__tests__ → ../lib/calc) zählt", () => {
+  test("test one level above lib/ (features/<x>/__tests__ → ../lib/calc) counts", () => {
     expect(
       run({
         [LIB]: `export function markdownPlainTextLength(md: string): number { return md.length; }`,
@@ -107,7 +107,7 @@ markdownPlainTextLength("x");`,
     ).toHaveLength(0);
   });
 
-  test("arrow-fn-Export ohne Referenz → Verstoß", () => {
+  test("arrow-fn export without a reference → violation", () => {
     expect(
       run({
         [LIB]: `export const addFees = (b: number): number => b * 1.02;`,
@@ -119,7 +119,7 @@ other();`,
 });
 
 describe("guard-lib-test-coverage — Ausnahmen", () => {
-  test("Datei ohne exportierte Funktion (nur Typ/Konstante) → ausgenommen", () => {
+  test("file without an exported function (type/constant only) → exempt", () => {
     expect(
       run({
         "/src/lib/finance-colors.ts": `export const FINANCE_COLOR = { debt: "var(--x)" } as const;
@@ -148,7 +148,7 @@ export async function loadOne(db: unknown): Promise<unknown> { return null; }`,
     ).toHaveLength(0);
   });
 
-  test("Testdateien selbst werden nicht als lib-Quelle geprüft", () => {
+  test("test files themselves are not checked as lib sources", () => {
     expect(
       run({
         "/src/lib/__tests__/x.test.ts": `export function helper(): number { return 1; }`,
@@ -156,7 +156,7 @@ export async function loadOne(db: unknown): Promise<unknown> { return null; }`,
     ).toHaveLength(0);
   });
 
-  test("ignore-Tag auf einem arrow-const-Export nimmt die Funktion aus (hasIgnoreTag laeuft gegen die VariableDeclaration-Zeile, nicht nur FunctionDeclaration)", () => {
+  test("ignore tag on an arrow-const export excludes the function (hasIgnoreTag runs against the VariableDeclaration line, not just FunctionDeclaration)", () => {
     expect(
       run({
         [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via public-share.integration.test.ts
@@ -165,7 +165,7 @@ export const loadRows = async (db: unknown): Promise<unknown[]> => { return []; 
     ).toHaveLength(0);
   });
 
-  test("named import ohne Nutzung im Testkörper zaehlt NICHT als Referenz (nach Fix: Funktions-Verstoß, nicht grün)", () => {
+  test("named import unused in the test body does NOT count as a reference (after fix: function violation, not green)", () => {
     expect(
       run({
         [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
@@ -177,7 +177,7 @@ test("unrelated", () => { expect(1).toBe(1); });`,
 });
 
 describe("guard-lib-test-coverage — export default function (coverage-gap fix)", () => {
-  test("export default function wird als exportierte Callable erfasst", () => {
+  test("export default function is detected as an exported callable", () => {
     expect(
       run({
         [LIB]: `export default function addFees(base: number): number { return base * 1.02; }`,
@@ -185,7 +185,7 @@ describe("guard-lib-test-coverage — export default function (coverage-gap fix)
     ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
-  test("export default function mit verknüpftem, referenzierendem Test → grün", () => {
+  test("export default function with a linked, referencing test → green", () => {
     expect(
       run({
         [LIB]: `export default function addFees(base: number): number { return base * 1.02; }`,
@@ -196,10 +196,10 @@ addFees(100);`,
   });
 });
 
-describe("guard-lib-test-coverage — Namen mit $", () => {
+describe("guard-lib-test-coverage — names with $", () => {
   const TEST = "/src/features/demo/lib/__tests__/calc.test.ts";
 
-  test("export format$ wird durch eine Referenz auf format$ abgedeckt", () => {
+  test("export format$ is covered by a reference to format$", () => {
     expect(
       run({
         [LIB]: `export function format$(base: number): number { return base; }`,
@@ -209,7 +209,7 @@ format$(1);`,
     ).toHaveLength(0);
   });
 
-  test("Referenz auf format$ deckt den Export format nicht ab", () => {
+  test("a reference to format$ does not cover the format export", () => {
     expect(
       run({
         [LIB]: `export function format(base: number): number { return base; }

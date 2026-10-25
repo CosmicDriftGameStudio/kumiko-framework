@@ -461,7 +461,7 @@ describe("computeEditViewModel", () => {
   });
 });
 
-describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => {
+describe("computeEditViewModel — date/timestamp min/max/locale", () => {
   test("date-Field reicht min/max/locale ins ViewModel", () => {
     const entity = {
       fields: {
@@ -481,7 +481,7 @@ describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => 
     expect(field?.dateLocale).toBe("en-US");
   });
 
-  test("date-Field ohne bounds: min/max/dateLocale bleiben weg", () => {
+  test("date field without bounds: min/max/dateLocale remain absent", () => {
     const entity = {
       fields: { born: { type: "date" } },
     } as unknown as EntityDefinition;
@@ -499,7 +499,7 @@ describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => 
   });
 });
 
-describe("computeEditViewModel — embedded-list cells (#1835)", () => {
+describe("computeEditViewModel — embedded-list cells", () => {
   const lineFieldSchema = {
     description: { type: "text", required: true },
     quantity: { type: "number", required: true },
@@ -601,7 +601,7 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(field?.embeddedListCells?.some((c) => c.readOnly !== undefined)).toBe(false);
   });
 
-  test("a reference sub-field's optionsQuery reaches the cell view-model (fw#2780)", () => {
+  test("a reference sub-field's optionsQuery reaches the cell view-model", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
       entity: embeddedListEntity({
@@ -702,7 +702,7 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(unitCell?.optionLabels).toEqual({ hour: "Stunde", day: "day" });
   });
 
-  test("embeddedListCurrency mirrors entity.defaultCurrency (#1839)", () => {
+  test("embeddedListCurrency mirrors entity.defaultCurrency", () => {
     const entity = {
       defaultCurrency: "USD",
       fields: {
@@ -722,7 +722,7 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(field?.embeddedListCurrency).toBe("USD");
   });
 
-  test("embeddedListCurrency falls back to EUR when the entity has no defaultCurrency (#1839)", () => {
+  test("embeddedListCurrency falls back to EUR when the entity has no defaultCurrency", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
       entity: embeddedListEntity(),
@@ -1022,7 +1022,7 @@ describe("computeEditViewModel — select conditionalOptions", () => {
   });
 });
 
-describe("computeEditViewModel — declared reference metadata (fw#2662)", () => {
+describe("computeEditViewModel — declared reference metadata", () => {
   // projectionDetail fields have no real EntityDefinition — the shim that
   // adapts them synthesizes a pseudo-entity where every field is hardcoded
   // to "text" (see projection-detail-shim.ts). EditFieldSpec.refEntity must
@@ -1035,7 +1035,7 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     },
   } as unknown as EntityDefinition;
 
-  test("EditFieldSpec.refEntity marks the field as a reference, even against a pseudo-entity whose fields are all 'text' (fw#2662)", () => {
+  test("EditFieldSpec.refEntity marks the field as a reference, even against a pseudo-entity whose fields are all 'text'", () => {
     const vm = computeEditViewModel({
       screen: editScreen({
         sections: [
@@ -1076,7 +1076,7 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     expect(field).toMatchObject({ type: "reference", refEntity: "team", refMultiple: true });
   });
 
-  test("a reference field's optionsQuery reaches the field view-model, labelField untouched (fw#2780)", () => {
+  test("a reference field's optionsQuery reaches the field view-model, labelField untouched", () => {
     const entity = {
       fields: {
         leaseId: {
@@ -1189,7 +1189,7 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     expect(tags?.selectOptionsAvailabilityQuery).toBeUndefined();
   });
 
-  test("non-regression: a projectionDetail field without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
+  test("a projectionDetail field without refEntity metadata stays 'text', unchanged", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ fields: ["ip"] }] }),
       entity: projectionPseudoEntity,
@@ -1263,7 +1263,7 @@ describe("computeEditViewModel — relatedList rowActions passthrough (fw editab
   });
 });
 
-describe("computeEditViewModel — relatedList searchable/facets passthrough (fw#2740)", () => {
+describe("computeEditViewModel — relatedList searchable/facets passthrough", () => {
   test("searchable and facets pass through onto the relatedList section view-model untranslated", () => {
     const facets = [
       {

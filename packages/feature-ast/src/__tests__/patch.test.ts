@@ -578,7 +578,7 @@ defineFeature("object", (r) => {
 // on the parser side). Covers both the single-arg case (matchFirstArgString)
 // and the two-arg case (relation/hook/useExtension's second positional arg),
 // same-file and genuinely cross-file via a real filesystem Project.
-describe("findCallForId resolves identifier-authored names (#2121)", () => {
+describe("findCallForId resolves identifier-authored names", () => {
   function loadFixture(relPath: string): SourceFile {
     const project = new Project({
       skipAddingFilesFromTsConfig: true,
@@ -634,7 +634,7 @@ defineFeature("inventory", (r) => {
     );
   });
 
-  test("removePattern finds an extendsRegistrar call authored with a cross-file imported constant (#1746 fixture)", () => {
+  test("removePattern finds an extendsRegistrar call authored with a cross-file imported constant", () => {
     const sf = loadFixture("fixtures/cross-file-name-const/feature.ts");
     removePattern(sf, { kind: "extendsRegistrar", extensionName: "audit" });
     const reparsed = parseSourceFile(sf);
@@ -678,7 +678,7 @@ defineFeature("inventory", (r) => {
 // relation's second positional arg stays narrow on purpose: round2.ts:170
 // parses it via readNameLiteral, not readNameOrRef, so widening it would
 // exceed what the parser accepts.
-describe("callMatchesId — positional inline-ref args (#2133)", () => {
+describe("callMatchesId — positional inline-ref args", () => {
   test("removePattern finds a positional useExtension whose entity is an inline { name } ref", () => {
     const sf = makeSourceFile(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -726,7 +726,7 @@ defineFeature("inventory", (r) => {
     ).toThrow(/no call found/);
   });
 });
-describe("ai step patterns — shorthand stepKey (#1491)", () => {
+describe("ai step patterns — shorthand stepKey", () => {
   const AI_STEP_FIXTURE = `
 import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";

@@ -162,7 +162,7 @@ beforeEach(async () => {
   );
 });
 
-describe("event-store-executor.list — sortable reference fields (fw#2741)", () => {
+describe("event-store-executor.list — sortable reference fields", () => {
   test("orders ascending by the target row's label, not by the FK UUID", async () => {
     await seedFixture();
 

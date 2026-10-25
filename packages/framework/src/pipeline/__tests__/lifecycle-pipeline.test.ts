@@ -532,7 +532,7 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     expect(calls).toHaveLength(1);
   });
 
-  test("effectiveFeatures wird PRO call konsultiert (kein staler Cache zwischen runPostSave-aufrufen)", async () => {
+  test("effectiveFeatures is consulted on every call (no stale cache between runPostSave calls)", async () => {
     // Pin: currentEffectiveFeatures calls effectiveFeatures for every call;
     // the pipeline does not memoize it internally. Toggle changes take effect
     // immediately rather than after a pipeline restart.

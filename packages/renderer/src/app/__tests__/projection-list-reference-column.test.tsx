@@ -193,7 +193,7 @@ function referenceRenderer(field = "tenantId"): RuntimeRenderer {
   return col.renderer as RuntimeRenderer;
 }
 
-describe("projectionList reference column resolves labels (fw#2662)", () => {
+describe("projectionList reference column resolves labels", () => {
   test("a real tenant id resolves to its name instead of the raw GUID", async () => {
     capturedProps = undefined;
     renderLogScreen();
@@ -222,7 +222,7 @@ describe("projectionList reference column resolves labels (fw#2662)", () => {
   });
 });
 
-describe("actor column resolves display names (fw#3103)", () => {
+describe("actor column resolves display names", () => {
   const actorCell = (id: string): unknown => referenceRenderer("createdBy")(id, { createdBy: id });
 
   test("a real user id resolves to the display name", async () => {

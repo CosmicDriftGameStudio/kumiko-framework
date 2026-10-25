@@ -11,7 +11,7 @@ import {
   renderDemoTasksI18n,
 } from "../scaffold-demo-tasks.ts";
 
-describe("demo tasks feature nav labels are i18n keys (#2065)", () => {
+describe("demo tasks feature nav labels are i18n keys", () => {
   test("boot-validates with the tasks feature registered", () => {
     expect(() => validateBoot([createDemoTasksFeature()])).not.toThrow();
   });

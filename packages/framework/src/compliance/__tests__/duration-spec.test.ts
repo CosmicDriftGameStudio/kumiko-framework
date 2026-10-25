@@ -46,7 +46,7 @@ describe("addDurationSpec", () => {
 
   // Regression guard: `{hours: 6}` previously fell back to the
   // `30 * 86_400_000` default. This test fails if that branch is lost again.
-  test("hours-Branch ist NICHT auf days-Default mappable (U5a-Regression)", () => {
+  test("hours branch is NOT mappable to the days default", () => {
     const T = getTemporal();
     const t0 = T.Instant.fromEpochMilliseconds(1_700_000_000_000);
     const tHours = addDurationSpec(t0, { hours: 6 });

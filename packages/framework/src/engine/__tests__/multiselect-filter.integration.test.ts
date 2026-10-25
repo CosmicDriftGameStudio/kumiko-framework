@@ -39,7 +39,7 @@ const checklistFeature = defineFeature("checklist", (r) => {
   });
 });
 
-describe("multiSelect filterable — jsonb containment, not scalar equality (fw#2490)", () => {
+describe("multiSelect filterable — jsonb containment, not scalar equality", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

@@ -167,7 +167,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
+  test("Lifecycle: pending → running blocks further pending inserts; after running → done, another pending insert is allowed", async () => {
     const runningJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running);
 
     // A pending insert fails because a running job is also included in the index filter.
@@ -218,7 +218,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
     expect(row?.bytesWritten).toBe(ONE_PB_PLUS);
   });
 
-  test("bytesWritten als raw-SQL geprueft → DB-Spalte ist tatsaechlich BIGINT", async () => {
+  test("bytesWritten checked via raw SQL → DB column is actually BIGINT", async () => {
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: 1,
     });

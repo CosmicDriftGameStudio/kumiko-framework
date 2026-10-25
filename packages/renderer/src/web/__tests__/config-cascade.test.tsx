@@ -59,7 +59,7 @@ function tenantCascade(overrides?: {
 }
 
 describe("ConfigCascadeView — i18n (Bug 7)", () => {
-  test("Herkunftssatz und Panel zeigen übersetzte Labels, keine rohen Keys", async () => {
+  test("Origin sentence and panel show translated labels, not raw keys", async () => {
     const user = userEvent.setup();
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
@@ -79,7 +79,7 @@ describe("ConfigCascadeView — i18n (Bug 7)", () => {
 });
 
 describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
-  test("screenScope=tenant: Operator-Ebenen sind unsichtbar, EIN neutraler Standard-Fallback bleibt", async () => {
+  test("screenScope=tenant: Operator levels are hidden, one neutral default fallback remains", async () => {
     const user = userEvent.setup();
     // A tenant override remains expandable, but scope filtering hides the
     // operator levels and shows only Tenant and Standard.
@@ -97,7 +97,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(panel.getByText("fallback")).toBeTruthy();
   });
 
-  test("screenScope=tenant mit aktivem System-Wert: nur der Standard-Hinweis, nicht aufklappbar", async () => {
+  test("screenScope=tenant with active system value: only the default hint, not expandable", async () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ systemActive: true })} screenScope="tenant" />,
     );
@@ -120,7 +120,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(view.container.textContent).toContain("Default");
   });
 
-  test("Reset-Button erscheint nur bei eigener Überschreibung, ohne Aufklappen", async () => {
+  test("Reset button appears only for an own override, without expanding", async () => {
     const user = userEvent.setup();
     const resets: { key: string; scope: string }[] = [];
     render(
@@ -135,7 +135,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(resets).toEqual([{ key: "branding.title", scope: "tenant" }]);
   });
 
-  test("reines Default-Feld (kein Override, ein Wert): nicht aufklappbar, kein Button/Panel/Reset", async () => {
+  test("Pure default field (no override, one value): not expandable, no button/panel/reset", async () => {
     const view = render(
       <ConfigCascadeView
         cascade={tenantCascade()}
@@ -148,7 +148,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(view.container.textContent).toContain("Uses the default");
   });
 
-  test("ungesetzt und required: roter Hinweis statt Standard", () => {
+  test("Unset and required: red hint instead of default", () => {
     const empty: ConfigCascade = {
       value: undefined,
       source: "missing",
@@ -160,7 +160,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
   });
 });
 
-describe("ConfigCascadeView — Herkunftssatz mit Default-Wert", () => {
+describe("ConfigCascadeView — origin sentence with default value", () => {
   test("eigener Wert: Satz nennt den Standard inline", () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
@@ -168,7 +168,7 @@ describe("ConfigCascadeView — Herkunftssatz mit Default-Wert", () => {
     expect(view.container.textContent).toContain("Set for this tenant. Default is fallback.");
   });
 
-  test("leerer Default: Satz ohne Standard-Klausel", () => {
+  test("Empty default: sentence without default clause", () => {
     const emptyDefault: ConfigCascade = {
       value: "acme",
       source: "tenant-row",
@@ -182,7 +182,7 @@ describe("ConfigCascadeView — Herkunftssatz mit Default-Wert", () => {
     expect(view.container.textContent).not.toContain("Default is");
   });
 
-  test("Disclosure entfällt bei höchstens zwei Ebenen im Tenant-Scope", () => {
+  test("Disclosure omitted with at most two levels in tenant scope", () => {
     const twoLevels: ConfigCascade = {
       value: "acme",
       source: "tenant-row",

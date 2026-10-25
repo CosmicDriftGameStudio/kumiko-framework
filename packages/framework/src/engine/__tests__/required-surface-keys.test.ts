@@ -195,7 +195,7 @@ describe("requiredKeysFromNav / requiredKeysFromWorkspace", () => {
 // an opt-in `treatDotFormAsKey` option so the boot-validator can register
 // those generated keys directly instead of relying on isI18nKey to recognize
 // them.
-describe("dot-form labels + treatDotFormAsKey (fw#2260)", () => {
+describe("dot-form labels + treatDotFormAsKey", () => {
   const configScreen: ConfigEditScreenDefinition = {
     id: "billing-tenant",
     type: "configEdit",
@@ -239,7 +239,7 @@ describe("dot-form labels + treatDotFormAsKey (fw#2260)", () => {
 // A hand-written dot-form label ("sessions.list.col.id") is
 // indistinguishable from literal display text ("actions.open") — isI18nKey
 // only recognizes it once the author marks it explicitly via i18nKey().
-describe("dot-form label opt-in (fw#2313)", () => {
+describe("dot-form label opt-in", () => {
   test("unmarked dot-form label is not required (regression guard for literal display text)", () => {
     const screen: EntityListScreenDefinition = {
       id: "fw2313-list",
@@ -282,7 +282,7 @@ describe("dot-form label opt-in (fw#2313)", () => {
   });
 });
 
-describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
+describe("requiredKeysFromScreen reads section.groups", () => {
   test("entityEdit: group fields and group titles, override honored", () => {
     const screen: EntityEditScreenDefinition = {
       id: "component-edit",

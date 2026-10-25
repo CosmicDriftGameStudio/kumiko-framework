@@ -254,7 +254,7 @@ function renderMintScreen(
   );
 }
 
-describe("SecretMintBody (fw#2548)", () => {
+describe("SecretMintBody", () => {
   test("before submit: the secret is not in the DOM", () => {
     const { dispatcher } = stubDispatcher({ token: "kpat_secret", id: "x" });
     renderMintScreen(dispatcher);
@@ -383,7 +383,7 @@ describe("SecretMintBody (fw#2548)", () => {
   });
 });
 
-describe("SecretMintBody tenant-declared money currency (fw#2933)", () => {
+describe("SecretMintBody tenant-declared money currency", () => {
   const moneyMintScreen: SecretMintScreenDefinition = {
     id: "mint-token",
     type: "secretMint",
@@ -447,7 +447,7 @@ describe("SecretMintBody missing reveal fields", () => {
   });
 });
 
-describe("SecretMintBody confirm step (fw#2838)", () => {
+describe("SecretMintBody confirm step", () => {
   const mintScreenWithConfirm: SecretMintScreenDefinition = {
     ...mintScreen,
     confirm: {

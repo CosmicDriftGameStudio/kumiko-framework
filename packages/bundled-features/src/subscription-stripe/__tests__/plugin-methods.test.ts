@@ -58,7 +58,7 @@ const stubCtx = { obs: { log: { warn() {} } } } as unknown as HandlerContext;
 // =============================================================================
 
 describe("createStripeCheckoutSession", () => {
-  test("ruft stripe.checkout.sessions.create mit mode=subscription + tenant-metadata", async () => {
+  test("calls stripe.checkout.sessions.create with mode=subscription + tenant metadata", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -140,7 +140,7 @@ describe("createStripeCheckoutSession", () => {
     expect(payment).not.toHaveProperty("subscription_data");
   });
 
-  test("#104-Gate: throws FeatureDisabledError + ruft Stripe NICHT wenn billing-live aus", async () => {
+  test("throws FeatureDisabledError and does NOT call Stripe when billing-live is off", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -159,7 +159,7 @@ describe("createStripeCheckoutSession", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  test("passes existing customer-id wenn gesetzt (Plan-Wechsel-Flow)", async () => {
+  test("passes existing customer-id when set (plan switch flow)", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -179,7 +179,7 @@ describe("createStripeCheckoutSession", () => {
     );
   });
 
-  test("mode='payment': ruft stripe.checkout.sessions.create mit mode=payment + payment_intent_data.metadata (KEIN subscription_data)", async () => {
+  test("mode='payment': calls stripe.checkout.sessions.create with mode=payment + payment_intent_data.metadata (NO subscription_data)", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -237,7 +237,7 @@ describe("createStripeCheckoutSession", () => {
     );
   });
 
-  test("mode='subscription': NIE invoice_creation — Stripe rejects es außerhalb payment-mode", async () => {
+  test("mode='subscription': NEVER invoice_creation — Stripe rejects it outside payment mode", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -256,7 +256,7 @@ describe("createStripeCheckoutSession", () => {
     expect(callArgs).not.toHaveProperty("invoice_creation");
   });
 
-  test("mode omitted defaults to 'subscription' (Regression-Pin für bestehende Aufrufer)", async () => {
+  test("mode omitted defaults to 'subscription'", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -275,7 +275,7 @@ describe("createStripeCheckoutSession", () => {
     );
   });
 
-  test("throws wenn Stripe keine url returnt (defensive — sollte nie passieren bei mode=subscription)", async () => {
+  test("throws when Stripe returns no url (defensive — should never happen with mode=subscription)", async () => {
     const stripe = buildStripe();
     spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: SDK-Drift-Test
@@ -374,7 +374,7 @@ describe("createStripeCheckoutSession", () => {
     });
   });
 
-  test("Stripe-API-failure (z.B. 500 / network) → propagated zum Caller (Foundation mapped auf 500)", async () => {
+  test("Stripe API failure (e.g. 500 / network) → propagated to caller (Foundation maps to 500)", async () => {
     // Drift-Pin: The plugin does NOT swallow Stripe errors. Foundation
     // relies on create-checkout-session-handler receiving a thrown error
     // and mapping it to HTTP 500 (transient—Provider/Stripe should be
@@ -401,7 +401,7 @@ describe("createStripeCheckoutSession", () => {
 // =============================================================================
 
 describe("createStripePortalSession", () => {
-  test("ruft stripe.billingPortal.sessions.create mit customer + return_url", async () => {
+  test("calls stripe.billingPortal.sessions.create with customer + return_url", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.billingPortal.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -496,7 +496,7 @@ describe("createStripeCancelSubscription", () => {
     expect(cancelMock).not.toHaveBeenCalled();
   });
 
-  test("when=immediately: ruft stripe.subscriptions.cancel mit subscription-id", async () => {
+  test("when=immediately: calls stripe.subscriptions.cancel with subscription-id", async () => {
     const stripe = buildStripe();
     const cancelMock = spyOn(stripe.subscriptions, "cancel")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
@@ -1071,7 +1071,7 @@ describe("createStripePlanSwitchSession", () => {
     ).rejects.toThrow(/not one of the catalog's allowed prices/);
   });
 
-  test("#104-Gate: throws FeatureDisabledError when billing-live is off", async () => {
+  test("throws FeatureDisabledError when billing-live is off", async () => {
     const stripe = buildStripe();
     const retrieveMock = spyOn(stripe.subscriptions, "retrieve");
     const planSwitch = createStripePlanSwitchSession(

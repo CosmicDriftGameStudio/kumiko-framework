@@ -21,7 +21,7 @@ const COLUMNS = [
 ] as const;
 
 describe("QueryTable", () => {
-  test("rendert Query-Result als DataTable-Rows", async () => {
+  test("renders the query result as DataTable rows", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -40,7 +40,7 @@ describe("QueryTable", () => {
     expect(screen.getByText("Name")).toBeTruthy();
   });
 
-  test("Row-Click liefert die geklickte Row", async () => {
+  test("row click provides the clicked row", async () => {
     const onRowClick = mock((_row: { id: string }) => {});
     const dispatcher = createMockDispatcher({
       query: (async () => ({

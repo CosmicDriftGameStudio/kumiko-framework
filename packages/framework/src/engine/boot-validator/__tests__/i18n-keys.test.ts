@@ -40,7 +40,7 @@ const configHub = defineFeature("config", (r) => {
 // colon-only check dropped that label from the required-keys set, so a
 // feature could ship a generated Settings screen whose label was never
 // translated and boot validation stayed silent.
-describe("validateI18nSurfaceKeys — Settings-Hub generated dot-form label (fw#2260)", () => {
+describe("validateI18nSurfaceKeys — generated dot-form label for the Settings Hub", () => {
   function billingFeature(translationKeys: Record<string, { readonly en: string }>) {
     return defineFeature("billing", (r) => {
       r.config({
@@ -112,7 +112,7 @@ describe("validateI18nSurfaceKeys — Settings-Hub generated dot-form label (fw#
 // unsatisfiable `${group}.settings` key for a namespace that has no matching
 // feature, and a test would either fail on the open bug or paper over it; it
 // belongs with the namespace fix, not this batch.
-describe("validateI18nSurfaceKeys — scoped label fallback for elevated write roles (PR #2314 idx2)", () => {
+describe("validateI18nSurfaceKeys — scoped label fallback for elevated write roles", () => {
   function opsFeature(translationKeys: Record<string, { readonly en: string }>) {
     return defineFeature("ops", (r) => {
       r.config({
@@ -160,7 +160,7 @@ describe("validateI18nSurfaceKeys — scoped label fallback for elevated write r
 // assertion alone would pass identically with build-config-feature-schema.ts:249
 // deleted outright. Assert on the generated schema itself instead, the only
 // artifact the gate actually changes.
-describe("validateI18nSurfaceKeys — gated configEdit section description (PR #2314 idx2)", () => {
+describe("validateI18nSurfaceKeys — gated configEdit section description", () => {
   function reportingFeature(translationKeys: Record<string, { readonly en: string }>) {
     return defineFeature("reporting", (r) => {
       r.config({
@@ -212,7 +212,7 @@ describe("validateI18nSurfaceKeys — gated configEdit section description (PR #
 // i18nKey() — unmarked dot-form labels must keep failing silently (that's the
 // existing, intentional behavior for literal text like "actions.open"), never
 // crashing boot on their own.
-describe("validateI18nSurfaceKeys — explicit i18nKey() dot-form opt-in (fw#2313)", () => {
+describe("validateI18nSurfaceKeys — explicit i18nKey() dot-form opt-in", () => {
   test("i18nKey()-marked dot-form label without a translation fails boot naming the key", () => {
     const feature = defineFeature("fw2313boot", (r) => {
       r.nav({ id: "home", label: i18nKey("fw2313.boot.optin.nav") });
@@ -242,7 +242,7 @@ describe("validateI18nSurfaceKeys — explicit i18nKey() dot-form opt-in (fw#231
 // requiredKeysFromFeature) — mask.title is always an i18n key by
 // ConfigKeyDefinition contract, never literal display text, so it needs no
 // i18nKey() marker.
-describe("validateI18nSurfaceKeys — mask.title is unconditionally required (fw#2313)", () => {
+describe("validateI18nSurfaceKeys — mask.title is unconditionally required", () => {
   function maskedFeature(translationKeys: Record<string, { readonly en: string }>) {
     return defineFeature("fw2313mask", (r) => {
       r.config({

@@ -59,7 +59,7 @@ beforeEach(async () => {
 });
 
 describe("seedTenant", () => {
-  test("schreibt Projection-Row mit id/key/name", async () => {
+  test("writes the projection row with id/key/name", async () => {
     const { id } = await seedTenant(stack.db, {
       id: TENANT_A,
       key: "tenant-a",
@@ -87,7 +87,7 @@ describe("seedTenant", () => {
     expect(payload.name).toBe("Tenant A");
   });
 
-  test("zweiter Aufruf für dieselbe id: no-op (kein zweites Event, kein Crash)", async () => {
+  test("second call for the same id: no-op (no second event, no crash)", async () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
 
@@ -101,7 +101,7 @@ describe("seedTenant", () => {
     expect(events.filter((e) => e.type === "tenant.created")).toHaveLength(1);
   });
 
-  test("zwei verschiedene Tenants in einem Test — beide in der Projection", async () => {
+  test("two different tenants in one test — both in the projection", async () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "a", name: "A" });
     await seedTenant(stack.db, { id: TENANT_B, key: "b", name: "B" });
     const rows = await selectMany(stack.db, tenantTable);

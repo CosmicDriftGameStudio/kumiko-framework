@@ -82,7 +82,7 @@ function renderUnderLocale(locale: string, field: EditFieldViewModel): void {
   );
 }
 
-describe("RenderField — enumOption-FormatSpec (fw#2315)", () => {
+describe("RenderField enumOption-FormatSpec renders different labels for the same mask under two locales", () => {
   test("dieselbe Maske unter zwei Locales rendert zwei verschiedene Beschriftungen", () => {
     renderUnderLocale("de", statusField());
     expect(captured?.children).toBe("Aktiv");
@@ -91,7 +91,7 @@ describe("RenderField — enumOption-FormatSpec (fw#2315)", () => {
     expect(captured?.children).toBe("Active");
   });
 
-  test("unbekannter Options-Key fällt auf den Rohwert zurück, nicht auf den i18n-Key", () => {
+  test("unknown option key falls back to the raw value, not the i18n key", () => {
     renderUnderLocale("de", statusField("archived"));
     expect(captured?.children).toBe("archived");
   });

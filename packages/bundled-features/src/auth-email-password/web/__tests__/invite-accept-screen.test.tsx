@@ -91,7 +91,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
-  test("branch 1: loggedInHref-Function bekommt die Rolle aus der invite-accept-Response", async () => {
+  test("loggedInHref function receives the role from the invite-accept response", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -121,7 +121,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
-  test("server landingPath gewinnt über loggedInHref", async () => {
+  test("server landingPath takes precedence over loggedInHref", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(
@@ -151,7 +151,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
-  test("String-Form bleibt unverändert gültig", async () => {
+  test("String form remains valid unchanged", async () => {
     const assign = mock<(url: string) => void>();
     Object.defineProperty(window, "location", {
       configurable: true,

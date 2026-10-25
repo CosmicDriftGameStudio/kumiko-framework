@@ -142,7 +142,7 @@ describe("createLoginRoute", () => {
     expect(screen.getByTestId("mfa-verify").textContent).toBe("token-123");
   });
 
-  test("no mfaVerifyScreen → onMfaChallenge passes through to loginScreenProps.onMfaChallenge (#266 footgun)", () => {
+  test("without mfaVerifyScreen → onMfaChallenge passes through to loginScreenProps.onMfaChallenge", () => {
     // The silent-no-MFA-fallback path: an app that wires its own
     // onMfaChallenge via loginScreenProps but forgets mfaVerifyScreen still
     // gets that callback invoked (createLoginRoute can't detect the

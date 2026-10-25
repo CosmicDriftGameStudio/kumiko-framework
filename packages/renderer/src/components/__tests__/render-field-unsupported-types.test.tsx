@@ -88,8 +88,8 @@ function renderField(field: EditFieldViewModel): void {
 describe.each([
   ["embedded (kein embeddedListCells)", baseField({ type: "embedded", value: { note: "x" } })],
   ["jsonb", baseField({ type: "jsonb", value: { a: 1 } })],
-])("RenderField — %s ohne Widget", (_name, field) => {
-  test("rendert einen schreibgeschützten Banner statt eines editierbaren Text-Inputs", () => {
+])("RenderField — %s without a widget", (_name, field) => {
+  test("renders a read-only banner instead of an editable text input", () => {
     renderField(field);
     expect(capturedInput).toBeUndefined();
     expect(capturedBanner).toBeDefined();
@@ -122,8 +122,8 @@ describe("RenderField — files/images have a widget", () => {
   );
 });
 
-describe("RenderField — unsupported-type Banner ohne Wert", () => {
-  test("kein Value-Preview-Element wenn field.value leer ist", () => {
+describe("unsupported-type banner without a value", () => {
+  test("no value preview element when field.value is empty", () => {
     renderField(baseField({ type: "jsonb", value: null }));
     const children = capturedBanner?.children;
     const childArray = Array.isArray(children) ? children : [children];
@@ -132,8 +132,8 @@ describe("RenderField — unsupported-type Banner ohne Wert", () => {
   });
 });
 
-describe("RenderField — text bleibt weiterhin editierbar", () => {
-  test("plain text-Feld rendert weiterhin ein Text-Input, kein Banner", () => {
+describe("text remains editable", () => {
+  test("plain text field still renders a text input, not a banner", () => {
     renderField(baseField({ type: "text", value: "hallo" }));
     expect(capturedBanner).toBeUndefined();
     expect(capturedInput).toBeDefined();
@@ -144,8 +144,8 @@ describe("RenderField — text bleibt weiterhin editierbar", () => {
 // Field types that gained a real widget on the auto-wired
 // entityEdit path (previously either no widget at all or a type-mismatched
 // text-input fallback).
-describe("RenderField — #1925 neue Widgets", () => {
-  test("multiSelect rendert eine Multi-Combobox statt eines Banners", () => {
+describe("RenderField — new widgets", () => {
+  test("multiSelect renders a multi-combobox instead of a banner", () => {
     renderField(
       baseField({
         type: "multiSelect",
@@ -165,7 +165,7 @@ describe("RenderField — #1925 neue Widgets", () => {
     ]);
   });
 
-  test("decimal rendert ein number-Input statt Text (kein String-Fallback mehr)", () => {
+  test("decimal renders a number input instead of text (no more string fallback)", () => {
     renderField(baseField({ type: "decimal", value: 12.5 }));
     expect(capturedBanner).toBeUndefined();
     expect(capturedInput).toBeDefined();
@@ -174,7 +174,7 @@ describe("RenderField — #1925 neue Widgets", () => {
     expect(capturedInput.value).toBe(12.5);
   });
 
-  test("bigInt rendert ein number-Input statt Text (kein String-Fallback mehr)", () => {
+  test("bigInt renders a number input instead of text (no more string fallback)", () => {
     renderField(baseField({ type: "bigInt", value: 42 }));
     expect(capturedBanner).toBeUndefined();
     expect(capturedInput).toBeDefined();
@@ -183,7 +183,7 @@ describe("RenderField — #1925 neue Widgets", () => {
     expect(capturedInput.value).toBe(42);
   });
 
-  test("tz rendert ein dediziertes tz-Input statt Text", () => {
+  test("tz renders a dedicated tz input instead of text", () => {
     renderField(baseField({ type: "tz", value: "Europe/Berlin" }));
     expect(capturedBanner).toBeUndefined();
     expect(capturedInput).toBeDefined();
@@ -192,7 +192,7 @@ describe("RenderField — #1925 neue Widgets", () => {
     expect(capturedInput.value).toBe("Europe/Berlin");
   });
 
-  test("longText rendert immer ein textarea, auch ohne explizites multiline-Flag", () => {
+  test("longText always renders a textarea, even without an explicit multiline flag", () => {
     renderField(baseField({ type: "longText", value: "lange Notiz" }));
     expect(capturedBanner).toBeUndefined();
     expect(capturedInput).toBeDefined();

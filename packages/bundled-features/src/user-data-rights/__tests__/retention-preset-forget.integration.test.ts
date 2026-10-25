@@ -179,7 +179,7 @@ beforeEach(async () => {
   ]);
 });
 
-describe("data-retention preset honored by forget + policy-for (kumiko-framework#3283)", () => {
+describe("data-retention preset honored by forget + policy-for", () => {
   test("tenant with a mapped compliance profile -> invoice forget anonymizes (blockDelete preset); tenant without one -> hard-deleted", async () => {
     await seed(stack.db).seedForgetUser(FORGET_USER);
     await seed(stack.db).seedMembership(FORGET_USER, TENANT_A);

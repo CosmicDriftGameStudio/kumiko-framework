@@ -46,7 +46,7 @@ describe("FileStorageProvider.readStream — in-memory", () => {
     expect(Array.from(result)).toEqual([1, 2, 3, 4, 5]);
   });
 
-  test("missing-key throw't beim ersten chunk-pull (lazy-Pattern)", async () => {
+  test("missing-key throws on the first chunk pull (lazy pattern)", async () => {
     const provider = createInMemoryFileProvider();
     // readStream() itself does not throw—the iterator object exists.
     const stream = provider.readStream("does/not/exist.bin");
@@ -93,7 +93,7 @@ describe("FileStorageProvider.readStream — local", () => {
     expect(totalBytes).toBe(200 * 1024);
   });
 
-  test("ENOENT throw't beim ersten chunk-pull (lazy-Pattern)", async () => {
+  test("ENOENT throws on the first chunk pull (lazy pattern)", async () => {
     // This confirms that readStream() itself performs no filesystem lookup;
     // node:fs createReadStream emits an error event only when reading is
     // attempted. Test coverage matches the in-memory variant.

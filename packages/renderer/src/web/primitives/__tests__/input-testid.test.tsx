@@ -7,7 +7,7 @@ import { defaultPrimitives } from "../index.tsx";
 const { Input } = defaultPrimitives;
 const noop = () => {};
 
-describe("DefaultInput testId/readOnly forwarding (#950)", () => {
+describe("DefaultInput testId/readOnly forwarding", () => {
   test("text: testId → data-testid, readOnly durchgereicht", () => {
     render(
       <Input
@@ -25,12 +25,12 @@ describe("DefaultInput testId/readOnly forwarding (#950)", () => {
     expect((input as HTMLInputElement).readOnly).toBe(true);
   });
 
-  test("readOnly default false (nicht gesetzt = editierbar)", () => {
+  test("readOnly defaults to false (not set = editable)", () => {
     render(<Input kind="text" id="x" name="x" value="" onChange={noop} testId="plain" />);
     expect((screen.getByTestId("plain") as HTMLInputElement).readOnly).toBe(false);
   });
 
-  test("email/password/number: testId erreicht das Element", () => {
+  test("email/password/number: testId reaches the element", () => {
     render(
       <>
         <Input kind="email" id="e" name="e" value="" onChange={noop} testId="tid-email" />

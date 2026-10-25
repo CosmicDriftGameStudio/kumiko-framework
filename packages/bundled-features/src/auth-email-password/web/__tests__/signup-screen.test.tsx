@@ -28,7 +28,7 @@ describe("SignupScreen", () => {
     expect(screen.getByRole("button", { name: "Send activation link" })).toBeTruthy();
   });
 
-  test("submit ruft /api/auth/signup-request mit der Email", async () => {
+  test("submit calls /api/auth/signup-request with the email", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -47,7 +47,7 @@ describe("SignupScreen", () => {
     });
   });
 
-  test("nach erfolgreichem Submit: success-Banner + Resend", async () => {
+  test("after successful submit: success banner + Resend", async () => {
     renderWithProviders(<SignupScreen />);
     fillEmail("new@example.com");
     fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
@@ -58,7 +58,7 @@ describe("SignupScreen", () => {
     expect(screen.getByRole("button", { name: /Send email again/i })).toBeTruthy();
   });
 
-  test("rate_limited mit retryAfterSeconds → interpolated minutes", async () => {
+  test("rate_limited with retryAfterSeconds → interpolated minutes", async () => {
     const errBody = JSON.stringify({
       error: { code: "rate_limited", details: { retryAfterSeconds: 120 } },
     });
@@ -76,7 +76,7 @@ describe("SignupScreen", () => {
     expect(screen.queryByText("Email sent")).toBeNull();
   });
 
-  test("server 5xx → error-banner statt Success-State", async () => {
+  test("server 5xx → error banner instead of Success state", async () => {
     globalThis.fetch = mock(
       async () => new Response(null, { status: 500 }),
     ) as unknown as typeof fetch;

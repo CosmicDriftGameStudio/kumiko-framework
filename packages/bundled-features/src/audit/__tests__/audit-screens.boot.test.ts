@@ -32,7 +32,7 @@ describe("audit log screen + handler access alignment", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("the user:user actor reference makes `user` a hard boot dependency (fw#3103)", () => {
+  test("the user:user actor reference makes `user` a hard boot dependency", () => {
     // The refEntity check runs before the "requires" check and names the unmounted feature itself.
     expect(() =>
       validateBoot([createConfigFeature(), createTenantFeature(), createAuditFeature()]),
@@ -109,7 +109,7 @@ describe("audit log screen + handler access alignment", () => {
     expect(AUDIT_I18N[aggregateTypeKey]?.en).not.toBe(AUDIT_I18N[aggregateIdKey]?.en);
   });
 
-  test("actor column and detail field declare the user:user reference (fw#3103)", () => {
+  test("actor column and detail field declare the user:user reference", () => {
     const audit = createAuditFeature();
     expect(audit.requires).toContain("user");
 

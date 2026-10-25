@@ -33,7 +33,7 @@ describe("fileRefEntity base-column drift", () => {
   });
 });
 
-describe("fileRefEntity — DDL (#1205 regression)", () => {
+describe("fileRefEntity DDL: size column is bigint, not double precision", () => {
   test("size column is bigint, not double precision", () => {
     const size = col("size");
     expect(size).toHaveLength(1);

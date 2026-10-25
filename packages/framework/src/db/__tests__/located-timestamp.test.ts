@@ -31,7 +31,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
     expect(flat["pickupTz"]).toBe("Europe/Lisbon");
   });
 
-  test("{ utc, tz } → wird direkt gespeichert (utc gewinnt)", () => {
+  test("{ utc, tz } → is stored directly (utc wins)", () => {
     const flat = flattenLocatedTimestamp(
       { pickup: { utc: "2026-04-15T09:00:00Z", tz: "Europe/Lisbon" } },
       orderEntity,
@@ -70,7 +70,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
     expect(flat["deliveryTz"]).toBe("Asia/Tokyo");
   });
 
-  test("andere Felder bleiben unverändert (clientName)", () => {
+  test("other fields remain unchanged (clientName)", () => {
     const flat = flattenLocatedTimestamp(
       {
         clientName: "Acme",
@@ -81,12 +81,12 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
     expect(flat["clientName"]).toBe("Acme");
   });
 
-  test("fehlende Felder werden ignoriert (kein crash)", () => {
+  test("missing fields are ignored (no crash)", () => {
     const flat = flattenLocatedTimestamp({ clientName: "X" }, orderEntity);
     expect(flat).toEqual({ clientName: "X" });
   });
 
-  test("DST-Übergang Berlin Spring-Forward 2026-03-29 — Konvertierung korrekt", () => {
+  test("DST transition Berlin Spring-Forward 2026-03-29 — conversion is correct", () => {
     // 04:30 in Berlin on 2026-03-29 (after the DST transition) = 02:30 UTC (CEST UTC+2)
     const flat = flattenLocatedTimestamp(
       { pickup: { at: "2026-03-29T04:30:00", tz: "Europe/Berlin" } },
@@ -95,7 +95,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
     expect(utcStr(flat["pickupUtc"])).toBe("2026-03-29T02:30:00Z");
   });
 
-  test("ist pure — input wird nicht mutiert", () => {
+  test("is pure — input is not mutated", () => {
     const input = { pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } };
     const before = JSON.stringify(input);
     flattenLocatedTimestamp(input, orderEntity);
@@ -103,7 +103,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
   });
 });
 
-describe("rehydrateLocatedTimestamp — kumiko-framework#1490: no ambient Temporal global", () => {
+describe("rehydrateLocatedTimestamp — no ambient Temporal global", () => {
   test("rehydrates without relying on globalThis.Temporal", () => {
     const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
     delete (globalThis as { Temporal?: unknown }).Temporal;
@@ -138,7 +138,7 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
     });
   });
 
-  test("PG-Wire-Format mit Space wird normalisiert (PG-mode:'string')", () => {
+  test("PG-Wire-Format with Space is normalized (PG-mode:'string')", () => {
     // Drizzle's mode:"string" returns TIMESTAMPTZ as "2026-04-15 09:00:00+00".
     const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15 09:00:00+00", pickupTz: "Europe/Lisbon" },
@@ -148,7 +148,7 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
     expect((out["pickup"] as { at: string }).at).toBe("2026-04-15T10:00:00");
   });
 
-  test("Round-Trip: flatten dann rehydrate ergibt original-equivalent", () => {
+  test("Round-Trip: flatten then rehydrate yields an equivalent original", () => {
     const original = { pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } };
     const flat = flattenLocatedTimestamp(original, orderEntity);
     const rehydrated = rehydrateLocatedTimestamp(flat, orderEntity);
@@ -176,7 +176,7 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
     expect((out["delivery"] as { at: string }).at).toBe("2026-04-16T18:00:00");
   });
 
-  test("Tag-Wechsel: 23:30 Berlin → 21:30 UTC; Read in Tokyo gibt anderen Tag", () => {
+  test("Day change: 23:30 Berlin → 21:30 UTC; Read in Tokyo gives a different day", () => {
     // This proves that the default `at` is local to the pickup location. We store
     // a UTC instant with Lisbon as the stored tz and verify that the read returns
     // the Lisbon wall-clock date, not Tokyo's.
@@ -191,12 +191,12 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
     // This test only demonstrates the server's default view, local to the pickup location.
   });
 
-  test("fehlende Felder werden übersprungen (kein crash)", () => {
+  test("missing fields are skipped (no crash)", () => {
     const out = rehydrateLocatedTimestamp({ clientName: "X" }, orderEntity);
     expect(out).toEqual({ clientName: "X" });
   });
 
-  test("partial: nur Tz ohne Utc → Pair wird nicht erzeugt (Daten korrupt, kein silent fix)", () => {
+  test("partial: only Tz without Utc → Pair is not created (corrupt data, no silent fix)", () => {
     const out = rehydrateLocatedTimestamp({ pickupTz: "Europe/Lisbon" }, orderEntity);
     expect(out["pickup"]).toBeUndefined();
   });

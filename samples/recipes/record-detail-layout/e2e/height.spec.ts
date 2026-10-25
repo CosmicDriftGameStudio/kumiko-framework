@@ -35,7 +35,7 @@ function tabsLocator(page: Page) {
   return page.getByTestId("kumiko-screen-projection-detail-tabs");
 }
 
-test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
+test.describe("record-detail-layout — tab-panel height", () => {
   // The design refresh (#3381) made detail tabs a full-bleed "board": the
   // relatedList scroll region fills the panel down to the footer instead of
   // the card sizing to its rows (fw#2778's original behavior). What must

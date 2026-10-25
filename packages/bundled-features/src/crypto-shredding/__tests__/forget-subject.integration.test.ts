@@ -281,7 +281,7 @@ describe("crypto-shredding :: forget-subject", () => {
 // extension registration would silently turn the whole GDPR search purge
 // into a no-op. Own stack (own entity feature) so it doesn't perturb the
 // scenarios above.
-describe("crypto-shredding :: forget-subject purges the derived search index (#1611)", () => {
+describe("crypto-shredding :: forget-subject purges the derived search index", () => {
   const probeEntity = createEntity({
     table: "read_forget_subject_search_probe",
     fields: {

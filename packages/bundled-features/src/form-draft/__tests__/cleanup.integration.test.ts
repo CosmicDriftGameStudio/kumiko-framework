@@ -297,7 +297,7 @@ describe("form-draft cleanup job — batch sweep", () => {
   });
 });
 
-describe("form-draft cleanup job — FileRef release (#1915)", () => {
+describe("form-draft cleanup job — FileRef release", () => {
   test("releases FileRefs from a stale draft, leaves a FileRef-less stale draft and a fresh draft unaffected", async () => {
     const key = "tenant-a/vehicle/photo.jpg";
     await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
@@ -413,7 +413,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     expect(providerA.keys()).toContain(forgedKey);
   });
 
-  test("does NOT release a storageKey whose file_refs row predates the draft (entity-prefilled edit-mode value, fw-review #5)", async () => {
+  test("does NOT release a storageKey whose file_refs row predates the draft (entity-prefilled edit-mode value)", async () => {
     const key = "tenant-a/vehicle/prefilled.jpg";
     await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key);

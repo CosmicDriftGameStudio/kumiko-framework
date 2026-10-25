@@ -54,7 +54,7 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
 const TENANT: TenantId = "22222222-2222-4222-8222-222222222222" as TenantId;
 
 describe("renderer-foundation :: Plugin-Selection", () => {
-  test("default-plugin für kind mail = 'mail-html'", async () => {
+  test("default plugin for kind mail = 'mail-html'", async () => {
     const api = createRendererFoundationApi([
       makePlugin("other", ["mail"]),
       makePlugin("mail-html", ["mail"]),
@@ -63,7 +63,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("mail-html");
   });
 
-  test("default-plugin für document-pdf = 'puppeteer'", async () => {
+  test("default plugin for document-pdf = 'puppeteer'", async () => {
     const api = createRendererFoundationApi([
       makePlugin("puppeteer", ["document-pdf", "image-snapshot"]),
     ]);
@@ -80,7 +80,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("custom-mail");
   });
 
-  test("Tenant-Override auf nicht-registriertes Plugin → fällt durch auf Default", async () => {
+  test("Tenant override for unregistered plugin → falls back to default", async () => {
     const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])], () => ({
       mail: "ghost-plugin",
     }));
@@ -88,20 +88,20 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("mail-html");
   });
 
-  test("Fallback auf erstes passendes Plugin wenn weder Tenant-Config noch Default-Name matchen", async () => {
+  test("Falls back to first matching plugin when neither tenant config nor default name matches", async () => {
     const api = createRendererFoundationApi([makePlugin("nonstandard-name", ["mail"])]);
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     expect(plugin.name).toBe("nonstandard-name");
   });
 
-  test("kein Plugin für kind → RendererError", () => {
+  test("no plugin for kind → RendererError", () => {
     const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
       RendererError,
     );
   });
 
-  test("leerer Plugin-Pool → RendererError für jeden kind", () => {
+  test("empty plugin pool → RendererError for every kind", () => {
     const api = createRendererFoundationApi([]);
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
       RendererError,
@@ -117,7 +117,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     );
   });
 
-  test("RendererError code='no_plugin_for_kind' wenn kein Plugin", () => {
+  test("RendererError code='no_plugin_for_kind' when no plugin", () => {
     const api = createRendererFoundationApi([]);
     try {
       api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
@@ -128,7 +128,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     }
   });
 
-  test("Plugin mit mehreren kinds wird für jeden passend gewählt", async () => {
+  test("Plugin with multiple kinds is selected for each matching kind", async () => {
     const multi = makePlugin("multi", ["mail", "document-pdf"]);
     const api = createRendererFoundationApi([multi]);
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail" }).name).toBe("multi");
@@ -137,7 +137,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     );
   });
 
-  test("Plugin mit leeren kinds wird nie ausgewählt", () => {
+  test("Plugin with empty kinds is never selected", () => {
     const api = createRendererFoundationApi([
       makePlugin("empty-kinds", []),
       makePlugin("mail-html", ["mail"]),
@@ -146,7 +146,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("mail-html");
   });
 
-  test("Tenant-Override mit falschem kind-Plugin → ignoriert, Fallback", async () => {
+  test("Tenant override with plugin for wrong kind → ignored, fallback", async () => {
     // Tenant config picks "puppeteer" for mail, but puppeteer only renders
     // document-pdf. The foundation must ignore an entry with the wrong kind.
     const api = createRendererFoundationApi(
@@ -159,7 +159,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
 });
 
 describe("renderer-foundation :: Plugin executes render", () => {
-  test("Plugin.render returnt RenderResponse mit gleichem kind", async () => {
+  test("Plugin.render returns RenderResponse with the same kind", async () => {
     const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     const response = await plugin.render(

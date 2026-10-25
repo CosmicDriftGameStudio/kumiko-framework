@@ -654,7 +654,7 @@ describe("RenderEdit", () => {
     expect(shell?.className).not.toContain("max-w-full");
   });
 
-  test("ScreenWidthProvider width='full' widens the form shell when layout.width is unset (fw#2656)", () => {
+  test("ScreenWidthProvider width='full' widens the form shell when layout.width is unset", () => {
     render(
       <ScreenWidthProvider width="full">
         <DispatcherProvider dispatcher={makeDispatcher()}>
@@ -706,7 +706,7 @@ describe("RenderEdit", () => {
     expect(renderScreenForm(undefined).className).toContain("max-w-[640px]");
   });
 
-  test("layout.width: '3xl' overrides ScreenWidthProvider width='full' (fw#2656)", () => {
+  test("layout.width: '3xl' overrides ScreenWidthProvider width='full'", () => {
     const screenDef = makeScreen();
     render(
       <ScreenWidthProvider width="full">
@@ -727,7 +727,7 @@ describe("RenderEdit", () => {
     expect(shell?.className).not.toContain("max-w-full");
   });
 
-  test("Cancel button renders with the same hover-class family as a secondary button, not the link look (fw#2656)", () => {
+  test("Cancel button renders with the same hover-class family as a secondary button, not the link look", () => {
     render(
       <>
         <Button testId="secondary-reference" variant="secondary">
@@ -758,7 +758,7 @@ describe("RenderEdit", () => {
     expect(cancel.className).not.toContain("px-0");
   });
 
-  test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {
+  test("title resolved from i18n key `screen:<id>.title` with screenId as fallback", () => {
     const dispatcher = makeDispatcher();
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -1088,7 +1088,7 @@ describe("RenderEdit server validation errors (single-section)", () => {
   });
 });
 
-describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
+describe("RenderEdit — composed extension save", () => {
   const screenDef: EntityEditScreenDefinition = {
     id: "orders:screen:order-edit",
     type: "entityEdit",
@@ -1141,7 +1141,7 @@ describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
     );
   }
 
-  test("Section-dirty aktiviert den Haupt-Save; CF-only-Save ruft den Handler ohne Main-Write", async () => {
+  test("Section-dirty enables the main save; CF-only save calls the handler without a main write", async () => {
     const submitSpy = mock();
     const writeSpy = mock(async () => ({
       isSuccess: true,

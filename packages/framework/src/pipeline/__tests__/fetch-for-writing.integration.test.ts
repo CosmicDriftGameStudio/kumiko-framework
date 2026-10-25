@@ -393,7 +393,7 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
     expect(types).not.toContain("f4w:event:item-added");
   });
 
-  test("#2979: a foreign-type event planted on the same aggregateId is excluded from the handle", async () => {
+  test("a foreign-type event planted on the same aggregateId is excluded from the handle", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",
       { customer: "grace" },
@@ -449,7 +449,7 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
     expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
   });
 
-  test("#2979: hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {
+  test("hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",
       { customer: "heidi" },

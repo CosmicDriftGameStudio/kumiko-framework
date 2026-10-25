@@ -334,7 +334,7 @@ describe("download-by-token :: error paths", () => {
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
   });
 
-  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
+  test("provider without getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
     // Exercises the operator misconfiguration path: a provider without
     // getSignedUrl support (for example, an incorrectly mounted local
     // filesystem provider) returns 422 rather than 404. The specific
@@ -447,7 +447,7 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     expect(row?.useCount).toBe(0);
   });
 
-  test("no query token (fragment-Pfad) → serviert Interstitial-HTML statt 400", async () => {
+  test("no query token (fragment path) → serves interstitial HTML instead of 400", async () => {
     const res = await stack.app.fetch(
       new Request("http://test/user-export/by-token", { method: "GET" }),
     );
@@ -543,7 +543,7 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
-  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported (job-Pfad)", async () => {
+  test("provider without getSignedUrl → 422 unprocessable signedUrlNotSupported (job path)", async () => {
     // Same as the token path: the operator misconfig must also surface as
     // 422 on the UI click path, not 404.
     const { jobId } = await seedDoneJobWithToken();

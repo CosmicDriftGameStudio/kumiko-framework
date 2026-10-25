@@ -19,7 +19,7 @@ import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.ts";
 import type { ProjectionListScreenDefinition } from "../types/screen.ts";
 
 describe("buildAppSchema", () => {
-  test("Multi-Feature: jedes Feature wird mit eigenem featureName projiziert", () => {
+  test("Multi-Feature: each feature is projected with its own featureName", () => {
     const orderEntity = {
       table: "orders",
       fields: { label: { type: "text" } },
@@ -118,7 +118,7 @@ describe("buildAppSchema", () => {
   // mergedTranslations does for features whose keys already carry a colon)
   // would break the lookup. Mirrors cap-counter's real shape exactly: nav
   // label references its own already-qualified translation key.
-  test("r.translations landet verbatim in FeatureSchema.translations, ohne Re-Prefixing", () => {
+  test("r.translations is placed verbatim in FeatureSchema.translations, without re-prefixing", () => {
     const capCounterLikeFeature = defineFeature("cap-counter", (r) => {
       r.nav({ id: "cap-list", label: "cap-counter:nav.cap-list" });
       r.translations({
@@ -140,7 +140,7 @@ describe("buildAppSchema", () => {
   // `screens[].dormant` from the CLIENT schema, not from the registry —
   // this pins that the flag actually survives the server→client projection
   // instead of only living in the registry's verbatim `feature.screens`.
-  test("custom screen's `dormant` flag survives the buildAppSchema projection verbatim (#2034)", () => {
+  test("custom screen's `dormant` flag survives the buildAppSchema projection verbatim", () => {
     const dormantScreenFeature = defineFeature("privacy", (r) => {
       r.screen({
         id: "privacy-center",
@@ -160,7 +160,7 @@ describe("buildAppSchema", () => {
   // (short, unqualified) off the client FeatureSchema — this pins that both
   // survive the server→client projection verbatim, on a real registry-built
   // schema rather than a hand-rolled FeatureSchema literal.
-  test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified (#2163)", () => {
+  test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified", () => {
     const propertyFeature = defineFeature("property", (r) => {
       r.entity({
         name: "lease",
@@ -184,7 +184,7 @@ describe("buildAppSchema", () => {
     expect(screen).toMatchObject({ id: "lease-detail", detailFor: "lease" });
   });
 
-  test("Feature ohne r.translations lässt das Feld weg (omit-undefined-Pattern)", () => {
+  test("Feature without r.translations omits the field (omit-undefined pattern)", () => {
     const f = defineFeature("bare", (r) => {
       r.nav({ id: "x", label: "X" });
     });
@@ -210,7 +210,7 @@ describe("buildAppSchema", () => {
     expect(app.features.every((f) => f.searchAdapterMissing === true)).toBe(true);
   });
 
-  test("options.searchAdapterMissing ohne/false lässt das Feld weg (omit-undefined-Pattern)", () => {
+  test("options.searchAdapterMissing absent/false omits the field (omit-undefined pattern)", () => {
     const f = defineFeature("bare", (r) => {
       r.nav({ id: "x", label: "X" });
     });
@@ -222,7 +222,7 @@ describe("buildAppSchema", () => {
     ).toBeUndefined();
   });
 
-  test("Workspaces — definition + aufgelöste navMembers landen auf AppSchema-Ebene", () => {
+  test("Workspaces — definition + resolved navMembers are placed at AppSchema level", () => {
     const ordersFeature = defineFeature("orders", (r) => {
       r.nav({ id: "list", label: "List" });
     });
@@ -253,7 +253,7 @@ describe("buildAppSchema", () => {
     expect(admin?.navMembers).toEqual(["orders:nav:list", "fleet:nav:vehicles"]);
   });
 
-  test("Apps ohne Workspaces lassen das Feld weg (omit-undefined-Pattern)", () => {
+  test("Apps without Workspaces omit the field (omit-undefined pattern)", () => {
     const f = defineFeature("only", (r) => {
       r.nav({ id: "x", label: "X" });
     });
@@ -261,7 +261,7 @@ describe("buildAppSchema", () => {
     expect(app.workspaces).toBeUndefined();
   });
 
-  test("JSON-Safety: Function-Defaults werden in der Projection rausgefiltert", () => {
+  test("JSON-Safety: function defaults are filtered out in the projection", () => {
     // A function default is valid server-side, but unusable in the browser
     // bundle because it may access server internals. Projection must omit the
     // default slot rather than expose the function.
@@ -308,7 +308,7 @@ describe("buildAppSchema", () => {
     expect(fields["ok"]?.["default"]).toEqual({ x: { a: 1 }, y: { a: 1 } });
   });
 
-  test("Reference-Field: entity + labelField + multiple überleben die Projection", () => {
+  test("Reference field: entity + labelField + multiple survive the projection", () => {
     // Regression: without these properties in the client schema, ReferenceInput
     // builds the options query as `<feature>:query::list` (with an empty
     // refEntity), causing a 404 and making the dropdown show „Keine Treffer"
@@ -382,7 +382,7 @@ describe("buildAppSchema", () => {
     expect(fields["name"]?.["filterable"]).toBeUndefined();
   });
 
-  test("searchable kommt ins Client-Schema (steuert den EntityList-Default, #1194)", () => {
+  test("searchable is included in the client schema (controls the EntityList default)", () => {
     const entity = {
       fields: {
         title: { type: "text", searchable: true },
@@ -425,7 +425,7 @@ describe("buildAppSchema", () => {
     expect(fields["state"]?.["display"]).toBeUndefined();
   });
 
-  test("MultiSelect: display/columns/maxRows überleben die Projection (fw#2494)", () => {
+  test("MultiSelect: display/columns/maxRows survive the projection", () => {
     // Regression: without display in the client schema, render-field.tsx's
     // `field.display === "checkboxes"` check always falls through → the
     // renderer always shows the combobox, MultiSelectCheckboxes is unreachable.
@@ -461,7 +461,7 @@ describe("buildAppSchema", () => {
     expect(fields["categories"]?.["maxRows"]).toBeUndefined();
   });
 
-  test("Select: optionTones überleben die Projection", () => {
+  test("Select: optionTones survive the projection", () => {
     const entity = {
       fields: {
         status: {
@@ -487,7 +487,7 @@ describe("buildAppSchema", () => {
     expect(fields["area"]?.["optionTones"]).toBeUndefined();
   });
 
-  test("MultiSelectFieldDef: alle Keys sind in projectField bewusst eingeordnet", () => {
+  test("MultiSelectFieldDef: all keys are intentionally accounted for in projectField", () => {
     // Bounded completeness check, scoped to MultiSelectFieldDef's own key set
     // (packages/types/src/fields.ts) — NOT a general FieldDefinition lockstep.
     // A full-union version would have to classify every property of all 20
@@ -581,7 +581,7 @@ describe("buildAppSchema", () => {
     }
   });
 
-  test("text/longText: multiline überlebt die Projection (fw#2497)", () => {
+  test("text/longText: multiline survives the projection", () => {
     // Regression: without `multiline` in the client schema, DefaultInput
     // always renders a single-line <input> — the textarea row count never
     // arrives.
@@ -709,7 +709,7 @@ describe("buildAppSchema", () => {
     expect(settings.fields["note"]).not.toHaveProperty("writeOnly");
   });
 
-  test("number/date/timestamp/locatedTimestamp: min/max/locale überleben die Projection (fw#2497)", () => {
+  test("number/date/timestamp/locatedTimestamp: min/max/locale survive the projection", () => {
     // Regression: input bounds and locale overrides never arrived at the
     // renderer, so the browser's own range validation and date-picker
     // formatting were always off.
@@ -753,7 +753,7 @@ describe("buildAppSchema", () => {
     expect(fields["pickupAt"]?.["locale"]).toBe("de-DE");
   });
 
-  test("image/images: capture überlebt die Projection (fw#2497)", () => {
+  test("image/images: capture survives the projection", () => {
     // Regression: `capture` decides whether a mobile file picker opens the
     // rear or front camera — never arrived, so it never applied.
     const entity = {
@@ -868,7 +868,7 @@ describe("buildAppSchema", () => {
     expect("defaultCurrency" in app.features[0]!.entities["thing"]!).toBe(false);
   });
 
-  test("money field's `currency: { kind: 'tenant' }` declaration survives the projection (fw#2933)", () => {
+  test("money field's `currency: { kind: 'tenant' }` declaration survives the projection", () => {
     const entity = {
       defaultCurrency: "USD",
       fields: {
@@ -890,7 +890,7 @@ describe("buildAppSchema", () => {
     expect(JSON.parse(JSON.stringify(projected))).toEqual(projected);
   });
 
-  test("money field's `currency: { kind: 'literal', code }` declaration survives the projection (fw#2839)", () => {
+  test("money field's `currency: { kind: 'literal', code }` declaration survives the projection", () => {
     const entity = {
       defaultCurrency: "USD",
       fields: { price: { type: "money", currency: { kind: "literal", code: "USD" } } },
@@ -957,7 +957,7 @@ describe("buildAppSchema", () => {
     expect(positionsSchema["price"]?.["scale"]).toBe(2);
   });
 
-  test("embedded: minItems/maxItems/derived/totals/totalsMatch überleben die Projection (fw#2497)", () => {
+  test("embedded: minItems/maxItems/derived/totals/totalsMatch survive the projection", () => {
     // Regression: `totals` carries "Renderer metadata: numeric sub-field
     // names to sum in a totals row" in its own doc-comment but was never
     // forwarded — same for the other embedded-list renderer hints.
@@ -1007,7 +1007,7 @@ describe("buildAppSchema", () => {
     expect(schema["status"]).toEqual({ type: "select", options: ["open", "closed"] });
   });
 
-  test("embedded: derived/totalsMatch mit Function eine Ebene tief bleiben blockiert (fw#2497)", () => {
+  test("embedded: derived/totalsMatch with a Function one level deep remain blocked", () => {
     // Regression: a shallow `isPlainObject`/`Array.isArray` check alone
     // would let a function survive one level deep — `derived`/`totals`/
     // `totalsMatch`/`multiline` must go through isJsonSafeValue() too, not
@@ -1042,7 +1042,7 @@ describe("buildAppSchema", () => {
     expect(fields["multi"]?.["multiline"]).toBeUndefined();
   });
 
-  test("embedded: schema übersteht die Projection, ein Function-Wert eines Sub-Fields wird aber gedroppt (fw#2507)", () => {
+  test("embedded: schema survives the projection, but a Function value of a sub-field is dropped", () => {
     // Regression: `schema` — the embedded list's sub-field map — was never
     // forwarded at all, crashing computeEditViewModel client-side
     // (Object.entries(undefined)). It's projected recursively per sub-field
@@ -1080,7 +1080,7 @@ describe("buildAppSchema", () => {
     expect(schema["amount"]).toEqual({ type: "money" });
   });
 
-  test("default: JSON-safe Arrays/Objects überleben die Projection, Nicht-JSON-Werte bleiben blockiert (fw#2497)", () => {
+  test("default: JSON-safe Arrays/Objects survive the projection, non-JSON values remain blocked", () => {
     // isJsonSafeValue() now recurses into arrays/plain objects instead of
     // only accepting string/number/boolean/null — but the defense-in-depth
     // against smuggled function/class-instance defaults must still hold.
@@ -1109,7 +1109,7 @@ describe("buildAppSchema", () => {
     expect(fields["brokenClass"]?.["default"]).toBeUndefined();
   });
 
-  test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
+  test("AppSchema is safe through a JSON.stringify roundtrip", () => {
     // Contract smoke test: a function accidentally introduced by a project-
     // helper would make this check fail.
     const entity = {
@@ -1143,7 +1143,7 @@ describe("buildAppSchema", () => {
     expect(tagsField.maxRows).toBe(5);
   });
 
-  test("FormatSpec-Renderer + FieldCondition-RowActions überleben JSON-Roundtrip unverändert", () => {
+  test("FormatSpec-Renderer + FieldCondition-RowActions survive the JSON roundtrip unchanged", () => {
     // FormatSpec ({ format: "timestamp" } etc.) is JSON-safe, and
     // FieldCondition ({ field, eq/ne } | boolean) remains deep-equal to the
     // original after JSON.parse(JSON.stringify(app)).
@@ -1234,7 +1234,7 @@ describe("buildAppSchema", () => {
     expect(actions?.find((a) => a.id === "open")?.rowClick).toBe(true);
   });
 
-  test("derivedFields werden ins Client-Schema projiziert (valueType, ohne derive-fn)", () => {
+  test("derivedFields are projected into the client schema (valueType, without derive-fn)", () => {
     // Regression: projectEntity omitted derivedFields, so the client did not know
     // them and computeListViewModel threw "references unknown field" for every
     // derived entityList column (such as bauspar `phase`).
@@ -1273,7 +1273,7 @@ describe("buildAppSchema", () => {
   // projectionList's searchable/sortable/paginated are derived from
   // the bound query handler's Zod schema, not authored — see
   // deriveProjectionListCapabilities in build-app-schema.ts.
-  test("projectionList: search/sort/cursor in the query schema become derived capabilities (fw#2165)", () => {
+  test("projectionList: search/sort/cursor in the query schema become derived capabilities", () => {
     const f = defineFeature("ledger", (r) => {
       r.queryHandler({
         name: "schedule:list",
@@ -1417,26 +1417,26 @@ describe("buildAppSchema", () => {
 });
 
 describe("findNonJsonSafePath", () => {
-  test("findet eine Funktion ausserhalb von PlatformComponent-Slots mit Pfad", () => {
+  test("finds a function outside PlatformComponent slots with a path", () => {
     const schema = { features: [{ label: () => "nope" }] };
     expect(findNonJsonSafePath(schema, "schema")).toBe("schema.features[0].label");
   });
 
-  test("PlatformComponent-Slots ({ react, native }) sind opak — Komponenten-Funktionen erlaubt", () => {
+  test("PlatformComponent slots ({ react, native }) are opaque — component functions allowed", () => {
     const schema = {
       features: [{ screens: [{ id: "s1", component: { react: () => null } }] }],
     };
     expect(findNonJsonSafePath(schema, "schema")).toBeNull();
   });
 
-  test("faengt undefined, bigint und Klassen-Instanzen", () => {
+  test("catches undefined, bigint, and class instances", () => {
     expect(findNonJsonSafePath({ a: undefined }, "schema")).toBe("schema.a");
     expect(findNonJsonSafePath({ a: 1n }, "schema")).toBe("schema.a");
     expect(findNonJsonSafePath({ a: new Map() }, "schema")).toBe("schema.a");
     expect(findNonJsonSafePath({ a: Number.NaN }, "schema")).toBe("schema.a");
   });
 
-  test("normales JSON-Schema passiert ohne Befund", () => {
+  test("normal JSON schema passes without finding anything", () => {
     expect(
       findNonJsonSafePath({ features: [{ name: "x", count: 3, on: true, opt: null }] }, "schema"),
     ).toBeNull();

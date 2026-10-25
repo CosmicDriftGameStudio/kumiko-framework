@@ -97,7 +97,7 @@ describe("generateE2ESpec", () => {
     ]);
   });
 
-  test("groups-only sections liefern Required-Felder, Fill-Ops und Text-Assertion", () => {
+  test("groups-only sections provide required fields, fill ops, and text assertion", () => {
     const feature = defineFeature("tasks", (r) => {
       r.systemScope();
       r.entity({ name: "task", ...taskEntity });
@@ -146,7 +146,7 @@ describe("generateE2ESpec", () => {
     expect(persists.identifyingField).toBe("title");
   });
 
-  test("date emittiert fill, timestamp wird übersprungen (zwei Inputs seit #369)", () => {
+  test("date emits fill, timestamp is skipped (two inputs)", () => {
     const entity = createEntity({
       table: "events",
       fields: {
@@ -338,7 +338,7 @@ describe("generateZodFixture", () => {
     expect(() => generateZodFixture(z.array(z.string()))).toThrow(/not supported yet/);
   });
 
-  test("pipe (select-with-default, same shape schema-builder's z.preprocess produces) unwraps to the underlying type's fixture (fw#1712)", () => {
+  test("pipe (select-with-default, same shape schema-builder's z.preprocess produces) unwraps to the underlying type's fixture", () => {
     const enumSchema = z.enum(["a", "b"]);
     const pipe = z.preprocess((value) => (value === "" ? "a" : value), enumSchema);
     expect(pipe._def.type).toBe("pipe");

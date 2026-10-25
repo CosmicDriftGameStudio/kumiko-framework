@@ -101,7 +101,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     expect(screen.getByTestId("render-list-create")).toBeTruthy();
   });
 
-  test("allowCreate:false → Aufruf ohne entityId zeigt Fehler-Banner statt Create-Form", () => {
+  test("allowCreate:false → Calling without entityId shows an error banner instead of the Create form", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-edit" />
@@ -148,7 +148,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
       })) as unknown as Dispatcher["query"],
     });
 
-  test("update-mode mit drei Header-Actions kollabiert auf Icon-only mit ariaLabel", async () => {
+  test("update mode with three header actions collapses to icon-only with ariaLabel", async () => {
     render(
       <DispatcherProvider dispatcher={detailDispatcher()}>
         <KumikoScreen
@@ -172,7 +172,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
     }
   });
 
-  test("update-mode mit zwei Header-Actions zeigt weiterhin sichtbaren Text", async () => {
+  test("update mode with two header actions still displays visible text", async () => {
     render(
       <DispatcherProvider dispatcher={detailDispatcher()}>
         <KumikoScreen
@@ -188,7 +188,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
     expect(screen.getByTestId("render-edit-action-archive").textContent).toBe("Archive");
   });
 
-  test("update-mode mit drei Header-Actions kollabiert auch den Copy-Link-Button auf Icon-only mit ariaLabel", async () => {
+  test("update mode with three header actions also collapses the Copy-Link button to icon-only with ariaLabel", async () => {
     render(
       <DispatcherProvider dispatcher={detailDispatcher()}>
         <KumikoScreen
@@ -209,7 +209,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
   // Design decision (fw entityEdit-actions): actions target an EXISTING
   // record (publish/archive/duplicate and friends) — create mode has none
   // yet, so EntityEditCreateBody never builds a headerActions prop at all.
-  test("create-mode (kein entityId) rendert keine Header-Actions", () => {
+  test("create mode (no entityId) renders no header actions", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen schema={actionsSchema} qn="tasks:screen:task-edit-actions-3" />
@@ -228,7 +228,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
 // form and the drawer's own ActionFormBody are both `RenderEdit` instances
 // mounted at once, so drawer-scoped queries use `within(...)` to avoid
 // colliding with the outer form's own render-edit-form/field-* testids.
-describe("KumikoScreen: entityEdit actions drawer-kind (fw#2710)", () => {
+describe("KumikoScreen: entityEdit actions drawer-kind", () => {
   const noteForm: ActionFormScreenDefinition = {
     id: "task-note-drawer",
     type: "actionForm",

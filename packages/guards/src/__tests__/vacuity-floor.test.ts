@@ -17,7 +17,7 @@ import { GUARDS } from "../run-guards";
 import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
 
 describe("Vacuity-Floor — classifyRun (numeric assertScanned form)", () => {
-  test("Globs ohne Treffer failen, fehlende Ziel-Repos nicht", () => {
+  test("Globs with no matches fail, while missing target repos do not", () => {
     expect(classifyRun({ globCount: 4, matchedFiles: 0 })).toEqual({
       notApplicable: false,
       vacuous: true,
@@ -34,7 +34,7 @@ describe("Vacuity-Floor — classifyRun (numeric assertScanned form)", () => {
 });
 
 describe("Vacuity-Floor gegen echte Pfade", () => {
-  test("die Guard-Liste ist ohne Seiteneffekt importierbar", () => {
+  test("the guard list can be imported without side effects", () => {
     // Previously `import { GUARDS }` kicked off the whole suite (top-level
     // runGuards), so no test could touch the list.
     expect(GUARDS.length).toBeGreaterThan(5);
@@ -44,7 +44,7 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
   // Hardening: a guard whose `scan` resolution throws (an
   // authoring mistake, e.g. an unsupported glob) must not crash the shared
   // project build — only that guard's own run should fail.
-  test("ein Guard mit werfender scan-Auflösung crasht den Build nicht, Geschwister laufen weiter", () => {
+  test("a guard whose scan resolution throws does not crash the build, and siblings continue running", () => {
     const throwingGuard: AstGuard = {
       name: "undecidable-guard",
       get scan(): ScanSpec {

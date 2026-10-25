@@ -58,11 +58,11 @@ describe("parseAutoVerb", () => {
     expect(parseAutoVerb(event({ type: "user.imported" }))).toBeNull();
   });
 
-  test("type ohne dot-separator → null", () => {
+  test("type without dot separator → null", () => {
     expect(parseAutoVerb(event({ type: "userCreated" }))).toBeNull();
   });
 
-  test("type mit verschachteltem prefix → null", () => {
+  test("type with nested prefix → null", () => {
     // "user.profile.updated" has two dots, so it is not a clean auto-verb
     expect(parseAutoVerb(event({ type: "user.profile.updated" }))).toBeNull();
   });

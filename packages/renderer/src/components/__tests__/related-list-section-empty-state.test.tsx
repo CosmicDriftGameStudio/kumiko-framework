@@ -105,7 +105,7 @@ function renderEmpty(
   );
 }
 
-describe("RelatedListSection — emptyState (fw#3234)", () => {
+describe("RelatedListSection emptyState", () => {
   test("no emptyState declared: DataTable renders its own fallback, not a custom one", async () => {
     renderEmpty(baseSection);
     await waitFor(() => rtlScreen.getByRole("table"));

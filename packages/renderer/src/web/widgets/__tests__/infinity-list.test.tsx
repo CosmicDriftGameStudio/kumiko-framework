@@ -109,7 +109,7 @@ describe("InfinityList", () => {
     await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
   });
 
-  test("lädt die nächste Seite nach, sobald der Sentinel sichtbar wird", async () => {
+  test("loads the next page as soon as the sentinel becomes visible", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
       query: (async () => {
@@ -134,7 +134,7 @@ describe("InfinityList", () => {
     expect(calls).toBe(2);
   });
 
-  test("dedupliziert nach rowId beim Append — eine Row die auf Seite 2 erneut auftaucht wird nicht doppelt gerendert (fw#1829)", async () => {
+  test("deduplicates by rowId when appending — a row that reappears on page 2 is not rendered twice", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
       query: (async () => {
@@ -172,7 +172,7 @@ describe("InfinityList", () => {
     expect(screen.getAllByText("Zweite")).toHaveLength(1);
   });
 
-  test("Fehler → ErrorState, Retry lädt neu", async () => {
+  test("Error → ErrorState, Retry reloads", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
       query: (async () => {
@@ -221,7 +221,7 @@ describe("InfinityList", () => {
   // fires a second request before the first resolves. Without sequencing,
   // a slow first response landing after a faster second one clobbers it —
   // the displayed rows end up out of sync with the current payload.
-  test("verwirft eine überholte Response, wenn eine frühere Anfrage später auflöst", async () => {
+  test("discards an outdated response when an earlier request resolves later", async () => {
     const resolvers: Array<(res: unknown) => void> = [];
     const dispatcher = createMockDispatcher({
       query: (() =>
@@ -278,7 +278,7 @@ describe("InfinityList", () => {
     // Live refresh is debounced by 250ms; CI needs headroom beyond default 1s.
     const liveWait = { timeout: 3000 } as const;
 
-    test("SSE-Event mergt nur die erste Seite, bereits geladene Folgeseiten bleiben erhalten", async () => {
+    test("SSE event merges only the first page, already loaded subsequent pages remain intact", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
         query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
@@ -352,7 +352,7 @@ describe("InfinityList", () => {
     // Regression for the "logic inversion" bug: staleRows used to keep
     // exactly the rows MISSING from the fresh page-1 response, so a row
     // deleted elsewhere never left the list.
-    test("Row aus Seite 1 gelöscht → verschwindet nach Refresh", async () => {
+    test("Row deleted from page 1 → disappears after refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
         query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
@@ -401,7 +401,7 @@ describe("InfinityList", () => {
     // page 2) must survive a page-1-only live refresh even when it isn't in
     // the fresh response — the fix must not treat "not in freshIds" alone
     // as reason to drop a row.
-    test("Row aus Seite 2 bleibt nach Seite-1-Refresh erhalten", async () => {
+    test("Row from page 2 remains after a page-1 refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
         query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
@@ -469,7 +469,7 @@ describe("InfinityList", () => {
       return { id, aggregateType: "message", version: 1, eventType: "updated", createdAt: "" };
     }
 
-    test("ein Burst schneller SSE-Events löst genau eine Refresh-Query aus", async () => {
+    test("a burst of rapid SSE events triggers exactly one refresh query", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
         query: (() => {
@@ -494,7 +494,7 @@ describe("InfinityList", () => {
       expect(calls).toBe(2);
     });
 
-    test("Event während laufendem Refresh: genau ein Trailing-Pass danach", async () => {
+    test("Event during an ongoing refresh: exactly one trailing pass afterward", async () => {
       let calls = 0;
       let releaseRefresh: () => void = () => {};
       const dispatcher = createMockDispatcher({
@@ -525,7 +525,7 @@ describe("InfinityList", () => {
       expect(calls).toBe(3);
     });
 
-    test("live=false: SSE-Event wird ignoriert, kein Refetch", async () => {
+    test("live=false: SSE event is ignored, no refetch", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
         query: (() => {
@@ -567,7 +567,7 @@ describe("InfinityList", () => {
       expect(calls).toBe(1);
     });
 
-    test("nur Events für die Query-Entity triggern den Refresh", async () => {
+    test("only events for the query entity trigger the refresh", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
         query: (() => {
@@ -612,7 +612,7 @@ describe("InfinityList", () => {
     // A live event arriving while the mount fetch is still in flight must not
     // discard that fetch — it's the normal case for a screen that mounts while
     // writes are already streaming in.
-    test("SSE-Event während der ersten Ladephase lässt die Mount-Anfrage trotzdem landen", async () => {
+    test("SSE event during the initial loading phase still lets the mount request complete", async () => {
       const resolvers: Array<(res: unknown) => void> = [];
       const dispatcher = createMockDispatcher({
         query: (() =>

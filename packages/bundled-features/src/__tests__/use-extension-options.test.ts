@@ -31,7 +31,7 @@ test("useExtension accepts a well-typed tenantData destroy hook", () => {
   });
 });
 
-test("useExtension rejects a tenantData destroy hook with the #3196 wrong ctx shape", () => {
+test("useExtension rejects a tenantData destroy hook with the wrong ctx shape", () => {
   defineFeature("probe-tenant-data-wrong-ctx", (r) => {
     r.useExtension(EXT_TENANT_DATA, "x", {
       // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
@@ -73,7 +73,7 @@ test("useExtension's object form accepts a well-typed tenantData destroy hook", 
   });
 });
 
-test("useExtension's object form rejects the #3196 wrong ctx shape", () => {
+test("useExtension's object form rejects the wrong ctx shape", () => {
   defineFeature("probe-tenant-data-object-form-wrong-ctx", (r) => {
     r.useExtension({
       name: EXT_TENANT_DATA,
@@ -117,7 +117,7 @@ test("useExtension accepts a tenantData registration with escapeHatch", () => {
   );
 });
 
-test("useExtension accepts export-only userData registration (#972)", () => {
+test("useExtension accepts export-only userData registration", () => {
   const exportHook: UserDataExportHook = async (_ctx) => null;
   const feature = defineFeature("probe-user-data-export-only", (r) => {
     r.useExtension(EXT_USER_DATA, "x", { export: exportHook });

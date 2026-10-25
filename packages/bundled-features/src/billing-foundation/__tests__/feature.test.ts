@@ -74,21 +74,21 @@ describe("billingFoundationFeature — events + projection + handlers registered
     expect(events["invoice-payment-failed"]).toBeDefined();
   });
 
-  test("subscription-projection registriert mit 5 apply-keys", () => {
+  test("subscription-projection registered with 5 apply keys", () => {
     const proj = createBillingFoundationFeature().projections["subscription"];
     expect(proj).toBeDefined();
     const applyKeys = Object.keys(proj?.apply ?? {});
     expect(applyKeys).toHaveLength(5);
   });
 
-  test("process-event write-handler registriert mit erwarteter QN", () => {
+  test("process-event write-handler registered with expected QN", () => {
     expect(createBillingFoundationFeature().writeHandlers["process-event"]).toBeDefined();
     expect(SubscriptionFoundationHandlers.processEvent).toBe(
       "billing-foundation:write:process-event",
     );
   });
 
-  test("process-event ist SystemAdmin-only (programmatic-only entry-point)", () => {
+  test("process-event is SystemAdmin-only (programmatic-only entry-point)", () => {
     const handler = createBillingFoundationFeature().writeHandlers["process-event"];
     const access = handler?.access as { roles?: readonly string[] } | undefined;
     expect(access?.roles).toEqual(["SystemAdmin"]);
@@ -120,7 +120,7 @@ describe("normalized constants — provider-agnostic event-types + statuses", ()
     ]);
   });
 
-  test("Statuses normalized über Stripe + Mollie", () => {
+  test("Statuses normalized across Stripe + Mollie", () => {
     expect(Object.values(SubscriptionStatuses)).toEqual([
       "active",
       "trialing",
@@ -283,7 +283,7 @@ describe("createBillingFoundationFeature — catalog.contact validation", () => 
   });
 });
 
-describe("billingFoundationFeature — dormant billing-plans screen (#3316 P9)", () => {
+describe("billingFoundationFeature — dormant billing-plans screen", () => {
   test("not registered without a catalog", () => {
     const feature = createBillingFoundationFeature({ baseUrl: "https://example.com" });
     expect(feature.screens[BILLING_PLANS_SCREEN_ID]).toBeUndefined();

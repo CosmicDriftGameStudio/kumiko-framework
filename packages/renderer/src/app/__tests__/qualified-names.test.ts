@@ -14,7 +14,7 @@ describe("lastSegment", () => {
     expect(lastSegment("a:b")).toBe("b");
   });
 
-  test("String ohne ':' bleibt unverändert (Short-Form passt durch)", () => {
+  test("A string without ':' remains unchanged (short form passes through)", () => {
     expect(lastSegment("task-list")).toBe("task-list");
     expect(lastSegment("")).toBe("");
   });
@@ -30,7 +30,7 @@ describe("qualifyScreenId / qualifyNavId", () => {
     expect(qualifyNavId("tasks", "main")).toBe("tasks:nav:main");
   });
 
-  test("lastSegment ist die Inverse von qualify*", () => {
+  test("lastSegment is the inverse of qualify*", () => {
     expect(lastSegment(qualifyScreenId("tasks", "task-list"))).toBe("task-list");
     expect(lastSegment(qualifyNavId("tasks", "main"))).toBe("main");
   });

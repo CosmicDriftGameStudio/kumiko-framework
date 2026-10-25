@@ -46,7 +46,7 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.name).toBe("user-data-rights");
   });
 
-  test("EXT_USER_DATA-Extension ist registriert (andere Features koennen useExtension dranhaengen)", () => {
+  test("EXT_USER_DATA extension is registered (other features can attach via useExtension)", () => {
     expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
   });
 

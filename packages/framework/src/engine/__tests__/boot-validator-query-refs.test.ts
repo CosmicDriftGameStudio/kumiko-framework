@@ -11,7 +11,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 // a screen's `query` (or a relatedList/dashboard-panel query) must
 // resolve to a query-handler actually registered via r.queryHandler(...) —
 // mirrors the existing rowAction/toolbarAction handler-existence check.
-describe("validateBoot — query QN refs (fw#2178)", () => {
+describe("validateBoot — query QN refs", () => {
   test("projectionList with a dead query QN throws (a)", () => {
     const feature = defineFeature("ledger", (r) => {
       r.screen({

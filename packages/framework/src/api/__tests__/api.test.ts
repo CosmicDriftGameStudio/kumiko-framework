@@ -799,7 +799,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     expect(await res.json()).toEqual({ version: "1.2.3" });
   });
 
-  test("Handler bekommt deps.app — Hono-Instance für internal-fetch", async () => {
+  test("Handler receives deps.app — Hono instance for internal-fetch", async () => {
     const res = await routeApp.request("/probe-deps");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { hasApp: boolean };
@@ -862,7 +862,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     expect(body.items).toEqual([{ id: 42, name: "hello" }]);
   });
 
-  test("Boot-Validator: Route auf /api/* ist verboten", () => {
+  test("Boot validator: route on /api/* is forbidden", () => {
     expect(() =>
       defineFeature("bad", (r) => {
         r.httpRoute({
@@ -875,7 +875,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     ).toThrow(/\/api\/\* namespace.*reserved/);
   });
 
-  test("Boot-Validator: doppelte method+path-Combo wird abgelehnt", () => {
+  test("Boot validator: duplicate method+path combination is rejected", () => {
     expect(() =>
       defineFeature("dup", (r) => {
         r.httpRoute({ method: "GET", path: "/x", anonymous: true, handler: (c) => c.text("a") });

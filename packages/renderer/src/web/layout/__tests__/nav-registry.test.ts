@@ -36,7 +36,7 @@ describe("buildNavRegistrySlice", () => {
     expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:main"]);
   });
 
-  test("parent-child: child unter byParent(qualified-parent), screen wird qualifiziert", () => {
+  test("parent-child: child under byParent(qualified-parent), screen is qualified", () => {
     const slice = buildNavRegistrySlice(
       feature([
         { id: "main", label: "Main" },
@@ -49,7 +49,7 @@ describe("buildNavRegistrySlice", () => {
     expect(children[0]?.screen).toBe("tasks:screen:task-list");
   });
 
-  test("allowedNavQns filtert nicht-erlaubte Navs raus", () => {
+  test("allowedNavQns filters out disallowed Navs", () => {
     const slice = buildNavRegistrySlice(
       feature([
         { id: "a", label: "A" },
@@ -60,7 +60,7 @@ describe("buildNavRegistrySlice", () => {
     expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:a"]);
   });
 
-  test("child mit gedropptem Parent wird top-level (statt zu verschwinden)", () => {
+  test("child with a dropped parent becomes top-level (instead of disappearing)", () => {
     const slice = buildNavRegistrySlice(
       feature([
         { id: "main", label: "Main" },
@@ -132,7 +132,7 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel.map((n) => n.id)).toEqual(["shop:nav:catalog", "admin:nav:users"]);
   });
 
-  test("nav ohne eigene access erbt access vom referenzierten Screen (#1099)", () => {
+  test("nav without its own access inherits access from the referenced screen", () => {
     const app: AppSchema = {
       features: [
         featureWithScreens(
@@ -152,7 +152,7 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel[0]?.access).toEqual({ roles: ["Admin"] });
   });
 
-  test("nav mit eigener access ignoriert die Screen-Access (expliziter Override gewinnt)", () => {
+  test("nav with its own access ignores the screen's access (explicit override wins)", () => {
     const app: AppSchema = {
       features: [
         featureWithScreens(
@@ -179,7 +179,7 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel[0]?.access).toEqual({ roles: ["Admin", "Editor"] });
   });
 
-  test("nav ohne eigene access bleibt ohne access, wenn der Ziel-Screen offen ist (kein Verstecken eines openToAll-Screens)", () => {
+  test("nav without its own access remains without access when the target screen is open (does not hide an openToAll screen)", () => {
     const app: AppSchema = {
       features: [
         featureWithScreens(
@@ -198,7 +198,7 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel[0]?.access).toBeUndefined();
   });
 
-  test("nav ohne screen bleibt ohne access (nichts zum Erben da)", () => {
+  test("nav without a screen remains without access (nothing to inherit)", () => {
     const app: AppSchema = {
       features: [feature([{ id: "group", label: "Group" }])],
     };
@@ -206,7 +206,7 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel[0]?.access).toBeUndefined();
   });
 
-  test("end-to-end: resolveNavigation versteckt den Eintrag fuer eine Rolle, die den Ziel-Screen nicht sehen darf", () => {
+  test("end-to-end: resolveNavigation hides the entry from a role that is not allowed to see the target screen", () => {
     const app: AppSchema = {
       features: [
         featureWithScreens(

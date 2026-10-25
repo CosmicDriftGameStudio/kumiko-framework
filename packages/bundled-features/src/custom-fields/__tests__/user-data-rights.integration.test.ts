@@ -318,7 +318,7 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     });
   });
 
-  test("forget anonymize: customFields stay fully intact (export-only wiring, #972)", async () => {
+  test("forget anonymization: customFields stay fully intact (export-only wiring)", async () => {
     await seedForgetUserWithMembership();
     await seedPropertyAnonymizeOverride();
     const propertyId = "22222222-2222-4000-8000-000000000002";

@@ -75,7 +75,7 @@ async function typeMoney(testId: string, amount: string): Promise<void> {
   await user.type(input, amount);
 }
 
-describe("money field currency: { kind: 'tenant' } (fw#2933)", () => {
+describe("money field currency: { kind: 'tenant' }", () => {
   test("update: empty tenant-declared field uses the tenant currency; stored value keeps its own currency; undeclared empty field keeps entity.defaultCurrency", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({

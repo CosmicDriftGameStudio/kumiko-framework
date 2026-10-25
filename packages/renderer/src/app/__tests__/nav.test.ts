@@ -8,7 +8,7 @@ import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { formatPath, hasDetailScreen, parsePath, resolveTarget } from "../nav.tsx";
 
-describe("parsePath — ohne Workspaces", () => {
+describe("parsePath without workspaces", () => {
   test("/<screenId>", () => {
     expect(parsePath("/task-list")).toEqual({ screenId: "task-list" });
   });
@@ -17,17 +17,17 @@ describe("parsePath — ohne Workspaces", () => {
     expect(parsePath("/task-edit/abc-123")).toEqual({ screenId: "task-edit", entityId: "abc-123" });
   });
 
-  test("Root und leerer Pfad → undefined", () => {
+  test("Root and empty path → undefined", () => {
     expect(parsePath("/")).toBeUndefined();
     expect(parsePath("")).toBeUndefined();
   });
 
-  test("überzählige Segmente werden ignoriert (kein Nesting)", () => {
+  test("extra segments are ignored (no nesting)", () => {
     expect(parsePath("/a/b/c/d")).toEqual({ screenId: "a", entityId: "b" });
   });
 });
 
-describe("parsePath — mit Workspaces (hasWorkspaces=true)", () => {
+describe("parsePath with workspaces (hasWorkspaces=true)", () => {
   test("/<workspaceId>/<screenId>", () => {
     expect(parsePath("/admin/task-list", true)).toEqual({
       workspaceId: "admin",
@@ -57,11 +57,11 @@ describe("formatPath", () => {
     expect(formatPath({ screenId: "task-list" })).toBe("/task-list");
   });
 
-  test("mit entityId", () => {
+  test("with entityId", () => {
     expect(formatPath({ screenId: "task-edit", entityId: "abc" })).toBe("/task-edit/abc");
   });
 
-  test("mit workspaceId-Prefix", () => {
+  test("with workspaceId prefix", () => {
     expect(formatPath({ workspaceId: "admin", screenId: "task-list" })).toBe("/admin/task-list");
   });
 

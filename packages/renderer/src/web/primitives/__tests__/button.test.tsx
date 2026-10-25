@@ -5,7 +5,7 @@ import { defaultPrimitives } from "../index.tsx";
 
 const { Button } = defaultPrimitives;
 
-describe("DefaultButton className/ref (fw#1831)", () => {
+describe("DefaultButton className/ref", () => {
   test("merged className landet auf dem DOM-Node", () => {
     render(
       <Button className="my-custom-class" testId="btn">

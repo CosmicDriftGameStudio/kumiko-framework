@@ -27,7 +27,7 @@ function wrapperFor(dispatcher: Dispatcher) {
 }
 
 describe("useMutation", () => {
-  test("Success setzt data, pending toggelt, Result wird durchgereicht", async () => {
+  test("Success sets data, toggles pending, and passes through Result", async () => {
     let resolve: (() => void) | undefined;
     const gate = new Promise<void>((r) => {
       resolve = r;
@@ -56,7 +56,7 @@ describe("useMutation", () => {
     expect(outcome?.isSuccess).toBe(true);
   });
 
-  test("Failure setzt error, reset räumt auf", async () => {
+  test("Failure sets error, reset clears it", async () => {
     const dispatcher = makeDispatcher((async () => ({
       isSuccess: false,
       error: { code: "conflict", message: "boom", i18nKey: "errors.conflict" },

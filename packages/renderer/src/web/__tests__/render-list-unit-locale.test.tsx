@@ -96,7 +96,7 @@ function renderAreaListUnderLocale(
   return result.getByTestId("cell-r1-area").textContent;
 }
 
-describe("RenderList — format:unit-FormatSpec threads the app locale (fw#2437)", () => {
+describe("RenderList — format:unit-FormatSpec threads the app locale", () => {
   test("dieselbe m2-Spalte unter zwei Locales rendert zwei verschiedene Beschriftungen", () => {
     expect(renderAreaListUnderLocale("de-DE", 72.5, unitScreen)).toBe("72,5 m²");
     expect(renderAreaListUnderLocale("en-US", 72.5, unitScreen)).toBe("72.5 m²");
@@ -112,7 +112,7 @@ describe("RenderList — format:unit-FormatSpec threads the app locale (fw#2437)
     expect(renderAreaListUnderLocale("de-DE", 72.5, screen)).toBe("72.5 m²");
   });
 
-  test("ein explizit gesetztes renderer.locale: undefined überschreibt das App-Locale nicht", () => {
+  test("an explicitly set renderer.locale: undefined does not override the app locale", () => {
     const optionalLocale: string | undefined = undefined;
     const screen: EntityListScreenDefinition = {
       id: "",
@@ -126,8 +126,8 @@ describe("RenderList — format:unit-FormatSpec threads the app locale (fw#2437)
   });
 });
 
-describe("RenderList — default number-column threads the app locale (fw#2437)", () => {
-  test("kein expliziter renderer: number-Zelle folgt dem App-Locale, nicht der Runtime-Locale", () => {
+describe("RenderList — default number-column threads the app locale", () => {
+  test("without an explicit renderer, the number cell follows the app locale, not the runtime locale", () => {
     expect(renderAreaListUnderLocale("de-DE", 1234.5, numberScreen)).toBe(
       new Intl.NumberFormat("de-DE").format(1234.5),
     );
