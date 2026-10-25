@@ -238,6 +238,10 @@ export type ProjectionDetailScreenDefinition = {
    *  can reach the query — a stray id on the path is ignored, never
    *  forwarded. */
   readonly singleton?: boolean;
+  /** Refetches the record and its relatedList sections when their entity
+   *  changes (live SSE), for a screen that shows work a background job is
+   *  still doing. Needs queries named `<feature>:query:<entity>:<verb>`. */
+  readonly live?: boolean;
   readonly layout: EditLayout;
   /** Optional per-field label i18n key (field name → key), analogous to
    *  entityEdit.fieldLabels. The pseudo entity `__projection-detail__` has

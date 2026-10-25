@@ -1,5 +1,5 @@
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { rendererWarn } from "../dev-console.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import type { usePrimitives } from "../primitives.tsx";
@@ -47,9 +47,11 @@ export function useProjectionDetailData(input: DetailDataInput) {
         : screen;
     return synthesizeProjectionDetailScreen(source);
   }, [screen, activeSection]);
+  const live = screen.live === true;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
     screen.query,
     effectiveEntityId !== undefined ? { [idParam]: effectiveEntityId } : {},
+    { live },
   );
 
   // A writeForm section's handler creates a new record (see EditWriteFormSection's
@@ -61,9 +63,19 @@ export function useProjectionDetailData(input: DetailDataInput) {
   // remount (a `key`) so unsaved input in the other writeForm sections and
   // the related lists' local state survive.
   const [reloadNonce, setReloadNonce] = useState(0);
+  // Live mode: every refetched record bumps the nonce below, a write included.
   const reloadDetail = useCallback(async () => {
     await refetchAfterWrite(detailQuery.refetch);
-    setReloadNonce((n) => n + 1);
-  }, [detailQuery.refetch]);
+    if (!live) setReloadNonce((n) => n + 1);
+  }, [detailQuery.refetch, live]);
+  // A live refetch only reaches the record; the related lists hold their own rows.
+  const liveRecord = live ? (detailQuery.data ?? undefined) : undefined;
+  const shownLiveRecord = useRef(liveRecord);
+  useEffect(() => {
+    const previous = shownLiveRecord.current;
+    if (previous === liveRecord) return;
+    shownLiveRecord.current = liveRecord;
+    if (previous !== undefined) setReloadNonce((n) => n + 1);
+  }, [liveRecord]);
   return { activeSection, hasTabs, entity, detailScreen, detailQuery, reloadNonce, reloadDetail };
 }

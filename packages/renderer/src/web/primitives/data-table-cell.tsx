@@ -1,4 +1,5 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
+import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Check } from "lucide-react";
@@ -317,6 +318,25 @@ function selectPill(
   );
 }
 
+function isSelectOptionTone(value: unknown): value is SelectOptionTone {
+  return SELECT_OPTION_TONES.some((tone) => tone === value);
+}
+
+// enumOption's `tones` arrive with the untyped spec, so each entry is checked here.
+function enumOptionTones(
+  spec: Readonly<Record<string, unknown>>,
+): Readonly<Partial<Record<string, SelectOptionTone>>> | undefined {
+  const tones = spec["tones"];
+  if (spec["format"] !== "enumOption" || typeof tones !== "object" || tones === null) {
+    return undefined;
+  }
+  const out: Partial<Record<string, SelectOptionTone>> = {};
+  for (const [option, tone] of Object.entries(tones)) {
+    if (isSelectOptionTone(tone)) out[option] = tone;
+  }
+  return out;
+}
+
 type DataTableCellProps = {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
@@ -481,7 +501,12 @@ export function DataTableCell({
   }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
     const spec = renderer as { format: string; locale?: string } & Record<string, unknown>;
-    return applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
+    const text = applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
+    const tones = enumOptionTones(spec);
+    if (tones !== undefined && typeof value === "string") {
+      return selectPill(value, { [value]: text }, tones, locale, RegisteredStatusBadge);
+    }
+    return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }
   if (typeof renderer === "function") {
     if (linkItems !== undefined) {
@@ -557,5 +582,6 @@ export function DataTableCell({
       </span>
     );
   }
-  return defaultCellRender(value, type, optionLabels, locale, field, grouping);
+  const text = defaultCellRender(value, type, optionLabels, locale, field, grouping);
+  return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
 }

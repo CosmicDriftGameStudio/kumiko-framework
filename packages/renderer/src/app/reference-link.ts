@@ -3,6 +3,7 @@ import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { CellLink } from "../headless/index.ts";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useOptionalNav } from "./nav.tsx";
+import { lastSegment } from "./qn.ts";
 import { navigateWithReturnTo, useReturnHost } from "./return-to.tsx";
 import { navigateTargetAllows } from "./screen-access.ts";
 
@@ -31,6 +32,27 @@ export function useReferenceLinkResolver(): ReferenceLinkResolver {
       }
       if (href === "") return undefined;
       return { href, onPress: () => navigateWithReturnTo(nav, target, host) };
+    },
+    [nav, appFeatures, userRoles, host],
+  );
+}
+
+/** Link to a screen named by its QN, or undefined when there is no navigation
+ *  or the user may not open that screen. */
+export type ScreenLinkResolver = (screenQn: string) => CellLink | undefined;
+
+export function useScreenLinkResolver(): ScreenLinkResolver {
+  const nav = useOptionalNav();
+  const appFeatures = useAppFeatures();
+  const userRoles = useUserRoles();
+  const host = useReturnHost();
+  return useCallback(
+    (screenQn) => {
+      const screenId = lastSegment(screenQn);
+      if (nav === undefined || screenId === "") return undefined;
+      if (!navigateTargetAllows({ screen: screenId }, appFeatures, userRoles)) return undefined;
+      const target = { screenId };
+      return { href: nav.hrefFor(target), onPress: () => navigateWithReturnTo(nav, target, host) };
     },
     [nav, appFeatures, userRoles, host],
   );

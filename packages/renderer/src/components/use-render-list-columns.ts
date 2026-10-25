@@ -2,8 +2,13 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useMemo, useState } from "react";
-import { useReferenceLinkResolver } from "../app/reference-link.ts";
+import {
+  type ScreenLinkResolver,
+  useReferenceLinkResolver,
+  useScreenLinkResolver,
+} from "../app/reference-link.ts";
 import type { ListColumnViewModel, ListViewModel, Translate } from "../headless/index.ts";
 import { computeListViewModel } from "../headless/index.ts";
 import {
@@ -11,6 +16,33 @@ import {
   type PublishedReferenceLookup,
   selectReferenceColumns,
 } from "./render-list-reference-columns.ts";
+
+// A column whose rows name their own target screen links each cell there.
+export function withScreenLinks(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+  resolveScreenLink: ScreenLinkResolver,
+): readonly ListColumnViewModel[] {
+  const linkFields = new Map<string, string>();
+  for (const spec of screen.columns) {
+    const normalized = normalizeListColumn(spec);
+    if (normalized.linkScreenField !== undefined) {
+      linkFields.set(normalized.field, normalized.linkScreenField);
+    }
+  }
+  if (linkFields.size === 0) return columns;
+  return columns.map((col) => {
+    const linkScreenField = linkFields.get(col.field);
+    if (linkScreenField === undefined) return col;
+    return {
+      ...col,
+      linkFor: (_value, row) => {
+        const screenQn = row?.[linkScreenField];
+        return typeof screenQn === "string" ? resolveScreenLink(screenQn) : undefined;
+      },
+    };
+  });
+}
 
 type RenderListColumnsInput = {
   readonly screen: EntityListScreenDefinition;
@@ -51,17 +83,31 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
     });
   }, []);
   const resolveReferenceLink = useReferenceLinkResolver();
+  const resolveScreenLink = useScreenLinkResolver();
   const enrichedColumns = useMemo(
     (): readonly ListColumnViewModel[] =>
-      enrichReferenceColumns({
-        columns: vm.columns,
-        referenceColumns,
-        referenceLookups,
-        resolveReferenceLink,
-        featureName,
-        translate,
-      }),
-    [vm.columns, referenceColumns, referenceLookups, resolveReferenceLink, featureName, translate],
+      withScreenLinks(
+        enrichReferenceColumns({
+          columns: vm.columns,
+          referenceColumns,
+          referenceLookups,
+          resolveReferenceLink,
+          featureName,
+          translate,
+        }),
+        screen,
+        resolveScreenLink,
+      ),
+    [
+      vm.columns,
+      referenceColumns,
+      referenceLookups,
+      resolveReferenceLink,
+      resolveScreenLink,
+      screen,
+      featureName,
+      translate,
+    ],
   );
   const enrichedVm = useMemo(
     (): Omit<ListViewModel, "columns"> & { columns: readonly ListColumnViewModel[] } => ({
