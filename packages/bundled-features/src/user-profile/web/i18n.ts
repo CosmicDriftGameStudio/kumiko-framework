@@ -37,6 +37,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "profile.danger.gracePeriodEnd": "Deletion date",
     "profile.danger.cancelDeletion": "Cancel deletion",
 
+    "profile.mfa.open": "Manage two-factor authentication",
+
     "profile.errors.generic": "Something went wrong.",
     "profile.errors.emailUnchanged": "That is already your email address.",
     "user.errors.emailAlreadyExists": "This email address is already in use.",

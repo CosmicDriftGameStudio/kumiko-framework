@@ -9,6 +9,7 @@ import {
   CHANGE_PASSWORD_SECTION_EXTENSION_NAME,
   PROFILE_SCREEN_ID,
   UserDataRightsHandlers,
+  UserProfileForeignScreens,
   UserProfileQueries,
 } from "./web/constants.ts";
 
@@ -16,10 +17,15 @@ export type UserProfileFeatureOptions = {
   /** Default true. false drops the change-email handler and the email
    *  section — for apps whose login email is managed elsewhere (SSO, admin-set). */
   readonly allowEmailChange?: boolean;
+  /** Default false. true adds a header action opening the account-security screen,
+   *  which offers MFA enable or disable by the user's status; needs the
+   *  account-security feature mounted. */
+  readonly linkAccountSecurity?: boolean;
 };
 
 export function createUserProfileFeature(options?: UserProfileFeatureOptions): FeatureDefinition {
   const allowEmailChange = options?.allowEmailChange ?? true;
+  const linkAccountSecurity = options?.linkAccountSecurity ?? false;
   return defineFeature("user-profile", (r) => {
     r.describe(
       "Self-service account page (fw#2312: declarative `projectionDetail` bound to " +
@@ -45,6 +51,7 @@ export function createUserProfileFeature(options?: UserProfileFeatureOptions): F
     r.requires({ features: ["auth-email-password"] });
     r.requires({ features: ["user-data-rights"] });
     r.requires({ features: ["user-data-rights-defaults"] });
+    if (linkAccountSecurity) r.requires({ features: ["account-security"] });
 
     const handlers = allowEmailChange ? { changeEmail: r.writeHandler(changeEmailWrite) } : {};
 
@@ -72,6 +79,7 @@ export function createUserProfileFeature(options?: UserProfileFeatureOptions): F
           en: "After the grace period your data will be permanently deleted. Until then you can cancel.",
         },
         "profile.danger.cancelDeletion": { en: "Cancel deletion" },
+        "profile.mfa.open": { en: "Manage two-factor authentication" },
       },
     });
 
@@ -139,6 +147,18 @@ export function createUserProfileFeature(options?: UserProfileFeatureOptions): F
         ],
       },
       actions: [
+        ...(linkAccountSecurity
+          ? [
+              {
+                kind: "navigate" as const,
+                id: "open-account-security",
+                label: i18nKey("profile.mfa.open"),
+                screen: UserProfileForeignScreens.accountSecurity,
+                icon: "shield-check" as const,
+                style: "secondary" as const,
+              },
+            ]
+          : []),
         {
           id: "request-deletion",
           label: i18nKey("profile.danger.delete"),

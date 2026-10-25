@@ -1082,6 +1082,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "personal-access-tokens:entity:__action-form__:field:name": "Nome",
   "personal-access-tokens:entity:__action-form__:field:scopes": "Accesso per API",
   "profile.danger.cancelDeletion": "Annulla l'eliminazione",
+  "profile.mfa.open": "Gestisci l'autenticazione a due fattori",
   "profile.danger.delete": "Elimina l'account",
   "profile.danger.dialogDescription":
     "Dopo il periodo di tolleranza i tuoi dati verranno eliminati definitivamente. Fino ad allora puoi annullare.",

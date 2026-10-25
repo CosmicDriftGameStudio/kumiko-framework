@@ -1,8 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import { testAuthMfaOptions } from "../../__tests__/auth-mfa-test-options.ts";
+import {
+  ACCOUNT_SECURITY_SCREEN_ID,
+  createAccountSecurityFeature,
+} from "../../account-security/index.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
+import { createAuthMfaFeature } from "../../auth-mfa/feature.ts";
+import { createAuthMfaUserDataFeature } from "../../auth-mfa-user-data/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createDataRetentionFeature } from "../../data-retention/feature.ts";
@@ -12,6 +21,7 @@ import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserProfileFeature } from "../feature.ts";
+import { UserProfileForeignScreens } from "../web/constants.ts";
 
 // The `profile` screen converted from a custom React component to
 // a declarative projectionDetail (change-password/change-email stay
@@ -110,5 +120,39 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
       icon: "x",
     });
     expect((byId["cancel-deletion"] as { readonly confirm?: string }).confirm).toBeUndefined();
+  });
+
+  test("linkAccountSecurity adds a header action that opens the account-security screen", () => {
+    expect(UserProfileForeignScreens.accountSecurity).toBe(ACCOUNT_SECURITY_SCREEN_ID);
+    const linked = createUserProfileFeature({ linkAccountSecurity: true });
+    const screen = linked.screens["profile"];
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(screen.actions?.find((a) => a.id === "open-account-security")).toEqual({
+      kind: "navigate",
+      id: "open-account-security",
+      label: "profile.mfa.open",
+      screen: ACCOUNT_SECURITY_SCREEN_ID,
+      icon: "shield-check",
+      style: "secondary",
+    });
+    const withAccountSecurity = [
+      ...features.map((x) => (x.name === "user-profile" ? linked : x)),
+      createAuthMfaFeature(testAuthMfaOptions),
+      createAuthMfaUserDataFeature(),
+      createAccountSecurityFeature(),
+    ];
+    // auth-mfa's user-mfa entity has encrypted fields; validateBoot probes for a cipher.
+    configureEntityFieldEncryption(createTestEnvelopeCipher());
+    try {
+      expect(() => validateBoot(withAccountSecurity)).not.toThrow();
+    } finally {
+      configureEntityFieldEncryption(undefined);
+    }
+  });
+
+  test("without linkAccountSecurity the screen has no account-security action", () => {
+    const screen = createUserProfileFeature().screens["profile"];
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(screen.actions?.some((a) => a.id === "open-account-security")).toBe(false);
   });
 });
