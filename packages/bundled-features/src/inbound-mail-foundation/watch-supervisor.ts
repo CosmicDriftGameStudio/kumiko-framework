@@ -49,6 +49,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -185,11 +186,15 @@ export function createInboundMailSupervisor(
   // configured TTL — real deployments (default 90s) never hit it.
   const renewIntervalMs = Math.max(50, Math.floor((leaseTtlSeconds * 1000) / 3));
   const log = deps.log ?? (() => {});
+  const systemDb = systemScopedRunner(
+    deps.db,
+    "mail sync supervisor polls accounts and cursors of all tenants outside a request",
+  );
   const oauthTokens =
     deps.oauthTokens ??
     (deps.providerCtx.secrets
       ? createOAuthAccessTokenManager({
-          db: deps.db,
+          db: systemDb,
           secrets: deps.providerCtx.secrets,
           providerCtx: deps.providerCtx,
         })
@@ -219,7 +224,7 @@ export function createInboundMailSupervisor(
   // decrypted (providers never work with ciphertext).
   // ---------------------------------------------------------------
   async function listActiveAccounts(): Promise<readonly MailAccountRecord[]> {
-    const rows = await selectMany<ActiveMailAccountRow>(deps.db, mailAccountsProjectionTable, {
+    const rows = await selectMany<ActiveMailAccountRow>(systemDb, mailAccountsProjectionTable, {
       status: InboundMailAccountStatuses.active,
     });
     const piiKms = configuredPiiSubjectKms();
@@ -264,7 +269,7 @@ export function createInboundMailSupervisor(
   // Cursor-Persistenz (unmanaged direct-write store).
   // ---------------------------------------------------------------
   async function loadCursor(accountId: string): Promise<SyncCursorPayload | null> {
-    const row = await fetchOne<{ cursor: string }>(deps.db, syncCursorTable, {
+    const row = await fetchOne<{ cursor: string }>(systemDb, syncCursorTable, {
       accountId,
       scope: CURSOR_SCOPE,
     });
@@ -284,13 +289,13 @@ export function createInboundMailSupervisor(
     const accountId = account.id;
     const now = Temporal.Now.instant().toString();
     const serialized = JSON.stringify(cursor);
-    const existing = await fetchOne<{ id: string }>(deps.db, syncCursorTable, {
+    const existing = await fetchOne<{ id: string }>(systemDb, syncCursorTable, {
       accountId,
       scope: CURSOR_SCOPE,
     });
     if (existing) {
       await updateMany(
-        deps.db,
+        systemDb,
         syncCursorTable,
         { cursor: serialized, updatedAt: now },
         { accountId, scope: CURSOR_SCOPE },
@@ -298,7 +303,7 @@ export function createInboundMailSupervisor(
       // skip: the update path is complete; do not fall through to the insert branch.
       return;
     }
-    await insertOne(deps.db, syncCursorTable, {
+    await insertOne(systemDb, syncCursorTable, {
       id: crypto.randomUUID(),
       // Direct-write store: no executor stamps the NOT NULL tenant_id for us.
       tenantId: account.tenantId,
@@ -313,7 +318,7 @@ export function createInboundMailSupervisor(
     // No deleteMany import is needed: an empty cursor parses to null, so the
     // next fetch runs as a backfill.
     await updateMany(
-      deps.db,
+      systemDb,
       syncCursorTable,
       { cursor: "", updatedAt: Temporal.Now.instant().toString() },
       { accountId, scope: CURSOR_SCOPE },
@@ -414,7 +419,7 @@ export function createInboundMailSupervisor(
       const seenIds = new Set<string>();
       for (let start = 0; start < providerMessageIds.length; start += SEEN_LOOKUP_CHUNK_SIZE) {
         const seen = await selectMany<{ providerMessageId: string }>(
-          deps.db,
+          systemDb,
           seenMessageTable,
           {
             tenantId: account.tenantId,
