@@ -15,6 +15,7 @@
 import { Node, Project } from "ts-morph";
 import {
   applyEdits,
+  type CodemodCliConfig,
   type CodemodResult,
   detectIndent,
   isSortedKeys,
@@ -270,15 +271,14 @@ function isSkippedPath(file: string): boolean {
   return SKIPPED_PATH_SUFFIXES.some((suffix) => file.endsWith(suffix));
 }
 
+export const PACKAGE_MERGE_CLI: CodemodCliConfig = {
+  name: "package-merge",
+  transform: (source, filePath) => transformPackageMergeSource(source, filePath),
+  isSkippedPath,
+  extraFileNames: ["package.json"],
+  extraExtensions: [".css"],
+};
+
 if (import.meta.main) {
-  await runCodemodCli(
-    {
-      name: "package-merge",
-      transform: (source, filePath) => transformPackageMergeSource(source, filePath),
-      isSkippedPath,
-      extraFileNames: ["package.json"],
-      extraExtensions: [".css"],
-    },
-    process.argv.slice(2),
-  );
+  await runCodemodCli(PACKAGE_MERGE_CLI, process.argv.slice(2));
 }

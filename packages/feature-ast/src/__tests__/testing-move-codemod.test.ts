@@ -1,8 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { transformTestingMoveSource } from "../scripts/codemod/testing-move.ts";
+import {
+  main as runTestingMove,
+  transformTestingMoveSource,
+} from "../scripts/codemod/testing-move.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "testing-move");
 const CODEMOD_SCRIPT = join(import.meta.dir, "..", "scripts", "codemod", "testing-move.ts");
@@ -143,6 +146,23 @@ describe("testing-move codemod CLI", () => {
   }
 
   async function runCodemod(...args: string[]): Promise<{ code: number; output: string }> {
+    const lines: string[] = [];
+    const capture = (...parts: unknown[]) => {
+      lines.push(parts.join(" "));
+    };
+    const logSpy = spyOn(console, "log").mockImplementation(capture);
+    const errorSpy = spyOn(console, "error").mockImplementation(capture);
+    try {
+      const code = await runTestingMove(args);
+      return { code, output: lines.join("\n") };
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  }
+
+  // Real process: the bin wiring (import.meta.main -> process.exit with the exit code).
+  async function spawnCodemod(...args: string[]): Promise<{ code: number; output: string }> {
     const proc = Bun.spawn({
       cmd: ["bun", CODEMOD_SCRIPT, ...args],
       stdout: "pipe",
@@ -166,7 +186,7 @@ describe("testing-move codemod CLI", () => {
   it("--check exits 1 while old imports remain and 0 after the write run", async () => {
     const file = writeProjectFile("src/feature.ts", OLD_SOURCE);
 
-    const before = await runCodemod(workDir, "--check");
+    const before = await spawnCodemod(workDir, "--check");
     expect(before.code).toBe(1);
     expect(before.output).toContain("rewritten");
     expect(readFileSync(file, "utf8")).toBe(OLD_SOURCE);

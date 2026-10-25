@@ -286,13 +286,16 @@ export interface CodemodCliConfig {
   readonly extraExtensions?: readonly string[];
 }
 
-function parseArgsOrExit(codemodName: string, argv: readonly string[]): CliOptions {
+function parseArgsOrUsageError(
+  codemodName: string,
+  argv: readonly string[],
+): CliOptions | { readonly exitCode: number } {
   try {
     return parseArgs(argv);
   } catch (err) {
     if (err instanceof CliError) {
       console.error(`[${codemodName}] ${err.message}`);
-      process.exit(2);
+      return { exitCode: 2 };
     }
     throw err;
   }
@@ -329,8 +332,17 @@ function transformFiles(
 export async function runCodemodCli(
   config: CodemodCliConfig,
   argv: readonly string[],
-): Promise<void> {
-  const options = parseArgsOrExit(config.name, argv);
+): Promise<never> {
+  process.exit(await runCodemod(config, argv));
+}
+
+// Exit code instead of process.exit so the CLI logic can run in-process (tests).
+export async function runCodemod(
+  config: CodemodCliConfig,
+  argv: readonly string[],
+): Promise<number> {
+  const options = parseArgsOrUsageError(config.name, argv);
+  if ("exitCode" in options) return options.exitCode;
   const files = collectSourceFiles(options.paths, {
     isMigratableFile: (name) =>
       isSourceFileName(name) ||
@@ -348,5 +360,5 @@ export async function runCodemodCli(
       resolve(options.paths[0] ?? "."),
     );
   }
-  process.exit(options.mode === "check" && rewrites.length + manual.length > 0 ? 1 : 0);
+  return options.mode === "check" && rewrites.length + manual.length > 0 ? 1 : 0;
 }

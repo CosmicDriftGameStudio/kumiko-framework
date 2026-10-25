@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { main as runUnprocessableReason } from "../scripts/codemod/unprocessable-error-details-reason.ts";
 
 const SCRIPT_PATH = join(
   import.meta.dir,
@@ -30,7 +31,8 @@ function makeFixtureDir(files: Record<string, string>): {
   };
 }
 
-async function runCodemod(targetDir: string, extraArgs: readonly string[] = []): Promise<string> {
+// Real process: the bin wiring (import.meta.main -> process.exit).
+async function spawnCodemod(targetDir: string, extraArgs: readonly string[] = []): Promise<string> {
   const proc = Bun.spawn({
     cmd: ["bun", SCRIPT_PATH, targetDir, ...extraArgs],
     stdout: "pipe",
@@ -42,6 +44,19 @@ async function runCodemod(targetDir: string, extraArgs: readonly string[] = []):
   ]);
   await proc.exited;
   return `${stdout}${stderr}`;
+}
+
+async function runCodemod(targetDir: string, extraArgs: readonly string[] = []): Promise<string> {
+  const lines: string[] = [];
+  const logSpy = spyOn(console, "log").mockImplementation((...parts: unknown[]) => {
+    lines.push(parts.join(" "));
+  });
+  try {
+    await runUnprocessableReason([targetDir, ...extraArgs]);
+    return lines.join("\n");
+  } finally {
+    logSpy.mockRestore();
+  }
 }
 
 function read(dir: string, relPath: string): string {
@@ -70,7 +85,7 @@ export function guard(spec: { field: string; code: string }, current: number, li
     });
     cleanup = fixture.cleanup;
 
-    await runCodemod(fixture.dir);
+    await spawnCodemod(fixture.dir);
 
     const out = read(fixture.dir, "guard.ts");
     expect(out).toContain("details: { field: spec.field, current, limit }");

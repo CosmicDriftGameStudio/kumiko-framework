@@ -124,14 +124,14 @@ function runGroup(
 
 // kumiko-upgrade runs this as `bun ctx-namespaces.ts <repoDir> [--dry-run]` and treats a non-zero
 // exit as a failed codemod, so manual sites alone must not fail write or dry-run.
-async function main(argv: readonly string[]): Promise<void> {
+export async function main(argv: readonly string[]): Promise<number> {
   let options: CliOptions;
   try {
     options = parseArgs(argv);
   } catch (error) {
     if (error instanceof CliError) {
       console.error(`[${NAME}] ${error.message}`);
-      process.exit(2);
+      return 2;
     }
     throw error;
   }
@@ -157,11 +157,9 @@ async function main(argv: readonly string[]): Promise<void> {
   if (options.mode === "write" && options.format && totals.changedFiles.length > 0) {
     await formatWithBiome(NAME, totals.changedFiles, resolve(options.paths[0] ?? "."));
   }
-  process.exit(
-    options.mode === "check" && totals.rewrites.length + totals.manual.length > 0 ? 1 : 0,
-  );
+  return options.mode === "check" && totals.rewrites.length + totals.manual.length > 0 ? 1 : 0;
 }
 
 if (import.meta.main) {
-  await main(process.argv.slice(2));
+  process.exit(await main(process.argv.slice(2)));
 }

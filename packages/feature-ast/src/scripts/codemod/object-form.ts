@@ -683,13 +683,15 @@ function countByMethod(rewrites: readonly ObjectFormRewrite[]): string {
     .join(", ");
 }
 
-function parseArgsOrExit(argv: readonly string[]): CliOptions {
+function parseArgsOrUsageError(
+  argv: readonly string[],
+): CliOptions | { readonly exitCode: number } {
   try {
     return parseArgs(argv);
   } catch (err) {
     if (err instanceof CliError) {
       console.error(`[object-form] ${err.message}`);
-      process.exit(2);
+      return { exitCode: 2 };
     }
     throw err;
   }
@@ -722,8 +724,9 @@ function transformFiles(files: readonly string[], mode: Mode): RunSummary {
   return summary;
 }
 
-async function main(): Promise<void> {
-  const options = parseArgsOrExit(process.argv.slice(2));
+export async function main(argv: readonly string[]): Promise<number> {
+  const options = parseArgsOrUsageError(argv);
+  if ("exitCode" in options) return options.exitCode;
   const files = collectSourceFiles(options.paths, { isMigratableFile }).filter(
     (file) => !isFixturePath(file),
   );
@@ -738,9 +741,9 @@ async function main(): Promise<void> {
   }
 
   const hasOpenSites = rewrites.length + manual.length > 0;
-  process.exit(options.mode === "check" && hasOpenSites ? 1 : 0);
+  return options.mode === "check" && hasOpenSites ? 1 : 0;
 }
 
 if (import.meta.main) {
-  await main();
+  process.exit(await main(process.argv.slice(2)));
 }

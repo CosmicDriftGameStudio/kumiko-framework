@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { applyFeatureLayout } from "../scripts/codemod/feature-layout.ts";
+import { applyFeatureLayout, main as runFeatureLayout } from "../scripts/codemod/feature-layout.ts";
 
 const SCRIPT = join(import.meta.dir, "../scripts/codemod/feature-layout.ts");
 const ROOT = "/repo/src/features/demo";
@@ -212,7 +212,8 @@ describe("feature-layout codemod: CLI", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  async function cli(...args: string[]): Promise<number> {
+  // Real process: the bin wiring (import.meta.main -> process.exit with the exit code).
+  async function spawnCli(...args: string[]): Promise<number> {
     const proc = Bun.spawn({
       cmd: ["bun", SCRIPT, dir, "--no-format", ...args],
       stdout: "pipe",
@@ -222,8 +223,19 @@ describe("feature-layout codemod: CLI", () => {
     return proc.exited;
   }
 
+  async function cli(...args: string[]): Promise<number> {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      return await runFeatureLayout([dir, "--no-format", ...args]);
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  }
+
   it("--check exits 1 while a client file is outside web/ and touches nothing", async () => {
-    expect(await cli("--check")).toBe(1);
+    expect(await spawnCli("--check")).toBe(1);
     expect(existsSync(join(dir, "src/features/demo/constants.ts"))).toBe(true);
   });
 

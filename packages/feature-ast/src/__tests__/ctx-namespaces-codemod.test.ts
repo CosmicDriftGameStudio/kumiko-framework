@@ -1,8 +1,9 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it, spyOn } from "bun:test";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project } from "ts-morph";
+import { main as runCtxNamespaces } from "../scripts/codemod/ctx-namespaces.ts";
 import { transformCtxNamespaces } from "../scripts/codemod/ctx-namespaces-transform.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "ctx-namespaces");
@@ -212,7 +213,8 @@ describe("ctx-namespaces CLI", () => {
     return root;
   }
 
-  async function runCli(root: string, args: string[]) {
+  // The bin smoke test (bad flag -> exit 2) spawns; everything else runs main() in-process.
+  async function spawnCli(root: string, args: string[]) {
     const proc = Bun.spawn({
       cmd: ["bun", SCRIPT, join(root, "src"), "--no-format", ...args],
       cwd: root,
@@ -221,6 +223,21 @@ describe("ctx-namespaces CLI", () => {
     });
     const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
     return { stdout, exitCode };
+  }
+
+  async function runCli(root: string, args: string[]) {
+    const lines: string[] = [];
+    const logSpy = spyOn(console, "log").mockImplementation((...parts: unknown[]) => {
+      lines.push(parts.join(" "));
+    });
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const exitCode = await runCtxNamespaces([join(root, "src"), "--no-format", ...args]);
+      return { stdout: lines.join("\n"), exitCode };
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   }
 
   it("--dry-run reports sites, leaves files alone and exits 0 even with manual sites", async () => {
@@ -310,7 +327,7 @@ describe("ctx-namespaces CLI", () => {
   it("rejects unknown flags with exit 2", async () => {
     const root = stageProject();
 
-    const { exitCode } = await runCli(root, ["--bogus"]);
+    const { exitCode } = await spawnCli(root, ["--bogus"]);
 
     expect(exitCode).toBe(2);
   });
