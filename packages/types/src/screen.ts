@@ -1,3 +1,4 @@
+import type { SelectOptionTone } from "./fields.ts";
 import type { NavIconKey } from "./nav-icon.ts";
 import type {
   ActionFormScreenDefinition,
@@ -99,7 +100,15 @@ export interface FieldFormatRegistry {
   // renders the raw enum value instead of the literal i18n key.
   // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-renderer/headless
   // over hand-typed prefix strings.
-  enumOption: { readonly keyPrefix: string };
+  // `tones` draws the translated label as a status pill in list cells, the
+  // way a select field with `optionTones` does on an entityList.
+  enumOption: {
+    readonly keyPrefix: string;
+    readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+  };
+  /** Value is a `DashboardI18nText` (`{ i18nKey, i18nParams }`) a query built
+   *  server-side, or a plain i18n key, translated in the user's language. */
+  i18nText: Record<never, never>;
   /** JSON-safe structured value rendered as indented text. */
   json: { readonly indent?: number };
   /** List cell: FileRef id (or id array) as a thumbnail. `variant` names an

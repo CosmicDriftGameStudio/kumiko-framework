@@ -78,6 +78,11 @@ export type ListColumnSpec =
       readonly display?: ListColumnDisplay;
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;
+      /** Row field holding a screen QN (`<feature>:screen:<id>`): the cell links
+       *  to that screen when the row sets it and the user may open it. For
+       *  query-backed lists (projectionList, relatedList), whose rows can point
+       *  at a different screen each. */
+      readonly linkScreenField?: string;
     };
 
 export type ListColumnDisplay = "bar" | "badge" | "datetime";

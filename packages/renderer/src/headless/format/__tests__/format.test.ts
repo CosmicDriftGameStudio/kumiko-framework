@@ -412,3 +412,30 @@ describe("applyFormatSpec — inherited member names", () => {
     }
   });
 });
+
+describe("applyFormatSpec — i18nText", () => {
+  const translate = (key: string, params?: Readonly<Record<string, string | number>>) =>
+    key === "check.passed" ? `${params?.["ok"]} of ${params?.["total"]} passed` : `T(${key})`;
+
+  test("a server-built text is translated with its params", () => {
+    const value = { i18nKey: "check.passed", i18nParams: { ok: 3, total: 4 } };
+    expect(applyFormatSpec({ format: "i18nText" }, value, translate)).toBe("3 of 4 passed");
+  });
+
+  test("a plain string is translated as a key", () => {
+    expect(applyFormatSpec({ format: "i18nText" }, "area.mail", translate)).toBe("T(area.mail)");
+  });
+
+  test("non-text params are dropped instead of stringified", () => {
+    const seen: unknown[] = [];
+    applyFormatSpec(
+      { format: "i18nText" },
+      { i18nKey: "x", i18nParams: { ok: 1, nested: { a: 1 } } },
+      (key, params) => {
+        seen.push(params);
+        return key;
+      },
+    );
+    expect(seen).toEqual([{ ok: 1 }]);
+  });
+});

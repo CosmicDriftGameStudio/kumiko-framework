@@ -233,7 +233,9 @@ function unitDisplaySpec(spec: Record<string, unknown>): Intl.NumberFormatOption
 }
 
 type CellFormatSpec = { format: string } & Record<string, unknown>;
-type CellTranslate = ((key: string) => string) | undefined;
+type CellTranslate =
+  | ((key: string, params?: Readonly<Record<string, string | number>>) => string)
+  | undefined;
 type CellFormatter = (spec: CellFormatSpec, value: unknown, translate: CellTranslate) => string;
 
 function isEmptyCellValue(value: unknown): boolean {
@@ -243,7 +245,7 @@ function isEmptyCellValue(value: unknown): boolean {
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
-  translate?: (key: string) => string,
+  translate?: (key: string, params?: Readonly<Record<string, string | number>>) => string,
 ): string {
   // priority renders its emptyLabel for empty values — every other format
   // collapses empty to "".
@@ -321,6 +323,31 @@ function formatEnumOptionCell(
   return Array.isArray(value) ? value.map(labelFor).join(", ") : labelFor(value);
 }
 
+function isRecordValue(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Only string and number params: money/date params need the dashboard formats.
+function textParams(params: unknown): Readonly<Record<string, string | number>> | undefined {
+  if (!isRecordValue(params)) return undefined;
+  const out: Record<string, string | number> = {};
+  for (const [name, param] of Object.entries(params)) {
+    if (typeof param === "string" || typeof param === "number") out[name] = param;
+  }
+  return out;
+}
+
+function formatI18nTextCell(
+  _spec: CellFormatSpec,
+  value: unknown,
+  translate: CellTranslate,
+): string {
+  if (typeof value === "string") return translate === undefined ? value : translate(value);
+  if (!isRecordValue(value) || typeof value["i18nKey"] !== "string") return String(value);
+  const key = value["i18nKey"];
+  return translate === undefined ? key : translate(key, textParams(value["i18nParams"]));
+}
+
 // Thumbnails and file links are drawn by the web list cell; this is the
 // text fallback for every other surface.
 function formatFileCell(_spec: CellFormatSpec, value: unknown): string {
@@ -342,6 +369,7 @@ const CELL_FORMATTERS = {
   unit: formatUnitSpecCell,
   priority: formatPriorityCell,
   enumOption: formatEnumOptionCell,
+  i18nText: formatI18nTextCell,
   image: formatFileCell,
   file: formatFileCell,
   json: formatJsonCell,

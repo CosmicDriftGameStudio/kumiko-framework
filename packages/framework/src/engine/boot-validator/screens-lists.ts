@@ -1,4 +1,6 @@
+import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
@@ -29,6 +31,7 @@ import {
   validateDrawerTargetAction,
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
+import { isSelectOptionTone } from "./select-option-tone.ts";
 
 type NavAreaIndex = {
   readonly anyNavRegistered: boolean;
@@ -175,6 +178,7 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
   }
   for (const col of section.columns) {
     const normalizedCol = normalizeListColumn(col);
+    validateEnumOptionTones(`[Feature ${featureName}] ${where}`, normalizedCol);
     if (normalizedCol.refEntity !== undefined) {
       assertRefTargetRegistered(
         `[Feature ${featureName}] ${where}`,
@@ -446,6 +450,7 @@ export function validateColumnRendererForm(
   screenId: string,
   column: { readonly field: string; readonly renderer?: unknown },
 ): void {
+  validateEnumOptionTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
   const renderer = column.renderer;
   // skip: only the PlatformComponent form ({ react: { __component: "..." } })
   // is validated structurally. Function, string-QN and null/undefined
@@ -472,6 +477,30 @@ export function validateColumnRendererForm(
       `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
         `\`react.__component\` = ${JSON.stringify(component)} — expected a non-empty string identifying ` +
         `a client-side columnRenderers entry.`,
+    );
+  }
+}
+
+// A typo'd tone would silently fall back to the neutral pill.
+export function validateEnumOptionTones(
+  prefix: string,
+  column: { readonly field: string; readonly renderer?: unknown },
+): void {
+  const { renderer } = column;
+  if (typeof renderer !== "object" || renderer === null) return;
+  if (propertyOf(renderer, "format") !== "enumOption") return;
+  const tones = propertyOf(renderer, "tones");
+  if (tones === undefined) return;
+  const invalid =
+    typeof tones !== "object" || tones === null
+      ? [String(tones)]
+      : Object.values(tones)
+          .filter((tone) => !isSelectOptionTone(tone))
+          .map(String);
+  if (invalid.length > 0) {
+    throw new Error(
+      `${prefix} column "${column.field}" has enumOption tones ${invalid.join(", ")} — ` +
+        `expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
     );
   }
 }
