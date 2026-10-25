@@ -62,7 +62,7 @@ export function DialogDemo(): ReactNode {
       </DemoSection>
 
       <DemoSection title="Lightbox">
-        {/* kumiko-lint-ignore primitives-discipline clickable image thumbnail (Lightbox-Trigger) — kein Text-Button, <Button> kann kein Full-Bleed-<img> wrappen */}
+        {/* kumiko-lint-ignore primitives-discipline clickable image thumbnail (lightbox trigger) — not a text button, <Button> cannot wrap a full-bleed <img> */}
         <button
           type="button"
           onClick={() => setLightboxOpen(true)}

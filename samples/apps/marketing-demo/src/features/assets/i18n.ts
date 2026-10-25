@@ -1,11 +1,11 @@
-// Assets-Feature i18n-Bundle. Convention: feature-prefix `assets:`
-// + `entity:asset:field:<name>` für Field-Labels (Spalten + Form),
-// `screen:<id>.title` für Page-Titles, `assets:nav.<id>` für
-// Sidebar-Labels.
+// Assets feature i18n bundle. Convention: feature prefix `assets:`
+// + `entity:asset:field:<name>` for field labels (columns + form),
+// `screen:<id>.title` for page titles, `assets:nav.<id>` for
+// sidebar labels.
 //
-// Plus: Select-Options bekommen lesbare Labels via
-// `assets:entity:asset:field:<field>:option:<value>` damit „lent"
-// nicht raw als „lent" im Screenshot landet.
+// Plus: select options get readable labels via
+// `assets:entity:asset:field:<field>:option:<value>` so "lent"
+// does not land raw as "lent" in the screenshot.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

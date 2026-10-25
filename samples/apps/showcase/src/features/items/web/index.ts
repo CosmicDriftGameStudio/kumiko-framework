@@ -1,10 +1,10 @@
-// Items-Feature — Web-Plattform-Plugin. ClientFeatureDefinition mit
-// Translations. Items hat heute keine Custom-Screen-Components
-// (rendert über Standard-RenderEdit/RenderList), entsprechend keine
-// `components`-Map.
+// Items feature — web platform plugin. ClientFeatureDefinition with
+// translations. Items currently has no custom-screen components
+// (renders via the standard RenderEdit/RenderList), accordingly no
+// `components` map.
 //
-// Native-Plattform würde parallel dazu in features/items/native/
-// liegen — translations werden geteilt, components/UI nicht.
+// A native platform would live alongside it in features/items/native/
+// — translations are shared, components/UI are not.
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { itemsTranslations } from "../i18n";

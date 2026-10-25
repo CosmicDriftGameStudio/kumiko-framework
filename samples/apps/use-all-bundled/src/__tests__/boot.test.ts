@@ -101,10 +101,10 @@ describe("use-all-bundled boot", () => {
     expect(undescribed).toEqual([]);
   });
 
-  // Parity-Guard für #255: setupTestStack auto-pusht projection-/MSP-/raw-
-  // Tabellen, `kumiko schema generate` liest ENTITY_METAS. Divergieren die
-  // Mengen, sind Tests grün während der erste Prod-Write crasht (Tabelle
-  // fehlt in den Migrations).
+  // Parity guard for #255: setupTestStack auto-pushes projection/MSP/raw
+  // tables, `kumiko schema generate` reads ENTITY_METAS. If the
+  // sets diverge, tests are green while the first prod write crashes (table
+  // missing from the migrations).
   test("ENTITY_METAS covers every table the test-stack would auto-push", () => {
     const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
     const missing: string[] = [];

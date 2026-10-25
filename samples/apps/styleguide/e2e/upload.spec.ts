@@ -1,7 +1,7 @@
-// End-to-End-Beweis für das Avatar-Image-Upload-Feld: eine Datei in das
-// (hidden) file-Input legen → multipart-POST an /api/files (in-memory-Provider)
-// → die zurückgegebene FileRef-UUID wird zum Feld-Wert → die Avatar-Preview
-// (img[src=/api/files/:id]) erscheint und der Button wechselt auf "Change".
+// End-to-end proof for the avatar image upload field: put a file into the
+// (hidden) file input → multipart POST to /api/files (in-memory provider)
+// → the returned FileRef UUID becomes the field value → the avatar preview
+// (img[src=/api/files/:id]) appears and the button switches to "Change".
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -26,9 +26,9 @@ test("Avatar-Upload: Datei → /api/files → Preview + Change-Button", async ({
     buffer: PNG_1X1,
   });
 
-  // Nach dem Upload: Preview-Bild mit FileRef-URL + Avatar-Button = "Change".
-  // (Selektor auf das avatar-Feld scopen — "Save changes" enthält sonst auch
-  //  "Change" und triggert strict-mode.)
+  // After the upload: preview image with FileRef URL + avatar button = "Change".
+  // (Scope the selector to the avatar field — "Save changes" otherwise also contains
+  //  "Change" and triggers strict mode.)
   const avatar = page.getByTestId("field-avatar");
   await expect(avatar.locator('img[src^="/api/files/"]')).toBeVisible({ timeout: 5000 });
   await expect(avatar.getByRole("button", { name: "Change" })).toBeVisible();

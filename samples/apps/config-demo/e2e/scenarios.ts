@@ -46,7 +46,7 @@ export const SCENARIOS: readonly Scenario[] = [
       const form = page.locator('[data-testid="render-edit-form"]');
       await form.waitFor({ state: "visible", timeout: 10_000 });
 
-      // 3. Tenant-Werte setzen → Tenant-Badge (grün) auf diesem Screen
+      // 3. Set tenant values → tenant badge (green) on this screen
       await writeConfig(page, "config-demo:config:site-name", "Config Demo", "tenant");
       await writeConfig(page, "config-demo:config:theme-color", "#6366f1", "tenant");
       await writeConfig(page, "config-demo:config:max-upload-size", 50, "tenant");

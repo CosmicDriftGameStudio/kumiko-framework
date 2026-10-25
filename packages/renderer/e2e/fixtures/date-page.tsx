@@ -1,9 +1,9 @@
-// Standalone-Mount-Page für DateInput (kind:"date") ohne createKumikoApp.
-// Reproduziert den #369-Folgebug (doppelter Kalender-Header) im echten
-// Browser: jsdom rendert kein CSS und das Duplikat-Label ist ein
-// aria-hidden <span> — erst Chromium zeigt das sichtbare Doppel. onChange
-// schreibt den ISO-Wert auf body[data-date], damit der Spec ohne
-// page.evaluate auslesen kann.
+// Standalone mount page for DateInput (kind:"date") without createKumikoApp.
+// Reproduces the #369 follow-up bug (doubled calendar header) in a real
+// browser: jsdom renders no CSS and the duplicate label is an
+// aria-hidden <span> — only Chromium shows the visible double. onChange
+// writes the ISO value to body[data-date] so the spec can read it without
+// page.evaluate.
 
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer/web";

@@ -1,11 +1,11 @@
-// Integration-Test für die cap-billing-demo Sample-App. Ist gleichzeitig
-// die "Try it"-Story aus dem README in code-Form: alles was die README
-// Schritt-für-Schritt erklärt, wird hier durch den echten Dispatcher
-// gefahren und beweist sich selbst.
+// Integration test for the cap-billing-demo sample app. Doubles as the
+// "Try it" story from the README in code form: everything the README
+// explains step by step is run here through the real dispatcher
+// and proves itself.
 //
-// Der Test ist BEWUSST auch eine Doku — wer das Sample anschaut soll
-// hier sehen wie die Plattform im Realbetrieb cap-bedingtes Billing
-// verdrahtet.
+// The test is DELIBERATELY also documentation — anyone looking at the sample
+// should see here how the platform wires cap-based billing in
+// real operation.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -74,9 +74,9 @@ beforeAll(async () => {
   });
   providerRef = createMutableMasterKeyProvider(initialKp);
 
-  // setupTestStack braucht config + tenant zusätzlich zur APP_FEATURES-
-  // Liste, weil composeFeatures normalerweise im runDevApp-Pfad das
-  // automatisch ergänzt — hier tun wir's manuell.
+  // setupTestStack needs config + tenant in addition to the APP_FEATURES
+  // list, because composeFeatures normally adds them
+  // automatically in the runDevApp path — here we do it manually.
   stack = await setupTestStack({
     features: [createConfigFeature(), createTenantFeature(), ...APP_FEATURES],
     masterKeyProvider: providerRef,
@@ -129,9 +129,9 @@ async function setTier(admin: ReturnType<typeof adminFor>, tier: "free" | "pro")
   );
 }
 
-/** Demo-Bootstrap: tenant pickt den in-memory mail-Plugin via mail-
- *  foundation's provider-config-key. In Production würde das einmal
- *  beim Tenant-onboarding passieren; im Test rufen wir's pro Tenant. */
+/** Demo bootstrap: the tenant picks the in-memory mail plugin via
+ *  mail-foundation's provider config key. In production this would happen once
+ *  during tenant onboarding; in the test we do it per tenant. */
 async function selectInMemoryMail(admin: ReturnType<typeof adminFor>) {
   await stack.http.writeOk(
     ConfigHandlers.set,
@@ -231,7 +231,7 @@ describe("cap-billing-demo: free tenant (limit=10)", () => {
     // Drift-Pin: keine NEUE Newsletter-Mail in Inbox (13. wurde geblockt).
     const inboxAfterBlock = inboxOf(free);
     expect(inboxAfterBlock).toHaveLength(inboxBeforeBlock.length);
-    // Auch keine zusätzliche Warning (notifier feuert nicht beim hard-hit).
+    // Also no additional warning (the notifier does not fire on the hard hit).
     const warningCountAfter = inboxAfterBlock.filter((m) =>
       m.subject.startsWith("[Cap Warning]"),
     ).length;
@@ -251,7 +251,7 @@ describe("cap-billing-demo: pro tenant (limit=100)", () => {
     }
     const inbox = inboxOf(pro);
     expect(inbox).toHaveLength(12);
-    // Drift-Pin: keine Warning bei pro für die ersten 12 sends.
+    // Drift pin: no warning on pro for the first 12 sends.
     expect(inbox.every((m) => !m.subject.startsWith("[Cap Warning]"))).toBe(true);
   });
 });
@@ -277,7 +277,7 @@ describe("cap-billing-demo: tenant-isolation", () => {
       { to: "blocked@x.de", subject: "Blocked", html: "<p>n/a</p>" },
       free,
     );
-    // pro sendet ungestört
+    // pro sends undisturbed
     await sendNewsletter(pro, "p@x.de", 1);
 
     expect(inboxOf(pro)).toHaveLength(1);
@@ -285,13 +285,13 @@ describe("cap-billing-demo: tenant-isolation", () => {
 });
 
 // =============================================================================
-// Tier-Wechsel mid-period (= eigentliche Value-Prop von tier-engine)
+// Tier switch mid-period (= the actual value prop of tier-engine)
 // =============================================================================
 //
-// Hier passiert genau das was Stripe-Webhook später triggert: ein
-// Tenant ist auf free, hit den soft-Cap (11 mails), upgraded zu pro,
-// kann sofort weitersenden — der counter-state bleibt erhalten (gleiche
-// period, gleiche aggregate-id) aber das limit wird neu aufgelöst.
+// This is exactly what a Stripe webhook triggers later: a
+// tenant is on free, hits the soft cap (11 mails), upgrades to pro,
+// can keep sending immediately — the counter state is preserved (same
+// period, same aggregate id) but the limit is resolved anew.
 
 describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
   test("free→pro upgrade: counter remains, new cap takes effect immediately", async () => {
@@ -300,8 +300,8 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     await selectInMemoryMail(tenant);
     await setTier(tenant, "free");
 
-    // 11 sends bei free: counter steigt auf 11, beim 12. send wird's
-    // soft-hit-fired (= counter at soft@11 + 1 für den 12. send selbst).
+    // 11 sends on free: counter rises to 11, the 12th send fires
+    // soft-hit (= counter at soft@11 + 1 for the 12th send itself).
     for (let i = 1; i <= 11; i++) {
       await sendNewsletter(tenant, `recipient-${i}@x.de`, i);
     }
@@ -315,19 +315,19 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     // *** Tier-Wechsel ***
     await setTier(tenant, "pro");
 
-    // counter steht bei 12. Bei pro: limit=100, soft=110, hard=120.
-    // 12 < soft@110 → ok-Bereich. KEINE neue Warning beim nächsten send.
-    // (Drift-Pin: hätte ein Refactor versehentlich den counter beim
-    // Tier-Wechsel resettet, würde der Tenant unvermutet 100+12 mails
-    // senden können — diese Wahrheit pin'd der Test.)
+    // counter is at 12. On pro: limit=100, soft=110, hard=120.
+    // 12 < soft@110 → ok range. NO new warning on the next send.
+    // (Drift pin: had a refactor accidentally reset the counter on
+    // tier switch, the tenant could unexpectedly send 100+12 mails
+    // — the test pins this truth.)
     await sendNewsletter(tenant, "recipient-13@x.de", 13);
 
     inbox = inboxOf(tenant);
     warnings = inbox.filter((m) => m.subject.startsWith("[Cap Warning]"));
-    expect(warnings).toHaveLength(1); // unverändert — kein neuer warn
+    expect(warnings).toHaveLength(1); // unchanged — no new warn
 
-    // Drift-Pin: 12 newsletter (1-12) + 1 warning + 1 newsletter (13)
-    // = 14 mails total. Tier-Wechsel hat NICHT die period zurückgesetzt.
+    // Drift pin: 12 newsletters (1-12) + 1 warning + 1 newsletter (13)
+    // = 14 mails total. The tier switch did NOT reset the period.
     expect(inbox).toHaveLength(14);
   });
 
@@ -346,10 +346,10 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     // *** Downgrade zu free ***
     await setTier(tenant, "free");
 
-    // counter=15, free.hard=12 → 15 ≥ 12 = SOFORT hard-blocked beim
-    // nächsten send. Edge-case der zeigt: tier kann nach unten resettet
-    // werden ohne den counter zu touchen — User merkt sofort dass er
-    // über dem neuen cap ist.
+    // counter=15, free.hard=12 → 15 ≥ 12 = hard-blocked IMMEDIATELY on the
+    // next send. Edge case showing: the tier can be reset downwards
+    // without touching the counter — the user notices right away that they are
+    // over the new cap.
     const error = await stack.http.writeErr(
       NEWSLETTER_SEND_QN,
       { to: "after-downgrade@x.de", subject: "X", html: "<p>n/a</p>" },
@@ -358,24 +358,24 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     expect(error.code).toBe("cap_exceeded");
     expect(error.httpStatus).toBe(429);
 
-    // Inbox unverändert: blockierter send hat nichts hinzugefügt.
+    // Inbox unchanged: the blocked send added nothing.
     expect(inboxOf(tenant)).toHaveLength(15);
   });
 });
 
 // =============================================================================
-// Subscription-driven tier (live-Webhook-Story)
+// Subscription-driven tier (live webhook story)
 //
-// Phase 5.4: cap-billing-demo erweitert um billing-foundation als
-// primary tier-source. Provider-Webhook (Stripe/Mollie) liefert ein
-// SubscriptionEvent; foundation persistiert die subscription-row;
-// newsletter-resolver liest die row beim cap-Auflösen → echter live-
-// Pfad ohne setTier-config-write.
+// Phase 5.4: cap-billing-demo extended with billing-foundation as the
+// primary tier source. A provider webhook (Stripe/Mollie) delivers a
+// SubscriptionEvent; the foundation persists the subscription row;
+// the newsletter resolver reads the row when resolving the cap → real live
+// path without a setTier config write.
 //
-// Tests rufen processEvent direkt (= das was die Hono-webhook-route
-// nach dem plugin.verifyAndParseWebhook ohnehin tut). Stripe-/Mollie-
-// spezifische sig-verify + lazy-fetch sind in den Plugin-Unit-Tests
-// abgedeckt.
+// Tests call processEvent directly (= what the Hono webhook route does
+// after plugin.verifyAndParseWebhook anyway). Stripe/Mollie-specific
+// sig verify + lazy fetch are covered in the plugin unit
+// tests.
 // =============================================================================
 
 async function processSubscriptionEvent(
@@ -419,7 +419,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       await sendNewsletter(tenant, `r${i}@x.de`, i);
     }
 
-    // Provider-Webhook (= Stripe wäre's): subscription.created mit tier=pro.
+    // Provider webhook (= Stripe would be this): subscription.created with tier=pro.
     await processSubscriptionEvent(tenant, {
       providerEventId: "evt_stripe_2401",
       providerName: "stripe",
@@ -428,13 +428,13 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       tier: "pro",
     });
 
-    // Sofort danach: der Tenant hat pro. counter=11, pro-soft@110.
-    // 11 < 110 → ok. 12. send läuft NICHT in soft-hit-warning.
+    // Right after: the tenant has pro. counter=11, pro-soft@110.
+    // 11 < 110 → ok. The 12th send does NOT run into a soft-hit warning.
     await sendNewsletter(tenant, "r12@x.de", 12);
     const inbox = inboxOf(tenant);
     const warnings = inbox.filter((m) => m.subject.startsWith("[Cap Warning]"));
-    // Drift-Pin: hätte der resolver weiterhin config gelesen, wäre der
-    // tenant immer noch free → soft-hit-warning hätte gefeuert.
+    // Drift pin: had the resolver kept reading config, the
+    // tenant would still be free → the soft-hit warning would have fired.
     expect(warnings).toHaveLength(0);
     expect(inbox).toHaveLength(12);
   });
@@ -504,21 +504,21 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       tier: "pro",
     })) as { duplicate?: boolean };
 
-    // Drift-Pin: foundation muss `duplicate: true` zurückgeben.
-    // Sonst doppelte event-row in audit + idempotency-bug.
+    // Drift pin: the foundation must return `duplicate: true`.
+    // Otherwise a duplicate event row in audit + idempotency bug.
     expect(replayResult.duplicate).toBe(true);
   });
 
   test("Override-Semantik: subscription-row trumpft config — canceled-sub + config=pro → free", async () => {
-    // Drift-Pin: würde resolveTier den config-fallback nehmen sobald
-    // subscription nicht active ist, käme der Tenant trotz canceled-sub
-    // mit config="pro" weiter durch — das wäre ein Billing-Loophole.
+    // Drift pin: if resolveTier took the config fallback as soon as the
+    // subscription is not active, the tenant would get through despite a canceled sub
+    // with config="pro" — that would be a billing loophole.
     const tenant = adminFor(2405);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
 
-    // Manueller config-override (Demo-Pattern oder Reste eines früheren
-    // Tests).
+    // Manual config override (demo pattern or leftovers of an earlier
+    // test).
     await setTier(tenant, "pro");
 
     // Provider-Webhook: subscription created + canceled (= Endkunde hat
@@ -540,10 +540,10 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       providerSubscriptionId: "sub_2405",
     });
 
-    // 13. send würde bei pro durchgehen, bei free hard-blockt (counter=0,
-    // free.hard=12, brauchen 13 sends → 13. blockiert). Wir schicken
-    // 12 → ok bei free, der 13. sollte blocken weil tier ist nun free
-    // (subscription trumpft config="pro").
+    // The 13th send would go through on pro, but is hard-blocked on free (counter=0,
+    // free.hard=12, we need 13 sends → the 13th is blocked). We send
+    // 12 → ok on free, the 13th should block because the tier is now free
+    // (subscription beats config="pro").
     for (let i = 1; i <= 12; i++) {
       await sendNewsletter(tenant, `r${i}@x.de`, i);
     }

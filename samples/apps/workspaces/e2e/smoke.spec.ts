@@ -1,10 +1,10 @@
-// Smoke-Test für den workspaces-Sample. Beweist end-to-end:
-//   runDevApp → AppSchema-Injection → AuthGate → Login → WorkspaceShell
-//   → Default-Workspace-Resolution (admin) → Sidebar-Filter via roles.
+// Smoke test for the workspaces sample. Proves end to end:
+//   runDevApp → AppSchema injection → AuthGate → login → WorkspaceShell
+//   → default workspace resolution (admin) → sidebar filter via roles.
 //
-// Pendant zu ui-walkthrough/e2e/smoke.spec.ts — kein Pendant-Specs für
-// create-flow/update-flow weil die Recipe-Layer das schon abdeckt; der
-// Showcase-Wert hier ist die Workspace-Komposition selbst.
+// Counterpart to ui-walkthrough/e2e/smoke.spec.ts — no counterpart specs for
+// create-flow/update-flow because the recipe layer already covers that; the
+// showcase value here is the workspace composition itself.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
@@ -33,12 +33,12 @@ test("workspaces: switcher klick wechselt Sidebar-Inhalt", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/");
 
-  // Admin sieht alle drei Workspaces im geöffneten Dropdown. Click auf
-  // "dispatch" wechselt:
-  //   - Trigger-Label wandert
-  //   - URL wird auf /dispatch/<screen> rewritten
-  //   - NavTree zeigt nur noch dispatch's navMembers (order-list)
-  // Driver wird gleichzeitig sichtbar im Dropdown (Admin-Rolle deckt es ab).
+  // Admin sees all three workspaces in the opened dropdown. Click on
+  // "dispatch" switches:
+  //   - trigger label moves
+  //   - URL is rewritten to /dispatch/<screen>
+  //   - NavTree shows only dispatch's navMembers (order-list)
+  // Driver becomes visible in the dropdown at the same time (admin role covers it).
   await page.getByTestId("workspace-switcher-trigger").click();
   await expect(page.getByTestId("workspace-tab-admin")).toBeVisible();
   await expect(page.getByTestId("workspace-tab-dispatch")).toBeVisible();

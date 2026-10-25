@@ -1,10 +1,10 @@
-// Create-Flow durchstechen. Erzeugt einen Task über die UI und
-// prüft dass er in der Liste auftaucht — der echte Stack-Pfad
-// (Form-State → Dispatcher → CrudExecutor → DB → SSE → List-Query).
+// Run the create flow end to end. Creates a task through the UI and
+// checks that it shows up in the list — the real stack path
+// (form state → dispatcher → CrudExecutor → DB → SSE → list query).
 //
-// Der Server läuft gegen eine ephemeral Test-DB (siehe
-// playwright.config.ts → KUMIKO_DEV_DB_NAME=""), deshalb ist die
-// Liste zu Test-Beginn leer und ein fester Title ist kollisionsfrei.
+// The server runs against an ephemeral test DB (see
+// playwright.config.ts → KUMIKO_DEV_DB_NAME=""), so the
+// list is empty at test start and a fixed title is collision-free.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
@@ -20,15 +20,15 @@ test("create flow: fill form, save, row appears in list", async ({ page }) => {
 
   await page.getByTestId("render-edit-submit").click();
 
-  // KumikoScreen navigiert nach isSuccess automatisch zur List-Screen
-  // (useNavigateToListAfter). Wir warten auf die Tabelle statt auf
-  // eine URL-Änderung — die URL-Form hängt vom Nav-API ab, die
-  // Tabelle ist das robuste Signal.
+  // KumikoScreen navigates to the list screen automatically after isSuccess
+  // (useNavigateToListAfter). We wait for the table instead of
+  // a URL change — the URL shape depends on the nav API, the
+  // table is the robust signal.
   await expect(page.getByTestId("render-list-table")).toBeVisible();
 
-  // Row-Lookup via Zelle statt getByText(title): die Tabelle könnte
-  // den Titel zufällig auch in einer anderen Spalte (Search-Highlight
-  // etc.) zeigen. Die data-testid pinnt die cell genau auf title.
+  // Row lookup via cell instead of getByText(title): the table might
+  // also show the title in another column by chance (search highlight
+  // etc.). The data-testid pins the cell exactly to title.
   const titleCell = page.locator('[data-testid^="cell-"][data-testid$="-title"]', {
     hasText: title,
   });

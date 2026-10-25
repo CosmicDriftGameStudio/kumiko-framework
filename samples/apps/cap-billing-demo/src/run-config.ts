@@ -1,22 +1,22 @@
-// Single source of truth für die Feature-Komposition der Demo-App.
+// Single source of truth for the feature composition of the demo app.
 //
-// **Mount-Order matters:** mail-foundation MUSS vor mail-transport-
-// inmemory stehen (`r.requires({ features: ["mail-foundation"] })` im Plugin); das
-// newsletter-feature kommt danach (es nutzt mail-foundation +
-// cap-counter). composeFeatures (auth-mode) ergänzt config + secrets +
-// auth-email-password automatisch.
+// **Mount order matters:** mail-foundation MUST come before mail-transport-
+// inmemory (`r.requires({ features: ["mail-foundation"] })` in the plugin); the
+// newsletter feature comes after (it uses mail-foundation +
+// cap-counter). composeFeatures (auth mode) adds config + secrets +
+// auth-email-password automatically.
 //
-// **Was hier gemountet wird:**
-//   - cap-counter            — Counter-Storage + Helpers
-//   - mail-foundation        — Plugin-Host für Transports
-//   - mail-transport-inmemory — Demo-Transport (kein SMTP nötig)
-//   - billing-foundation — Plugin-Host für Subscription-Provider
-//                               (Stripe/Mollie). Demo mountet Provider
-//                               nicht selbst — App-Owner ergänzt
+// **What is mounted here:**
+//   - cap-counter            — counter storage + helpers
+//   - mail-foundation        — plugin host for transports
+//   - mail-transport-inmemory — demo transport (no SMTP needed)
+//   - billing-foundation — plugin host for subscription providers
+//                               (Stripe/Mollie). The demo does not mount a provider
+//                               itself — the app owner adds
 //                               createSubscriptionStripeFeature(...) /
 //                               createSubscriptionMollieFeature(...) in
-//                               der eigenen run-config.
-//   - newsletter             — die Demo-Domain mit cap-aware send
+//                               their own run-config.
+//   - newsletter             — the demo domain with cap-aware send
 
 import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
@@ -29,12 +29,12 @@ import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { newsletterFeature } from "./feature";
 
 /**
- * Demo-App-Features.
+ * Demo app features.
  *
- * **createSecretsFeature() Single-Instance:** wird EINMAL beim
- * Module-Load aufgerufen. Konsumenten die `run-config.ts` mehrfach
- * importieren (bin/server.ts + Tests) kriegen via ESM-Module-Cache
- * dasselbe Feature-Objekt zurück.
+ * **createSecretsFeature() single instance:** is called ONCE at
+ * module load. Consumers that import `run-config.ts` several times
+ * (bin/server.ts + tests) get the same feature object back via the
+ * ESM module cache.
  */
 export const APP_FEATURES = [
   localeDe(),

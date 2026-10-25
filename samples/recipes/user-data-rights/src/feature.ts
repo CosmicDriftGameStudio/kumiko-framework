@@ -1,20 +1,20 @@
-// User-Data-Rights — Recipe
+// User-Data-Rights — recipe
 //
-// Wie eine App-Domain DSGVO-Pipeline integriert: pro Entity einen
-// (export, delete)-Hook ueber EXT_USER_DATA. Forget-Cron, Export-ZIP-Bau
-// und Magic-Link-Versand kommen vollstaendig aus user-data-rights —
-// App-Author schreibt nur die zwei Hooks pro Entity.
+// How an app domain integrates the GDPR pipeline: one
+// (export, delete) hook per entity via EXT_USER_DATA. Forget cron, export ZIP build
+// and magic link delivery come entirely from user-data-rights —
+// the app author writes only the two hooks per entity.
 //
-// Demo-Domain: minimaler Note-Service. Note hat (id, tenantId, authorId,
-// title, body). Pinst:
-//   1. Hook export liefert Note-Rows als JSON-Snippet ins Export-Bundle.
-//   2. Hook delete entfernt Note-Rows beim Forget-Cleanup-Cron.
+// Demo domain: minimal note service. A note has (id, tenantId, authorId,
+// title, body). Pins:
+//   1. The export hook delivers note rows as a JSON snippet into the export bundle.
+//   2. The delete hook removes note rows during the forget-cleanup cron.
 //
-// Was nicht im Recipe ist (siehe samples/apps/user-data-rights-demo
-// fuer eine vollstaendige App):
+// What is not in the recipe (see samples/apps/user-data-rights-demo
+// for a complete app):
 //   - Strategy-aware delete (anonymize vs hardDelete)
-//   - HTTP-Endpoints fuer create/list
-//   - Compliance-Profile-Wiring + Cron-Scheduling
+//   - HTTP endpoints for create/list
+//   - Compliance profile wiring + cron scheduling
 
 import {
   deleteMany,

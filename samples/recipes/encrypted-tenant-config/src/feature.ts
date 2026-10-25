@@ -1,14 +1,14 @@
-// Encrypted per-tenant config — Stripe-API-key pattern.
+// Encrypted per-tenant config — Stripe API key pattern.
 //
-// Minimal-Showcase: ein dummy "billing"-feature mit einem per-tenant
-// Stripe-API-Key. Der `mask`-Eintrag lässt den configEdit-Screen +
-// Settings-Hub-Nav automatisch entstehen (kein handgeschriebenes
-// r.screen/r.nav mehr). charge-handler liest den Key über ctx.config
-// (entschlüsselt automatisch).
+// Minimal showcase: a dummy "billing" feature with a per-tenant
+// Stripe API key. The `mask` entry makes the configEdit screen +
+// settings hub nav appear automatically (no more hand-written
+// r.screen/r.nav). The charge handler reads the key via ctx.config
+// (decrypted automatically).
 //
-// Production: nicht aufrufen — der echte Stripe-Call ist hier ein Mock.
-// Pattern in produktiven Apps: Strip-API-Key in tenantBillingConfig.key,
-// charge-handler lädt key + ruft tatsächlich Stripe.
+// Production: do not call — the real Stripe call is a mock here.
+// Pattern in productive apps: Stripe API key in tenantBillingConfig.key,
+// the charge handler loads the key + actually calls Stripe.
 
 import {
   access,
@@ -40,8 +40,8 @@ const stripeApiKeyHandle: ConfigKeyHandle<"text"> = {
   type: "text",
 };
 
-// Charge-Handler — nutzt den entschlüsselten API-Key. Caller sieht NUR
-// die charge-id zurück, der Key bleibt server-side.
+// Charge handler — uses the decrypted API key. The caller sees ONLY
+// the charge id back, the key stays server-side.
 const chargeHandler = defineWriteHandler({
   name: "charge",
   schema: z.object({
@@ -66,10 +66,10 @@ const chargeHandler = defineWriteHandler({
       );
     }
 
-    // Mock: real impl würde fetch("https://api.stripe.com/v1/charges",
-    // { headers: { Authorization: `Bearer ${apiKey}` }, ... }) ausführen.
-    // Wichtig: apiKey verlässt den server NICHT — kein log, kein
-    // response-field, kein error-detail.
+    // Mock: a real impl would execute fetch("https://api.stripe.com/v1/charges",
+    // { headers: { Authorization: `Bearer ${apiKey}` }, ... }).
+    // Important: apiKey does NOT leave the server — no log, no
+    // response field, no error detail.
     const chargeId = `ch_${Date.now()}_${event.payload.customerRef}`;
 
     return {
@@ -83,10 +83,10 @@ export const billingFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["config"] });
   r.config("stripe-api-key", stripeApiKeyDef);
   r.writeHandler(chargeHandler);
-  // Kein r.screen/r.nav: der `mask`-Eintrag auf dem Key lässt
-  // buildConfigFeatureSchema den configEdit-Screen (••••••-maskiert,
-  // config:write:set verschlüsselt vor dem write) + den Settings-Hub-Nav
-  // automatisch ableiten.
+  // No r.screen/r.nav: the `mask` entry on the key lets
+  // buildConfigFeatureSchema derive the configEdit screen (••••••-masked,
+  // config:write:set encrypts before the write) + the settings hub nav
+  // automatically.
 
   r.translations({
     keys: {
@@ -96,5 +96,5 @@ export const billingFeature = defineFeature(FEATURE, (r) => {
   });
 });
 
-// Re-exports damit tests die handles ohne re-typing nutzen können.
+// Re-exports so tests can use the handles without re-typing.
 export { stripeApiKeyHandle };

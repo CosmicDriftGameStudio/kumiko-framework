@@ -1,13 +1,13 @@
-// ComboboxInput Mouse-Click-Bug-Repro im echten Chromium. jsdom-Tests
-// schlagen den Bug nicht weil PointerEvents dort nicht voll unterstützt
-// sind — Radix-Popover + cmdk-Item Click-Handling braucht den realen
-// Browser-Event-Loop.
+// ComboboxInput mouse-click bug repro in real Chromium. jsdom tests
+// miss the bug because PointerEvents are not fully supported there
+// — Radix popover + cmdk item click handling needs the real
+// browser event loop.
 //
-// Der Test reproduziert was der User berichtet:
-//   - Trigger klicken → Popover öffnet
-//   - Item per Maus klicken → onChange MUSS feuern, Wert MUSS gesetzt sein
+// The test reproduces what the user reported:
+//   - click trigger → popover opens
+//   - click an item with the mouse → onChange MUST fire, the value MUST be set
 //
-// Falls Bug aktiv: keine onChange, data-* Attribut bleibt leer.
+// If the bug is active: no onChange, the data-* attribute stays empty.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -55,10 +55,10 @@ test.describe("ComboboxInput mouse-click in real browser", () => {
       .toBe("backend");
   });
 
-  // User-Bug-Repro: Multi-Mode benötigt im Showcase 2 Outside-Clicks bis
-  // der Popover schließt. Single-Mode ist fein (schließt automatisch nach
-  // Item-Select). In Multi bleibt der Popover offen für weitere Auswahlen,
-  // und Outside-Click sollte schließen — mit EINEM Click.
+  // User bug repro: in the showcase, multi mode needs 2 outside clicks until
+  // the popover closes. Single mode is fine (closes automatically after
+  // item select). In multi the popover stays open for further selections,
+  // and an outside click should close it — with ONE click.
   test("multi-local: outside-click after select → popover closes with ONE click", async ({
     page,
   }) => {

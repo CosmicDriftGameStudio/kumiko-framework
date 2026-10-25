@@ -1,9 +1,9 @@
 // @runtime test
-// Playwright-Config für den workspaces-Sample. Startet den echten dev-
-// server als webServer-Fixture (Port aus samples/e2e/e2e-ports.ts).
-// Pattern ist 1:1 wie der ui-
-// walkthrough-Sample — wenn das Pattern nochmal gebraucht wird, lohnt
-// sich eine Extraktion.
+// Playwright config for the workspaces sample. Starts the real dev
+// server as a webServer fixture (port from samples/e2e/e2e-ports.ts).
+// The pattern is 1:1 as in the ui-
+// walkthrough sample — if the pattern is needed again, an extraction
+// is worthwhile.
 
 import { defineAppE2eConfig, PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";

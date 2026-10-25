@@ -1,9 +1,9 @@
-// Select-Primitive Smoke. Beweist:
-//   1. SelectFieldDef.options landet im EditFieldViewModel.options
-//   2. kind:"select" mit ≤4 Optionen rendert als SegmentedSelect
-//      (role="radiogroup" mit role="radio"-Kindern) statt Dropdown
-//   3. Click auf ein Segment setzt den Wert direkt (kein Popover)
-//   4. Submit serialisiert den ausgewählten Wert ans Dispatcher
+// Select primitive smoke. Proves:
+//   1. SelectFieldDef.options lands in EditFieldViewModel.options
+//   2. kind:"select" with ≤4 options renders as SegmentedSelect
+//      (role="radiogroup" with role="radio" children) instead of a dropdown
+//   3. Clicking a segment sets the value directly (no popover)
+//   4. Submit serializes the selected value to the dispatcher
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -19,10 +19,10 @@ test("select-primitive: render + change + submit-roundtrip", async ({ page }) =>
   await page.goto("/");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
 
-  // Status-Field hat type=select, options=["draft","active","done"],
-  // default="draft". Renderer's buildInitialValues füllt das Default ein.
-  // SegmentedSelect rendert die Gruppe mit data-testid="segmented-${id}",
-  // jede Option als role="radio"; render-edit baut Field-IDs als
+  // The status field has type=select, options=["draft","active","done"],
+  // default="draft". The renderer's buildInitialValues fills in the default.
+  // SegmentedSelect renders the group with data-testid="segmented-${id}",
+  // each option as role="radio"; render-edit builds field IDs as
   // "kumiko-edit-${field}".
   const segmented = page.getByTestId("segmented-kumiko-edit-status");
   await expect(segmented).toBeVisible();
@@ -34,13 +34,13 @@ test("select-primitive: render + change + submit-roundtrip", async ({ page }) =>
   // Kein Popover mehr — Click auf ein Segment setzt den Wert direkt.
   await segmented.getByRole("radio", { name: "active", exact: true }).click();
 
-  // Ausgewähltes Segment zeigt jetzt aria-checked=true.
+  // The selected segment now shows aria-checked=true.
   await expect(segmented.getByRole("radio", { name: "active", exact: true })).toHaveAttribute(
     "aria-checked",
     "true",
   );
 
-  // Title füllen damit das Form complete-required wird, dann submit.
+  // Fill the title so the form becomes complete-required, then submit.
   await page.getByTestId("field-label").locator("input").fill(label);
   await page.getByTestId("render-edit-submit").click();
 

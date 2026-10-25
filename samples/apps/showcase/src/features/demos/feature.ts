@@ -1,14 +1,14 @@
-// Demos-Feature — Server-Side. Registriert custom-Screens für die UI-
-// Demo-Pages (Buttons, Inputs, Banner, Text, Layout) und ihre Nav-
-// Einträge. Kein Entity, keine Handler — pure Custom-Screen-Showcase.
+// Demos feature — server side. Registers custom screens for the UI
+// demo pages (buttons, inputs, banner, text, layout) and their nav
+// entries. No entity, no handlers — pure custom-screen showcase.
 //
-// FeatureName "showcase-demos" (nicht "showcase"): zwei defineFeature-
-// Aufrufe mit gleichem Namen würden in createRegistry mit
-// `Duplicate feature` werfen. Der Trennstrich zur items-Feature ist
-// also nicht Konvention-Geschmack, sondern technische Notwendigkeit.
+// FeatureName "showcase-demos" (not "showcase"): two defineFeature
+// calls with the same name would throw `Duplicate feature` in
+// createRegistry. The hyphen separating it from the items feature is
+// therefore not a matter of convention taste but a technical necessity.
 //
-// Die React-Components für die custom-Screens leben in pages/ und
-// werden client-side via clientFeatures.components zugeordnet (siehe
+// The React components for the custom screens live in pages/ and
+// are assigned client-side via clientFeatures.components (see
 // client.ts).
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -95,11 +95,11 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
       "Shows the SidebarPanel shell slot as a mail-client inbox: a resizable message list beside the navigation over the full window height, with the selected message read in the content area.",
   });
 
-  // Section "Primitives" — clickbar-collapsible weil parent ohne screen.
+  // Section "Primitives" — click-to-collapse because the parent has no screen.
   //
-  // Jeder Eintrag traegt ein Icon: auf Icon-Breite ist es das Einzige, was
-  // von ihm uebrig bleibt. Ohne Icon steht dort nur ein Punkt, und eine Rail
-  // aus gleichen Punkten sagt nicht, wo man hinklickt.
+  // Every entry carries an icon: at icon width it is the only thing that
+  // remains of it. Without an icon only a dot shows there, and a rail
+  // of identical dots does not say where to click.
   r.nav({ id: "primitives", label: "showcase-demos:nav.primitives", icon: "layers", order: 10 });
   r.nav({
     id: "demo-layout",

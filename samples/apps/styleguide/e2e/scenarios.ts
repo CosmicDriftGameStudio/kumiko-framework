@@ -1,10 +1,10 @@
 import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 
-// Ein Eintrag = ein Styleguide-Block = ein Screenshot (×Locale×Theme×Viewport).
-// Baseline: die zwei realen Auto-UI-Screens (Edit-Form-in-Card + Liste mit
-// Toolbar/Pagination), beide zeigen Shell + Sidebar-Nav mit. Foundations-
-// Swatches + apex_shell kommen als eigene Blöcke dazu, sobald die Pipeline steht.
+// One entry = one styleguide block = one screenshot (×locale×theme×viewport).
+// Baseline: the two real auto-UI screens (edit form in card + list with
+// toolbar/pagination), both show shell + sidebar nav. Foundations
+// swatches + apex_shell join as their own blocks once the pipeline is in place.
 
 const DASHBOARD_FROZEN_NOW = "2026-06-15T12:00:00Z";
 

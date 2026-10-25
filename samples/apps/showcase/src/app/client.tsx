@@ -1,6 +1,6 @@
-// Browser-Entry. Dünn — sammelt nur die ClientFeatureDefinitions aus
-// den App-Features und übergibt Shell + clientFeatures an
-// createKumikoApp. Custom-Screen-Routing macht das Framework selbst
+// Browser entry. Thin — only collects the ClientFeatureDefinitions from
+// the app features and hands shell + clientFeatures to
+// createKumikoApp. The framework does custom-screen routing itself
 // via clientFeatures.components.
 
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";

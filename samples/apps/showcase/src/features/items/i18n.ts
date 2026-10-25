@@ -1,6 +1,6 @@
-// Items-Feature i18n-Bundle. Convention: feature-prefix per
-// `showcase:` + `entity:item:field:<name>` für Field-Labels. Plus
-// die zwei Nav-Labels die in feature.ts referenziert werden.
+// Items feature i18n bundle. Convention: feature prefix per
+// `showcase:` + `entity:item:field:<name>` for field labels. Plus
+// the two nav labels referenced in feature.ts.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

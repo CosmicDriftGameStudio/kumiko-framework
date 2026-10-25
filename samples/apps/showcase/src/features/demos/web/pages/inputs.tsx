@@ -2,9 +2,9 @@ import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 
-// Combobox-Demo-Daten: 3 Items mit unterschiedlichen Anfangsbuchstaben.
-// Tippt der User "A", muss "API" als einzige übrig bleiben — Regression-
-// Surface für den Bug "Suche filtert alles weg".
+// Combobox demo data: 3 items with different initial letters.
+// If the user types "A", only "API" must remain — regression
+// surface for the bug "search filters everything away".
 const COMBOBOX_OPTIONS = [
   { value: "api", label: "API" },
   { value: "backend", label: "Backend" },
@@ -27,11 +27,11 @@ export function InputsDemo(): ReactNode {
   const [comboMultiLocal, setComboMultiLocal] = useState<readonly string[]>([]);
   const [comboSingleRemote, setComboSingleRemote] = useState("");
   const [comboMultiRemote, setComboMultiRemote] = useState<readonly string[]>([]);
-  // Remote-Mode-Simulation: Caller erhält den Suchbegriff via
-  // onSearchChange und filtert die options selbst — Combobox bekommt
-  // "shouldFilter=false"-Mode (cmdk filtert nicht client-side, Caller
-  // ist authoritative für Sichtbarkeit). Production-Setup würde den
-  // Suchbegriff an den Server schicken, hier filtern wir im Memory.
+  // Remote-mode simulation: the caller receives the search term via
+  // onSearchChange and filters the options itself — Combobox gets
+  // "shouldFilter=false" mode (cmdk does not filter client-side, the caller
+  // is authoritative for visibility). A production setup would send the
+  // search term to the server, here we filter in memory.
   const [remoteQ, setRemoteQ] = useState("");
   const remoteOptions = useMemo(() => {
     if (remoteQ === "") return COMBOBOX_OPTIONS;

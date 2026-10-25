@@ -67,8 +67,8 @@ const LOAN_MARKERS = [
 const SENDERS = ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"] as const;
 const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"] as const;
 
-// Statische Demo-Inbox (18 Nachrichten) für die InfinityList-Demo — genug
-// Rows, um über pageSize=6 hinweg mehrere Seiten nachzuladen.
+// Static demo inbox (18 messages) for the InfinityList demo — enough
+// rows to load several pages beyond pageSize=6.
 const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
   id: `m${i + 1}`,
   // Cast is sound: `i % SENDERS.length` is always in [0, SENDERS.length) —

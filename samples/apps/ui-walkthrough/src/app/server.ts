@@ -1,13 +1,13 @@
 // @runtime dev
 //
-// Dev-Server für ui-walkthrough. runDevApp mischt die Standard-Features
-// (config/user/tenant/auth) automatisch dazu wenn `auth` gesetzt ist und
-// ruft seedAdmin im onAfterSetup. Schema landet als window.__KUMIKO_
-// SCHEMA__-Injection im Browser.
+// Dev server for ui-walkthrough. runDevApp mixes in the standard features
+// (config/user/tenant/auth) automatically when `auth` is set and
+// calls seedAdmin in onAfterSetup. The schema lands in the browser as a
+// window.__KUMIKO_SCHEMA__ injection.
 //
-// Auth-Mode aktiv: Client muss sich über den Login-Screen anmelden,
-// kein Auto-Mint-JWT mehr. Persistent-DB-Modus über KUMIKO_DEV_DB_NAME
-// in der Umgebung.
+// Auth mode active: the client must log in via the login screen,
+// no more auto-mint JWT. Persistent DB mode via KUMIKO_DEV_DB_NAME
+// in the environment.
 
 import { createUnsubscribeRoutes } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
@@ -27,17 +27,17 @@ import { seedRental } from "./seed-rental";
 import { seedTemplates } from "./seed-templates";
 import { seedVehicles } from "./seed-vehicles";
 
-// Zwei feste Tenants — Admin ist in beiden Mitglied damit der
-// TenantSwitcher im Sample sichtbar ist (rendert nur bei >1 Tenant).
-// Unterschiedliche Rollen pro Tenant beweisen tenant-isolierte
-// Memberships. TenantId-Cast lokal an der Use-Site (auth-constants.ts
-// bleibt framework-frei für den E2E-Helper-Pfad).
+// Two fixed tenants — the admin is a member of both so the
+// TenantSwitcher is visible in the sample (renders only with >1 tenant).
+// Different roles per tenant prove tenant-isolated
+// memberships. TenantId cast local at the use site (auth-constants.ts
+// stays framework-free for the E2E helper path).
 
 await runDevApp({
   features: [...APP_FEATURES],
   seeds: [seedTasks, seedRental, seedVehicles, seedTemplates, seedPlanTerms],
-  // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
-  // sonst lokal-Default 4173.
+  // PORT env var override for Playwright e2e runs (config points to 4174);
+  // otherwise local default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),
   // Logo and attachment uploads of the mail editor need a file store.
   files: { storageProvider: createInMemoryFileProvider() },

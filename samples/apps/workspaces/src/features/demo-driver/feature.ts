@@ -1,8 +1,8 @@
-// Cross-Feature-Demo: demo-driver registriert eine Nav die sich
-// selber zur driver-Workspace von `demo` zuweist. Beweist dass
-// r.nav.workspaces QNs über Feature-Grenzen hinweg auflöst — nützlich
-// für Teams die pro Persona ein eigenes Package haben und die an einen
-// gemeinsamen Core anflanschen.
+// Cross-feature demo: demo-driver registers a nav that assigns
+// itself to the driver workspace of `demo`. Proves that
+// r.nav.workspaces resolves QNs across feature boundaries — useful
+// for teams that have their own package per persona and dock onto a
+// shared core.
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";

@@ -1,29 +1,29 @@
 // kumiko-feature-version: 1
 //
-// todos — Demo-Domain-Feature, das ueber EXT_USER_DATA in user-data-
-// rights integriert. Ein App-Author registriert pro Domain-Entity einen
-// (export, delete)-Hook — das war es. Forget-Cron, Export-Bundle und
-// DSGVO-Endpoints kommen vollstaendig aus user-data-rights.
+// todos — demo domain feature that integrates into user-data-
+// rights via EXT_USER_DATA. An app author registers one
+// (export, delete) hook per domain entity — that's it. Forget cron, export bundle and
+// GDPR endpoints come entirely from user-data-rights.
 //
-// Dieses Feature zeigt:
-//   - r.entity({ name: "todo", ...todoEntity })  → Drizzle-Tabelle wird gebaut
-//   - r.writeHandler({ name: "create", … })      → User legt Todo an
-//   - r.queryHandler({ name: "list", … })        → User sieht seine Todos
-//   - r.useExtension(EXT_USER_DATA, "todo")      → Forget + Export integration
+// This feature shows:
+//   - r.entity({ name: "todo", ...todoEntity })  → Drizzle table is built
+//   - r.writeHandler({ name: "create", … })      → user creates a todo
+//   - r.queryHandler({ name: "list", … })        → user sees their todos
+//   - r.useExtension(EXT_USER_DATA, "todo")      → forget + export integration
 //
-// Was passiert wenn der User dann request-export aufruft:
-//   1. user-data-rights.request-export.write triggert einen Job
-//   2. Worker iteriert alle EXT_USER_DATA-Provider (user, fileRef, todo)
-//   3. todoExportHook liest alle Rows mit author_id = userId aus
-//      ALLEN Tenants des Users
-//   4. Bundle wird als ZIP an einen signed-Magic-Link gepackt + per
-//      Email verschickt
+// What happens when the user then calls request-export:
+//   1. user-data-rights.request-export.write triggers a job
+//   2. The worker iterates all EXT_USER_DATA providers (user, fileRef, todo)
+//   3. todoExportHook reads all rows with author_id = userId from
+//      ALL of the user's tenants
+//   4. The bundle is packed as a ZIP behind a signed magic link and sent by
+//      email
 //
-// Was passiert wenn der User request-deletion aufruft:
-//   1. user-data-rights setzt status=DeletionRequested + grace
-//   2. Nach Ablauf laeuft der run-forget-cleanup-Cron
-//   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
-//   4. user wird anonymisiert (display_name="(deleted)", email=null)
+// What happens when the user calls request-deletion:
+//   1. user-data-rights sets status=DeletionRequested + grace
+//   2. After it expires the run-forget-cleanup cron runs
+//   3. todoDeleteHook DELETEs all rows with author_id = userId
+//   4. The user is anonymized (display_name="(deleted)", email=null)
 
 import { UserDataRightsScreens } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import {
@@ -51,8 +51,8 @@ export const todoEntity = createEntity({
   table: "store_todos",
   idType: "uuid",
   fields: {
-    // nullable: bei DSGVO-anonymize wird authorId auf null gesetzt
-    // (Row bleibt, Personenbezug raus). Pattern matched fileRef.
+    // nullable: on GDPR anonymize authorId is set to null
+    // (row stays, personal reference removed). Pattern matches fileRef.
     authorId: createTextField({ personal: "ref" }),
     title: createTextField({
       personal: false,

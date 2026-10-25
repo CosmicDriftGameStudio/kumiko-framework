@@ -1,9 +1,9 @@
-// Layout-Demo: Slot-Visualisierung. Pro Primitive ein Mini-Diagramm
-// der Boxen + Slot-Namen drin, plus ein Code-Snippet darunter das
-// zeigt wie der Slot aus dem Caller heraus angesprochen wird.
+// Layout demo: slot visualization. One mini diagram per primitive
+// of the boxes + slot names inside, plus a code snippet below that
+// shows how the slot is addressed from the caller.
 //
-// Die Skizzen sind absichtlich Sample-Code mit raw <div> + Tailwind —
-// hier geht's um ein Bild, nicht um die Primitives selbst zu zeigen.
+// The sketches are deliberately sample code with raw <div> + Tailwind —
+// the point here is a picture, not showing the primitives themselves.
 
 import type { ReactNode } from "react";
 import { DemoPage, DemoSection } from "../components/page";

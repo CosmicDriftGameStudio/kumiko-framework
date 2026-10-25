@@ -1,40 +1,40 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI tool output
 //
-// Lokaler Smoke-Test für seed-migrations.
+// Local smoke test for seed migrations.
 //
-// Was er prüft (offline, ohne Pod-Deploy):
-//   1. Alle seed-files in ./seeds/ können dynamic-import geladen werden
-//      → catched syntax-errors + missing default-exports + falsche paths
-//   2. Jeder handler-QN den die seeds referenzieren ist in der echten
-//      App-Registry registriert → catched camelCase-typos + drift
-//      (Bug-Klasse 3 aus Phase 1 retro)
-//   3. Jeder system-user (mit oder ohne tenantIdOverride) hat Access auf
-//      die referenzierten Handler → catched access-rule-Drift
-//      (Bug-Klasse 4 aus Phase 1 retro)
+// What it checks (offline, without a pod deploy):
+//   1. All seed files in ./seeds/ can be loaded via dynamic import
+//      → catches syntax errors + missing default exports + wrong paths
+//   2. Every handler QN the seeds reference is registered in the real
+//      app registry → catches camelCase typos + drift
+//      (bug class 3 from the phase 1 retro)
+//   3. Every system user (with or without tenantIdOverride) has access to
+//      the referenced handlers → catches access rule drift
+//      (bug class 4 from the phase 1 retro)
 //
-// Schreibt NICHTS in die DB. Reine Read-only Validation.
+// Writes NOTHING to the DB. Pure read-only validation.
 //
 // Usage:
-//   bun scripts/smoke.ts                  (gegen ./seeds/)
+//   bun scripts/smoke.ts                  (against ./seeds/)
 //   bun scripts/smoke.ts --seeds-dir foo  (custom path)
 //
-// In CI: vor `build`-Step laufen lassen — fängt 80% der Phase-1-Bugs
-// lokal in <5 Sekunden statt nach 8-Minuten-Docker-Build im Pod-Boot.
+// In CI: run before the `build` step — catches 80% of the phase 1 bugs
+// locally in <5 seconds instead of after an 8-minute Docker build in the pod boot.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-// App-spezifisch: nimm die EFFEKTIVEN Features die deine App zur Runtime
-// nutzt. Im typischen Setup mit `runProdApp({ features, auth })`:
+// App-specific: take the EFFECTIVE features your app uses
+// at runtime. In the typical setup with `runProdApp({ features, auth })`:
 //
 //   import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
 //   import { APP_FEATURES } from "../src/run-config";
 //   const composed = composeFeatures(APP_FEATURES, { includeBundled: true, ... });
 //   const features = composed.features;
 //
-// Bei reiner App-Feature-Setup (kein auth-mode) reicht ein direkter
-// Import der App-Features. Hier im Recipe der minimale set für die
-// referenzierten Recipe-Seeds (tenant + config) — App-Author tauscht
-// gegen sein eigenes Feature-Set.
+// For a pure app-feature setup (no auth mode) a direct
+// import of the app features is enough. Here in the recipe the minimal set for the
+// referenced recipe seeds (tenant + config) — the app author swaps it
+// for their own feature set.
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {

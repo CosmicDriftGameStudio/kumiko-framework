@@ -18,10 +18,10 @@ export function AppShell({
   children: ReactNode;
   schema: AppSchema;
 }): ReactNode {
-  // Content-Panel-Switch (= P4-Muster, hier demo-lokal): ist ein target in
-  // der URL aktiv (Klick auf eine Content-Seite oder das „+"), füllt das
-  // EditorPanel den Main-Bereich; sonst der normale Screen. „Nichts
-  // selektiert" → children (kein „Screen not found"-Regress).
+  // Content panel switch (= P4 pattern, demo-local): if a target is active in
+  // the URL (click on a content page or the "+"), the EditorPanel fills
+  // the main area; otherwise the normal screen. "Nothing
+  // selected" → children (no "Screen not found" regression).
   const nav = useNav();
   const resolvers = useResolvers();
   const activeTarget = parseTargetFromSearchParams(nav.searchParams);

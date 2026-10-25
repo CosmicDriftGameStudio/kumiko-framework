@@ -31,7 +31,6 @@ const SCAN: ScanSpec = {
   scope: "source",
   kinds: ALL_REPO_KINDS,
   extensions: ["ts", "tsx"],
-  frameworkWithin: ["packages/*/src/**"],
 };
 
 const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;

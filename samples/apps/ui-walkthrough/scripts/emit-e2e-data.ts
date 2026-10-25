@@ -1,8 +1,8 @@
-// Emitter für e2e/.e2e-data.json. Läuft unter bun, lädt die volle
-// framework-runtime, baut die Registry und schreibt generateE2ESpec()-
-// Output als JSON. Playwrights globalSetup ruft dieses Script vor
-// jedem Run als Subprozess — dadurch landet framework-runtime NIE im
-// Playwright-Worker (wo sie mit Playwrights expect kollidiert).
+// Emitter for e2e/.e2e-data.json. Runs under bun, loads the full
+// framework-runtime, builds the registry and writes the generateE2ESpec()
+// output as JSON. Playwright's globalSetup calls this script before
+// every run as a subprocess — so framework-runtime NEVER lands in the
+// Playwright worker (where it collides with Playwright's expect).
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";

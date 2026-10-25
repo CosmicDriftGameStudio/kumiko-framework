@@ -1,11 +1,11 @@
-// Items-Feature — Server-Side. defineFeature() registriert die Entity,
-// die Standard-CRUD-Handler und die Schema-Items aus schema.ts. KEIN
-// Custom-Server-Code (keine Hooks/Projections); das Feature ist
-// bewusst minimal und zeigt den "kitchen-sink Entity"-Pfad ohne
-// Domain-Logik.
+// Items feature — server side. defineFeature() registers the entity,
+// the standard CRUD handlers and the schema items from schema.ts. NO
+// custom server code (no hooks/projections); the feature is
+// deliberately minimal and shows the "kitchen-sink entity" path without
+// domain logic.
 //
-// Beidseitig benutzte Schema-Definitionen leben in schema.ts. Server
-// hängt hier die Handler dran und ruft r.screen/r.nav.
+// Schema definitions used on both sides live in schema.ts. The server
+// attaches the handlers here and calls r.screen/r.nav.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
@@ -65,7 +65,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.screen(itemActiveScreen);
   r.screen(itemQuickAddScreen);
 
-  // Section "Data" — clickbar zum Auf/Zuklappen weil parent ohne screen.
+  // Section "Data" — click to expand/collapse because the parent has no screen.
   r.nav({ id: "data", label: "showcase:nav.data", icon: "table", order: 100 });
   r.nav({
     id: "item-list",

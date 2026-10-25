@@ -105,41 +105,41 @@ Wenn eine kaputte Migration den Boot blockiert: setze `skippable: true` im seed-
 ```ts
 // biome-ignore-all lint/suspicious/noConsole: CLI tool output
 //
-// Lokaler Smoke-Test für seed-migrations.
+// Local smoke test for seed migrations.
 //
-// Was er prüft (offline, ohne Pod-Deploy):
-//   1. Alle seed-files in ./seeds/ können dynamic-import geladen werden
-//      → catched syntax-errors + missing default-exports + falsche paths
-//   2. Jeder handler-QN den die seeds referenzieren ist in der echten
-//      App-Registry registriert → catched camelCase-typos + drift
-//      (Bug-Klasse 3 aus Phase 1 retro)
-//   3. Jeder system-user (mit oder ohne tenantIdOverride) hat Access auf
-//      die referenzierten Handler → catched access-rule-Drift
-//      (Bug-Klasse 4 aus Phase 1 retro)
+// What it checks (offline, without a pod deploy):
+//   1. All seed files in ./seeds/ can be loaded via dynamic import
+//      → catches syntax errors + missing default exports + wrong paths
+//   2. Every handler QN the seeds reference is registered in the real
+//      app registry → catches camelCase typos + drift
+//      (bug class 3 from the phase 1 retro)
+//   3. Every system user (with or without tenantIdOverride) has access to
+//      the referenced handlers → catches access rule drift
+//      (bug class 4 from the phase 1 retro)
 //
-// Schreibt NICHTS in die DB. Reine Read-only Validation.
+// Writes NOTHING to the DB. Pure read-only validation.
 //
 // Usage:
-//   bun scripts/smoke.ts                  (gegen ./seeds/)
+//   bun scripts/smoke.ts                  (against ./seeds/)
 //   bun scripts/smoke.ts --seeds-dir foo  (custom path)
 //
-// In CI: vor `build`-Step laufen lassen — fängt 80% der Phase-1-Bugs
-// lokal in <5 Sekunden statt nach 8-Minuten-Docker-Build im Pod-Boot.
+// In CI: run before the `build` step — catches 80% of the phase 1 bugs
+// locally in <5 seconds instead of after an 8-minute Docker build in the pod boot.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-// App-spezifisch: nimm die EFFEKTIVEN Features die deine App zur Runtime
-// nutzt. Im typischen Setup mit `runProdApp({ features, auth })`:
+// App-specific: take the EFFECTIVE features your app uses
+// at runtime. In the typical setup with `runProdApp({ features, auth })`:
 //
 //   import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
 //   import { APP_FEATURES } from "../src/run-config";
 //   const composed = composeFeatures(APP_FEATURES, { includeBundled: true, ... });
 //   const features = composed.features;
 //
-// Bei reiner App-Feature-Setup (kein auth-mode) reicht ein direkter
-// Import der App-Features. Hier im Recipe der minimale set für die
-// referenzierten Recipe-Seeds (tenant + config) — App-Author tauscht
-// gegen sein eigenes Feature-Set.
+// For a pure app-feature setup (no auth mode) a direct
+// import of the app features is enough. Here in the recipe the minimal set for the
+// referenced recipe seeds (tenant + config) — the app author swaps it
+// for their own feature set.
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
@@ -233,25 +233,25 @@ console.log(`\n✓ all ${seedFiles.length} seed-file(s) pass smoke.`);
 ### seeds/2026-01-01-initial-tenants.ts
 
 ```ts
-// Initial-Seed: Demo-Tenants anlegen.
+// Initial seed: create demo tenants.
 //
-// Note: in real apps wäre "initial tenants" wahrscheinlich nicht als
-// seed-migration sondern als `r.config({seeds})` oder `auth.admin`-
-// Config umgesetzt — die laufen jedes-Boot idempotent. Hier ist es als
-// seed-migration gezeigt um das Pattern zu demonstrieren.
+// Note: in real apps "initial tenants" would probably not be implemented as a
+// seed migration but as `r.config({seeds})` or `auth.admin`
+// config — those run idempotently on every boot. Here it is shown as a
+// seed migration to demonstrate the pattern.
 //
-// Pattern: jede seed-migration arbeitet write-only via `systemWriteAs`
-// damit alles als Event-Stream persistiert wird. Read-only Lookups
-// (find*) am Context oder direkt via ctx.db.
+// Pattern: every seed migration works write-only via `systemWriteAs`
+// so everything is persisted as an event stream. Read-only lookups
+// (find*) on the context or directly via ctx.db.
 
 import type { SeedMigration } from "@cosmicdrift/kumiko-framework/es-ops";
 
 export default {
   description: "initial demo tenants (alice-corp, beta-inc)",
   run: async (ctx) => {
-    // Idempotent-Check: wenn Tenants schon existieren (z.B. via auth.admin-
-    // seed), skip diese Migration. Verhindert Konflikt beim re-boot wenn
-    // jemand den Marker manuell gelöscht hat.
+    // Idempotency check: if tenants already exist (e.g. via an auth.admin
+    // seed), skip this migration. Prevents a conflict on re-boot if
+    // someone deleted the marker manually.
     const existing = await ctx.findTenants();
     if (existing.some((t) => t.tenantKey === "alice-corp")) return;
 
@@ -270,14 +270,14 @@ export default {
 ### seeds/2026-02-01-fix-admin-roles.ts
 
 ```ts
-// Driver-Pattern: ergänze fehlende Rolle auf existierenden Memberships.
-// Spiegelt den realen publicstatus-Bug 2026-05-20 (admin@publicstatus.eu
-// hatte "Admin" aber nicht "TenantAdmin" → text-content + legal-pages
-// access_denied weil bundled-features TenantAdmin erwarten).
+// Driver pattern: add a missing role to existing memberships.
+// Mirrors the real publicstatus bug of 2026-05-20 (admin@publicstatus.eu
+// had "Admin" but not "TenantAdmin" → text-content + legal-pages
+// access_denied because bundled-features expect TenantAdmin).
 //
-// Funktioniert für jede App mit dem gleichen Pattern: User-Lookup per
-// E-Mail → alle Memberships durchgehen → bei Bedarf via existierendem
-// updateMemberRoles-Handler korrigieren.
+// Works for any app with the same pattern: user lookup by
+// email → go through all memberships → correct via the existing
+// updateMemberRoles handler if needed.
 
 import type { SeedMigration } from "@cosmicdrift/kumiko-framework/es-ops";
 
@@ -297,12 +297,12 @@ export default {
           tenantId: m.tenantId,
           roles: Array.from(new Set([...m.roles, "TenantAdmin"])),
         },
-        // tenantIdOverride: stream-tenant aus kumiko_events.v1 — NICHT
-        // m.tenantId (payload-tenant). Beide stimmen oft überein, weichen
-        // aber ab wenn das Aggregate ursprünglich von einem fremden
-        // Executor angelegt wurde (seedTenantMembership by=systemAdmin —
-        // publicstatus-Pattern). findMembershipsOfUser liefert beide,
-        // kein eigener JOIN nötig.
+        // tenantIdOverride: stream tenant from kumiko_events.v1 — NOT
+        // m.tenantId (payload tenant). The two often match, but differ
+        // when the aggregate was originally created by a foreign
+        // executor (seedTenantMembership by=systemAdmin —
+        // publicstatus pattern). findMembershipsOfUser returns both,
+        // no separate JOIN needed.
         m.streamTenantId,
       );
     }

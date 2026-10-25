@@ -1,16 +1,16 @@
-// Integration-Test fuer das user-data-rights-demo Sample. Ist gleichzeitig
-// die "Try it"-Story aus dem README in code-Form: alles was die README
-// Schritt-fuer-Schritt erklaert, wird hier durch echte HTTP-Requests
-// gefahren und beweist sich selbst.
+// Integration test for the user-data-rights-demo sample. Doubles as
+// the "Try it" story from the README in code form: everything the README
+// explains step by step is run here through real HTTP requests
+// and proves itself.
 //
-// Bewusst auch eine Doku — wer das Sample anschaut soll hier sehen wie
-// eine Kumiko-App DSGVO-Pipeline verdrahtet:
-//   - Schritt 1: User legt Todos an (todos:write:create)
-//   - Schritt 2: User listet eigene Todos (todos:query:list)
-//   - Schritt 3: runUserExport → Bundle hat user + todo entries
-//   - Schritt 4: der registrierte run-forget-cleanup-Cron läuft nach grace
-//     → todos weg, user anonymisiert (der echte autonome Pfad, nicht der
-//     manuelle Helper — so feuert er auch in prod)
+// Deliberately also documentation — anyone looking at the sample should see here how
+// a Kumiko app wires the GDPR pipeline:
+//   - Step 1: user creates todos (todos:write:create)
+//   - Step 2: user lists their own todos (todos:query:list)
+//   - Step 3: runUserExport → bundle has user + todo entries
+//   - Step 4: the registered run-forget-cleanup cron runs after grace
+//     → todos gone, user anonymized (the real autonomous path, not the
+//     manual helper — so it fires in prod too)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
@@ -92,11 +92,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  // PR #177 hat fileRef zu einem Standard-ES-Entity gemacht (softDelete:
-  // true). Die handgepflegte CREATE TABLE-Variante hätte die Spalten
+  // PR #177 made fileRef a standard ES entity (softDelete:
+  // true). The hand-maintained CREATE TABLE variant would have had to add the columns
   // is_deleted/deleted_at/deleted_by_id/version/modified_at/modified_by_id
-  // nachziehen müssen — der user-data-rights-Hook filtert auf isDeleted:
-  // false. Statt das Schema doppelt zu pflegen, kommt es jetzt aus der
+  // — the user-data-rights hook filters on isDeleted:
+  // false. Instead of maintaining the schema twice, it now comes from the
   // EntityDefinition.
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
@@ -273,14 +273,14 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(todoRows[0]?.author_id).toBeNull();
   });
 
-  // #498/#525: store_todos ist ein Direct-Write-Store (der create-Handler
-  // insertOne't ohne Lifecycle-Event). Als r.entity registriert wäre es eine
-  // rebuildbare implizite Projektion, deren Replay null todo-Events findet und
-  // eine leere Shadow-Tabelle drüber swappt → jeder Todo (und un-forget der
-  // anonymisierten Rows) wäre beim nächsten Projection-Rebuild weg. Die
-  // r.storeTable-Registrierung hält store_todos AUS dem Rebuild-Set raus —
-  // hier strukturell gepinnt: ein Revert zu r.entity ließe store_todos als
-  // rebuildbare Projektion auftauchen und failte diesen Test.
+  // #498/#525: store_todos is a direct-write store (the create handler
+  // does insertOne without a lifecycle event). Registered as r.entity it would be a
+  // rebuildable implicit projection whose replay finds zero todo events and
+  // swaps an empty shadow table over it → every todo (and un-forget of the
+  // anonymized rows) would be gone on the next projection rebuild. The
+  // r.storeTable registration keeps store_todos OUT of the rebuild set —
+  // pinned structurally here: a revert to r.entity would make store_todos show up as a
+  // rebuildable projection and fail this test.
   test("store_todos is not a rebuildable projection (r.storeTable guard)", () => {
     expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(

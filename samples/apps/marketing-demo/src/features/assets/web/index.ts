@@ -1,5 +1,5 @@
-// Assets — ClientFeatureDefinition. Pure Schema-driven, keine Custom-
-// Components. Render läuft über Standard-RenderList + RenderEdit.
+// Assets — ClientFeatureDefinition. Purely schema-driven, no custom
+// components. Rendering goes through the standard RenderList + RenderEdit.
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { assetsTranslations } from "../i18n";

@@ -1,11 +1,11 @@
 // @runtime dev
 //
-// Dev-Server für Marketing-Demo. KEIN Auth — wie showcase, Auto-Mint-
-// JWT (TestUsers.admin) damit Marketing-Screenshots ohne Login-Reibung
-// gemacht werden können. Cream/Light Theme via styles.css.
+// Dev server for the marketing demo. NO auth — like showcase, auto-mint
+// JWT (TestUsers.admin) so marketing screenshots can be made
+// without login friction. Cream/light theme via styles.css.
 //
-// Zwei Features (Assets + Helpdesk) auf einer Instanz — beweist
-// Marketing-Story „mehrere kleine Apps, eine Plattform".
+// Two features (assets + helpdesk) on one instance — proves the
+// marketing story "several small apps, one platform".
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -15,8 +15,8 @@ import { seedMarketingDemo } from "./seed";
 
 await runDevApp({
   features: [localeDe(), assetsFeature, helpdeskFeature],
-  // PORT-env überschreibbar — Playwright e2e nutzt eigenen Port (4179)
-  // damit dev-mode (4178) parallel laufen kann.
+  // PORT env overridable — Playwright e2e uses its own port (4179)
+  // so dev mode (4178) can run in parallel.
   port: Number.parseInt(process.env["PORT"] ?? "4178", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

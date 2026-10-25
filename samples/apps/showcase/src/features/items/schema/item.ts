@@ -69,8 +69,8 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         title: "References (Tier 2.7e Remote-Combobox-Demo)",
         columns: 1,
         fields: [
-          // Single + Remote — Bug-Test-Surface 1: Click auf Dropdown-Item
-          // muss onChange feuern (selektiert das Item, schließt das Popup).
+          // Single + remote — bug test surface 1: click on a dropdown item
+          // must fire onChange (selects the item, closes the popup).
           "parentId",
           // Multi + Remote — Bug-Test-Surface 2: Tippen filtert die Liste
           // serverseitig. Mit ~200 seed-Items echte Search-Last.
@@ -110,18 +110,18 @@ export const itemListScreen: EntityListScreenDefinition = {
     // auf item:list (limit:200), zeigt parentId als parent.title.
     { field: "parentId", hideOnNarrow: true },
   ],
-  // Server-side Pagination Demo — Showcase seedet ~200 items, der
-  // Pager hat 4 Seiten zum Durchklicken bei pageSize: 50.
+  // Server-side pagination demo — the showcase seeds ~200 items, the
+  // pager has 4 pages to click through at pageSize: 50.
   pagination: "pages",
   pageSize: 50,
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
-  // RowActions-Demo. Default-Payload ist `{ id: row.id }` — reicht für
-  // delete. Confirm-Dialog wegen style="danger" automatisch.
-  // Tier 2.7e-1 zeigt "navigate"-kind: ein zweiter Action-Button der
-  // statt Server-Call zu einem actionForm springt + die row.id als
-  // URL-Param übergibt (das actionForm liest sie via searchParams als
-  // initial value für ein title-Feld).
+  // RowActions demo. The default payload is `{ id: row.id }` — enough for
+  // delete. Confirm dialog automatically because of style="danger".
+  // Tier 2.7e-1 shows the "navigate" kind: a second action button that
+  // jumps to an actionForm instead of making a server call + passes row.id as a
+  // URL param (the actionForm reads it via searchParams as an
+  // initial value for a title field).
   rowActions: [
     { kind: "navigate", id: "edit", label: "showcase:actions.edit", screen: "item-edit" },
     {
@@ -129,7 +129,7 @@ export const itemListScreen: EntityListScreenDefinition = {
       id: "duplicate",
       label: "showcase:actions.duplicate",
       screen: "item-quick-add",
-      // DSL-Limit: kein "Copy of"-Prefix darstellbar → server-side im Handler lösen.
+      // DSL limit: no "Copy of" prefix expressible → solve server-side in the handler.
       params: { pick: ["title", "priority"] },
     },
     {
@@ -159,7 +159,7 @@ export const itemFeedScreen: EntityListScreenDefinition = {
     "dueDate",
   ],
   pagination: "infinite",
-  pageSize: 30, // kleinere Pages damit Scroll-Effekt häufiger triggert
+  pageSize: 30, // smaller pages so the scroll effect triggers more often
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
   rowActions: [
@@ -167,10 +167,10 @@ export const itemFeedScreen: EntityListScreenDefinition = {
   ],
 };
 
-// Tier 2.7c Demo — Screen-Level Filter. Selbe Entity, gleicher Query-
-// Handler wie itemListScreen, aber mit fixem WHERE: nur Items mit
-// status="active". Klassisches Bucketing-Pattern (z.B. "Active Tasks"
-// vs "All Tasks") ohne Custom-Page schreiben zu müssen.
+// Tier 2.7c demo — screen-level filter. Same entity, same query
+// handler as itemListScreen, but with a fixed WHERE: only items with
+// status="active". Classic bucketing pattern (e.g. "Active Tasks"
+// vs "All Tasks") without having to write a custom page.
 export const itemActiveScreen: EntityListScreenDefinition = {
   id: "item-active",
   type: "entityList",
@@ -186,18 +186,18 @@ export const itemActiveScreen: EntityListScreenDefinition = {
   ],
 };
 
-// Tier 2.7d Demo — actionForm Screen-Typ. Non-CRUD Write-Handler-
-// driven Form, hier mit dem existing item:create-Handler aber
-// reduzierter Field-Auswahl (nur title + priority). Demonstriert dass
-// eine actionForm:
-//   - keine Entity-Reference braucht (fields sind inline)
-//   - einen beliebigen Write-Handler-QN triggert (hier item:create,
-//     üblich wäre auch sowas wie item:archive-batch oder
-//     invoice:approve mit dedizierten Handlern)
-//   - nach Submit redirecten kann (hier zur Liste)
+// Tier 2.7d demo — actionForm screen type. A non-CRUD write-handler-
+// driven form, here with the existing item:create handler but a
+// reduced field selection (only title + priority). Demonstrates that
+// an actionForm:
+//   - needs no entity reference (fields are inline)
+//   - triggers any write handler QN (here item:create,
+//     something like item:archive-batch or
+//     invoice:approve with dedicated handlers would be typical)
+//   - can redirect after submit (here to the list)
 //
-// Default-Werte greifen für nicht-Form-Felder: status=draft, isDone=
-// false, priority kommt aus dem Form, notes/dueDate optional.
+// Default values apply for non-form fields: status=draft, isDone=
+// false, priority comes from the form, notes/dueDate optional.
 export const itemQuickAddScreen: ActionFormScreenDefinition = {
   id: "item-quick-add",
   type: "actionForm",

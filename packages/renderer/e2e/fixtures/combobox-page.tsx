@@ -1,15 +1,15 @@
-// Standalone-Mount-Page für ComboboxInput (ohne createKumikoApp /
-// AppSchema-Drumherum). Ziel: Browser-Reality des Mouse-Click-Bugs
-// reproduzieren, den jsdom-Tests verfehlen.
+// Standalone mount page for ComboboxInput (without the createKumikoApp /
+// AppSchema surroundings). Goal: reproduce the browser reality of the
+// mouse-click bug that jsdom tests miss.
 //
-// Drei Test-Surfaces (data-testid):
-//   - combo-single-local  — Single-Mode, kein onSearchChange (cmdk-Filter)
-//   - combo-multi-local   — Multi-Mode, kein onSearchChange
-//   - combo-single-remote — Single-Mode mit onSearchChange (Caller-Filter)
+// Three test surfaces (data-testid):
+//   - combo-single-local  — single mode, no onSearchChange (cmdk filter)
+//   - combo-multi-local   — multi mode, no onSearchChange
+//   - combo-single-remote — single mode with onSearchChange (caller filter)
 //
-// Output-Tracking: jeder onChange schreibt den neuen Wert in eine
-// data-* Property auf dem Body, damit der Spec ohne page.evaluate-Round
-// auslesen kann (`getAttribute('data-combo-single-local')`).
+// Output tracking: every onChange writes the new value into a
+// data-* property on the body so the spec can read it without a page.evaluate
+// round (`getAttribute('data-combo-single-local')`).
 
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useMemo, useState } from "react";

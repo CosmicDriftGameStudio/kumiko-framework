@@ -1,6 +1,6 @@
-// Beweist: composeApexAccountApp() bootet (volle Account-Komposition inkl.
-// auth + user-data-rights) UND der anonyme email-verifizierte Deletion-Flow
-// läuft end-to-end durch /api/write OHNE Auth (anonymousAccess).
+// Proves: composeApexAccountApp() boots (full account composition incl.
+// auth + user-data-rights) AND the anonymous email-verified deletion flow
+// runs end to end through /api/write WITHOUT auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {

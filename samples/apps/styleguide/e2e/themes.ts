@@ -38,10 +38,10 @@ const BRAND_VARS = `
 
 const STYLE_ID = "sg-theme-override";
 
-// Wird NACH dem Mount aufgerufen (die App liest beim Boot localStorage; das
-// löschen wir per addInitScript, siehe spec). Setzt deterministisch den Mode
-// und injiziert das Brand-Override mit gleicher Selektor-Spezifität wie der
-// renderer/web Light-Block — als letztes <style> gewinnt es bei Gleichstand.
+// Called AFTER the mount (the app reads localStorage at boot; we
+// clear that via addInitScript, see spec). Deterministically sets the mode
+// and injects the brand override with the same selector specificity as the
+// renderer/web light block — as the last <style> it wins on a tie.
 export async function applyTheme(page: Page, theme: ThemeId): Promise<void> {
   await applyDefaultTheme(page, (theme === "brand" ? "default-light" : theme) as DefaultThemeId);
   await page.evaluate(

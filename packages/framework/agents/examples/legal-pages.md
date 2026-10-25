@@ -267,7 +267,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, templateResourceEntity);
   await createEventsTable(db);
 
-  // Seed Pflicht-Blocks für SYSTEM_TENANT (DE Impressum + DSE)
+  // Seed required blocks for SYSTEM_TENANT (DE imprint + privacy policy)
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
@@ -314,8 +314,8 @@ afterAll(async () => {
 
 describe("legal-pages sample", () => {
   test("all LEGAL_ROUTES are reachable via stack.app", async () => {
-    // Smoke-Test: jede Route gibt entweder 200 (gerendert) oder 404
-    // (Block fehlt). Nie 5xx — die Server-Pipeline läuft sauber durch.
+    // Smoke test: every route returns either 200 (rendered) or 404
+    // (block missing). Never 5xx — the server pipeline runs through cleanly.
     for (const route of LEGAL_ROUTES) {
       const res = await stack.app.request(route.path);
       expect([200, 404]).toContain(res.status);
@@ -378,40 +378,40 @@ describe("legal-pages sample", () => {
 ### src/feature.ts
 
 ```ts
-// Legal-Pages Sample
+// Legal-pages sample
 //
-// DACH-Apps (DE/AT/CH) sind verpflichtet ein Impressum (TMG/DDG §5) und
-// eine Datenschutzerklärung (DSGVO Art. 13) öffentlich zugänglich zu
-// haben. Das ist 1) für jede App identisch und 2) nervig manuell pro
-// App neu zu basteln.
+// DACH apps (DE/AT/CH) are required to make an imprint (TMG/DDG §5) and
+// a privacy policy (GDPR Art. 13) publicly accessible.
+// That is 1) identical for every app and 2) annoying to build
+// by hand per app.
 //
-// Lösung: zwei opt-in bundled-features kombinieren:
+// Solution: combine two opt-in bundled features:
 //
-//  - `template-resolver` — der Content-Store (Entity `template-resource`,
-//    kind `text-block` mit slug+locale+title+content, scoped per Tenant).
-//    Auch nutzbar für FAQ, About, ToS, Marketing-Snippets — nicht
-//    legal-spezifisch.
+//  - `template-resolver` — the content store (entity `template-resource`,
+//    kind `text-block` with slug+locale+title+content, scoped per tenant).
+//    Also usable for FAQ, About, ToS, marketing snippets — not
+//    legal-specific.
 //
-//  - `legal-pages`   — opt-in-Wrapper darauf, der vier feste Public-
-//    Routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`,
-//    `/legal/privacy`) registriert und Markdown→HTML rendered. Plus
-//    Boot-Check der in Production hart fehlt wenn die DE-Pflicht-Blocks
-//    fehlen.
+//  - `legal-pages`   — opt-in wrapper on top of it that registers four fixed public
+//    routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`,
+//    `/legal/privacy`) and renders Markdown→HTML. Plus a
+//    boot check that fails hard in production when the DE required blocks
+//    are missing.
 //
-// Tenant-Modell: 1 App = X Tenants = 1 Impressum. Alle Subdomains
-// teilen sich die SYSTEM_TENANT_ID-Version. Wer pro-Tenant-Impressums
-// braucht, muss sein eigenes Routing davorsetzen oder die by-slug-
-// query mit tenant-specific tenantId nutzen.
+// Tenant model: 1 app = X tenants = 1 imprint. All subdomains
+// share the SYSTEM_TENANT_ID version. If you need per-tenant imprints,
+// you have to put your own routing in front or use the by-slug
+// query with a tenant-specific tenantId.
 //
-// Voraussetzungen für Production:
-//  - `anonymousAccess` muss in runProdApp/runDevApp konfiguriert sein
-//    (defaultTenantId = SYSTEM_TENANT_ID), sonst antworten die
-//    legal-pages-Routes mit 503
-//  - `extraContext.templateResolver = createTemplateResolverApi(db, registry)` muss
-//    gewired sein, sonst wirft der Boot-Check mit Wiring-Hinweis
-//  - Beim ersten Boot müssen die TextBlocks geseedet sein —
-//    template-resolver/seeding `seedTextBlock` oder via API
-//    `template-resolver:write:set` mit TenantAdmin-Token
+// Prerequisites for production:
+//  - `anonymousAccess` must be configured in runProdApp/runDevApp
+//    (defaultTenantId = SYSTEM_TENANT_ID), otherwise the
+//    legal-pages routes answer with 503
+//  - `extraContext.templateResolver = createTemplateResolverApi(db, registry)` must be
+//    wired, otherwise the boot check throws with a wiring hint
+//  - On first boot the TextBlocks must be seeded —
+//    template-resolver/seeding `seedTextBlock` or via API
+//    `template-resolver:write:set` with a TenantAdmin token
 
 import {
   createLegalPagesFeature,
@@ -437,6 +437,6 @@ export const legalPagesFeature = createLegalPagesFeature({
   }),
 });
 
-// Re-exports für Tests + andere Demos
+// Re-exports for tests + other demos
 export { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES, LEGAL_TERMS_ROUTES };
 ```

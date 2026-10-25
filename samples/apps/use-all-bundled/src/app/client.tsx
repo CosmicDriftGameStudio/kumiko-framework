@@ -6,10 +6,10 @@
 // APP_TRANSLATIONS overrides here.
 //
 // APP_TRANSLATIONS: die entity-backed Admin-Screens (tenant/user/managed-pages)
-// haben kein /web-Plugin, das ihre Spalten-Labels mitbrächte. Sie nutzen die
-// `<feature>:entity:<e>:field:*`-Convention und überlassen die Labels bewusst
-// der App (siehe user/screens.ts). use-all-bundled IST diese App.
-//
+// APP_TRANSLATIONS: the entity-backed admin screens (tenant/user/managed-pages)
+// have no /web plugin that would bring their column labels. They use the
+// `<feature>:entity:<e>:field:*` convention and deliberately leave the labels
+// to the app (see user/screens.ts). use-all-bundled IS that app.
 // adminShellClient + tenant/audit/jobs/config: WorkspaceShell needs the
 // admin-shell overview components and Settings-Hub i18n; mirror admin-console
 // client registration for features that run-config already mounts server-side.

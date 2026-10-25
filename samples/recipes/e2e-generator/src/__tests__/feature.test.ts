@@ -1,9 +1,9 @@
-// E2E-Generator Sample — Unit-Test.
+// E2E generator sample — unit test.
 //
-// Zweck: zeigt einen realistischen Generator-Run (shop-Feature mit allen
-// unterstützten + ein paar bewusst unsupported Feldtypen). Der Snapshot
-// dokumentiert das Ergebnis; jeder Feature-Autor der den Generator zum
-// ersten Mal anfasst kann hier reinschauen statt in die Implementation.
+// Purpose: shows a realistic generator run (shop feature with all
+// supported + a few deliberately unsupported field types). The snapshot
+// documents the result; any feature author touching the generator for the
+// first time can look here instead of at the implementation.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -71,17 +71,17 @@ describe("e2e-generator sample — shop feature", () => {
     // sonst zerschellt Playwright am ersten Dropdown.
     expect(opsByField.get("status")).toBe("select");
     expect(opsByField.get("featured")).toBe("check");
-    // money (listPrice) wird im Form bewusst übersprungen — komplexes
-    // Widget (Betrag + Währung), das der Generator nicht generisch
-    // automatisieren kann. API-Seed nutzt es trotzdem (siehe Test oben).
+    // money (listPrice) is deliberately skipped in the form — a complex
+    // widget (amount + currency) that the generator cannot automate
+    // generically. The API seed uses it anyway (see test above).
     expect(opsByField.has("listPrice")).toBe(false);
   });
 
   test("Output is JSON-serializable (process boundary to Playwright worker)", () => {
-    // Das Sample-Feature muss sich rundtrippen lassen: TestSpec → JSON.stringify →
-    // JSON.parse. Im produktiven Setup schreibt ein bun-Subprozess (globalSetup)
-    // die JSON auf Platte, der Playwright-Worker liest sie — kein runtime-Import
-    // vom Framework im Test-Prozess (würde mit Playwrights expect kollidieren).
+    // The sample feature must round-trip: TestSpec → JSON.stringify →
+    // JSON.parse. In the production setup a bun subprocess (globalSetup) writes
+    // the JSON to disk, the Playwright worker reads it — no runtime import
+    // of the framework in the test process (would collide with Playwright's expect).
     const specs = generateE2ESpec(registry);
     const roundtripped = JSON.parse(JSON.stringify(specs));
     expect(roundtripped).toEqual(specs);

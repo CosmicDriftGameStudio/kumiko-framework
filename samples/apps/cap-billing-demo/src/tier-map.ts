@@ -1,20 +1,20 @@
-// Tier-Map fuer das cap-billing-demo. Source-of-Truth fuer welcher
-// Tier wieviel darf — die feature.ts liest das hier zur Cap-Auflösung.
+// Tier map for the cap-billing-demo. Source of truth for which
+// tier may do how much — feature.ts reads it here for cap resolution.
 //
-// **Design-Wahl:** alle Tiers mounten dieselben Features (mail-
-// foundation + cap-counter + newsletter). Der Tier-Unterschied steckt
-// AUSSCHLIESSLICH in den Caps. So sehen Demo-User: gleicher Code-Pfad,
-// unterschiedliche Limits — exakt das Pattern, das eine echte Plattform
-// zwischen Free und Pro fährt.
+// **Design choice:** all tiers mount the same features (mail-
+// foundation + cap-counter + newsletter). The tier difference lives
+// EXCLUSIVELY in the caps. So demo users see: same code path,
+// different limits — exactly the pattern a real platform
+// runs between Free and Pro.
 
 import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 
 /**
- * Cap-Shape der Demo-App. Zwei Caps:
- *   - newslettersPerMonth: Calendar-Period-Cap (1.-eines-Monats Reset)
- *   - aiSummariesPer7Days: Rolling-Window-Cap (Drift-pin: zeigt dass
- *     beide Cap-Profile parallel funktionieren — auch wenn der
- *     Demo-Code aiSummaries gerade nicht implementiert)
+ * Cap shape of the demo app. Two caps:
+ *   - newslettersPerMonth: calendar-period cap (reset on the 1st of the month)
+ *   - aiSummariesPer7Days: rolling-window cap (drift pin: shows that
+ *     both cap profiles work in parallel — even though the
+ *     demo code does not implement aiSummaries yet)
  */
 export type DemoCaps = {
   readonly newslettersPerMonth: number;
@@ -25,8 +25,8 @@ export const DEMO_TIER_MAP: TierMap<DemoCaps> = {
   free: {
     features: [],
     caps: {
-      // Bei limit=10: soft@11 (1.1×), hard@12 (1.2×). Demo-Test feuert
-      // 11× → soft-hit, 12× → hard-block. Saubere Bands für die Story.
+      // At limit=10: soft@11 (1.1×), hard@12 (1.2×). The demo test fires
+      // 11× → soft-hit, 12× → hard-block. Clean bands for the story.
       newslettersPerMonth: 10,
       aiSummariesPer7Days: 0,
     },

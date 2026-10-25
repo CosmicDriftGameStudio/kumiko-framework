@@ -1,9 +1,9 @@
-// Minimales AppSchema fürs renderer/e2e — eine Entity, ein
-// entityList + entityEdit Screen. Reicht um Form-Render, Submit-Flow,
-// List-Render zu beweisen ohne Auth/Tenant/Multi-Feature-Komplexität.
+// Minimal AppSchema for renderer/e2e — one entity, one
+// entityList + entityEdit screen. Enough to prove form render, submit flow and
+// list render without auth/tenant/multi-feature complexity.
 //
-// Kein Server-Bootstrap: das Schema wird im Browser direkt an
-// createKumikoApp gehängt (keine window.__KUMIKO_SCHEMA__-Injection).
+// No server bootstrap: the schema is attached directly to createKumikoApp
+// in the browser (no window.__KUMIKO_SCHEMA__ injection).
 
 import type {
   ActionFormScreenDefinition,

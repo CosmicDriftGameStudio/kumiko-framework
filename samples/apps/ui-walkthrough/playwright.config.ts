@@ -1,11 +1,11 @@
 // @runtime test
-// Playwright-Config für den ui-walkthrough-Durchstich. Startet den
-// echten dev-server als webServer-Fixture, genau wie `bun dev` — nur
-// auf dem Port aus samples/e2e/e2e-ports.ts, damit keine Dev-Session kollidiert.
+// Playwright config for the ui-walkthrough run-through. Starts the
+// real dev server as a webServer fixture, exactly like `bun dev` — only
+// on the port from samples/e2e/e2e-ports.ts so no dev session collides.
 //
-// Der dev-server macht auf PORT-Env basierend das HTTP-Binding. Die
-// setupTestStack-Default ist ephemeral (fresh kumiko_test_<random> DB),
-// deshalb braucht's keine DB-Reset-Logik hier.
+// The dev server does the HTTP binding based on the PORT env. The
+// setupTestStack default is ephemeral (fresh kumiko_test_<random> DB),
+// so no DB reset logic is needed here.
 
 import {
   defineAppE2eConfig,

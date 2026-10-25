@@ -185,7 +185,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     // Andere userRights aus swiss-dsg bleiben
     expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
     expect(result.profile.userRights.restrictionAllowed).toBe(true);
-    // Sprachen aus swiss-dsg unverändert
+    // Languages from swiss-dsg unchanged
     expect(result.profile.notifications.languages).toEqual(["de", "fr", "it", "en"]);
   });
 });

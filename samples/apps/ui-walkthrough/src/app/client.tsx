@@ -1,5 +1,5 @@
-// Browser-Entry. Sammelt nur die ClientFeatures (auth + tasks) und
-// übergibt Shell + clientFeatures an createKumikoApp.
+// Browser entry. Only collects the ClientFeatures (auth + tasks) and
+// hands shell + clientFeatures to createKumikoApp.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { billingFoundationClient } from "@cosmicdrift/kumiko-bundled-features/billing-foundation/web";

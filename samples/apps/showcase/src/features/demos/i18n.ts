@@ -1,5 +1,5 @@
-// Demos-Feature i18n-Bundle. Nur die Screen-Titles für die
-// Top-Action-Bars der Demo-Pages.
+// Demos feature i18n bundle. Only the screen titles for the
+// top action bars of the demo pages.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

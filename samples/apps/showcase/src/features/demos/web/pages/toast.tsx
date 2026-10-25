@@ -3,9 +3,9 @@ import { useToast } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 
-// Toast-Demo. useToast() ist die einzige Public-API — der ToastProvider
-// ist im createKumikoApp gemountet, jeder Component innerhalb darf
-// toasts pushen ohne sich um State/Mounting zu kümmern.
+// Toast demo. useToast() is the only public API — the ToastProvider
+// is mounted in createKumikoApp, every component inside may
+// push toasts without caring about state/mounting.
 
 export function ToastDemo(): ReactNode {
   const { toast } = useToast();

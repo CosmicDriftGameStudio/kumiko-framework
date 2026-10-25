@@ -1,22 +1,22 @@
-// Initial-Seed: Demo-Tenants anlegen.
+// Initial seed: create demo tenants.
 //
-// Note: in real apps wäre "initial tenants" wahrscheinlich nicht als
-// seed-migration sondern als `r.config({seeds})` oder `auth.admin`-
-// Config umgesetzt — die laufen jedes-Boot idempotent. Hier ist es als
-// seed-migration gezeigt um das Pattern zu demonstrieren.
+// Note: in real apps "initial tenants" would probably not be implemented as a
+// seed migration but as `r.config({seeds})` or `auth.admin`
+// config — those run idempotently on every boot. Here it is shown as a
+// seed migration to demonstrate the pattern.
 //
-// Pattern: jede seed-migration arbeitet write-only via `systemWriteAs`
-// damit alles als Event-Stream persistiert wird. Read-only Lookups
-// (find*) am Context oder direkt via ctx.db.
+// Pattern: every seed migration works write-only via `systemWriteAs`
+// so everything is persisted as an event stream. Read-only lookups
+// (find*) on the context or directly via ctx.db.
 
 import type { SeedMigration } from "@cosmicdrift/kumiko-framework/es-ops";
 
 export default {
   description: "initial demo tenants (alice-corp, beta-inc)",
   run: async (ctx) => {
-    // Idempotent-Check: wenn Tenants schon existieren (z.B. via auth.admin-
-    // seed), skip diese Migration. Verhindert Konflikt beim re-boot wenn
-    // jemand den Marker manuell gelöscht hat.
+    // Idempotency check: if tenants already exist (e.g. via an auth.admin
+    // seed), skip this migration. Prevents a conflict on re-boot if
+    // someone deleted the marker manually.
     const existing = await ctx.findTenants();
     if (existing.some((t) => t.tenantKey === "alice-corp")) return;
 

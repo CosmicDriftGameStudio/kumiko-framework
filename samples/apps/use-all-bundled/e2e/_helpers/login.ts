@@ -1,8 +1,8 @@
-// Login-Helper für die Screenshot-E2Es. POST direkt gegen /api/auth/login;
-// Playwrights page.request teilt das Cookie-Jar mit dem page-Context, also
-// landen kumiko_auth + kumiko_csrf automatisch im Browser und das folgende
-// goto() bootet authentifiziert. Import direkt aus auth-constants (framework-
-// frei) — NIE über seed/bundled-features, die ziehen vitest transitiv mit.
+// Login helper for the screenshot E2Es. POST directly to /api/auth/login;
+// Playwright's page.request shares the cookie jar with the page context, so
+// kumiko_auth + kumiko_csrf land in the browser automatically and the following
+// goto() boots authenticated. Import straight from auth-constants (framework-
+// free) — NEVER via seed/bundled-features, they pull in vitest transitively.
 
 import type { Cookie, Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";

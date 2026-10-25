@@ -1,9 +1,9 @@
 // @runtime dev
 //
-// Sample-Server für config-demo. Importiert runDevApp aus dev-server
-// → muss explizit als [dev]-File markiert sein, weil das Default
-// (samples/apps/<x>/src/app/server.ts) ohne directive als [runtime]
-// klassifiziert wird und [runtime]→[dev] vom Isolation-Guard blockt.
+// Sample server for config-demo. Imports runDevApp from dev-server
+// → must be explicitly marked as a [dev] file, because the default
+// (samples/apps/<x>/src/app/server.ts) without a directive is classified as [runtime]
+// and [runtime]→[dev] is blocked by the isolation guard.
 
 import {
   createConfigAccessorFactory,

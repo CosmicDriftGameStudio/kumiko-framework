@@ -1,10 +1,10 @@
-// Update-Flow. Erzeugt einen Task, klickt die Row, ändert den Titel,
-// speichert — und prüft dass die Liste den neuen Titel zeigt.
+// Update flow. Creates a task, clicks the row, changes the title,
+// saves — and checks that the list shows the new title.
 //
-// Der Test lebt mit create-flow zusammen auf derselben ephemeral DB
-// (playwright workers=1, server startet einmal pro Run). Eigener Setup-
-// Call statt Fixture-Sharing hält die Test-Kopplung gering — jeder
-// Spec-File steht für sich.
+// The test lives together with create-flow on the same ephemeral DB
+// (playwright workers=1, server starts once per run). Its own setup
+// call instead of fixture sharing keeps test coupling low — every
+// spec file stands on its own.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
@@ -20,25 +20,25 @@ test("update flow: click row, change title, save, list shows new title", async (
   await page.getByTestId("render-edit-submit").click();
   await expect(page.getByTestId("render-list-table")).toBeVisible();
 
-  // --- Update-Flow ---
-  // Row click → KumikoScreen's default onRowClick navigiert zum
-  // entityEdit-Screen für diese Entity mit entityId in der Route
-  // (siehe create-app.tsx RoutedScreen).
+  // --- Update flow ---
+  // Row click → KumikoScreen's default onRowClick navigates to the
+  // entityEdit screen for this entity with entityId in the route
+  // (see create-app.tsx RoutedScreen).
   const row = page.locator('[data-testid^="cell-"][data-testid$="-title"]', {
     hasText: originalTitle,
   });
   await row.click();
 
-  // Edit-Form mit vorgeladenem Title. Input ist disabled/readonly-
-  // frei, wir können direkt überschreiben — fill() clearte den input
-  // vor dem Schreiben.
+  // Edit form with preloaded title. The input is free of disabled/readonly,
+  // so we can overwrite directly — fill() cleared the input
+  // before writing.
   const titleInput = page.getByTestId("field-title").locator("input");
   await expect(titleInput).toHaveValue(originalTitle);
   await titleInput.fill(newTitle);
 
   await page.getByTestId("render-edit-submit").click();
 
-  // Nach Save zurück zur Liste (useNavigateToListAfter).
+  // After save back to the list (useNavigateToListAfter).
   await expect(page.getByTestId("render-list-table")).toBeVisible();
 
   const updatedCell = page.locator('[data-testid^="cell-"][data-testid$="-title"]', {

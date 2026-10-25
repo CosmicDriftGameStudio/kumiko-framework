@@ -1,12 +1,12 @@
-// User-Data-Rights Recipe — Integration-Test.
+// User-data-rights recipe — integration test.
 //
-// Pinst dass die zwei Hooks aus feature.ts genau das tun was die Recipe-
-// README verspricht:
-//   1. Notes des Users landen via export-Hook im Bundle-Snippet.
-//   2. Forget-Cleanup-Cron entfernt die Notes via delete-Hook (strategy
+// Pins that the two hooks from feature.ts do exactly what the recipe
+// README promises:
+//   1. The user's notes land in the bundle snippet via the export hook.
+//   2. The forget-cleanup cron removes the notes via the delete hook (strategy
 //      "delete", default).
-//   3. Strategy "anonymize" (HR-Override) setzt authorId=null statt zu
-//      löschen — Row bleibt für Multi-User-Refs intakt.
+//   3. Strategy "anonymize" (HR override) sets authorId=null instead of
+//      deleting — the row stays intact for multi-user refs.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";

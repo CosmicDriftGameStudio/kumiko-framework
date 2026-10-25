@@ -1,17 +1,17 @@
-// Gallery-Feature (server). Eine custom-Screen, die die Foundations
-// (Colors/Typography/Radius/Elevation/Spacing) + atomare Components
-// (Buttons, Cards) zeigt — das was die Entity-Auto-Screens nicht abdecken.
-// React-Component client-seitig via clientFeatures.components zugeordnet.
+// Gallery feature (server). A custom screen showing the foundations
+// (colors/typography/radius/elevation/spacing) + atomic components
+// (buttons, cards) — what the entity auto-screens do not cover.
+// React component assigned client-side via clientFeatures.components.
 //
-// Eigener FeatureName (nicht "styleguide") — zwei defineFeature mit gleichem
-// Namen würden in createRegistry werfen.
+// Own FeatureName (not "styleguide") — two defineFeature calls with the same
+// name would throw in createRegistry.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { LocalizedString } from "../shared-i18n";
 
-// Server-Pendant zu den Nav-Labels — Boot-Validator braucht screen:gallery.title
-// serverseitig registriert, auch wenn die custom-Screen selbst keinen
-// gerenderten Titel aus i18n zieht.
+// Server counterpart to the nav labels — the boot validator needs screen:gallery.title
+// registered server-side, even if the custom screen itself does not pull a
+// rendered title from i18n.
 const GALLERY_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:gallery.title": { de: "Foundations & Components", en: "Foundations & Components" },
   "gallery:nav.styleguide": { de: "Styleguide", en: "Styleguide" },

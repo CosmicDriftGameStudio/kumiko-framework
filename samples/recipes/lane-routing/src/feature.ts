@@ -24,11 +24,11 @@ import { z } from "zod";
 export const renderedReceipts: Array<{ customerName: string; amount: number }> = [];
 export const sentConfirmations: Array<{ customerName: string; amount: number }> = [];
 
-// Entity-Dekl sichert den qualified-name-Prefix "orders:write:order:create"
-// für den Write-Handler unten und damit den Job-Trigger auf diesem Event.
-// Persistenz passiert im Custom-Handler nicht (id ist hardcoded für den
-// Sample-Test) — in einer echten App würde ein entityWriteHandler in die DB
-// schreiben.
+// The entity declaration secures the qualified-name prefix "orders:write:order:create"
+// for the write handler below and thereby the job trigger on this event.
+// Persistence does not happen in the custom handler (id is hardcoded for the
+// sample test) — in a real app an entityWriteHandler would write to the
+// DB.
 const orderEntity = createEntity({
   table: "read_orders",
   fields: {

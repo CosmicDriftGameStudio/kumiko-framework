@@ -1,7 +1,7 @@
-// Reine Konstanten — kein Framework-Import, damit der E2E-Login-Helper
-// (Playwright-Worker) sie lesen kann, ohne die vitest-Importchain aus
-// `@cosmicdrift/kumiko-testing/helpers` mitzuziehen (kollidiert mit
-// Playwrights expect über Object.prototype-Symbole).
+// Pure constants — no framework import, so the E2E login helper
+// (Playwright worker) can read them without pulling in the vitest import chain from
+// `@cosmicdrift/kumiko-testing/helpers` (collides with
+// Playwright's expect via Object.prototype symbols).
 
 export const ADMIN_EMAIL = "admin@kumiko.dev";
 export const ADMIN_PASSWORD = "kumiko-admin";

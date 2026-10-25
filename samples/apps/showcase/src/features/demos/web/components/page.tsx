@@ -1,6 +1,6 @@
-// Shared Page-Layout für die Demo-Custom-Screens. Kein Framework-
-// Konzept — reines Sample-Layout, das die Top-Action-Bar Convention
-// (h-12, bg-muted/30, border-b) konsistent mit Form/Liste hält.
+// Shared page layout for the demo custom screens. Not a framework
+// concept — pure sample layout that keeps the top action bar convention
+// (h-12, bg-muted/30, border-b) consistent with form/list.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
@@ -32,8 +32,8 @@ export function DemoPage({
   );
 }
 
-// Section innerhalb einer Demo-Page: Card-Primitive (Standard-Chrome). Samples
-// sind Copy-Vorlage für Agenten → dieselbe Card wie überall, kein Sonder-Layout.
+// Section within a demo page: Card primitive (standard chrome). Samples
+// are a copy template for agents → the same card as everywhere, no special layout.
 export function DemoSection({
   title,
   children,

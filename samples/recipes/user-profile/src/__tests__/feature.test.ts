@@ -1,7 +1,7 @@
-// Boot-Validation der vollen user-profile-Komposition: Require-Kette
-// erfüllt, Screen + Nav registriert, change-email-Handler unter der
-// dokumentierten QN. Kein DB/HTTP nötig — der HTTP-Beweis lebt im
-// bundled-feature-Test (change-email.integration.test.ts).
+// Boot validation of the full user-profile composition: require chain
+// satisfied, screen + nav registered, change-email handler under the
+// documented QN. No DB/HTTP needed — the HTTP proof lives in the
+// bundled-feature test (change-email.integration.test.ts).
 
 import { describe, expect, test } from "bun:test";
 import { UserProfileHandlers } from "@cosmicdrift/kumiko-bundled-features/user-profile";

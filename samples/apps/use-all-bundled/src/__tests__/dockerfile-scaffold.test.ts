@@ -1,11 +1,11 @@
-// Empfehlung 5 aus Sprint-9.8-Retro. Tests scaffoldDeploy against this
-// sample-app — fängt Dockerfile.template-coverage-Lücken (start.sh
-// fehlte in 9.6, hasSeeds/hasPrivateGhPackages-Detection-bugs) bevor
-// sie in echten Apps deploys auftauchen.
+// Recommendation 5 from the Sprint 9.8 retro. Tests scaffoldDeploy against this
+// sample app — catches Dockerfile.template coverage gaps (start.sh
+// missing in 9.6, hasSeeds/hasPrivateGhPackages detection bugs) before
+// they show up in real app deploys.
 //
-// Sample-app ist canonical "every bundled feature mounted" — wenn das
-// scaffold gegen sie funktioniert, decken wir die größte realistische
-// app-shape ab.
+// The sample app is the canonical "every bundled feature mounted" — if the
+// scaffold works against it, we cover the largest realistic
+// app shape.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -62,9 +62,9 @@ describe("use-all-bundled scaffoldDeploy", () => {
       sourceDir: SAMPLE_DIR,
     });
     const dockerfile = readFileSync(join(tmp, "deploy/Dockerfile"), "utf-8");
-    // 9.8-Drama: createBunServer override'd command auf ./start.sh —
-    // Dockerfile musste die Datei erzeugen, da Studio's source-tree
-    // sie nicht mehr enthält.
+    // 9.8 drama: createBunServer overrides the command to ./start.sh —
+    // the Dockerfile had to create the file, since Studio's source tree
+    // no longer contains it.
     expect(dockerfile).toContain("start.sh");
     expect(dockerfile).toContain("exec bun run server.js");
   });

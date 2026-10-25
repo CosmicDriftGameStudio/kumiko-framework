@@ -1,11 +1,11 @@
-// Driver-Pattern: ergänze fehlende Rolle auf existierenden Memberships.
-// Spiegelt den realen publicstatus-Bug 2026-05-20 (admin@publicstatus.eu
-// hatte "Admin" aber nicht "TenantAdmin" → text-content + legal-pages
-// access_denied weil bundled-features TenantAdmin erwarten).
+// Driver pattern: add a missing role to existing memberships.
+// Mirrors the real publicstatus bug of 2026-05-20 (admin@publicstatus.eu
+// had "Admin" but not "TenantAdmin" → text-content + legal-pages
+// access_denied because bundled-features expect TenantAdmin).
 //
-// Funktioniert für jede App mit dem gleichen Pattern: User-Lookup per
-// E-Mail → alle Memberships durchgehen → bei Bedarf via existierendem
-// updateMemberRoles-Handler korrigieren.
+// Works for any app with the same pattern: user lookup by
+// email → go through all memberships → correct via the existing
+// updateMemberRoles handler if needed.
 
 import type { SeedMigration } from "@cosmicdrift/kumiko-framework/es-ops";
 
@@ -25,12 +25,12 @@ export default {
           tenantId: m.tenantId,
           roles: Array.from(new Set([...m.roles, "TenantAdmin"])),
         },
-        // tenantIdOverride: stream-tenant aus kumiko_events.v1 — NICHT
-        // m.tenantId (payload-tenant). Beide stimmen oft überein, weichen
-        // aber ab wenn das Aggregate ursprünglich von einem fremden
-        // Executor angelegt wurde (seedTenantMembership by=systemAdmin —
-        // publicstatus-Pattern). findMembershipsOfUser liefert beide,
-        // kein eigener JOIN nötig.
+        // tenantIdOverride: stream tenant from kumiko_events.v1 — NOT
+        // m.tenantId (payload tenant). The two often match, but differ
+        // when the aggregate was originally created by a foreign
+        // executor (seedTenantMembership by=systemAdmin —
+        // publicstatus pattern). findMembershipsOfUser returns both,
+        // no separate JOIN needed.
         m.streamTenantId,
       );
     }

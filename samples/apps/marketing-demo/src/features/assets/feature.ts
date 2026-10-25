@@ -1,6 +1,6 @@
-// Assets-Feature — Server-Side. Schema-driven Asset-Tracker für die
-// Marketing-Demo. defineFeature registriert Entity + CRUD-Handler +
-// Screens. Audit + Multi-Tenant kommen aus dem Framework-Default.
+// Assets feature — server side. Schema-driven asset tracker for the
+// marketing demo. defineFeature registers entity + CRUD handlers +
+// screens. Audit + multi-tenancy come from the framework defaults.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";

@@ -1,9 +1,9 @@
 // @runtime dev
-// Seed-Daten für die Feature-Reference-Screenshots: damit die entity-Listen
-// nicht leer rendern und die öffentlichen Legal-Routes Inhalt haben. Läuft
-// nach dem Admin (runDevApp seeds-Hook), idempotent über die seed-Helper.
-// Dev-only (importiert die dev-only notes-feature) — wird nur von server.ts
-// (runDevApp) als Screenshot-Seed genutzt, nie im Prod-Boot.
+// Seed data for the feature reference screenshots: so the entity lists
+// do not render empty and the public legal routes have content. Runs
+// after the admin (runDevApp seeds hook), idempotent via the seed helpers.
+// Dev-only (imports the dev-only notes feature) — used only by server.ts
+// (runDevApp) as the screenshot seed, never in the prod boot.
 
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import { NotesHistoryHandlers } from "@cosmicdrift/kumiko-bundled-features/notes-history";
@@ -329,7 +329,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   const devTenant = DEV_TENANT_ID as TenantId;
   const betaTenant = BETA_TENANT_ID as TenantId;
 
-  // managed-pages — zwei Seiten im Dev-Tenant für den page-list Screen.
+  // managed-pages — two pages in the dev tenant for the page-list screen.
   await seedPage(stack.db, {
     tenantId: devTenant,
     slug: "about",
