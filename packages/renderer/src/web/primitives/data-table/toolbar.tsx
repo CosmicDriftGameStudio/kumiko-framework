@@ -104,6 +104,8 @@ export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): React
         toolbarClassName(m),
         mergesDescription && "justify-between",
         mergesDescription && m.fillsHeight && !m.isNarrow && "md:py-2",
+        // A dashboard panel title above has no inset; the description must share its left edge.
+        mergesDescription && m.fillsHeight && m.insideEmbeddedScreen && "px-0",
       )}
     >
       {mergesDescription && renderToolbarDescription(m, true, true)}
