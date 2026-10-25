@@ -576,6 +576,10 @@
       "./temporal": {
         "types": "./dist/temporal.d.ts",
         "default": "./dist/temporal.js"
+      },
+      "./probe": {
+        "types": "./dist/probe.d.ts",
+        "default": "./dist/probe.js"
       }
     }
   },
