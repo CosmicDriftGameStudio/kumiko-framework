@@ -35,6 +35,7 @@ export const AUTH_MFA_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = 
 
   "screen:auth-mfa-disable.title": { en: "Disable two-factor authentication" },
   "mfa.disable.submit": { en: "Disable" },
+  "mfa.disable.done": { en: "Two-factor authentication is now turned off." },
 
   "screen:auth-mfa-regenerate-recovery.title": { en: "Generate new recovery codes" },
   "mfa.regenerate.submit": { en: "Generate new codes" },
