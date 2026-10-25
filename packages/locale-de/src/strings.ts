@@ -2064,17 +2064,18 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfe Servernamen und Port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Postausgangsserver (SMTP)",
+  "inbound-provider-imap:entity:__action-form__:field:smtpPort": "SMTP-Port",
   "inboundMail.imap.connect.outgoing": "Senden",
   "inboundMail.imap.connect.outgoingHint":
-    "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap.",
+    "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn dein Anbieter 465/SSL nennt.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfe seinen Namen.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver hat die Anmeldung abgelehnt.",
   "inboundMail.imap.connect.errors.smtpTlsFailed":
-    "Empfang ok, Senden geht nicht: Die verschlüsselte Verbindung zum Postausgangsserver auf Port 465 ist fehlgeschlagen.",
+    "Empfang ok, Senden geht nicht: Die verschlüsselte Verbindung zum Postausgangsserver auf Port {port} ist fehlgeschlagen.",
   "inboundMail.imap.connect.errors.smtpConnectFailed":
-    "Empfang ok, Senden geht nicht: Keine Verbindung zum Postausgangsserver auf Port 465.",
+    "Empfang ok, Senden geht nicht: Keine Verbindung zum Postausgangsserver auf Port {port}.",
   "inboundMail.send.errors.notConfigured":
     "Senden ist für dieses Postfach nicht eingerichtet. Verbinde das Postfach erneut mit seinem Postausgangsserver.",
   "inboundMail.send.errors.loginRejected":

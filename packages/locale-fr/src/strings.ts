@@ -2084,17 +2084,18 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "Aucune connexion au serveur IMAP. Vérifiez le nom du serveur et le port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Serveur sortant (SMTP)",
+  "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Port SMTP",
   "inboundMail.imap.connect.outgoing": "Envoi",
   "inboundMail.imap.connect.outgoingHint":
-    "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap.",
+    "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap. En général 587, même si votre fournisseur indique 465/SSL.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La réception fonctionne, mais pas l'envoi : le serveur sortant est injoignable ou non autorisé. Vérifiez son nom.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
     "La réception fonctionne, mais pas l'envoi : le serveur sortant a refusé la connexion.",
   "inboundMail.imap.connect.errors.smtpTlsFailed":
-    "La réception fonctionne, mais pas l'envoi : la connexion chiffrée au serveur sortant sur le port 465 a échoué.",
+    "La réception fonctionne, mais pas l'envoi : la connexion chiffrée au serveur sortant sur le port {port} a échoué.",
   "inboundMail.imap.connect.errors.smtpConnectFailed":
-    "La réception fonctionne, mais pas l'envoi : aucune connexion au serveur sortant sur le port 465.",
+    "La réception fonctionne, mais pas l'envoi : aucune connexion au serveur sortant sur le port {port}.",
   "inboundMail.send.errors.notConfigured":
     "L'envoi n'est pas configuré pour cette boîte. Reconnectez la boîte avec son serveur sortant.",
   "inboundMail.send.errors.loginRejected":

@@ -40,3 +40,5 @@ export const SMTP_CONNECT_ERRORS = {
     i18nKey: "inboundMail.imap.connect.errors.smtpConnectFailed",
   },
 } as const satisfies Record<keyof typeof IMAP_CONNECT_ERRORS, unknown>;
+
+export const SMTP_SUBMISSION_PORT = 587;

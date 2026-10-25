@@ -20,15 +20,14 @@ import { IMAP_CONNECT_ERRORS, IMAP_PROVIDER_KEY, SMTP_CONNECT_ERRORS } from "./c
 import {
   type ImapCredentialDocument,
   imapCredentialDocumentSchema,
-  SMTP_IMPLICIT_TLS_PORT,
   smtpHostSchema,
 } from "./credential-document.ts";
 import { connectOnce, IMAP_HOST_UNREACHABLE_MESSAGE } from "./imap-client.ts";
 import { type SmtpFailure, SmtpFailureError, verifySmtpLogin } from "./smtp-client.ts";
 
-// No `secure` and no SMTP port input: the password never crosses the wire in clear text, so a
-// payload's secure:false or smtpPort is stripped like any unknown key and both logins always use
-// implicit TLS (SMTP on port 465).
+// No `secure`: the password never crosses the wire in clear text, so a payload's secure:false is
+// stripped like any unknown key. IMAP uses implicit TLS; SMTP uses implicit TLS on 465 and
+// enforced STARTTLS on every other port.
 const connectMailboxSchema = imapCredentialDocumentSchema
   .pick({ host: true, port: true, user: true })
   .extend({
@@ -36,6 +35,7 @@ const connectMailboxSchema = imapCredentialDocumentSchema
     address: z.email().max(320),
     password: z.string().min(1).max(1000),
     smtpHost: z.union([z.literal(""), smtpHostSchema]).nullish(),
+    smtpPort: z.number().int().min(1).max(65535),
   });
 type ConnectMailboxPayload = z.infer<typeof connectMailboxSchema>;
 
@@ -59,10 +59,10 @@ export function deriveSmtpHost(imapHost: string): string {
   return /^imap\./i.test(imapHost) ? `smtp.${imapHost.slice("imap.".length)}` : imapHost;
 }
 
-function credentialDocumentOf(payload: ConnectMailboxPayload): ImapCredentialDocument {
-  const { host, port, user, password } = payload;
+export function credentialDocumentOf(payload: ConnectMailboxPayload): ImapCredentialDocument {
+  const { host, port, user, password, smtpPort } = payload;
   const smtpHost = payload.smtpHost || deriveSmtpHost(host);
-  return { host, port, secure: true, user, password, smtpHost, smtpPort: SMTP_IMPLICIT_TLS_PORT };
+  return { host, port, secure: true, user, password, smtpHost, smtpPort };
 }
 
 // The raw error carries the host and the server response; the tenant only gets the category.
@@ -121,7 +121,9 @@ export const connectMailboxHandler = defineWriteHandler({
     if (smtpFailure) {
       const { reason, i18nKey } = SMTP_CONNECT_ERRORS[smtpFailure];
       ctx.obs.log.warn("smtp connect check failed", { reason });
-      return writeFailure(new UnprocessableError(reason, { i18nKey }));
+      return writeFailure(
+        new UnprocessableError(reason, { i18nKey, i18nParams: { port: doc.smtpPort } }),
+      );
     }
     return { isSuccess: true, data: null };
   },

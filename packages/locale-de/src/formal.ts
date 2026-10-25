@@ -259,7 +259,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfen Sie Servernamen und Port.",
   "inboundMail.imap.connect.outgoingHint":
-    "Antworten gehen von dieser Adresse über Ihren eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lassen Sie das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap.",
+    "Antworten gehen von dieser Adresse über Ihren eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lassen Sie das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn Ihr Anbieter 465/SSL nennt.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfen Sie seinen Namen.",
   "inboundMail.send.errors.notConfigured":

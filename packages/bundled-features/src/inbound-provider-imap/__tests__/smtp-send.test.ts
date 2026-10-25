@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deriveSmtpHost } from "../connect-mailbox.ts";
+import { credentialDocumentOf, deriveSmtpHost } from "../connect-mailbox.ts";
 import { pickSentMailboxPath } from "../sent-folder.ts";
 import { classifySmtpError, smtpTransportOptions } from "../smtp-client.ts";
 
@@ -13,6 +13,25 @@ describe("deriveSmtpHost", () => {
     expect(deriveSmtpHost("IMAP.example.de")).toBe("smtp.example.de");
     expect(deriveSmtpHost("w0123.kasserver.com")).toBe("w0123.kasserver.com");
     expect(deriveSmtpHost("mail.imap.example")).toBe("mail.imap.example");
+  });
+});
+
+describe("credentialDocumentOf", () => {
+  const payload = {
+    displayName: "Office",
+    address: "info@example.de",
+    host: "imap.example.de",
+    port: 993,
+    user: "info",
+    password: "pw",
+  };
+
+  test("stores the entered SMTP port next to the derived SMTP host", () => {
+    expect(credentialDocumentOf({ ...payload, smtpPort: 465 })).toMatchObject({
+      smtpHost: "smtp.example.de",
+      smtpPort: 465,
+    });
+    expect(credentialDocumentOf({ ...payload, smtpPort: 587 })).toMatchObject({ smtpPort: 587 });
   });
 });
 
@@ -50,6 +69,25 @@ describe("smtpTransportOptions", () => {
       disableFileAccess: true,
       disableUrlAccess: true,
     });
+  });
+
+  test("port 587 upgrades with STARTTLS and refuses to send the password in clear text", () => {
+    const options = smtpTransportOptions(
+      { ...login, port: 587 },
+      { host: "203.0.113.9", servername: "smtp.example.de" },
+    );
+    expect(options).toMatchObject({
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      servername: "smtp.example.de",
+    });
+  });
+
+  test("port 465 uses implicit TLS without a STARTTLS requirement", () => {
+    expect(smtpTransportOptions(login, { host: "smtp.example.de" })).not.toHaveProperty(
+      "requireTLS",
+    );
   });
 
   test("an allowlisted host connects by name without a separate servername", () => {
