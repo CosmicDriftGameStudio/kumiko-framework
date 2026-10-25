@@ -2203,7 +2203,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "E-mail de test à la personne qui a lancé la vérification",
   "mail-foundation.probe.send-test-mail.accepted": "Accepté par le serveur de messagerie",
-  "mail-foundation.probe.not-configured": "Aucun envoi d'e-mails propre configuré",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Envoyé via l'expéditeur de la plateforme, accepté par son serveur de messagerie",
+  "mail-foundation.probe.not-configured": "Aucun envoi d'e-mails configuré",
   "mail-foundation.probe.no-recipient":
     "Aucune adresse e-mail connue pour la personne qui a lancé la vérification",
   "mail-foundation.probe.host-not-found":
@@ -2214,6 +2216,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "L'envoi d'e-mails n'a pas pu être configuré avec ces réglages",
   "mail-foundation.probe.send-rejected":
     "Le serveur de messagerie n'a pas accepté l'e-mail de test, vérifiez l'adresse, le port et l'identifiant",
+  "mail-foundation.probe.platform-send-rejected":
+    "Le serveur de messagerie de la plateforme n'a pas accepté l'e-mail de test",
   "inbound-mail-foundation.probe.area": "E-mails entrants",
   "inbound-mail-foundation.probe.mailboxes.label": "Boîtes aux lettres connectées",
   "inbound-mail-foundation.probe.mailbox": "Boîte aux lettres {name}",

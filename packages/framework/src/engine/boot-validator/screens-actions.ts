@@ -729,22 +729,24 @@ export function validateRecordActionRedirect(
 }
 
 // "edit" is the default edit action, which only exists when detailFor names
-// the entity; a typo would otherwise silently fall back to the default precedence.
+// the entity; a typo would otherwise silently fall back to the default header layout.
 export function validatePrimaryActionTarget(
   featureName: string,
   screenId: string,
   screen: ProjectionDetailScreenDefinition,
 ): void {
-  // skip: no declared primaryAction, the default header precedence applies
-  if (screen.primaryAction === undefined) return;
+  const targets: ReadonlyArray<readonly [option: string, id: string]> = [
+    ...(screen.primaryAction !== undefined
+      ? [["primaryAction", screen.primaryAction] as const]
+      : []),
+    ...(screen.inlineActions ?? []).map((id) => ["inlineActions", id] as const),
+  ];
   const declaredIds = (screen.actions ?? []).map((action) => action.id);
   const editIsAvailable = screen.detailFor !== undefined;
-  const targetExists =
-    declaredIds.includes(screen.primaryAction) ||
-    (editIsAvailable && screen.primaryAction === "edit");
-  if (!targetExists) {
+  for (const [option, id] of targets) {
+    if (declaredIds.includes(id) || (editIsAvailable && id === "edit")) continue;
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) primaryAction "${screen.primaryAction}" ` +
+      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) ${option} "${id}" ` +
         `matches no action — use one of the declared action ids (${declaredIds.join(", ") || "none declared"})` +
         `${editIsAvailable ? ' or "edit"' : ' ("edit" needs detailFor on this screen)'}.`,
     );

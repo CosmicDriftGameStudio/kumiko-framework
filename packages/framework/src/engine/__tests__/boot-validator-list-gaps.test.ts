@@ -37,7 +37,7 @@ function registerHandlers(r: Parameters<Parameters<typeof defineFeature>[1]>[0],
 const detailSections = { sections: [{ title: "s", fields: ["total"] }] };
 
 function featureWithDetail(
-  screen: { primaryAction?: string; detailFor?: string },
+  screen: { primaryAction?: string; inlineActions?: readonly string[]; detailFor?: string },
   withEdit = false,
 ) {
   return defineFeature("shop", (r) => {
@@ -96,6 +96,18 @@ describe("validateBoot — projectionDetail primaryAction", () => {
     expect(
       bootMessage(featureWithDetail({ primaryAction: "edit", detailFor: "order" }, true)),
     ).toBe("");
+  });
+});
+
+describe("validateBoot — projectionDetail inlineActions", () => {
+  test("declared action ids are accepted", () => {
+    expect(bootMessage(featureWithDetail({ inlineActions: ["activate"] }))).toBe("");
+  });
+
+  test("an id matching no action throws and names the option", () => {
+    expect(bootMessage(featureWithDetail({ inlineActions: ["activate", "ghost"] }))).toMatch(
+      /inlineActions "ghost" matches no action.*activate/,
+    );
   });
 });
 

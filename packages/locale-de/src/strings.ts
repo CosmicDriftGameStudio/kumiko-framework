@@ -2184,7 +2184,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "Testmail an die Person, die den Check gestartet hat",
   "mail-foundation.probe.send-test-mail.accepted": "Vom Mailserver angenommen",
-  "mail-foundation.probe.not-configured": "Kein eigener E-Mail-Versand eingerichtet",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Über den Plattform-Versand verschickt, vom Mailserver angenommen",
+  "mail-foundation.probe.not-configured": "Kein E-Mail-Versand eingerichtet",
   "mail-foundation.probe.no-recipient":
     "Keine E-Mail-Adresse der Person bekannt, die den Check gestartet hat",
   "mail-foundation.probe.host-not-found": "Mailserver nicht gefunden, Serveradresse prüfen",
@@ -2194,6 +2196,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Mailversand ließ sich mit diesen Einstellungen nicht einrichten",
   "mail-foundation.probe.send-rejected":
     "Der Mailserver hat die Testmail nicht angenommen, Adresse, Port und Anmeldung prüfen",
+  "mail-foundation.probe.platform-send-rejected":
+    "Der Mailserver der Plattform hat die Testmail nicht angenommen",
   "inbound-mail-foundation.probe.area": "E-Mail-Eingang",
   "inbound-mail-foundation.probe.mailboxes.label": "Verbundene Postfächer",
   "inbound-mail-foundation.probe.mailbox": "Postfach {name}",

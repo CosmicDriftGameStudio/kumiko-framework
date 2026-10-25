@@ -41,6 +41,7 @@ export function renderHeaderActionsContent(model: DetailHeaderModel): ReactNode 
         ActionOverflowMenu={ActionOverflowMenu}
         onError={setActionError}
         {...(screen.primaryAction !== undefined && { preferredPrimaryId: screen.primaryAction })}
+        {...(screen.inlineActions !== undefined && { inlineActionIds: screen.inlineActions })}
       />
     </Grid>
   );

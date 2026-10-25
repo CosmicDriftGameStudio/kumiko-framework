@@ -453,6 +453,10 @@
       "usesApis": [],
       "extensionsUsed": [
         {
+          "extensionName": "emailAppTransport",
+          "entityName": "app"
+        },
+        {
           "extensionName": "deliveryChannel",
           "entityName": "email"
         }

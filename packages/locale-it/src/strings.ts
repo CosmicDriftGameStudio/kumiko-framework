@@ -2183,7 +2183,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.send-test-mail.label":
     "E-mail di prova alla persona che ha avviato il controllo",
   "mail-foundation.probe.send-test-mail.accepted": "Accettata dal server di posta",
-  "mail-foundation.probe.not-configured": "Nessun invio e-mail proprio configurato",
+  "mail-foundation.probe.send-test-mail.platform-accepted":
+    "Inviata tramite il mittente della piattaforma, accettata dal suo server di posta",
+  "mail-foundation.probe.not-configured": "Nessun invio e-mail configurato",
   "mail-foundation.probe.no-recipient":
     "Nessun indirizzo e-mail noto per la persona che ha avviato il controllo",
   "mail-foundation.probe.host-not-found":
@@ -2194,6 +2196,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Non è stato possibile configurare l'invio e-mail con queste impostazioni",
   "mail-foundation.probe.send-rejected":
     "Il server di posta non ha accettato l'e-mail di prova, controlla indirizzo, porta e accesso",
+  "mail-foundation.probe.platform-send-rejected":
+    "Il server di posta della piattaforma non ha accettato l'e-mail di prova",
   "inbound-mail-foundation.probe.area": "Posta in arrivo",
   "inbound-mail-foundation.probe.mailboxes.label": "Caselle di posta collegate",
   "inbound-mail-foundation.probe.mailbox": "Casella {name}",

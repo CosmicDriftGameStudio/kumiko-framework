@@ -1,4 +1,9 @@
 export {
+  EMAIL_APP_TRANSPORT_EXTENSION,
+  type EmailAppTransport,
+  findEmailAppTransport,
+} from "./app-transport.ts";
+export {
   createEmailChannel,
   type EmailChannelOptions,
   type TenantTransportResolver,
