@@ -63,6 +63,7 @@ import {
   type TrialGate,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   CACHE_SYNC_TOPICS,
@@ -497,6 +498,12 @@ export function createTierEngineFeature<
       // post-stack-setup, calls build(deps), wires effectiveFeatures.
       const plugin: TierResolverPlugin = {
         build: async (deps) => {
+          // Preloads and bus-driven reloads run outside any request scope and read every
+          // tenant's rows; the enforcing pool would return zero rows and lock paying tenants out.
+          const systemDb = systemScopedRunner(
+            deps.db,
+            "tier cache preloads and reloads assignments and tenant creation times of all tenants",
+          );
           // Always-on set: all non-toggleable features in the registry. Canonical
           // Kumiko pattern (matches the feature-toggles resolver): only features
           // that explicitly register `r.toggleable()` are tier-cuttable.
@@ -514,7 +521,7 @@ export function createTierEngineFeature<
           // have <100k tenants, so a single-pass scan is acceptable. The scaling
           // path (lazy load + LRU) is planned once a real need arises.
           type AssignmentRow = { tenantId: string; tier: string };
-          const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
+          const rows = await selectMany<AssignmentRow>(systemDb, tierAssignmentTable);
           for (const row of rows) {
             cache.set(
               row.tenantId as TenantId,
@@ -526,7 +533,7 @@ export function createTierEngineFeature<
           // to the default tier, which would lock paying tenants out meanwhile.
           const reloadTenant = async (tenantId: TenantId): Promise<void> => {
             const ticket = takeTicket(tenantId);
-            const row = await fetchOne<AssignmentRow>(deps.db, tierAssignmentTable, { tenantId });
+            const row = await fetchOne<AssignmentRow>(systemDb, tierAssignmentTable, { tenantId });
             // skip: a newer write or reload for this tenant started meanwhile and owns the entry
             if (latestTicket.get(tenantId) !== ticket) return;
             if (row) {
@@ -541,7 +548,7 @@ export function createTierEngineFeature<
           const reloadAllTenants = async (): Promise<void> => {
             ticketCounter += 1;
             const startedAtTicket = ticketCounter;
-            const current = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
+            const current = await selectMany<AssignmentRow>(systemDb, tierAssignmentTable);
             const loaded = new Map<TenantId, ReadonlySet<string>>();
             for (const row of current) {
               loaded.set(
@@ -623,9 +630,13 @@ export function createTierEngineFeature<
             if (!trialFeatures.has(featureName)) return false;
             let startedMsPromise = startedMemo.get(tenantId);
             if (startedMsPromise === undefined) {
-              startedMsPromise = fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
-                id: tenantId,
-              }).then((row) => row?.insertedAt?.epochMilliseconds);
+              startedMsPromise = fetchOne<{ insertedAt?: Temporal.Instant }>(
+                systemDb,
+                tenantTable,
+                {
+                  id: tenantId,
+                },
+              ).then((row) => row?.insertedAt?.epochMilliseconds);
               // Evict on rejection too — a transient DB error must not poison
               // every future call for this tenant with the same cached rejection.
               startedMsPromise.catch(() => startedMemo.delete(tenantId));
