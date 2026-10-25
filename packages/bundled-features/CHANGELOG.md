@@ -1,5 +1,38 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.392.1
+
+### Patch Changes
+
+- 51fc72c: The "Connect mailbox" form has a required SMTP port field, preset to 587. New mailboxes send over 587 with STARTTLS instead of a fixed port 465, because many hosters (for example Hetzner) block outgoing 465.
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: Mailboxes connect and send over SMTP port 587 with STARTTLS
+  detail: The connect form gets a required field "SMTP port", preset to 587, and stores it as smtpPort in the credential document (the schema still accepts any stored port, default now 587). Port 465 uses implicit TLS; every other port uses STARTTLS with requireTLS, so the password is never sent in clear text and the connection fails when the server offers no STARTTLS. The certificate is checked against the host name on the STARTTLS upgrade as well. The SMTP failure texts name the entered port. New key for the field label in all locale packages.
+  -->
+- 1ded969: A list section with a description and only toolbar actions (for example a create button) shows both in one row: description left, actions right, wrapping below the text on narrow widths. Section headers wrap their actions the same way. The cap cards "view all" link uses the primary link style.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: List descriptions sit beside the toolbar actions
+  detail: A description plus a toolbar with only end content (no search, no facets) renders as one row with the actions on the right, in embedded and full-height lists. Before, a full-height list put the description under the create button. With search or facets the layout is unchanged. Section header actions wrap below the title on narrow widths.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: Cap cards "view all" link uses the primary link style
+  detail: The link under the cap cards no longer renders in muted grey; it uses the default link variant like other text links.
+  -->
+- Updated dependencies [1ded969]
+  - @cosmicdrift/kumiko-renderer@0.392.1
+  - @cosmicdrift/kumiko-testing@0.392.1
+  - @cosmicdrift/kumiko-framework@0.392.1
+  - @cosmicdrift/kumiko-types@0.392.1
+
 ## 0.392.0
 
 ### Minor Changes

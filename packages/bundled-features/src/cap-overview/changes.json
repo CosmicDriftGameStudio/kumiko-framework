@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.1",
+    "type": "fix",
+    "title": "Cap cards \"view all\" link uses the primary link style",
+    "detail": "The link under the cap cards no longer renders in muted grey; it uses the default link variant like other text links."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "Cap amounts follow their unit and a limit of 0 reads \"Not included\"",
