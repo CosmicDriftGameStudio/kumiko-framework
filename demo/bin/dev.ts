@@ -1,9 +1,9 @@
-// Dev-bootstrap. `bun --watch bin/dev.ts` (siehe package.json scripts.dev)
-// startet einen full-featured Dev-Server mit Auto-Reload bei Code-Änderungen.
-// setupTestStack legt fehlende Entity-Tabellen automatisch an — neues
-// r.entity(...) in einem Feature führt beim nächsten Reboot zu CREATE TABLE,
-// kein manuelles `kumiko schema apply` nötig (das gilt nur für Prod).
-// Persistent-DB via KUMIKO_DEV_DB_NAME (.env) damit Admin + Daten Reboots überleben.
+// Dev bootstrap. `bun --watch bin/dev.ts` (see package.json scripts.dev)
+// starts a full-featured dev server that reloads on code changes.
+// setupTestStack creates missing entity tables on boot, so a new
+// r.entity(...) becomes a CREATE TABLE on the next reboot without a manual
+// `kumiko schema apply` (that step only applies to prod).
+// KUMIKO_DEV_DB_NAME (.env) keeps the DB persistent so the admin and data survive reboots.
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
