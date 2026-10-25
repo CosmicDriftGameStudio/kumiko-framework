@@ -41,8 +41,28 @@ const widgetEntity = createEntity({
 
 const widgetTable = buildEntityTable("widget", widgetEntity);
 
+// Own table for the drop-column test: Bun.SQL caches prepared statements per
+// pooled connection, and a connection that already ran reindexEntity's
+// `SELECT *` on a table fails with "cached plan must not change result type"
+// after that table loses a column. A table no earlier test has scanned keeps
+// the outcome independent of which pooled connection the scan lands on.
+const gadgetEntity = createEntity({
+  table: "read_reindex_gadgets",
+  fields: {
+    name: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
+const gadgetTable = buildEntityTable("gadget", gadgetEntity);
+
 const widgetFeature = defineFeature("reindex-test", (r) => {
   r.entity({ name: "widget", ...widgetEntity });
+  r.entity({ name: "gadget", ...gadgetEntity });
 });
 
 // pii + searchable — the read-table column holds ciphertext, a
@@ -65,6 +85,7 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [widgetFeature, contactFeature] });
   await unsafeCreateEntityTable(stack.db, widgetEntity);
+  await unsafeCreateEntityTable(stack.db, gadgetEntity, "gadget");
   await unsafeCreateEntityTable(stack.db, contactEntity, "contact");
   // Shared across both pii tests below (not per-test) — reindexEntity scans
   // the whole tenant table regardless of which test created which row, so a
@@ -198,20 +219,14 @@ describe("reindexEntity", () => {
   // entry per scanned row instead of failing fast — fails loud on the first
   // row's column set instead, which is invariant across the whole scan.
   test("throws immediately when a searchable field has no matching column, without scanning every row", async () => {
-    const executor = seedExecutor();
+    const executor = createEventStoreExecutor(gadgetTable, gadgetEntity, { entityName: "gadget" });
     await executor.create({ name: "Row A" }, admin, tenantDb());
     await executor.create({ name: "Row B" }, admin, tenantDb());
 
-    await asRawClient(stack.db).unsafe(`ALTER TABLE "read_reindex_widgets" DROP COLUMN "name"`);
-    try {
-      await expect(
-        reindexEntity(stack.db, stack.registry, stack.search, "widget", admin.tenantId),
-      ).rejects.toThrow(/searchable field "name" is not mappable/);
-    } finally {
-      await asRawClient(stack.db).unsafe(
-        `ALTER TABLE "read_reindex_widgets" ADD COLUMN "name" text`,
-      );
-    }
+    await asRawClient(stack.db).unsafe(`ALTER TABLE "read_reindex_gadgets" DROP COLUMN "name"`);
+    await expect(
+      reindexEntity(stack.db, stack.registry, stack.search, "gadget", admin.tenantId),
+    ).rejects.toThrow(/searchable field "name" is not mappable/);
   });
 
   // reindexEntity read the read-table row (ciphertext for pii+
