@@ -11,6 +11,7 @@ import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/i
 import { createJobsFeature } from "../jobs/index.ts";
 import { createManagedPagesFeature } from "../managed-pages/index.ts";
 import { createPersonalAccessTokensFeature } from "../personal-access-tokens/index.ts";
+import { createReadinessFeature } from "../readiness/index.ts";
 import { createSessionsFeature } from "../sessions/index.ts";
 import { createTagsFeature } from "../tags/index.ts";
 import { createTenantFeature } from "../tenant/index.ts";
@@ -37,6 +38,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
   jobs: () => createJobsFeature(),
   "managed-pages": () => createManagedPagesFeature({ resolveApexTenant: () => null }),
   "personal-access-tokens": () => createPersonalAccessTokensFeature({ scopes: {} }),
+  readiness: () => createReadinessFeature(),
   sessions: () => createSessionsFeature(),
   tags: () => createTagsFeature(),
   tenant: () => createTenantFeature(),

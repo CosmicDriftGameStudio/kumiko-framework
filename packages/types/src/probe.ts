@@ -32,7 +32,7 @@ export type ProbeOptions = {
   readonly cost: ProbeCost;
   /** i18n key, column "Bereich" */
   readonly area: string;
-  /** i18n key, column "Prüfung" (used when the probe has no targets) */
+  /** i18n key, column "Check" (used when the probe has no targets) */
   readonly label: string;
   /** Default 10_000 */
   readonly timeoutMs?: number;
