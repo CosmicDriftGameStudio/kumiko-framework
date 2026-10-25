@@ -153,6 +153,7 @@ function PanelBody({
           ...screenParams.filterParams,
           ...screenParams.rangeParams,
           ...screenParams.recordParams,
+          ...panel.params,
         }}
       />
     );

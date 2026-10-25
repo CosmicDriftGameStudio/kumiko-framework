@@ -200,6 +200,38 @@ describe("CapCardsPanel", () => {
     expect(screen.queryAllByTestId("cap-card")).toHaveLength(0);
   });
 
+  test("capKeys in filterParams limits the cards in query order and stays out of the query payload", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "users", label: "Seats", used: 1, limit: 5 }),
+          capRow({ id: "apps", label: "Apps", used: 2, limit: 3 }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: ["apps", 7, "missing"], tenantId: "t-1" });
+
+    const cards = screen.getAllByTestId("cap-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain("Apps");
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-1" });
+  });
+
+  test("a non-array capKeys restricts nothing", () => {
+    queryState = {
+      data: { rows: [capRow({ id: "apps", label: "Apps", used: 2, limit: 3 })] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: "apps" });
+
+    expect(screen.getAllByTestId("cap-card")).toHaveLength(1);
+  });
+
   test("a string tenantId in filterParams is passed through to useQuery", () => {
     renderPanel({ tenantId: "t-42" });
 

@@ -346,6 +346,42 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     expect(screen.getByTestId("custom-echo").textContent).toBe("rich:none");
   });
 
+  test("custom panel: static params reach the component and win over a screen filter value", async () => {
+    window.history.replaceState(null, "", "/rich?region=us");
+    function CustomEcho({ filterParams }: ExtensionSectionProps): ReactNode {
+      return <div data-testid="custom-echo">{String(filterParams?.["region"] ?? "none")}</div>;
+    }
+    const schema: FeatureSchema = {
+      ...richSchema,
+      screens: [
+        {
+          ...richScreen,
+          panels: [
+            {
+              kind: "custom",
+              id: "custom-panel",
+              component: { react: { __component: "rich-dashboard-custom" } },
+              params: { region: "eu" },
+            },
+          ],
+        },
+      ],
+    };
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={createMockDispatcher()}>
+          <ExtensionSectionsProvider value={{ "rich-dashboard-custom": CustomEcho }}>
+            <DashboardBodyProvider value={WebDashboardBody}>
+              <KumikoScreen schema={schema} qn="widgets:screen:rich" />
+            </DashboardBodyProvider>
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </BrowserNav>,
+    );
+    await waitFor(() => expect(screen.getByTestId("custom-echo")).toBeTruthy());
+    expect(screen.getByTestId("custom-echo").textContent).toBe("eu");
+  });
+
   test("custom panel: unregistered component renders nothing, does not throw", async () => {
     const dispatcher = createMockDispatcher();
     render(

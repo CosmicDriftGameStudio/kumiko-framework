@@ -1,6 +1,7 @@
 ---
 "@cosmicdrift/kumiko-types": minor
 "@cosmicdrift/kumiko-renderer": minor
+"@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-framework": minor
 ---
 
@@ -39,4 +40,18 @@ feature: types
 type: improvement
 title: Option tones gain critical and accent
 detail: SelectOptionTone is now ok, warn, bad, critical, accent or neutral, for select optionTones, enumOption tones, relatedList rowTone and projectionDetail header.statusTones. critical and accent reuse the StatusBadge colors (status-critical and the primary brand color), neutral stays muted. An informative state such as "Ready" can use accent instead of a custom cell.
+-->
+
+<!-- kumiko-changes
+feature: types
+type: improvement
+title: Custom dashboard panels accept static params
+detail: A dashboard panel of kind custom takes params, static values laid over the screen's filterParams for its component. The panel wins when a filter uses the same name. Without params nothing changes.
+-->
+
+<!-- kumiko-changes
+feature: cap-overview
+type: improvement
+title: CapCardsPanel can be limited to specific cap keys via params.capKeys
+detail: A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server.
 -->

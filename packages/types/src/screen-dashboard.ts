@@ -309,6 +309,9 @@ export type DashboardCustomPanel = {
   readonly kind: "custom";
   readonly id: string;
   readonly component: PlatformComponent;
+  /** Static author values laid over the screen's filterParams, like
+   *  `DashboardPanelQueryOptions.params`; the panel wins on a name clash. */
+  readonly params?: Readonly<Record<string, unknown>>;
 };
 
 // Static text panel without a query. Every `text` and `items` entry is an i18n key

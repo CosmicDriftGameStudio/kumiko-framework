@@ -43,6 +43,12 @@ function isMeasured(cap: CapUsageWithMeta): cap is CapUsageWithMeta & { used: nu
   return cap.used !== null;
 }
 
+// Boundary check: only an array of strings restricts; anything else means no restriction.
+function readCapKeys(value: unknown): ReadonlySet<string> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return new Set(value.filter((entry): entry is string => typeof entry === "string"));
+}
+
 export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
@@ -61,7 +67,9 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
     );
   }
 
-  const rows = query.data?.rows ?? [];
+  const capKeys = readCapKeys(filterParams?.["capKeys"]);
+  const allRows = query.data?.rows ?? [];
+  const rows = capKeys === undefined ? allRows : allRows.filter((row) => capKeys.has(row.id));
 
   if (!query.loading && rows.length === 0) {
     return <EmptyState title={t("cap-overview.cards.empty")} testId="cap-cards-panel-empty" />;
