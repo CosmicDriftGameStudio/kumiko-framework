@@ -2063,17 +2063,18 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "Nessuna connessione al server IMAP. Controlla nome del server e porta.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Server in uscita (SMTP)",
+  "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Porta SMTP",
   "inboundMail.imap.connect.outgoing": "Invio",
   "inboundMail.imap.connect.outgoingHint":
-    "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap.",
+    "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap. Di solito 587, anche se il tuo provider indica 465/SSL.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La ricezione funziona, l'invio no: il server in uscita non è raggiungibile o non è consentito. Controlla il nome.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
     "La ricezione funziona, l'invio no: il server in uscita ha rifiutato l'accesso.",
   "inboundMail.imap.connect.errors.smtpTlsFailed":
-    "La ricezione funziona, l'invio no: la connessione cifrata al server in uscita sulla porta 465 non è riuscita.",
+    "La ricezione funziona, l'invio no: la connessione cifrata al server in uscita sulla porta {port} non è riuscita.",
   "inboundMail.imap.connect.errors.smtpConnectFailed":
-    "La ricezione funziona, l'invio no: nessuna connessione al server in uscita sulla porta 465.",
+    "La ricezione funziona, l'invio no: nessuna connessione al server in uscita sulla porta {port}.",
   "inboundMail.send.errors.notConfigured":
     "L'invio non è configurato per questa casella. Ricollega la casella con il suo server in uscita.",
   "inboundMail.send.errors.loginRejected":

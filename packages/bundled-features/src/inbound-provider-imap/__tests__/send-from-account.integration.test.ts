@@ -3,8 +3,8 @@
 // mailbox address over the customer's own server and lands in the mailbox's sent folder, and a
 // mailbox stored without an outgoing server answers with the typed not-configured failure.
 //
-// The connect form always sends over port 465, so the greenmail cases need a greenmail whose
-// SMTPS listens there and whose IMAPS belongs to the same instance:
+// Greenmail offers no STARTTLS, so the cases connect with smtpPort 465 (implicit TLS); they need a
+// greenmail whose SMTPS listens there and whose IMAPS belongs to the same instance:
 //   docker run -d --name cdgs-greenmail-send -p 465:3465 -p 4993:3993 \
 //     -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=testuser:testpass@example.com" \
 //     greenmail/standalone:2.1.0
@@ -51,11 +51,12 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { ImapHandlers, SMTP_CONNECT_ERRORS } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
+import { SMTP_IMPLICIT_TLS_PORT } from "../smtp-client.ts";
 import { findByMessageId, reachable, withMailbox } from "./greenmail-mailbox.ts";
 
 const HOST = process.env["IMAP_SEND_HOST"] ?? "localhost";
 const IMAPS_PORT = Number(process.env["IMAP_SEND_TLS_PORT"] ?? 4993);
-const SMTPS_PORT = 465;
+const SMTPS_PORT = SMTP_IMPLICIT_TLS_PORT;
 const USER = "testuser";
 const PASSWORD = "testpass";
 const ADDRESS = "testuser@example.com";
@@ -158,6 +159,7 @@ function form(smtpHost?: string) {
     port: IMAPS_PORT,
     user: USER,
     password: PASSWORD,
+    smtpPort: SMTPS_PORT,
     ...(smtpHost !== undefined && { smtpHost }),
   };
 }

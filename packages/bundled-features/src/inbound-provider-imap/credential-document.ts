@@ -27,9 +27,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import * as z from "zod";
-import { FEATURE_NAME } from "./constants.ts";
-
-export const SMTP_IMPLICIT_TLS_PORT = 465;
+import { FEATURE_NAME, SMTP_SUBMISSION_PORT } from "./constants.ts";
 
 // A bare host name: a port, path or whitespace would point the connect somewhere the guard did
 // not check.
@@ -47,7 +45,7 @@ export const imapCredentialDocumentSchema = z.object({
   password: z.string().min(1).optional(),
   accessToken: z.string().min(1).optional(),
   smtpHost: smtpHostSchema.optional(),
-  smtpPort: z.number().int().min(1).max(65535).default(SMTP_IMPLICIT_TLS_PORT),
+  smtpPort: z.number().int().min(1).max(65535).default(SMTP_SUBMISSION_PORT),
 });
 export type ImapCredentialDocument = z.infer<typeof imapCredentialDocumentSchema>;
 

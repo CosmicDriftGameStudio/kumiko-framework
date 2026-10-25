@@ -1,5 +1,5 @@
 // nodemailer wiring for sending from a connected mailbox: one short-lived, non-pooled connection
-// per call, always implicit TLS, pinned to the address the mail host guard approved.
+// per call, TLS enforced (implicit on 465, STARTTLS otherwise), pinned to the address the mail host guard approved.
 
 import {
   BlockedHostError,
@@ -12,6 +12,8 @@ import { createTransport, type Transporter } from "nodemailer";
 import { imapMailHostGuard } from "./imap-client.ts";
 
 const log = createFallbackLogger("inbound-provider-imap");
+
+export const SMTP_IMPLICIT_TLS_PORT = 465;
 
 // nodemailer's defaults wait minutes; the connect form holds a request open meanwhile.
 const CONNECTION_TIMEOUT_MS = 10_000;
@@ -65,7 +67,9 @@ export function smtpTransportOptions(login: SmtpLogin, target: MailConnectTarget
   return {
     host: target.host,
     port: login.port,
-    secure: true,
+    secure: login.port === SMTP_IMPLICIT_TLS_PORT,
+    // Without it nodemailer sends AUTH in clear text when the server offers no STARTTLS.
+    ...(login.port !== SMTP_IMPLICIT_TLS_PORT && { requireTLS: true }),
     ...(target.servername && { servername: target.servername }),
     auth: { user: login.user, pass: login.password },
     connectionTimeout: CONNECTION_TIMEOUT_MS,

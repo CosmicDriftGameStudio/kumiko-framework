@@ -2012,17 +2012,18 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "No connection to the IMAP server. Check the server name and port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Outgoing server (SMTP)",
+  "inbound-provider-imap:entity:__action-form__:field:smtpPort": "SMTP port",
   "inboundMail.imap.connect.outgoing": "Sending",
   "inboundMail.imap.connect.outgoingHint":
-    "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap.",
+    "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Receiving works, but sending does not: the outgoing server cannot be reached or is not allowed. Check its name.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
     "Receiving works, but sending does not: the outgoing server rejected the sign-in.",
   "inboundMail.imap.connect.errors.smtpTlsFailed":
-    "Receiving works, but sending does not: the encrypted connection to the outgoing server on port 465 failed.",
+    "Receiving works, but sending does not: the encrypted connection to the outgoing server on port {port} failed.",
   "inboundMail.imap.connect.errors.smtpConnectFailed":
-    "Receiving works, but sending does not: no connection to the outgoing server on port 465.",
+    "Receiving works, but sending does not: no connection to the outgoing server on port {port}.",
   "inboundMail.send.errors.notConfigured":
     "Sending is not set up for this mailbox. Connect the mailbox again with its outgoing server.",
   "inboundMail.send.errors.loginRejected":

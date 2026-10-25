@@ -2057,17 +2057,18 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.connectFailed":
     "No hay conexión con el servidor IMAP. Revisa el nombre del servidor y el puerto.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Servidor de salida (SMTP)",
+  "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Puerto SMTP",
   "inboundMail.imap.connect.outgoing": "Envío",
   "inboundMail.imap.connect.outgoingHint":
-    "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap.",
+    "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap. Normalmente 587, aunque tu proveedor indique 465/SSL.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La recepción funciona, pero el envío no: no se puede acceder al servidor de salida o no está permitido. Revisa su nombre.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
     "La recepción funciona, pero el envío no: el servidor de salida rechazó el inicio de sesión.",
   "inboundMail.imap.connect.errors.smtpTlsFailed":
-    "La recepción funciona, pero el envío no: falló la conexión cifrada con el servidor de salida en el puerto 465.",
+    "La recepción funciona, pero el envío no: falló la conexión cifrada con el servidor de salida en el puerto {port}.",
   "inboundMail.imap.connect.errors.smtpConnectFailed":
-    "La recepción funciona, pero el envío no: no hay conexión con el servidor de salida en el puerto 465.",
+    "La recepción funciona, pero el envío no: no hay conexión con el servidor de salida en el puerto {port}.",
   "inboundMail.send.errors.notConfigured":
     "El envío no está configurado para este buzón. Vuelve a conectar el buzón con su servidor de salida.",
   "inboundMail.send.errors.loginRejected":

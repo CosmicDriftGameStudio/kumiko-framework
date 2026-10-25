@@ -3,7 +3,7 @@
 // secret, and the password shows up in no event, row or error.
 //
 // The login cases need greenmail with its IMAPS port (see imap-foundation.integration.test.ts),
-// the good login also SMTPS on port 465 with the same user (see
+// the good login also an implicit-TLS SMTP port (greenmail offers no STARTTLS) with the same user (see
 // send-from-account.integration.test.ts); they skip visibly without it. The unreachable-host and
 // validation cases run everywhere.
 
@@ -30,8 +30,8 @@ import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts"
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
-import { SMTP_IMPLICIT_TLS_PORT } from "../credential-document.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
+import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
 import { reachable } from "./greenmail-mailbox.ts";
 
 // A host name, not an IP literal: the TLS connect needs it as the SNI server name.
@@ -50,14 +50,14 @@ const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
 const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
 const greenmailTest = greenmailUp ? test : test.skip;
-const smtpsUp = greenmailUp && (await reachable(HOST, SMTP_IMPLICIT_TLS_PORT));
+const smtpsUp = greenmailUp && (await reachable(HOST, SMTPS_PORT));
 const greenmailWithSmtpsTest = smtpsUp ? test : test.skip;
 if (!greenmailUp) {
   console.warn(
     `connect-mailbox: no IMAP server on ${HOST}:${IMAPS_PORT} and :${IMAP_PORT}, login cases skipped`,
   );
 } else if (!smtpsUp) {
-  console.warn(`connect-mailbox: no SMTPS on ${HOST}:465, good-login case skipped`);
+  console.warn(`connect-mailbox: no SMTPS on ${HOST}:${SMTPS_PORT}, good-login case skipped`);
 }
 
 let stack: TestStack;
@@ -113,6 +113,7 @@ function form(password: string, host = HOST, port = IMAPS_PORT) {
     port,
     user: "testuser",
     password,
+    smtpPort: SMTPS_PORT,
   };
 }
 
