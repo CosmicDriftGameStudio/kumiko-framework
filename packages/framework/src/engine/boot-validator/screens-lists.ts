@@ -487,9 +487,12 @@ export function validateEnumOptionTones(
   column: { readonly field: string; readonly renderer?: unknown },
 ): void {
   const { renderer } = column;
-  if (typeof renderer !== "object" || renderer === null) return;
-  if (propertyOf(renderer, "format") !== "enumOption") return;
-  const tones = propertyOf(renderer, "tones");
+  const isEnumOption =
+    typeof renderer === "object" &&
+    renderer !== null &&
+    propertyOf(renderer, "format") === "enumOption";
+  const tones = isEnumOption ? propertyOf(renderer, "tones") : undefined;
+  // skip: only an enumOption column with tones has tones to check.
   if (tones === undefined) return;
   const invalid =
     typeof tones !== "object" || tones === null

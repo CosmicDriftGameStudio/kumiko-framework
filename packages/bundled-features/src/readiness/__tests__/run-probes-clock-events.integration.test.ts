@@ -12,6 +12,17 @@ import { markEvents, setupReadinessStack } from "./readiness-test-stack.ts";
 const clock = createManualClock(getTemporal().Now.instant());
 const STALE_ADVANCE_MINUTES = 11;
 
+// The worker lane consumes jobs as soon as they are enqueued, so the stale run is held inside its
+// probe: it then sits deterministically in "running" while the second start takes over.
+let heldProbe: { entered: () => void; released: Promise<void> } | undefined;
+
+function holdNextProbe() {
+  const entered = Promise.withResolvers<void>();
+  const released = Promise.withResolvers<void>();
+  heldProbe = { entered: entered.resolve, released: released.promise };
+  return { entered: entered.promise, release: released.resolve };
+}
+
 const fixtureFeature = defineFeature("clock-fixture", (r) => {
   r.requires({ features: ["readiness"] });
   r.translations({ keys: { "clock.area": { en: "Fixture" }, "clock.label": { en: "Check" } } });
@@ -21,7 +32,15 @@ const fixtureFeature = defineFeature("clock-fixture", (r) => {
     cost: "free",
     area: "clock.area",
     label: "clock.label",
-    run: async () => ({ status: "ok", message: { key: "clock.label" } }),
+    run: async () => {
+      const hold = heldProbe;
+      heldProbe = undefined;
+      if (hold !== undefined) {
+        hold.entered();
+        await hold.released;
+      }
+      return { status: "ok", message: { key: "clock.label" } };
+    },
   });
 });
 
@@ -58,10 +77,13 @@ const start = (user: ReturnType<typeof createTestUser>) =>
 describe("readiness run-probes with injected clock", () => {
   test("a stale active run is abandoned and a new run takes over", async () => {
     const { tenantAdmin } = freshUsers();
+    const held = holdNextProbe();
     const stale = await start(tenantAdmin);
+    await held.entered;
 
     clock.advance({ minutes: STALE_ADVANCE_MINUTES });
     const fresh = await start(tenantAdmin);
+    held.release();
     await stack.drainJobs();
 
     expect(fresh.isExisting).toBe(false);

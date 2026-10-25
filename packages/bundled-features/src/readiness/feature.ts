@@ -33,6 +33,8 @@ import {
 export interface ReadinessNavOptions {
   readonly order?: number;
   readonly parent?: string;
+  // Workspace apps need it: a nav belongs only to the workspaces it names, a parent's do not carry over.
+  readonly workspaces?: readonly string[];
 }
 
 export interface ReadinessFeatureOptions {
@@ -81,7 +83,11 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
         // Explicit property assignments: the feature-AST parser reads neither `??`, shorthand
         // properties nor a conditional spread, and the boot validator treats `parent: undefined`
         // as a top-level entry.
-        const { order: navOrder = DEFAULT_NAV_ORDER, parent: navParent } = nav;
+        const {
+          order: navOrder = DEFAULT_NAV_ORDER,
+          parent: navParent,
+          workspaces: navWorkspaces,
+        } = nav;
         r.nav({
           id: SYSTEM_CHECK_SCREEN_ID,
           label: SYSTEM_CHECK_NAV_LABEL,
@@ -89,6 +95,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
           screen: SYSTEM_CHECK_SCREEN_QN,
           order: navOrder,
           parent: navParent,
+          workspaces: navWorkspaces,
         });
       }
 
@@ -108,6 +115,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
         hasNav: nav !== undefined,
         navOrder: nav?.order ?? DEFAULT_NAV_ORDER,
         navParent: nav?.parent ?? "",
+        navWorkspaces: nav?.workspaces?.join(",") ?? "",
       },
     },
   );

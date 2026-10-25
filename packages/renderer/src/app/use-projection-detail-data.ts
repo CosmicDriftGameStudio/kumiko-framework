@@ -73,6 +73,7 @@ export function useProjectionDetailData(input: DetailDataInput) {
   const shownLiveRecord = useRef(liveRecord);
   useEffect(() => {
     const previous = shownLiveRecord.current;
+    // skip: the shown record is unchanged, the related lists need no reload.
     if (previous === liveRecord) return;
     shownLiveRecord.current = liveRecord;
     if (previous !== undefined) setReloadNonce((n) => n + 1);

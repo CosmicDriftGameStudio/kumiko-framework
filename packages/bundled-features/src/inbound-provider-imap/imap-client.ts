@@ -94,6 +94,22 @@ export async function createImapClient(
 }
 
 /** Server-Fehler → typisierte Foundation-Fehlerklassen (Plan §2). */
+// examineInbox opens INBOX with EXAMINE instead of SELECT, so the system check never touches \Recent or flags.
+export async function connectOnce(
+  doc: ImapCredentialDocument,
+  examineInbox: boolean,
+): Promise<void> {
+  const client = await createImapClient(doc, imapMailHostGuard());
+  try {
+    await client.connect();
+    if (examineInbox) await client.mailboxOpen(IMAP_MAILBOX, { readOnly: true });
+  } catch (err) {
+    throw mapImapError(err, doc.host);
+  } finally {
+    await client.logout().catch(() => {});
+  }
+}
+
 export function mapImapError(err: unknown, host: string): Error {
   // imapflow errors carry the server response in responseText; the
   // message is only "Command failed", so both are included in the match;
