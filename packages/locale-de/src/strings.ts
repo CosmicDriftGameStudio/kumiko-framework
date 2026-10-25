@@ -2060,6 +2060,28 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfe Port und TLS-Einstellung.",
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfe Servernamen und Port.",
+  "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Postausgangsserver (SMTP)",
+  "inboundMail.imap.connect.outgoing": "Senden",
+  "inboundMail.imap.connect.outgoingHint":
+    "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap.",
+  "inboundMail.imap.connect.errors.smtpHostUnreachable":
+    "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfe seinen Namen.",
+  "inboundMail.imap.connect.errors.smtpLoginRejected":
+    "Empfang ok, Senden geht nicht: Der Postausgangsserver hat die Anmeldung abgelehnt.",
+  "inboundMail.imap.connect.errors.smtpTlsFailed":
+    "Empfang ok, Senden geht nicht: Die verschlüsselte Verbindung zum Postausgangsserver auf Port 465 ist fehlgeschlagen.",
+  "inboundMail.imap.connect.errors.smtpConnectFailed":
+    "Empfang ok, Senden geht nicht: Keine Verbindung zum Postausgangsserver auf Port 465.",
+  "inboundMail.send.errors.notConfigured":
+    "Senden ist für dieses Postfach nicht eingerichtet. Verbinde das Postfach erneut mit seinem Postausgangsserver.",
+  "inboundMail.send.errors.loginRejected":
+    "Der Postausgangsserver hat die Anmeldung abgelehnt. Prüfe das Passwort des Postfachs.",
+  "inboundMail.send.errors.serverUnreachable":
+    "Der Postausgangsserver ist nicht erreichbar. Versuche es später noch einmal.",
+  "inboundMail.send.errors.rejected":
+    "Der Postausgangsserver hat die Mail abgelehnt. Prüfe die Empfängeradresse.",
+  "inboundMail.send.errors.invalidMessage":
+    "Die Mail wurde nicht gesendet: Ein Empfänger, der Betreff oder der Antwortbezug ist ungültig.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",

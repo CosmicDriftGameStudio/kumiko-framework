@@ -26,22 +26,19 @@
 import { mailAllowedPrivateHostsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
-  InboundAuthError,
   type InboundFetchResult,
   type InboundMailContext,
   type InboundMailProviderPlugin,
-  inboundCredentialSecretKey,
   type MailAccountRecord,
   type RawInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
-import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ImapFlow, MailboxObject } from "imapflow";
 import { connectMailboxHandler } from "./connect-mailbox.ts";
 import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
-import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document.ts";
+import { readCredentialDocument } from "./credential-document.ts";
 import { INBOUND_PROVIDER_IMAP_I18N } from "./i18n.ts";
 import {
   assertUidValidity,
@@ -55,38 +52,11 @@ import {
   toRawInboundMessage,
 } from "./imap-client.ts";
 import { imapConnectScreen } from "./screens.ts";
+import { sendFromImapAccount } from "./send-mail.ts";
 
 export { IMAP_PROVIDER_KEY } from "./constants.ts";
 
 export { setImapMailHostLookup } from "./imap-client.ts";
-
-// =============================================================================
-// Credential-Read — per-Account-Slot, Worker-tauglich (slim ctx).
-// =============================================================================
-
-async function readCredentialDocument(
-  ctx: InboundMailContext,
-  account: MailAccountRecord,
-): Promise<ImapCredentialDocument> {
-  const secrets = requireSecretsContext(
-    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
-    FEATURE_NAME,
-  );
-  const secret = await secrets.get(account.tenantId, inboundCredentialSecretKey(account.id));
-  if (!secret) {
-    throw new InboundAuthError(
-      `${FEATURE_NAME}: no credential document in secret slot for account ${account.id} — ` +
-        `store the IMAP connection JSON under ${inboundCredentialSecretKey(account.id)} first`,
-    );
-  }
-  const parsed = parseImapCredentialDocument(secret.reveal());
-  if (!parsed.ok) {
-    throw new InboundAuthError(
-      `${FEATURE_NAME}: account ${account.id}: ${parsed.reason}${parsed.detail ? `: ${parsed.detail}` : ""}`,
-    );
-  }
-  return parsed.doc;
-}
 
 // =============================================================================
 // fetch — inkrementeller UID-Sync
@@ -267,6 +237,7 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   probe: async (ctx, account) => connectOnce(await readCredentialDocument(ctx, account), true),
   fetch: fetchMessages,
   watch: watchMailbox,
+  send: sendFromImapAccount,
   // No oauth block: password authentication runs through the credential
   // form (connect-account + Secret-Write); XOAUTH2 token flows belong to
   // the OAuth providers (M365/Gmail).
@@ -277,7 +248,7 @@ export function createInboundProviderImapFeature() {
     FEATURE_NAME,
     (r) => {
       r.describe(
-        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a mailbox through the "Connect mailbox" form on the mail accounts list (`connect-mailbox` checks the login first, then creates the account and its credential secret in one transaction); programmatic setups store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.',
+        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a mailbox through the "Connect mailbox" form on the mail accounts list (`connect-mailbox` checks the IMAP login and the SMTP login of the outgoing server first, then creates the account and its credential secret in one transaction); programmatic setups store the per-account connection JSON (host/port/secure/user/password, plus smtpHost/smtpPort for sending) in the account credential secret slot before the first sync. Implements the provider `send`: `sendMailFromAccount` sends over the SMTP server of the mailbox itself (implicit TLS, same login) with the mailbox address as From and stores a copy in its sent folder.',
       );
       r.uiHints({
         displayLabel: "Inbound Mail · IMAP",

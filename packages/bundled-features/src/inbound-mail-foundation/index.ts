@@ -69,6 +69,15 @@ export {
   verifyOAuthState,
 } from "./oauth-state.ts";
 export {
+  isMailSendNotConfiguredError,
+  isMailSendRejectedError,
+  MailSendNotConfiguredError,
+  MailSendRejectedError,
+  type OutboundMailMessage,
+  type OutboundMailSent,
+  outboundMailMessageSchema,
+} from "./outbound-mail.ts";
+export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
@@ -83,6 +92,13 @@ export {
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
 } from "./screens.ts";
+export {
+  MAIL_SEND_ERRORS,
+  type MailSendFailure,
+  type SendMailFromAccountContext,
+  type SendMailFromAccountInput,
+  sendMailFromAccount,
+} from "./send-from-account.ts";
 export {
   InboundAuthError,
   InboundCursorInvalidError,
