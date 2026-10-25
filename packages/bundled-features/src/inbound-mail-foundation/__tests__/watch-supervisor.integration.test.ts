@@ -139,7 +139,7 @@ async function connectSharedAccount(admin: ReturnType<typeof adminFor>): Promise
 function createSupervisor() {
   return createInboundMailSupervisor({
     providerCtx: { registry: stack.registry },
-    db,
+    db: stack.unscopedDb,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
       stack.dispatcher.write(
         handlerQn,
@@ -208,7 +208,7 @@ describe("watch-supervisor — undecryptable account", () => {
     const lines: string[] = [];
     const supervisor = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
         stack.dispatcher.write(
           handlerQn,
@@ -251,7 +251,7 @@ describe("watch-supervisor — undecryptable account", () => {
     const lines: string[] = [];
     const supervisor = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
         stack.dispatcher.write(
           handlerQn,
@@ -431,7 +431,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     let ingestCalls = 0;
     const supervisor = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) => {
         if (handlerQn === InboundMailFoundationHandlers.ingestMessage) {
           ingestCalls += 1;
@@ -477,7 +477,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     const stored: string[] = [];
     const supervisor = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
         stack.dispatcher.write(
           handlerQn,
@@ -578,7 +578,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     const b = makeWatchIngestCounter();
     const supervisorA = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: a.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 5,
@@ -586,7 +586,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     });
     const supervisorB = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: b.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 5,
@@ -636,7 +636,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     const b = makeWatchIngestCounter();
     const supervisorA = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: a.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 1,
@@ -644,7 +644,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     });
     const supervisorB = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: b.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 1,
@@ -688,7 +688,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     const b = makeWatchIngestCounter();
     const supervisorA = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: a.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 1,
@@ -696,7 +696,7 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     });
     const supervisorB = createInboundMailSupervisor({
       providerCtx: { registry: stack.registry },
-      db,
+      db: stack.unscopedDb,
       dispatchWrite: b.dispatchWrite,
       lock,
       watchLeaseTtlSeconds: 1,

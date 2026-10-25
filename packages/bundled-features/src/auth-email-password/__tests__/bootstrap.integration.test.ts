@@ -187,7 +187,7 @@ function launchPlan(): BootstrapPlan {
 function runBootstrapPlan(plan: BootstrapPlan): Promise<BootstrapReport> {
   return bootstrapTenants(
     {
-      db: stack.db,
+      db: stack.unscopedDb,
       redis: stack.redis.redis,
       dispatcher: stack.dispatcher,
       registry: stack.registry,
