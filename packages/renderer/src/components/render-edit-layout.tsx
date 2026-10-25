@@ -95,7 +95,7 @@ function buildFormHeadingProps<TValues extends FormValues, TCtx>(
     ...(props.hideSectionTitles !== true &&
       !layout.titleInShell &&
       !titles.titleInSettingsHeader &&
-      !titles.recordTitleInHeaderRegion && { title: titles.formTitle }),
+      !titles.titleInHeaderRegion && { title: titles.formTitle }),
     ...(titles.formSubtitle !== undefined &&
       !titles.stepRail &&
       !titles.titleInSettingsHeader && { subtitle: titles.formSubtitle }),

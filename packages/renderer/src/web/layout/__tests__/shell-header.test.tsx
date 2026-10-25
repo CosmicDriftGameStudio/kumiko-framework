@@ -5,7 +5,7 @@ import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.ts
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
 import { ShellHeader } from "../shell-header.tsx";
-import { UNIFORM_BAR_CONTROLS_CLASSES } from "../uniform-bar-controls.ts";
+import { SHELL_HEADER_CONTROLS_CLASSES } from "../uniform-bar-controls.ts";
 
 const emptySchema: AppSchema = { features: [] };
 
@@ -119,7 +119,7 @@ describe("ShellHeader", () => {
     expect(items[2]?.className).not.toContain("hidden");
   });
 
-  test("buttons portalled into the header actions slot are forced to the uniform control height", () => {
+  test("buttons portalled into the header actions slot get the height of the shell header controls", () => {
     renderWithSidebar(
       <NavProvider value={routedNav}>
         <PageHeaderSlotProvider>
@@ -129,7 +129,7 @@ describe("ShellHeader", () => {
       </NavProvider>,
     );
     const actions = document.querySelector("[data-kumiko-layout='page-header-actions']");
-    expect(actions?.className).toContain(UNIFORM_BAR_CONTROLS_CLASSES);
+    expect(actions?.className).toContain(SHELL_HEADER_CONTROLS_CLASSES);
     expect(actions?.textContent).toBe("AI");
   });
 

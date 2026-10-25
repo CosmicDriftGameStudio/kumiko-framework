@@ -47,7 +47,7 @@ import {
   resolveDetailBreadcrumb,
   screenTitleKey,
 } from "./shell-breadcrumb.ts";
-import { UNIFORM_BAR_CONTROLS_CLASSES } from "./uniform-bar-controls.ts";
+import { SHELL_HEADER_CONTROLS_CLASSES } from "./uniform-bar-controls.ts";
 
 type ShellHeaderUser = {
   readonly id: string;
@@ -186,7 +186,7 @@ export function ShellHeader({
           ref={setActionsElement}
           data-kumiko-layout="page-header-actions"
           className={cn(
-            UNIFORM_BAR_CONTROLS_CLASSES,
+            SHELL_HEADER_CONTROLS_CLASSES,
             "flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
             compact && "overflow-hidden",
           )}
