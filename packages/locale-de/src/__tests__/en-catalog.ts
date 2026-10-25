@@ -1996,7 +1996,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inbound-provider-imap:entity:__action-form__:field:address": "Email address",
   "inbound-provider-imap:entity:__action-form__:field:host": "IMAP server",
   "inbound-provider-imap:entity:__action-form__:field:port": "Port",
-  "inbound-provider-imap:entity:__action-form__:field:secure": "Encrypted connection (TLS)",
   "inbound-provider-imap:entity:__action-form__:field:user": "User name",
   "inbound-provider-imap:entity:__action-form__:field:password": "Password",
   "inboundMail.imap.connect.server": "Server sign-in",

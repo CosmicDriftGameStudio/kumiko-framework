@@ -2048,7 +2048,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inbound-provider-imap:entity:__action-form__:field:address": "E-Mail-Adresse",
   "inbound-provider-imap:entity:__action-form__:field:host": "IMAP-Server",
   "inbound-provider-imap:entity:__action-form__:field:port": "Port",
-  "inbound-provider-imap:entity:__action-form__:field:secure": "Verschlüsselte Verbindung (TLS)",
   "inbound-provider-imap:entity:__action-form__:field:user": "Benutzername",
   "inbound-provider-imap:entity:__action-form__:field:password": "Passwort",
   "inboundMail.imap.connect.server": "Anmeldung am Server",

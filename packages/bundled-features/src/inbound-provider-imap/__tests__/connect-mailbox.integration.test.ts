@@ -2,8 +2,8 @@
 // account whose stored credential the mailbox probe can use, a failed one leaves no account and no
 // secret, and the password shows up in no event, row or error.
 //
-// The login cases need greenmail (see imap-foundation.integration.test.ts) and skip visibly
-// without it; the unreachable-host case runs everywhere.
+// The login cases need greenmail with its IMAPS port (see imap-foundation.integration.test.ts)
+// and skip visibly without it; the unreachable-host and validation cases run everywhere.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { lookup } from "node:dns/promises";
@@ -31,14 +31,19 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 
-const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
+// A host name, not an IP literal: the TLS connect needs it as the SNI server name.
+const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
+const IMAPS_PORT = Number(process.env["IMAP_LIVE_TLS_PORT"] ?? 3993);
 const PASSWORD = "testpass";
 const WRONG_PASSWORD = "not-the-password-4711";
 const MAILBOX_PROBE = "inbound-mail-foundation:probe:mailboxes";
 
 const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
 process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
+// greenmail serves IMAPS with a self-signed certificate; the handler itself always verifies.
+const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
+const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
 function reachable(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -55,10 +60,12 @@ function reachable(host: string, port: number): Promise<boolean> {
   });
 }
 
-const greenmailUp = await reachable(HOST, IMAP_PORT);
+const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
 const greenmailTest = greenmailUp ? test : test.skip;
 if (!greenmailUp) {
-  console.warn(`connect-mailbox: no IMAP server on ${HOST}:${IMAP_PORT}, login cases skipped`);
+  console.warn(
+    `connect-mailbox: no IMAP server on ${HOST}:${IMAPS_PORT} and :${IMAP_PORT}, login cases skipped`,
+  );
 }
 
 let stack: TestStack;
@@ -77,11 +84,17 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
+  process.env[TLS_VERIFY_ENV_VAR] = "0";
 });
 
 afterEach(() => setImapMailHostLookup(undefined));
 
 afterAll(async () => {
+  if (originalTlsVerifyEnv === undefined) {
+    delete process.env[TLS_VERIFY_ENV_VAR];
+  } else {
+    process.env[TLS_VERIFY_ENV_VAR] = originalTlsVerifyEnv;
+  }
   if (originalAllowedPrivateHostsEnv === undefined) {
     delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
   } else {
@@ -100,13 +113,12 @@ function freshAdmin() {
   });
 }
 
-function form(password: string, host = HOST) {
+function form(password: string, host = HOST, port = IMAPS_PORT) {
   return {
     displayName: "Office",
     address: "testuser@example.com",
     host,
-    port: IMAP_PORT,
-    secure: false,
+    port,
     user: "testuser",
     password,
   };
@@ -142,7 +154,7 @@ describe("connect mailbox form", () => {
 
     const { accountId } = await stack.http.writeOk<{ accountId: string }>(
       ImapHandlers.connectMailbox,
-      form(PASSWORD),
+      { ...form(PASSWORD), secure: false },
       admin,
     );
 
@@ -183,6 +195,23 @@ describe("connect mailbox form", () => {
     expect(JSON.stringify(error)).not.toContain(WRONG_PASSWORD);
     await expectNothingStored(admin, newEvents);
   });
+
+  greenmailTest(
+    "a plaintext IMAP port gets no login, even when the payload asks for it",
+    async () => {
+      const admin = freshAdmin();
+      const newEvents = await markEvents(stack);
+
+      const error = await stack.http.writeErr(
+        ImapHandlers.connectMailbox,
+        { ...form(PASSWORD, HOST, IMAP_PORT), secure: false },
+        admin,
+      );
+
+      expect(error.i18nKey).toBe(IMAP_CONNECT_ERRORS.tlsFailed.i18nKey);
+      await expectNothingStored(admin, newEvents);
+    },
+  );
 
   test("a host that does not resolve stores nothing and gets the unreachable text", async () => {
     setImapMailHostLookup((async (hostname: string) => {

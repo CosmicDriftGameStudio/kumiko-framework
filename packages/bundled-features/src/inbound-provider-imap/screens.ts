@@ -17,7 +17,6 @@ export const imapConnectScreen: ActionFormScreenDefinition = {
     address: { type: "text", required: true, maxLength: 320, format: "email" },
     host: { type: "text", required: true, maxLength: 255 },
     port: { type: "number", integer: true, required: true, min: 1, max: 65535, default: 993 },
-    secure: { type: "boolean", default: true },
     user: { type: "text", required: true, maxLength: 320 },
     password: { type: "text", required: true, format: "password", sensitive: true },
   },
@@ -27,7 +26,7 @@ export const imapConnectScreen: ActionFormScreenDefinition = {
       { fields: ["displayName", { field: "address", icon: "mail" }] },
       {
         title: i18nKey("inboundMail.imap.connect.server"),
-        fields: ["host", "port", "secure", "user", "password"],
+        fields: ["host", "port", "user", "password"],
       },
     ],
   },

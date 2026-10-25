@@ -12,7 +12,6 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   [formFieldKey("address")]: { en: "Email address" },
   [formFieldKey("host")]: { en: "IMAP server" },
   [formFieldKey("port")]: { en: "Port" },
-  [formFieldKey("secure")]: { en: "Encrypted connection (TLS)" },
   [formFieldKey("user")]: { en: "User name" },
   [formFieldKey("password")]: { en: "Password" },
   "inboundMail.imap.connect.server": { en: "Server sign-in" },

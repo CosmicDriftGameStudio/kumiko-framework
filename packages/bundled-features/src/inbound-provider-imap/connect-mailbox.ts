@@ -22,8 +22,10 @@ import {
 } from "./credential-document.ts";
 import { connectOnce, IMAP_HOST_UNREACHABLE_MESSAGE } from "./imap-client.ts";
 
+// No `secure` input: the password never crosses the wire in clear text, so a payload's
+// secure:false is stripped like any unknown key and the connect always uses implicit TLS.
 const connectMailboxSchema = imapCredentialDocumentSchema
-  .pick({ host: true, port: true, secure: true, user: true })
+  .pick({ host: true, port: true, user: true })
   .extend({
     displayName: z.string().min(1).max(200),
     address: z.email().max(320),
@@ -35,7 +37,8 @@ const connectedAccountSchema = z.object({ accountId: z.string() });
 
 // Matched on the mapped error text, which also carries the host, so only markers no host name
 // contains: a bare "tls" or "ssl" would misread a host like ssl.example.com.
-const TLS_FAILURE = /certificate|self[- ]signed|wrong version number|EPROTO|ERR_SSL|ERR_TLS/i;
+// BoringSSL (Bun) spells the handshake error WRONG_VERSION_NUMBER, OpenSSL (Node) with spaces.
+const TLS_FAILURE = /certificate|self[- ]signed|wrong[ _]version[ _]number|EPROTO|ERR_SSL|ERR_TLS/i;
 
 // A fixed preview: any slice of the JSON document would expose the host or the user.
 const CREDENTIAL_PREVIEW = "IMAP login";
@@ -44,8 +47,8 @@ const SECRET_TRANSACTION_REASON =
   "the credential secret is written on the request transaction so a failed account connect rolls it back too";
 
 function credentialDocumentOf(payload: ConnectMailboxPayload): ImapCredentialDocument {
-  const { host, port, secure, user, password } = payload;
-  return { host, port, secure, user, password };
+  const { host, port, user, password } = payload;
+  return { host, port, secure: true, user, password };
 }
 
 // The raw error carries the host and the server response; the tenant only gets the category.
@@ -61,7 +64,7 @@ function connectFailureOf(err: unknown): keyof typeof IMAP_CONNECT_ERRORS {
 export const connectMailboxHandler = defineWriteHandler({
   name: "connect-mailbox",
   description:
-    "Connects a shared IMAP mailbox with a password: checks the login against the server first, then creates the mail account and stores host, port, TLS, user and password as its credential secret in one step.",
+    "Connects a shared IMAP mailbox with a password over implicit TLS: checks the login against the server first, then creates the mail account and stores host, port, user and password as its credential secret in one step.",
   // The payload carries the plaintext password: as a tool call it would reach the model provider.
   agent: { expose: false },
   schema: connectMailboxSchema,

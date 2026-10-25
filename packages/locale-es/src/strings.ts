@@ -2041,7 +2041,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inbound-provider-imap:entity:__action-form__:field:address": "Correo electrónico",
   "inbound-provider-imap:entity:__action-form__:field:host": "Servidor IMAP",
   "inbound-provider-imap:entity:__action-form__:field:port": "Puerto",
-  "inbound-provider-imap:entity:__action-form__:field:secure": "Conexión cifrada (TLS)",
   "inbound-provider-imap:entity:__action-form__:field:user": "Nombre de usuario",
   "inbound-provider-imap:entity:__action-form__:field:password": "Contraseña",
   "inboundMail.imap.connect.server": "Inicio de sesión en el servidor",
