@@ -147,7 +147,11 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
   return screen.metrics?.map((metric) => {
     const field = metric.field;
     const label = effectiveTranslate(metric.label);
-    const value = String(record[field] ?? "");
+    const rawValue = record[field];
+    const value = String(rawValue ?? "");
+    const tiles = screen.metricsStyle === "tiles";
+    // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
+    const tone = rawValue === 0 ? undefined : metric.tone;
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const navigate = metric.navigate;
     const onPress =
@@ -161,6 +165,9 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
         value={value}
         testId={testId}
         {...(onPress !== undefined && { onPress })}
+        {...(tiles && { tile: true })}
+        {...(tone !== undefined && { tone })}
+        {...(metric.icon !== undefined && { icon: metric.icon })}
       />
     ) : (
       <GridCell key={field}>
@@ -187,6 +194,7 @@ export function renderMetricsBlock(
       testId="kumiko-screen-projection-detail-metrics"
       subtitle={subtitle}
       {...(lead !== undefined && { lead })}
+      {...(screen.metricsStyle === "tiles" && { tiles: true })}
     >
       {metricItems}
     </MetricBand>

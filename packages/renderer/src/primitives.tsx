@@ -40,6 +40,7 @@ import type {
   RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
 import {
   type ComponentType,
   createContext,
@@ -1570,6 +1571,10 @@ export type MetricProps = {
   /** Click handler — set when the metric declares a `navigate` target
    *  (see `MetricSpec`). Omitted for a plain, non-interactive metric. */
   readonly onPress?: () => void;
+  /** Draw as a KPI tile (the dashboard StatCard) instead of a band entry. */
+  readonly tile?: boolean;
+  readonly tone?: DashboardStatTone;
+  readonly icon?: NavIconKey;
 };
 
 /** Structured JSON display (audit payload/metadata, job logs, unsupported
@@ -1599,6 +1604,8 @@ export type MetricBandProps = {
   readonly lead?: ReactNode;
   readonly subtitle?: ReactNode;
   readonly children: ReactNode;
+  /** The children are KPI tiles, laid out as a tile grid instead of a definition list. */
+  readonly tiles?: boolean;
   readonly testId?: string;
 };
 

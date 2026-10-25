@@ -1,7 +1,8 @@
 import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
+import type { NavIconKey } from "./nav-icon.ts";
 import type { PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
-import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
+import type { DashboardPanelVisibility, DashboardStatTone } from "./screen-dashboard.ts";
 import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
@@ -200,6 +201,10 @@ export type MetricSpec = {
   readonly field: string;
   readonly label: string;
   readonly navigate?: MetricNavigate;
+  /** Tile color as on dashboard stat panels; not applied while the value is 0. */
+  readonly tone?: DashboardStatTone;
+  /** Icon chip of the tile; only drawn with `metricsStyle: "tiles"`. */
+  readonly icon?: NavIconKey;
 };
 
 export type ProjectionDetailScreenDefinition = {
@@ -254,6 +259,8 @@ export type ProjectionDetailScreenDefinition = {
   /** Metric band above the layout — column names in the query row, each with its own i18n `label`.
    *  Rendered only when set. */
   readonly metrics?: readonly MetricSpec[];
+  /** "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band. */
+  readonly metricsStyle?: "band" | "tiles";
   /** Parent list screen (short id) for a "back" navigation. */
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
