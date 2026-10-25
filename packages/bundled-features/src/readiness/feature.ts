@@ -13,7 +13,6 @@ import { registerBuiltInProbes } from "./built-in-probes.ts";
 import { ReadinessWrites } from "./constants.ts";
 import { latestResultsQuery } from "./handlers/latest-results.query.ts";
 import { latestSummaryQuery } from "./handlers/latest-summary.query.ts";
-import { probeCatalogQuery } from "./handlers/probe-catalog.query.ts";
 import { runDetailQuery } from "./handlers/run-detail.query.ts";
 import { runListQuery } from "./handlers/run-list.query.ts";
 import { runProbesWrite } from "./handlers/run-probes.write.ts";
@@ -23,8 +22,28 @@ import { READINESS_I18N } from "./i18n.ts";
 import { validateProbeTranslations } from "./probe-boot-check.ts";
 import { runProbesJob } from "./run-probes-job.ts";
 import { probeRunEntity } from "./schema/probe-run.ts";
+import {
+  SYSTEM_CHECK_NAV_LABEL,
+  SYSTEM_CHECK_SCREEN_ID,
+  SYSTEM_CHECK_SCREEN_QN,
+  systemCheckRunScreen,
+  systemCheckScreen,
+} from "./screens.ts";
 
-export function createReadinessFeature() {
+export interface ReadinessNavOptions {
+  readonly order?: number;
+  readonly parent?: string;
+}
+
+export interface ReadinessFeatureOptions {
+  // Without a nav entry the system-check screen stays dormant; apps link it themselves.
+  readonly nav?: ReadinessNavOptions;
+}
+
+const DEFAULT_NAV_ORDER = 90;
+
+export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
+  const { nav } = options;
   return defineFeature(
     "readiness",
     (r) => {
@@ -56,6 +75,23 @@ export function createReadinessFeature() {
       registerBuiltInProbes(r);
       r.bootCheck(({ features }) => validateProbeTranslations(features));
 
+      r.screen(systemCheckScreen(nav === undefined));
+      r.screen(systemCheckRunScreen);
+      if (nav !== undefined) {
+        // Explicit property assignments: the feature-AST parser reads neither `??`, shorthand
+        // properties nor a conditional spread, and the boot validator treats `parent: undefined`
+        // as a top-level entry.
+        const { order: navOrder = DEFAULT_NAV_ORDER, parent: navParent } = nav;
+        r.nav({
+          id: SYSTEM_CHECK_SCREEN_ID,
+          label: SYSTEM_CHECK_NAV_LABEL,
+          icon: "shield-check",
+          screen: SYSTEM_CHECK_SCREEN_QN,
+          order: navOrder,
+          parent: navParent,
+        });
+      }
+
       const queries = {
         status: r.queryHandler(statusQuery),
         latestResults: r.queryHandler(latestResultsQuery),
@@ -63,11 +99,16 @@ export function createReadinessFeature() {
         runList: r.queryHandler(runListQuery),
         runDetail: r.queryHandler(runDetailQuery),
         runResults: r.queryHandler(runResultsQuery),
-        probeCatalog: r.queryHandler(probeCatalogQuery),
       };
 
       return { queries };
     },
-    { dedupeOptions: {} },
+    {
+      dedupeOptions: {
+        hasNav: nav !== undefined,
+        navOrder: nav?.order ?? DEFAULT_NAV_ORDER,
+        navParent: nav?.parent ?? "",
+      },
+    },
   );
 }

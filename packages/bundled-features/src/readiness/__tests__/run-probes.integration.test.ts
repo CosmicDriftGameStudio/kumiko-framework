@@ -99,7 +99,7 @@ type Row = {
   id: string;
   probe: string;
   status: "ok" | "failed" | "skipped";
-  message: { key: string; params?: Record<string, string | number> };
+  message: { i18nKey: string; i18nParams?: Record<string, string | number> };
 };
 type Latest = { rows: Row[] };
 
@@ -175,7 +175,7 @@ describe("readiness run-probes", () => {
     expect(byProbe(rows, "free-system")).toBeUndefined();
     expect(rows.some((row) => row.probe === "readiness:probe:database")).toBe(false);
     expect(byProbe(rows, "paid-tenant")?.status).toBe("skipped");
-    expect(byProbe(rows, "paid-tenant")?.message.key).toBe(ProbeTextKeys.paidNotRequested);
+    expect(byProbe(rows, "paid-tenant")?.message.i18nKey).toBe(ProbeTextKeys.paidNotRequested);
     expect(paidRuns).toBe(0);
   });
 
@@ -196,7 +196,7 @@ describe("readiness run-probes", () => {
     const { rows } = await latest(tenantAdmin);
 
     expect(byProbe(rows, "hanging")?.status).toBe("failed");
-    expect(byProbe(rows, "hanging")?.message.key).toBe(ProbeTextKeys.timeout);
+    expect(byProbe(rows, "hanging")?.message.i18nKey).toBe(ProbeTextKeys.timeout);
     expect(byProbe(rows, "free-tenant")?.status).toBe("ok");
   });
 
@@ -206,9 +206,9 @@ describe("readiness run-probes", () => {
     await runChecks(tenantAdmin);
     const { rows } = await latest(tenantAdmin);
 
-    expect(byProbe(rows, "throwing")?.message.key).toBe(ProbeTextKeys.failed);
+    expect(byProbe(rows, "throwing")?.message.i18nKey).toBe(ProbeTextKeys.failed);
     expect(JSON.stringify(rows)).not.toContain(SECRET_IN_ERROR);
-    expect(byProbe(rows, "explained")?.message.key).toBe("fixture.fail");
+    expect(byProbe(rows, "explained")?.message.i18nKey).toBe("fixture.fail");
   });
 
   test("a SystemAdmin run includes system probes and the built-ins; the TenantAdmin still sees none", async () => {

@@ -13,6 +13,6 @@ export const runResultsQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const run = await ctx.db.fetchOne<RunRow>(probeRunsTable, { id: query.payload.runId });
     if (!run) throw new NotFoundError("probe-run", query.payload.runId);
-    return { rows: viewRun(run, query.user).results };
+    return { rows: viewRun(run, query.user).results, nextCursor: null };
   },
 });

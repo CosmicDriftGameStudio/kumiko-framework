@@ -28,6 +28,10 @@ export function collectProbes(
   return collected;
 }
 
+export function hasPaidProbes(registry: Registry, options: CollectProbesOptions): boolean {
+  return collectProbes(registry, options).some((probe) => probe.cost === "paid");
+}
+
 export function probeTimeoutMs(probe: ProbeDefinition): number {
   return probe.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
 }

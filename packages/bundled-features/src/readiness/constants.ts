@@ -9,7 +9,6 @@ export const ReadinessQueries = {
   runList: "readiness:query:probe-run:list",
   runDetail: "readiness:query:probe-run:detail",
   runResults: "readiness:query:probe-run:results",
-  probeCatalog: "readiness:query:probes:catalog",
 } as const;
 
 export const ReadinessWrites = {
