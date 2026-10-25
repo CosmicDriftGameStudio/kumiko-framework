@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Codemod entries return their exit code",
+    "detail": "The feature-ast codemods export main(argv) and runCodemod next to runCodemodCli; they return an exit code instead of calling process.exit, so callers can run them in-process. Invocation from the shell is unchanged."
+  },
+  {
     "version": "0.391.1",
     "type": "fix",
     "title": "Type-aware codemods no longer exhaust memory when the app pins another zod",

@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "RecordHeaderSpec takes statusFormat",
+    "detail": "header.statusFormat is a FormatSpec for the header badge text, typically enumOption with a keyPrefix. The badge tone still resolves on the raw status value."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "projectionDetail takes inlineActions",
+    "detail": "ProjectionDetailScreenDefinition.inlineActions lists action ids that stay visible buttons next to the primary action in the page header instead of folding into the \"More actions\" menu. Without it the header behaves as before. The phone header keeps its single icon button."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "relatedList emptyState takes variants",
+    "detail": "EditRelatedListSection.emptyState is a RelatedListEmptyStateSpec. Its optional variants list pairs a FieldCondition on the parent record with a title and description; the first matching variant replaces the default text, the action stays."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "relatedList drawer and writeHandler toolbar actions take params",
+    "detail": "RelatedListToolbarAction kind \"drawer\" and kind \"writeHandler\" accept params as a RowFieldExtractor evaluated against the parent record, for example params with map appId to id. A drawer gets the values as prefill, a writeHandler merges them over its static payload with the extracted values winning. Without a parent record the action stays hidden."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Option tones gain critical and accent",
+    "detail": "SelectOptionTone is now ok, warn, bad, critical, accent or neutral, for select optionTones, enumOption tones, relatedList rowTone and projectionDetail header.statusTones. critical and accent reuse the StatusBadge colors (status-critical and the primary brand color), neutral stays muted. An informative state such as \"Ready\" can use accent instead of a custom cell."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Custom dashboard panels accept static params",
+    "detail": "A dashboard panel of kind custom takes params, static values laid over the screen's filterParams for its component. The panel wins when a filter uses the same name. Without params nothing changes."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "i18nText format, enumOption tones, linkScreenField, live projectionDetail and metric tiles",

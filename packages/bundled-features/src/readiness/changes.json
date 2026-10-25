@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The paid run is a button next to Start check",
+    "detail": "The system check screen declares run-paid-check as an inline action, so \"Test AI extraction\" shows as a button beside \"Start check\" instead of in the \"More actions\" menu. It stays hidden while the app has no paid probes."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The readiness entry exports ProbeTextKeys",
+    "detail": "ProbeTextKeys comes from @cosmicdrift/kumiko-bundled-features/readiness next to ReadinessQueries and ReadinessWrites, so apps can name probe texts without a deep import."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The paid probe hint names the button",
+    "detail": "readiness.probe.paid-not-requested now reads \"Only via “Test AI extraction”\" (de „Nur über „KI-Auslesen testen““), the label of the button that starts the paid run."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The search probe fails with its own text",
+    "detail": "When the search service throws, the search probe fails with readiness.probe.search.unavailable (\"The search service does not answer\"). The raw error can name the search host, so it goes only to the server log. New key in all locale packages."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "An empty latest run says why it is empty",
+    "detail": "The latest results and the run detail show \"The check is running. Results appear when it is done.\" while a run is running and \"There is nothing to check for this tenant.\" when a finished run has no rows the caller may see, and \"The run was stopped before it returned results.\" for an abandoned run. Without a run the old text stays. New keys readiness.screen.latest.running, readiness.screen.latest.nothing-to-check and readiness.screen.latest.abandoned in all locale packages."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "Probe runs and the system-check screen",

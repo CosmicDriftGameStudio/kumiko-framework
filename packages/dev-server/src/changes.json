@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.392.0",
+    "type": "breaking",
+    "title": "The managed Dockerfile reads the registry token from a BuildKit secret",
+    "migration": "Image builds pass the token as a BuildKit secret instead of a build-arg: docker build --secret id=npm_auth_token,env=NPM_AUTH_TOKEN, or secrets: npm_auth_token=... in docker/build-push-action. The infra _docker-build-push workflow already sends both. Run kumiko-upgrade --apply to rewrite deploy/Dockerfile; a Dockerfile with a kumiko-managed: local override changes by hand: drop ARG NPM_AUTH_TOKEN and ENV GITHUB_TOKEN and start the build-stage install with RUN --mount=type=secret,id=npm_auth_token,env=GITHUB_TOKEN bun install."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "meilisearch lands in dist-server dependencies only when the bundle imports it or the app declares it",
+    "detail": "The package stays external in every server build, but apps without search no longer get it as a production dependency in dist-server/package.json. An app that imports createMeilisearchAdapter, or lists meilisearch in dependencies or optionalDependencies, keeps it with the framework's peer range."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "The managed Dockerfile names the real k3s migration step",

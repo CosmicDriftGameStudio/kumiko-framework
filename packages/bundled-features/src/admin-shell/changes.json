@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "includeTenantOverview turns the tenant overview off",
+    "detail": "createAdminShellFeature({ includeTenantOverview: false }) registers neither the tenant overview screen nor its nav and leaves it out of the tenant workspace. The default stays true."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "includeDocumentDesigner lists the template navs in the admin workspaces",

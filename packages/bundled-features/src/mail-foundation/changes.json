@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The mail probe tests the platform sender",
+    "detail": "A tenant without its own mail provider now gets the test mail through the channel-email app transport, the sender its tenant-transport notifications fall back to. The probe reports mail-foundation.probe.send-test-mail.platform-accepted on success and mail-foundation.probe.platform-send-rejected when the platform server rejects it; it is skipped only when neither an own provider nor an app transport exists, and mail-foundation.probe.not-configured now reads \"No email sending set up\". New keys in all locale packages."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "Mail-sending probe",

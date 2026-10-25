@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.392.0
+
+### Patch Changes
+
+- 383b6a8: The `kumiko-testing` bin and the feature-ast codemods now expose a `main(argv)` that returns the exit code, so their logic can run in-process. Command-line behavior and exit codes are unchanged.
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: improvement
+  title: Codemod entries return their exit code
+  detail: The feature-ast codemods export main(argv) and runCodemod next to runCodemodCli; they return an exit code instead of calling process.exit, so callers can run them in-process. Invocation from the shell is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: kumiko-testing exports main(argv, io)
+  detail: The kumiko-testing bin exports main(argv, io), which returns the exit code and writes through the given io, so its commands can run in-process. Invocation from the shell is unchanged.
+  -->
+- Updated dependencies [383b6a8]
+- Updated dependencies [99eea8a]
+- Updated dependencies [3cfb343]
+- Updated dependencies [3d7f455]
+- Updated dependencies [c22ca75]
+- Updated dependencies [05c9bef]
+- Updated dependencies [c639de3]
+  - @cosmicdrift/kumiko-framework@0.392.0
+  - @cosmicdrift/kumiko-types@0.392.0
+
 ## 0.391.1
 
 ### Patch Changes
