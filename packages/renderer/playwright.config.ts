@@ -1,9 +1,9 @@
-// Playwright-Config für renderer/e2e. Bootet den minimalen
-// build-server (siehe e2e/build-server.ts) statt eines vollen
-// Kumiko-Stacks — Renderer-Package alleine gegen MockDispatcher.
+// Playwright config for renderer/e2e. Boots the minimal build-server
+// (see e2e/build-server.ts) instead of a full Kumiko stack, so the
+// renderer package runs alone against a MockDispatcher.
 //
 // Port comes from samples/e2e/e2e-ports.ts.
-// Kein Docker erforderlich, keine DB — purely Browser + Bundle.
+// No Docker and no DB needed, only browser plus bundle.
 
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_PORTS } from "../../samples/e2e/e2e-ports";
