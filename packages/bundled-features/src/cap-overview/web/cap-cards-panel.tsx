@@ -105,7 +105,7 @@ function remainingLabel(
     : t("cap-overview.cards.noneLeft");
 }
 
-function CapCard({
+function CapUsageStat({
   cap,
   footer,
 }: {
@@ -194,7 +194,7 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
           <div className="text-sm text-muted-foreground">{t("cap-overview.cards.loading")}</div>
         )}
         {rows.map((cap) => (
-          <CapCard key={cap.id} cap={cap} footer={linkInCard ? <ViewAllLink /> : undefined} />
+          <CapUsageStat key={cap.id} cap={cap} footer={linkInCard ? <ViewAllLink /> : undefined} />
         ))}
       </div>
       {capKeys !== undefined && !linkInCard && <ViewAllLink />}
