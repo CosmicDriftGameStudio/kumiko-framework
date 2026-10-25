@@ -18,7 +18,7 @@ import {
 //   3. Plain token remains in worker memory + is passed via
 //      RunExportJobsResult to the notification flow. NEVER plain in DB.
 //   4. The download endpoint hashes the incoming token + looks up the
-//      hash entry via the index on tokenHash. This is a plain DB lookup,
+//      row by tokenHash equality. This is a plain DB lookup,
 //      not a constant-time comparison: the token carries 256 bits of
 //      randomness, so a timing leak can reveal at most hash prefixes,
 //      never a preimage.
@@ -51,7 +51,7 @@ export const exportDownloadTokenEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // **Hash, never plain.** SHA256 hex (64 chars), looked up via index.
+    // **Hash, never plain.** SHA256 hex (64 chars), looked up by equality.
     tokenHash: createTextField({
       required: true,
       maxLength: 64,

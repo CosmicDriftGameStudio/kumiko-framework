@@ -327,10 +327,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     }
   }
   // Baseline regression guard (infra#440): fails only on NEW structural
-// duplicates (cross-module/cross-file), existing entries via
-// .kumiko-semantic-duplicates-baseline.json frozen. Cross-repo scan
-// (see roots.ts); runs only from the parent workspace, no bunx
-// fallback (a standalone checkout has no sibling repos to scan).
+  // duplicates (cross-module/cross-file), existing entries via
+  // .kumiko-semantic-duplicates-baseline.json frozen. Cross-repo scan
+  // (see roots.ts); runs only from the parent workspace, no bunx
+  // fallback (a standalone checkout has no sibling repos to scan).
   const semanticDuplicatesGuard = join(REPO_ROOT, "infra/guards/guard-semantic-duplicates.ts");
   if (existsSync(semanticDuplicatesGuard)) {
     steps.push({ name: "Semantic-Duplicates Guard", cmd: `bun ${semanticDuplicatesGuard}` });
@@ -519,14 +519,14 @@ const commands = {
     description: "Production build for an app (dist/) — takes path or $INIT_CWD",
     run: async () => {
       // Discovery + Bun.build + Tailwind + Public-folder copy.
-// Convention-driven: src/client.tsx → bundle, src/styles.css →
-// Tailwind, public/ → 1:1, index.html → Template. Output lands
-// under <cwd>/dist.
-//
-// CWD-Resolution:
-//   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
-//   2. $INIT_CWD (yarn workspace invocation)  → cd <app> && yarn build
-//   3. process.cwd() (fallback)arn build
+      // Convention-driven: src/client.tsx → bundle, src/styles.css →
+      // Tailwind, public/ → 1:1, index.html → Template. Output lands
+      // under <cwd>/dist.
+      //
+      // CWD-Resolution:
+      //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
+      //   2. $INIT_CWD (yarn workspace invocation)  → cd <app> && yarn build
+      //   3. process.cwd() (fallback)arn build
       //   3. process.cwd() (fallback)
       const { buildProdBundle, formatBuildResult } = await import("@cosmicdrift/kumiko-dev-server/build");
       const explicit = Bun.argv[3];
@@ -544,13 +544,13 @@ const commands = {
     description: "Scaffold an empty feature workspace — kumiko create <camelCaseName> [--path <dir>]",
     run: async () => {
       // CLI: bun kumiko create <name> [--path <destination>]
-//   <name>: required, camelCase feature identifier (validated)
-//   --path: optional override; default samples/recipes/<kebab-name>/
-//
-// Output: minimal workspace with package.json + src/feature.ts.
-// feature.ts is canonical Object form (// kumiko-feature-version: 1)
-// with a starter entity — directly editable through the parser/patcher
-// afterwards. Run bun install after create for workspace wiring.
+      //   <name>: required, camelCase feature identifier (validated)
+      //   --path: optional override; default samples/recipes/<kebab-name>/
+      //
+      // Output: minimal workspace with package.json + src/feature.ts.
+      // feature.ts is canonical Object form (// kumiko-feature-version: 1)
+      // with a starter entity — directly editable through the parser/patcher
+      // afterwards. Run bun install after create for workspace wiring.
       const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
       const args = Bun.argv.slice(3);
       const name = args.find((a) => !a.startsWith("--"));
@@ -684,11 +684,11 @@ const commands = {
       logBoth("", logPath);
 
       // KUMIKO_CHECK=1 enables the higher Vitest thread cap (8 instead of 4)
-// in vitest.config.ts — the box is saturated anyway during a
-// check run, so wall-time should count. In Watch mode/IDE the
-// conservative default stays active.
-//
-// Integration tests locally in `check`, skip in CI (require Docker stack). skip (requires Docker stack).
+      // in vitest.config.ts — the box is saturated anyway during a
+      // check run, so wall-time should count. In Watch mode/IDE the
+      // conservative default stays active.
+      //
+      // Integration tests locally in `check`, skip in CI (require Docker stack). skip (requires Docker stack).
       for (const step of UNIT_TEST_STEPS) {
         logBoth(`--- ${step.name} ---`, logPath);
         const code = await runWithTee(step.cmd, logPath, step.name);

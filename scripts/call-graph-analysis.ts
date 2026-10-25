@@ -8,7 +8,7 @@
  *   bun scripts/call-graph-analysis.ts --wrappers             # thin wrappers only
  *   bun scripts/call-graph-analysis.ts --top 20               # top-N hotspots
  */
-// @ts-nocheck — Bun-script, nicht im tsc-Graph
+// @ts-nocheck: Bun script, not part of the tsc graph
 import { join, relative } from "node:path";
 import {
   Project,

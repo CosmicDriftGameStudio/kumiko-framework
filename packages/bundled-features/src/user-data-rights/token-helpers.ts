@@ -5,8 +5,8 @@
 //      (SHA256 hex).
 //   2. The database stores ONLY the hash. The plain token remains in worker memory.
 //   3. The notification step sends the plain token to the user by email.
-//   4. The download endpoint hashes the incoming token and looks up the hash via
-//      the index on tokenHash. No constant-time comparison is needed: the token has
+//   4. The download endpoint hashes the incoming token and looks up the row
+//      by tokenHash. No constant-time comparison is needed: the token has
 //      256 bits of randomness, so a timing leak reveals at most hash prefixes, never
 //      a preimage.
 //
@@ -38,7 +38,7 @@ export async function generateDownloadToken(): Promise<{
 /**
  * Hashes a plain token into its database representation. In the verification path,
  * the download endpoint hashes the incoming token and looks up the hash in the
- * database by index (no constant-time comparison, see the header comment).
+ * database (no constant-time comparison, see the header comment).
  */
 export async function hashDownloadToken(plain: string): Promise<string> {
   const encoded = new TextEncoder().encode(plain);
