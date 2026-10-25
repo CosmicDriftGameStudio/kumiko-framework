@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext } from "react";
 import type { MetricBandProps, MetricProps } from "../../index.ts";
 import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
-import { StatCard } from "../widgets/stat.tsx";
+import { STAT_CARD_GRID_CLASSES, StatCard } from "../widgets/stat.tsx";
 
 const InsideMetricBandContext = createContext(false);
 
@@ -11,7 +11,7 @@ const InsideMetricBandContext = createContext(false);
 // to false because a card body is a different inset surface.
 export const InsideScreenFormColumnContext = createContext(false);
 
-// Column counts follow the board: 2 below md, 3 below lg, 5 from lg.
+// Band column counts follow the board: 2 below md, 3 below lg, 5 from lg.
 export function DefaultMetricBand({
   lead,
   subtitle,
@@ -32,7 +32,7 @@ export function DefaultMetricBand({
         </div>
       )}
       {tiles === true ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">{children}</div>
+        <div className={STAT_CARD_GRID_CLASSES}>{children}</div>
       ) : (
         <InsideMetricBandContext.Provider value={true}>
           <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>

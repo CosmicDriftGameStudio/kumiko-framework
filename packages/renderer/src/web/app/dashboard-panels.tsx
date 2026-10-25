@@ -48,7 +48,13 @@ import { FeedList, type FeedRow } from "../widgets/feed-list.tsx";
 import { ModeSwitch } from "../widgets/mode-switch.tsx";
 import { ProgressList, type ProgressListRow } from "../widgets/progress-list.tsx";
 import { SectionCard } from "../widgets/section-card.tsx";
-import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widgets/stat.tsx";
+import {
+  STAT_CARD_GRID_CLASSES,
+  StatCard,
+  type StatDelta,
+  StatStripCell,
+  type StatTone,
+} from "../widgets/stat.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
 import {
   DAY_MS,
@@ -253,7 +259,7 @@ export function StatGroupPanelBody({
       {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
       testId={testId}
     >
-      <section className="grid grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3">
+      <section className={STAT_CARD_GRID_CLASSES}>
         {panel.stats.map((stat) => (
           <StatPanelBody
             key={stat.id}
