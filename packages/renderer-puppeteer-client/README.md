@@ -1,26 +1,24 @@
 # renderer-puppeteer-client
 
-Plugin für `renderer-foundation`. Rendert `kind=["document-pdf", "image-snapshot"]`-Requests via HTTP-Call gegen `puppeteer-service` (separate app in `apps/puppeteer-service` of this repository).
+Plugin for `renderer-foundation`. Renders `kind=["document-pdf", "image-snapshot"]` requests via an HTTP call to `puppeteer-service` (separate app in `apps/puppeteer-service` in this repository).
 
-**Plan-Doc:** [`renderer-foundation.md`](https://github.com/CosmicDriftGameStudio/kumiko-platform/blob/main/docs/plans/features/renderer-foundation.md) Schritte 4–7.
-
-## Architektur
+## Architecture
 
 ```
-Caller (z.B. Solon NKA-PDF-Generator)
+Caller (e.g. Solon NKA-PDF-Generator)
    │
    │ const renderer = foundation.createRendererForTenant({ tenantId, kind: "document-pdf" })
    │ await renderer.render({ kind: "document-pdf", payload: { content: "<html>…" } }, ctx)
    ▼
-renderer-puppeteer-client (DIESES Package)
+renderer-puppeteer-client (THIS package)
    │
    │ POST {PUPPETEER_SERVICE_URL}/render
    │ Authorization: Bearer {PUPPETEER_AUTH_TOKEN}
    │ Retry: 5xx + network-error (exponential backoff)
    ▼
-puppeteer-service (separate App, K8s-Deployment)
+puppeteer-service (separate app, K8s deployment)
    │
-   │ Launches Puppeteer-Browser, rendert HTML
+   │ Launches Puppeteer browser, renders HTML
    ▼
 {kind: "document-pdf", pdfBytes, ...}
 ```
@@ -34,7 +32,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 const features = [
   createRendererFoundationFeature(),
   createRendererPuppeteerClientFeature(),
-  // weitere renderer-Plugins (renderer-mail-html, …)
+  // additional renderer plugins (renderer-mail-html, …)
 ];
 
 // In createKumikoApp's extraContext:
@@ -43,31 +41,31 @@ extraContext: ({ db, registry }) => ({
 });
 ```
 
-## Konfiguration (env-vars)
+## Configuration (env vars)
 
-App-wide, gesetzt via K8s-Secret + ConfigMap:
+App-wide, set via K8s Secret + ConfigMap:
 
-| Var | Default | Beschreibung |
+| Var | Default | Description |
 |---|---|---|
-| `PUPPETEER_SERVICE_URL` | `http://puppeteer-service:3000` | Cluster-internal URL des Services |
-| `PUPPETEER_AUTH_TOKEN` | **required** | Shared Secret (>=16 chars, matched zum Service) |
-| `PUPPETEER_CLIENT_TIMEOUT_MS` | `60000` | Per-Request Timeout (Client-Side) |
-| `PUPPETEER_CLIENT_MAX_RETRIES` | `3` | Anzahl Retries bei 5xx/network-Error |
+| `PUPPETEER_SERVICE_URL` | `http://puppeteer-service:3000` | Internal cluster URL of the service |
+| `PUPPETEER_AUTH_TOKEN` | **required** | Shared secret (>=16 chars, matching the service) |
+| `PUPPETEER_CLIENT_TIMEOUT_MS` | `60000` | Per-request timeout (client side) |
+| `PUPPETEER_CLIENT_MAX_RETRIES` | `3` | Number of retries for 5xx/network errors |
 
-**Pro Tenant?** Aktuell **nicht** — alle Tenants nutzen den gleichen Service. Per-tenant-overrides via config-Bundle kommen, wenn der Bedarf real ist (z.B. dedicated puppeteer-pool für Enterprise-Tenants).
+**Per tenant?** Currently **no**. All tenants use the same service. Per-tenant overrides via a config bundle will be added when there is a real need, for example a dedicated Puppeteer pool for enterprise tenants.
 
-## Retry-Strategie
+## Retry strategy
 
-| Response | Aktion |
+| Response | Action |
 |---|---|
-| `2xx` | Success — bytes returnen |
-| `4xx` (Validation, Auth, 413) | **KEIN Retry** — RendererError("invalid_payload") sofort |
-| `5xx` (Render-Error, Service-Crash) | Retry mit exponential backoff (200ms × 2^attempt) + ±50% jitter |
-| Network-error (ECONNREFUSED, timeout) | Retry wie 5xx |
+| `2xx` | Success, return bytes |
+| `4xx` (validation, auth, 413) | **NO retry**. Return `RendererError("invalid_payload")` immediately |
+| `5xx` (render error, service crash) | Retry with exponential backoff (200ms × 2^attempt) + ±50% jitter |
+| Network-error (ECONNREFUSED, timeout) | Retry as for 5xx |
 
-Nach `PUPPETEER_CLIENT_MAX_RETRIES`-Exhaustion: `RendererError("other")` mit Original-Error-Message.
+After `PUPPETEER_CLIENT_MAX_RETRIES` is exhausted: `RendererError("other")` with the original error message.
 
-## Caller-Pattern
+## Caller pattern
 
 ```typescript
 import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
@@ -86,17 +84,17 @@ async function generatePdf(ctx, tenantId, htmlContent) {
   );
 
   if (result.kind !== "document-pdf") throw new Error("unexpected kind");
-  return result.pdfBytes; // → S3-upload oder direkt zum Caller
+  return result.pdfBytes; // → S3 upload or directly to the caller
 }
 ```
 
 ## Tests
 
-- **15 Unit-Tests** (Config + HTTP-Client + Render + Contract) — kein echter Network-Call, fetch-mock via `vi.stubGlobal`.
-- **Kein Integration-Test mit echtem Service** — der Service-Stack braucht puppeteer-service running auf einer URL, das ist E2E-Setup (Schritt 7). Hier nur Unit-Coverage des HTTP-Layers.
+- **15 unit tests** (config + HTTP client + render + contract). No actual network call, fetch mocked via `vi.stubGlobal`.
+- **No integration test with a real service**. The service stack requires puppeteer-service to be running at a URL, which is an E2E setup (step 7). Here, only unit coverage of the HTTP layer.
 
-## Out-of-Scope
+## Out of scope
 
-- HTML-Sanitization — Caller liefert trusted HTML (kommt aus template-resolver mit tenant-scoping)
-- File-Storage — Response ist immer inline bytes, Caller persistiert in S3 wenn nötig
-- Tenant-Specific-URLs — derzeit app-wide, später via config-Bundle möglich
+- HTML sanitization: the caller provides trusted HTML (from template-resolver with tenant scoping)
+- File storage: the response always contains inline bytes, and the caller persists them to S3 if necessary
+- Tenant-specific URLs: currently app-wide, possibly via a config bundle later

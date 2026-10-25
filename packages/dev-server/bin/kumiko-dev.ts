@@ -1,19 +1,18 @@
 #!/usr/bin/env bun
-// kumiko-dev — Wrapper-Skript für sample dev-scripts. Spawnt den
-// übergebenen Server-Entry und respawnt automatisch.
+// kumiko-dev: wrapper script for sample dev scripts. Spawns the given
+// server entry and respawns it automatically.
 //
-// Restart-Policy:
-//   - exit 75 (EX_TEMPFAIL, vom dev-server beim Schema-Change ausgelöst,
-//     weil Bun's Module-Cache einen Process-Restart erzwingt): sofortiger
-//     respawn ohne Crash-Loop-Anrechnung — das ist erwartetes Verhalten.
-//   - jeder andere non-zero exit: respawn mit kurzem Backoff, aber
-//     Crash-Loop-Schutz via createCrashTracker. Verhindert Endlos-Loop
-//     bei syntaktisch totem bin/main.ts und gibt dem User trotzdem
-//     "Live-Edit"-Feeling: ein Code-Fehler in einem Feature killt nicht
-//     die ganze bun-dev-Session.
-//   - Signal-killed (SIGINT/SIGTERM): wir folgen dem Caller, exit 0.
+// Restart policy:
+//   - exit 75 (EX_TEMPFAIL, raised by the dev-server on a schema change
+//     because Bun's module cache forces a process restart): respawn
+//     immediately without counting towards the crash loop. This is expected.
+//   - any other non-zero exit: respawn with a short backoff, guarded by
+//     createCrashTracker. Prevents an endless loop on a syntactically broken
+//     bin/main.ts while keeping the "live edit" feel: a code error in one
+//     feature does not kill the whole bun dev session.
+//   - killed by a signal (SIGINT/SIGTERM): follow the caller, exit 0.
 //
-// Nutzung: `kumiko-dev src/app/server.ts` in package.json:
+// Usage: `kumiko-dev src/app/server.ts` in package.json:
 //
 //   "scripts": { "dev": "kumiko-dev src/app/server.ts" }
 
@@ -37,13 +36,13 @@ if (entry === undefined || entry === "") {
   process.exit(2);
 }
 
-// Restliche Args (z.B. --port 4175) reichen wir an den Server durch.
+// Pass the remaining args (e.g. --port 4175) through to the server.
 const passthroughArgs = process.argv.slice(3);
 
-// Bun's eigener Pfad steht in process.argv[0] — den nutzen wir, damit
-// `bun --env-file=...` Flags vom Caller nicht verloren gehen. Wir
-// reichen NICHT alle Bun-Flags durch (kompliziert mit shell-Escaping);
-// dev-scripts in samples setzen Env-Vars direkt im Aufruf wenn nötig.
+// Bun's own path is in process.argv[0] — we use it so
+// `bun --env-file=...` flags from the caller aren't lost. We
+// do NOT pass through all Bun flags (complicated with shell escaping);
+// dev-scripts in samples set env vars directly in the invocation when needed.
 const bunPath = process.argv[0] ?? "bun";
 
 const crashTracker = createCrashTracker({
@@ -61,7 +60,7 @@ const spawnServer = (): void => {
 
   child.on("exit", (code, signal) => {
     if (signal !== null) {
-      // Signal-killed (z.B. SIGINT): Caller wollte raus → wir auch.
+      // Signal-killed (e.g. SIGINT): the caller wanted out → so do we.
       process.exit(0);
       return;
     }
@@ -74,8 +73,8 @@ const spawnServer = (): void => {
       process.exit(0);
       return;
     }
-    // Non-zero exit ohne Schema-Change: Code-Fehler oder transienter
-    // Crash. Respawn mit Backoff + Crash-Loop-Schutz.
+    // Non-zero exit without a schema change: code error or transient
+    // crash. Respawn with backoff + crash-loop protection.
     const now = Date.now();
     const allowed = crashTracker.noteCrash(now);
     if (!allowed) {

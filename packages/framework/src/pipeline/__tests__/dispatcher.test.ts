@@ -939,7 +939,7 @@ describe("dispatcher feature-gate", () => {
     if (!writeOpen.isSuccess) expect(writeOpen.error.code).not.toBe("feature_disabled");
   });
 
-  test("Sprint 8a: per-tenant gating — Tenant A passes, Tenant B gets feature_disabled", async () => {
+  test("per-tenant gating: Tenant A passes, Tenant B gets feature_disabled", async () => {
     // Verifies that the dispatcher calls effectiveFeatures with user.tenantId,
     // allowing the resolver to return different sets per tenant: one tenant
     // sees the feature and the other does not.
@@ -975,7 +975,7 @@ describe("dispatcher feature-gate", () => {
     }
   });
 
-  test("Sprint 8a: ctx.hasFeature is current-user-scoped", async () => {
+  test("ctx.hasFeature is current-user-scoped", async () => {
     // Ensures hasFeature() in handler bodies resolves against ctx.user.tenantId,
     // not a global set. Two tenants call hasFeature("toggled"): A gets true,
     // and B gets false.

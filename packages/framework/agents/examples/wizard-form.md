@@ -680,7 +680,7 @@ async function assertCssIsLive(page: Page): Promise<void> {
   expect(display).toBe("flex");
 }
 
-test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
+test.describe("wizard-form — 375px mobile chrome", () => {
   test("step 1: step label and Next fit the viewport without overlap", async ({ page }) => {
     await gotoWizard(page);
     await assertCssIsLive(page);

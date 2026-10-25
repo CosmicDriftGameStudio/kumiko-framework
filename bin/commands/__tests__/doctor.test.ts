@@ -59,7 +59,7 @@ describe("doctor command", () => {
     await doctorCommand.run(makeContext({ cwd, out: spy.out }));
     const out = spy.logs.join("\n");
     expect(out).toContain("docker binary not found");
-    expect(out).not.toContain("daemon hängt");
+    expect(out).not.toContain("daemon is hanging");
   });
 
   test("hanging docker is reported with the daemon-hung hint", async () => {
@@ -76,6 +76,6 @@ describe("doctor command", () => {
 
     const spy = makeSpyOutput();
     await doctorCommand.run(makeContext({ cwd, out: spy.out }));
-    expect(spy.logs.join("\n")).toContain("daemon hängt");
+    expect(spy.logs.join("\n")).toContain("daemon is hanging");
   });
 });

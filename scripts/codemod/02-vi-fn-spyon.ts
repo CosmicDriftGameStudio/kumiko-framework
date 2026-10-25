@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 // Codemod 02: vi.fn / vi.spyOn / vi.useFakeTimers / vi.setSystemTime / vi.restoreAllMocks
 //
-// Regex-Codemod. Type-Arguments bleiben erhalten weil sie zwischen Name
-// und ( stehen (`vi.fn<T>(...)` → `mock<T>(...)`).
+// Regex codemod. Type arguments are preserved because they are between the name
+// and ( (`vi.fn<T>(...)` → `mock<T>(...)`).
 //
 // Transforms:
 //   vi.fn(            → mock(
@@ -13,8 +13,8 @@
 //   vi.advanceTimersByTime( → advanceTimersByTime(
 //   vi.restoreAllMocks( → mock.restore(
 //
-// HINWEIS: `vi.mock(` wird NICHT hier behandelt — siehe 03-vi-mock.ts
-// (semantik-bewusst wegen Hoisting).
+// NOTE: `vi.mock(` is NOT handled here — see 03-vi-mock.ts
+// (semantics-aware because of hoisting).
 
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";
@@ -35,7 +35,7 @@ const REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bvi\.resetAllMocks\(/g, "mock.restore("],
 ];
 
-// Patterns die NICHT von dieser Codemod ersetzt werden (gehen in 03)
+// Patterns that are NOT replaced by this codemod (go into 03)
 const SKIP_PATTERNS: ReadonlyArray<RegExp> = [
   /\bvi\.mock\(/, // 03 handles this
   /\bvi\.hoisted\(/, // manual review
@@ -78,7 +78,7 @@ async function transformFile(path: string): Promise<{ changed: boolean; skipped:
   const changed = next !== original;
   if (changed) await Bun.write(path, next);
 
-  // Patterns die nicht hier behandelt werden — zur Info loggen
+  // Patterns not handled here — log for information
   const skipped: string[] = [];
   for (const skipPattern of SKIP_PATTERNS) {
     const matches = next.match(new RegExp(skipPattern.source, "g"));
@@ -108,8 +108,8 @@ async function main(): Promise<void> {
     }
   }
 
-  // Idempotenz-Check: nach 2× Lauf darf nichts mehr changen
-  // (Test im CI manuell durch zweimaligen Aufruf)
+  // Idempotency check: after 2× runs, nothing may change
+  // (Test in CI manually by calling twice)
 }
 
 await main();

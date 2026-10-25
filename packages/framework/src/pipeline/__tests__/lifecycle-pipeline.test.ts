@@ -453,7 +453,7 @@ describe("runPostSave phase routing", () => {
 // on A's entity (cross-feature pattern). lifecycle-pipeline must filter
 // B's hook based on the active tenant's effectiveFeatures-set.
 
-describe("Sprint 8a: per-tenant entity-hook filter", () => {
+describe("per-tenant entity-hook filter", () => {
   function setupTwoFeatures() {
     const calls: Array<{ tenant: string }> = [];
 

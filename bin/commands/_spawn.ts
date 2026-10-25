@@ -38,9 +38,9 @@ export function envWithoutGitOverrides(): NodeJS.ProcessEnv {
   return env;
 }
 
-/** Async-spawn — sammelt stdout/stderr, returnt Exit-Code + strings.
- *  Zentral damit alle Commands denselben Pattern haben. spawnSync
- *  geht NICHT (blockt MainThread). */
+/** Async-spawn — collects stdout/stderr, returns exit code + strings.
+ *  Essential so all commands use the same pattern. spawnSync
+ *  does NOT work (blocks MainThread). */
 export function run(
   cmd: string,
   args: ReadonlyArray<string>,
@@ -101,7 +101,7 @@ export function run(
 }
 
 /** Stream-mode: spawn + pipe stdout/stderr through ctx.out, return
- *  exit-code. Für commands die LIVE-Output zeigen müssen (check, test). */
+ *  exit code. For commands that must show LIVE output (check, test). */
 export function runStreaming(
   cmd: string,
   args: ReadonlyArray<string>,

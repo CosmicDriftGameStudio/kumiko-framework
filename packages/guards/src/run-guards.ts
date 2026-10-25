@@ -37,6 +37,7 @@ import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
 import { guard as i18nLocaleTerminology } from "./guard-i18n-locale-terminology";
+import { guard as ignoreTagReason } from "./guard-ignore-tag-reason";
 import { guard as importExtensions } from "./guard-import-extensions";
 import { guard as internalSubpathImports } from "./guard-internal-subpath-imports";
 import { guard as libTestCoverage } from "./guard-lib-test-coverage";
@@ -53,6 +54,7 @@ import { guard as testEsFixtures } from "./guard-test-es-fixtures";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
+import { guard as testTitle } from "./guard-test-title";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
@@ -92,6 +94,8 @@ export const GUARDS = [
   testTemplateDrift,
   fileSize,
   commentIssueRefOnly,
+  testTitle,
+  ignoreTagReason,
 ];
 
 export const GUARD_FLAGS = [

@@ -1,18 +1,18 @@
 #!/usr/bin/env bun
-// Fix für Import-Gaps nach 02-vi-cleanup.
+// Fixes for import gaps after 02-vi-cleanup.
 //
-// Scannt jedes Test-File: welche bun:test-Symbole werden in den call-sites
-// genutzt? Vergleicht mit dem from "bun:test"-Import. Ergänzt fehlende
-// Namen alphabetisch sortiert.
+// Scans each test file: which bun:test symbols are used at the call sites?
+// Compares them with the from "bun:test" import. Adds missing names sorted
+// alphabetically.
 
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";
 
 const PROJECT_ROOT = process.argv[2] ?? process.cwd();
 
-// Symbol → Detektor-Regex (Word-Boundary + Open-Paren oder Identifier-Usage)
-// KEIN /g-Flag! regex.test() mit /g hat lastIndex-state das zwischen
-// Aufrufen leakt. Wir wollen pure boolean ob das Pattern *irgendwo* matched.
+// Symbol → Detector regex (Word-Boundary + Open-Paren or Identifier-Usage)
+// NO /g flag! regex.test() with /g has lastIndex state that leaks between
+// calls. We want a pure boolean indicating whether the pattern matches *anywhere*.
 const SYMBOLS: ReadonlyArray<readonly [string, RegExp]> = [
   ["mock", /\bmock\s*[(<.]/],
   ["spyOn", /\bspyOn\s*\(/],
@@ -28,15 +28,15 @@ const BUN_IMPORT_RE = /^import\s+\{([^}]+)\}\s+from\s+["']bun:test["']\s*;?\s*$/
 async function fixFile(path: string): Promise<boolean> {
   const text = await Bun.file(path).text();
   const importMatch = text.match(BUN_IMPORT_RE);
-  if (!importMatch) return false; // kein bun:test-Import → File nicht relevant
+  if (!importMatch) return false; // no bun:test import → File not relevant
 
   const existing = importMatch[1]!
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Welche Symbole werden im Body genutzt, ABER nicht in Import-Position?
-  // (Body = alles außer dem Import-Statement selbst)
+  // Which symbols are used in the body, BUT not in import position?
+  // (Body = everything except the import statement itself)
   const bodyText = text.replace(importMatch[0], "");
   const needed = new Set<string>();
   for (const [name, regex] of SYMBOLS) {

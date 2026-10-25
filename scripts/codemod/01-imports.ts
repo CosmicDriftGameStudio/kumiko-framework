@@ -75,12 +75,12 @@ function processFile(filePath: string): boolean {
 
   // 3) Handle `vi.hoisted(` — must be removed entirely (manual check or separate script)
   if (content.includes("vi.hoisted(")) {
-    console.warn(`  ⚠️  ${relative(ROOT, filePath)}: vi.hoisted() — manuell prüfen`);
+    console.warn(`  ⚠️  ${relative(ROOT, filePath)}: vi.hoisted() — check manually`);
   }
 
   // 4) Handle `vi.mock(` — separate script
   if (content.includes("vi.mock(")) {
-    console.warn(`  ⚠️  ${relative(ROOT, filePath)}: vi.mock() — manuell prüfen (script 03)`);
+    console.warn(`  ⚠️  ${relative(ROOT, filePath)}: vi.mock() — check manually (script 03)`);
   }
 
   writeFileSync(filePath, content);

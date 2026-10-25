@@ -32,7 +32,7 @@ const SLOGANS: ReadonlyArray<Slogan> = [
 ];
 
 export function TitleBar({ role }: { readonly role: Role }): ReactNode {
-  // Slogan einmal pro Session — useMemo([]) hält ihn stable über re-renders.
+  // Slogan once per session — useMemo([]) keeps it stable across re-renders.
   const slogan = useMemo(
     () => SLOGANS[Math.floor(Math.random() * SLOGANS.length)] ?? SLOGANS[0]!,
     [],

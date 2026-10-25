@@ -50,7 +50,7 @@ describe("files :: feature-definition smoke", () => {
 });
 
 describe("files :: cross-feature behavior (F1, S1.7)", () => {
-  test("Sprint-2-Pattern: ein Consumer-Feature kann r.useExtension(EXT_USER_DATA, fileRef, ...) registrieren", async () => {
+  test("a consumer feature can register r.useExtension(EXT_USER_DATA, fileRef, ...)", async () => {
     // The stub feature simulates the user-data semantics: extendsRegistrar
     // comes from user-data-rights, and useExtension targets fileRef.
     const userDataProvider = defineFeature("test-user-data-provider", (r) => {

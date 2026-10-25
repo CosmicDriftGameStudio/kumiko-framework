@@ -1,26 +1,26 @@
 #!/usr/bin/env bun
 // @runtime tooling
-// regenerate-pattern-docs — generiert die Pattern-Reference-Pages unter
+// regenerate-pattern-docs — generates the Pattern-Reference-Pages under
 // `platform/apps/docs/src/content/docs/{de,en}/patterns/<kind>.mdx`
-// aus einer Inline-Datendefinition. Spiegelt die in `docs-strategy.md`
-// skizzierte "Custom-Generator (ts-morph)"-Idee, bleibt aber ohne
-// ts-morph-Abhängigkeit — die Liste hier wird per Hand gepflegt parallel
-// zu `packages/feature-ast/src/patterns.ts`. Wer einen
-// neuen Pattern-Kind in patterns.ts ergänzt, ergänzt das Doc hier im
-// selben PR; sonst rutscht der Pattern-Type ins Doc-Stub-Loch.
+// from an inline data definition. Mirrors the "Custom-Generator (ts-morph)"
+// idea outlined in `docs-strategy.md`, but remains without a
+// ts-morph dependency — the list here is maintained manually in parallel
+// with `packages/feature-ast/src/patterns.ts`. If a
+// new pattern kind is added to patterns.ts, add the doc here in the
+// same PR; otherwise the pattern type ends up in the doc stub gap.
 //
-// **Warum dieses Script im Hauptrepo lebt** und nicht im Docs-Repo: die
-// Quelle (patterns.ts) lebt hier, die Pflege erfolgt vom selben
-// Entwickler im selben Mental-Model. Output landet via
-// `platform/`-Symlink im Docs-Repo (`kumiko-platform`), git zeigt den
-// Diff dort an — also zwei Commits pro Update (einer pro Repo).
+// **Why this script lives in the main repo** and not in the Docs repo: the
+// source (patterns.ts) lives here, maintenance is done by the same
+// developer using the same mental model. Output lands via the
+// `platform/`-symlink in the Docs repo (`kumiko-platform`), git shows the
+// diff there — so two commits per update (one per repo).
 //
-// Aufruf: `bun run scripts/regenerate-pattern-docs.ts`
+// Invocation: `bun run scripts/regenerate-pattern-docs.ts`
 //
-// Smoke-Validation am Ende: alle `/de/patterns/<x>/`- und
-// `/en/patterns/<x>/`-URLs aus den Bodies werden gegen die wirklich
-// geschriebenen Files geprüft. Bei Drift exit 1 — schützt gegen
-// Casing-Bugs (Starlight slugifiziert auf lowercase) und Tippfehler.
+// Smoke validation at the end: all `/de/patterns/<x>/`- and
+// `/en/patterns/<x>/`-URLs from the bodies are checked against the files
+// actually written. On drift, exit 1 — protects against
+// casing bugs (Starlight slugifies to lowercase) and typos.
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -1101,8 +1101,8 @@ _${labelSource}: \`packages/feature-ast/src/patterns.ts\` → \`${p.tsType}\`_
 // Write
 
 // kumiko/scripts/regenerate-pattern-docs.ts → kumiko/platform/apps/docs/...
-// `platform` ist ein Symlink auf den parallel ausgecheckten
-// `kumiko-platform`-Repo, also schreibt der Generator de-facto dort hin.
+// `platform` is a symlink to the separately checked-out
+// `kumiko-platform` repo, so the generator effectively writes there.
 const REPO_ROOT = resolve(import.meta.dir, "..");
 const DOCS_BASE = join(REPO_ROOT, "platform/apps/docs/src/content/docs");
 const baseDe = join(DOCS_BASE, "de/patterns");
@@ -1120,18 +1120,18 @@ for (const p of PATTERNS) {
 console.log(`Wrote ${written} pattern docs (${PATTERNS.length} kinds × 2 locales).`);
 
 // -------------------------------------------------------------------------
-// Smoke-Validation
+// Smoke validation
 //
-// Starlight slugifiziert File-Namen auf lowercase, also wird
-// `claimKey.mdx` zu `/patterns/claimkey/`. Die Cross-Link-URLs in den
-// Bodies müssen das treffen — ein Tippfehler oder vergessenes
-// lowercase-Match führt zum 404 ohne Build-Warning. Diese Validation
-// fängt das vor dem Commit.
+// Starlight slugifies file names to lowercase, so
+// `claimKey.mdx` becomes `/patterns/claimkey/`. The cross-link URLs in the
+// bodies must match this — a typo or a forgotten
+// lowercase match leads to a 404 without a build warning. This validation
+// catches it before the commit.
 //
-// Pro `/de/patterns/<x>/` oder `/en/patterns/<x>/`-Link im Body wird
-// geprüft, ob `<x>` (case-insensitive) auf einen wirklich geschriebenen
-// File matched. Recipe-/Framework-/Architecture-Links werden NICHT
-// validiert — die leben außerhalb der Generator-Verantwortung.
+// For each `/de/patterns/<x>/` or `/en/patterns/<x>/` link in the body,
+// it is checked whether `<x>` (case-insensitive) matches an actually written
+// file. Recipe-/Framework-/Architecture-links are NOT
+// validated — they live outside the generator's responsibility.
 
 const PATTERN_LINK_RE = /\/(?:de|en)\/patterns\/([a-z0-9-]+)\//gi;
 const writtenSlugs = new Set(
@@ -1165,9 +1165,9 @@ if (broken.length > 0) {
 
 console.log(`✓ Smoke-Validation: alle Pattern-Cross-Links treffen existierende Files.`);
 
-// Sanity-Check: existiert eine patterns.ts und stimmt die Anzahl der
-// Pattern-Kinds einigermaßen überein? Drift-Frühwarnung — wenn jemand
-// `patterns.ts` erweitert ohne dieses Script zu pflegen.
+// Sanity check: does a patterns.ts exist and does the number of
+// pattern kinds roughly match? Early drift warning — if someone
+// extends `patterns.ts` without maintaining this script.
 const PATTERNS_TS = join(
   REPO_ROOT,
   "packages/feature-ast/src/patterns.ts",

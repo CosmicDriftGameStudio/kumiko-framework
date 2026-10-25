@@ -1,14 +1,14 @@
-// Command-Definition + dispatch-context. Symmetrisch zum Probe-Pattern
-// in bin/kumiko-tui/probes — jeder Command lebt in einer eigenen Datei,
-// registriert sich beim Import via defineCommand und wird ge-dispatched
+// Command definition + dispatch context. Symmetric to the Probe-Pattern
+// in bin/kumiko-tui/probes — each command lives in its own file,
+// registers itself on import via defineCommand and is dispatched
 // via runCommand(id, ctx).
 
 export type Role = "maintainer" | "app-dev";
 
 export type Category = "help" | "lifecycle" | "quality" | "code" | "ops";
 
-/** Was an stdout/stderr geht — pluggable damit Tests den Output
- *  einsammeln können statt direkt aufs Terminal zu schreiben. */
+/** What goes to stdout/stderr — pluggable so tests can collect the output
+ *  instead of writing directly to the terminal. */
 export type Output = {
   readonly log: (msg: string) => void;
   readonly warn: (msg: string) => void;
@@ -16,19 +16,19 @@ export type Output = {
 };
 
 export type CommandContext = {
-  /** Args nach dem Command-Namen (entspricht Bun.argv.slice(3) im Legacy). */
+  /** Args after the command name (corresponds to Bun.argv.slice(3) in the legacy version). */
   readonly argv: ReadonlyArray<string>;
-  /** Wo der User den Command aufgerufen hat (NICHT framework-root). */
+  /** Where the user invoked the command (NOT framework-root). */
   readonly cwd: string;
-  /** Aus cwd-Detection, oder via --as Override. */
+  /** From cwd detection, or via --as override. */
   readonly role: Role;
-  /** node_modules/.bin Pfad — Repo-root bevorzugt, sonst cwd. */
+  /** node_modules/.bin path — repo-root preferred, otherwise cwd. */
   readonly binPath: string;
-  /** REPO_ROOT = workspace-parent (cosmicdriftgamestudio/) oder framework-root */
+  /** REPO_ROOT = workspace-parent (cosmicdriftgamestudio/) or framework-root */
   readonly repoRoot: string;
-  /** Aus KUMIKO_CLI_SCOPE env-var, scope für quality-checks. */
+  /** From KUMIKO_CLI_SCOPE env-var, scope for quality checks. */
   readonly scope: string | undefined;
-  /** Output-handler — Default ist console, in tests injected. */
+  /** Output handler — default is console, injected in tests. */
   readonly out: Output;
 };
 

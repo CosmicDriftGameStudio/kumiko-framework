@@ -54,7 +54,7 @@ describe("kumiko-guards comment-lang", () => {
     expect(isGermanComment("// returns the value when present")).toBe(false);
     const sites = scanGermanComments(
       [
-        ["const a = `$", "{{ x: 1 }.x}`; // Prüfung"].join(""),
+        ["const a = `$", "{{ x: 1 }.x}`; // prüfen"].join(""),
         "// kumiko-lint-ignore comment-lang legacy text für Tests",
         "const b = 1;",
       ].join("\n"),
@@ -72,7 +72,25 @@ describe("kumiko-guards comment-lang", () => {
 
   test("a real German sentence is flagged by markers or by an umlaut alone", () => {
     expect(isGermanComment("// Der Wert wird nicht gespeichert, wenn er fehlt")).toBe(true);
-    expect(isGermanComment("// Prüfung")).toBe(true);
+    expect(isGermanComment("// wir prüfen den Wert")).toBe(true);
+    expect(isGermanComment("// Prüfung bei Zürich")).toBe(true);
+    expect(isGermanComment("// Der Wert wird nicht gespeichert")).toBe(true);
+  });
+
+  test("a weak German function word counts only together with an umlaut", () => {
+    expect(isGermanComment("// Prüfe ob vi.hoisted in derselben Datei steht")).toBe(true);
+    expect(isGermanComment("// Dünn, sammelt nur die Features")).toBe(true);
+    expect(isGermanComment("// Ausgewähltes Segment zeigt jetzt aria-checked")).toBe(true);
+    expect(isGermanComment("// nur ein Zürich-Fixture")).toBe(true);
+    expect(isGermanComment("// check one thing, nur der Name")).toBe(false);
+  });
+
+  test("a capitalised word with an umlaut alone is a proper noun, not German prose", () => {
+    expect(isGermanComment("// Müller GmbH")).toBe(false);
+    expect(isGermanComment("// Zürich")).toBe(false);
+    expect(isGermanComment("// Ärzte-Liste")).toBe(false);
+    expect(isGermanComment("// fixture: Müller GmbH in Zürich")).toBe(false);
+    expect(isGermanComment("// Prüfung")).toBe(false);
   });
 
   test("scanner honours the ignore tag inside a comma-separated slug list", () => {

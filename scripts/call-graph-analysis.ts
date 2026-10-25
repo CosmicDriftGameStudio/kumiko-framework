@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Call-Graph Analyse — findet Thin-Wrapper und Konvergenz-Hotspots.
+ * Call-Graph Analysis — finds thin wrappers and convergence hotspots.
  *
- *   bun scripts/call-graph-analysis.ts                        # nur framework/packages
- *   bun scripts/call-graph-analysis.ts --all                  # alle Repos im Workspace
- *   bun scripts/call-graph-analysis.ts --hotspots             # nur Konvergenz
- *   bun scripts/call-graph-analysis.ts --wrappers             # nur Thin-Wrapper
- *   bun scripts/call-graph-analysis.ts --top 20               # Top-N-Hotspots
+ *   bun scripts/call-graph-analysis.ts                        # framework/packages only
+ *   bun scripts/call-graph-analysis.ts --all                  # all repos in the workspace
+ *   bun scripts/call-graph-analysis.ts --hotspots             # convergence only
+ *   bun scripts/call-graph-analysis.ts --wrappers             # thin wrappers only
+ *   bun scripts/call-graph-analysis.ts --top 20               # top-N hotspots
  */
 // @ts-nocheck — Bun-script, nicht im tsc-Graph
 import { join, relative } from "node:path";
@@ -36,7 +36,7 @@ const ALL_REPOS = args.includes("--all");
 const FRAMEWORK_ROOT = join(import.meta.dir, "..");
 const WORKSPACE_ROOT = join(FRAMEWORK_ROOT, "..");
 
-// Bekannte App-Repos mit ihren Quellpfaden (relativ zum Workspace-Root)
+// Known app repos with their source paths (relative to the workspace root)
 const SCAN_ROOTS = ALL_REPOS
   ? [
       join(FRAMEWORK_ROOT, "packages"),
@@ -74,7 +74,7 @@ const BUILTIN_NAMES = new Set([
   "send","emit","on","off","once","next","done","throw","return",
 ]);
 
-// ── Typen ─────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type FnNode = FunctionDeclaration | ArrowFunction | FunctionExpression;
 
@@ -85,12 +85,12 @@ interface FnInfo {
   callees: string[];
   paramCount: number;
   statementCount: number;
-  isSwitchBody: boolean;       // body besteht nur aus einem switch-Statement
-  returnsFunction: boolean;    // body returned eine Arrow-/FunctionExpression (Factory-Pattern)
-  isDirectDelegation: boolean; // der einzige Call ist direkt das Return-Value (nicht in Template/Objekt eingebettet)
+  isSwitchBody: boolean;       // body consists only of a switch statement
+  returnsFunction: boolean;    // body returns an Arrow-/FunctionExpression (Factory pattern)
+  isDirectDelegation: boolean; // the only call is directly the return value (not embedded in a template/object)
 }
 
-// ── AST-Hilfsfunktionen ───────────────────────────────────────────────────────
+// ── AST helper functions ───────────────────────────────────────────────────────
 
 function getFnName(node: FnNode): string | undefined {
   if (node.isKind(SyntaxKind.FunctionDeclaration)) return node.getName();
@@ -129,12 +129,12 @@ function bodyMeta(node: FnNode): {
 } {
   const rawBody =
     node.isKind(SyntaxKind.ArrowFunction) && !node.getBody().isKind(SyntaxKind.Block)
-      ? null  // concise arrow: x => expr — kein Block
+      ? null  // concise arrow: x => expr — no block
       : node.getBody();
 
   if (!rawBody || !rawBody.isKind(SyntaxKind.Block)) {
     // Concise arrow (expr body): `x => someCall(x)`
-    // isDirectDelegation = true nur wenn der Body selbst eine CallExpression ist
+    // isDirectDelegation = true only if the body itself is a CallExpression
     const body = node.getBody();
     const isDirectDelegation = body?.isKind(SyntaxKind.CallExpression) ?? false;
     return { statementCount: 1, isSwitchBody: false, returnsFunction: false, isDirectDelegation };
@@ -158,10 +158,10 @@ function bodyMeta(node: FnNode): {
       expr?.isKind(SyntaxKind.ArrowFunction) ||
       expr?.isKind(SyntaxKind.FunctionExpression) ||
       false;
-    // Direkte Delegation: `return someCall(...)` — kein Template, kein Objekt-Wrapper
+    // Direct delegation: `return someCall(...)` — no template, no object wrapper
     isDirectDelegation = expr?.isKind(SyntaxKind.CallExpression) ?? false;
   } else if (single.isKind(SyntaxKind.ExpressionStatement)) {
-    // `someCall(...)` ohne return (void-Wrapper)
+    // `someCall(...)` without return (void wrapper)
     const expr = single.getExpression();
     isDirectDelegation = expr?.isKind(SyntaxKind.CallExpression) ?? false;
   }
@@ -169,7 +169,7 @@ function bodyMeta(node: FnNode): {
   return { statementCount: count, isSwitchBody, returnsFunction, isDirectDelegation };
 }
 
-// ── Wrapper-Erkennung ─────────────────────────────────────────────────────────
+// ── Wrapper detection ─────────────────────────────────────────────────────────
 
 function isThinWrapper(fn: FnInfo): { verdict: boolean; reason: string } {
   if (fn.statementCount > 1) return { verdict: false, reason: "" };
@@ -178,12 +178,12 @@ function isThinWrapper(fn: FnInfo): { verdict: boolean; reason: string } {
   if (!fn.isDirectDelegation) return { verdict: false, reason: "" }; // call in Template/Objekt ≠ wrapper
   if (fn.callees.length !== 1) return { verdict: false, reason: "" };
   if (BUILTIN_NAMES.has(fn.callees[0])) return { verdict: false, reason: "" };
-  if (fn.callees[0] === fn.name) return { verdict: false, reason: "" }; // Delegation-FP / Rekursion
+  if (fn.callees[0] === fn.name) return { verdict: false, reason: "" }; // Delegation-FP / recursion
 
   return { verdict: true, reason: `delegiert zu \`${fn.callees[0]}\`` };
 }
 
-// ── Projekt laden ─────────────────────────────────────────────────────────────
+// ── Load project ─────────────────────────────────────────────────────────────
 
 console.log(`\nLade TypeScript-Projekt …`);
 console.log(`  Scan: ${SCAN_ROOTS.map((r) => shortPath(r)).join(", ")}\n`);
@@ -207,7 +207,7 @@ for (const root of SCAN_ROOTS) {
 const sourceFiles = project.getSourceFiles();
 console.log(`  ${sourceFiles.length} Dateien geladen.`);
 
-// ── Funktionen einsammeln ─────────────────────────────────────────────────────
+// ── Collect functions ─────────────────────────────────────────────────────
 
 const allFns: FnInfo[] = [];
 
@@ -252,7 +252,7 @@ for (const fn of allFns) {
   }
 }
 
-// ── Ausgabe: Hotspots ─────────────────────────────────────────────────────────
+// ── Output: hotspots ─────────────────────────────────────────────────────────
 
 if (SHOW_HOTSPOTS) {
   console.log("═══════════════════════════════════════════════════════");
@@ -298,7 +298,7 @@ if (SHOW_HOTSPOTS) {
   }
 }
 
-// ── Ausgabe: Thin-Wrapper ─────────────────────────────────────────────────────
+// ── Output: thin wrappers ─────────────────────────────────────────────────────
 
 if (SHOW_WRAPPERS) {
   console.log("═══════════════════════════════════════════════════════");

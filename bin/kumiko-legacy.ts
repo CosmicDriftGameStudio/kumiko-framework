@@ -61,7 +61,7 @@ function checkEnv(): void {
   }
 
   if (missing.length > 0) {
-    console.warn(`\n  Hmm, da fehlt was:\n${missing.join("\n")}\n  -> cp .env.example .env\n`);
+    console.warn(`\n  Hmm, something is missing:\n${missing.join("\n")}\n  -> cp .env.example .env\n`);
   } else {
     console.log("  ENV ok");
   }
@@ -130,9 +130,9 @@ const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 const KUMIKO_CLI = resolvePath(import.meta.dir, "..", "packages", "cli", "bin", "cli.ts");
 
-// Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
-// danach Unit-Tests (+ Integration lokal, nicht in CI) an; `kumiko check:fast`
-// hängt nur `bun test --changed` an und skipt Integration komplett.
+// Shared list of CPU-bound, short-running steps. `kumiko check` appends
+// unit tests afterwards (+ integration locally, not in CI); `kumiko check:fast`
+// appends only `bun test --changed` and skips integration entirely.
 // Optional scope-down via env-var: `KUMIKO_CLI_SCOPE=kumiko-framework`
 // (or comma-separated list) limits Biome/TypeScript per-repo steps + the
 // Unit-Tests-loop to those repos. Used by the pre-push hook so "push
@@ -290,8 +290,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("App-Dockerfile Guard skipped: infra/guards not in workspace (CI-standalone).");
   }
-  // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
-  // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
+  // Baseline regression guard (infra#295): fails only on NEW DE comments,
+  // existing hits are frozen via .kumiko-comment-lang-baseline.json.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guards comment-lang" });
   steps.push({
     name: "Public-Exports-Changelog Guard",
@@ -326,17 +326,17 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
       });
     }
   }
-  // Baseline-Regression-Guard (infra#440): failt nur bei NEUEN strukturellen
-  // Duplikaten (cross-module/cross-file), Altbestand via
-  // .kumiko-semantic-duplicates-baseline.json eingefroren. Cross-repo scan
-  // (siehe roots.ts) — läuft nur aus der Parent-Workspace heraus, kein bunx-
-  // Fallback (Standalone-Checkout hat keine Sibling-Repos zum Scannen).
+  // Baseline regression guard (infra#440): fails only on NEW structural
+// duplicates (cross-module/cross-file), existing entries via
+// .kumiko-semantic-duplicates-baseline.json frozen. Cross-repo scan
+// (see roots.ts); runs only from the parent workspace, no bunx
+// fallback (a standalone checkout has no sibling repos to scan).
   const semanticDuplicatesGuard = join(REPO_ROOT, "infra/guards/guard-semantic-duplicates.ts");
   if (existsSync(semanticDuplicatesGuard)) {
     steps.push({ name: "Semantic-Duplicates Guard", cmd: `bun ${semanticDuplicatesGuard}` });
   } else {
     console.log(
-      "Semantic-Duplicates Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
+      "Semantic-Duplicates guard skipped: infra/guards not in workspace (CI-standalone).",
     );
   }
   // Stay on 0.x — block major changesets and package.json major ≥ 1 (accidental 1.0/2.0).
@@ -370,7 +370,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(rawSqlGuard)) {
     steps.push({ name: "Raw-SQL Guard", cmd: `bun ${rawSqlGuard}` });
   } else {
-    console.log('Raw-SQL Guard übersprungen: bereits über "kumiko check" abgedeckt.');
+    console.log('Raw-SQL guard skipped: already covered by "kumiko check".');
   }
   steps.push({ name: "License Check", cmd: "bunx kumiko-guards licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-guards security" });
@@ -380,14 +380,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(secretLiteralGuard)) {
     steps.push({ name: "Secret-Literal Guard", cmd: `bun ${secretLiteralGuard}` });
   } else {
-    console.log("Secret-Literal Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+    console.log("Secret-Literal guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   const processEnvGuard = join(REPO_ROOT, "infra/guards/guard-no-direct-process-env.ts");
   if (existsSync(processEnvGuard)) {
     steps.push({ name: "No-Direct-Process-Env Guard", cmd: `bun ${processEnvGuard}` });
   } else {
     console.log(
-      "No-Direct-Process-Env Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
+      "No-Direct-Process-Env guard skipped: infra/guards not in workspace (CI-standalone).",
     );
   }
   // No bunx fallback here on purpose: the guard checks GUARD_REPO_PRESETS (the
@@ -398,13 +398,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(renovatePresetsGuard)) {
     steps.push({ name: "Renovate-Presets Guard", cmd: `bun ${renovatePresetsGuard}` });
   } else {
-    console.log("Renovate-Presets Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+    console.log("Renovate-Presets guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   const subpathExportsGuard = join(REPO_ROOT, "infra/guards/check-subpath-exports.ts");
   if (existsSync(subpathExportsGuard)) {
     steps.push({ name: "Subpath-Exports Guard", cmd: `bun ${subpathExportsGuard}` });
   } else {
-    console.log("Subpath-Exports Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+    console.log("Subpath-Exports guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   // No bunx fallback here on purpose (infra#538): the guard reads the parent's
   // own `workspaces` array, not just whatever siblings happen to exist — it
@@ -413,7 +413,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(workspaceDriftGuard)) {
     steps.push({ name: "Workspace-Drift Guard", cmd: `bun ${workspaceDriftGuard}` });
   } else {
-    console.log("Workspace-Drift Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+    console.log("Workspace-Drift guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-guards outdated" });
 
@@ -452,8 +452,8 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
       });
     }
 
-    // DOM/render tests (*.test.tsx) laufen getrennt vom node-only Unit-Lauf
-    // (Issue #1330) — Repos mit bunfig.dom.toml kriegen einen eigenen Step.
+    // DOM/render tests (*.test.tsx) run separately from the node-only unit run
+    // (Issue #1330) — repos with bunfig.dom.toml get their own step.
     if (existsSync(join(absPath, "bunfig.dom.toml"))) {
       steps.push({
         name: `DOM Tests (${root.kind})`,
@@ -482,50 +482,51 @@ const INTEGRATION_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cm
 
 const commands = {
   dev: {
-    description: "Feuer frei! Docker Services hochfahren",
+    description: "Here we go! Start Docker services",
     run: async () => {
-      console.log("Wecke PostgreSQL und Redis auf...");
+      console.log("Wake up PostgreSQL and Redis...");
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
       console.log(`  PostgreSQL   localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
       console.log(`  Redis        localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
       console.log(`  Meilisearch  localhost:${Bun.env.KUMIKO_MEILI_PORT ?? "17700"}`);
       console.log(`  MinIO (S3)   localhost:${Bun.env.KUMIKO_MINIO_PORT ?? "19000"}`);
-      console.log("\nLaeuft! Happy coding.");
+      console.log("\nRunning! Happy coding.");
     },
   },
 
   stop: {
-    description: "Feierabend. Docker Services stoppen",
+    description: "Done for the day. Stop Docker services",
     run: async () => {
-      console.log("Fahre alles runter...");
+      console.log("Shutting everything down...");
       await $`docker compose down`.quiet();
-      console.log("Alles aus. Bis morgen!");
+      console.log("Everything off. See you tomorrow!");
     },
   },
 
   reset: {
-    description: "Tabula rasa. Alles platt, alles neu",
+    description: "Tabula rasa. Everything wiped, everything new",
     run: async () => {
-      console.log("Loesche alles und starte frisch...");
+      console.log("Delete everything and start fresh...");
       await $`docker compose down -v`.quiet();
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
-      console.log("Wie neu. Kein Byte ueberlebt.");
+      console.log("Like new. No byte survives.");
     },
   },
 
   build: {
-    description: "Production-Build für eine App (dist/) — nimmt path oder $INIT_CWD",
+    description: "Production build for an app (dist/) — takes path or $INIT_CWD",
     run: async () => {
-      // Discovery + Bun.build + Tailwind + Public-Folder-Copy.
-      // Convention-driven: src/client.tsx → bundle, src/styles.css →
-      // Tailwind, public/ → 1:1, index.html → Template. Output landet
-      // unter <cwd>/dist.
-      //
-      // CWD-Resolution:
-      //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
-      //   2. $INIT_CWD (yarn-Workspace-Aufruf)  → cd <app> && yarn build
+      // Discovery + Bun.build + Tailwind + Public-folder copy.
+// Convention-driven: src/client.tsx → bundle, src/styles.css →
+// Tailwind, public/ → 1:1, index.html → Template. Output lands
+// under <cwd>/dist.
+//
+// CWD-Resolution:
+//   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
+//   2. $INIT_CWD (yarn workspace invocation)  → cd <app> && yarn build
+//   3. process.cwd() (fallback)arn build
       //   3. process.cwd() (fallback)
       const { buildProdBundle, formatBuildResult } = await import("@cosmicdrift/kumiko-dev-server/build");
       const explicit = Bun.argv[3];
@@ -540,16 +541,16 @@ const commands = {
   },
 
   create: {
-    description: "Scaffold eine leere Feature-Workspace — kumiko create <camelCaseName> [--path <dir>]",
+    description: "Scaffold an empty feature workspace — kumiko create <camelCaseName> [--path <dir>]",
     run: async () => {
       // CLI: bun kumiko create <name> [--path <destination>]
-      //   <name>: required, camelCase feature-Identifier (validiert)
-      //   --path: optional Override; default samples/recipes/<kebab-name>/
-      //
-      // Output: minimal-Workspace mit package.json + src/feature.ts.
-      // feature.ts ist canonical Object-Form (// kumiko-feature-version: 1)
-      // mit einem Starter-Entity — direkt durch parser/patcher
-      // weiterbearbeitbar. bun install nach create für Workspace-Wiring.
+//   <name>: required, camelCase feature identifier (validated)
+//   --path: optional override; default samples/recipes/<kebab-name>/
+//
+// Output: minimal workspace with package.json + src/feature.ts.
+// feature.ts is canonical Object form (// kumiko-feature-version: 1)
+// with a starter entity — directly editable through the parser/patcher
+// afterwards. Run bun install after create for workspace wiring.
       const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
       const args = Bun.argv.slice(3);
       const name = args.find((a) => !a.startsWith("--"));
@@ -582,7 +583,7 @@ const commands = {
   },
 
   "clean-test-dbs": {
-    description: "Verwaiste kumiko_test_* DBs loeschen (SIGKILLed Tests, abgebrochene Runs)",
+    description: "Delete orphaned kumiko_test_* DBs (SIGKILLed tests, aborted runs)",
     run: async () => {
       const dryRun = Bun.argv.includes("--dry-run");
       if (dryRun) {
@@ -594,26 +595,26 @@ const commands = {
   },
 
   test: {
-    description: "Tests laufen lassen (test | integration | e2e | all | <path>)",
+    description: "Run tests (test | integration | e2e | all | <path>)",
     run: async () => {
       const scope = Bun.argv[3];
       if (scope === "all") {
-        console.log("Volle Breitseite — Unit + DOM + Integration...\n");
+        console.log("Full blast — Unit + DOM + Integration...\n");
         await $`bun test --dots`;
         if (existsSync("bunfig.dom.toml")) {
           await $`bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx`;
         }
         await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "integration") {
-        console.log("Integration Tests (Docker muss laufen)...\n");
+        console.log("Integration tests (Docker must be running)...\n");
         await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "e2e") {
-        // E2E laufen opt-in (nicht Teil von `kumiko check`). Jedes
-        // Package/Sample mit einer playwright.config.ts kriegt einen
-        // eigenen Run — der webServer-Hook bootet den echten dev-
-        // server pro Config. Docker muss laufen (Postgres + Redis wie
-        // Integration-Tests). Packages zuerst (kleinerer Scope),
-        // dann Sample-Apps + Showcases.
+        // E2E runs opt-in (not part of `kumiko check`). Each
+        // Package/Sample with a playwright.config.ts gets a
+        // separate run — the webServer hook boots the real dev-
+        // server per Config. Docker must be running (Postgres + Redis, like the
+        // integration tests). Packages first (smaller scope),
+        // then Sample apps + Showcases.
         const { readdir } = await import("node:fs/promises");
         const targets: Array<{ root: string; name: string }> = [];
         const roots = ["packages", "samples/apps", "samples/showcases"];
@@ -627,7 +628,7 @@ const commands = {
         }
         if (targets.length === 0) {
           console.log(
-            "Keine E2E-Configs gefunden (packages/*/playwright.config.ts oder samples/{apps,showcases}/*/playwright.config.ts).",
+            "No E2E configs found (packages/*/playwright.config.ts or samples/{apps,showcases}/*/playwright.config.ts).",
           );
           return;
         }
@@ -635,9 +636,9 @@ const commands = {
         console.log(`E2E via Playwright — ${targets.length} Target(s): ${labels}\n`);
         for (const target of targets) {
           console.log(`\n=== ${target.root}/${target.name} ===`);
-          // Yarn 4 sucht `yarn <bin>` nur in den direct-deps des Workspace.
-          // `@playwright/test` ist nur in root-package.json → wir invocieren
-          // den hoisted-bin direkt aus root-node_modules/.bin/.
+          // Yarn 4 resolves `yarn <bin>` only from the workspace's direct deps,
+          // and `@playwright/test` lives only in the root package.json, so we
+          // invoke the hoisted bin directly from the root node_modules/.bin/.
           const playwrightBin = `${process.cwd()}/node_modules/.bin/playwright`;
           await $`${playwrightBin} test`.cwd(`${target.root}/${target.name}`);
         }
@@ -650,7 +651,7 @@ const commands = {
   },
 
   check: {
-    description: "Alles pruefen: Lint, Types, Tests",
+    description: "Check everything: Lint, Types, Tests",
     run: async () => {
       // Parallel dedup: two concurrent `kumiko check` runs for the SAME
       // scope should only do the real work once. The first call holds the
@@ -674,7 +675,7 @@ const commands = {
       registerLockCleanup(lockDir);
 
       logBoth(`${formatCheckWorkContext(workCtx)}\n`, logPath);
-      logBoth("Checke alles durch...\n", logPath);
+      logBoth("Check everything...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
       logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`, logPath);
@@ -682,12 +683,12 @@ const commands = {
       for (const r of fastResults) results.push(r);
       logBoth("", logPath);
 
-      // KUMIKO_CHECK=1 weckt den höheren Vitest-Thread-Cap (8 statt 4)
-      // in vitest.config.ts auf — die Box ist eh gesättigt während eines
-      // check-Laufs, da soll Wall-Time zählen. Im Watch-Mode/IDE bleibt
-      // der konservative Default aktiv.
-      //
-      // Integration-Tests lokal in `check`, in CI skip (brauchen Docker-Stack).
+      // KUMIKO_CHECK=1 enables the higher Vitest thread cap (8 instead of 4)
+// in vitest.config.ts — the box is saturated anyway during a
+// check run, so wall-time should count. In Watch mode/IDE the
+// conservative default stays active.
+//
+// Integration tests locally in `check`, skip in CI (require Docker stack). skip (requires Docker stack).
       for (const step of UNIT_TEST_STEPS) {
         logBoth(`--- ${step.name} ---`, logPath);
         const code = await runWithTee(step.cmd, logPath, step.name);
@@ -707,7 +708,7 @@ const commands = {
       }
 
       const allGood = results.every((r) => r.ok);
-      logBoth(allGood ? "Alles im gruenen Bereich!" : "Da gibt's was zu tun:", logPath);
+      logBoth(allGood ? "All green!" : "Some steps need attention:", logPath);
       for (const r of results) {
         logBoth(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`, logPath);
       }
@@ -718,23 +719,23 @@ const commands = {
   },
 
   "check:fast": {
-    description: "Schneller Check (skip Integration, Unit-Tests nur --changed)",
+    description: "Fast check (skip Integration, Unit tests only --changed)",
     run: async () => {
-      // Bewusst kein Lock und kein Tee-Logfile — check:fast ist für die
-      // schnelle Iteration zwischendurch (5-15s), keine geteilte CI-
-      // Operation. Wenn jemand parallel `kumiko check` laufen lässt,
-      // gibt's IO-Contention auf .tsbuildinfo aber kein realer Konflikt.
-      console.log("Schneller Check — Integration wird geskippt.\n");
+      // Deliberately no lock and no Tee logfile — check:fast is for
+      // quick iteration in between (5-15s), not a shared CI-
+      // operation. If someone runs `kumiko check` in parallel,
+      // there's IO contention on .tsbuildinfo but no actual conflict.
+      console.log("Fast check — Integration is skipped.\n");
       const results: Array<{ name: string; ok: boolean }> = [];
 
       console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`);
-      // runPoolBuffered braucht einen logPath; wir geben /dev/null —
-      // Output zeigt eh die ✓/✗-Live-Zeile pro Step plus failed-Outputs.
+      // runPoolBuffered requires a logPath; we pass /dev/null —
+      // Output shows the ✓/✗ live line per step plus failed outputs anyway.
       const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, "/dev/null");
       for (const r of fastResults) results.push(r);
       console.log();
 
-      console.log("--- Unit Tests (nur --changed) ---");
+      console.log("--- Unit Tests (only --changed) ---");
       const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 bun test --dots --changed"], {
         stdout: "inherit",
         stderr: "inherit",
@@ -745,36 +746,36 @@ const commands = {
       console.log();
 
       const allGood = results.every((r) => r.ok);
-      console.log(allGood ? "Fast-Check grün." : "Fast-Check rot:");
+      console.log(allGood ? "Fast check green." : "Fast check red:");
       for (const r of results) {
         console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
       }
-      console.log("\nVor Commit: `kumiko check` für die volle Suite (inkl. Integration).");
+      console.log("\nBefore commit: `kumiko check` for the full suite (including Integration).");
       if (!allGood) process.exit(1);
     },
   },
 
-  // CI-only Subcommands — splitten FAST_CHECK_STEPS auf parallele
-  // GitHub-Actions-Jobs. Trade-off zur Single-`kumiko check`-CLI: in CI
-  // wall-time-halbieren via Job-Parallelismus, lokal bleibt `kumiko
-  // check` weiter der single-call-aggregator.
+  // CI-only subcommands — split FAST_CHECK_STEPS into parallel
+  // GitHub-Actions jobs. Trade-off to the single-`kumiko check`-CLI: in CI
+  // halve wall-time via job parallelism, locally `kumiko
+  // check` remains the single-call aggregator.
   //
-  // Drift-Schutz: ci:guards rennt FAST_CHECK_STEPS minus der explizit
-  // benannten Lint/TSC-Steps. Neue Guards in FAST_CHECK_STEPS landen
-  // automatisch im CI-guards-Job, ohne dass man ci.yml anfassen muss.
+  // Drift protection: ci:guards runs FAST_CHECK_STEPS minus the explicitly
+  // named Lint/TSC steps. New guards in FAST_CHECK_STEPS end up
+  // automatically in the CI-guards job, without touching ci.yml.
   "ci:guards": {
-    description: "CI-only — alle Guards/Audits aus FAST_CHECK_STEPS außer Lint/TSC (parallel)",
+    description: "CI-only — all guards/audits from FAST_CHECK_STEPS except Lint/TSC (parallel)",
     run: async () => {
-      // Lint und TSC laufen in eigenen CI-Jobs — hier raus, sonst
-      // doppelter Aufwand. Diese drei Namen sind die einzige Stelle
-      // an der die Aufteilung manuell definiert wird; alles andere
-      // wird automatisch erfasst.
+      // Lint and TSC run in separate CI jobs — excluded here, otherwise
+      // duplicate effort. These three names are the only place
+      // where the split is defined manually; everything else
+      // is captured automatically.
       const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (framework + samples)"]);
       const guards = FAST_CHECK_STEPS.filter((s) => !SPLIT_OUT.has(s.name));
       console.log(`--- ${guards.length} guards (parallel, pool=${FAST_POOL}) ---`);
       const results = await runPoolBuffered(guards, FAST_POOL, "/dev/null");
       const allGood = results.every((r) => r.ok);
-      console.log(allGood ? "\nGuards grün." : "\nGuards rot:");
+      console.log(allGood ? "\nGuards green." : "\nGuards red:");
       for (const r of results) {
         console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
       }
@@ -783,7 +784,7 @@ const commands = {
   },
 
   status: {
-    description: "Was geht? Services, Git, alles auf einen Blick",
+    description: "What's up? Services, Git, everything at a glance",
     run: async () => {
       // Docker services
       console.log("--- Services ---");
@@ -809,7 +810,7 @@ const commands = {
   },
 
   project: {
-    description: "Projections verwalten (list | status <name> | rebuild <name>)",
+    description: "Manage projections (list | status <name> | rebuild <name>)",
     run: async () => {
       const subCommand = Bun.argv[3];
       const arg = Bun.argv[4];
@@ -821,8 +822,8 @@ const commands = {
       const configPath = `${process.cwd()}/kumiko.config.ts`;
       if (!existsSync(configPath)) {
         console.error(
-          `\n  kumiko.config.ts nicht gefunden: ${configPath}\n\n` +
-            `  Erstelle eine Datei, die deine features exportiert:\n\n` +
+          `\n  kumiko.config.ts not found: ${configPath}\n\n` +
+            `  Create a file that exports your features:\n\n` +
             `    // kumiko.config.ts\n` +
             `    import { myFeature } from "./src/features/my-feature";\n` +
             `    export default { features: [myFeature] };\n`,
@@ -868,10 +869,10 @@ const commands = {
         case "list": {
           const entries = await listProjectionsWithState(db, registry);
           if (entries.length === 0) {
-            console.log("\n  Keine Projections registriert.\n");
+            console.log("\n  No projections registered.\n");
             break;
           }
-          console.log("\n  Registrierte Projections:\n");
+          console.log("\n  Registered projections:\n");
           for (const e of entries) {
             const when = e.lastRebuildAt
               ? e.lastRebuildAt.toISOString()
@@ -896,7 +897,7 @@ const commands = {
             // Check if the projection is at least registered.
             const registered = registry.getAllProjections().has(arg);
             if (!registered) {
-              console.error(`\n  Projection "${arg}" ist nicht registriert.\n`);
+              console.error(`\n  Projection "${arg}" is not registered.\n`);
               process.exit(1);
             }
             console.log(`\n  ${arg}: ${dim}never-rebuilt${reset}\n`);
@@ -950,7 +951,7 @@ const commands = {
 
   events: {
     description:
-      "Events-Tabelle verwalten (prune --aggregate-types <a,b> [--older-than <days>] [--dry-run])",
+      "Manage events table (prune --aggregate-types <a,b> [--older-than <days>] [--dry-run])",
     run: async () => {
       const subCommand = Bun.argv[3];
 
@@ -1038,7 +1039,7 @@ const commands = {
 
   consumer: {
     description:
-      "Event-Consumer verwalten (list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>)",
+      "Manage event consumers (list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>)",
     run: async () => {
       const subCommand = Bun.argv[3];
       const arg = Bun.argv[4];
@@ -1046,8 +1047,8 @@ const commands = {
       const configPath = `${process.cwd()}/kumiko.config.ts`;
       if (!existsSync(configPath)) {
         console.error(
-          `\n  kumiko.config.ts nicht gefunden: ${configPath}\n\n` +
-            `  Erstelle eine Datei, die deine features exportiert:\n\n` +
+          `\n  kumiko.config.ts not found: ${configPath}\n\n` +
+            `  Create a file that exports your features:\n\n` +
             `    // kumiko.config.ts\n` +
             `    import { myFeature } from "./src/features/my-feature";\n` +
             `    export default { features: [myFeature] };\n`,
@@ -1113,10 +1114,10 @@ const commands = {
           case "list": {
             const entries = await listConsumersWithState(db, registeredConsumerNames);
             if (entries.length === 0) {
-              console.log("\n  Keine Event-Consumer registriert.\n");
+              console.log("\n  No event consumers registered.\n");
               break;
             }
-            console.log("\n  Registrierte Event-Consumer:\n");
+            console.log("\n  Registered event consumers:\n");
             for (const e of entries) {
               const errHint = e.lastError ? ` ${red}error${reset}=${e.lastError.slice(0, 60)}` : "";
               console.log(
@@ -1136,7 +1137,7 @@ const commands = {
             if (!state) {
               if (!registeredConsumerNames.includes(arg)) {
                 console.error(
-                  `\n  Consumer "${arg}" ist nicht registriert. Liste via "bun kumiko consumer list".\n`,
+                  `\n  Consumer "${arg}" is not registered. List via "bun kumiko consumer list".\n`,
                 );
                 process.exit(1);
               }
@@ -1221,7 +1222,7 @@ const commands = {
   },
 
   doctor: {
-    description: "Health check. Vermutlich alles okay.",
+    description: "Health check. Probably everything okay.",
     run: async () => {
       const green = "\x1b[32m";
       const red = "\x1b[31m";
@@ -1309,7 +1310,7 @@ const commands = {
 
   codemod: {
     description:
-      "Code-Migrationen — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
+      "Code migrations — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
     run: async () => {
       const subcommand = Bun.argv[3];
       if (subcommand !== "pipeline") {
@@ -1349,9 +1350,9 @@ const commands = {
 // --- Interactive menu ---
 
 async function interactiveMenu(): Promise<void> {
-  // Sprint A spike: Ink-TUI für interactive Browsing. Wenn das Modul
-  // nicht installiert oder Ink lädt fehlschlägt, fallback auf das alte
-  // Number-Input-Menü (keep working-on-any-machine garantie).
+  // Sprint A spike: Ink-TUI for interactive browsing. If the module
+  // is not installed or Ink fails to load, fall back to the old
+  // Number-Input menu (keep working-on-any-machine guarantee).
   if (process.stdout.isTTY) {
     try {
       const { runTui } = await import("./kumiko-tui/index.tsx");
@@ -1359,7 +1360,7 @@ async function interactiveMenu(): Promise<void> {
       return;
     } catch (e) {
       console.warn(
-        `\n  Ink-TUI nicht verfügbar (${e instanceof Error ? e.message : "?"}), fallback to legacy menu.\n`,
+        `\n  Ink-TUI unavailable (${e instanceof Error ? e.message : "?"}), fallback to legacy menu.\n`,
       );
     }
   }
@@ -1367,11 +1368,11 @@ async function interactiveMenu(): Promise<void> {
   const entries = Object.entries(commands);
 
   banner();
-  console.log("  Was soll's sein?\n");
+  console.log("  What'll it be?\n");
   entries.forEach(([name, cmd], i) => {
     console.log(`  ${i + 1}) ${name.padEnd(10)} ${cmd.description}`);
   });
-  console.log(`  q) tschuess\n`);
+  console.log(`  q) bye\n`);
 
   process.stdout.write("  > ");
 
@@ -1428,7 +1429,7 @@ function prost(): void {
   console.log(`${yellow}         |cccc|${reset}`);
   console.log(`${yellow}         \`-==-'${reset}`);
   console.log();
-  console.log(`  🍺 Prost!`);
+  console.log(`  🍺 Cheers!`);
   console.log(`${dim}  "${toast}"${reset}`);
   console.log();
 }
@@ -1460,15 +1461,15 @@ function logBoth(line: string, logPath: string): void {
   }
 }
 
-// Worker-Pool für CPU-bound, kurzlaufende Steps. Jeder Step kriegt einen
-// In-Memory-Output-Buffer; das Ergebnis wird in Original-Reihenfolge auf
-// stdout und in die Log-Datei serialisiert. Live-Output geht damit
-// verloren — das ist OK für Guards/Lints (Sekunden-Range, Output ist
-// klein), aber für Unit/Integration Tests bewusst NICHT (siehe runWithTee).
+// Worker pool for CPU-bound, short-lived steps. Each step gets an
+// in-memory output buffer; the result is serialized in original order to
+// stdout and the log file. Live output is thereby
+// lost — that's OK for guards/lints (seconds range, output is
+// small), but deliberately NOT for unit/integration tests (see runWithTee).
 //
-// poolSize 6 auf 12-Core-Box: lässt Headroom für IDE/Docker/etc. und ist
-// in den Messungen nahe am Sweet-Spot zwischen Wall-Time und Kontext-
-// Switch-Overhead.
+// poolSize 6 on a 12-core box: leaves headroom for IDE/Docker/etc. and is
+// close to the sweet spot between wall time and context
+// switch overhead.
 async function runPoolBuffered(
   steps: ReadonlyArray<{ readonly name: string; readonly cmd: string }>,
   poolSize: number,
@@ -1519,9 +1520,9 @@ async function runPoolBuffered(
 
   await Promise.all(Array.from({ length: Math.min(poolSize, steps.length) }, worker));
 
-  // Serialisierte Ausgabe: nur Failed-Steps zeigen ihren Output (bei
-  // Erfolg ist Guard-Output meist nur "n Dateien geprüft, 0 Verstöße").
-  // Logfile bekommt alles für post-hoc-Debugging.
+  // serialized output: only failed steps show their output (on
+  // success, guard output is usually just "n files checked, 0 violations").
+  // the log file gets everything for post-hoc debugging.
   const final: Array<{ name: string; ok: boolean }> = [];
   for (let i = 0; i < steps.length; i++) {
     const r = results[i];

@@ -37,7 +37,7 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import invite-flow
+// kumiko-lint-ignore cross-feature-import the handler loads the pending invitation and marks it accepted
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -50,7 +50,7 @@ import {
   grantInvitedGlobalRoles,
   parseInvitedGlobalRoles,
 } from "../../user/invited-global-roles.ts";
-// kumiko-lint-ignore cross-feature-import login-style password-check
+// kumiko-lint-ignore cross-feature-import the handler verifies the invited email password against the user row, like login
 import { userTable } from "../../user/schema/user.ts";
 import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.ts";
 import {

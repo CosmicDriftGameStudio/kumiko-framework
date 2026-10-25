@@ -7,8 +7,6 @@
 // The runner pipelines that consume these hooks are built and live: see
 // packages/bundled-features/src/user-data-rights/run-user-export.ts,
 // run-forget-cleanup.ts, run-export-jobs.ts.
-//
-// See docs/plans/datenschutz/user-data-rights.md.
 
 import type { TenantDb } from "../../db/tenant-db.ts";
 import type { Registry, TenantId } from "../types/index.ts";

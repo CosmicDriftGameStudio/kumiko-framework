@@ -5,8 +5,10 @@
 //      (SHA256 hex).
 //   2. The database stores ONLY the hash. The plain token remains in worker memory.
 //   3. The notification step sends the plain token to the user by email.
-//   4. The download endpoint hashes the incoming token and compares it with the
-//      database hash using a constant-time comparison to prevent timing attacks.
+//   4. The download endpoint hashes the incoming token and looks up the hash via
+//      the index on tokenHash. No constant-time comparison is needed: the token has
+//      256 bits of randomness, so a timing leak reveals at most hash prefixes, never
+//      a preimage.
 //
 // **Multi-use within TTL:** The token is NOT "consumed" on download, so the user
 // can download repeatedly until expiresAt. This matches Google-Takeout (7d) and
@@ -36,8 +38,7 @@ export async function generateDownloadToken(): Promise<{
 /**
  * Hashes a plain token into its database representation. In the verification path,
  * the download endpoint hashes the incoming token and looks up the hash in the
- * database. A constant-time string comparison prevents timing attacks; the caller
- * performs it via `crypto.subtle` or a secure comparison helper.
+ * database by index (no constant-time comparison, see the header comment).
  */
 export async function hashDownloadToken(plain: string): Promise<string> {
   const encoded = new TextEncoder().encode(plain);

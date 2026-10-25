@@ -49,9 +49,8 @@ import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-// kumiko-lint-ignore cross-feature-import regression-proof: seedTenant
-// must fire tier-engine's entity postSave hook on self-signup, not just on the
-// TenantHandlers.create HTTP path.
+// kumiko-lint-ignore cross-feature-import the test proves seedTenant fires tier-engine's
+// entity postSave hook on self-signup, not just on the TenantHandlers.create HTTP path.
 import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";

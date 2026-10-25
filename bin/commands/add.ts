@@ -5,9 +5,9 @@ import { defineCommand } from "./registry";
 // app workspace AND auto-mounts it in src/run-config.ts. Sister to
 // `kumiko new app <name>` (DX-1, scaffolds the App itself).
 //
-// User-promise: "defineFeature → nichts woanders eintragen". Auto-mount
-// via ts-morph erfüllt das für die run-config-Seite; das Schema leitet
-// kumiko/schema.ts aus den gemounteten Features ab.
+// User-promise: "defineFeature → add nothing elsewhere". Auto-mount
+// via ts-morph fulfills that for the run-config side; the schema derives
+// kumiko/schema.ts from the mounted features.
 
 export const addCommand = defineCommand({
   id: "add",

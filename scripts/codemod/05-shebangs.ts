@@ -3,9 +3,9 @@
 //
 // Transforms:
 //   #!/usr/bin/env node     → #!/usr/bin/env bun
-//   #!/usr/bin/env node -r... → manual review (loader args nicht 1:1 portierbar)
+//   #!/usr/bin/env node -r... → manual review (loader args not 1:1 portable)
 //
-// Idempotent: läuft 2× = 1×.
+// Idempotent: runs 2× = 1×.
 
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";

@@ -379,7 +379,7 @@ describe("S2.H1 :: userDeleteHook", () => {
 });
 
 describe("S2.H2 :: fileRefExportHook", () => {
-  test("returns FileRef metadata + signed-URL list for Sprint-2.U3 ZIP creation", async () => {
+  test("returns FileRef metadata + signed-URL list for ZIP creation", async () => {
     await seedFileRef(uuid(101), TENANT_A, "user-files-1", "lebenslauf.pdf");
     await seedFileRef(uuid(102), TENANT_A, "user-files-1", "anschreiben.pdf");
 

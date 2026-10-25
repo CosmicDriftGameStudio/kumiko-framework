@@ -1,8 +1,6 @@
 {
   "format": 1,
-  "generated": "2026-10-22",
-  "total": 1,
-  "perFile": {
-    "packages/framework/src/event-store/__tests__/snapshot.integration.test.ts": 1
-  }
+  "generated": "2026-10-25",
+  "total": 0,
+  "perFile": {}
 }

@@ -11,10 +11,10 @@ const SCROLLBACK_LINES = 2000;
 // position aligns with what's actually visible.
 const CHROME_ROWS = 18;
 
-// kumiko.ts liegt im Geschwister-Verzeichnis (bin/kumiko.ts). Direkter
-// Aufruf via process.execPath statt `bun kumiko <cmd>`, damit spawn
-// vom cwd des Users unabhängig ist — wenn er `kumiko` global aufruft,
-// ist sein cwd irgendwo, und `bun kumiko` würde dort scheitern.
+// kumiko.ts is in the sibling directory (bin/kumiko.ts). Direct
+// invocation via process.execPath instead of `bun kumiko <cmd>`, so spawn
+// is independent of the User's cwd — when they invoke `kumiko` globally,
+// their cwd is somewhere else, and `bun kumiko` would fail there.
 const KUMIKO_SCRIPT = resolvePath(import.meta.dir, "..", "kumiko.ts");
 
 type Phase = "running" | "exited";

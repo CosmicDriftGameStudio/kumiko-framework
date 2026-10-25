@@ -13,9 +13,9 @@
 //   7. Return {url, expiresAt}
 //
 // **Security:**
-//   - Token-hash comparison via DB-fetchOne is not constant-time, but timing attacks
-//     against SHA256 bytes require >>10k requests plus stable latency and are not
-//     exploitable in a web-app context.
+//   - The hash is matched by DB index lookup, not a constant-time comparison. With
+//     256 bits of token randomness a timing leak reveals at most hash prefixes, never
+//     a preimage.
 //   - Invalid tokens return 404 without leaking existence, using the same code path
 //     as a token that was not found.
 //   - The token is tenant-agnostic: UUID + SHA256 makes it globally unique, so no

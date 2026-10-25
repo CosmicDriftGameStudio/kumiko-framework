@@ -18,7 +18,10 @@ import {
 //   3. Plain token remains in worker memory + is passed via
 //      RunExportJobsResult to the notification flow. NEVER plain in DB.
 //   4. The download endpoint hashes the incoming token + looks up the
-//      hash entry. Constant-time comparison against timing attacks.
+//      hash entry via the index on tokenHash. This is a plain DB lookup,
+//      not a constant-time comparison: the token carries 256 bits of
+//      randomness, so a timing leak can reveal at most hash prefixes,
+//      never a preimage.
 //
 // **Multi-use within TTL**: Token is not "consumed" on download.
 // Multiple downloads until expiresAt are allowed — better UX for connection
@@ -48,8 +51,7 @@ export const exportDownloadTokenEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // **Hash NICHT plain.** SHA256-hex (64 chars). Atom 4b verifiziert
-    // via konstanter-Zeit-Vergleich.
+    // **Hash, never plain.** SHA256 hex (64 chars), looked up via index.
     tokenHash: createTextField({
       required: true,
       maxLength: 64,

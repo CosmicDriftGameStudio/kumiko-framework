@@ -5,9 +5,9 @@ import { icons, theme } from "./theme";
 import type { Category, Role, TuiCommand } from "./types";
 
 function loadCommands(role: Role): ReadonlyArray<TuiCommand> {
-  // Registry returns the full Command-objects (mit run-fn) — die TUI
-  // braucht aber nur die view-model-Subset. Mappen here so the rest
-  // of the TUI bleibt unverändert.
+  // Registry returns the full Command-objects (with run-fn) — the TUI
+  // only needs the view-model subset. Map here so the rest
+  // of the TUI remains unchanged.
   return getCommands(role).map((c) => ({
     id: c.id,
     label: c.label,

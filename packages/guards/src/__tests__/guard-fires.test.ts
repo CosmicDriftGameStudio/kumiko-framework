@@ -305,6 +305,16 @@ const ENFORCING: Record<string, Violating> = {
     code: "// see #1234\nexport const value = 1;\n",
     expectedMessage: /issue-reference-only comment\(s\) over baseline/,
   },
+  "ignore-tag-reason": {
+    path: `${PKG}/features/x/ignore.ts`,
+    code: "// kumiko-lint-ignore raw-sql legacy\nexport const value = 1;\n",
+    expectedMessage: /ignore tag\(s\) without a real reason over baseline/,
+  },
+  "test-title": {
+    path: `${PKG}/features/x/__tests__/title.test.ts`,
+    code: 'declare const test: (title: string, fn: () => void) => void;\ntest("lehnt ab, wenn der Wert nicht gesetzt ist", () => {});\n',
+    expectedMessage: /German or issue-referencing test title\(s\) over baseline/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report

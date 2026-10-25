@@ -251,10 +251,8 @@ import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pag
 runProdApp({ /* ... */ seeds: [legalContentSeed({ blocks: legalContent })] });
 ```
 
-Templates for imprint + privacy policy: see
-[docs/plans/datenschutz/legal-artifacts.md](../../../../docs/plans/datenschutz/legal-artifacts.md)
-and vetted external generators (e-recht24.de,
-datenschutz-generator.de).
+Templates for imprint + privacy policy: use vetted external generators
+(e-recht24.de, datenschutz-generator.de).
 
 ---
 
@@ -290,11 +288,8 @@ and put your own routes in front.
 
 ## Architecture cross-refs
 
-- [docs/plans/datenschutz/](../../../../docs/plans/datenschutz/)
-  — consolidated privacy plan index
-- [docs/plans/datenschutz/legal-artifacts.md](../../../../docs/plans/datenschutz/legal-artifacts.md)
-  — templates + where-is-what for imprint/AVV/TOMs/RoPA
-- [docs/plans/datenschutz/compliance-as-product.md](../../../../docs/plans/datenschutz/compliance-as-product.md)
-  — roadmap for auto-generation (sub-processor list, TOMs, data-breach workflow)
+- Privacy planning (templates and where-is-what for imprint/AVV/TOMs/RoPA, plus the
+  roadmap for auto-generation of the sub-processor list, TOMs and data-breach
+  workflow) lives in the private platform repo.
 - [samples/recipes/legal-pages/](../../../../samples/recipes/legal-pages/)
   — live sample with both features wired up
