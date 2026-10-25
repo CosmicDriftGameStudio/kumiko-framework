@@ -256,6 +256,7 @@ export type {
   DashboardTextParam,
   DashboardTimeRangeDefinition,
   DashboardValueFormat,
+  ScreenVisibility,
 } from "./screen-dashboard.ts";
 export { DASHBOARD_MIN_REFRESH_SECONDS, DASHBOARD_STAT_TONES } from "./screen-dashboard.ts";
 export type {

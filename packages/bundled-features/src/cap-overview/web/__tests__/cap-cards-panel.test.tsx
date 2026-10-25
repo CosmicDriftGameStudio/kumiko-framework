@@ -3,12 +3,14 @@ import {
   createStaticLocaleResolver,
   type ExtensionSectionProps,
   LocaleProvider,
+  type NavApi,
+  NavProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
-import { render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { CapUsageTone, CapUsageWithMeta } from "../../types.ts";
 import { CapCardsPanel } from "../cap-cards-panel.tsx";
@@ -54,10 +56,34 @@ mockModuleForFile(
   },
 );
 
+const navigateSpy = mock((_target: unknown) => {});
+
+const navApi: NavApi = {
+  route: undefined,
+  navigate: navigateSpy,
+  replace: () => {},
+  hrefFor: (target) => ("screenId" in target ? `/${target.screenId}` : "/"),
+  searchParams: {},
+  setSearchParams: () => {},
+};
+
+const EN_COPY = {
+  en: {
+    "cap-overview.cards.remaining": "{amount} left",
+    "cap-overview.cards.noneLeft": "None left",
+    "cap-overview.cards.viewAll": "View all usage",
+  },
+};
+
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <LocaleProvider resolver={createStaticLocaleResolver()}>
-      <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "en-US" })}
+      fallbackBundles={[EN_COPY]}
+    >
+      <NavProvider value={navApi}>
+        <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+      </NavProvider>
     </LocaleProvider>
   );
 }
@@ -116,6 +142,7 @@ function unlimitedCapRow(overrides: Partial<CapUsageWithMeta> = {}): CapUsageWit
 beforeEach(() => {
   queryState = { data: { rows: [] }, loading: false, error: null };
   useQuerySpy.mockClear();
+  navigateSpy.mockClear();
 });
 
 describe("CapCardsPanel", () => {
@@ -198,6 +225,135 @@ describe("CapCardsPanel", () => {
 
     expect(screen.getByTestId("cap-cards-panel-error").textContent).toContain("caps usage failed");
     expect(screen.queryAllByTestId("cap-card")).toHaveLength(0);
+  });
+
+  test("capKeys in filterParams limits the cards in query order and stays out of the query payload", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "users", label: "Seats", used: 1, limit: 5 }),
+          capRow({ id: "apps", label: "Apps", used: 2, limit: 3 }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: ["apps", 7, "missing"], tenantId: "t-1" });
+
+    const cards = screen.getAllByTestId("cap-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain("Apps");
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-1" });
+  });
+
+  test("a non-array capKeys restricts nothing", () => {
+    queryState = {
+      data: { rows: [capRow({ id: "apps", label: "Apps", used: 2, limit: 3 })] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: "apps" });
+
+    expect(screen.getAllByTestId("cap-card")).toHaveLength(1);
+  });
+
+  test("a measured limited cap shows the remaining amount, formatted by unit", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "plain", label: "Seats", used: 2, limit: 20 }),
+          capRow({ id: "storage", label: "Storage", used: 1024, limit: 5120, unit: "mb" }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    const remaining = screen.getAllByTestId("cap-card-remaining").map((node) => node.textContent);
+    expect(remaining).toEqual(["18 left", "4 GB left"]);
+  });
+
+  test("a cap at or over its limit shows the none-left text", () => {
+    queryState = {
+      data: { rows: [capRow({ id: "over", label: "Seats", used: 25, limit: 20 })] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    expect(screen.getByTestId("cap-card-remaining").textContent).toBe("None left");
+  });
+
+  test("unlimited and not-included caps have no remaining line", () => {
+    queryState = {
+      data: {
+        rows: [unlimitedCapRow(), capRow({ id: "none", label: "Mail", used: 0, limit: 0 })],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    expect(screen.getAllByTestId("cap-card")).toHaveLength(2);
+    expect(screen.queryByTestId("cap-card-remaining")).toBeNull();
+  });
+
+  test("capKeys adds a view-all link to the my-caps screen, no capKeys adds none", () => {
+    queryState = {
+      data: { rows: [capRow({ id: "apps", label: "Apps", used: 2, limit: 3 })] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+    expect(screen.queryByTestId("cap-cards-view-all")).toBeNull();
+    cleanup();
+
+    renderPanel({ capKeys: ["apps"] });
+    const link = screen.getByTestId("cap-cards-view-all");
+    expect(link.getAttribute("href")).toBe("/my-caps");
+    expect(link.textContent).toBe("View all usage");
+    fireEvent.click(link);
+    expect(navigateSpy).toHaveBeenCalledWith({ screenId: "my-caps" });
+  });
+
+  test("one limited card holds the view-all link, several cards share one below the grid", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "apps", label: "Apps", used: 2, limit: 3 }),
+          unlimitedCapRow({ id: "seats" }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: ["apps"] });
+    expect(screen.getAllByTestId("cap-cards-view-all")).toHaveLength(1);
+    expect(screen.getByTestId("cap-card").contains(screen.getByTestId("cap-cards-view-all"))).toBe(
+      true,
+    );
+    cleanup();
+
+    renderPanel({ capKeys: ["seats"] });
+    expect(screen.getByTestId("cap-card").contains(screen.getByTestId("cap-cards-view-all"))).toBe(
+      true,
+    );
+    cleanup();
+
+    renderPanel({ capKeys: ["apps", "seats"] });
+    const links = screen.getAllByTestId("cap-cards-view-all");
+    expect(links).toHaveLength(1);
+    for (const card of screen.getAllByTestId("cap-card")) {
+      expect(card.contains(links[0] ?? null)).toBe(false);
+    }
   });
 
   test("a string tenantId in filterParams is passed through to useQuery", () => {

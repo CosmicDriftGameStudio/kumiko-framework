@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { DispatcherError } from "../../headless/index.ts";
-import { entityFromQueryType, useDispatcher, useLiveEvents, useTranslation } from "../../index.ts";
+import { subscribeToEntities, useLiveEntitiesForQuery } from "../../hooks/live-query-entities.ts";
+import { useDispatcher, useLiveEvents, useTranslation } from "../../index.ts";
 import { EmptyState, ErrorState, LoadingState } from "./states.tsx";
 
 /** Position of the selected row among the rows loaded so far. `total`
@@ -72,6 +73,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   const dispatcher = useDispatcher();
   const t = useTranslation();
   const subscribeLive = useLiveEvents();
+  const liveEntities = useLiveEntitiesForQuery(query);
   const [state, setState] = useState<State<TRow>>({ kind: "loading" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const payloadKey = JSON.stringify(payload ?? {});
@@ -207,9 +209,8 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   useEffect(() => {
     // skip: live mode off, no SSE subscription needed
     if (!live) return;
-    const entity = entityFromQueryType(query);
-    // skip: query type has no mapped entity, nothing to subscribe to
-    if (entity === undefined) return;
+    // skip: no entity to listen on, nothing to subscribe to
+    if (liveEntities.length === 0) return;
 
     const runRefresh = (): void => {
       liveInFlightRef.current = true;
@@ -234,7 +235,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
       }, 250);
     };
 
-    const unsubscribe = subscribeLive(entity, scheduleRefresh);
+    const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduleRefresh);
     return () => {
       unsubscribe();
       if (liveTimerRef.current !== null) {
@@ -242,7 +243,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
         liveTimerRef.current = null;
       }
     };
-  }, [live, query, refreshFirstPage, subscribeLive]);
+  }, [live, liveEntities, refreshFirstPage, subscribeLive]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

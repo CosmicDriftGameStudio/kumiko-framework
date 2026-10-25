@@ -309,6 +309,9 @@ export type DashboardCustomPanel = {
   readonly kind: "custom";
   readonly id: string;
   readonly component: PlatformComponent;
+  /** Static author values laid over the screen's filterParams, like
+   *  `DashboardPanelQueryOptions.params`; the panel wins on a name clash. */
+  readonly params?: Readonly<Record<string, unknown>>;
 };
 
 // Static text panel without a query. Every `text` and `items` entry is an i18n key
@@ -349,6 +352,14 @@ export type DashboardPanelVisibility = {
   readonly query: string;
   readonly field: string;
   readonly eq: string | number | boolean | null;
+};
+
+// Screen-level gate. Panels keep the empty-payload DashboardPanelVisibility; a screen that
+// shows one record can hand its route id to the gate query.
+export type ScreenVisibility = DashboardPanelVisibility & {
+  /** Payload key that receives the screen's route id (projectionDetail only). Without it
+   *  the gate query runs with an empty payload. */
+  readonly idParam?: string;
 };
 
 // Embedded redirect/cancelTarget navigate away from the dashboard — targets meant for tiles omit both.
@@ -450,7 +461,7 @@ export type DashboardScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
-  readonly visibleWhen?: DashboardPanelVisibility;
+  readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly panels: readonly DashboardPanelDefinition[];

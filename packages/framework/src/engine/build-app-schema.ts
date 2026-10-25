@@ -19,6 +19,8 @@
 //   Workspace: verbatim definition + getWorkspaceNavs() from the registry
 //   Translations: verbatim feature.translations (raw r.translations keys,
 //                 unfiltered — see FeatureSchema.translations doc)
+//   queryLiveEntities: { <query QN>: liveEntities } of the feature's own
+//                 query handlers with a non-empty liveEntities list
 //
 // Feature toggles: this schema is tenant-independent and lists every feature.
 // The schema route strips features the caller's tenant has switched off
@@ -45,6 +47,7 @@ import {
 } from "./build-config-feature-schema.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
 import { isListQueryWithoutSearchableFields } from "./entity-list-searchability.ts";
+import { projectQueryLiveEntities } from "./project-query-live-entities.ts";
 import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
 import type { Registry } from "./types/feature.ts";
 import type {
@@ -99,6 +102,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
         navQn: `${featureName}:nav:${collection.id}`,
       }),
     );
+    const queryLiveEntities = projectQueryLiveEntities(registry, featureName);
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
@@ -118,6 +122,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
         translations: feature.translations,
       }),
       ...(options.searchAdapterMissing === true && { searchAdapterMissing: true }),
+      ...(Object.keys(queryLiveEntities).length > 0 && { queryLiveEntities }),
     };
     features.push(featureSchema);
   }

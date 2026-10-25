@@ -534,6 +534,24 @@ export function navigateAfterRedirect(options: {
   );
 }
 
+// A drawer is no navigation target, so returnTo does not apply. Redirecting onto the host
+// screen would only reset its filters/scroll/tab; the drawer's close + refetch already refreshed it.
+export function navigateAfterDrawerSubmit(options: {
+  readonly nav: NavApi;
+  readonly schema: FeatureSchema;
+  readonly appFeatures: readonly FeatureSchema[];
+  readonly redirect: string | ActionFormRedirect | undefined;
+  readonly resultData: unknown;
+}): void {
+  const { nav, schema, appFeatures, redirect, resultData } = options;
+  if (redirect === undefined) return;
+  const target = resolveRedirectTarget(redirect, resultData, schema, appFeatures);
+  const hostScreenId = nav.route === undefined ? undefined : lastSegment(nav.route.screenId);
+  const isHostScreen =
+    target.screenId === hostScreenId && target.entityId === undefined && target.tab === undefined;
+  if (!isHostScreen) navigateToRedirectTarget(nav, target);
+}
+
 // The update payload nests the saved projection under `data`; a changed
 // parent FK lives there, not in the pre-edit `record`.
 export function overlayUpdatedProjection(

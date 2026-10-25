@@ -44,6 +44,7 @@ import { navigateToReturn, navigateToReturnOr, useReturnTarget } from "./return-
 import { screenAccessAllows } from "./screen-access.ts";
 import {
   formatSummaryParams,
+  navigateAfterDrawerSubmit,
   navigateToRedirectTarget,
   redirectScreenTarget,
   resolveActionFormSummary,
@@ -62,8 +63,8 @@ import {
 // open" plus a host component that mounts the referenced actionForm inside
 // the Drawer primitive. Reuses ActionFormBody (no second, parallel form
 // renderer) with onSuccess/onCancelOverride so submit-success closes the
-// drawer + refetches the host screen instead of navigating, mirroring what
-// a full-page actionForm would do via `redirect`. The only difference
+// drawer + refetches the host screen; a declared `redirect` navigates after
+// the drawer closed, like on the full page. The only difference
 // between the toolbar and row variants is prefill: a row action extracts
 // `initialValues` from the clicked row (see buildProjectionRowActions /
 // EntityListBody's rowActions builder); the toolbar variant has none.
@@ -253,11 +254,9 @@ export function ActionFormBody({
    *  from the clicked row, applied on top of searchParams through the same
    *  renderableFields/sensitive gates (see mergeSearchParamsIntoInitial). */
   readonly initialOverrides?: Readonly<Record<string, unknown>>;
-  /** Drawer-hosted usage (toolbarAction kind:"drawer"): called
-   *  instead of the redirect-based navigation on successful submit, so the
-   *  host closes the drawer + refetches its list regardless of whether
-   *  `screen.redirect` is set — a full-page redirect would navigate away
-   *  from the list the drawer sits on top of. */
+  /** Drawer-hosted usage: called on successful submit so the host closes the
+   *  drawer + refetches its list; a declared `screen.redirect` then navigates
+   *  (without returnTo, a drawer is no navigation target). */
   readonly onSuccess?: () => void;
   /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
    *  handler so Cancel closes the drawer instead of navigating. */
@@ -380,6 +379,13 @@ export function ActionFormBody({
       if (!result.isSuccess) return;
       if (onSuccess !== undefined) {
         onSuccess();
+        navigateAfterDrawerSubmit({
+          nav,
+          redirect: screen.redirect,
+          resultData: result.data,
+          schema,
+          appFeatures,
+        });
         return;
       }
       if (screen.redirect === undefined) {

@@ -67,6 +67,8 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
   wertet die Bedingung vor dem Inhalt aus, auch beim Direktaufruf per URL. Lädt,
   scheitert oder verfehlt die Query die Bedingung, erscheint nie der Inhalt,
   sondern der Fallback bzw. ein Standardhinweis (`kumiko.screen.unavailable`).
+  Auf einem `projectionDetail` übergibt `visibleWhen.idParam: "<key>"` die
+  Route-id unter diesem Key an die Query, sonst läuft sie mit leerer Payload.
   Nur UI-Gate, die Durchsetzung bleibt in den Handlern. Beispiel Account-Security: `auth-mfa-enable` /
   `auth-mfa-disable` / `auth-mfa-regenerate-recovery` + `sessions:screen:my-sessions`
   (fw#2841).

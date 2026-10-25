@@ -3,7 +3,7 @@ import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
-import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
+import type { ScreenVisibility } from "./screen-dashboard.ts";
 import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
@@ -430,9 +430,16 @@ export type RelatedListToolbarAction =
     })
   | (Extract<ToolbarAction, { readonly kind: "writeHandler" }> & {
       readonly visible?: FieldCondition;
+      /** Values extracted from the parent record, merged over the static
+       *  `payload` (extracted values win). Without a parent record the action
+       *  stays hidden. */
+      readonly params?: RowFieldExtractor;
     })
   | (Extract<ToolbarAction, { readonly kind: "drawer" }> & {
       readonly visible?: FieldCondition;
+      /** Values extracted from the parent record, prefilling the drawer's
+       *  actionForm. Without a parent record the action stays hidden. */
+      readonly params?: RowFieldExtractor;
     });
 
 /** An extra choice on a facet next to the field's own options: a named
@@ -479,7 +486,7 @@ export type EntityListScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
-  readonly visibleWhen?: DashboardPanelVisibility;
+  readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
   readonly entity: string;

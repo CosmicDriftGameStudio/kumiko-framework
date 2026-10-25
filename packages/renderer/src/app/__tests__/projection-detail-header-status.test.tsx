@@ -77,6 +77,7 @@ const STATE_FORMAT = { format: "enumOption", keyPrefix: "app.state." } as const;
 function renderDetail(options: {
   readonly statusFormat?: boolean;
   readonly layoutFormat?: boolean;
+  readonly tone?: "accent" | "critical";
 }): ReturnType<typeof render> {
   const screen = {
     id: "release-detail",
@@ -86,7 +87,7 @@ function renderDetail(options: {
     header: {
       title: "name",
       status: "state",
-      statusTones: { in_review: "warn" },
+      statusTones: { in_review: options.tone ?? "warn" },
       ...(options.statusFormat === true && { statusFormat: STATE_FORMAT }),
     },
     layout: {
@@ -162,5 +163,15 @@ describe("projectionDetail header status text", () => {
     const badge = await statusBadge(renderDetail({}));
     expect(badge.textContent).toBe("in_review");
     expect(badge.getAttribute("data-tone")).toBe("warn");
+  });
+
+  test("the accent option tone reaches the badge", async () => {
+    const badge = await statusBadge(renderDetail({ tone: "accent" }));
+    expect(badge.getAttribute("data-tone")).toBe("accent");
+  });
+
+  test("the critical option tone reaches the badge", async () => {
+    const badge = await statusBadge(renderDetail({ tone: "critical" }));
+    expect(badge.getAttribute("data-tone")).toBe("critical");
   });
 });

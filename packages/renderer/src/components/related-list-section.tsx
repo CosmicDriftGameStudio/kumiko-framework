@@ -418,7 +418,7 @@ export function RelatedListSection({
         host,
         access: { appFeatures, userRoles },
         ...(onOpenDrawer !== undefined && {
-          openDrawer: (action) => onOpenDrawer(action, undefined),
+          openDrawer: onOpenDrawer,
         }),
       }),
     [

@@ -389,6 +389,8 @@ const ROW_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: "bg-status-bad/10 hover:bg-status-bad/15",
   warn: "bg-status-warn/10 hover:bg-status-warn/15",
   ok: "bg-status-ok/10 hover:bg-status-ok/15",
+  critical: "bg-status-critical/10 hover:bg-status-critical/15",
+  accent: "bg-primary/10 hover:bg-primary/15",
   neutral: "",
 };
 
