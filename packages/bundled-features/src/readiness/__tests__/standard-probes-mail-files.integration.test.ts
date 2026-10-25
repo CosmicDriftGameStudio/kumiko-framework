@@ -4,6 +4,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature, EXT_FILE_PROVIDER } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { HostResolutionError } from "@cosmicdrift/kumiko-framework/http";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -38,6 +39,16 @@ const failingMail = defineFeature("probe-failing-mail", (r) => {
   });
 });
 
+const unresolvableMail = defineFeature("probe-unresolvable-mail", (r) => {
+  r.requires({ features: ["mail-foundation"] });
+  r.useExtension(MAIL_TRANSPORT_EXTENSION, "unresolvable", {
+    selectableInSettings: false,
+    build: async () => {
+      throw new HostResolutionError("smtp.invalid does not resolve");
+    },
+  });
+});
+
 const failingFiles = defineFeature("probe-failing-files", (r) => {
   r.requires({ features: ["file-foundation"] });
   r.useExtension(EXT_FILE_PROVIDER, "failing", {
@@ -53,8 +64,10 @@ const failingFiles = defineFeature("probe-failing-files", (r) => {
 type Row = {
   probe: string;
   status: string;
+  durationMs: number | null;
   message: { i18nKey: string };
   label: { i18nKey: string };
+  fixScreen?: string;
 };
 
 let stack: TestStack;
@@ -67,6 +80,7 @@ beforeAll(async () => {
       createMailFoundationFeature(),
       createMailTransportInMemoryFeature(),
       failingMail,
+      unresolvableMail,
       createFileFoundationFeature(),
       createFileProviderInMemoryFeature(),
       failingFiles,
@@ -126,14 +140,26 @@ describe("mail probe", () => {
     expect(JSON.stringify(rows)).not.toContain("starter@probe.example");
   });
 
-  test("a transport that throws makes the probe fail with the generic text", async () => {
+  test("a transport that rejects the mail fails the probe with the reason and the settings link", async () => {
     const admin = await freshAdmin("starter2@probe.example");
     await select(admin, MAIL_PROVIDER_KEY, "failing");
 
     const row = find(await resultsOf(admin), MAIL_PROBE);
 
     expect(row?.status).toBe("failed");
-    expect(row?.message.i18nKey).toBe(ProbeTextKeys.failed);
+    expect(row?.message.i18nKey).toBe("mail-foundation.probe.send-rejected");
+    expect(row?.fixScreen).toBe("config:screen:mail-foundation-tenant");
+    expect(JSON.stringify(row)).not.toContain("smtp relay down");
+  });
+
+  test("a mail server that does not resolve fails the probe as not found", async () => {
+    const admin = await freshAdmin("starter5@probe.example");
+    await select(admin, MAIL_PROVIDER_KEY, "unresolvable");
+
+    const row = find(await resultsOf(admin), MAIL_PROBE);
+
+    expect(row?.status).toBe("failed");
+    expect(row?.message.i18nKey).toBe("mail-foundation.probe.host-not-found");
   });
 
   test("a tenant without its own provider is skipped as not configured", async () => {
@@ -143,6 +169,7 @@ describe("mail probe", () => {
 
     expect(row?.status).toBe("skipped");
     expect(row?.message.i18nKey).toBe("mail-foundation.probe.not-configured");
+    expect(row?.durationMs).toBeNull();
   });
 
   test("a starter without a known address is skipped", async () => {

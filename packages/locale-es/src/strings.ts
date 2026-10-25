@@ -2173,6 +2173,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.not-configured": "No hay envío de correo propio configurado",
   "mail-foundation.probe.no-recipient":
     "No se conoce ninguna dirección de correo de la persona que inició la comprobación",
+  "mail-foundation.probe.host-not-found":
+    "Servidor de correo no encontrado, revisa la dirección del servidor",
+  "mail-foundation.probe.setup-incomplete":
+    "La configuración de envío de correo está incompleta o el servidor no está permitido",
+  "mail-foundation.probe.setup-failed":
+    "No se pudo configurar el envío de correo con estos ajustes",
+  "mail-foundation.probe.send-rejected":
+    "El servidor de correo no aceptó el correo de prueba, revisa dirección, puerto e inicio de sesión",
   "inbound-mail-foundation.probe.area": "Correo entrante",
   "inbound-mail-foundation.probe.mailboxes.label": "Buzones conectados",
   "inbound-mail-foundation.probe.mailbox": "Buzón {name}",

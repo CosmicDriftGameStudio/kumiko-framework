@@ -2201,6 +2201,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.not-configured": "Aucun envoi d'e-mails propre configuré",
   "mail-foundation.probe.no-recipient":
     "Aucune adresse e-mail connue pour la personne qui a lancé la vérification",
+  "mail-foundation.probe.host-not-found":
+    "Serveur de messagerie introuvable, vérifiez l'adresse du serveur",
+  "mail-foundation.probe.setup-incomplete":
+    "Les réglages d'envoi d'e-mails sont incomplets ou le serveur n'est pas autorisé",
+  "mail-foundation.probe.setup-failed":
+    "L'envoi d'e-mails n'a pas pu être configuré avec ces réglages",
+  "mail-foundation.probe.send-rejected":
+    "Le serveur de messagerie n'a pas accepté l'e-mail de test, vérifiez l'adresse, le port et l'identifiant",
   "inbound-mail-foundation.probe.area": "E-mails entrants",
   "inbound-mail-foundation.probe.mailboxes.label": "Boîtes aux lettres connectées",
   "inbound-mail-foundation.probe.mailbox": "Boîte aux lettres {name}",

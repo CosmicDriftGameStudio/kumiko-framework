@@ -2127,6 +2127,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-foundation.probe.not-configured": "No own email sending set up",
   "mail-foundation.probe.no-recipient":
     "No email address known for the person who started the check",
+  "mail-foundation.probe.host-not-found": "Mail server not found, check the server address",
+  "mail-foundation.probe.setup-incomplete":
+    "Email sending settings are incomplete or the server is not allowed",
+  "mail-foundation.probe.setup-failed": "Email sending could not be set up with these settings",
+  "mail-foundation.probe.send-rejected":
+    "The mail server did not accept the test email, check address, port and login",
   "inbound-mail-foundation.probe.area": "Inbound email",
   "inbound-mail-foundation.probe.mailboxes.label": "Connected mailboxes",
   "inbound-mail-foundation.probe.mailbox": "Mailbox {name}",

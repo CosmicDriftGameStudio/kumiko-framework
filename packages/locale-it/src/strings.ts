@@ -2180,6 +2180,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.not-configured": "Nessun invio e-mail proprio configurato",
   "mail-foundation.probe.no-recipient":
     "Nessun indirizzo e-mail noto per la persona che ha avviato il controllo",
+  "mail-foundation.probe.host-not-found":
+    "Server di posta non trovato, controlla l'indirizzo del server",
+  "mail-foundation.probe.setup-incomplete":
+    "Le impostazioni di invio e-mail sono incomplete o il server non è consentito",
+  "mail-foundation.probe.setup-failed":
+    "Non è stato possibile configurare l'invio e-mail con queste impostazioni",
+  "mail-foundation.probe.send-rejected":
+    "Il server di posta non ha accettato l'e-mail di prova, controlla indirizzo, porta e accesso",
   "inbound-mail-foundation.probe.area": "Posta in arrivo",
   "inbound-mail-foundation.probe.mailboxes.label": "Caselle di posta collegate",
   "inbound-mail-foundation.probe.mailbox": "Casella {name}",
