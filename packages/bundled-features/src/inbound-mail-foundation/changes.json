@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.392.0",
+    "type": "fix",
+    "title": "Mail polling works with the row-level-security enforcing pool",
+    "detail": "createInboundMailSupervisor opens its own system scope for the cross-tenant reads and writes of accounts, cursors and seen messages. Before, passing the enforcing pool as db made every poll see no accounts."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The mail account list links to the IMAP connect form",
+    "detail": "mailAccountListScreen gets a \"Connect mailbox\" toolbar action that opens the screen mail-account-connect-imap. The button shows only when the app mounts inbound-provider-imap, which registers that screen. The Systemcheck fix link for inbound mail now leads to a list where a mailbox can be added."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Apps can send from a connected mailbox",
+    "detail": "The provider contract gets an optional send(ctx, account, message). The new server function sendMailFromAccount(ctx, { accountId, message }) is called from an app's own write handler and sends through the provider of the mailbox, with the mailbox address as From and In-Reply-To and References for replies. It returns WriteResult<{ messageIdHeader }>; failures are typed UnprocessableErrors with the reasons mail_send_not_configured, mail_send_login_rejected, mail_send_server_unreachable, mail_send_rejected and mail_send_invalid_message (i18n keys inboundMail.send.errors.*). A missing, disconnected or someone else's personal mailbox answers not found. There is no fallback to the app sender. New exports: sendMailFromAccount, MAIL_SEND_ERRORS, outboundMailMessageSchema, OutboundMailMessage, OutboundMailSent, MailSendNotConfiguredError, MailSendRejectedError. New keys in all locale packages."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "Inbound-mailbox probes",

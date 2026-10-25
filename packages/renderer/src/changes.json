@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The projectionDetail header badge shows the translated status",
+    "detail": "The header badge formats its text with header.statusFormat. Without it, the badge reuses the layout renderer of the status field when that is enumOption or i18nText, so header and body show the same text. Without either, the raw value is shown as before. The tone keeps resolving on the raw value."
+  },
+  {
+    "version": "0.392.0",
+    "type": "fix",
+    "title": "The shell header title follows the active workspace",
+    "detail": "When two navs point at the same screen, the breadcrumb now takes the label of the nav the sidebar shows for the active workspace. Before, the first nav in the app won, so the title could differ from the sidebar entry. Without a matching nav in the workspace, the old lookup applies."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The detail header keeps inlineActions as buttons",
+    "detail": "HeaderActionsBar takes inlineActionIds and renders those actions as buttons after the primary action; only the remaining actions go into the overflow menu, and no menu is shown when none remain."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "The relatedList empty state follows the parent record",
+    "detail": "RelatedListSection evaluates emptyState.variants against the parent record and shows the first matching text. The headless view model translates the variant texts."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "English header comments in the renderer e2e config",
+    "detail": "Comment-only change in the renderer Playwright config and the demo dev bootstrap; no runtime behavior changes."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "A drawer-hosted actionForm follows its redirect",
+    "detail": "After a successful submit the drawer closes, the host refetches, and a declared redirect then navigates like on the full page, without returnTo. A redirect that points at the screen the drawer sits on (no record id, no tab) does not navigate, so filters and scroll position stay. Behavior change: before, a drawer ignored redirect."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Live queries follow the handler's liveEntities",
+    "detail": "useQuery({ live: true }) and InfinityList refetch on signals for the entity in the query name and for every entity the query handler declares in liveEntities, in both the declared and the kebab-case form. The app schema carries them per feature as queryLiveEntities, and a tenant feature toggle strips them with the feature. A query that reads a second entity no longer needs a name under that entity to stay live."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "Translated text cells, toned status pills, screen links in rows and live detail screens",

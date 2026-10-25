@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "Cap amounts follow their unit and a limit of 0 reads \"Not included\"",
+    "detail": "Values with unit \"mb\" show as MB, GB or TB (base 1024), count and tokens use the locale's digit grouping. A limit of 0 or less shows \"Not included\" instead of a 0 bar, also when nothing is measured. caps:usage rows and the tenant-caps list cells now carry the unit of the cap. New key cap-overview.notIncluded in all locale packages."
+  },
+  {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "CapCardsPanel can be limited to specific cap keys via params.capKeys",
+    "detail": "A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server. Each limited cap card also shows how much is left (or that nothing is), next to the percent chip, and a limited panel adds a link to the full usage screen."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Tenant caps list decrypts only the visible page",

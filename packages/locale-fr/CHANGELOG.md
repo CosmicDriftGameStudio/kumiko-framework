@@ -1,5 +1,239 @@
 # @cosmicdrift/kumiko-locale-fr
 
+## 0.392.0
+
+### Patch Changes
+
+- 3cfb343: Closes four gaps in plain framework screens. The projectionDetail header badge shows the translated status, the shell title follows the active workspace, cap-overview formats amounts by unit and says "Not included" for a limit of 0, and admin-shell can drop its tenant overview.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: RecordHeaderSpec takes statusFormat
+  detail: header.statusFormat is a FormatSpec for the header badge text, typically enumOption with a keyPrefix. The badge tone still resolves on the raw status value.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: The projectionDetail header badge shows the translated status
+  detail: The header badge formats its text with header.statusFormat. Without it, the badge reuses the layout renderer of the status field when that is enumOption or i18nText, so header and body show the same text. Without either, the raw value is shown as before. The tone keeps resolving on the raw value.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The shell header title follows the active workspace
+  detail: When two navs point at the same screen, the breadcrumb now takes the label of the nav the sidebar shows for the active workspace. Before, the first nav in the app won, so the title could differ from the sidebar entry. Without a matching nav in the workspace, the old lookup applies.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The boot validator checks header.statusFormat
+  detail: A projectionDetail screen with header.statusFormat but without header.status fails boot, because there is no badge to format.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: Cap amounts follow their unit and a limit of 0 reads "Not included"
+  detail: Values with unit "mb" show as MB, GB or TB (base 1024), count and tokens use the locale's digit grouping. A limit of 0 or less shows "Not included" instead of a 0 bar, also when nothing is measured. caps:usage rows and the tenant-caps list cells now carry the unit of the cap. New key cap-overview.notIncluded in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: improvement
+  title: includeTenantOverview turns the tenant overview off
+  detail: createAdminShellFeature({ includeTenantOverview: false }) registers neither the tenant overview screen nor its nav and leaves it out of the tenant workspace. The default stays true.
+  -->
+- 3d7f455: The paid system check run gets its own button next to "Start check", the mail probe tests the platform sender when a tenant has no own mail provider, and tenant admins can connect an IMAP mailbox from the mail account list, which can then also send replies from its own address.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: projectionDetail takes inlineActions
+  detail: ProjectionDetailScreenDefinition.inlineActions lists action ids that stay visible buttons next to the primary action in the page header instead of folding into the "More actions" menu. Without it the header behaves as before. The phone header keeps its single icon button.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The boot check validates inlineActions
+  detail: Every id in a projectionDetail inlineActions list must name a declared action (or edit when the screen has an edit target), the same rule as primaryAction; an unknown id fails the boot.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: The detail header keeps inlineActions as buttons
+  detail: HeaderActionsBar takes inlineActionIds and renders those actions as buttons after the primary action; only the remaining actions go into the overflow menu, and no menu is shown when none remain.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: The paid run is a button next to Start check
+  detail: The system check screen declares run-paid-check as an inline action, so "Test AI extraction" shows as a button beside "Start check" instead of in the "More actions" menu. It stays hidden while the app has no paid probes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: channel-email publishes its app transport
+  detail: channel-email declares the emailAppTransport extension and registers its app transport under it; findEmailAppTransport(registry) returns that transport, or null when the app has none or does not mount channel-email.
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: improvement
+  title: The mail probe tests the platform sender
+  detail: A tenant without its own mail provider now gets the test mail through the channel-email app transport, the sender its tenant-transport notifications fall back to. The probe reports mail-foundation.probe.send-test-mail.platform-accepted on success and mail-foundation.probe.platform-send-rejected when the platform server rejects it; it is skipped only when neither an own provider nor an app transport exists, and mail-foundation.probe.not-configured now reads "No email sending set up". New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: The mail account list links to the IMAP connect form
+  detail: mailAccountListScreen gets a "Connect mailbox" toolbar action that opens the screen mail-account-connect-imap. The button shows only when the app mounts inbound-provider-imap, which registers that screen. The Systemcheck fix link for inbound mail now leads to a list where a mailbox can be added.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: improvement
+  title: IMAP mailboxes can be connected from a form
+  detail: The new write handler inbound-provider-imap:write:connect-mailbox (TenantAdmin, SystemAdmin, not exposed to the agent, 10 calls per tenant in 10 minutes) checks the IMAP login before the transaction, then creates a shared mail account and stores host, port, user and password in its credential secret in the same transaction. It always connects with implicit TLS (default port 993); there is no plaintext option, and a secure:false in the payload is ignored. A failed check stores nothing and answers with one of four texts: host not reachable or not allowed, login rejected, TLS failed, no connection. The form screen mail-account-connect-imap has a masked password field and no TLS toggle. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Apps can send from a connected mailbox
+  detail: The provider contract gets an optional send(ctx, account, message). The new server function sendMailFromAccount(ctx, { accountId, message }) is called from an app's own write handler and sends through the provider of the mailbox, with the mailbox address as From and In-Reply-To and References for replies. It returns WriteResult<{ messageIdHeader }>; failures are typed UnprocessableErrors with the reasons mail_send_not_configured, mail_send_login_rejected, mail_send_server_unreachable, mail_send_rejected and mail_send_invalid_message (i18n keys inboundMail.send.errors.*). A missing, disconnected or someone else's personal mailbox answers not found. There is no fallback to the app sender. New exports: sendMailFromAccount, MAIL_SEND_ERRORS, outboundMailMessageSchema, OutboundMailMessage, OutboundMailSent, MailSendNotConfiguredError, MailSendRejectedError. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: improvement
+  title: IMAP mailboxes send over their own SMTP server
+  detail: The connect form gets an optional field "Outgoing server (SMTP)". Left empty, the IMAP host is used, with smtp. in place of a leading imap.. connect-mailbox now also checks the SMTP login on port 465 (implicit TLS, same user and password, same host guard) and answers a failure with its own text ("Receiving works, but sending does not: ..."). The credential document gains smtpHost and smtpPort (default 465). The provider implements send: it sends over SMTP with From = the mailbox address and display name, then stores the same message in the sent folder (special use \Sent, else Sent, Gesendet or INBOX.Sent); a failed copy is only logged. Accounts stored without smtpHost answer mail_send_not_configured. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: foundation-shared
+  type: improvement
+  title: sanitizeMailDisplayName is shared
+  detail: The display-name sanitizer from channel-email moved to foundation-shared as sanitizeMailDisplayName, so the IMAP sender uses the same rule. No behavior change.
+  -->
+- c22ca75: Follow-ups to the system check. ProbeTextKeys is part of the readiness entry, the paid hint names the button, the search probe has its own failure text, and the latest run says why it is empty.
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: The readiness entry exports ProbeTextKeys
+  detail: ProbeTextKeys comes from @cosmicdrift/kumiko-bundled-features/readiness next to ReadinessQueries and ReadinessWrites, so apps can name probe texts without a deep import.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: The paid probe hint names the button
+  detail: readiness.probe.paid-not-requested now reads "Only via “Test AI extraction”" (de „Nur über „KI-Auslesen testen““), the label of the button that starts the paid run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: The search probe fails with its own text
+  detail: When the search service throws, the search probe fails with readiness.probe.search.unavailable ("The search service does not answer"). The raw error can name the search host, so it goes only to the server log. New key in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: An empty latest run says why it is empty
+  detail: The latest results and the run detail show "The check is running. Results appear when it is done." while a run is running and "There is nothing to check for this tenant." when a finished run has no rows the caller may see, and "The run was stopped before it returned results." for an abandoned run. Without a run the old text stays. New keys readiness.screen.latest.running, readiness.screen.latest.nothing-to-check and readiness.screen.latest.abandoned in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: relatedList emptyState takes variants
+  detail: EditRelatedListSection.emptyState is a RelatedListEmptyStateSpec. Its optional variants list pairs a FieldCondition on the parent record with a title and description; the first matching variant replaces the default text, the action stays.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: The relatedList empty state follows the parent record
+  detail: RelatedListSection evaluates emptyState.variants against the parent record and shows the first matching text. The headless view model translates the variant texts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The i18n boot check covers emptyState variants
+  detail: Title and description keys of relatedList emptyState variants count as required surface keys, so a missing translation fails the boot check.
+  -->
+- 05c9bef: Closes gaps in declarative screens. A drawer-hosted actionForm follows its `redirect`, `useQuery({ live: true })` listens on the handler's `liveEntities`, relatedList drawer and writeHandler toolbar actions take `params` from the parent record, a projectionDetail `visibleWhen` can pass the route id to its query, and option tones gain `critical` and `accent`. Custom dashboard panels accept static `params`, and the cap-overview CapCardsPanel uses them to limit its cards via `capKeys`, with a remaining-amount line per card and a link to the full usage screen. The locale packages add the new card strings.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A drawer-hosted actionForm follows its redirect
+  detail: After a successful submit the drawer closes, the host refetches, and a declared redirect then navigates like on the full page, without returnTo. A redirect that points at the screen the drawer sits on (no record id, no tab) does not navigate, so filters and scroll position stay. Behavior change: before, a drawer ignored redirect.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Live queries follow the handler's liveEntities
+  detail: useQuery({ live: true }) and InfinityList refetch on signals for the entity in the query name and for every entity the query handler declares in liveEntities, in both the declared and the kebab-case form. The app schema carries them per feature as queryLiveEntities, and a tenant feature toggle strips them with the feature. A query that reads a second entity no longer needs a name under that entity to stay live.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: relatedList drawer and writeHandler toolbar actions take params
+  detail: RelatedListToolbarAction kind "drawer" and kind "writeHandler" accept params as a RowFieldExtractor evaluated against the parent record, for example params with map appId to id. A drawer gets the values as prefill, a writeHandler merges them over its static payload with the extracted values winning. Without a parent record the action stays hidden.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: projectionDetail visibleWhen can pass the route id
+  detail: A screen-level visibleWhen takes idParam on projectionDetail. The gate then queries with the route id under that key, and boot accepts a visibleWhen query that requires exactly that input. Without idParam the empty-payload rule stays, and idParam on another screen type fails boot. A failing gate query, such as a 403 for a downgraded tenant, shows the fallback or the standard notice instead of the screen.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Option tones gain critical and accent
+  detail: SelectOptionTone is now ok, warn, bad, critical, accent or neutral, for select optionTones, enumOption tones, relatedList rowTone and projectionDetail header.statusTones. critical and accent reuse the StatusBadge colors (status-critical and the primary brand color), neutral stays muted. An informative state such as "Ready" can use accent instead of a custom cell.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Custom dashboard panels accept static params
+  detail: A dashboard panel of kind custom takes params, static values laid over the screen's filterParams for its component. The panel wins when a filter uses the same name. Without params nothing changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: CapCardsPanel can be limited to specific cap keys via params.capKeys
+  detail: A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server. Each limited cap card also shows how much is left (or that nothing is), next to the percent chip, and a limited panel adds a link to the full usage screen.
+  -->
+- Updated dependencies [383b6a8]
+- Updated dependencies [99eea8a]
+- Updated dependencies [3cfb343]
+- Updated dependencies [3d7f455]
+- Updated dependencies [c22ca75]
+- Updated dependencies [05c9bef]
+- Updated dependencies [c639de3]
+  - @cosmicdrift/kumiko-framework@0.392.0
+
 ## 0.391.1
 
 ### Patch Changes

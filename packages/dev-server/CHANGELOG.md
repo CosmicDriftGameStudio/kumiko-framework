@@ -1,5 +1,52 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.392.0
+
+### Minor Changes
+
+- 99eea8a: The managed Dockerfile reads the registry token from a BuildKit secret
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: The managed Dockerfile reads the registry token from a BuildKit secret
+  migration: |
+    Image builds pass the token as a BuildKit secret instead of a build-arg: docker build --secret id=npm_auth_token,env=NPM_AUTH_TOKEN, or secrets: npm_auth_token=... in docker/build-push-action. The infra _docker-build-push workflow already sends both. Run kumiko-upgrade --apply to rewrite deploy/Dockerfile; a Dockerfile with a kumiko-managed: local override changes by hand: drop ARG NPM_AUTH_TOKEN and ENV GITHUB_TOKEN and start the build-stage install with RUN --mount=type=secret,id=npm_auth_token,env=GITHUB_TOKEN bun install.
+  -->
+
+### Patch Changes
+
+- 383b6a8: meilisearch lands in dist-server dependencies only when the bundle imports it or the app declares it.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: meilisearch lands in dist-server dependencies only when the bundle imports it or the app declares it
+  detail: The package stays external in every server build, but apps without search no longer get it as a production dependency in dist-server/package.json. An app that imports createMeilisearchAdapter, or lists meilisearch in dependencies or optionalDependencies, keeps it with the framework's peer range.
+  -->
+- Updated dependencies [383b6a8]
+- Updated dependencies [383b6a8]
+- Updated dependencies [99eea8a]
+- Updated dependencies [99eea8a]
+- Updated dependencies [2d06eca]
+- Updated dependencies [4810041]
+- Updated dependencies [3cfb343]
+- Updated dependencies [3d7f455]
+- Updated dependencies [c22ca75]
+- Updated dependencies [e92277d]
+- Updated dependencies [05c9bef]
+- Updated dependencies [c639de3]
+- Updated dependencies [95227c3]
+  - @cosmicdrift/kumiko-testing@0.392.0
+  - @cosmicdrift/kumiko-feature-ast@0.392.0
+  - @cosmicdrift/kumiko-framework@0.392.0
+  - @cosmicdrift/kumiko-guards@0.392.0
+  - @cosmicdrift/kumiko-bundled-features@0.392.0
+  - @cosmicdrift/kumiko-types@0.392.0
+  - @cosmicdrift/kumiko-renderer@0.392.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.392.0
+  - @cosmicdrift/kumiko-server-runtime@0.392.0
+
 ## 0.391.1
 
 ### Patch Changes

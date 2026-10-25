@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "kumiko-testing exports main(argv, io)",
+    "detail": "The kumiko-testing bin exports main(argv, io), which returns the exit code and writes through the given io, so its commands can run in-process. Invocation from the shell is unchanged."
+  },
+  {
     "version": "0.390.0",
     "type": "breaking",
     "title": "happy-dom and undici updated for security advisories",

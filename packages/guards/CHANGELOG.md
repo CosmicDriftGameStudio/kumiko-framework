@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.392.0
+
+### Minor Changes
+
+- 99eea8a: app-dockerfile and doc-status run as public repo checks
+  
+  kumiko-guards checks now includes app-dockerfile and doc-status, ported from the private infra guards package. app-dockerfile inspects deploy/Dockerfile: public/index.html or index.html must exist; with @cosmicdriftgamestudio/* dependencies the build stage copies a bunfig.toml or .npmrc scope entry before bun install and that RUN mounts the npm_auth_token BuildKit secret under the variable the registry config reads. The token as ARG/ENV (NPM_AUTH_TOKEN or the variable the registry config reads) is a warning for now and a violation next to a secret mount. Apps without private dependencies no longer need registry auth in the Dockerfile. doc-status requires valid status frontmatter for docs under docs/plans, runbooks, migration and reference; missing issue refs, finished plans outside the archive and malformed depends refs are warnings.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: app-dockerfile and doc-status run as public repo checks
+  -->
+- 2d06eca: comment-lang scans every source root of the framework repo
+  
+  The comment-language guard no longer limits the framework repo to packages/*/src and now also scans samples, scripts, bin, packages/*/bin, apps/*/src and packages/renderer/e2e. App and library repos are unchanged, they already scanned all their source roots.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: comment-lang scans every source root of the framework repo
+  -->
+- c639de3: Two new guards: `test-title` flags German or issue-referencing test titles, and `ignore-tag-reason` flags `kumiko-lint-ignore` tags without a real reason. The comment-language guard no longer flags names like "Müller GmbH" or "Zürich".
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New test-title and ignore-tag-reason guards, fewer comment-language false positives
+  detail: test-title scans test, it and describe titles (including each/skip/only chains) for German text (an umlaut, two German function words, or one unambiguous German word) and issue references. ignore-tag-reason requires a kumiko-lint-ignore reason of at least three words that is not generic. Both start with a baseline of 0 and warn only in repos without a baseline. The comment-language guard now reports a comment only when a lowercase word contains an umlaut, an umlaut appears together with a German function word, or at least two German markers appear, so proper nouns with umlauts pass.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [383b6a8]
+- Updated dependencies [99eea8a]
+- Updated dependencies [3cfb343]
+- Updated dependencies [3d7f455]
+- Updated dependencies [c22ca75]
+- Updated dependencies [05c9bef]
+- Updated dependencies [c639de3]
+  - @cosmicdrift/kumiko-framework@0.392.0
+
 ## 0.391.1
 
 ### Patch Changes

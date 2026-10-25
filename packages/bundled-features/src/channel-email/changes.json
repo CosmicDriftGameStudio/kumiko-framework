@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.392.0",
+    "type": "improvement",
+    "title": "channel-email publishes its app transport",
+    "detail": "channel-email declares the emailAppTransport extension and registers its app transport under it; findEmailAppTransport(registry) returns that transport, or null when the app has none or does not mount channel-email."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Corrected description of an email channel without app transport",
