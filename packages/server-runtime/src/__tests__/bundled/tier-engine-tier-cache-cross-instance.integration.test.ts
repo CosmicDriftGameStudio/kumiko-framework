@@ -89,7 +89,7 @@ async function bootPod(dbName: string, sharedRedisWith?: TestStack): Promise<Pod
     tier_assignments: tierAssignmentTable,
   });
   holder.resolve = await plugin.build({
-    db: stack.db,
+    db: stack.unscopedDb,
     registry: stack.registry,
     cacheSync: stack.cacheSync,
   });
