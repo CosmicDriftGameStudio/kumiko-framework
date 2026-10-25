@@ -323,6 +323,39 @@ describe("CapCardsPanel", () => {
     expect(navigateSpy).toHaveBeenCalledWith({ screenId: "my-caps" });
   });
 
+  test("one limited card holds the view-all link, several cards share one below the grid", () => {
+    queryState = {
+      data: {
+        rows: [
+          capRow({ id: "apps", label: "Apps", used: 2, limit: 3 }),
+          unlimitedCapRow({ id: "seats" }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel({ capKeys: ["apps"] });
+    expect(screen.getAllByTestId("cap-cards-view-all")).toHaveLength(1);
+    expect(screen.getByTestId("cap-card").contains(screen.getByTestId("cap-cards-view-all"))).toBe(
+      true,
+    );
+    cleanup();
+
+    renderPanel({ capKeys: ["seats"] });
+    expect(screen.getByTestId("cap-card").contains(screen.getByTestId("cap-cards-view-all"))).toBe(
+      true,
+    );
+    cleanup();
+
+    renderPanel({ capKeys: ["apps", "seats"] });
+    const links = screen.getAllByTestId("cap-cards-view-all");
+    expect(links).toHaveLength(1);
+    for (const card of screen.getAllByTestId("cap-card")) {
+      expect(card.contains(links[0] ?? null)).toBe(false);
+    }
+  });
+
   test("a string tenantId in filterParams is passed through to useQuery", () => {
     renderPanel({ tenantId: "t-42" });
 

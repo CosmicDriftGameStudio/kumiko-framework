@@ -105,7 +105,13 @@ function remainingLabel(
     : t("cap-overview.cards.noneLeft");
 }
 
-function CapCard({ cap }: { readonly cap: CapUsageWithMeta }): ReactNode {
+function CapCard({
+  cap,
+  footer,
+}: {
+  readonly cap: CapUsageWithMeta;
+  readonly footer?: ReactNode;
+}): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
   const Icon = cap.icon !== undefined ? CAP_ICONS[cap.icon] : undefined;
@@ -117,8 +123,11 @@ function CapCard({ cap }: { readonly cap: CapUsageWithMeta }): ReactNode {
       <div className="flex flex-col gap-2">
         <CapUsageSummaryRow cap={cap} />
         <CapUsageBar usage={cap} showLabel={false} />
+        {footer}
       </div>
-    ) : undefined;
+    ) : (
+      footer
+    );
   return (
     <StatCard
       icon={Icon !== undefined ? <Icon className="size-4" /> : undefined}
@@ -165,6 +174,8 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
     return <EmptyState title={t("cap-overview.cards.empty")} testId="cap-cards-panel-empty" />;
   }
 
+  // A single limited card carries the link itself; several share one under the grid.
+  const linkInCard = capKeys !== undefined && rows.length === 1;
   return (
     <div className="flex flex-col gap-2">
       <div
@@ -183,10 +194,10 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
           <div className="text-sm text-muted-foreground">{t("cap-overview.cards.loading")}</div>
         )}
         {rows.map((cap) => (
-          <CapCard key={cap.id} cap={cap} />
+          <CapCard key={cap.id} cap={cap} footer={linkInCard ? <ViewAllLink /> : undefined} />
         ))}
       </div>
-      {capKeys !== undefined && <ViewAllLink />}
+      {capKeys !== undefined && !linkInCard && <ViewAllLink />}
     </div>
   );
 }
