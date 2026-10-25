@@ -7,6 +7,7 @@ import {
   hasToolbarContent,
   renderToolbar,
   renderToolbarDescription,
+  toolbarMergesDescription,
 } from "./data-table/toolbar.tsx";
 import { type DataTableModel, useDataTableState } from "./data-table/use-data-table-state.ts";
 import { screenPaddingClassName } from "./layout.tsx";
@@ -38,6 +39,7 @@ export function DefaultDataTable(props: DataTableProps): ReactNode {
   const model = useDataTableState(props);
   const facetCluster = buildModelFacetCluster(model);
   const hasToolbar = hasToolbarContent(model, facetCluster);
+  const mergesDescription = toolbarMergesDescription(model, facetCluster);
 
   // dashboard-01 pattern: the toolbar (search + facets + "+ New") sits ABOVE
   // the table in the same padding block; no separate bg bar, no screen title
@@ -48,9 +50,9 @@ export function DefaultDataTable(props: DataTableProps): ReactNode {
     <div className={wrapperClassName(model)}>
       {/* An embedded table sits under its section title, so the description reads first
           there; a full-height list keeps it below the toolbar it pads against. */}
-      {!model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
+      {!mergesDescription && !model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
       {hasToolbar && renderToolbar(model, facetCluster)}
-      {model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
+      {!mergesDescription && model.fillsHeight && renderToolbarDescription(model, hasToolbar)}
       {renderTableContent(model)}
     </div>
   );

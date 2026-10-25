@@ -64,7 +64,6 @@ function ViewAllLink(): ReactNode {
     <Link
       href={nav.hrefFor(target)}
       onPress={() => nav.navigate(target)}
-      variant="muted"
       testId="cap-cards-view-all"
     >
       {t("cap-overview.cards.viewAll")}

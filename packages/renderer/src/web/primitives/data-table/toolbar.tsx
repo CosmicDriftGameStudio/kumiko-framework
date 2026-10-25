@@ -82,14 +82,31 @@ function renderFacetToggle(m: DataTableModel, facetCluster: ReactNode): ReactNod
   );
 }
 
+// With only end content (no search, no facets) the row has room for the description,
+// so both share one line instead of stacking the description under the actions.
+export function toolbarMergesDescription(m: DataTableModel, facetCluster: ReactNode): boolean {
+  return (
+    m.toolbarDescription !== undefined &&
+    m.toolbarStart === undefined &&
+    facetCluster === undefined &&
+    toolbarEndHasContent(m.view, m.exportList, m.toolbarEnd)
+  );
+}
+
 export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): ReactNode {
   const { testId, toolbarStart } = m;
   const collapsesFacetsBehindButton = m.isNarrow && m.fillsHeight && facetCluster !== undefined;
+  const mergesDescription = toolbarMergesDescription(m, facetCluster);
   return (
     <div
       data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-      className={toolbarClassName(m)}
+      className={cn(
+        toolbarClassName(m),
+        mergesDescription && "justify-between",
+        mergesDescription && m.fillsHeight && !m.isNarrow && "md:py-2",
+      )}
     >
+      {mergesDescription && renderToolbarDescription(m, true, true)}
       {toolbarStart !== undefined && renderToolbarStart(m, toolbarStart)}
       {collapsesFacetsBehindButton ? renderFacetToggle(m, facetCluster) : facetCluster}
       <ToolbarEndCluster
@@ -102,16 +119,22 @@ export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): React
   );
 }
 
-export function renderToolbarDescription(m: DataTableModel, hasToolbar: boolean): ReactNode {
+export function renderToolbarDescription(
+  m: DataTableModel,
+  hasToolbar: boolean,
+  inToolbarRow = false,
+): ReactNode {
   const { testId, toolbarDescription, fillsHeight, isNarrow } = m;
   if (toolbarDescription === undefined) return null;
   return (
     <p
       data-testid={testId !== undefined ? `${testId}-description` : "render-list-description"}
       className={cn(
-        "m-0 pb-2 text-sm text-muted-foreground",
-        fillsHeight && (isNarrow ? "px-3" : "px-6"),
-        fillsHeight && !hasToolbar && "pt-4",
+        "m-0 text-sm text-muted-foreground",
+        // min-w-48 lets the actions wrap below the text instead of squeezing it.
+        inToolbarRow ? "min-w-48 flex-1" : "pb-2",
+        !inToolbarRow && fillsHeight && (isNarrow ? "px-3" : "px-6"),
+        !inToolbarRow && fillsHeight && !hasToolbar && "pt-4",
       )}
     >
       {toolbarDescription}
