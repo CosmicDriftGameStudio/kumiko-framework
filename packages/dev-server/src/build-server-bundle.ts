@@ -40,6 +40,10 @@
 //                       worker threads, dynamic require). Added to
 //                       dist-server/package.json#dependencies.
 //
+//   OPTIONAL_RUNTIME_EXTERNALS — external in every build, but listed in
+//                       dist-server/package.json#dependencies only when an
+//                       emitted file imports them or the app declares them.
+//
 //   BUILD_ONLY_EXTERNALS — referenced only transitively in the framework,
 //                          never by app code. Tree-shaking removes them from
 //                          the bundle; the external marker only disables
@@ -57,13 +61,6 @@ const hasBun = typeof Bun !== "undefined";
 // ioredis), and dynamic require (postgres, temporal-polyfill) — anything that
 // breaks under Bun bundling. (drizzle-kit/drizzle-orm are excluded: the
 // migration path now uses the framework's runMigrationsFromDir, not drizzle-kit.)
-// meilisearch is deliberately here, not in BUILD_ONLY_EXTERNALS below — apps
-// that import createMeilisearchAdapter (kumiko-framework/search/meilisearch)
-// reference the package at runtime (no native binding, plain HTTP client,
-// but a real runtime import). A production crash in money-horse,
-// "Cannot find package 'meilisearch'", occurred because it used to be in
-// BUILD_ONLY_EXTERNALS instead. Its version comes from the framework's
-// peerDependencies range.
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
   "sharp",
@@ -73,8 +70,13 @@ const RUNTIME_EXTERNALS = [
   "temporal-polyfill",
   "pino",
   "pino-pretty",
-  "meilisearch",
 ] as const;
+
+// An optional framework peer: apps that import createMeilisearchAdapter reference
+// it at runtime, so it must stay external (as BUILD_ONLY_EXTERNALS it crashed
+// money-horse with "Cannot find package 'meilisearch'"), but apps without search
+// should not install it.
+const OPTIONAL_RUNTIME_EXTERNALS = ["meilisearch"] as const;
 
 // Packages that appear only in the build stack (transitive framework imports),
 // but are not referenced by app code. Without the external marker,
@@ -195,6 +197,7 @@ export async function buildServerBundle(
 
   const externals = [
     ...RUNTIME_EXTERNALS,
+    ...OPTIONAL_RUNTIME_EXTERNALS,
     ...BUILD_ONLY_EXTERNALS,
     ...(options.extraRuntimeExternals ?? []),
     ...(options.extraBuildOnlyExternals ?? []),
@@ -233,7 +236,9 @@ export async function buildServerBundle(
   // split entry points and sometimes reports ~0 for the entry stub.
   const entries: BuildServerBundleEntry[] = [];
   const chunks: BuildServerBundleEntry[] = [];
+  const emittedCode: string[] = [];
   for (const out of result.outputs) {
+    emittedCode.push(await out.text());
     const base = out.path.split("/").pop() ?? out.path;
     if (out.kind === "entry-point") {
       const desired = ENTRY_RENAMES[base] ?? base;
@@ -248,8 +253,14 @@ export async function buildServerBundle(
   entries.sort((a, b) => a.file.localeCompare(b.file));
   const totalBytes = [...entries, ...chunks].reduce((sum, e) => sum + e.sizeBytes, 0);
 
+  const declaredAppDependencies = readDeclaredAppDependencies(cwd);
+  const neededOptionalExternals = OPTIONAL_RUNTIME_EXTERNALS.filter(
+    (pkg) =>
+      declaredAppDependencies.has(pkg) || emittedCode.some((code) => importsBarePackage(code, pkg)),
+  );
   const runtimeDeps = await resolveRuntimeDepsVersions(cwd, repoRoot, [
     ...RUNTIME_EXTERNALS,
+    ...neededOptionalExternals,
     ...(options.extraRuntimeExternals ?? []),
   ]);
 
@@ -341,7 +352,29 @@ export function readExtraRuntimeExternals(cwd: string): readonly string[] {
   return list.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
 }
 
-// Resolve versions for RUNTIME_EXTERNALS: first from installed
+// Static, dynamic and CommonJS imports of an external survive bundling as a bare specifier
+// (require becomes __require(...)).
+function importsBarePackage(code: string, pkg: string): boolean {
+  const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\w*[rR]equire\\w*\\s*\\(\\s*)["'\`]${escaped}["'\`]`,
+  ).test(code);
+}
+
+function readDeclaredAppDependencies(cwd: string): ReadonlySet<string> {
+  const appPkg = join(cwd, "package.json");
+  if (!existsSync(appPkg)) return new Set();
+  const parsed = parseJsonSafe<{
+    dependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
+  }>(readFileSync(appPkg, "utf-8"), {});
+  return new Set([
+    ...Object.keys(parsed.dependencies ?? {}),
+    ...Object.keys(parsed.optionalDependencies ?? {}),
+  ]);
+}
+
+// Resolve versions for the runtime externals: first from installed
 // node_modules/@cosmicdrift/*-packages (relative to cwd, which works for
 // any consumer app), then additionally from packages/framework + bundled-
 // features (the framework's own workspace checkout). Fall back to "*"
