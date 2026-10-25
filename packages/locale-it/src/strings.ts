@@ -436,6 +436,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.col.tier": "Tier",
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Non ancora misurato",
+  "cap-overview.notIncluded": "Non incluso",
   "cap-overview.platform.filter.tenant": "Organizzazione",
   "cap-overview.unlimited": "{used} · illimitato",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Profilo di conformità",

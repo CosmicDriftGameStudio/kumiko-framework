@@ -168,6 +168,20 @@ function validateProjectionDetailStatusTones(
   }
 }
 
+function validateProjectionDetailStatusFormat(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  const header = screen.header;
+  if (header?.statusFormat !== undefined && header.status === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets header.statusFormat ` +
+        `without header.status — there is no status badge to format. Set header.status or remove statusFormat.`,
+    );
+  }
+}
+
 function validateProjectionDetailSubtitleParts(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -429,6 +443,7 @@ export function validateProjectionDetailScreen(
     validateProjectionDetailMetric(ctx, screenId, screen, metric);
   }
   validateProjectionDetailStatusTones(featureName, screenId, screen);
+  validateProjectionDetailStatusFormat(featureName, screenId, screen);
   validateProjectionDetailSubtitle(ctx, screenId, screen);
   for (const section of screen.layout.sections) {
     validateProjectionDetailSection(ctx, screenId, screen, section);

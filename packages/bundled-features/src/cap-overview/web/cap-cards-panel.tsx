@@ -1,5 +1,5 @@
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
-import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useLocale, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   EmptyState,
@@ -10,8 +10,10 @@ import {
 import { Database, FileText, Gauge, Hash, Mail, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { CapIconKey, CapUsageTone, CapUsageWithMeta } from "../types.ts";
+import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
 import { CapOverviewQueries } from "./constants.ts";
+import { isCapNotIncluded } from "./usage-math.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 
@@ -43,6 +45,7 @@ function isMeasured(cap: CapUsageWithMeta): cap is CapUsageWithMeta & { used: nu
 
 export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
+  const locale = useLocale().locale();
   const { Banner } = usePrimitives();
   const tenantId =
     typeof filterParams?.["tenantId"] === "string" ? filterParams["tenantId"] : undefined;
@@ -84,8 +87,9 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
         const Icon = cap.icon !== undefined ? CAP_ICONS[cap.icon] : undefined;
         // An unlimited, measured cap has neither a badge nor a bar; StatCard still
         // wraps any defined child in a spacing div, so pass undefined then.
+        const notIncluded = isCapNotIncluded(cap.limit);
         const body =
-          !isMeasured(cap) || cap.limit !== null ? (
+          !notIncluded && (!isMeasured(cap) || cap.limit !== null) ? (
             <div className="flex flex-col gap-2">
               {cap.percent !== null && (
                 <div className="flex items-center justify-between gap-2">
@@ -101,11 +105,13 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
             icon={Icon !== undefined ? <Icon className="size-4" /> : undefined}
             label={t(cap.label)}
             value={
-              !isMeasured(cap)
-                ? EMPTY_VALUE_PLACEHOLDER
-                : cap.limit === null
-                  ? String(cap.used)
-                  : `${cap.used} / ${cap.limit}`
+              notIncluded
+                ? t("cap-overview.notIncluded")
+                : !isMeasured(cap)
+                  ? EMPTY_VALUE_PLACEHOLDER
+                  : cap.limit === null
+                    ? formatCapAmount(cap.used, cap.unit, locale)
+                    : formatCapUsedOfLimit(cap.used, cap.limit, cap.unit, locale)
             }
             {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
             testId="cap-card"

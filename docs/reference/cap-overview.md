@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-15
+verified: 2026-10-25
 evidence: "kumiko-framework#2496 (feat/cap-overview); #2503 (drei Caps, Tone); #2515 (not-measured); admin-shell Opt-in Nav (602174b77); bundled-features/cap-overview; fw#2854"
 ---
 
@@ -19,6 +19,9 @@ Dashboards.
 - **`caps: readonly CapSpec[]`** (Pflicht) — die zu überwachenden Usage-Caps.
 - **`listCaps?`** — welche Caps als Spalten auf dem Platform-Screen
   (`tenant-cap-list`) erscheinen; Default = die ersten drei, wenn weggelassen.
+- **`CapSpec.unit?`** (`"count"`, `"mb"`, `"tokens"`) — steuert die Anzeige:
+  `mb` erscheint als MB/GB, sonst als Zahl im Locale-Format. Ein Limit von
+  `0` zeigt „Nicht enthalten“ statt eines Balkens.
 - **`tiers?`** — optionale Werte für den Tier-Facet-Filter der Platform-Liste.
   Weggelassen → **kein** Facet (die Engine trägt keine eigene Tier-Vokabular-
   Enumeration, aus der man eines ableiten könnte; "Filter by tier" war explizit
@@ -52,6 +55,8 @@ als `usage`-Callback.
 
 - **Opt-in Nav** (fw#2505): Einbindung in den `admin-shell`-Nav ist opt-in
   über `includeCapOverview` — wird nicht automatisch eingeblendet.
+  `includeTenantOverview: false` lässt den admin-shell-Screen
+  `tenant-overview` samt Nav weg.
 - **Over-Cap-Tone**: Der `Progress`-Primitive (renderer) trägt jetzt einen
   `tone` (`default`/`warn`/`danger`), damit usage-Bars jenseits des Caps als
   Over-Cap lesen statt nur als voller Balken.

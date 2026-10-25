@@ -262,10 +262,11 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
           const rawUsed = usageByCap.get(cap.id)?.get(row.tenantId);
           const used = rawUsed === undefined ? 0 : rawUsed;
           const limit = limitByTenantAndCap.get(tenantCapKey(row.tenantId, cap.id)) ?? null;
+          const unit = cap.unit !== undefined ? { unit: cap.unit } : {};
           capFields[capFieldName(cap.id)] =
             used === null
-              ? { used: null, limit, fraction: 0 }
-              : { used, limit, fraction: computeFraction(used, limit) };
+              ? { used: null, limit, fraction: 0, ...unit }
+              : { used, limit, fraction: computeFraction(used, limit), ...unit };
         }
         return {
           tenantId: row.tenantId,

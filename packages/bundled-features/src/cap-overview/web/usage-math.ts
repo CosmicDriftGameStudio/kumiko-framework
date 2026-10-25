@@ -8,9 +8,13 @@ const DANGER_THRESHOLD = 1;
 
 // limit === null means unlimited (no cap to measure against); limit <= 0
 // means "not part of this tier" — both render as 0, never NaN/Infinity.
+export function isCapNotIncluded(limit: number | null): boolean {
+  return limit !== null && limit <= 0;
+}
+
 function rawFraction(used: number, limit: number | null): number {
   if (limit === null) return 0;
-  if (limit <= 0) return 0;
+  if (isCapNotIncluded(limit)) return 0;
   const fraction = used / limit;
   return Number.isFinite(fraction) ? fraction : 0;
 }

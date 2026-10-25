@@ -292,6 +292,42 @@ describe("admin-shell includeDocumentDesigner", () => {
   });
 });
 
+describe("admin-shell includeTenantOverview", () => {
+  const tenantWorkspace = `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`;
+  const baseFeatures = [
+    createConfigFeature(),
+    createUserFeature(),
+    createTenantFeature(),
+    createAuditFeature(),
+    createJobsFeature(),
+    ...ADMIN_SHELL_METRICS_FEATURES,
+    createTierEngineFeature(),
+  ];
+
+  test("default registers the tenant overview screen and nav", () => {
+    const registry = createRegistry(features);
+    expect(registry.getScreen("admin-shell:screen:tenant-overview")?.id).toBeDefined();
+    expect(registry.getNav("admin-shell:nav:tenant-overview")).toBeDefined();
+    expect(registry.getWorkspaceNavs(tenantWorkspace)).toContain("admin-shell:nav:tenant-overview");
+  });
+
+  test("false drops screen, nav and workspace entry and still boots", () => {
+    const withoutOverview = [
+      ...baseFeatures,
+      createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS, includeTenantOverview: false }),
+    ];
+    expect(() => validateBoot(withoutOverview)).not.toThrow();
+    const registry = createRegistry(withoutOverview);
+    expect(registry.getScreen("admin-shell:screen:tenant-overview")).toBeUndefined();
+    expect(registry.getNav("admin-shell:nav:tenant-overview")).toBeUndefined();
+    expect(registry.getWorkspaceNavs(tenantWorkspace)).toEqual([
+      "tenant:nav:members",
+      "audit:nav:audit-log",
+    ]);
+    expect(registry.getScreen("admin-shell:screen:platform-overview")?.id).toBeDefined();
+  });
+});
+
 describe("admin-shell overview wiring", () => {
   test("requires metrics and metrics-system", () => {
     const withoutMetrics = [

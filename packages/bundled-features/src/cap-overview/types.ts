@@ -2,6 +2,8 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { CapLimitContext } from "../cap-counter/index.ts";
 
+export type CapUnit = "count" | "mb" | "tokens";
+
 // Closed vocabulary for the dashboard cards' icon chip — cap-cards-panel.tsx
 // holds the matching lucide-react lookup. Small on purpose (YAGNI): extend
 // both together when a cap needs a shape not covered here.
@@ -35,7 +37,7 @@ export type CapSpec = {
     db: TenantDb,
     tenantIds: readonly TenantId[],
   ) => Promise<Map<TenantId, number | null>>;
-  readonly unit?: "count" | "mb" | "tokens";
+  readonly unit?: CapUnit;
   /** Icon chip on the dashboard cards. Optional — omitted renders the card
    *  without an icon, same as before this field existed. */
   readonly icon?: CapIconKey;
@@ -54,6 +56,7 @@ export type CapUsage = {
   // `limit: null` means unlimited — a pure usage meter with no cap to hit.
   readonly limit: number | null;
   readonly fraction: number;
+  readonly unit?: CapUnit;
 };
 
 export type CapUsageWithMeta = CapUsage & {

@@ -86,6 +86,7 @@ export function createCapsUsageQuery(
             id: cap.id,
             label: cap.label,
             limit,
+            ...(cap.unit !== undefined && { unit: cap.unit }),
             ...(cap.icon !== undefined && { icon: cap.icon }),
             ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
           };

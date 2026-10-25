@@ -270,6 +270,7 @@ export function WorkspaceShell({
             <ShellHeader
               schema={app}
               {...(user !== undefined && { user })}
+              {...(allowedNavQns !== undefined && { allowedNavQns })}
               {...(topbarActions !== undefined && { headerActions: topbarActions })}
             />
             <main className={fillCls.main}>

@@ -89,6 +89,49 @@ describe("ShellHeader", () => {
     });
   });
 
+  describe("two navs on the same screen", () => {
+    const twoNavSchema: AppSchema = {
+      features: [
+        {
+          featureName: "adminshell",
+          entities: {},
+          screens: [{ id: "my-caps", type: "entityList", entity: "x", columns: [] }],
+          navs: [{ id: "my-caps", label: "Plans and limits", screen: "my-caps", order: 10 }],
+        } as FeatureSchema,
+        {
+          featureName: "platform",
+          entities: {},
+          screens: [],
+          navs: [{ id: "quota", label: "Quota", screen: "adminshell:screen:my-caps", order: 20 }],
+        } as FeatureSchema,
+      ],
+    };
+
+    function crumbLabel(allowedNavQns: ReadonlySet<string> | undefined): string | null {
+      renderWithSidebar(
+        <NavProvider value={{ ...routedNav, route: { screenId: "my-caps" } }}>
+          <ShellHeader
+            schema={twoNavSchema}
+            {...(allowedNavQns !== undefined && { allowedNavQns })}
+          />
+        </NavProvider>,
+      );
+      return screen.getByRole("heading", { level: 1 }).textContent;
+    }
+
+    test("the title follows the nav the sidebar shows", () => {
+      expect(crumbLabel(new Set(["platform:nav:quota"]))).toBe("Quota");
+    });
+
+    test("without allowedNavQns the first nav on the screen wins", () => {
+      expect(crumbLabel(undefined)).toBe("Plans and limits");
+    });
+
+    test("falls back to the unfiltered tree when the allowed navs do not cover the screen", () => {
+      expect(crumbLabel(new Set())).toBe("Plans and limits");
+    });
+  });
+
   test("recordTitle from the PageHeader becomes the middle crumb between list and h1", () => {
     const editSchema = {
       featureName: "showcase",

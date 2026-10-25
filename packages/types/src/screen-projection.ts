@@ -1,7 +1,7 @@
 import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { NavIconKey } from "./nav-icon.ts";
-import type { PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
+import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { DashboardPanelVisibility, DashboardStatTone } from "./screen-dashboard.ts";
 import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
@@ -171,6 +171,8 @@ export type RecordHeaderSpec = {
    *  joined by a separator; parts with an empty value are dropped. */
   readonly subtitle?: string | readonly RecordHeaderSubtitlePart[];
   readonly status?: string;
+  /** Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value. Needs `status`. Without it, the `status` field's layout renderer is used when it is `enumOption` or `i18nText`. */
+  readonly statusFormat?: FormatSpec;
   /** Record field holding an absolute http(s) URL. When present and the
    *  field's value is such a URL, the subtitle renders as an external link
    *  (`target="_blank"`) instead of plain text. Only valid with the string

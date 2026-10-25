@@ -1,7 +1,8 @@
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import type { CapUsage } from "../types.ts";
-import { computeTone } from "./usage-math.ts";
+import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
+import { computeTone, isCapNotIncluded } from "./usage-math.ts";
 
 export function CapUsageBar({
   usage,
@@ -14,6 +15,15 @@ export function CapUsageBar({
 }): ReactNode {
   const { Progress, Text, Banner } = usePrimitives();
   const t = useTranslation();
+  const locale = useLocale().locale();
+
+  if (isCapNotIncluded(usage.limit)) {
+    return (
+      <Text variant="small" testId="cap-usage-not-included">
+        {t("cap-overview.notIncluded")}
+      </Text>
+    );
+  }
 
   if (usage.used === null) {
     return (
@@ -27,7 +37,7 @@ export function CapUsageBar({
     // A progress bar with no denominator says nothing — show the raw count instead.
     return showLabel ? (
       <Text variant="small" testId="cap-usage-unlimited">
-        {t("cap-overview.unlimited", { used: usage.used })}
+        {t("cap-overview.unlimited", { used: formatCapAmount(usage.used, usage.unit, locale) })}
       </Text>
     ) : null;
   }
@@ -49,7 +59,11 @@ export function CapUsageBar({
           {t("cap-overview.errors.progressPrimitiveMissing")}
         </Banner>
       )}
-      {showLabel && <Text variant="small">{`${usage.used} / ${usage.limit}`}</Text>}
+      {showLabel && (
+        <Text variant="small">
+          {formatCapUsedOfLimit(usage.used, usage.limit, usage.unit, locale)}
+        </Text>
+      )}
     </div>
   );
 }

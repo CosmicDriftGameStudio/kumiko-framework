@@ -1,5 +1,6 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveNavParentScreen } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavNode } from "../../headless/index.ts";
 import { lastSegment } from "../../index.ts";
 
 export type BreadcrumbCrumb = {
@@ -51,4 +52,19 @@ export function resolveDetailBreadcrumb(
     { label: t(screenTitleKey(listId)), screenId: listId },
     { label: t(screenTitleKey(detailScreenId)) },
   ];
+}
+
+export function activeNavLabel(
+  nodes: readonly NavNode[],
+  screenId: string,
+  t: (key: string) => string,
+): string | undefined {
+  for (const node of nodes) {
+    if (node.screen !== undefined && lastSegment(node.screen) === screenId) {
+      return node.label.includes(".") || node.label.includes(":") ? t(node.label) : node.label;
+    }
+    const child = activeNavLabel(node.children, screenId, t);
+    if (child !== undefined) return child;
+  }
+  return undefined;
 }
