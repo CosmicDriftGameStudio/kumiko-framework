@@ -1,6 +1,4 @@
 {
   "version": 1,
-  "tables": [
-    "read_readiness_probe_runs"
-  ]
+  "tables": ["read_readiness_probe_runs"]
 }
