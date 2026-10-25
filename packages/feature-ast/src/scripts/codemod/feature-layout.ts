@@ -389,13 +389,13 @@ function writeResult(result: FeatureLayoutResult): void {
   }
 }
 
-async function main(argv: readonly string[]): Promise<void> {
+export async function main(argv: readonly string[]): Promise<number> {
   let options: CliOptions;
   try {
     options = parseArgs(argv);
   } catch (err) {
     console.error(`[feature-layout] ${err instanceof Error ? err.message : String(err)}`);
-    process.exit(2);
+    return 2;
   }
   const files = readTargetFiles(options.paths);
   const result = applyFeatureLayout(files, options);
@@ -418,7 +418,7 @@ async function main(argv: readonly string[]): Promise<void> {
     }
   }
   const pending = result.markersRemoved.length + result.manual.length;
-  process.exit(options.mode === "check" && pending > 0 ? 1 : 0);
+  return options.mode === "check" && pending > 0 ? 1 : 0;
 }
 
-if (import.meta.main) await main(process.argv.slice(2));
+if (import.meta.main) process.exit(await main(process.argv.slice(2)));

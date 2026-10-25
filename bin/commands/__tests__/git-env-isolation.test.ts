@@ -34,7 +34,7 @@ function initRepoWithBaseCommit(dir: string): void {
   runGit(["commit", "--allow-empty", "-m", "base"], dir);
 }
 
-describe("git env isolation (regression for #197/#185)", () => {
+describe("git env isolation", () => {
   test("runGit cannot be redirected by a hostile inherited GIT_DIR", () => {
     const victim = tempDir("kumiko-victim-");
     initRepoWithBaseCommit(victim);

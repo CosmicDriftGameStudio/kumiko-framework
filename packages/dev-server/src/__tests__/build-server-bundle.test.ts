@@ -30,6 +30,26 @@ function makeFixture(): string {
   return dir;
 }
 
+function importMeilisearchInMain(dir: string): void {
+  writeFileSync(
+    join(dir, "bin/main.ts"),
+    `import { MeiliSearch } from "meilisearch";\nconsole.log("server", MeiliSearch);\n`,
+  );
+}
+
+function writeFrameworkPeerPin(dir: string): void {
+  const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+  mkdirSync(frameworkPkgDir, { recursive: true });
+  writeFileSync(
+    join(frameworkPkgDir, "package.json"),
+    `${JSON.stringify({
+      name: "@cosmicdrift/kumiko-framework",
+      peerDependencies: { meilisearch: "^0.58.0" },
+      peerDependenciesMeta: { meilisearch: { optional: true } },
+    })}\n`,
+  );
+}
+
 describe("buildServerBundle (multi-entry + splitting)", () => {
   test("produces server.js + kumiko.js as entries + a shared chunk", async () => {
     const dir = makeFixture();
@@ -58,12 +78,9 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       expect(pkg.scripts.start).toBe("bun run server.js");
       expect(Object.keys(pkg.dependencies)).not.toContain("drizzle-kit");
       expect(Object.keys(pkg.dependencies)).not.toContain("drizzle-orm");
-      // Positive counterpart to the negative checks above — a runtime
-      // external accidentally dropped from RUNTIME_EXTERNALS (into
-      // BUILD_ONLY_EXTERNALS instead) would slip through silently. This
-      // is the exact regression class behind the money-horse prod crash
-      // ("Cannot find package 'meilisearch'").
-      expect(Object.keys(pkg.dependencies)).toContain("meilisearch");
+      // Positive counterpart: a runtime external accidentally dropped from RUNTIME_EXTERNALS
+      // (into BUILD_ONLY_EXTERNALS instead) would slip through silently.
+      expect(Object.keys(pkg.dependencies)).toContain("sharp");
 
       expect(result.totalBytes).toBeGreaterThan(0);
     } finally {
@@ -165,6 +182,7 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     // packages/ directory), so versions must come from the installed
     // node_modules/@cosmicdrift/* packages rather than "*".
     const dir = makeFixture();
+    importMeilisearchInMain(dir);
     try {
       const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
       mkdirSync(frameworkPkgDir, { recursive: true });
@@ -190,6 +208,7 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
 
   test("pins a runtime external the framework only lists as an optional peer", async () => {
     const dir = makeFixture();
+    importMeilisearchInMain(dir);
     try {
       const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
       mkdirSync(frameworkPkgDir, { recursive: true });
@@ -216,6 +235,7 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     // node_modules must win — it reflects what actually gets shipped/installed
     // for the consumer, packages/framework is only a repo-root fallback.
     const dir = makeFixture();
+    importMeilisearchInMain(dir);
     try {
       const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
       mkdirSync(frameworkPkgDir, { recursive: true });
@@ -239,7 +259,84 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
   });
 });
 
-describe("readExtraRuntimeExternals (package.json kumiko field, #1484)", () => {
+describe("buildServerBundle meilisearch runtime dependency", () => {
+  async function runtimeDepsOf(dir: string): Promise<{
+    readonly result: Awaited<ReturnType<typeof buildServerBundle>>;
+    readonly packageJsonDependencies: Record<string, string>;
+  }> {
+    writeFrameworkPeerPin(dir);
+    const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+    const pkg = JSON.parse(readFileSync(join(dir, "dist-server/package.json"), "utf8")) as {
+      dependencies: Record<string, string>;
+    };
+    return { result, packageJsonDependencies: pkg.dependencies };
+  }
+
+  test("an app that neither imports nor declares meilisearch does not install it", async () => {
+    const dir = makeFixture();
+    try {
+      const { result, packageJsonDependencies } = await runtimeDepsOf(dir);
+      expect(result.runtimeDeps).not.toHaveProperty("meilisearch");
+      expect(packageJsonDependencies).not.toHaveProperty("meilisearch");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test.each([
+    ["a static import", `import { MeiliSearch } from "meilisearch";\nconsole.log(MeiliSearch);\n`],
+    ["a dynamic import", `const search = await import("meilisearch");\nconsole.log(search);\n`],
+    ["a require call", `const search = require("meilisearch");\nconsole.log(search);\n`],
+  ])(
+    "installs meilisearch with the framework version when the bundle has %s",
+    async (_label, source) => {
+      const dir = makeFixture();
+      try {
+        writeFileSync(join(dir, "bin/main.ts"), source);
+        const { result, packageJsonDependencies } = await runtimeDepsOf(dir);
+        expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+        expect(packageJsonDependencies["meilisearch"]).toBe("^0.58.0");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test("installs meilisearch when only a shared chunk imports it", async () => {
+    const dir = makeFixture();
+    try {
+      writeFileSync(
+        join(dir, "src/shared.ts"),
+        `import { MeiliSearch } from "meilisearch";\nexport function shared(): unknown { return MeiliSearch; }\n`,
+      );
+      const { result } = await runtimeDepsOf(dir);
+      expect(result.chunks.length).toBeGreaterThanOrEqual(1);
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test.each([
+    ["dependencies", { dependencies: { meilisearch: "^0.58.0" } }],
+    ["optionalDependencies", { optionalDependencies: { meilisearch: "^0.58.0" } }],
+  ])("installs meilisearch when the app declares it in %s", async (_label, declaration) => {
+    const dir = makeFixture();
+    try {
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({ name: "fixture-app", ...declaration })}\n`,
+      );
+      const { result, packageJsonDependencies } = await runtimeDepsOf(dir);
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+      expect(packageJsonDependencies["meilisearch"]).toBe("^0.58.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("readExtraRuntimeExternals (package.json kumiko field)", () => {
   test("reads string list from kumiko.extraRuntimeExternals", () => {
     const dir = mkdtempSync(join(tmpdir(), "extra-ext-"));
     try {
@@ -280,7 +377,7 @@ describe("readExtraRuntimeExternals (package.json kumiko field, #1484)", () => {
   });
 });
 
-describe("buildServerBundle + package.json extras (#1484)", () => {
+describe("buildServerBundle + package.json extras", () => {
   test("extraRuntimeExternals from options land in runtimeDeps with app pin", async () => {
     const dir = makeFixture();
     try {

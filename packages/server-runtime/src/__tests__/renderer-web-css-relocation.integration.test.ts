@@ -36,7 +36,7 @@ function bunAvailable(): boolean {
   }
 }
 
-describe("renderer-web styles.css @source relocation (#359)", () => {
+describe("renderer-web styles.css @source relocation", () => {
   // Use skipIf instead of `if (!bunAvailable()) return;` so the runner does not
   // report a test as passing when it never ran (a silent pass hides missing coverage).
   test.skipIf(!bunAvailable())(

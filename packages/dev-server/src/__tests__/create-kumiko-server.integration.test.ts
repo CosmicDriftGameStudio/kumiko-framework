@@ -86,7 +86,7 @@ describe("createKumikoServer", () => {
     expect(body).toMatch(/<script type="module" src="\/client\.js"><\/script>/);
   });
 
-  test("GET /client.js → 404 wenn clientEntry fehlt (Route nicht registriert)", async () => {
+  test("GET /client.js → 404 when clientEntry is missing (route not registered)", async () => {
     // Before the multi-entry refactor, this returned 200 with an empty body as
     // quirky backwards compatibility. With the multi-entry engine, /client.js is
     // registered only when an entry exists: no entries means no bundle asset path,
@@ -96,7 +96,7 @@ describe("createKumikoServer", () => {
     expect(res.status).toBe(404);
   });
 
-  test("Single-Entry: clientEntry='client.tsx' liefert Bundle unter /client.js", async () => {
+  test("Single-Entry: clientEntry='client.tsx' serves bundle under /client.js", async () => {
     // Backwards-compatibility smoke test: existing samples (designer,
     // ui-walkthrough, beammycar, …) use clientEntry, so normalization must derive
     // `/client.js` as the asset path. _buildBundle injects a stub so the body can
@@ -121,13 +121,13 @@ describe("createKumikoServer", () => {
     }
   });
 
-  test("GET /client.js.map → 404 wenn kein Sourcemap vorhanden", async () => {
+  test("GET /client.js.map → 404 when no sourcemap exists", async () => {
     const h = await boot();
     const res = await h.fetch(new Request("http://localhost/client.js.map"));
     expect(res.status).toBe(404);
   });
 
-  test("GET /_reload → text/event-stream mit connected-Komment", async () => {
+  test("GET /_reload → text/event-stream with connected comment", async () => {
     const h = await boot();
     const res = await h.fetch(new Request("http://localhost/_reload"));
     expect(res.status).toBe(200);
@@ -225,7 +225,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
     });
   }
 
-  test("HTML-Dispatch: admin-Host bekommt admin.html, sonst index.html", async () => {
+  test("HTML dispatch: admin host gets admin.html, otherwise index.html", async () => {
     handle = await bootMultiEntry();
 
     const publicRes = await handle.fetch(
@@ -261,7 +261,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
     expect(noFallback.status).toBe(404);
   });
 
-  test("HTML never carries the schema; GET /api/schema needs the auto-minted cookie (kumiko-framework#3314)", async () => {
+  test("HTML never carries the schema; GET /api/schema needs the auto-minted cookie", async () => {
     handle = await bootMultiEntry();
 
     const publicRes = await handle.fetch(
@@ -302,7 +302,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
     expect(anyFeatureMissingAdapter).toBe(false);
   });
 
-  test("hostDispatch redirect: liefert 302 mit Location-Header", async () => {
+  test("hostDispatch redirect: returns 302 with Location header", async () => {
     handle = await bootMultiEntry();
 
     const res = await handle.fetch(
@@ -312,7 +312,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
     expect(res.headers.get("location")).toBe("https://new.test/");
   });
 
-  test("hostDispatch not-found: liefert 404", async () => {
+  test("hostDispatch not-found: returns 404", async () => {
     handle = await bootMultiEntry();
 
     const res = await handle.fetch(
@@ -379,7 +379,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
     });
   });
 
-  test("hostDispatch: async fn erhält deps.systemQuery, 'not-found' → 404 (kumiko-framework#3050 dev-Pendant)", async () => {
+  test("hostDispatch: async fn receives deps.systemQuery, 'not-found' → 404", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "kumiko-multi-it-"));
     const publicEntry = join(tmpDir, "client-public.tsx");
     writeFileSync(publicEntry, "// public");
@@ -409,7 +409,7 @@ describe("createKumikoServer (Multi-Entry)", () => {
 // registry/dispatchSystemWrite check and an entry:"signature" route for
 // the webhook dispatch.
 describe("createKumikoServer extraRoutes / wire deps", () => {
-  test("wire: dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+  test("wire: dispatchSystemWrite writes as the SystemAdmin of the target tenant, registry available", async () => {
     const tenantId = "00000000-0000-4000-8000-000000000042";
     let registryHasProbe = false;
     handle = await createKumikoServer({
@@ -889,7 +889,7 @@ const probeHttpRouteFeature = defineFeature("dev-server-probe-http-route", (r) =
   });
 });
 
-describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () => {
+describe("createKumikoServer — tryHonoFirst 404-vs-router-miss", () => {
   async function bootWithProbeRoute(): Promise<KumikoServerHandle> {
     handle = await createKumikoServer({
       features: [probeHttpRouteFeature],
@@ -899,7 +899,7 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
     return handle;
   }
 
-  test("gematchte httpRoute mit bewusster 404 bleibt 404 (keine SPA-Maskierung)", async () => {
+  test("matched httpRoute with deliberate 404 remains 404 (no SPA masking)", async () => {
     const h = await bootWithProbeRoute();
     const res = await h.fetch(new Request("http://localhost/probe/missing"));
     expect(res.status).toBe(404);
@@ -907,14 +907,14 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
     expect(await res.text()).toBe("not found");
   });
 
-  test("gematchte httpRoute mit Treffer antwortet normal (200)", async () => {
+  test("matched httpRoute with a hit responds normally (200)", async () => {
     const h = await bootWithProbeRoute();
     const res = await h.fetch(new Request("http://localhost/probe/exists"));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("probe:exists");
   });
 
-  test("unbekannte SPA-Route liefert weiterhin die SPA-Shell (200 HTML)", async () => {
+  test("unknown SPA route continues to return the SPA shell (200 HTML)", async () => {
     const h = await bootWithProbeRoute();
     const res = await h.fetch(new Request("http://localhost/some/client-side/route"));
     expect(res.status).toBe(200);
@@ -922,7 +922,7 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
     expect(await res.text()).toMatch(/<div id="root">/);
   });
 
-  test("kein Router-miss-Marker leakt an den Client", async () => {
+  test("no router-miss marker leaks to the client", async () => {
     const h = await bootWithProbeRoute();
     const missRes = await h.fetch(new Request("http://localhost/some/client-side/route"));
     const deniedRes = await h.fetch(new Request("http://localhost/probe/missing"));
@@ -974,7 +974,7 @@ describe("createKumikoServer — ephemeral job queues", () => {
   });
 });
 
-describe("createKumikoServer — real Bun.serve socket resolves the client IP (fw#3260 addendum)", () => {
+describe("createKumikoServer — real Bun.serve socket resolves the client IP", () => {
   // Every other test in this file drives h.fetch()/handle.fetch() directly,
   // bypassing Bun.serve's real TCP socket entirely — none of them can catch
   // a regression where handleFetch loses the socket address before it

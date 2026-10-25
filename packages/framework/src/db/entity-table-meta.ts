@@ -17,16 +17,13 @@
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import type { Writable } from "@cosmicdrift/kumiko-types/executor-brand";
-import type {
-  EntityDefinition,
-  EntityIndexDef,
-  FieldDefinition,
-} from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition, EntityIndexDef } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
 
 import { isSqlExpression } from "./dialect.ts";
+import { fieldToColumnMeta } from "./entity-column-meta.ts";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -84,162 +81,6 @@ function fullBaseColumns(idType: "uuid" | "serial", softDelete: boolean): readon
     );
   }
   return cols;
-}
-
-function quoteSql(literal: string): string {
-  return `'${literal.replace(/'/g, "''")}'`;
-}
-
-function fieldDefaultLiteral(field: FieldDefinition): string | undefined {
-  if (!("default" in field) || field.default === undefined) return undefined;
-  const v = field.default;
-  if (typeof v === "string") return quoteSql(v);
-  if (typeof v === "number") return String(v);
-  if (typeof v === "boolean") return v ? "true" : "false";
-  return undefined;
-}
-
-// Mirrors `fieldToColumns()` from table-builder.ts (drizzle variant).
-// Lock-step: every field type must produce the same PG columns as today.
-function fieldToColumnMeta(
-  name: string,
-  field: FieldDefinition,
-  entity: EntityDefinition,
-): readonly ColumnMeta[] {
-  const snake = toSnakeCase(name);
-  switch (field.type) {
-    case "text":
-    case "longText": {
-      const def = fieldDefaultLiteral(field);
-      const cols: ColumnMeta[] = [
-        {
-          name: snake,
-          pgType: "text",
-          notNull: field.required === true,
-          ...(def !== undefined && { defaultSql: def }),
-        },
-      ];
-      // lookupable → HMAC blind-index counterpart. Nullable is mandatory:
-      // managedChangeRequiresRecreate would diff a NOT-NULL column without
-      // a default on existing tables as DROP+rebuild.
-      if (field.type === "text" && field.lookupable === true) {
-        cols.push({ name: `${snake}_bidx`, pgType: "text", notNull: false });
-      }
-      return cols;
-    }
-    case "boolean": {
-      const def = fieldDefaultLiteral(field);
-      const hasDefault = def !== undefined;
-      return [
-        {
-          name: snake,
-          pgType: "boolean",
-          notNull: hasDefault || field.required === true,
-          ...(hasDefault && { defaultSql: def }),
-        },
-      ];
-    }
-    case "select": {
-      const def = fieldDefaultLiteral(field);
-      return [
-        {
-          name: snake,
-          pgType: "text",
-          notNull: field.required === true,
-          ...(def !== undefined && { defaultSql: def }),
-        },
-      ];
-    }
-    case "multiSelect":
-      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
-    case "number": {
-      const def = fieldDefaultLiteral(field);
-      return [
-        {
-          name: snake,
-          pgType: field.integer === true ? "integer" : "double precision",
-          notNull: field.required === true,
-          ...(def !== undefined && { defaultSql: def }),
-        },
-      ];
-    }
-    case "bigInt": {
-      const def = fieldDefaultLiteral(field);
-      return [
-        {
-          name: snake,
-          pgType: "bigint",
-          notNull: field.required === true,
-          bigintJsMode: "number",
-          ...(def !== undefined && { defaultSql: def }),
-        },
-      ];
-    }
-    case "decimal": {
-      const def = fieldDefaultLiteral(field);
-      return [
-        {
-          name: snake,
-          pgType: `numeric(${field.precision},${field.scale})`,
-          notNull: field.required === true,
-          ...(def !== undefined && { defaultSql: def }),
-        },
-      ];
-    }
-    case "reference":
-      if (field.multiple === true) {
-        return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
-      }
-      return [{ name: snake, pgType: "uuid", notNull: field.required === true }];
-    case "money": {
-      const cur = entity.defaultCurrency ?? "EUR";
-      return [
-        { name: snake, pgType: "bigint", notNull: field.required === true, bigintJsMode: "bigint" },
-        {
-          name: `${snake}_currency`,
-          pgType: "text",
-          notNull: true,
-          defaultSql: quoteSql(cur),
-        },
-      ];
-    }
-    case "embedded":
-      return [
-        {
-          name: snake,
-          pgType: "jsonb",
-          notNull: true,
-          defaultSql: field.multiple === true ? "'[]'::jsonb" : "'{}'::jsonb",
-        },
-      ];
-    case "jsonb":
-      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
-    case "date":
-      // Real PG `date` — Temporal.PlainDate, no time-of-day/timezone
-      // component. See plainDate() in dialect.ts.
-      return [{ name: snake, pgType: "date", notNull: field.required === true }];
-    case "timestamp":
-      return [{ name: snake, pgType: "timestamptz", notNull: field.required === true }];
-    case "tz":
-      return [{ name: snake, pgType: "text", notNull: field.required === true }];
-    case "locatedTimestamp":
-      return [
-        {
-          name: `${snake}_utc`,
-          pgType: "timestamptz",
-          notNull: field.required === true,
-        },
-        { name: `${snake}_tz`, pgType: "text", notNull: field.required === true },
-      ];
-    case "file":
-    case "image":
-      return [{ name: snake, pgType: "uuid", notNull: field.required === true }];
-    case "files":
-    case "images":
-      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
-    default:
-      return [];
-  }
 }
 
 export function resolveTableName(

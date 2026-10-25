@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runCodemod } from "../scripts/codemod/codemod-support.ts";
 import {
   mergedSpecifier,
+  PACKAGE_MERGE_CLI,
   PACKAGE_MERGE_MAPPINGS,
   type PackageMergeMapping,
   transformPackageMergeSource,
@@ -326,22 +328,34 @@ describe("package-merge codemod: CLI modes", () => {
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  function run(...flags: string[]): number {
+  // Real process: the bin wiring (import.meta.main -> process.exit with the exit code).
+  function spawnRun(...flags: string[]): number {
     return Bun.spawnSync({ cmd: ["bun", script, dir, ...flags], stdout: "pipe", stderr: "pipe" })
       .exitCode;
   }
 
-  it("--check reports without writing, --write fixes, a second --check is clean", () => {
+  async function run(...flags: string[]): Promise<number> {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      return await runCodemod(PACKAGE_MERGE_CLI, [dir, ...flags]);
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  }
+
+  it("--check reports without writing, --write fixes, a second --check is clean", async () => {
     const before = readFileSync(join(dir, "src/index.ts"), "utf8");
-    expect(run("--check")).toBe(1);
+    expect(spawnRun("--check")).toBe(1);
     expect(readFileSync(join(dir, "src/index.ts"), "utf8")).toBe(before);
     expect(readFileSync(join(dir, "package.json"), "utf8")).toContain(HTTP);
 
-    expect(run("--write", "--no-format")).toBe(0);
+    expect(await run("--write", "--no-format")).toBe(0);
     expect(readFileSync(join(dir, "src/index.ts"), "utf8")).toContain(FW_HTTP);
     expect(readFileSync(join(dir, "package.json"), "utf8")).toContain(
       "@cosmicdrift/kumiko-framework",
     );
-    expect(run("--check")).toBe(0);
+    expect(await run("--check")).toBe(0);
   });
 });

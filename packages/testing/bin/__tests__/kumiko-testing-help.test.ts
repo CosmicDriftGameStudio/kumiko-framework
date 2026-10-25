@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { main } from "../kumiko-testing";
 
 const CLI_PATH = join(import.meta.dir, "..", "kumiko-testing.ts");
 
-async function runCli(args: string[], cwd: string) {
+// Exactly one real process: the bin entry itself (shebang/import.meta.main wiring).
+async function spawnCli(args: string[], cwd: string) {
   const proc = Bun.spawn(["bun", CLI_PATH, ...args], {
     cwd,
     stdin: "ignore",
@@ -20,6 +22,21 @@ async function runCli(args: string[], cwd: string) {
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  return { stdout, stderr, exitCode };
+}
+
+async function runCli(args: string[], cwd: string) {
+  let stdout = "";
+  let stderr = "";
+  const exitCode = await main(args, {
+    cwd,
+    stdout: (line) => {
+      stdout += `${line}\n`;
+    },
+    stderr: (line) => {
+      stderr += `${line}\n`;
+    },
+  });
   return { stdout, stderr, exitCode };
 }
 
@@ -42,7 +59,10 @@ describe("kumiko-testing --help", () => {
     ["integration", "-h"],
   ]) {
     test(`${args.join(" ")}: usage on stdout, exit 0, no files written`, async () => {
-      const { stdout, stderr, exitCode } = await runCli(args, cwd);
+      const { stdout, stderr, exitCode } = await (args.join(" ") === "--help" ? spawnCli : runCli)(
+        args,
+        cwd,
+      );
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain("kumiko-testing <command>");

@@ -760,7 +760,7 @@ describe("scaffoldApp", () => {
 
 // File-content assertions on run-config.ts can't catch a missing sessionStore
 // provider — only actually booting the generated bin/main.ts can.
-describe("generated default app actually boots (kumiko-framework#3120)", () => {
+describe("generated default app actually boots", () => {
   const FIXTURE_ROOT = join(import.meta.dir, ".tmp-fixtures");
   const createdDirs: string[] = [];
 

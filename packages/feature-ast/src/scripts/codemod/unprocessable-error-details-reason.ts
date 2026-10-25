@@ -365,9 +365,9 @@ function migrateFile(sourceFile: SourceFile, skips: SkipEntry[]): number {
   return removedCount;
 }
 
-async function main(): Promise<void> {
-  const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-  const dryRun = process.argv.includes("--dry-run");
+export async function main(argv: readonly string[]): Promise<number> {
+  const positional = argv.filter((a) => !a.startsWith("--"));
+  const dryRun = argv.includes("--dry-run");
   const rootDir = resolve(positional[0] ?? process.cwd());
 
   const files = findTargetFiles(rootDir);
@@ -406,6 +406,7 @@ async function main(): Promise<void> {
     }
   }
   console.log();
+  return 0;
 }
 
-await main();
+if (import.meta.main) process.exit(await main(process.argv.slice(2)));

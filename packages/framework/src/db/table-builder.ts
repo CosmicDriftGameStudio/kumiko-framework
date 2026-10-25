@@ -10,6 +10,7 @@ import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
 import { toSnakeCase } from "../utils/case.ts";
+import { buildEntityIndexes } from "./entity-table-indexes.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
@@ -25,11 +26,8 @@ import {
   type ColumnHandle,
   decimalColumn,
   doublePrecision,
-  type IndexBuilderWithCols,
-  index,
   instant,
   integer,
-  isSqlExpression,
   jsonb,
   moneyAmount,
   table as pgTable,
@@ -39,13 +37,10 @@ import {
   sql,
   type TableColumns,
   text,
-  uniqueIndex,
   uuid,
 } from "./dialect.ts";
 
-// Partial-index predicate for soft-delete entities; table-builder and
-// entity-table-meta must render identical index definitions.
-export const SOFT_DELETE_LIVE_ROW_PREDICATE = `"is_deleted" = false`;
+export { SOFT_DELETE_LIVE_ROW_PREDICATE } from "./entity-table-indexes.ts";
 
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.
@@ -601,6 +596,44 @@ export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & Tenan
   return table as T & TenancyBrand<"global">;
 }
 
+// The featureName prefix is inserted between read_ and the base name so all
+// read models consistently start with `read_`, whether or not featureName is set:
+//   featureName="shop", base="read_orders"  →  "read_shop_orders"
+//   featureName=undef,  base="read_orders"  →  "read_orders"
+//   featureName="shop", base="orders" (no read_)  →  "shop_orders"
+function entityTableName(
+  entityName: string,
+  entity: EntityDefinition,
+  featureName: string | undefined,
+): string {
+  const baseTableName = entity.table ?? toTableName(entityName);
+  if (!featureName) return baseTableName;
+  return baseTableName.startsWith(READ_MODEL_PREFIX)
+    ? `${READ_MODEL_PREFIX}${featureName}_${baseTableName.slice(READ_MODEL_PREFIX.length)}`
+    : `${featureName}_${baseTableName}`;
+}
+
+// Fields to index as foreign keys. Sources:
+//  (a) single-file / single-image fields store a fileRef id and are queried
+//      by that id whenever a detail view resolves attachments.
+//  (b) belongsTo relations declared via r.relation() — the FK column is the
+//      parent-side lookup key; without an index every child join scans the
+//      full table.
+// `Set` keeps the list deduplicated when (a) and (b) name the same column.
+function foreignKeyFieldNames(
+  entity: EntityDefinition,
+  relations: EntityRelations | undefined,
+): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (field.type === "file" || field.type === "image") names.add(name);
+  }
+  for (const rel of Object.values(relations ?? {})) {
+    if (rel.type === "belongsTo") names.add(rel.foreignKey);
+  }
+  return names;
+}
+
 export function buildEntityTable<E extends EntityDefinition>(
   entityName: string,
   entity: E,
@@ -608,147 +641,23 @@ export function buildEntityTable<E extends EntityDefinition>(
 ): EntityTable<E> {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
   const fieldColumns: Record<string, AnyColumnBuilder> = {};
-
   for (const [name, field] of Object.entries(entity.fields)) {
-    const cols = fieldToColumns(name, field, entity);
-    Object.assign(fieldColumns, cols);
+    Object.assign(fieldColumns, fieldToColumns(name, field, entity));
   }
 
-  // Default table name derived from entityName (e.g. "memberTask" → "read_member_tasks")
-  const baseTableName = entity.table ?? toTableName(entityName);
-  // The featureName prefix is inserted between read_ and the base name so
-  // all read models consistently start with `read_`, whether or not
-  // featureName is set. Examples:
-  //   featureName="shop", base="read_orders"  →  "read_shop_orders"
-  //   featureName=undef,  base="read_orders"  →  "read_orders"
-  //   featureName="shop", base="orders" (no read_)  →  "shop_orders"
-  const tableName = options?.featureName
-    ? baseTableName.startsWith(READ_MODEL_PREFIX)
-      ? `${READ_MODEL_PREFIX}${options.featureName}_${baseTableName.slice(READ_MODEL_PREFIX.length)}`
-      : `${options.featureName}_${baseTableName}`
-    : baseTableName;
+  const tableName = entityTableName(entityName, entity, options?.featureName);
+  const foreignKeyFields = foreignKeyFieldNames(entity, options?.relations);
 
-  // Build the list of foreign-key columns to index. Sources:
-  //  (a) single-file / single-image fields store a fileRef id and are queried
-  //      by that id whenever a detail view resolves attachments.
-  //  (b) belongsTo relations declared via r.relation() — the FK column is the
-  //      parent-side lookup key; without an index every child join scans the
-  //      full table.
-  // `Set` keeps the list deduplicated when (a) and (b) name the same column.
-  const foreignKeyFields = new Set<string>();
-  for (const [name, field] of Object.entries(entity.fields)) {
-    if (field.type === "file" || field.type === "image") {
-      foreignKeyFields.add(name);
-    }
-  }
-  if (options?.relations) {
-    for (const rel of Object.values(options.relations)) {
-      if (rel.type === "belongsTo") foreignKeyFields.add(rel.foreignKey);
-    }
-  }
-
-  // Cast back to EntityTable<E>: drizzle-kit's pgTable returns a fully
-  // inferred PgTableWithColumns over the *exact* column-builder map we
-  // hand in. Our typed signature narrows that to the static names from
-  // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
-  // Drizzle's runtime instance carries every needed method on top.
-  const built = pgTable(
-    tableName,
-    {
-      ...baseColumns,
-      ...fieldColumns,
-    },
-    // Every multi-tenant query filters by tenant_id. Without this index, list
-    // queries scan the whole table across all tenants. Applies to every table
-    // built via buildEntityTable since every entity inherits tenantId.
-    (table) => {
-      const indexes: Record<string, IndexBuilderWithCols> = {};
-      const tHandle = table as unknown as Record<string, ColumnHandle>;
-      indexes[`${tableName}_tenant_id_idx`] = index(`${tableName}_tenant_id_idx`).on(
-        // biome-ignore lint/style/noNonNullAssertion: tenantId column always exists on entity tables
-        tHandle["tenantId"]!,
-      );
-      for (const fieldName of foreignKeyFields) {
-        const column = tHandle[fieldName];
-        if (column) {
-          indexes[`${tableName}_${toSnakeCase(fieldName)}_idx`] = index(
-            `${tableName}_${toSnakeCase(fieldName)}_idx`,
-          ).on(column);
-        }
-      }
-      // lookupable fields: index the bidx column (kept in lockstep with
-      // deriveEntityTableMeta).
-      const bidxFieldByField = new Map<string, string>();
-      for (const [name, field] of Object.entries(entity.fields)) {
-        if (field.type !== "text" || field.lookupable !== true) continue;
-        bidxFieldByField.set(name, `${name}Bidx`);
-        const column = tHandle[`${name}Bidx`];
-        if (column) {
-          const idxName = `${tableName}_${toSnakeCase(name)}_bidx_idx`;
-          indexes[idxName] = index(idxName).on(column);
-        }
-      }
-      // entity.indexes contains composite/unique indexes explicitly declared by
-      // the author. Columns are addressed by field name (camelCase), and the
-      // index name follows <table>_<col1>_<col2>_<unique|idx>; index.name can
-      // override the convention.
-      for (const def of entity.indexes ?? []) {
-        const cols = def.columns
-          .map((fieldName) => tHandle[fieldName])
-          .filter((col): col is ColumnHandle => col !== undefined);
-        if (cols.length !== def.columns.length) continue;
-        const suffix = def.unique === true ? "unique" : "idx";
-        const indexName =
-          def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
-        const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
-        let chain = builder.on(...cols);
-        // entity.indexes[].where is now a SqlExpression (was drizzle SQL).
-        // Pass through to the IndexBuilderWithCols.where()-API.
-        if (def.where !== undefined) {
-          // A silently dropped where would build a full (unique) index that
-          // entity-table-meta flags as needsManualWhere.
-          if (!isSqlExpression(def.where)) {
-            throw new Error(
-              `[${tableName}] index "${indexName}": where must be a sql\`...\` expression`,
-            );
-          }
-          chain = chain.where(def.where);
-        } else if (def.unique === true && entity.softDelete === true) {
-          // Soft-deleted rows keep their value, so a full unique index would
-          // permanently block reuse; kept in lock-step with entity-table-meta.ts.
-          chain = chain.where(sql.raw(SOFT_DELETE_LIVE_ROW_PREDICATE));
-        }
-        indexes[indexName] = chain;
-        // Partial bidx counterpart for unique indexes over lookupable fields
-        // (kept in lockstep with deriveEntityTableMeta).
-        if (def.unique === true && def.where === undefined) {
-          const bidxFieldNames = def.columns.map((c) => bidxFieldByField.get(c) ?? c);
-          if (bidxFieldNames.some((c, i) => c !== def.columns[i])) {
-            const bidxCols = bidxFieldNames
-              .map((c) => tHandle[c])
-              .filter((col): col is ColumnHandle => col !== undefined);
-            if (bidxCols.length === bidxFieldNames.length) {
-              const notNullParts = bidxFieldNames
-                .filter((c, i) => c !== def.columns[i])
-                .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`);
-              // Soft-deleted rows keep their bidx hash — without this, a
-              // restored row can't reuse a value a soft-deleted sibling still
-              // holds.
-              const whereText = (
-                entity.softDelete === true
-                  ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]
-                  : notNullParts
-              ).join(" AND ");
-              const partialWhere = sql.raw(whereText);
-              indexes[`${indexName}_bidx`] = uniqueIndex(`${indexName}_bidx`)
-                .on(...bidxCols)
-                .where(partialWhere);
-            }
-          }
-        }
-      }
-      return indexes;
-    },
+  // Cast back to EntityTable<E>: the typed signature narrows the dynamic column
+  // map to the static names from EntityDefinition (kept in sync with
+  // fieldToColumns + buildBaseColumns).
+  const built = pgTable(tableName, { ...baseColumns, ...fieldColumns }, (table) =>
+    buildEntityIndexes(
+      tableName,
+      entity,
+      table as unknown as Record<string, ColumnHandle>,
+      foreignKeyFields,
+    ),
   ) as unknown as EntityTable<E>;
 
   stampEntityTableMeta(built, entity);

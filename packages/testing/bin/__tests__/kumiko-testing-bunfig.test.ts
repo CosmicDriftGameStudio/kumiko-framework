@@ -8,16 +8,20 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-const CLI_PATH = join(import.meta.dir, "..", "kumiko-testing.ts");
+import { main } from "../kumiko-testing";
 
 async function runCli(args: string[], cwd: string) {
-  const proc = Bun.spawn(["bun", CLI_PATH, ...args], { cwd, stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  let stdout = "";
+  let stderr = "";
+  const exitCode = await main(args, {
+    cwd,
+    stdout: (line) => {
+      stdout += `${line}\n`;
+    },
+    stderr: (line) => {
+      stderr += `${line}\n`;
+    },
+  });
   return { stdout, stderr, exitCode };
 }
 

@@ -1,22 +1,32 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { runCli } from "../index";
 
 const CLI_PATH = join(import.meta.dir, "..", "..", "bin", "cli.ts");
 
 describe("kumiko (packages/cli) --help", () => {
-  for (const flag of ["--help", "-h"]) {
-    test(`${flag}: usage on stdout, exit 0`, async () => {
-      const proc = Bun.spawn(["bun", CLI_PATH, flag], {
-        stdin: "ignore",
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain("Commands:");
+  test("--help: usage on stdout, exit 0", async () => {
+    const proc = Bun.spawn(["bun", CLI_PATH, "--help"], {
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
     });
-  }
+    const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Commands:");
+  });
+
+  test("-h: usage on stdout, exit 0", async () => {
+    const lines: string[] = [];
+    const exitCode = await runCli({
+      argv: ["-h"],
+      out: { log: (line) => lines.push(line), err: (line) => lines.push(line) },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(lines.join("\n")).toContain("Commands:");
+  });
 });
 
 describe("kumiko-upgrade ships with packages/cli", () => {

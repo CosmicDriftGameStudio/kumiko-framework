@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
-// biome-ignore-all lint/suspicious/noConsole: CLI script, console is the interface.
-
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { BUNFIG_FILES, mergeBunfig, renderBunfigFiles } from "../src/bunfig";
 import {
@@ -23,11 +22,23 @@ const USAGE = `kumiko-testing <command>
   -h, --help                               print this help (also works after a command)
 `;
 
+export type CliIo = {
+  stdout: (line: string) => void;
+  stderr: (line: string) => void;
+  cwd: string;
+};
+
+const processIo: CliIo = {
+  stdout: (line) => process.stdout.write(`${line}\n`),
+  stderr: (line) => process.stderr.write(`${line}\n`),
+  cwd: process.cwd(),
+};
+
 function isHelpFlag(arg: string | undefined): boolean {
   return arg === "--help" || arg === "-h";
 }
 
-function runBunfig(args: readonly string[]): number {
+function runBunfig(args: readonly string[], io: CliIo): number {
   const { values } = parseArgs({
     args: [...args],
     options: {
@@ -44,12 +55,13 @@ function runBunfig(args: readonly string[]): number {
   });
   let blocked = false;
   for (const [name, content] of Object.entries(files)) {
+    const path = join(io.cwd, name);
     let toWrite = content;
-    if (existsSync(name)) {
-      const merged = mergeBunfig(content, readFileSync(name, "utf-8"));
+    if (existsSync(path)) {
+      const merged = mergeBunfig(content, readFileSync(path, "utf-8"));
       if (!merged.ok) {
         const keys = merged.unknownKeys.map((k) => `${k.section}.${k.key}`).join(", ");
-        console.error(
+        io.stderr(
           `${name} has key(s) kumiko-testing does not manage: ${keys}. Regenerating would drop them silently — remove them from ${name} or move them out of [install]/[test], then rerun.`,
         );
         blocked = true;
@@ -57,13 +69,13 @@ function runBunfig(args: readonly string[]): number {
       }
       toWrite = merged.content;
     }
-    writeFileSync(name, toWrite);
-    console.log(`wrote ${name}`);
+    writeFileSync(path, toWrite);
+    io.stdout(`wrote ${name}`);
   }
   return blocked ? 1 : 0;
 }
 
-async function runIntegration(args: readonly string[]): Promise<number> {
+async function runIntegration(args: readonly string[], io: CliIo): Promise<number> {
   const { values, positionals } = parseArgs({
     args: [...args],
     options: {
@@ -74,23 +86,23 @@ async function runIntegration(args: readonly string[]): Promise<number> {
     allowPositionals: true,
     strict: true,
   });
-  if (!existsSync(BUNFIG_FILES.integration)) {
-    console.error(`${BUNFIG_FILES.integration} not found - run \`kumiko-testing bunfig\` first`);
+  if (!existsSync(join(io.cwd, BUNFIG_FILES.integration))) {
+    io.stderr(`${BUNFIG_FILES.integration} not found - run \`kumiko-testing bunfig\` first`);
     return 1;
   }
   let files: string[];
   if (positionals.length > 0) {
     try {
-      files = resolveRequestedIntegrationFiles(process.cwd(), positionals);
+      files = resolveRequestedIntegrationFiles(io.cwd, positionals);
       if (files.length === 0) throw new Error("no *.integration.test.ts files found");
     } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
+      io.stderr(error instanceof Error ? error.message : String(error));
       return 1;
     }
   } else {
-    files = selectIntegrationFiles(listIntegrationTestFiles(process.cwd()));
+    files = selectIntegrationFiles(listIntegrationTestFiles(io.cwd));
     if (files.length === 0) {
-      console.error("no *.integration.test.ts files found");
+      io.stderr("no *.integration.test.ts files found");
       return 1;
     }
   }
@@ -105,18 +117,23 @@ async function runIntegration(args: readonly string[]): Promise<number> {
     // template run id set by runWithTestDbTemplates reaches the test process.
     () =>
       Bun.spawn(["bun", ...testArgs], {
+        cwd: io.cwd,
         stdio: ["inherit", "inherit", "inherit"],
         env: process.env,
       }).exited,
   );
 }
 
-const [command, ...rest] = process.argv.slice(2);
-if (isHelpFlag(command) || rest.some(isHelpFlag)) {
-  console.log(USAGE);
-  process.exit(0);
+export async function main(argv: readonly string[], io: CliIo = processIo): Promise<number> {
+  const [command, ...rest] = argv;
+  if (isHelpFlag(command) || rest.some(isHelpFlag)) {
+    io.stdout(USAGE);
+    return 0;
+  }
+  if (command === "bunfig") return runBunfig(rest, io);
+  if (command === "integration") return runIntegration(rest, io);
+  io.stderr(USAGE);
+  return 2;
 }
-if (command === "bunfig") process.exit(runBunfig(rest));
-if (command === "integration") process.exit(await runIntegration(rest));
-console.error(USAGE);
-process.exit(2);
+
+if (import.meta.main) process.exit(await main(process.argv.slice(2)));

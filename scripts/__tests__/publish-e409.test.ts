@@ -206,7 +206,7 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
     ]);
   });
 
-  test("treats E409 'previously staged version' as unconfirmed success when latest never resolves (#2576)", () => {
+  test("treats E409 'previously staged version' as unconfirmed success when latest never resolves", () => {
     const { exitCode, stdout, stderr } = runWithNpmStub({
       publishExitCode: 1,
       publishOutput:
@@ -247,7 +247,7 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
     expect(exitCode).not.toBe(0);
   });
 
-  test("treats E403 'previously published versions' for the exact target version as already released (#2586)", () => {
+  test("treats E403 'previously published versions' for the exact target version as already released", () => {
     const { exitCode, stdout } = runWithNpmStub({
       publishExitCode: 1,
       publishOutput:
@@ -455,7 +455,7 @@ describe("publish-with-oidc.sh per-package outcome branch", () => {
     expect(stdout).not.toContain("New tag:");
   });
 
-  test("counts a staged-but-unconfirmed version as skipped and tags it when origin has no tag (#2578)", () => {
+  test("counts a staged-but-unconfirmed version as skipped and tags it when origin has no tag", () => {
     const { exitCode, stdout } = runPublishOutcomeBranch("staged");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("published=0");

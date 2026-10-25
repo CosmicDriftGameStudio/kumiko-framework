@@ -174,7 +174,7 @@ async function seedConflictingDownloadToken(jobId: string): Promise<void> {
 }
 
 describe("runExportJobs :: happy path", () => {
-  test("pending Job → Worker pickt → done mit downloadStorageKey + bytesWritten", async () => {
+  test("pending job → worker claims → done with downloadStorageKey + bytesWritten", async () => {
     const jobId = await seedPendingJob();
 
     const result = await runExportJobs({
@@ -203,7 +203,7 @@ describe("runExportJobs :: happy path", () => {
     expect(await provider.exists(`exports/${tenantA}/${jobId}.zip`)).toBe(true);
   });
 
-  test("ZIP ist real entpackbar via Info-ZIP + enthaelt bundle.json", async () => {
+  test("ZIP is actually extractable via Info-ZIP + contains bundle.json", async () => {
     const jobId = await seedPendingJob();
 
     await runExportJobs({
@@ -239,7 +239,7 @@ describe("runExportJobs :: happy path", () => {
 });
 
 describe("runExportJobs :: stale-detection", () => {
-  test("running-Job mit startedAt > exportStaleTimeoutMinutes → failed", async () => {
+  test("running job with startedAt > exportStaleTimeoutMinutes → failed", async () => {
     // Seed through the real path so the event stream exists, then directly update
     // startedAt and status for this test fixture.
     const jobId = await seedPendingJob();
@@ -269,7 +269,7 @@ describe("runExportJobs :: stale-detection", () => {
     expect(row?.errorMessage).toMatch(/stale: worker crashed/i);
   });
 
-  test("running-Job mit startedAt UNTER stale-Cutoff bleibt running", async () => {
+  test("running job with startedAt BELOW stale cutoff remains running", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const justNow = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 1000); // 1min ago
@@ -294,7 +294,7 @@ describe("runExportJobs :: stale-detection", () => {
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Running);
   });
 
-  test("stale-Job mit downloadStorageKey (real-Pfad nach 4a.fix path-pre-claim) → ZIP cleanup im selben Pass", async () => {
+  test("stale job with downloadStorageKey (real path after 4a.fix path-pre-claim) → ZIP cleanup in same pass", async () => {
     // A claimed running job already has downloadStorageKey persisted. If stale
     // detection marks it failed, the same worker pass must remove the orphan ZIP.
     const jobId = await seedPendingJob();
@@ -338,7 +338,7 @@ describe("runExportJobs :: stale-detection", () => {
 });
 
 describe("runExportJobs :: storage-cleanup", () => {
-  test("done-Job mit expiresAt+grace in Vergangenheit → downloadStorageKey null + Datei geloescht", async () => {
+  test("done job with expiresAt+grace in the past → downloadStorageKey null + file deleted", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(
@@ -379,7 +379,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(row?.downloadStorageKey).toBeNull();
   });
 
-  test("done-Job mit frisch-expiresAt (innerhalb grace) bleibt — Pufferzone", async () => {
+  test("done job with fresh expiresAt (within grace) remains — buffer zone", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const oneHourAgo = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 60 * 1000);
@@ -411,7 +411,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(await provider.exists(storageKey)).toBe(true);
   });
 
-  test("storage-delete Throw → Job bleibt uncleaned (retry naechster Pass)", async () => {
+  test("storage-delete throw → job remains uncleaned (retry next pass)", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
@@ -454,7 +454,7 @@ describe("runExportJobs :: storage-cleanup", () => {
 });
 
 describe("runExportJobs :: export-cleanup backlog metric", () => {
-  test("done-Job mit abgelaufener TTL + weiterhin gesetztem downloadStorageKey → Metrik > 0", async () => {
+  test("done job with expired TTL + downloadStorageKey still set → metric > 0", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
@@ -492,7 +492,7 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBeGreaterThan(0);
   });
 
-  test("failed-Job mit Orphan-ZIP und fehlschlagendem Delete → Metrik > 0", async () => {
+  test("failed job with orphan ZIP and failing delete → metric > 0", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
@@ -529,7 +529,7 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBeGreaterThan(0);
   });
 
-  test("done-Job wird erfolgreich cleaned → Metrik ist 0", async () => {
+  test("done job successfully cleaned → metric is 0", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
@@ -569,7 +569,7 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
 });
 
 describe("runExportJobs :: idempotency", () => {
-  test("zweiter Run nach done ist no-op fuer den selben Job", async () => {
+  test("second run after done is a no-op for the same job", async () => {
     const jobId = await seedPendingJob();
 
     const first = await runExportJobs({
@@ -592,7 +592,7 @@ describe("runExportJobs :: idempotency", () => {
 });
 
 describe("runExportJobs :: concurrency", () => {
-  test("zwei parallele Runner mit 1 pending-Job → genau ein done, ein skipped", async () => {
+  test("two parallel runners with 1 pending job → exactly one done, one skipped", async () => {
     // Verifies the concurrency invariant: optimistic locking allows exactly one
     // worker replica to claim the job; the other silently skips it.
     const jobId = await seedPendingJob();
@@ -633,7 +633,7 @@ describe("runExportJobs :: concurrency", () => {
 });
 
 describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
-  test("running-Job 45min ago + Profile-Default 30min → wird gefailed (kein 60min-coarse-filter mehr)", async () => {
+  test("running job 45min ago + profile default 30min → is failed (no 60min coarse filter anymore)", async () => {
     // The per-job profile timeout must be applied without a coarse one-hour
     // filter; otherwise jobs 30–60 minutes old would escape the default
     // exportStaleTimeoutMinutes = 30 cutoff.
@@ -663,7 +663,7 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
 });
 
 describe("runExportJobs :: Atom 4a download-tokens", () => {
-  test("Worker generiert Token + Hash in DB nach done-flip", async () => {
+  test("Worker generates token + hash in DB after done-flip", async () => {
     const jobId = await seedPendingJob();
 
     const result = await runExportJobs({
@@ -719,7 +719,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
   });
 
-  test("Worker idempotency: 2× run done-Job → kein 2. Token (UNIQUE jobId)", async () => {
+  test("Worker idempotency: 2× run done job → no second token (UNIQUE jobId)", async () => {
     const jobId = await seedPendingJob();
     await runExportJobs({
       db: stack.db,
@@ -743,7 +743,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows).toHaveLength(1);
   });
 
-  test("Re-Run (fw#832): Job zurueck auf pending → Token in place rotiert, kein 2. created-Event", async () => {
+  test("Re-Run: job returned to pending → token rotated in place, no second created event", async () => {
     const jobId = await seedPendingJob();
     const first = await runExportJobs({
       db: stack.db,
@@ -798,7 +798,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(events.some((e) => e.type === "export-download-token.updated")).toBe(true);
   });
 
-  test("failed-Job: kein Token wird generiert", async () => {
+  test("failed job: no token is generated", async () => {
     // No pending job is available, so verify that no token is generated when there
     // are no completed jobs.
     const result = await runExportJobs({
@@ -843,7 +843,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(row?.errorMessage).toMatch(/Token-Creation failed/);
   });
 
-  test("failed-Job: sendExportFailedEmail wird mit errorMessage + userEmail gerufen", async () => {
+  test("failed job: sendExportFailedEmail is called with errorMessage + userEmail", async () => {
     const jobId = await seedPendingJob();
 
     await seedConflictingDownloadToken(jobId);
@@ -877,7 +877,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(sent.errorMessage).toMatch(/Token-Creation failed/);
   });
 
-  test("failed-Job ohne Callback: kein Email, Worker-Run succeeded", async () => {
+  test("failed job without callback: no email, worker run succeeded", async () => {
     const jobId = await seedPendingJob();
     await seedConflictingDownloadToken(jobId);
 
@@ -892,7 +892,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // No email and no throw: the worker run completes normally.
   });
 
-  test("failed-Job, sendExportFailedEmail-Throw wird abgefangen (best-effort, kein Batch-Abbruch)", async () => {
+  test("failed job, sendExportFailedEmail throw is caught (best-effort, no batch abort)", async () => {
     // Two jobs, both forced to fail via the same token-collision mechanism
     // as the tests above — the callback throws for job A only, proving the
     // throw doesn't kill the batch loop before job B's callback fires.
@@ -939,7 +939,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     warnSpy.mockRestore();
   });
 
-  test("failed-Job, user ohne email → sendExportFailedEmail skipped (kein Throw)", async () => {
+  test("failed job, user without email → sendExportFailedEmail skipped (no throw)", async () => {
     await clearAliceEmail();
     const jobId = await seedPendingJob();
     await seedConflictingDownloadToken(jobId);
@@ -958,7 +958,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(callbackInvoked).toBe(false);
   });
 
-  test("failed-Job mit downloadStorageKey → ZIP wird im Cleanup-Pass entfernt (orphan-fix)", async () => {
+  test("failed job with downloadStorageKey → ZIP is removed during the cleanup pass (orphan fix)", async () => {
     // Failed jobs can retain a downloadStorageKey because it is set during the
     // claim. Their cleanup pass deletes the ZIP immediately, without a grace
     // period, and clears the database column.
@@ -1166,7 +1166,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(providerCallsByTenant.get(tenantB)).toBe(1);
   });
 
-  test("missing-file: storage-key gibt's nicht → job=failed mit klarem error", async () => {
+  test("missing file: storage key does not exist → job=failed with clear error", async () => {
     await seedMembership(tenantA, aliceUser.id);
     // Deliberately omit seedFileBytes so the missing storage key causes readStream
     // to throw on the first chunk pull.
@@ -1191,7 +1191,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(row?.errorMessage).toMatch(/in-memory file not found/);
   });
 
-  test("malicious filename: '../../etc/passwd' bleibt im ZIP-Root (defense-in-depth e2e)", async () => {
+  test("malicious filename: '../../etc/passwd' remains in the ZIP root (defense-in-depth e2e)", async () => {
     // Defense in depth: exercise the full chain
     //   user-input fileName → buildFileRefZipPath → bundle.fileRefs[].zipPath
     //   → bundleToZipEntries → ZipEntry.path → unzip.
@@ -1252,7 +1252,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 });
 
 describe("runExportJobs :: Atom 5 notification-callbacks", () => {
-  test("done-Job: sendExportReadyEmail wird mit downloadUrl + userEmail gerufen", async () => {
+  test("done job: sendExportReadyEmail is called with downloadUrl + userEmail", async () => {
     const jobId = await seedPendingJob();
     type SentArgs = {
       userId: string;
@@ -1292,7 +1292,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(sent.downloadUrl).toContain(encodeURIComponent(plainFromResult ?? ""));
   });
 
-  test("done-Job ohne Callback: kein Email, Worker-Run succeeded", async () => {
+  test("done job without callback: no email, worker run succeeded", async () => {
     const jobId = await seedPendingJob();
     const result = await runExportJobs({
       db: stack.db,
@@ -1304,7 +1304,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(result.completedJobIds).toContain(jobId);
   });
 
-  test("done-Job mit Callback aber ohne appExportDownloadUrl → throw bubbelt zum r.job", async () => {
+  test("done job with callback but without appExportDownloadUrl → throw bubbles to r.job", async () => {
     // Reject this configuration clearly when a callback is supplied without its
     // required URL; the worker error is wrapped by r.job in jobRunsTable.
     await seedPendingJob();
@@ -1322,7 +1322,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     ).rejects.toThrow(/appExportDownloadUrl fehlt/);
   });
 
-  test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
+  test("user without email → callback skipped + console.warn (no throw)", async () => {
     // The worker logs a warning, skips the callback, and the worker run remains successful.
     await clearAliceEmail();
     const jobId = await seedPendingJob();
