@@ -2118,7 +2118,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "readiness.result-status.ok": "OK",
   "readiness.result-status.failed": "Failed",
   "readiness.result-status.skipped": "Not run",
-  "readiness.outcome.ok": "All passed",
+  "readiness.outcome.ok": "No failures",
   "readiness.outcome.failed": "Failures",
   "readiness.outcome.running": "Running",
   "mail-foundation.probe.area": "Email",

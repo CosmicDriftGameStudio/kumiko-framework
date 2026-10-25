@@ -2170,7 +2170,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "readiness.result-status.ok": "OK",
   "readiness.result-status.failed": "Errore",
   "readiness.result-status.skipped": "Non eseguito",
-  "readiness.outcome.ok": "Tutto superato",
+  "readiness.outcome.ok": "Nessun errore",
   "readiness.outcome.failed": "Errori",
   "readiness.outcome.running": "In corso",
   "mail-foundation.probe.area": "E-mail",
