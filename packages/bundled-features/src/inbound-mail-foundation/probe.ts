@@ -9,11 +9,12 @@ import {
   ProbeFailure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createConfigAccessor } from "../config/index.ts";
-import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
+import { InboundMailAccountStatuses } from "./constants.ts";
 import { MAIL_ACCOUNT_PII_FIELDS } from "./entities.ts";
 import { INBOUND_PROBE_KEYS } from "./probe-keys.ts";
 import { mailAccountsProjectionTable } from "./projection.ts";
 import { resolveInboundProviderForAccount } from "./provider-factory.ts";
+import { MAIL_ACCOUNT_LIST_SCREEN_QN } from "./screens.ts";
 import { type InboundMailContext, isInboundAuthError, type MailAccountRecord } from "./types.ts";
 
 const SHORT_ID_LENGTH = 8;
@@ -72,7 +73,7 @@ export function registerMailboxProbe(r: FeatureRegistrar<"inbound-mail-foundatio
     cost: "free",
     area: INBOUND_PROBE_KEYS.area,
     label: INBOUND_PROBE_KEYS.label,
-    fixScreen: `${INBOUND_MAIL_FOUNDATION_FEATURE}:screen:mail-accounts`,
+    fixScreen: MAIL_ACCOUNT_LIST_SCREEN_QN,
     // The address is PII, so the target label carries only the tenant-authored display name.
     targets: async (ctx) => {
       const rows = await ctx.db.selectMany<AccountRow>(mailAccountsProjectionTable, {

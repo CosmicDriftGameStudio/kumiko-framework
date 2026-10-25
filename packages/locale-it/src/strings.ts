@@ -2041,6 +2041,25 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Casella di posta",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
+  "inboundMail.accounts.connectImap": "Collega casella",
+  "screen:mail-account-connect-imap.title": "Collega casella",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nome",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Indirizzo e-mail",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Server IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Porta",
+  "inbound-provider-imap:entity:__action-form__:field:secure": "Connessione cifrata (TLS)",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nome utente",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Password",
+  "inboundMail.imap.connect.server": "Accesso al server",
+  "inboundMail.imap.connect.submit": "Verifica e collega",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Il server IMAP non è raggiungibile o non è consentito. Controlla il nome del server.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Il server IMAP ha rifiutato l'accesso. Controlla nome utente e password.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La connessione cifrata non è riuscita. Controlla la porta e l'opzione TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Nessuna connessione al server IMAP. Controlla nome del server e porta.",
   "sessions.mine.current.yes": "Questa sessione",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

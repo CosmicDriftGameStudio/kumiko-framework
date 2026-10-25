@@ -2062,6 +2062,25 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Boîte mail",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
+  "inboundMail.accounts.connectImap": "Connecter une boîte mail",
+  "screen:mail-account-connect-imap.title": "Connecter une boîte mail",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nom",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Adresse e-mail",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Serveur IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Port",
+  "inbound-provider-imap:entity:__action-form__:field:secure": "Connexion chiffrée (TLS)",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nom d'utilisateur",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Mot de passe",
+  "inboundMail.imap.connect.server": "Connexion au serveur",
+  "inboundMail.imap.connect.submit": "Vérifier et connecter",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Le serveur IMAP est injoignable ou n'est pas autorisé. Vérifiez le nom du serveur.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Le serveur IMAP a refusé la connexion. Vérifiez le nom d'utilisateur et le mot de passe.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La connexion chiffrée a échoué. Vérifiez le port et le réglage TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Aucune connexion au serveur IMAP. Vérifiez le nom du serveur et le port.",
   "sessions.mine.current.yes": "Cette session",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Appareil",

@@ -1990,6 +1990,25 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Mailbox",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
+  "inboundMail.accounts.connectImap": "Connect mailbox",
+  "screen:mail-account-connect-imap.title": "Connect mailbox",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Name",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Email address",
+  "inbound-provider-imap:entity:__action-form__:field:host": "IMAP server",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Port",
+  "inbound-provider-imap:entity:__action-form__:field:secure": "Encrypted connection (TLS)",
+  "inbound-provider-imap:entity:__action-form__:field:user": "User name",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Password",
+  "inboundMail.imap.connect.server": "Server sign-in",
+  "inboundMail.imap.connect.submit": "Check and connect",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "The IMAP server cannot be reached or is not allowed. Check the server name.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "The IMAP server rejected the sign-in. Check the user name and password.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "The encrypted connection failed. Check the port and the TLS setting.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "No connection to the IMAP server. Check the server name and port.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "created",
   "audit.log.action.updated": "updated",

@@ -2042,6 +2042,25 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Postfach",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
+  "inboundMail.accounts.connectImap": "Postfach verbinden",
+  "screen:mail-account-connect-imap.title": "Postfach verbinden",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Name",
+  "inbound-provider-imap:entity:__action-form__:field:address": "E-Mail-Adresse",
+  "inbound-provider-imap:entity:__action-form__:field:host": "IMAP-Server",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Port",
+  "inbound-provider-imap:entity:__action-form__:field:secure": "Verschlüsselte Verbindung (TLS)",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Benutzername",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Passwort",
+  "inboundMail.imap.connect.server": "Anmeldung am Server",
+  "inboundMail.imap.connect.submit": "Prüfen und verbinden",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "Der IMAP-Server ist nicht erreichbar oder nicht erlaubt. Prüfe den Servernamen.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "Der IMAP-Server hat die Anmeldung abgelehnt. Prüfe Benutzername und Passwort.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfe Port und TLS-Einstellung.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "Keine Verbindung zum IMAP-Server. Prüfe Servernamen und Port.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",

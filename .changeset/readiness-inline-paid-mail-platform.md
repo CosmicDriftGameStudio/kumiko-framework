@@ -9,7 +9,7 @@
 "@cosmicdrift/kumiko-locale-it": patch
 ---
 
-The paid system check run gets its own button next to "Start check", and the mail probe tests the platform sender when a tenant has no own mail provider.
+The paid system check run gets its own button next to "Start check", the mail probe tests the platform sender when a tenant has no own mail provider, and tenant admins can connect an IMAP mailbox from the mail account list.
 
 <!-- kumiko-changes
 feature: types
@@ -51,4 +51,18 @@ feature: mail-foundation
 type: improvement
 title: The mail probe tests the platform sender
 detail: A tenant without its own mail provider now gets the test mail through the channel-email app transport, the sender its tenant-transport notifications fall back to. The probe reports mail-foundation.probe.send-test-mail.platform-accepted on success and mail-foundation.probe.platform-send-rejected when the platform server rejects it; it is skipped only when neither an own provider nor an app transport exists, and mail-foundation.probe.not-configured now reads "No email sending set up". New keys in all locale packages.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: The mail account list links to the IMAP connect form
+detail: mailAccountListScreen gets a "Connect mailbox" toolbar action that opens the screen mail-account-connect-imap. The button shows only when the app mounts inbound-provider-imap, which registers that screen. The Systemcheck fix link for inbound mail now leads to a list where a mailbox can be added.
+-->
+
+<!-- kumiko-changes
+feature: inbound-provider-imap
+type: improvement
+title: IMAP mailboxes can be connected from a form
+detail: The new write handler inbound-provider-imap:write:connect-mailbox (TenantAdmin, SystemAdmin, not exposed to the agent, 10 calls per tenant in 10 minutes) checks the IMAP login before the transaction, then creates a shared mail account and stores host, port, TLS, user and password in its credential secret in the same transaction. A failed check stores nothing and answers with one of four texts: host not reachable or not allowed, login rejected, TLS failed, no connection. The form screen mail-account-connect-imap has a masked password field. New keys in all locale packages.
 -->

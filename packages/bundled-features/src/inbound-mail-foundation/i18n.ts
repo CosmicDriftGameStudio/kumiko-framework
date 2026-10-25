@@ -32,6 +32,7 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [`${MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX}${InboundMailAccountStatuses.disconnected}`]: {
     en: "Disconnected",
   },
+  "inboundMail.accounts.connectImap": { en: "Connect mailbox" },
   "inboundMail.accounts.edit": { en: "Rename" },
   "inboundMail.accounts.edit.submit": { en: "Save" },
   "inboundMail.accounts.disconnect": { en: "Disconnect" },

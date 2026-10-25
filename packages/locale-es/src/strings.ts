@@ -2035,6 +2035,25 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Buzón",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
+  "inboundMail.accounts.connectImap": "Conectar buzón",
+  "screen:mail-account-connect-imap.title": "Conectar buzón",
+  "inbound-provider-imap:entity:__action-form__:field:displayName": "Nombre",
+  "inbound-provider-imap:entity:__action-form__:field:address": "Correo electrónico",
+  "inbound-provider-imap:entity:__action-form__:field:host": "Servidor IMAP",
+  "inbound-provider-imap:entity:__action-form__:field:port": "Puerto",
+  "inbound-provider-imap:entity:__action-form__:field:secure": "Conexión cifrada (TLS)",
+  "inbound-provider-imap:entity:__action-form__:field:user": "Nombre de usuario",
+  "inbound-provider-imap:entity:__action-form__:field:password": "Contraseña",
+  "inboundMail.imap.connect.server": "Inicio de sesión en el servidor",
+  "inboundMail.imap.connect.submit": "Comprobar y conectar",
+  "inboundMail.imap.connect.errors.hostUnreachable":
+    "No se puede acceder al servidor IMAP o no está permitido. Revisa el nombre del servidor.",
+  "inboundMail.imap.connect.errors.loginRejected":
+    "El servidor IMAP rechazó el inicio de sesión. Revisa el usuario y la contraseña.",
+  "inboundMail.imap.connect.errors.tlsFailed":
+    "La conexión cifrada falló. Revisa el puerto y la opción TLS.",
+  "inboundMail.imap.connect.errors.connectFailed":
+    "No hay conexión con el servidor IMAP. Revisa el nombre del servidor y el puerto.",
   "sessions.mine.current.yes": "Esta sesión",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

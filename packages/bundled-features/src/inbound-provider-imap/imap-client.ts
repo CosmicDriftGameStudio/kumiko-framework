@@ -32,7 +32,7 @@ const log = createFallbackLogger("inbound-provider-imap");
 // was blocked (private/reserved range) or merely failed to resolve, and
 // must never include the host or the underlying error text. Server-side
 // detail goes to `log` only.
-const IMAP_HOST_UNREACHABLE_MESSAGE = "IMAP host is not reachable or not allowed";
+export const IMAP_HOST_UNREACHABLE_MESSAGE = "IMAP host is not reachable or not allowed";
 
 // =============================================================================
 // Client-Factory + Fehler-Mapping
