@@ -29,12 +29,17 @@ export function hasDisallowedMock(content: string): boolean {
 //     "trustedProxyHops is 0 but X-Forwarded-For was set" notice fires
 //     exactly once across repeated requests, not once per request; the
 //     stack, HTTP calls and rate-limit enforcement are all real.
+//   event-wakeup: spies Temporal.Now.instant to run the app clock ahead of
+//     the database clock, the only way to reproduce a wakeAt stamped with
+//     the app clock (Postgres now() cannot be faked); stack, DB and the
+//     resume job are real.
 export const MOCK_GUARD_ALLOWLIST: ReadonlySet<string> = new Set([
   "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts",
   "packages/dev-server/src/__tests__/schema-apply.integration.test.ts",
   "packages/bundled-features/src/user-data-rights/__tests__/run-export-jobs.integration.test.ts",
   "packages/dev-server/src/__tests__/run-dev-app.integration.test.ts",
   "packages/framework/src/api/__tests__/http-route-rate-limit.integration.test.ts",
+  "packages/bundled-features/src/workflow-runner/__tests__/event-wakeup.integration.test.ts",
 ]);
 
 export function isMockGuardAllowlisted(relativePath: string): boolean {

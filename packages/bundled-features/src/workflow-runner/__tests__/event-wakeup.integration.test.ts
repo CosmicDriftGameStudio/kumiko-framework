@@ -21,7 +21,7 @@
 // r.step.return's own `data` is discarded for workflow-triggered runs (see
 // workflow-runner.integration.test.ts) — this sidesteps that too.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 
 import {
   asRawClient,
@@ -259,6 +259,33 @@ describe("workflow-runner event-wakeup", () => {
     // The "seen" compute step throws if ctx.steps[awaits.replied] doesn't
     // hold the exact triggerPayload — reaching run-completed (not
     // run-failed) IS the proof resume-run threaded it through correctly.
+    const rows = await loadRunEvents(runId);
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_FOR_EVENT_TYPE,
+      WORKFLOW_RESUMED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ]);
+  });
+
+  test("wakeup stamps the DB clock: an app clock ahead of the database still leaves the run due for resume-due-runs", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(waitForEventWorkflow.name, runKey);
+
+    await fireTrigger("wk-test.start", { runKey });
+
+    const realInstant = T.Now.instant.bind(T.Now);
+    const appClockSpy = spyOn(T.Now, "instant").mockImplementation(() =>
+      realInstant().add({ hours: 1 }),
+    );
+    try {
+      await fireAwaitedEvent("wk-test.replied", { from: "match@example.com", body: "hi" });
+    } finally {
+      appClockSpy.mockRestore();
+    }
+
+    await runResumeDueRunsJob(admin.tenantId);
+
     const rows = await loadRunEvents(runId);
     expect(rows.map((row) => row["type"])).toEqual([
       WORKFLOW_RUN_STARTED_TYPE,
