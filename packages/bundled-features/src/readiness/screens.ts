@@ -82,9 +82,9 @@ function resultsSection(
 }
 
 const RESULT_METRICS = [
-  { field: "okCount", label: ScreenTextKeys.metricOk },
-  { field: "failedCount", label: ScreenTextKeys.metricFailed },
-  { field: "skippedCount", label: ScreenTextKeys.metricSkipped },
+  { field: "okCount", label: ScreenTextKeys.metricOk, tone: "ok", icon: "check-circle" },
+  { field: "failedCount", label: ScreenTextKeys.metricFailed, tone: "negative", icon: "x-circle" },
+  { field: "skippedCount", label: ScreenTextKeys.metricSkipped, icon: "circle-stop" },
 ] as const;
 
 // The paid button sends hasPaidProbes as includePaid: it is only visible while that field is true.
@@ -122,6 +122,7 @@ export function systemCheckScreen(dormant: boolean): ProjectionDetailScreenDefin
     actions: RUN_ACTIONS,
     primaryAction: "run-check",
     metrics: RESULT_METRICS,
+    metricsStyle: "tiles",
     layout: {
       width: "full",
       sections: [
@@ -178,6 +179,7 @@ export const systemCheckRunScreen: ProjectionDetailScreenDefinition = {
   listScreenId: SYSTEM_CHECK_SCREEN_ID,
   access: ACCESS,
   metrics: RESULT_METRICS,
+  metricsStyle: "tiles",
   layout: {
     width: "full",
     sections: [

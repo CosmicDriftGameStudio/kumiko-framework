@@ -1,6 +1,8 @@
 import { createContext, type ReactNode, useContext } from "react";
 import type { MetricBandProps, MetricProps } from "../../index.ts";
+import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
+import { StatCard } from "../widgets/stat.tsx";
 
 const InsideMetricBandContext = createContext(false);
 
@@ -15,6 +17,7 @@ export function DefaultMetricBand({
   subtitle,
   children,
   testId,
+  tiles,
 }: MetricBandProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
   return (
@@ -28,15 +31,40 @@ export function DefaultMetricBand({
           {subtitle}
         </div>
       )}
-      <InsideMetricBandContext.Provider value={true}>
-        <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
-      </InsideMetricBandContext.Provider>
+      {tiles === true ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">{children}</div>
+      ) : (
+        <InsideMetricBandContext.Provider value={true}>
+          <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
+        </InsideMetricBandContext.Provider>
+      )}
     </div>
   );
 }
 
-export function DefaultMetric({ label, value, testId, onPress }: MetricProps): ReactNode {
+function MetricTile({ label, value, testId, onPress, tone, icon }: MetricProps): ReactNode {
+  const card = (
+    <StatCard
+      label={label}
+      value={value}
+      {...(icon !== undefined && { icon: <Icon name={icon} className="size-4" /> })}
+      {...(tone !== undefined && { tone })}
+      {...(testId !== undefined && { testId })}
+    />
+  );
+  return onPress !== undefined ? (
+    <button type="button" className="text-left" onClick={onPress}>
+      {card}
+    </button>
+  ) : (
+    card
+  );
+}
+
+export function DefaultMetric(props: MetricProps): ReactNode {
   const insideBand = useContext(InsideMetricBandContext);
+  if (props.tile === true) return <MetricTile {...props} />;
+  const { label, value, testId, onPress } = props;
   const item = (
     <div
       data-testid={testId}
