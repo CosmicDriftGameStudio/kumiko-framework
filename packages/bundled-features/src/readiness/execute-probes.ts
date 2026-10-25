@@ -56,9 +56,10 @@ async function runOne(
 ): Promise<ProbeResultRow> {
   const result = await runWithTimeout(() => probe.run(ctx, target), probeTimeoutMs(probe));
   if (result.ok) {
+    // A skipped probe did not run, so its row shows no duration like the runner's own skips.
     return rowOf(probe, target, {
       status: result.value.status,
-      durationMs: result.latencyMs,
+      durationMs: result.value.status === "skipped" ? null : result.latencyMs,
       message: result.value.message,
     });
   }

@@ -2181,6 +2181,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.probe.not-configured": "Kein eigener E-Mail-Versand eingerichtet",
   "mail-foundation.probe.no-recipient":
     "Keine E-Mail-Adresse der Person bekannt, die den Check gestartet hat",
+  "mail-foundation.probe.host-not-found": "Mailserver nicht gefunden, Serveradresse prüfen",
+  "mail-foundation.probe.setup-incomplete":
+    "Einstellungen für den Mailversand unvollständig oder Server nicht erlaubt",
+  "mail-foundation.probe.setup-failed":
+    "Mailversand ließ sich mit diesen Einstellungen nicht einrichten",
+  "mail-foundation.probe.send-rejected":
+    "Der Mailserver hat die Testmail nicht angenommen, Adresse, Port und Anmeldung prüfen",
   "inbound-mail-foundation.probe.area": "E-Mail-Eingang",
   "inbound-mail-foundation.probe.mailboxes.label": "Verbundene Postfächer",
   "inbound-mail-foundation.probe.mailbox": "Postfach {name}",

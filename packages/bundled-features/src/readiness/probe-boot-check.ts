@@ -1,13 +1,28 @@
-import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  buildConfigFeatureSchema,
+  createRegistry,
+  type FeatureDefinition,
+  SETTINGS_HUB_FEATURE,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+// Settings screens come from config keys at schema build, not from r.screen, yet a probe may
+// link a failed row to one (mail sending lives on config:screen:mail-foundation-tenant).
+function mountedScreenQns(features: readonly FeatureDefinition[]): ReadonlySet<string> {
+  const generatedSettings = buildConfigFeatureSchema(createRegistry(features)).screens.map(
+    (screen) => `${SETTINGS_HUB_FEATURE}:screen:${screen.id}`,
+  );
+  return new Set([
+    ...features.flatMap((feature) =>
+      Object.keys(feature.screens).map((screenId) => `${feature.name}:screen:${screenId}`),
+    ),
+    ...generatedSettings,
+  ]);
+}
 
 // A probe whose area or label has no translation would render a raw key in the result table,
 // and one whose fixScreen names no mounted screen would link a failed row nowhere.
 export function validateProbeTranslations(features: readonly FeatureDefinition[]): void {
-  const screenQns = new Set(
-    features.flatMap((feature) =>
-      Object.keys(feature.screens).map((screenId) => `${feature.name}:screen:${screenId}`),
-    ),
-  );
+  const screenQns = mountedScreenQns(features);
   const defined = new Set<string>();
   for (const feature of features) {
     for (const key of Object.keys(feature.translations)) {
