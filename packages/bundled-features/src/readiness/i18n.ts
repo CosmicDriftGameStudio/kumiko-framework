@@ -49,7 +49,7 @@ export const READINESS_I18N: Readonly<Record<string, LocalizedString>> = {
   "readiness.result-status.ok": { en: "OK" },
   "readiness.result-status.failed": { en: "Failed" },
   "readiness.result-status.skipped": { en: "Not run" },
-  "readiness.outcome.ok": { en: "All passed" },
+  "readiness.outcome.ok": { en: "No failures" },
   "readiness.outcome.failed": { en: "Failures" },
   "readiness.outcome.running": { en: "Running" },
 };

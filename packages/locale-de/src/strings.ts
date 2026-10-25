@@ -2171,7 +2171,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "readiness.result-status.ok": "OK",
   "readiness.result-status.failed": "Fehler",
   "readiness.result-status.skipped": "Nicht gelaufen",
-  "readiness.outcome.ok": "Alles bestanden",
+  "readiness.outcome.ok": "Ohne Fehler",
   "readiness.outcome.failed": "Fehler",
   "readiness.outcome.running": "Läuft",
   "mail-foundation.probe.area": "E-Mail",
