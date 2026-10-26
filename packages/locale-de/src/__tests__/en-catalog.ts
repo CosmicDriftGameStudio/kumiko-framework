@@ -1995,6 +1995,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Connect mailbox",
   "screen:mail-account-connect-imap.title": "Connect mailbox",
+  "inboundMail.accounts.reconnect": "Reconnect",
+  "screen:mail-account-reconnect-imap.title": "Reconnect mailbox",
+  "inbound-provider-imap:entity:__action-form__:field:accountId": "Mailbox",
+  "inboundMail.imap.reconnect.hint":
+    "The sign-in is checked before saving. Then the system fetches the mail again.",
+  "inboundMail.imap.reconnect.submit": "Check and reconnect",
+  "inboundMail.imap.reconnect.errors.notPasswordImap":
+    "Only password IMAP mailboxes can be reconnected here.",
   "inbound-provider-imap:entity:__action-form__:field:displayName": "Name",
   "inbound-provider-imap:entity:__action-form__:field:address": "Email address",
   "inbound-provider-imap:entity:__action-form__:field:host": "IMAP server",

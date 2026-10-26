@@ -17,6 +17,8 @@ export const MAIL_ACCOUNT_LIST_SCREEN_QN = "inbound-mail-foundation:screen:mail-
 // renderer drops a navigate action whose target screen is not mounted, so the toolbar button
 // only shows in apps that mount that provider.
 export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
+// Same reason for the row action "Reconnect" on an account with a sign-in error.
+export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
 
 export const MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX = "inboundMail.accounts.status.";
 
@@ -66,6 +68,15 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
       screen: MAIL_ACCOUNT_EDIT_SCREEN_ID,
       params: { map: { accountId: "id", displayName: "displayName" } },
       visible: { field: "status", ne: InboundMailAccountStatuses.disconnected },
+    },
+    {
+      kind: "navigate",
+      id: "reconnect",
+      label: i18nKey("inboundMail.accounts.reconnect"),
+      screen: IMAP_RECONNECT_SCREEN_ID,
+      entityId: "id",
+      // The handler rejects accounts of other providers; the row condition cannot combine fields.
+      visible: { field: "status", eq: InboundMailAccountStatuses.authError },
     },
     {
       kind: "writeHandler",

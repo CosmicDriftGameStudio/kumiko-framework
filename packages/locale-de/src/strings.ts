@@ -2047,6 +2047,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Postfach verbinden",
   "screen:mail-account-connect-imap.title": "Postfach verbinden",
+  "inboundMail.accounts.reconnect": "Neu verbinden",
+  "screen:mail-account-reconnect-imap.title": "Postfach neu verbinden",
+  "inbound-provider-imap:entity:__action-form__:field:accountId": "Postfach",
+  "inboundMail.imap.reconnect.hint":
+    "Der Login wird vor dem Speichern geprüft. Danach holt das System die Mails wieder ab.",
+  "inboundMail.imap.reconnect.submit": "Prüfen und neu verbinden",
+  "inboundMail.imap.reconnect.errors.notPasswordImap":
+    "Nur IMAP-Postfächer mit Passwort lassen sich hier neu verbinden.",
   "inbound-provider-imap:entity:__action-form__:field:displayName": "Name",
   "inbound-provider-imap:entity:__action-form__:field:address": "E-Mail-Adresse",
   "inbound-provider-imap:entity:__action-form__:field:host": "IMAP-Server",

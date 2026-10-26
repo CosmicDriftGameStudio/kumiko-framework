@@ -28,7 +28,7 @@ import { type SmtpFailure, SmtpFailureError, verifySmtpLogin } from "./smtp-clie
 // No `secure`: the password never crosses the wire in clear text, so a payload's secure:false is
 // stripped like any unknown key. IMAP uses implicit TLS; SMTP uses implicit TLS on 465 and
 // enforced STARTTLS on every other port.
-const connectMailboxSchema = imapCredentialDocumentSchema
+export const connectMailboxSchema = imapCredentialDocumentSchema
   .pick({ host: true, port: true, user: true })
   .extend({
     displayName: z.string().min(1).max(200),
@@ -37,7 +37,10 @@ const connectMailboxSchema = imapCredentialDocumentSchema
     smtpHost: z.union([z.literal(""), smtpHostSchema]).nullish(),
     smtpPort: z.number().int().min(1).max(65535),
   });
-type ConnectMailboxPayload = z.infer<typeof connectMailboxSchema>;
+type ConnectMailboxLoginFields = Pick<
+  z.infer<typeof connectMailboxSchema>,
+  "host" | "port" | "user" | "password" | "smtpHost" | "smtpPort"
+>;
 
 const connectedAccountSchema = z.object({ accountId: z.string() });
 
@@ -47,7 +50,7 @@ const connectedAccountSchema = z.object({ accountId: z.string() });
 const TLS_FAILURE = /certificate|self[- ]signed|wrong[ _]version[ _]number|EPROTO|ERR_SSL|ERR_TLS/i;
 
 // A fixed preview: any slice of the JSON document would expose the host or the user.
-const CREDENTIAL_PREVIEW = "IMAP login";
+export const CREDENTIAL_PREVIEW = "IMAP login";
 
 const SECRET_TRANSACTION_REASON =
   "the credential secret is written on the request transaction so a failed account connect rolls it back too";
@@ -59,7 +62,7 @@ export function deriveSmtpHost(imapHost: string): string {
   return /^imap\./i.test(imapHost) ? `smtp.${imapHost.slice("imap.".length)}` : imapHost;
 }
 
-export function credentialDocumentOf(payload: ConnectMailboxPayload): ImapCredentialDocument {
+export function credentialDocumentOf(payload: ConnectMailboxLoginFields): ImapCredentialDocument {
   const { host, port, user, password, smtpPort } = payload;
   const smtpHost = payload.smtpHost || deriveSmtpHost(host);
   return { host, port, secure: true, user, password, smtpHost, smtpPort };
@@ -96,6 +99,29 @@ async function checkSmtpLogin(doc: ImapCredentialDocument): Promise<ConnectFailu
   }
 }
 
+// Checks the IMAP login, then the SMTP login of the outgoing server; shared by connect and reconnect.
+export async function checkMailboxLogin(
+  doc: ImapCredentialDocument,
+  log: { warn(message: string, data?: Record<string, unknown>): void },
+): Promise<BeforeTransactionResult<null>> {
+  try {
+    await connectOnce(doc, true);
+  } catch (err) {
+    const { reason, i18nKey } = IMAP_CONNECT_ERRORS[imapConnectFailureOf(err)];
+    log.warn("imap connect check failed", { reason });
+    return writeFailure(new UnprocessableError(reason, { i18nKey }));
+  }
+  const smtpFailure = await checkSmtpLogin(doc);
+  if (smtpFailure) {
+    const { reason, i18nKey } = SMTP_CONNECT_ERRORS[smtpFailure];
+    log.warn("smtp connect check failed", { reason });
+    return writeFailure(
+      new UnprocessableError(reason, { i18nKey, i18nParams: { port: doc.smtpPort } }),
+    );
+  }
+  return { isSuccess: true, data: null };
+}
+
 export const connectMailboxHandler = defineWriteHandler({
   name: "connect-mailbox",
   description:
@@ -108,25 +134,8 @@ export const connectMailboxHandler = defineWriteHandler({
   // used to scan ports or to guess passwords at someone else's mail server.
   rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
   escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
-  beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<null>> => {
-    const doc = credentialDocumentOf(event.payload);
-    try {
-      await connectOnce(doc, true);
-    } catch (err) {
-      const { reason, i18nKey } = IMAP_CONNECT_ERRORS[imapConnectFailureOf(err)];
-      ctx.obs.log.warn("imap connect check failed", { reason });
-      return writeFailure(new UnprocessableError(reason, { i18nKey }));
-    }
-    const smtpFailure = await checkSmtpLogin(doc);
-    if (smtpFailure) {
-      const { reason, i18nKey } = SMTP_CONNECT_ERRORS[smtpFailure];
-      ctx.obs.log.warn("smtp connect check failed", { reason });
-      return writeFailure(
-        new UnprocessableError(reason, { i18nKey, i18nParams: { port: doc.smtpPort } }),
-      );
-    }
-    return { isSuccess: true, data: null };
-  },
+  beforeTransaction: (event, ctx) =>
+    checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
   handler: async (event, ctx) => {
     const { displayName, address } = event.payload;
     const connected = await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, {
