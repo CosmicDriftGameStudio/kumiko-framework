@@ -278,6 +278,7 @@ describe("billing-plans query — no subscription", () => {
     expect(result.subscription).toBeNull();
     expect(result.canPurchase).toBe(true);
     expect("contact" in result).toBe(false);
+    expect("priceNoteKey" in result).toBe(false);
     expect(result.plans).toHaveLength(2);
     const starter = result.plans.find((p) => p.tier === "starter");
     const pro = result.plans.find((p) => p.tier === "pro");
@@ -789,6 +790,7 @@ describe("roles — view-only access without purchase rights", () => {
           catalog: catalog({
             viewRoles: ["TenantAdmin", "SystemAdmin", "Member"],
             contact: contactCard,
+            priceNoteKey: "plan.priceNote",
           }),
         }),
         mockPlanProviderFeature,
@@ -819,8 +821,9 @@ describe("roles — view-only access without purchase rights", () => {
       "billing-foundation:query:billing-plans",
       {},
       member,
-    )) as { contact?: unknown };
+    )) as { contact?: unknown; priceNoteKey?: string };
     expect(result.contact).toEqual(contactCard);
+    expect(result.priceNoteKey).toBe("plan.priceNote");
   });
 
   test("a Member is rejected with 403 on start-plan-checkout", async () => {

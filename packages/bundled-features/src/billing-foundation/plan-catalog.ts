@@ -267,5 +267,6 @@ export function toBillingPlansResult(
     plans: views.plans,
     ...(views.inAppSwitch && { inAppPlanSwitch: true as const }),
     ...(catalog.contact !== undefined && { contact: catalog.contact }),
+    ...(catalog.priceNoteKey !== undefined && { priceNoteKey: catalog.priceNoteKey }),
   };
 }

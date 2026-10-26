@@ -7,6 +7,8 @@ export type PlanCardPrice = {
   readonly period?: string;
   /** Shown before the amount, e.g. "from" when prices differ per provider. */
   readonly prefix?: string;
+  /** Small line under the price row, e.g. "plus VAT". */
+  readonly note?: string;
 };
 
 export type PlanCardActionSlot = {
@@ -115,30 +117,7 @@ export function PlanCard({
       {description !== undefined && !compact && (
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       )}
-      {price !== undefined && (
-        <div className={cn(compact ? "mt-1" : "mt-1 mb-3")}>
-          {price === null ? (
-            <span
-              data-testid={
-                testId !== undefined ? `${testId}-price-unavailable` : "plan-card-price-unavailable"
-              }
-              className="text-sm text-muted-foreground"
-            >
-              {t("kumiko.planCard.priceUnavailable")}
-            </span>
-          ) : (
-            <>
-              {price.prefix !== undefined && (
-                <span className="mr-1 text-sm text-muted-foreground">{price.prefix}</span>
-              )}
-              <span className="text-2xl font-bold">{price.amount}</span>
-              {price.period !== undefined && (
-                <span className="ml-1 text-sm text-muted-foreground">{price.period}</span>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      {price !== undefined && <PlanCardPriceRow price={price} compact={compact} testId={testId} />}
       {!compact && features !== undefined && features.length > 0 && (
         <ul className="space-y-1 text-sm">
           {features.map((feature, index) => (
@@ -158,6 +137,50 @@ export function PlanGrid({ children, testId }: PlanGridProps): ReactNode {
   return (
     <div data-testid={testId} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {children}
+    </div>
+  );
+}
+
+function PlanCardPriceRow({
+  price,
+  compact,
+  testId,
+}: {
+  readonly price: PlanCardPrice | null;
+  readonly compact: boolean;
+  readonly testId: string | undefined;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <div className={cn(compact ? "mt-1" : "mt-1 mb-3")}>
+      {price === null ? (
+        <span
+          data-testid={
+            testId !== undefined ? `${testId}-price-unavailable` : "plan-card-price-unavailable"
+          }
+          className="text-sm text-muted-foreground"
+        >
+          {t("kumiko.planCard.priceUnavailable")}
+        </span>
+      ) : (
+        <>
+          {price.prefix !== undefined && (
+            <span className="mr-1 text-sm text-muted-foreground">{price.prefix}</span>
+          )}
+          <span className="text-2xl font-bold">{price.amount}</span>
+          {price.period !== undefined && (
+            <span className="ml-1 text-sm text-muted-foreground">{price.period}</span>
+          )}
+        </>
+      )}
+      {price?.note !== undefined && (
+        <p
+          data-testid={testId !== undefined ? `${testId}-price-note` : "plan-card-price-note"}
+          className="text-xs text-muted-foreground"
+        >
+          {price.note}
+        </p>
+      )}
     </div>
   );
 }
