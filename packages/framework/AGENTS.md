@@ -267,7 +267,7 @@ produces code that compiles and then fails in production.
 
 - Integration tests run against the real stack over real HTTP. In an app:
   `setupAppTestStack([feature])` plus `seedTenant(stack)` from
-  `@cosmicdrift/kumiko-testing`, then `tenant.api.writeOk` and
+  `@cosmicdrift/kumiko-dev-server/testing`, then `tenant.api.writeOk` and
   `tenant.api.queryOk`. Never assemble a dispatcher yourself
   (`createTestDispatcher` or similar); it skips the production wiring.
 - Every test seeds its own tenant. No shared tenant, no global fixtures.
