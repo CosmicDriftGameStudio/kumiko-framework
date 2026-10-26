@@ -184,8 +184,8 @@ function createSupervisor() {
     providerCtx: {
       registry: stack.registry,
       secrets,
-      // Worker-identity for requireSecretsContext audit on IMAP credential reads.
-      auditUserId: "imap-foundation-supervisor",
+      // No auditUserId on purpose: the supervisor must supply the system
+      // identity itself, otherwise IMAP credential reads throw.
     },
     db,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
