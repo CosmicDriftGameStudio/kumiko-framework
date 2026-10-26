@@ -148,7 +148,8 @@ describe("mailbox screens over the real handlers", () => {
       return result.accountId;
     };
     const firstId = await connect("Team", "team@tenant.example");
-    const secondId = await connect("Billing", "billing@tenant.example");
+    // A name pasted with spaces around it is stored trimmed.
+    const secondId = await connect(" Billing", "billing@tenant.example");
 
     const listed = (await stack.http.queryOk(
       InboundMailFoundationQueries.listAccounts,
@@ -168,7 +169,7 @@ describe("mailbox screens over the real handlers", () => {
 
     await stack.http.writeOk(
       InboundMailFoundationHandlers.updateAccount,
-      { accountId: firstId, displayName: "Team inbox" },
+      { accountId: firstId, displayName: " Team inbox " },
       admin,
     );
     const secondRow = listed.rows.find((row) => row.id === secondId);
@@ -199,7 +200,9 @@ describe("mailbox screens over the real handlers", () => {
     )) as { rows: readonly ListedAccount[] };
     const byId = new Map(after.rows.map((row) => [row.id, row]));
     expect(byId.get(firstId)?.displayName).toBe("Team inbox");
-    expect(byId.get(secondId)?.status).toBe("disconnected");
+    expect(byId.get(secondId)).toEqual(
+      expect.objectContaining({ displayName: "Billing", status: "disconnected" }),
+    );
   });
 
   test("a plain User is rejected on the screen's handlers", async () => {

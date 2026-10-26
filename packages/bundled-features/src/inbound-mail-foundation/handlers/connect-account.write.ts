@@ -37,7 +37,7 @@ export const connectAccountSchema = z.object({
     InboundMailAuthMethods.xoauth2,
     InboundMailAuthMethods.oauth,
   ]),
-  displayName: z.string().max(200),
+  displayName: z.string().trim().max(200),
   /** Mailbox address in plaintext; it is encrypted here. */
   address: z.string().min(1).max(320),
   /** "shared" = shared across the tenant (info@) · "user" = the caller's

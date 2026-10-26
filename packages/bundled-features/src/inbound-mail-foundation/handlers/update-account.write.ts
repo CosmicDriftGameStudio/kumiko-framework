@@ -31,7 +31,7 @@ export const updateAccountSchema = z.object({
     .optional(),
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
-  displayName: z.string().max(200).optional(),
+  displayName: z.string().trim().max(200).optional(),
   /** Audit reason for metadata.headers, honored for the system identity only
    *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
   reason: z.string().min(1).max(100).optional(),

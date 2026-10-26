@@ -31,7 +31,7 @@ import { type SmtpFailure, SmtpFailureError, verifySmtpLogin } from "./smtp-clie
 export const connectMailboxSchema = imapCredentialDocumentSchema
   .pick({ host: true, port: true, user: true })
   .extend({
-    displayName: z.string().min(1).max(200),
+    displayName: z.string().trim().min(1).max(200),
     address: z.email().max(320),
     password: z.string().min(1).max(1000),
     smtpHost: z.union([z.literal(""), smtpHostSchema]).nullish(),
