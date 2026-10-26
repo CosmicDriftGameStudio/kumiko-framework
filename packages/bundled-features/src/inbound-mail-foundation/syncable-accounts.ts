@@ -29,6 +29,7 @@ type SyncableMailAccountRow = {
   readonly status?: string;
   readonly watchState?: string;
   readonly lastError?: string | null;
+  readonly trustedAuthservId?: string | null;
 };
 
 const SYNCABLE_STATUSES: readonly InboundMailAccountStatus[] = [
@@ -85,6 +86,7 @@ export async function listSyncableAccounts(
       status: syncableStatusOf(row.status),
       watchState: row.watchState ?? "idle",
       lastError: row.lastError ?? null,
+      trustedAuthservId: row.trustedAuthservId ?? null,
     });
   }
   return records;

@@ -105,6 +105,9 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
         ...(msg.bodyHtml !== null && { bodyHtml: msg.bodyHtml }),
         attachments: msg.attachments,
         skippedAttachments: msg.skippedAttachments,
+        ...(msg.senderAuthentication !== undefined && {
+          senderAuthentication: msg.senderAuthentication,
+        }),
       },
     });
   }

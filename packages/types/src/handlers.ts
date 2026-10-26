@@ -386,6 +386,13 @@ export type JobRunnerRef = {
     triggerEvent?: JobTriggerEvent,
   ): Promise<void>;
   // Present on the concrete runner; optional so handleEvent-only doubles still fit.
+  handleCatchUpEvent?(
+    jobName: string,
+    eventName: string,
+    payload: Record<string, unknown>,
+    user: SessionUser,
+    triggerEvent: JobTriggerEvent,
+  ): Promise<void>;
   dispatch?(
     jobName: string,
     payload: Record<string, unknown>,

@@ -21,6 +21,7 @@ type ReconnectAccountRow = {
   readonly authMethod: string;
   readonly displayName: string | null;
   readonly status: string | null;
+  readonly trustedAuthservId: string | null;
 };
 
 export type ReconnectAccountLookup =

@@ -85,4 +85,10 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [MAIL_SEND_ERRORS.invalidMessage.i18nKey]: {
     en: "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
   },
+  [MAIL_SEND_ERRORS.attachmentInvalid.i18nKey]: {
+    en: "The mail was not sent: an attachment is no longer available.",
+  },
+  [MAIL_SEND_ERRORS.attachmentsTooLarge.i18nKey]: {
+    en: "The mail was not sent: the attachments together are larger than 18 MB.",
+  },
 };

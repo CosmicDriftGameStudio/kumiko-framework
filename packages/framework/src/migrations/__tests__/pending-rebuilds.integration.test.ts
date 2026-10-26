@@ -454,6 +454,7 @@ describe("enqueueProjectionRebuild — inline fallback (jobRunner without the jo
       start: async () => {},
       stop: async () => {},
       handleEvent: async () => {},
+      handleCatchUpEvent: async () => {},
       dispatch: async () => {
         dispatchCalls++;
         return "should-not-happen";

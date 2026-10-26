@@ -22,7 +22,15 @@ import {
 import { findReconnectableAccount } from "./reconnect-account.ts";
 
 const reconnectMailboxSchema = connectMailboxSchema
-  .pick({ host: true, port: true, user: true, password: true, smtpHost: true, smtpPort: true })
+  .pick({
+    host: true,
+    port: true,
+    user: true,
+    password: true,
+    smtpHost: true,
+    smtpPort: true,
+    trustedAuthservId: true,
+  })
   .extend({ accountId: z.uuid() });
 
 const SECRET_TRANSACTION_REASON =
@@ -48,6 +56,8 @@ export const reconnectMailboxHandler = defineWriteHandler({
     const { accountId } = event.payload;
     const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.reactivateAccount, {
       accountId,
+      // The form shows the stored id, so an empty field means the admin cleared it.
+      trustedAuthservId: event.payload.trustedAuthservId ?? null,
     });
     if (!reactivated.isSuccess) return reactivated;
 

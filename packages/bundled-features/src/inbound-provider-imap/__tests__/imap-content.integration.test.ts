@@ -41,6 +41,7 @@ import {
   type InboundMessageContent,
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
+  isSenderAuthenticated,
   mailAccountsProjectionTable,
   quarantineEntity,
   quarantineTable,
@@ -162,7 +163,7 @@ function freshAdmin() {
 
 type Admin = ReturnType<typeof freshAdmin>;
 
-async function connectImapAccount(admin: Admin): Promise<string> {
+async function connectImapAccount(admin: Admin, trustedAuthservId?: string): Promise<string> {
   const { accountId } = (await stack.http.writeOk(
     InboundMailFoundationHandlers.connectAccount,
     {
@@ -171,6 +172,7 @@ async function connectImapAccount(admin: Admin): Promise<string> {
       displayName: "Greenmail",
       address: "testuser@example.com",
       scope: "shared",
+      ...(trustedAuthservId !== undefined && { trustedAuthservId }),
     },
     admin,
   )) as { accountId: string };
@@ -330,5 +332,96 @@ describe("immediate sync with a real mailbox", () => {
     } finally {
       await supervisor.stop();
     }
+  });
+});
+
+describe("sender authentication through greenmail", () => {
+  const TRUSTED_MX = "mx.fixture.test";
+
+  async function senderAuthenticationOf(admin: Admin, accountId: string, messageIdHeader: string) {
+    const rows = await selectMany(stack.db, inboundMessagesProjectionTable, { accountId });
+    const row = rows.find((r) => r["messageIdHeader"] === messageIdHeader);
+    const content = await contentOf(admin, accountId, messageIdHeader);
+    expect(JSON.parse(String(row?.["senderAuthentication"]))).toEqual(content.senderAuthentication);
+    return content.senderAuthentication;
+  }
+
+  liveTest(
+    "pass, fail, a missing header, a foreign id, a forged header and a From mismatch",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectImapAccount(admin, TRUSTED_MX);
+      for (const name of [
+        "pass",
+        "fail",
+        "missing",
+        "forged-below",
+        "foreign-only",
+        "from-mismatch",
+      ]) {
+        await appendFixture(`sender-auth-${name}.eml`);
+      }
+
+      await createSupervisor().pollOnce();
+
+      const passed = await senderAuthenticationOf(admin, accountId, "auth-pass@fixture.test");
+      expect(passed).toEqual({
+        authservId: TRUSTED_MX,
+        spf: "pass",
+        dkim: "pass",
+        dkimDomains: ["example.com"],
+        dmarc: "pass",
+        fromDomain: "example.com",
+      });
+      expect(isSenderAuthenticated(passed)).toBe(true);
+
+      const failed = await senderAuthenticationOf(admin, accountId, "auth-fail@fixture.test");
+      expect(failed).toMatchObject({ spf: "fail", dkim: "fail", dmarc: "fail" });
+      expect(isSenderAuthenticated(failed)).toBe(false);
+
+      expect(
+        await senderAuthenticationOf(admin, accountId, "auth-missing@fixture.test"),
+      ).toBeNull();
+      expect(
+        await senderAuthenticationOf(admin, accountId, "auth-foreign@fixture.test"),
+      ).toBeNull();
+      expect(
+        await senderAuthenticationOf(admin, accountId, "auth-mismatch@fixture.test"),
+      ).toBeNull();
+
+      const forged = await senderAuthenticationOf(
+        admin,
+        accountId,
+        "auth-forged-below@fixture.test",
+      );
+      expect(forged).toMatchObject({ spf: "fail", dkim: "none", dmarc: "fail" });
+      expect(isSenderAuthenticated(forged)).toBe(false);
+    },
+  );
+
+  liveTest("without a trusted authserv-id nothing is believed", async () => {
+    const admin = freshAdmin();
+    const accountId = await connectImapAccount(admin);
+    await appendFixture("sender-auth-pass.eml");
+
+    await createSupervisor().pollOnce();
+
+    expect(await senderAuthenticationOf(admin, accountId, "auth-pass@fixture.test")).toBeNull();
+  });
+
+  liveTest("update-account sets the trusted id for mail imported afterwards", async () => {
+    const admin = freshAdmin();
+    const accountId = await connectImapAccount(admin);
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, trustedAuthservId: " MX.Fixture.Test " },
+      admin,
+    );
+    await appendFixture("sender-auth-pass.eml");
+
+    await createSupervisor().pollOnce();
+
+    const result = await senderAuthenticationOf(admin, accountId, "auth-pass@fixture.test");
+    expect(result?.authservId).toBe(TRUSTED_MX);
   });
 });

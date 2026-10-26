@@ -13,32 +13,48 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
+import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
 export const RECONNECT_AUDIT_REASON = "reconnect";
 
-export const reactivateAccountSchema = z.object({ accountId: z.uuid() });
+export const reactivateAccountSchema = z.object({
+  accountId: z.uuid(),
+  trustedAuthservId: trustedAuthservIdInputSchema,
+});
 
-function isAlreadyHealthy(current: MailAccountEventPayload): boolean {
+function isAlreadyHealthy(
+  current: MailAccountEventPayload,
+  trustedAuthservId: string | null,
+): boolean {
   return (
     current.status === InboundMailAccountStatuses.active &&
     current.watchState === "idle" &&
-    current.lastError === null
+    current.lastError === null &&
+    current.trustedAuthservId === trustedAuthservId
   );
 }
 
 // Shared with connect-account's in-place OAuth reconnect. Returns false when nothing had to change.
+// requestedTrustedAuthservId undefined keeps the stored id; null or "" clears it.
 export async function appendMailAccountReactivation(
   ctx: Pick<HandlerContext, "events">,
   accountId: string,
   current: MailAccountEventPayload,
+  requestedTrustedAuthservId?: string | null,
 ): Promise<boolean> {
-  if (isAlreadyHealthy(current)) return false;
+  const trustedAuthservId =
+    requestedTrustedAuthservId === undefined
+      ? current.trustedAuthservId
+      : normalizeTrustedAuthservId(requestedTrustedAuthservId);
+  if (isAlreadyHealthy(current, trustedAuthservId)) return false;
   const eventPayload: MailAccountEventPayload = {
     ...current,
     status: InboundMailAccountStatuses.active,
     watchState: "idle",
     lastError: null,
+    trustedAuthservId,
   };
   const headers: MailAccountEventHeaders = {
     providerName: current.provider,
@@ -65,7 +81,12 @@ export const reactivateAccountHandler: WriteHandlerDef = {
     const payload = reactivateAccountSchema.parse(event.payload);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
-    const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
+    const changed = await appendMailAccountReactivation(
+      ctx,
+      payload.accountId,
+      current,
+      payload.trustedAuthservId,
+    );
     return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
   },
 };

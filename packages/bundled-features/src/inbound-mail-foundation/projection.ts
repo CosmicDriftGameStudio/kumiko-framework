@@ -77,6 +77,7 @@ const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event
     status: p.status,
     watchState: p.watchState,
     lastError: p.lastError,
+    trustedAuthservId: p.trustedAuthservId,
   };
   await upsertOnConflict(
     tx,
@@ -131,6 +132,7 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
       bodyTextTruncated: p.bodyTextTruncated,
       attachmentFileIds: JSON.stringify(p.attachmentFileIds),
       skippedAttachments: JSON.stringify(p.skippedAttachments),
+      senderAuthentication: JSON.stringify(p.senderAuthentication),
       contentState: p.contentState,
     });
   },

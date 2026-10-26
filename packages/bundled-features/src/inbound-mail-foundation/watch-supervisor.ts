@@ -44,20 +44,23 @@
 // racing a new holder.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   systemScopedRunner,
   tenantScopedSecrets,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createAccountHealth, type PollFailureKind } from "./account-health.ts";
+import {
+  forEachWithConcurrency,
+  pollScheduleOf,
+  withPollDeadline,
+} from "./account-poll-schedule.ts";
 import { registerMailAccountWakeListener } from "./account-wake.ts";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.ts";
 import { refetchSnippetOnlyMessages } from "./content-refetch.ts";
-import { seenMessageTable, syncCursorTable } from "./entities.ts";
+import { seenMessageTable } from "./entities.ts";
 import {
   createOAuthAccessTokenManager,
   type OAuthAccessTokenManager,
@@ -73,6 +76,7 @@ import {
   type PollAccountResult,
   runExclusivePerAccount,
 } from "./sync-account-now.ts";
+import { createSyncCursorStore } from "./sync-cursor-store.ts";
 import { listSyncableAccounts, type SyncableAccount } from "./syncable-accounts.ts";
 import {
   type InboundMailContext,
@@ -83,7 +87,6 @@ import {
   isInboundRateLimitError,
   type MailAccountRecord,
   type RawInboundMessage,
-  type SyncCursorPayload,
 } from "./types.ts";
 
 // Provider errors can embed token or response data in `message`; logs carry
@@ -98,9 +101,6 @@ const DEFAULT_MAX_MESSAGES_PER_POLL = 200;
 const DEFAULT_WATCH_BACKOFF_INITIAL_MS = 5_000;
 const DEFAULT_WATCH_BACKOFF_MAX_MS = 5 * 60 * 1000;
 const DEFAULT_WATCH_LEASE_TTL_SECONDS = 90;
-/** One cursor per account (one mailbox inbox) for now; multi-folder support
- *  can add further scopes later without a schema change. */
-const CURSOR_SCOPE = "default";
 
 const SEEN_LOOKUP_CHUNK_SIZE = 1000;
 
@@ -129,6 +129,11 @@ export type InboundMailSupervisorDeps = {
   readonly pollIntervalMs?: number;
   readonly backfillWindowDays?: number;
   readonly maxMessagesPerPoll?: number;
+  /** Accounts synced side by side within one tick. Default 4. */
+  readonly pollConcurrency?: number;
+  /** Longest a single account's sync may run before the supervisor abandons it as a failed poll.
+   *  Default 10 minutes. */
+  readonly accountPollDeadlineMs?: number;
   readonly watchBackoffInitialMs?: number;
   readonly watchBackoffMaxMs?: number;
   /** Coordinates the IMAP watch (not the poll) across worker processes:
@@ -182,6 +187,7 @@ export function createInboundMailSupervisor(
   const pollIntervalMs = deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const backfillWindowDays = deps.backfillWindowDays ?? DEFAULT_BACKFILL_WINDOW_DAYS;
   const maxMessagesPerPoll = deps.maxMessagesPerPoll ?? DEFAULT_MAX_MESSAGES_PER_POLL;
+  const { pollConcurrency, accountPollDeadlineMs } = pollScheduleOf(deps);
   const backoffInitialMs = deps.watchBackoffInitialMs ?? DEFAULT_WATCH_BACKOFF_INITIAL_MS;
   const backoffMaxMs = deps.watchBackoffMaxMs ?? DEFAULT_WATCH_BACKOFF_MAX_MS;
   const leaseTtlSeconds = deps.watchLeaseTtlSeconds ?? DEFAULT_WATCH_LEASE_TTL_SECONDS;
@@ -232,65 +238,7 @@ export function createInboundMailSupervisor(
   let unregisterWake: (() => void) | null = null;
   const watchers = new Map<string, WatcherState>();
 
-  // ---------------------------------------------------------------
-  // Cursor-Persistenz (unmanaged direct-write store).
-  // ---------------------------------------------------------------
-  async function loadCursor(accountId: string): Promise<SyncCursorPayload | null> {
-    const row = await fetchOne<{ cursor: string }>(systemDb, syncCursorTable, {
-      accountId,
-      scope: CURSOR_SCOPE,
-    });
-    if (!row) return null;
-    try {
-      const parsed: unknown = JSON.parse(row.cursor);
-      return isPlainObject(parsed) ? parsed : null;
-    } catch {
-      return null; // a corrupt cursor counts as none → backfill; dedup catches duplicates
-    }
-  }
-
-  async function saveCursor(
-    account: Pick<MailAccountRecord, "id" | "tenantId">,
-    cursor: SyncCursorPayload,
-  ): Promise<void> {
-    const accountId = account.id;
-    const now = Temporal.Now.instant().toString();
-    const serialized = JSON.stringify(cursor);
-    const existing = await fetchOne<{ id: string }>(systemDb, syncCursorTable, {
-      accountId,
-      scope: CURSOR_SCOPE,
-    });
-    if (existing) {
-      await updateMany(
-        systemDb,
-        syncCursorTable,
-        { cursor: serialized, updatedAt: now },
-        { accountId, scope: CURSOR_SCOPE },
-      );
-      // skip: the update path is complete; do not fall through to the insert branch.
-      return;
-    }
-    await insertOne(systemDb, syncCursorTable, {
-      id: crypto.randomUUID(),
-      // Direct-write store: no executor stamps the NOT NULL tenant_id for us.
-      tenantId: account.tenantId,
-      accountId,
-      scope: CURSOR_SCOPE,
-      cursor: serialized,
-      updatedAt: now,
-    });
-  }
-
-  async function resetCursor(accountId: string): Promise<void> {
-    // No deleteMany import is needed: an empty cursor parses to null, so the
-    // next fetch runs as a backfill.
-    await updateMany(
-      systemDb,
-      syncCursorTable,
-      { cursor: "", updatedAt: Temporal.Now.instant().toString() },
-      { accountId, scope: CURSOR_SCOPE },
-    );
-  }
+  const cursors = createSyncCursorStore(systemDb);
 
   const ingester = createMessageIngester({
     db: systemDb,
@@ -333,7 +281,7 @@ export function createInboundMailSupervisor(
     }
     if (isInboundCursorInvalidError(err)) {
       log(`inbound-mail: account ${account.id} cursor invalid — full resync in backfill window`);
-      await resetCursor(account.id);
+      await cursors.reset(account.id);
       return true;
     }
     // Transient or unknown error: log it and retry on the next tick.
@@ -380,6 +328,7 @@ export function createInboundMailSupervisor(
   async function refetchContentSafely(
     account: SyncableAccount,
     plugin: InboundMailProviderPlugin,
+    signal: AbortSignal | undefined,
   ): Promise<void> {
     // skip: the provider cannot reload content.
     if (!plugin.fetchContent) return;
@@ -393,10 +342,47 @@ export function createInboundMailSupervisor(
         plugin,
         windowDays: backfillWindowDays,
         accessToken,
+        signal,
       });
     } catch (err) {
       // Best effort: the sync itself succeeded, the next tick retries the reload.
       log(`inbound-mail: content reload for account ${account.id} failed: ${describeError(err)}`);
+    }
+  }
+
+  // Fetches and ingests batch after batch until the provider has no more or the message budget of
+  // this tick is used up. An abandoned sync (deadline) throws out of the loop.
+  async function ingestBatches(
+    account: SyncableAccount,
+    plugin: InboundMailProviderPlugin,
+    signal: AbortSignal | undefined,
+  ): Promise<{ storageUnavailable: boolean; storageHealthy: boolean }> {
+    let cursor = await cursors.load(account.id);
+    let budget = maxMessagesPerPoll;
+    const totals = { storageUnavailable: false, storageHealthy: false };
+    for (;;) {
+      const accessToken = await resolveAccessToken(account, plugin);
+      const result = await plugin.fetch(providerCtx, account, cursor, {
+        backfillWindowDays,
+        maxMessages: budget,
+        filterUnknownMessageIds: unknownMessageIdsFilterFor(account),
+        ...(accessToken !== undefined && { accessToken }),
+        ...(signal && { signal }),
+      });
+      // The sync was abandoned while the provider was busy; its late result is dropped.
+      signal?.throwIfAborted();
+      const outcome: IngestBatchOutcome = await ingester.ingestBatch(
+        account,
+        result.messages,
+        result.rejected ?? [],
+        JSON.stringify(result.nextCursor),
+      );
+      totals.storageUnavailable ||= outcome.storageUnavailable;
+      totals.storageHealthy ||= outcome.storageHealthy;
+      await cursors.save(account, result.nextCursor);
+      cursor = result.nextCursor;
+      budget -= result.messages.length;
+      if (!result.hasMore || budget <= 0) return totals;
     }
   }
 
@@ -405,34 +391,12 @@ export function createInboundMailSupervisor(
     plugin: InboundMailProviderPlugin,
     options: PollAccountOptions = {},
   ): Promise<PollAccountResult> {
-    let cursor = await loadCursor(account.id);
-    let budget = maxMessagesPerPoll;
-    const totals = { storageUnavailable: false, storageHealthy: false };
+    let totals: Awaited<ReturnType<typeof ingestBatches>>;
     try {
-      // hasMore loop: paginate within this tick until the message budget is
-      // exhausted.
-      for (;;) {
-        const accessToken = await resolveAccessToken(account, plugin);
-        const result = await plugin.fetch(providerCtx, account, cursor, {
-          backfillWindowDays,
-          maxMessages: budget,
-          filterUnknownMessageIds: unknownMessageIdsFilterFor(account),
-          ...(accessToken !== undefined && { accessToken }),
-        });
-        const outcome: IngestBatchOutcome = await ingester.ingestBatch(
-          account,
-          result.messages,
-          result.rejected ?? [],
-          JSON.stringify(result.nextCursor),
-        );
-        totals.storageUnavailable ||= outcome.storageUnavailable;
-        totals.storageHealthy ||= outcome.storageHealthy;
-        await saveCursor(account, result.nextCursor);
-        cursor = result.nextCursor;
-        budget -= result.messages.length;
-        if (!result.hasMore || budget <= 0) break;
-      }
+      totals = await ingestBatches(account, plugin, options.signal);
     } catch (err) {
+      // skip: an error caused by abandoning the sync is already counted as the deadline failure.
+      if (options.signal?.aborted) return "done";
       if (options.fromWake && isInboundCredentialNotStoredError(err)) {
         // The secret is written after the account is created; the next tick picks it up.
         log(`inbound-mail: account ${account.id} credential not stored yet, wake sync skipped`);
@@ -443,8 +407,10 @@ export function createInboundMailSupervisor(
       if (stillRunning && failureKind) await health.onPollFailure(account, failureKind);
       return "done";
     }
+    // skip: abandoned during the last batch; the deadline already counted this poll as failed.
+    if (options.signal?.aborted) return "done";
     await health.onPollSuccess(account, totals);
-    await refetchContentSafely(account, plugin);
+    await refetchContentSafely(account, plugin, options.signal);
     return "done";
   }
 
@@ -459,16 +425,43 @@ export function createInboundMailSupervisor(
 
   const inFlightSyncs: InFlightSyncs = new Map();
 
-  async function pollOnce(): Promise<void> {
-    const accounts = await listSyncableAccounts(systemDb, log);
-    for (const account of accounts) {
-      const plugin = resolvePluginOrLog(account);
-      if (!plugin) continue;
+  const pollAccountWithDeadline = withPollDeadline(pollAccount, {
+    ms: accountPollDeadlineMs,
+    onDeadline: async (account) => {
+      log(
+        `inbound-mail: account ${account.id} sync passed its ${accountPollDeadlineMs}ms deadline`,
+      );
+      await health.onPollFailure(account, "transient");
+    },
+  });
+
+  async function pollAccountOfTick(
+    account: SyncableAccount,
+    plugin: InboundMailProviderPlugin,
+  ): Promise<void> {
+    // Joining would hang this tick on the same stuck sync; wake and syncAccountNow still join.
+    if (inFlightSyncs.has(account.id)) {
+      log(`inbound-mail: account ${account.id} is still syncing, skipped this tick`);
+    } else {
       await runExclusivePerAccount(inFlightSyncs, account.id, async () => {
-        await pollAccount(account, plugin);
+        await pollAccountWithDeadline(account, plugin, {});
       });
       if (running) await ensureWatcher(account, plugin);
     }
+  }
+
+  async function pollOnce(): Promise<void> {
+    const accounts = await listSyncableAccounts(systemDb, log);
+    await forEachWithConcurrency(
+      accounts,
+      pollConcurrency,
+      async (account) => {
+        const plugin = resolvePluginOrLog(account);
+        if (plugin) await pollAccountOfTick(account, plugin);
+      },
+      (account, err) =>
+        log(`inbound-mail: account ${account.id} tick failed: ${describeError(err)}`),
+    );
     // Remove watchers for accounts that are no longer syncable.
     const syncableIds = new Set(accounts.map((a) => a.id));
     for (const accountId of watchers.keys()) {
@@ -480,7 +473,7 @@ export function createInboundMailSupervisor(
     inFlight: inFlightSyncs,
     loadAccount: async (accountId) => (await listSyncableAccounts(systemDb, log, accountId))[0],
     resolvePlugin: resolvePluginOrLog,
-    pollAccount,
+    pollAccount: pollAccountWithDeadline,
     ensureWatcher,
     isRunning: () => running,
   });

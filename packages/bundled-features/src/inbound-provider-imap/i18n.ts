@@ -31,6 +31,11 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   "inboundMail.imap.connect.outgoingHint": {
     en: "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL.",
   },
+  [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
+  "inboundMail.imap.connect.senderCheck": { en: "Sender check" },
+  "inboundMail.imap.connect.senderCheckHint": {
+    en: "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
+  },
   "inboundMail.imap.connect.submit": { en: "Check and connect" },
   "inboundMail.imap.reconnect.hint": {
     en: "The sign-in is checked before saving. Then the system fetches the mail again.",

@@ -1,5 +1,5 @@
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { MoreHorizontal } from "lucide-react";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import {
   cloneElement,
   isValidElement,

@@ -1,8 +1,8 @@
 // Shared Radix dialog chrome for confirm Dialog + image Lightbox.
 // Not exported from the package — only an internal building block.
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 

@@ -18,7 +18,9 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
+import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
 export const updateAccountSchema = z.object({
   accountId: z.uuid(),
@@ -34,6 +36,8 @@ export const updateAccountSchema = z.object({
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
   displayName: z.string().trim().max(200).optional(),
+  /** authserv-id of the mailbox's own server; null or empty clears it, omitted keeps it. */
+  trustedAuthservId: trustedAuthservIdInputSchema,
   /** Audit reason for metadata.headers, honored for the system identity only
    *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
   reason: z.string().min(1).max(100).optional(),
@@ -76,6 +80,9 @@ export const updateAccountHandler: WriteHandlerDef = {
       ...(payload.watchState !== undefined ? { watchState: payload.watchState } : {}),
       ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
       ...(payload.lastError !== undefined ? { lastError: payload.lastError } : {}),
+      ...(payload.trustedAuthservId !== undefined
+        ? { trustedAuthservId: normalizeTrustedAuthservId(payload.trustedAuthservId) }
+        : {}),
     };
     const headers: MailAccountEventHeaders = {
       providerName: current.provider,

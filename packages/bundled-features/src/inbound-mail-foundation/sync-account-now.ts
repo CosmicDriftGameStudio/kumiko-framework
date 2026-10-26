@@ -5,7 +5,11 @@
 import type { SyncableAccount } from "./syncable-accounts.ts";
 import type { InboundMailProviderPlugin } from "./types.ts";
 
-export type PollAccountOptions = { readonly fromWake?: boolean };
+export type PollAccountOptions = {
+  readonly fromWake?: boolean;
+  /** Aborted when the supervisor abandons this sync; an aborted sync stores nothing. */
+  readonly signal?: AbortSignal;
+};
 /** "credential_pending": the secret is not stored yet, nothing was polled and no status was set. */
 export type PollAccountResult = "done" | "credential_pending";
 

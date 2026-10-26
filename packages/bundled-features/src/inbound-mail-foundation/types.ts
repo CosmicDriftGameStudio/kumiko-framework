@@ -13,7 +13,8 @@
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.ts";
-import type { OutboundMailMessage, OutboundMailSent } from "./outbound-mail.ts";
+import type { OutboundAttachment, OutboundMailMessage, ProviderSentMail } from "./outbound-mail.ts";
+import type { SenderAuthentication } from "./sender-auth.ts";
 
 /**
  * Slim context for provider plugins.
@@ -62,6 +63,8 @@ export type MailAccountRecord = {
   /** The real status; the supervisor syncs active and degraded mailboxes. */
   readonly status: InboundMailAccountStatus;
   readonly watchState: string;
+  /** authserv-id of the mailbox's own server for sender verification; absent or null = none set. */
+  readonly trustedAuthservId?: string | null;
 };
 
 export type RawInboundAttachment = {
@@ -117,6 +120,8 @@ export type RawInboundMessage = {
   readonly html?: string | null;
   readonly attachments?: readonly RawInboundAttachment[];
   readonly skippedAttachments?: readonly SkippedInboundAttachment[];
+  /** What the mailbox's own server verified about the sender. Absent counts as unknown, never as pass. */
+  readonly senderAuthentication?: SenderAuthentication | null;
   /** Generic scope hint ("inbox", folder name), with no application semantics. */
   readonly scope: string;
 };
@@ -222,6 +227,10 @@ export type InboundMailProviderPlugin = {
       readonly filterUnknownMessageIds?: (
         providerMessageIds: readonly string[],
       ) => Promise<ReadonlySet<string>>;
+      /** Aborted when the supervisor gives up on this account's sync (per-account deadline). A
+       *  provider that can cancel closes its connection then; one that cannot is abandoned and
+       *  its late result is dropped. */
+      readonly signal?: AbortSignal;
     },
   ) => Promise<InboundFetchResult>;
   /** Re-downloads already imported messages that were stored as snippet only. */
@@ -229,7 +238,7 @@ export type InboundMailProviderPlugin = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     providerMessageIds: readonly string[],
-    opts?: { readonly accessToken?: string },
+    opts?: { readonly accessToken?: string; readonly signal?: AbortSignal },
   ) => Promise<InboundContentFetchResult>;
   /** Nur OAuth-Provider. */
   readonly oauth?: InboundOAuthFlow;
@@ -239,7 +248,8 @@ export type InboundMailProviderPlugin = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     message: OutboundMailMessage,
-  ) => Promise<OutboundMailSent>;
+    attachments: readonly OutboundAttachment[],
+  ) => Promise<ProviderSentMail>;
   /** Optional live push (IMAP IDLE, later Graph/Gmail webhooks).
    *  Returns stop(). Polling remains reconciliation: watch optimizes
    *  latency but is never the correctness anchor. `onError` reports a dead

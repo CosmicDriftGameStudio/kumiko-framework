@@ -22,6 +22,7 @@
 
 import * as z from "zod";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
+import { senderAuthenticationFieldSchema } from "./sender-auth.ts";
 
 // Aggregate types for the event store.
 export const MAIL_ACCOUNT_AGGREGATE_TYPE = "mail-account" as const;
@@ -83,6 +84,9 @@ export const mailAccountEventPayloadSchema = z.object({
   /** Why the mailbox is degraded (InboundMailLastErrors code); null while healthy. A string rather
    *  than an enum, like authMethod, so a new code needs no upcaster. */
   lastError: z.string().max(50).nullable(),
+  /** authserv-id (lower case) of the mailbox's own server; only an Authentication-Results header
+   *  with exactly this id is believed (sender-auth.ts). null = not set, no sender verdicts. */
+  trustedAuthservId: z.string().max(255).nullable(),
 });
 export type MailAccountEventPayload = z.infer<typeof mailAccountEventPayloadSchema>;
 
@@ -150,6 +154,9 @@ export const inboundMessageEventPayloadSchema = z.object({
   /** Domain scope hint for downstream business processes — generic
    *  ("inbox", folder name), with NO app-specific semantics. */
   scope: z.string().max(200),
+  /** SPF/DKIM/DMARC as reported by the mailbox's own server; null when there is no trustworthy
+   *  statement. Not PII. */
+  senderAuthentication: senderAuthenticationFieldSchema,
   ...inboundMessageContentShape,
 });
 export type InboundMessageEventPayload = z.infer<typeof inboundMessageEventPayloadSchema>;

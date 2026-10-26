@@ -31,7 +31,6 @@ import {
   type InboundMailProviderPlugin,
   type MailAccountRecord,
   type RawInboundMessage,
-  type RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
@@ -40,10 +39,12 @@ import type { ImapFlow, MailboxObject } from "imapflow";
 import { connectMailboxHandler } from "./connect-mailbox.ts";
 import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
 import { readCredentialDocument } from "./credential-document.ts";
+import { downloadBatch } from "./download-batch.ts";
 import { fetchMessageContent } from "./fetch-content.ts";
 import { INBOUND_PROVIDER_IMAP_I18N } from "./i18n.ts";
 import {
   assertUidValidity,
+  closeOnAbort,
   coerceDate,
   connectOnce,
   createImapClient,
@@ -66,47 +67,19 @@ export { setImapMailHostLookup } from "./imap-client.ts";
 // fetch — inkrementeller UID-Sync
 // =============================================================================
 
-async function downloadBatch(
-  client: ImapFlow,
-  batch: readonly number[],
-  uidValidity: string,
-  startUid: number,
-): Promise<{
-  readonly messages: RawInboundMessage[];
-  readonly rejected: RejectedInboundMessage[];
-  readonly maxUid: number;
-}> {
-  const messages: RawInboundMessage[] = [];
-  const rejected: RejectedInboundMessage[] = [];
-  let maxUid = startUid;
-  if (batch.length === 0) return { messages, rejected, maxUid };
-  for await (const msg of client.fetch(
-    batch.join(","),
-    { uid: true, internalDate: true, source: true },
-    { uid: true },
-  )) {
-    if (!msg.source) continue;
-    const parsed = await parseOrReject({
-      source: msg.source,
-      uid: msg.uid,
-      uidValidity,
-      internalDate: coerceDate(msg.internalDate ?? undefined),
-    });
-    if ("message" in parsed) messages.push(parsed.message);
-    else rejected.push(parsed.rejected);
-    if (msg.uid > maxUid) maxUid = msg.uid;
-  }
-  return { messages, rejected, maxUid };
-}
-
 async function fetchMessages(
   ctx: InboundMailContext,
   account: MailAccountRecord,
   cursor: Parameters<InboundMailProviderPlugin["fetch"]>[2],
-  opts: { readonly backfillWindowDays: number; readonly maxMessages: number },
+  opts: {
+    readonly backfillWindowDays: number;
+    readonly maxMessages: number;
+    readonly signal?: AbortSignal;
+  },
 ): Promise<InboundFetchResult> {
   const doc = await readCredentialDocument(ctx, account);
   const client = await createImapClient(doc, imapMailHostGuard());
+  const stopWatchingAbort = closeOnAbort(client, opts.signal);
   let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined;
   try {
     await client.connect();
@@ -138,6 +111,7 @@ async function fetchMessages(
       batch,
       serverUidValidity,
       parsedCursor?.lastUid ?? 0,
+      account.trustedAuthservId ?? null,
     );
 
     return {
@@ -149,6 +123,7 @@ async function fetchMessages(
   } catch (err) {
     throw err instanceof Error && "kind" in err ? err : mapImapError(err, doc.host);
   } finally {
+    stopWatchingAbort();
     lock?.release();
     await client.logout().catch(() => {});
   }
@@ -195,6 +170,7 @@ async function watchMailbox(
           uid: msg.uid,
           uidValidity,
           internalDate: coerceDate(msg.internalDate ?? undefined),
+          trustedAuthservId: account.trustedAuthservId ?? null,
         });
         if ("message" in parsed) messages.push(parsed.message);
         if (msg.uid > maxSeen) maxSeen = msg.uid;

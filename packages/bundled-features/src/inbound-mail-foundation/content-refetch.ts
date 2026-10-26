@@ -89,6 +89,7 @@ export async function refetchSnippetOnlyMessages(args: {
   readonly plugin: InboundMailProviderPlugin;
   readonly windowDays: number;
   readonly accessToken?: string | undefined;
+  readonly signal?: AbortSignal | undefined;
 }): Promise<void> {
   const { account, plugin, dispatchWrite } = args;
   // skip: the provider cannot reload content.
@@ -100,7 +101,12 @@ export async function refetchSnippetOnlyMessages(args: {
     args.providerCtx,
     account,
     ids,
-    args.accessToken !== undefined ? { accessToken: args.accessToken } : undefined,
+    args.accessToken !== undefined || args.signal !== undefined
+      ? {
+          ...(args.accessToken !== undefined && { accessToken: args.accessToken }),
+          ...(args.signal !== undefined && { signal: args.signal }),
+        }
+      : undefined,
   );
   const attach = (providerMessageId: string, content: Record<string, unknown>) =>
     dispatchWrite({

@@ -9,8 +9,8 @@
 // date has one field, while timestamp has two (date + time). This lets both
 // share the calendar mechanics without sharing their input layout.
 
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import { lazy, type ReactNode, Suspense } from "react";
 import { cn } from "../lib/cn.ts";
 

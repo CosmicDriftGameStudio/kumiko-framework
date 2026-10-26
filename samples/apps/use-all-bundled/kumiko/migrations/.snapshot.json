@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-26T17:36:01.878Z",
+  "generatedAt": "2026-10-26T18:55:14.837Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1139,6 +1139,11 @@
           "notNull": false
         },
         {
+          "name": "sender_authentication",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "content_state",
           "pgType": "text",
           "notNull": false
@@ -1510,6 +1515,11 @@
         },
         {
           "name": "watch_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "trusted_authserv_id",
           "pgType": "text",
           "notNull": false
         },

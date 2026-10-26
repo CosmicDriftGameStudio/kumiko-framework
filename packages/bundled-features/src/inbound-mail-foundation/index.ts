@@ -100,9 +100,12 @@ export {
   isMailSendRejectedError,
   MailSendNotConfiguredError,
   MailSendRejectedError,
+  OUTBOUND_ATTACHMENTS_MAX_BYTES,
+  type OutboundAttachment,
   type OutboundMailMessage,
   type OutboundMailSent,
   outboundMailMessageSchema,
+  type ProviderSentMail,
 } from "./outbound-mail.ts";
 export {
   inboundMessagesProjectionTable,
@@ -127,6 +130,16 @@ export {
   type SendMailFromAccountInput,
   sendMailFromAccount,
 } from "./send-from-account.ts";
+export {
+  fromDomainOf,
+  isSenderAuthenticated,
+  normalizeTrustedAuthservId,
+  parseSenderAuthentication,
+  SENDER_AUTH_VERDICTS,
+  type SenderAuthentication,
+  type SenderAuthVerdict,
+  senderAuthenticationSchema,
+} from "./sender-auth.ts";
 export {
   InboundAuthError,
   type InboundContentFetchResult,

@@ -9,8 +9,9 @@ import {
   type MailAccountRecord,
   MailSendNotConfiguredError,
   MailSendRejectedError,
+  type OutboundAttachment,
   type OutboundMailMessage,
-  type OutboundMailSent,
+  type ProviderSentMail,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { FEATURE_NAME } from "./constants.ts";
@@ -37,7 +38,8 @@ export async function sendFromImapAccount(
   ctx: InboundMailContext,
   account: MailAccountRecord,
   message: OutboundMailMessage,
-): Promise<OutboundMailSent> {
+  attachments: readonly OutboundAttachment[],
+): Promise<ProviderSentMail> {
   const doc = await readCredentialDocument(ctx, account);
   if (!doc.smtpHost || !doc.password) {
     throw new MailSendNotConfiguredError(
@@ -55,6 +57,13 @@ export async function sendFromImapAccount(
     ...(message.html !== undefined && { html: message.html }),
     ...(message.inReplyTo && { inReplyTo: message.inReplyTo }),
     ...(message.references && { references: [...message.references] }),
+    ...(attachments.length > 0 && {
+      attachments: attachments.map((attachment) => ({
+        filename: attachment.fileName,
+        contentType: attachment.mimeType,
+        content: Buffer.from(attachment.data),
+      })),
+    }),
   }).compile();
   const raw = await mime.build();
 

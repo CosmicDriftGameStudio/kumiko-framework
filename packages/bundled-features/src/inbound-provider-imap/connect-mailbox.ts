@@ -36,6 +36,7 @@ export const connectMailboxSchema = imapCredentialDocumentSchema
     password: z.string().min(1).max(1000),
     smtpHost: z.union([z.literal(""), smtpHostSchema]).nullish(),
     smtpPort: z.number().int().min(1).max(65535),
+    trustedAuthservId: z.string().trim().max(255).nullish(),
   });
 type ConnectMailboxLoginFields = Pick<
   z.infer<typeof connectMailboxSchema>,
@@ -137,13 +138,14 @@ export const connectMailboxHandler = defineWriteHandler({
   beforeTransaction: (event, ctx) =>
     checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
   handler: async (event, ctx) => {
-    const { displayName, address } = event.payload;
+    const { displayName, address, trustedAuthservId } = event.payload;
     const connected = await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, {
       provider: IMAP_PROVIDER_KEY,
       authMethod: InboundMailAuthMethods.password,
       displayName,
       address,
       scope: "shared",
+      trustedAuthservId: trustedAuthservId ?? null,
     });
     if (!connected.isSuccess) return connected;
     const { accountId } = connectedAccountSchema.parse(connected.data);

@@ -15,6 +15,7 @@ import {
   skippedAttachmentSchema,
 } from "../events.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
+import { type SenderAuthentication, senderAuthenticationFieldSchema } from "../sender-auth.ts";
 import type { SkippedInboundAttachment } from "../types.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
 
@@ -26,6 +27,8 @@ export type InboundMessageContent = {
   readonly attachmentFileIds: readonly string[];
   readonly skippedAttachments: readonly SkippedInboundAttachment[];
   readonly contentState: InboundContentState;
+  /** null = no trustworthy statement; see isSenderAuthenticated. */
+  readonly senderAuthentication: SenderAuthentication | null;
 };
 
 const messageContentSchema = z.object({ messageId: z.uuid() }).strict();
@@ -64,6 +67,11 @@ export async function loadInboundMessageContent(
     attachmentFileIds: parseJsonColumn(row["attachmentFileIds"], fileIdsSchema, []),
     skippedAttachments: parseJsonColumn(row["skippedAttachments"], skippedListSchema, []),
     contentState: contentStateOfRow(row["contentState"]),
+    senderAuthentication: parseJsonColumn(
+      row["senderAuthentication"],
+      senderAuthenticationFieldSchema,
+      null,
+    ),
   };
 }
 

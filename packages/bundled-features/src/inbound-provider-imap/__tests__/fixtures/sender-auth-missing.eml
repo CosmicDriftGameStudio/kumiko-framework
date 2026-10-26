@@ -1,0 +1,9 @@
+From: Alice <alice@example.com>
+To: testuser@example.com
+Subject: Sender auth missing
+Message-ID: <auth-missing@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Plain text body.

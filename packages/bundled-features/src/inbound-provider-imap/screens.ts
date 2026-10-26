@@ -38,6 +38,7 @@ export const imapConnectScreen: ActionFormScreenDefinition = {
       max: 65535,
       default: SMTP_SUBMISSION_PORT,
     },
+    trustedAuthservId: { type: "text", maxLength: 255 },
   },
   layout: {
     sections: [
@@ -51,6 +52,11 @@ export const imapConnectScreen: ActionFormScreenDefinition = {
         title: i18nKey("inboundMail.imap.connect.outgoing"),
         description: i18nKey("inboundMail.imap.connect.outgoingHint"),
         fields: ["smtpHost", "smtpPort"],
+      },
+      {
+        title: i18nKey("inboundMail.imap.connect.senderCheck"),
+        description: i18nKey("inboundMail.imap.connect.senderCheckHint"),
+        fields: ["trustedAuthservId"],
       },
     ],
   },
@@ -94,6 +100,7 @@ export const imapReconnectScreen: ActionFormScreenDefinition = {
       max: 65535,
       default: SMTP_SUBMISSION_PORT,
     },
+    trustedAuthservId: { type: "text", maxLength: 255 },
   },
   layout: {
     sections: [
@@ -114,6 +121,11 @@ export const imapReconnectScreen: ActionFormScreenDefinition = {
         title: i18nKey("inboundMail.imap.connect.outgoing"),
         description: i18nKey("inboundMail.imap.connect.outgoingHint"),
         fields: ["smtpHost", "smtpPort"],
+      },
+      {
+        title: i18nKey("inboundMail.imap.connect.senderCheck"),
+        description: i18nKey("inboundMail.imap.connect.senderCheckHint"),
+        fields: ["trustedAuthservId"],
       },
     ],
   },

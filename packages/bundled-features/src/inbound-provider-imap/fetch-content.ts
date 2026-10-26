@@ -12,6 +12,7 @@ import type {
 import { InboundTransientError } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { readCredentialDocument } from "./credential-document.ts";
 import {
+  closeOnAbort,
   coerceDate,
   createImapClient,
   IMAP_MAILBOX,
@@ -31,9 +32,11 @@ export async function fetchMessageContent(
   ctx: InboundMailContext,
   account: MailAccountRecord,
   providerMessageIds: readonly string[],
+  opts?: { readonly signal?: AbortSignal },
 ): Promise<InboundContentFetchResult> {
   const doc = await readCredentialDocument(ctx, account);
   const client = await createImapClient(doc, imapMailHostGuard());
+  const stopWatchingAbort = closeOnAbort(client, opts?.signal);
   let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined;
   try {
     await client.connect();
@@ -74,6 +77,7 @@ export async function fetchMessageContent(
   } catch (err) {
     throw err instanceof Error && "kind" in err ? err : mapImapError(err, doc.host);
   } finally {
+    stopWatchingAbort();
     lock?.release();
     await client.logout().catch(() => {});
   }

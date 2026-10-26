@@ -18,6 +18,7 @@ import {
 import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
 import {
   createAccessInvalidationEventConsumer,
+  createCatchUpJobEventConsumer,
   createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
@@ -64,7 +65,8 @@ export function createServerEventDispatcher(deps: {
     context,
     fileProviderResolver,
   });
-  const consumers = [...systemConsumers, ...mspConsumers];
+  const catchUpJobConsumers = buildCatchUpJobConsumers(options);
+  const consumers = [...systemConsumers, ...mspConsumers, ...catchUpJobConsumers];
   const {
     disabled: dispatcherDisabled,
     systemConsumers: _systemConsumersOpt,
@@ -136,6 +138,27 @@ function buildSystemEventConsumers(
     systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
   }
   return systemConsumers;
+}
+
+function buildCatchUpJobConsumers(
+  options: Pick<
+    ServerOptions,
+    "registry" | "processLane" | "dispatcherOptions" | "eventDispatcher"
+  >,
+): EventConsumer[] {
+  const jobRunner = options.dispatcherOptions?.jobRunner;
+  if (!jobRunner) return [];
+  if (!(options.eventDispatcher?.systemConsumers?.jobTrigger ?? true)) return [];
+  const processLane: RunIn = options.processLane ?? "worker";
+  const consumers: EventConsumer[] = [];
+  for (const [jobName, jobDef] of options.registry.getAllJobs()) {
+    if (!("on" in jobDef.trigger) || !jobDef.trigger.catchUp) continue;
+    if (!runsInLane(jobDef.runIn, processLane)) continue;
+    consumers.push(
+      createCatchUpJobEventConsumer(jobRunner, jobName, options.registry.getJobFeature(jobName)),
+    );
+  }
+  return consumers;
 }
 
 function buildMultiStreamProjectionConsumers(

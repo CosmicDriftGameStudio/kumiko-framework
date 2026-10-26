@@ -39,9 +39,11 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 import { appendMailAccountReactivation } from "./reactivate-account.write.ts";
+import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
 export const connectAccountSchema = z.object({
   /** Provider key registered with the extension ("imap",
@@ -64,6 +66,7 @@ export const connectAccountSchema = z.object({
    *  HMAC-verified state. Tenant callers must not set this field (the
    *  handler prevents claims on another user's mailbox). */
   ownerUserIdOverride: z.string().max(36).nullable().optional(),
+  trustedAuthservId: trustedAuthservIdInputSchema,
 });
 type ConnectAccountPayload = z.infer<typeof connectAccountSchema>;
 
@@ -99,7 +102,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       if (conflict === "reopen_in_place") {
         const current = await loadCurrentMailAccountPayload(ctx, existing.id);
         if (!current) return failNotFound("mail-account", existing.id);
-        await appendMailAccountReactivation(ctx, existing.id, current);
+        await appendMailAccountReactivation(ctx, existing.id, current, payload.trustedAuthservId);
         return {
           isSuccess: true as const,
           data: { accountId: existing.id, reconnected: true as const },
@@ -138,6 +141,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       status: InboundMailAccountStatuses.active,
       watchState: "idle",
       lastError: null,
+      trustedAuthservId: normalizeTrustedAuthservId(payload.trustedAuthservId),
     };
     const headers: MailAccountEventHeaders = {
       providerName: payload.provider,

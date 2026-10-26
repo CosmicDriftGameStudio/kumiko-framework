@@ -118,6 +118,7 @@ export function createMailSupervisor(
   stack: TestStack,
   extra: {
     readonly log?: (line: string) => void;
+    readonly accountPollDeadlineMs?: number;
     /** Wraps the supervisor's own writes, e.g. to make ingest fail. */
     readonly wrapWrite?: (write: DispatchWrite) => DispatchWrite;
   } = {},

@@ -50,6 +50,8 @@ type AccountState = {
   watch: WatchHandlers | null;
   nextFetchError: unknown;
   nextVerifyError: unknown;
+  hangingFetch: Promise<void> | null;
+  lastFetchSignal: AbortSignal | undefined;
   credentialSecretKey: string | null;
 };
 
@@ -65,6 +67,8 @@ function stateFor(accountId: string): AccountState {
       watch: null,
       nextFetchError: null,
       nextVerifyError: null,
+      hangingFetch: null,
+      lastFetchSignal: undefined,
       credentialSecretKey: null,
     };
     accounts.set(accountId, state);
@@ -105,6 +109,25 @@ export function failNextFetchWith(accountId: string, err: unknown): void {
 /** Test helper: injects a one-shot error into the next verify. */
 export function failNextVerifyWith(accountId: string, err: unknown): void {
   stateFor(accountId).nextVerifyError = err;
+}
+
+/** Test helper: fetches of the account do not return until `release()`, whatever the abort signal
+ *  says, like a provider that ignores cancellation on a dead connection. */
+export function hangFetchesOf(accountId: string): { readonly release: () => void } {
+  const state = stateFor(accountId);
+  const { promise, resolve } = Promise.withResolvers<void>();
+  state.hangingFetch = promise;
+  return {
+    release: () => {
+      state.hangingFetch = null;
+      resolve();
+    },
+  };
+}
+
+/** Test helper: the abort signal the last fetch of the account received. */
+export function lastFetchSignalOf(accountId: string): AbortSignal | undefined {
+  return stateFor(accountId).lastFetchSignal;
 }
 
 /** Test helper: every fetch reads this tenant secret first, like a real
@@ -168,6 +191,8 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   },
   fetch: async (ctx, account, cursor, opts): Promise<InboundFetchResult> => {
     const state = stateFor(account.id);
+    state.lastFetchSignal = opts.signal;
+    if (state.hangingFetch) await state.hangingFetch;
     if (state.nextFetchError) {
       const err = state.nextFetchError;
       state.nextFetchError = null;

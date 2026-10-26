@@ -40,6 +40,14 @@ describe("imapClientOptions", () => {
     expect(options.servername).toBe("mail.example.com");
   });
 
+  test("connection, greeting and socket timeouts are explicit, the socket one outlasts IDLE", () => {
+    const options = imapClientOptions(imapDoc, { host: "mail.example.com" });
+
+    expect(options.connectionTimeout).toBe(20_000);
+    expect(options.greetingTimeout).toBe(16_000);
+    expect(options.socketTimeout).toBe(5 * 60_000);
+  });
+
   test("a host name resolved to a public address sets no tls override", () => {
     const options = imapClientOptions(imapDoc, { host: "mail.example.com" });
 

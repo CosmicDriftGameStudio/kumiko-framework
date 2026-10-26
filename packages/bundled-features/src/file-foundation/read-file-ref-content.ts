@@ -13,9 +13,12 @@ export type FileRefContent = {
   readonly contentType: string;
   readonly tenantId: string;
   readonly size: number;
+  /** As stored: personal data that may be PII ciphertext. Decrypt before showing or sending it. */
+  readonly fileName: string;
 };
 
 type FileRefRow = {
+  readonly fileName: string;
   readonly storageKey: string;
   readonly mimeType: string;
   readonly tenantId: string;
@@ -61,7 +64,6 @@ export class FileStorageUnavailableError extends Error {
   }
 }
 
-// fileName of the row is never used: it is personal data and may be a PII ciphertext.
 export async function readFileRefContent(args: {
   readonly db: DbRunner | TenantDb;
   readonly filesForTenant: (tenantId: string) => FileContext | undefined;
@@ -93,5 +95,11 @@ export async function readFileRefContent(args: {
     throw new FileStorageUnavailableError();
   }
   const content = await files.refFromFileRef(row).read();
-  return { content, contentType: row.mimeType, tenantId: row.tenantId, size };
+  return {
+    content,
+    contentType: row.mimeType,
+    tenantId: row.tenantId,
+    size,
+    fileName: row.fileName,
+  };
 }

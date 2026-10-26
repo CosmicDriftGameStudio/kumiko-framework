@@ -2114,6 +2114,11 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Envoi",
   "inboundMail.imap.connect.outgoingHint":
     "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap. En général 587, même si votre fournisseur indique 465/SSL.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
+    "Identifiant du serveur de messagerie",
+  "inboundMail.imap.connect.senderCheck": "Vérification de l'expéditeur",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Identifiant du serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La réception fonctionne, mais pas l'envoi : le serveur sortant est injoignable ou non autorisé. Vérifiez son nom.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2132,6 +2137,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le serveur sortant a refusé le message. Vérifiez l'adresse du destinataire.",
   "inboundMail.send.errors.invalidMessage":
     "Le message n'a pas été envoyé : un destinataire, l'objet ou la référence de réponse est invalide.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "Le message n'a pas été envoyé : une pièce jointe n'est plus disponible.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "Le message n'a pas été envoyé : les pièces jointes dépassent ensemble 18 Mo.",
   "sessions.mine.current.yes": "Cette session",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Appareil",

@@ -856,6 +856,16 @@ export function resolveJobTriggers(state: RegistryState): void {
     const resolvedOn = isNameOrRefList(triggerOn)
       ? triggerOn.map(resolveTrigger)
       : resolveTrigger(triggerOn);
+    if (jobDef.trigger.catchUp) {
+      const targets = isNameOrRefList(resolvedOn) ? resolvedOn : [resolvedOn];
+      const notEvents = targets.filter((qn) => !state.eventMap.has(qn) || allHandlers.has(qn));
+      if (notEvents.length > 0) {
+        throw new Error(
+          `Job "${jobName}" sets trigger.catchUp but ${notEvents.map((qn) => `"${qn}"`).join(", ")} ` +
+            `is not an r.defineEvent event. catchUp replays stored events, so every "on" entry must be an event.`,
+        );
+      }
+    }
     state.jobMap.set(jobName, { ...jobDef, trigger: { ...jobDef.trigger, on: resolvedOn } });
   }
 }

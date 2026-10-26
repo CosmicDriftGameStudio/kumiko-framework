@@ -2094,6 +2094,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Senden",
   "inboundMail.imap.connect.outgoingHint":
     "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn dein Anbieter 465/SSL nennt.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Kennung des Mailservers",
+  "inboundMail.imap.connect.senderCheck": "Absenderprüfung",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfe seinen Namen.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2112,6 +2116,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfe die Empfängeradresse.",
   "inboundMail.send.errors.invalidMessage":
     "Die Mail wurde nicht gesendet: Ein Empfänger, der Betreff oder der Antwortbezug ist ungültig.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "Die Mail wurde nicht gesendet: Ein Anhang ist nicht mehr verfügbar.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "Die Mail wurde nicht gesendet: Die Anhänge sind zusammen größer als 18 MB.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",

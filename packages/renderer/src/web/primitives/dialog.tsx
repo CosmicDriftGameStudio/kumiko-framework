@@ -1,8 +1,8 @@
 // Confirm dialog built on ModalShell. Cancel is always secondary; async
 // onConfirm shows a spinner on the confirm button until the promise settles.
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Loader2 } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useRef, useState } from "react";
 import type { DialogProps } from "../../index.ts";
 import { useTranslation } from "../../index.ts";

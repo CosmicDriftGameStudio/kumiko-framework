@@ -12,9 +12,9 @@
 // Selected values render as small chips, while the search input remains open
 // for additional selections.
 
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import { type ReactNode, useEffect, useState } from "react";
 import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";

@@ -1,5 +1,5 @@
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Columns3 } from "lucide-react";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import type { DataTableViewOptions } from "../../../data-table-view-types.ts";
 import { useOptionalTranslation } from "../../../index.ts";

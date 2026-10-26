@@ -127,11 +127,17 @@ export function createInboundMailFoundationFeature() {
       // "displayName" stays plaintext (often the mailbox owner's real name for
       // personal accounts); encrypting it would break the entity-projection read
       // path that carries it as `personal: false`.
-      // v2: lastError. Defaults are shared references across upcast events, so none of them is mutated.
+      // v2: lastError, trustedAuthservId. Defaults are shared references across upcast events, so none of them is mutated.
       const mailAccountV2 = {
         piiFields: "none",
         version: 2,
-        migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { lastError: null } } }],
+        migrations: [
+          {
+            fromVersion: 1,
+            toVersion: 2,
+            transform: { default: { lastError: null, trustedAuthservId: null } },
+          },
+        ],
       } as const;
       r.defineEvent(
         MAIL_ACCOUNT_CONNECTED_EVENT_SHORT,
@@ -160,6 +166,7 @@ export function createInboundMailFoundationFeature() {
                 attachmentFileIds: [],
                 skippedAttachments: [],
                 contentState: "snippet",
+                senderAuthentication: null,
               },
             },
           },

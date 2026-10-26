@@ -50,6 +50,7 @@ import {
   type MailThreadEventPayload,
 } from "../events.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
+import { senderAuthenticationFieldSchema } from "../sender-auth.ts";
 import {
   contentStateOf,
   inboundContentPayloadShape,
@@ -89,6 +90,7 @@ export const ingestMessageSchema = z.object({
   /** Cursor snapshot at ingest time — used for debugging/replay and stored in
    *  metadata.headers, never in the payload. */
   providerCursor: z.string().max(2000),
+  senderAuthentication: senderAuthenticationFieldSchema.optional(),
   ...inboundContentPayloadShape,
 });
 type IngestMessagePayload = z.infer<typeof ingestMessageSchema>;
@@ -226,6 +228,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
       receivedAtIso: payload.receivedAtIso,
       bodyRef: content.bodyRef,
       scope: payload.scope,
+      senderAuthentication: payload.senderAuthentication ?? null,
       bodyText: encryptedMessageFields.bodyText,
       bodyTextTruncated: payload.bodyTextTruncated,
       attachmentFileIds: content.attachmentFileIds,

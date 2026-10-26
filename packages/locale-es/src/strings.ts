@@ -2087,6 +2087,11 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Envío",
   "inboundMail.imap.connect.outgoingHint":
     "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap. Normalmente 587, aunque tu proveedor indique 465/SSL.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
+    "Identificador del servidor de correo",
+  "inboundMail.imap.connect.senderCheck": "Verificación del remitente",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Identificador del servidor de correo del encabezado Authentication-Results, por ejemplo mx.example.com. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La recepción funciona, pero el envío no: no se puede acceder al servidor de salida o no está permitido. Revisa su nombre.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2105,6 +2110,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El servidor de salida rechazó el correo. Revisa la dirección del destinatario.",
   "inboundMail.send.errors.invalidMessage":
     "El correo no se envió: un destinatario, el asunto o la referencia de respuesta no es válido.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "El correo no se envió: un archivo adjunto ya no está disponible.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "El correo no se envió: los archivos adjuntos juntos superan los 18 MB.",
   "sessions.mine.current.yes": "Esta sesión",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

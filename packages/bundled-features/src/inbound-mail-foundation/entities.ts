@@ -69,6 +69,12 @@ export const mailAccountEntity = createEntity({
     // Code of InboundMailLastErrors, never provider error text. Null on rows from before the column.
     lastError: createTextField({ maxLength: 50, personal: false, reason: "technical_reference" }),
     watchState: createTextField({ maxLength: 100, personal: false, reason: "technical_reference" }),
+    // Lower-case authserv-id of the mailbox's own server; null = none set.
+    trustedAuthservId: createTextField({
+      maxLength: 255,
+      personal: false,
+      reason: "technical_reference",
+    }),
     connectedAt: createTimestampField({ required: true }),
   },
 });
@@ -123,6 +129,12 @@ export const inboundMessageEntity = createEntity({
     }),
     skippedAttachments: createTextField({
       maxLength: 20_000,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    // JSON-stringified SenderAuthentication or "null"; a SQL null (rows from before the column) reads as null.
+    senderAuthentication: createTextField({
+      maxLength: 4000,
       personal: false,
       reason: "technical_reference",
     }),

@@ -1,5 +1,7 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-types": minor
 "@cosmicdrift/kumiko-locale-de": minor
 "@cosmicdrift/kumiko-locale-es": minor
 "@cosmicdrift/kumiko-locale-fr": minor
@@ -69,4 +71,32 @@ feature: inbound-mail-foundation
 type: improvement
 title: The first sync after an OAuth connect no longer waits for the next poll
 detail: The OAuth callback now dispatches the internal handler mark-credential-stored once the refresh token is saved, so the sync that the account commit triggers earlier than the token is repeated as soon as the credential exists. Originals above 50 MB are not stored; they are listed in skippedAttachments as message/rfc822 with reason too_large while text and attachments are kept. attach-message-content no longer accepts a caller-supplied bodyRef.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: Outgoing mail carries attachments
+detail: sendMailFromAccount takes attachmentFileIds (at most 10 file references of the caller's tenant, at most 18 MB together, duplicates dropped). The bytes are read through file storage and sent over SMTP and stored in the sent folder unchanged; an unknown or foreign file gives mail_send_attachment_invalid, too many bytes mail_send_attachments_too_large, and nothing is sent. The plugin method send now receives the resolved attachments as a fourth argument and returns ProviderSentMail. New keys in all locale packages.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: A hanging mailbox no longer blocks the others
+detail: The supervisor syncs up to 4 accounts at the same time (pollConcurrency), skips an account whose previous sync is still running, and abandons a sync after 10 minutes (accountPollDeadlineMs) as one failed poll; plugin.fetch and plugin.fetchContent receive an AbortSignal, and an abandoned sync stores nothing and moves no cursor. The IMAP client sets connection (20 s) and greeting (16 s) timeouts explicitly.
+-->
+
+<!-- kumiko-changes
+feature: jobs
+type: improvement
+title: r.job event triggers can catch up on stored events
+detail: trigger { on, catchUp: true } gives the job its own event consumer job:<jobQn> that starts at the beginning of the event store, so events from before the job existed run it too, once per event (job id derived from job QN and event id). Every "on" entry must be an r.defineEvent event, otherwise boot fails. The job is no longer fired by the shared job-trigger consumer. JobRunner gains handleCatchUpEvent.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: Sender authentication (SPF, DKIM, DMARC) of imported mails
+detail: inbound-message-received v2 carries senderAuthentication ({ authservId, spf, dkim, dkimDomains, dmarc, fromDomain } or null; verdicts pass, fail, none, unknown; dkimDomains at most 10), stored as JSON text in read_inbound_messages.sender_authentication and returned by message:content and loadInboundMessageContent; isSenderAuthenticated is true only for a dmarc pass. The mail account has a new optional trustedAuthservId (events mail-account-* v2, read_mail_accounts.trusted_authserv_id, input of connect-account, update-account, reactivate-account and the IMAP connect and reconnect forms). Only the first Authentication-Results header from the top whose authserv-id equals it counts; without an id, without such a header or when its header.from domain differs from the From domain the result is null, and a dmarc result without header.from is unknown. Headers below the trusted one are ignored, so a sender cannot inject a pass. Mails imported before, and content refetched later, have null. New keys in all locale packages.
 -->

@@ -1,0 +1,11 @@
+Authentication-Results: mx.fixture.test; spf=fail; dkim=none; dmarc=fail header.from=example.com
+Authentication-Results: mx.fixture.test; spf=pass; dkim=pass; dmarc=pass
+From: Alice <alice@example.com>
+To: testuser@example.com
+Subject: Sender auth forged-below
+Message-ID: <auth-forged-below@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Plain text body.

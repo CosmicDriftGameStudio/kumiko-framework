@@ -2,7 +2,7 @@
 // buttons) in a modal overlay — same Radix chrome as DefaultDialog, no
 // footer buttons of its own.
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import type { ModalProps } from "../../index.ts";
 import { useTranslation } from "../../index.ts";

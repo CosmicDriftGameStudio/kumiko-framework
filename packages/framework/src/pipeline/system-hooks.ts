@@ -570,6 +570,35 @@ export function createJobTriggerEventConsumer(
   };
 }
 
+export const CATCH_UP_JOB_CONSUMER_PREFIX = "job:";
+
+// One consumer per catchUp job: its own cursor starts at the beginning of the
+// event store, so events older than the job are replayed too. The enqueue id is
+// deterministic (job QN + event id), see catchUpJobId.
+export function createCatchUpJobEventConsumer(
+  jobRunner: JobRunnerRef,
+  jobName: string,
+  featureName: string | undefined,
+): EventConsumer {
+  return {
+    name: `${CATCH_UP_JOB_CONSUMER_PREFIX}${jobName}`,
+    delivery: "shared",
+    startFrom: "beginning",
+    ...(featureName !== undefined && { featureName }),
+    handler: async (event) => {
+      const user: SessionUser = {
+        id: event.metadata.userId,
+        tenantId: event.tenantId,
+        roles: [],
+      };
+      await jobRunner.handleCatchUpEvent?.(jobName, event.type, event.payload, user, {
+        id: event.id,
+        headers: event.metadata.headers ?? {},
+      });
+    },
+  };
+}
+
 // --- Access-Invalidation Consumer (async, via event-dispatcher) ---
 //
 // This consumer is the last leg: it watches for the two event types that

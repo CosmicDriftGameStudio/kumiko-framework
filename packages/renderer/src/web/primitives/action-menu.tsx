@@ -1,5 +1,5 @@
-// Generic action menu built on @radix-ui/react-dropdown-
-// menu. Used for ProfileMenu (topbar avatar), Edit-
+// Generic action menu built on the radix-ui DropdownMenu.
+// Used for ProfileMenu (topbar avatar), Edit-
 // Header-Menu (three dots), and list-row kebab menus; only the
 // trigger differs between uses.
 //
