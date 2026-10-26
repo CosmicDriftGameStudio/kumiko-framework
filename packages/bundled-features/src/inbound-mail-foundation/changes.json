@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.392.2",
+    "type": "fix",
+    "title": "Mail sync no longer fails when reading IMAP credentials",
+    "detail": "createInboundMailSupervisor builds its provider context with auditUserId defaulting to the system user. Apps that did not set auditUserId in providerCtx got an internal error on every fetch and watch because the secrets context needs an audit identity. An explicitly set auditUserId is kept."
+  },
+  {
+    "version": "0.392.2",
+    "type": "fix",
+    "title": "Mail sync finds the stored IMAP credentials under row-level security",
+    "detail": "createInboundMailSupervisor runs outside any request, so secret reads ran without a tenant scope and the application role saw no row in read_tenant_secrets. The supervisor now wraps providerCtx.secrets with tenantScopedSecrets, which the framework exports from internal/row-level-security. inbound-provider-inmemory gains requireCredentialSecretOnFetch so tests can exercise credential reads; a new integration test runs the secrets against an application-role database."
+  },
+  {
     "version": "0.392.0",
     "type": "fix",
     "title": "Mail polling works with the row-level-security enforcing pool",
