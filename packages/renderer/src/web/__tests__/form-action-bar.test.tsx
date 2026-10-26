@@ -8,8 +8,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import userEvent from "@testing-library/user-event";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { DispatcherProvider, FOOTER_ACTION_ROLE_PROP, RenderEdit } from "../../index.ts";
 import { BareFormProvider, defaultPrimitives } from "../primitives/index.tsx";

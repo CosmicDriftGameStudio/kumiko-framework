@@ -74,6 +74,13 @@ export type JobRunner = {
     user?: SessionUser,
     triggerEvent?: JobTriggerEvent,
   ): Promise<void>;
+  handleCatchUpEvent(
+    jobName: string,
+    eventName: string,
+    payload: Record<string, unknown>,
+    user: SessionUser,
+    triggerEvent: JobTriggerEvent,
+  ): Promise<void>;
   // Wires JobContext.write/writeAs/queryAs to the real dispatcher — called
   // once at boot, after the dispatcher exists (job-runner construction happens
   // before it). Before this runs, JobContext.write/writeAs/queryAs throw.

@@ -11,17 +11,22 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "../../index.ts";
-import { clamp } from "../lib/clamp.ts";
 import { cn } from "../lib/cn.ts";
 import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
-import { arrowKeyDelta, type DragDelta, usePointerDrag } from "./use-pointer-drag.ts";
+import {
+  type Edge,
+  FLOATING_PANEL_MARGIN_PX,
+  type FloatingPanelGeometry,
+  fitGeometry,
+  type Limits,
+  readLimits,
+  refitToViewport,
+  resizeGeometry,
+  type ViewportSize,
+} from "./floating-panel-geometry.ts";
+import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag.ts";
 
-export type FloatingPanelGeometry = {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-};
+export type { FloatingPanelGeometry } from "./floating-panel-geometry.ts";
 
 export type FloatingPanelProps = {
   /** Header content; the header is the move handle. */
@@ -43,13 +48,8 @@ export type FloatingPanelProps = {
   readonly testId?: string;
 };
 
-const MARGIN_PX = 24;
 const DEFAULT_WIDTH_PX = 400;
 const DEFAULT_HEIGHT_PX = 560;
-const DEFAULT_MIN_WIDTH_PX = 280;
-const DEFAULT_MIN_HEIGHT_PX = 200;
-
-type Edge = "top" | "right" | "bottom" | "left";
 
 const EDGES: readonly Edge[] = ["top", "right", "bottom", "left"];
 
@@ -91,101 +91,6 @@ const EDGE_LABEL_KEYS = {
 
 const DRAG_HANDLE_SELECTOR = "[data-drag-handle]";
 const INTERACTIVE_HEADER_TARGET = "button, a, input, select, textarea, [role=button]";
-
-type Limits = {
-  readonly minWidth: number;
-  readonly minHeight: number;
-  readonly maxWidth: number;
-  readonly maxHeight: number;
-  readonly viewportWidth: number;
-  readonly viewportHeight: number;
-};
-
-type LimitOptions = {
-  readonly minWidthPx?: number | undefined;
-  readonly minHeightPx?: number | undefined;
-  readonly maxWidthPx?: number | undefined;
-  readonly maxHeightPx?: number | undefined;
-};
-
-function readLimits(options: LimitOptions): Limits {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const maxWidth = Math.min(options.maxWidthPx ?? viewportWidth - 2 * MARGIN_PX, viewportWidth);
-  const maxHeight = Math.min(options.maxHeightPx ?? viewportHeight - 2 * MARGIN_PX, viewportHeight);
-  return {
-    // A viewport smaller than the configured minimum wins: the panel must stay fully visible.
-    minWidth: Math.min(options.minWidthPx ?? DEFAULT_MIN_WIDTH_PX, maxWidth),
-    minHeight: Math.min(options.minHeightPx ?? DEFAULT_MIN_HEIGHT_PX, maxHeight),
-    maxWidth,
-    maxHeight,
-    viewportWidth,
-    viewportHeight,
-  };
-}
-
-// Size first, then position, so a shrunk panel is placed against its final size.
-function fitGeometry(geometry: FloatingPanelGeometry, limits: Limits): FloatingPanelGeometry {
-  const width = clamp(geometry.width, limits.minWidth, limits.maxWidth);
-  const height = clamp(geometry.height, limits.minHeight, limits.maxHeight);
-  return {
-    width,
-    height,
-    x: clamp(geometry.x, 0, Math.max(0, limits.viewportWidth - width)),
-    y: clamp(geometry.y, 0, Math.max(0, limits.viewportHeight - height)),
-  };
-}
-
-type Axis = { readonly position: number; readonly size: number };
-
-// The edge being dragged follows the pointer; the opposite edge stays put.
-function resizeAxis(
-  start: Axis,
-  delta: number,
-  movesStartEdge: boolean,
-  min: number,
-  max: number,
-  viewportSize: number,
-): Axis {
-  if (movesStartEdge) {
-    const end = start.position + start.size;
-    const size = clamp(start.size - delta, min, Math.min(max, end));
-    return { position: end - size, size };
-  }
-  const size = clamp(start.size + delta, min, Math.min(max, viewportSize - start.position));
-  return { position: start.position, size };
-}
-
-function resizeGeometry(
-  start: FloatingPanelGeometry,
-  edges: readonly Edge[],
-  delta: DragDelta,
-  limits: Limits,
-): FloatingPanelGeometry {
-  let { x, y, width, height } = start;
-  for (const edge of edges) {
-    if (edge === "left" || edge === "right") {
-      ({ position: x, size: width } = resizeAxis(
-        { position: start.x, size: start.width },
-        delta.dx,
-        edge === "left",
-        limits.minWidth,
-        limits.maxWidth,
-        limits.viewportWidth,
-      ));
-    } else {
-      ({ position: y, size: height } = resizeAxis(
-        { position: start.y, size: start.height },
-        delta.dy,
-        edge === "top",
-        limits.minHeight,
-        limits.maxHeight,
-        limits.viewportHeight,
-      ));
-    }
-  }
-  return { x, y, width, height };
-}
 
 function isFiniteNumber(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value);
@@ -244,8 +149,8 @@ function initialGeometry(
     {
       width,
       height,
-      x: defaults?.x ?? limits.viewportWidth - width - MARGIN_PX,
-      y: defaults?.y ?? limits.viewportHeight - height - MARGIN_PX,
+      x: defaults?.x ?? limits.viewportWidth - width - FLOATING_PANEL_MARGIN_PX,
+      y: defaults?.y ?? limits.viewportHeight - height - FLOATING_PANEL_MARGIN_PX,
     },
     limits,
   );
@@ -279,6 +184,9 @@ export function FloatingPanel({
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
 
+  // The viewport the current geometry was last fitted to; null until the first fit.
+  const fittedViewportRef = useRef<ViewportSize | null>(null);
+
   const applyGeometry = useCallback((next: FloatingPanelGeometry): void => {
     geometryRef.current = next;
     setGeometry(next);
@@ -288,7 +196,14 @@ export function FloatingPanel({
   useEffect(() => {
     if (narrow) return;
     const onWindowResize = (): void => {
-      applyGeometry(fitGeometry(geometryRef.current, getLimitsRef.current()));
+      const limits = getLimitsRef.current();
+      const previousViewport = fittedViewportRef.current;
+      applyGeometry(
+        previousViewport === null
+          ? fitGeometry(geometryRef.current, limits)
+          : refitToViewport(geometryRef.current, previousViewport, limits),
+      );
+      fittedViewportRef.current = { width: limits.viewportWidth, height: limits.viewportHeight };
     };
     // Resize events fired while narrow were ignored, so re-fit once on the way back to wide.
     onWindowResize();

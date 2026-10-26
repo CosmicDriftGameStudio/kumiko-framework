@@ -5,6 +5,10 @@ import * as z from "zod";
 
 const MAX_RECIPIENTS = 50;
 const MAX_REFERENCES = 100;
+const MAX_ATTACHMENTS = 10;
+
+/** Raw bytes, not the encoded size: base64 grows them by a third, which stays under the usual 25 MB SMTP limit. */
+export const OUTBOUND_ATTACHMENTS_MAX_BYTES = 18 * 1024 * 1024;
 
 // Message ids travel without angle brackets, like RawInboundMessage.references. Anything that
 // could close the bracket or start a new header is refused instead of being encoded.
@@ -26,15 +30,29 @@ export const outboundMailMessageSchema = z
     html: z.string().optional(),
     inReplyTo: messageIdSchema.optional(),
     references: z.array(messageIdSchema).max(MAX_REFERENCES).optional(),
+    attachmentFileIds: z.array(z.uuid()).max(MAX_ATTACHMENTS).optional(),
   })
   .refine((message) => message.text !== undefined || message.html !== undefined, {
     message: "needs text or html",
   });
 export type OutboundMailMessage = z.infer<typeof outboundMailMessageSchema>;
 
-export type OutboundMailSent = {
+/** An attachment whose file reference was resolved to bytes before the provider sends. */
+export type OutboundAttachment = {
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly data: Uint8Array;
+};
+
+/** What a provider plugin reports about a mail it sent. */
+export type ProviderSentMail = {
   /** Message-ID header of the sent mail, without angle brackets. */
   readonly messageIdHeader: string;
+};
+
+export type OutboundMailSent = ProviderSentMail & {
+  /** The file references that went out as attachments, for the caller's own record of the mail. */
+  readonly attachmentFileIds: readonly string[];
 };
 
 // Same `kind` discriminant as the inbound error classes (see types.ts).

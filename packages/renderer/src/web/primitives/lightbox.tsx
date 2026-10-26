@@ -1,7 +1,7 @@
 // Full-size image overlay — ModalShell without confirm/cancel actions.
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { LightboxImage, LightboxProps } from "../../index.ts";
 import { useTranslation } from "../../index.ts";

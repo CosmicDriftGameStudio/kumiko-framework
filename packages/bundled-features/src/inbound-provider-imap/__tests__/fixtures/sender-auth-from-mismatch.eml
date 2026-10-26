@@ -1,0 +1,13 @@
+Authentication-Results: mx.fixture.test;
+  spf=pass smtp.mailfrom=alice@example.com;
+  dkim=pass (good signature) header.d=example.com;
+  dmarc=pass header.from=attacker.example
+From: Alice <alice@example.com>
+To: testuser@example.com
+Subject: Sender auth mismatch
+Message-ID: <auth-mismatch@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Plain text body.

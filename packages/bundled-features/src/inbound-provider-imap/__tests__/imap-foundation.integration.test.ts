@@ -19,6 +19,10 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -48,6 +52,7 @@ import {
   InboundMailFoundationQueries,
   inboundCredentialSecretKey,
   mailAccountsProjectionTable,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "../../inbound-mail-foundation/index.ts";
@@ -113,6 +118,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createFilesFeature(),
       createTenantFeature(),
       createSecretsFeature(),
       createComplianceProfilesFeature(),
@@ -120,6 +126,7 @@ beforeAll(async () => {
       createInboundMailFoundationFeature(),
       createInboundProviderImapFeature(),
     ],
+    files: { storageProvider: createInMemoryFileProvider() },
     masterKeyProvider: providerRef,
     extraContext: ({ db: stackDb, registry }) => ({
       secrets: createSecretsContext({
@@ -135,6 +142,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });

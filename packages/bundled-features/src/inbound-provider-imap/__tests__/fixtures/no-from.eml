@@ -1,0 +1,8 @@
+To: testuser@example.com
+Subject: Mail without sender
+Message-ID: <no-from@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Nobody signed this.

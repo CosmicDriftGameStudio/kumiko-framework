@@ -23,11 +23,13 @@ import {
   type EntityTableMeta,
   insertOnConflictDoNothing,
   requireEntityTableMeta,
+  updateMany,
   upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities.ts";
 import type {
+  InboundMessageContentFetchedEventPayload,
   InboundMessageEventPayload,
   MailAccountEventPayload,
   MailThreadEventPayload,
@@ -74,6 +76,8 @@ const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event
     address: p.address,
     status: p.status,
     watchState: p.watchState,
+    lastError: p.lastError,
+    trustedAuthservId: p.trustedAuthservId,
   };
   await upsertOnConflict(
     tx,
@@ -101,8 +105,8 @@ export const applyMailAccountDisconnected = applyMailAccountUpsert;
 
 // =============================================================================
 // inbound-message — exactly one received event per stream (deterministic
-// aggregateId). INSERT-ignore makes replays no-ops on the primary key;
-// there is no update case.
+// aggregateId). INSERT-ignore makes replays no-ops on the primary key; the
+// only later change is the content-fetched event for snippet-only imports.
 // =============================================================================
 
 /** inbound-message-received → INSERT ... ON CONFLICT DO NOTHING. */
@@ -124,9 +128,34 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
       receivedAt: p.receivedAtIso,
       bodyRef: p.bodyRef,
       scope: p.scope,
+      bodyText: p.bodyText,
+      bodyTextTruncated: p.bodyTextTruncated,
+      attachmentFileIds: JSON.stringify(p.attachmentFileIds),
+      skippedAttachments: JSON.stringify(p.skippedAttachments),
+      senderAuthentication: JSON.stringify(p.senderAuthentication),
+      contentState: p.contentState,
     });
   },
 );
+
+/** inbound-message-content-fetched → fills the content columns of the already projected row. */
+export const applyInboundMessageContentFetched =
+  defineApply<InboundMessageContentFetchedEventPayload>(async (event, tx) => {
+    const p = event.payload;
+    await updateMany(
+      tx,
+      inboundMessagesProjectionMeta,
+      {
+        bodyRef: p.bodyRef,
+        bodyText: p.bodyText,
+        bodyTextTruncated: p.bodyTextTruncated,
+        attachmentFileIds: JSON.stringify(p.attachmentFileIds),
+        skippedAttachments: JSON.stringify(p.skippedAttachments),
+        contentState: p.contentState,
+      },
+      { id: event.aggregateId },
+    );
+  });
 
 // =============================================================================
 // mail-thread — rollup per (tenantId, threadKey). The write handler computes

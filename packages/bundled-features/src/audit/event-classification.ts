@@ -18,6 +18,7 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "cap-counter:event:rolling-incremented": TECHNICAL_EVENT,
   "cap-counter:event:rolling-released": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:inbound-message-received": TECHNICAL_EVENT,
+  "inbound-mail-foundation:event:inbound-message-content-fetched": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:mail-thread-updated": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-requested": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-skipped": TECHNICAL_EVENT,

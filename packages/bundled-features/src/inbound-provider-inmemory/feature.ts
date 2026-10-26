@@ -13,11 +13,13 @@
 
 import {
   InboundAuthError,
+  type InboundContentFetchResult,
   type InboundFetchResult,
   type InboundMailContext,
   type InboundMailProviderPlugin,
   type MailAccountRecord,
   type RawInboundMessage,
+  type RejectedInboundMessage,
   type SyncCursorPayload,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -36,11 +38,21 @@ type WatchHandlers = {
   readonly onError: (err: unknown) => void;
 };
 
+type LogEntry =
+  | { readonly message: RawInboundMessage }
+  | { readonly rejected: RejectedInboundMessage };
+
 type AccountState = {
-  readonly log: RawInboundMessage[];
+  readonly log: LogEntry[];
+  // What fetchContent serves; a message that is not in here counts as gone from the server.
+  readonly fullContent: Map<string, RawInboundMessage>;
+  readonly contentFetches: string[][];
   watch: WatchHandlers | null;
+  watchedTrustedAuthservId: string | null | undefined;
   nextFetchError: unknown;
   nextVerifyError: unknown;
+  hangingFetch: Promise<void> | null;
+  lastFetchSignal: AbortSignal | undefined;
   credentialSecretKey: string | null;
 };
 
@@ -51,9 +63,14 @@ function stateFor(accountId: string): AccountState {
   if (!state) {
     state = {
       log: [],
+      fullContent: new Map(),
+      contentFetches: [],
       watch: null,
+      watchedTrustedAuthservId: undefined,
       nextFetchError: null,
       nextVerifyError: null,
+      hangingFetch: null,
+      lastFetchSignal: undefined,
       credentialSecretKey: null,
     };
     accounts.set(accountId, state);
@@ -66,8 +83,23 @@ function stateFor(accountId: string): AccountState {
  *  cursor — the foundation's deduplication makes this idempotent. */
 export async function seedInboundMessage(accountId: string, msg: RawInboundMessage): Promise<void> {
   const state = stateFor(accountId);
-  state.log.push(msg);
+  state.log.push({ message: msg });
   if (state.watch) await state.watch.onMessages([msg]);
+}
+
+/** Test helper: a mail the provider cannot parse; fetch reports it as rejected and moves on. */
+export function seedRejectedInboundMessage(accountId: string, providerMessageId: string): void {
+  stateFor(accountId).log.push({ rejected: { providerMessageId, reason: "unparseable" } });
+}
+
+/** Test helper: the full version of a message that fetchContent serves later. */
+export function setInboundFullContent(accountId: string, msg: RawInboundMessage): void {
+  stateFor(accountId).fullContent.set(msg.providerMessageId, msg);
+}
+
+/** Test helper: the provider message ids of every fetchContent call so far. */
+export function contentFetchesOf(accountId: string): readonly (readonly string[])[] {
+  return stateFor(accountId).contentFetches;
 }
 
 /** Test helper: injects a one-shot error into the next fetch (e.g.
@@ -79,6 +111,25 @@ export function failNextFetchWith(accountId: string, err: unknown): void {
 /** Test helper: injects a one-shot error into the next verify. */
 export function failNextVerifyWith(accountId: string, err: unknown): void {
   stateFor(accountId).nextVerifyError = err;
+}
+
+/** Test helper: fetches of the account do not return until `release()`, whatever the abort signal
+ *  says, like a provider that ignores cancellation on a dead connection. */
+export function hangFetchesOf(accountId: string): { readonly release: () => void } {
+  const state = stateFor(accountId);
+  const { promise, resolve } = Promise.withResolvers<void>();
+  state.hangingFetch = promise;
+  return {
+    release: () => {
+      state.hangingFetch = null;
+      resolve();
+    },
+  };
+}
+
+/** Test helper: the abort signal the last fetch of the account received. */
+export function lastFetchSignalOf(accountId: string): AbortSignal | undefined {
+  return stateFor(accountId).lastFetchSignal;
 }
 
 /** Test helper: every fetch reads this tenant secret first, like a real
@@ -116,6 +167,11 @@ export function isWatching(accountId: string): boolean {
   return accounts.get(accountId)?.watch != null;
 }
 
+/** Test helper: the trustedAuthservId of the account the last watch was started with. */
+export function watchedTrustedAuthservIdOf(accountId: string): string | null | undefined {
+  return accounts.get(accountId)?.watchedTrustedAuthservId;
+}
+
 /** Test-Helper: kompletter State-Reset (Test-Isolation — Mock-States
  *  nie zwischen Tests teilen). */
 export function resetInboundInMemory(): void {
@@ -142,6 +198,8 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   },
   fetch: async (ctx, account, cursor, opts): Promise<InboundFetchResult> => {
     const state = stateFor(account.id);
+    state.lastFetchSignal = opts.signal;
+    if (state.hangingFetch) await state.hangingFetch;
     if (state.nextFetchError) {
       const err = state.nextFetchError;
       state.nextFetchError = null;
@@ -153,15 +211,29 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
     const offset = offsetOf(cursor);
     const slice = state.log.slice(offset, offset + opts.maxMessages);
     const nextOffset = offset + slice.length;
+    const rejected = slice.flatMap((entry) => ("rejected" in entry ? [entry.rejected] : []));
     return {
-      messages: slice,
+      messages: slice.flatMap((entry) => ("message" in entry ? [entry.message] : [])),
+      ...(rejected.length > 0 && { rejected }),
       nextCursor: { offset: nextOffset },
       hasMore: nextOffset < state.log.length,
+    };
+  },
+  fetchContent: async (_ctx, account, providerMessageIds): Promise<InboundContentFetchResult> => {
+    const state = stateFor(account.id);
+    state.contentFetches.push([...providerMessageIds]);
+    const messages = providerMessageIds.flatMap((id) => state.fullContent.get(id) ?? []);
+    const found = new Set(messages.map((m) => m.providerMessageId));
+    return {
+      messages,
+      missing: providerMessageIds.filter((id) => !found.has(id)),
+      rejected: [],
     };
   },
   watch: async (_ctx, account, handlers) => {
     const state = stateFor(account.id);
     state.watch = handlers;
+    state.watchedTrustedAuthservId = account.trustedAuthservId ?? null;
     return async () => {
       if (state.watch === handlers) state.watch = null;
     };

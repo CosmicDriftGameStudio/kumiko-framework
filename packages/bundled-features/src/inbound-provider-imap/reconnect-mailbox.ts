@@ -1,10 +1,9 @@
 // reconnect-mailbox: new credentials for an existing password IMAP mailbox, typically after the
 // account went to auth_error. The login is checked before the transaction opens; only then the
-// account goes back to active and the credential secret of the same account is overwritten, both
+// account goes back to active (also from disconnected) and the credential secret of the same account is overwritten, both
 // on the request transaction, so a failure leaves status and secret as they were.
 
 import {
-  InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
@@ -23,7 +22,15 @@ import {
 import { findReconnectableAccount } from "./reconnect-account.ts";
 
 const reconnectMailboxSchema = connectMailboxSchema
-  .pick({ host: true, port: true, user: true, password: true, smtpHost: true, smtpPort: true })
+  .pick({
+    host: true,
+    port: true,
+    user: true,
+    password: true,
+    smtpHost: true,
+    smtpPort: true,
+    trustedAuthservId: true,
+  })
   .extend({ accountId: z.uuid() });
 
 const SECRET_TRANSACTION_REASON =
@@ -47,10 +54,10 @@ export const reconnectMailboxHandler = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const { accountId } = event.payload;
-    const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.updateAccount, {
+    const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.reactivateAccount, {
       accountId,
-      status: InboundMailAccountStatuses.active,
-      watchState: "idle",
+      // The form shows the stored id, so an empty field means the admin cleared it.
+      trustedAuthservId: event.payload.trustedAuthservId ?? null,
     });
     if (!reactivated.isSuccess) return reactivated;
 

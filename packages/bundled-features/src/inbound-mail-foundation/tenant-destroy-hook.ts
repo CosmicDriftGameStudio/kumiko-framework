@@ -8,7 +8,7 @@
 //      operation, so O(n) is acceptable.
 //   2. Deletes the projection rows.
 //   3. For mail-account only, deletes unmanaged sync state (cursors,
-//      seen anchors), which is keyed by accountId and must therefore be
+//      seen anchors, quarantine entries), which is keyed by accountId and must therefore be
 //      collected from the account rows BEFORE deletion.
 //
 // The actual PII erasure uses crypto-shredding: eraseSubjectKeys deletes the
@@ -18,7 +18,7 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
-import { seenMessageTable, syncCursorTable } from "./entities.ts";
+import { quarantineTable, seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
@@ -66,6 +66,7 @@ export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Prom
   for (const accountId of accountIds) {
     await ctx.db.deleteMany(syncCursorTable, { accountId });
     await ctx.db.deleteMany(seenMessageTable, { accountId });
+    await ctx.db.deleteMany(quarantineTable, { accountId });
   }
 }
 

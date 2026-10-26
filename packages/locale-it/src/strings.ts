@@ -2037,6 +2037,20 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Provider",
   "inboundMail.accounts.col.status": "Stato",
   "inboundMail.accounts.col.connected": "Connessa dal",
+  "inboundMail.accounts.col.lastError": "Problema",
+  "inboundMail.accounts.col.quarantined": "In quarantena",
+  "inboundMail.accounts.lastError.connection_failed":
+    "Il server di posta non è raggiungibile. La sincronizzazione viene ritentata automaticamente.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "Il server di posta limita le richieste. La sincronizzazione viene ritentata automaticamente.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "Una mail non è stata importata ed è stata messa da parte. Conferma la quarantena dopo averla controllata.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "L'archiviazione dei file non è disponibile, quindi allegati e originali non vengono salvati.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Questa casella è già connessa.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Questa casella è stata disconnessa in precedenza. Riconnettila dall'elenco delle caselle per mantenere la cronologia.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Conferma quarantena",
   "inboundMail.accounts.status.active": "Attiva",
   "inboundMail.accounts.status.auth_error": "Accesso non riuscito",
   "inboundMail.accounts.status.degraded": "Interrotta",
@@ -2079,6 +2093,11 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Invio",
   "inboundMail.imap.connect.outgoingHint":
     "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap. Di solito 587, anche se il tuo provider indica 465/SSL.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
+    "Identificativo del server di posta",
+  "inboundMail.imap.connect.senderCheck": "Verifica del mittente",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Identificativo del server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La ricezione funziona, l'invio no: il server in uscita non è raggiungibile o non è consentito. Controlla il nome.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2097,6 +2116,10 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Il server in uscita ha rifiutato la mail. Controlla l'indirizzo del destinatario.",
   "inboundMail.send.errors.invalidMessage":
     "La mail non è stata inviata: un destinatario, l'oggetto o il riferimento di risposta non è valido.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "La mail non è stata inviata: un allegato non è più disponibile.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "La mail non è stata inviata: gli allegati insieme superano i 18 MB.",
   "sessions.mine.current.yes": "Questa sessione",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

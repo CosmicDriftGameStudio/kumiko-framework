@@ -1421,9 +1421,13 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
+        "inbound-mail-foundation:write:acknowledge-quarantine",
+        "inbound-mail-foundation:write:attach-message-content",
         "inbound-mail-foundation:write:connect-account",
         "inbound-mail-foundation:write:disconnect-account",
         "inbound-mail-foundation:write:ingest-message",
+        "inbound-mail-foundation:write:mark-credential-stored",
+        "inbound-mail-foundation:write:reactivate-account",
         "inbound-mail-foundation:write:update-account"
       ],
       "uiHints": {

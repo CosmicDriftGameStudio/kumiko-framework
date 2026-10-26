@@ -21,6 +21,7 @@ export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
 export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
 
 export const MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX = "inboundMail.accounts.status.";
+export const MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX = "inboundMail.accounts.lastError.";
 
 // Same roles as the update/disconnect handlers: a screen rule wider than the
 // handlers would only render actions that 403.
@@ -53,6 +54,18 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
       renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX },
     },
     {
+      field: "lastError",
+      label: i18nKey("inboundMail.accounts.col.lastError"),
+      sortable: false,
+      renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX },
+    },
+    {
+      field: "quarantinedCount",
+      label: i18nKey("inboundMail.accounts.col.quarantined"),
+      sortable: false,
+      hideOnNarrow: true,
+    },
+    {
       field: "connectedAt",
       label: i18nKey("inboundMail.accounts.col.connected"),
       sortable: false,
@@ -76,7 +89,19 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
       screen: IMAP_RECONNECT_SCREEN_ID,
       entityId: "id",
       // The handler rejects accounts of other providers; the row condition cannot combine fields.
-      visible: { field: "status", eq: InboundMailAccountStatuses.authError },
+      // A disconnected mailbox is reconnected in place, so no duplicate address and no lost history.
+      visible: {
+        field: "status",
+        in: [InboundMailAccountStatuses.authError, InboundMailAccountStatuses.disconnected],
+      },
+    },
+    {
+      kind: "writeHandler",
+      id: "acknowledge-quarantine",
+      label: i18nKey("inboundMail.accounts.acknowledgeQuarantine"),
+      handler: InboundMailFoundationHandlers.acknowledgeQuarantine,
+      payload: { map: { accountId: "id" } },
+      visible: { field: "hasOpenQuarantine", eq: true },
     },
     {
       kind: "writeHandler",

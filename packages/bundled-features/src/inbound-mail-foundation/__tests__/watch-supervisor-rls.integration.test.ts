@@ -48,6 +48,7 @@ import {
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "../index.ts";
@@ -71,6 +72,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
+  await unsafeCreateEntityTable(stack.db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 
   secretsDb = await createTestDb({ applicationRole: true });

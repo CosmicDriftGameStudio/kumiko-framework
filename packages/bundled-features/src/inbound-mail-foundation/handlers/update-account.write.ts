@@ -11,14 +11,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses } from "../constants.ts";
+import { InboundMailAccountStatuses, InboundMailLastErrors } from "../constants.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
+import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
 export const updateAccountSchema = z.object({
   accountId: z.uuid(),
@@ -29,9 +31,13 @@ export const updateAccountSchema = z.object({
       InboundMailAccountStatuses.degraded,
     ])
     .optional(),
+  /** Why the mailbox is degraded; null clears it. Codes only, never provider error text. */
+  lastError: z.enum(Object.values(InboundMailLastErrors)).nullable().optional(),
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
   displayName: z.string().trim().max(200).optional(),
+  /** authserv-id of the mailbox's own server; null or empty clears it, omitted keeps it. */
+  trustedAuthservId: trustedAuthservIdInputSchema,
   /** Audit reason for metadata.headers, honored for the system identity only
    *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
   reason: z.string().min(1).max(100).optional(),
@@ -60,10 +66,9 @@ export const updateAccountHandler: WriteHandlerDef = {
       return failNotFound("mail-account", payload.accountId);
     }
     if (current.status === InboundMailAccountStatuses.disconnected) {
-      // Disconnected accounts are final; re-enabling requires a fresh connect
-      // (new stream, new secret slot). This prevents a delayed supervisor tick
-      // from restoring a disconnected account to active (disconnect vs. poll
-      // race).
+      // Only reactivate-account may leave disconnected. This prevents a delayed
+      // supervisor tick from restoring a disconnected account to active
+      // (disconnect vs. poll race).
       return failUnprocessable("account_disconnected", { accountId: payload.accountId });
     }
 
@@ -74,6 +79,10 @@ export const updateAccountHandler: WriteHandlerDef = {
       ...(payload.status !== undefined ? { status: payload.status } : {}),
       ...(payload.watchState !== undefined ? { watchState: payload.watchState } : {}),
       ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
+      ...(payload.lastError !== undefined ? { lastError: payload.lastError } : {}),
+      ...(payload.trustedAuthservId !== undefined
+        ? { trustedAuthservId: normalizeTrustedAuthservId(payload.trustedAuthservId) }
+        : {}),
     };
     const headers: MailAccountEventHeaders = {
       providerName: current.provider,

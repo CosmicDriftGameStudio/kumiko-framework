@@ -31,7 +31,12 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
-import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
+import {
+  quarantineEntity,
+  seenMessageEntity,
+  seenMessageTable,
+  syncCursorEntity,
+} from "../entities.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { runInboundMailRetention } from "../retention-sweep.ts";
@@ -55,6 +60,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 
@@ -198,7 +204,7 @@ describe("retention: body-delete failure keeps the row (no orphaned storage obje
 
 describe("retention: seen anchors", () => {
   test("past-cutoff anchor purged, in-window anchor stays (dedup window intact)", async () => {
-    const admin = adminFor(5002);
+    const admin = adminFor(5003);
     const accountId = await connectSharedAccount(admin);
     await ingest(accountId, admin, "uid-seen", "2026-07-01T10:00:00Z");
 

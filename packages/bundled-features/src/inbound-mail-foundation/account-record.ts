@@ -16,6 +16,7 @@ export type MailAccountRow = {
   readonly displayName?: string | null;
   readonly status?: string | null;
   readonly watchState?: string | null;
+  readonly trustedAuthservId?: string | null;
 };
 
 function isAccountStatus(value: unknown): value is InboundMailAccountStatus {
@@ -44,5 +45,6 @@ export async function toMailAccountRecord(
     displayName: row.displayName ?? "",
     status: isAccountStatus(row.status) ? row.status : InboundMailAccountStatuses.active,
     watchState: row.watchState ?? "idle",
+    trustedAuthservId: row.trustedAuthservId ?? null,
   };
 }

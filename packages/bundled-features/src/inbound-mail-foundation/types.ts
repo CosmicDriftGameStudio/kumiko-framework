@@ -13,7 +13,8 @@
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.ts";
-import type { OutboundMailMessage, OutboundMailSent } from "./outbound-mail.ts";
+import type { OutboundAttachment, OutboundMailMessage, ProviderSentMail } from "./outbound-mail.ts";
+import type { SenderAuthentication } from "./sender-auth.ts";
 
 /**
  * Slim context for provider plugins.
@@ -59,8 +60,29 @@ export type MailAccountRecord = {
   /** Postfach-Adresse, Plaintext (decrypted). */
   readonly address: string;
   readonly displayName: string;
+  /** The real status; the supervisor syncs active and degraded mailboxes. */
   readonly status: InboundMailAccountStatus;
   readonly watchState: string;
+  /** authserv-id of the mailbox's own server for sender verification; absent or null = none set. */
+  readonly trustedAuthservId?: string | null;
+};
+
+export type RawInboundAttachment = {
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly data: Uint8Array;
+};
+
+/** An attachment that was not stored. Carries no file name: the reason is shown to operators, not the content. */
+export type SkippedInboundAttachment = {
+  readonly mimeType: string;
+  readonly size: number;
+  readonly reason:
+    | "too_large"
+    | "mail_too_large"
+    | "rejected"
+    | "no_file_storage"
+    | "nesting_too_deep";
 };
 
 /**
@@ -89,9 +111,17 @@ export type RawInboundMessage = {
   readonly snippet: string;
   /** ISO instant — INTERNALDATE or receivedDateTime, not ingest time. */
   readonly receivedAtIso: string;
-  /** Raw MIME; null in snippet-only mode. The Foundation persists it through
+  /** Raw MIME; null when the provider has no original to keep. The Foundation persists it through
    *  file-foundation and writes bodyRef, so the event store remains blob-free. */
   readonly rawMime: Uint8Array | null;
+  /** Full plaintext (derived from the HTML for HTML-only mails). Optional so providers
+   *  predating the field keep compiling; the supervisor treats absent as empty. */
+  readonly text?: string;
+  readonly html?: string | null;
+  readonly attachments?: readonly RawInboundAttachment[];
+  readonly skippedAttachments?: readonly SkippedInboundAttachment[];
+  /** What the mailbox's own server verified about the sender. Absent counts as unknown, never as pass. */
+  readonly senderAuthentication?: SenderAuthentication | null;
   /** Generic scope hint ("inbox", folder name), with no application semantics. */
   readonly scope: string;
 };
@@ -101,8 +131,22 @@ export type RawInboundMessage = {
  *  store_mail_sync_cursors, interpretiert ihn nie. */
 export type SyncCursorPayload = Readonly<Record<string, unknown>>;
 
+/** A message the provider could not turn into a RawInboundMessage; the cursor moves past it. */
+export type RejectedInboundMessage = {
+  readonly providerMessageId: string;
+  readonly reason: "unparseable";
+};
+
+export type InboundContentFetchResult = {
+  readonly messages: readonly RawInboundMessage[];
+  /** Not on the server (anymore) or from a previous UIDVALIDITY. */
+  readonly missing: readonly string[];
+  readonly rejected: readonly RejectedInboundMessage[];
+};
+
 export type InboundFetchResult = {
   readonly messages: readonly RawInboundMessage[];
+  readonly rejected?: readonly RejectedInboundMessage[];
   readonly nextCursor: SyncCursorPayload;
   /** true ⇒ the Foundation calls fetch again in the same poll tick
    *  (pagination) until false or the maxMessages budget is exhausted. */
@@ -183,8 +227,19 @@ export type InboundMailProviderPlugin = {
       readonly filterUnknownMessageIds?: (
         providerMessageIds: readonly string[],
       ) => Promise<ReadonlySet<string>>;
+      /** Aborted when the supervisor gives up on this account's sync (per-account deadline). A
+       *  provider that can cancel closes its connection then; one that cannot is abandoned and
+       *  its late result is dropped. */
+      readonly signal?: AbortSignal;
     },
   ) => Promise<InboundFetchResult>;
+  /** Re-downloads already imported messages that were stored as snippet only. */
+  readonly fetchContent?: (
+    ctx: InboundMailContext,
+    account: MailAccountRecord,
+    providerMessageIds: readonly string[],
+    opts?: { readonly accessToken?: string; readonly signal?: AbortSignal },
+  ) => Promise<InboundContentFetchResult>;
   /** Nur OAuth-Provider. */
   readonly oauth?: InboundOAuthFlow;
   /** Sends from the mailbox address through the customer's own server. Throws
@@ -193,7 +248,8 @@ export type InboundMailProviderPlugin = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     message: OutboundMailMessage,
-  ) => Promise<OutboundMailSent>;
+    attachments: readonly OutboundAttachment[],
+  ) => Promise<ProviderSentMail>;
   /** Optional live push (IMAP IDLE, later Graph/Gmail webhooks).
    *  Returns stop(). Polling remains reconciliation: watch optimizes
    *  latency but is never the correctness anchor. `onError` reports a dead
@@ -254,6 +310,16 @@ export class InboundAuthError extends Error {
   }
 }
 
+/** The credential secret is not there (yet). Still an auth error for a regular poll; a sync woken
+ *  right after connect treats it as "not ready" because the secret is written after the account. */
+export class InboundCredentialNotStoredError extends InboundAuthError {
+  readonly credentialNotStored = true as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "InboundCredentialNotStoredError";
+  }
+}
+
 export class InboundRateLimitError extends Error {
   readonly kind = "inbound-rate-limit-error" as const;
   readonly retryAfterMs: number;
@@ -282,6 +348,11 @@ export class InboundTransientError extends Error {
 
 export function isInboundAuthError(e: unknown): e is InboundAuthError {
   return e instanceof Error && "kind" in e && e.kind === "inbound-auth-error";
+}
+export function isInboundCredentialNotStoredError(
+  e: unknown,
+): e is InboundCredentialNotStoredError {
+  return isInboundAuthError(e) && "credentialNotStored" in e && e.credentialNotStored === true;
 }
 export function isInboundRateLimitError(e: unknown): e is InboundRateLimitError {
   return e instanceof Error && "kind" in e && e.kind === "inbound-rate-limit-error";

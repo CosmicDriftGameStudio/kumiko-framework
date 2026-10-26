@@ -1,4 +1,4 @@
-// Toast primitive built on @radix-ui/react-toast: a global provider and
+// Toast primitive built on radix-ui Toast: a global provider and
 // a useToast() hook for triggering toasts throughout the app. Consumers
 // get only the `toast()` trigger, without Context boilerplate.
 //
@@ -6,8 +6,8 @@
 // the default is "muted" (neutral). Toasts auto-dismiss after 5s and can
 // be closed manually with the X button. Radix provides the ARIA live region.
 
-import * as Primitive from "@radix-ui/react-toast";
 import { X } from "lucide-react";
+import { Toast as Primitive } from "radix-ui";
 import {
   createContext,
   type ReactNode,

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-25T07:53:16.771Z",
+  "generatedAt": "2026-10-26T18:55:14.837Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1116,6 +1116,37 @@
           "name": "scope",
           "pgType": "text",
           "notNull": false
+        },
+        {
+          "name": "body_text",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "body_text_truncated",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "attachment_file_ids",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "skipped_attachments",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "sender_authentication",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content_state",
+          "pgType": "text",
+          "notNull": false
         }
       ],
       "indexes": [
@@ -1478,7 +1509,17 @@
           "notNull": true
         },
         {
+          "name": "last_error",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "watch_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "trusted_authserv_id",
           "pgType": "text",
           "notNull": false
         },
@@ -4078,6 +4119,87 @@
       "piiSubjectFields": ["payload", "error"]
     },
     {
+      "tableName": "store_mail_quarantine",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "account_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "provider_message_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "reason_code",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "quarantined_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "acknowledged_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_mail_quarantine_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_mail_quarantine_tenant_id_account_id_provider_message_id_unique",
+          "columns": ["tenant_id", "account_id", "provider_message_id"],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_mail_seen_messages",
       "columns": [
         {
@@ -5381,6 +5503,25 @@
       ]
     },
     "store_job_runs": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "store_mail_quarantine": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

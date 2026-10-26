@@ -14,6 +14,7 @@ import {
 import { type MailAccountRow, toMailAccountRecord } from "./account-record.ts";
 import { InboundMailAccountStatuses } from "./constants.ts";
 import { isVisibleToCaller } from "./handlers/scope-visibility.ts";
+import { resolveOutboundAttachments } from "./outbound-attachments.ts";
 import {
   isMailSendNotConfiguredError,
   isMailSendRejectedError,
@@ -47,6 +48,14 @@ export const MAIL_SEND_ERRORS = {
   invalidMessage: {
     reason: "mail_send_invalid_message",
     i18nKey: "inboundMail.send.errors.invalidMessage",
+  },
+  attachmentInvalid: {
+    reason: "mail_send_attachment_invalid",
+    i18nKey: "inboundMail.send.errors.attachmentInvalid",
+  },
+  attachmentsTooLarge: {
+    reason: "mail_send_attachments_too_large",
+    i18nKey: "inboundMail.send.errors.attachmentsTooLarge",
   },
 } as const;
 export type MailSendFailure = keyof typeof MAIL_SEND_ERRORS;
@@ -104,8 +113,16 @@ export async function sendMailFromAccount(
   const plugin = resolveInboundProviderForAccount(providerCtx, account, HANDLER_NAME);
   if (!plugin.send) return sendFailure("notConfigured");
 
+  const attachmentFileIds = message.data.attachmentFileIds ?? [];
+  const resolved = await resolveOutboundAttachments(ctx, attachmentFileIds);
+  if (!resolved.isSuccess) return sendFailure(resolved.failure);
+
   try {
-    return { isSuccess: true, data: await plugin.send(providerCtx, account, message.data) };
+    const sent = await plugin.send(providerCtx, account, message.data, resolved.attachments);
+    return {
+      isSuccess: true,
+      data: { messageIdHeader: sent.messageIdHeader, attachmentFileIds: resolved.fileIds },
+    };
   } catch (err) {
     const failure = sendFailureOf(err);
     if (!failure) throw err;

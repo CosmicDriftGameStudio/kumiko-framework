@@ -1986,6 +1986,20 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Provider",
   "inboundMail.accounts.col.status": "Status",
   "inboundMail.accounts.col.connected": "Connected",
+  "inboundMail.accounts.col.lastError": "Problem",
+  "inboundMail.accounts.col.quarantined": "Quarantined",
+  "inboundMail.accounts.lastError.connection_failed":
+    "The mail server could not be reached. Syncing is retried automatically.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "The mail server is limiting requests. Syncing is retried automatically.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "A mail could not be imported and was set aside. Confirm the quarantine once you have looked into it.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "File storage is not available, so attachments and originals are not saved.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Confirm quarantine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Sign-in failed",
   "inboundMail.accounts.status.degraded": "Interrupted",
@@ -2028,6 +2042,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Sending",
   "inboundMail.imap.connect.outgoingHint":
     "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Mail server ID",
+  "inboundMail.imap.connect.senderCheck": "Sender check",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Receiving works, but sending does not: the outgoing server cannot be reached or is not allowed. Check its name.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2046,6 +2064,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The outgoing mail server refused the mail. Check the recipient address.",
   "inboundMail.send.errors.invalidMessage":
     "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "The mail was not sent: an attachment is no longer available.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "The mail was not sent: the attachments together are larger than 18 MB.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "created",
   "audit.log.action.updated": "updated",

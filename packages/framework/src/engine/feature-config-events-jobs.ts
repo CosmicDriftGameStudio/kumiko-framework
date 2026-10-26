@@ -199,6 +199,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
               ...(jobOptions.trigger.where !== undefined
                 ? { where: jobOptions.trigger.where }
                 : {}),
+              ...(jobOptions.trigger.catchUp !== undefined
+                ? { catchUp: jobOptions.trigger.catchUp }
+                : {}),
             }
           : jobOptions.trigger;
       state.jobs[jobName] = { ...jobOptions, trigger, name: jobName, handler: jobHandler };

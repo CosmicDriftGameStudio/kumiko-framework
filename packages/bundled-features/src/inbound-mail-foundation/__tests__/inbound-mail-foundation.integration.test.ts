@@ -54,7 +54,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
@@ -92,6 +92,7 @@ beforeAll(async () => {
   // Direct-write stores are unmanaged: no r.entity and no automatic push.
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   // PII fields are tenantOwned; handlers call configuredPiiSubjectKms()
   // directly (raw r.projection, without executor wiring), as run{Prod,Dev}App
   // does at boot.
@@ -447,10 +448,12 @@ describe("ingest-message — thread-rollup retry exhaustion", () => {
         {
           type: InboundMailFoundationHandlers.ingestMessage,
           user: admin,
-          payload: ingestPayload(accountId, {
-            providerMessageId: "exhaustion-1",
-            messageIdHeader,
-          }),
+          payload: {
+            ...ingestPayload(accountId, { providerMessageId: "exhaustion-1", messageIdHeader }),
+            // The handler is called directly, so the schema defaults do not apply.
+            bodyText: "",
+            bodyTextTruncated: false,
+          },
         },
         ctx,
       ),

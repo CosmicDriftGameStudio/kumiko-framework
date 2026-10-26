@@ -33,6 +33,7 @@ import {
   type InboundMailContext,
   InboundMailFoundationHandlers,
   type InboundMailProviderPlugin,
+  quarantineEntity,
   type RawInboundMessage,
   seenMessageEntity,
   syncCursorEntity,
@@ -110,6 +111,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

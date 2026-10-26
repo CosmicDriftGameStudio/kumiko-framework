@@ -1,6 +1,6 @@
 // The reconnect form replaces the credentials of an existing mailbox: a good login brings the same
 // account back to active with a working credential, a failed check changes neither status nor
-// secret, and disconnected, foreign-tenant and non-IMAP accounts are refused before any login.
+// secret, and foreign-tenant and non-IMAP accounts are refused before any login.
 //
 // The login cases need greenmail like connect-mailbox.integration.test.ts and skip visibly without it.
 
@@ -20,6 +20,7 @@ import {
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "../../inbound-mail-foundation/index.ts";
@@ -72,6 +73,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
+  await unsafeCreateEntityTable(stack.db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
 });
@@ -219,20 +221,30 @@ describe("reconnect mailbox form", () => {
     expect(await newEvents()).toEqual([]);
   });
 
-  test("a disconnected account cannot be reconnected", async () => {
-    const admin = freshAdmin();
-    const accountId = await connectAccountRow(admin, "imap");
-    await stack.http.writeOk(InboundMailFoundationHandlers.disconnectAccount, { accountId }, admin);
+  greenmailWithSmtpsTest(
+    "a disconnected account is reconnected in place with the same account id",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectAccountRow(admin, "imap");
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId },
+        admin,
+      );
 
-    const error = await stack.http.writeErr(
-      ImapHandlers.reconnectMailbox,
-      form(accountId, PASSWORD),
-      admin,
-    );
+      const result = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.reconnectMailbox,
+        form(accountId, PASSWORD),
+        admin,
+      );
 
-    expect(JSON.stringify(error)).toContain("account_disconnected");
-    expect(await secretsOf(admin)).toEqual([]);
-  });
+      expect(result.accountId).toBe(accountId);
+      expect(await statusesOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, status: "active" }),
+      ]);
+      expect(await secretsOf(admin)).toHaveLength(1);
+    },
+  );
 
   test("an account id of another tenant is not found", async () => {
     const owner = freshAdmin();

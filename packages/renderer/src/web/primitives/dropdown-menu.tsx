@@ -1,5 +1,5 @@
 // shadcn-style DropdownMenu built on Radix. Wrappers around
-// @radix-ui/react-dropdown-menu use the same Tailwind token classes as
+// the radix-ui DropdownMenu use the same Tailwind token classes as
 // the other primitives. The caller provides the trigger-button styling
 // through the asChild pattern; this module supplies only Content, Item,
 // Label, Separator, and CheckboxItem with consistent styling.
@@ -11,8 +11,8 @@
 //   useful in dialogs and popovers.
 // - Keyboard navigation (↑↓ + Home/End) works by default.
 
-import * as Primitive from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
+import { DropdownMenu as Primitive } from "radix-ui";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 

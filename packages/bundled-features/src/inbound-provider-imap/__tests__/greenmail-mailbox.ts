@@ -63,3 +63,16 @@ export async function findByMessageId(
   }
   return undefined;
 }
+
+export async function findSourceByMessageId(
+  client: ImapFlow,
+  path: string,
+  messageIdHeader: string,
+): Promise<Buffer | undefined> {
+  const mailbox = await client.mailboxOpen(path);
+  if (mailbox.exists === 0) return undefined;
+  for await (const mail of client.fetch("1:*", { envelope: true, source: true })) {
+    if (mail.envelope?.messageId === `<${messageIdHeader}>`) return mail.source;
+  }
+  return undefined;
+}

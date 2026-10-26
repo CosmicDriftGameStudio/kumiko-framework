@@ -22,6 +22,7 @@ import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/inde
 import {
   createInboundMailFoundationFeature,
   InboundMailFoundationQueries,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "../../inbound-mail-foundation/index.ts";
@@ -34,7 +35,7 @@ import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feat
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
 import { reachable } from "./greenmail-mailbox.ts";
 
-// A host name, not an IP literal: the TLS connect needs it as the SNI server name.
+// The default is a host name so the TLS connect has an SNI server name; IP literals have their own cases.
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
 const IMAPS_PORT = Number(process.env["IMAP_LIVE_TLS_PORT"] ?? 3993);
@@ -42,8 +43,10 @@ const PASSWORD = "testpass";
 const WRONG_PASSWORD = "not-the-password-4711";
 const MAILBOX_PROBE = "inbound-mail-foundation:probe:mailboxes";
 
+const IP_LITERAL_HOST = "127.0.0.1";
+
 const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
-process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
+process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = `${HOST},${IP_LITERAL_HOST}`;
 // greenmail serves IMAPS with a self-signed certificate; the handler itself always verifies.
 const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
 const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
@@ -75,6 +78,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
+  await unsafeCreateEntityTable(stack.db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
 });
@@ -176,6 +180,36 @@ describe("connect mailbox form", () => {
       expect(await accountsOf(otherTenantAdmin)).toEqual([]);
     },
   );
+
+  // Bun rejects the `servername: false` imapflow sets for IP literals; before the fix this failed
+  // while connecting, long before the server could answer the login.
+  greenmailTest("an IP-literal host reaches the login over TLS", async () => {
+    const admin = freshAdmin();
+    const newEvents = await markEvents(stack);
+
+    const error = await stack.http.writeErr(
+      ImapHandlers.connectMailbox,
+      form(WRONG_PASSWORD, IP_LITERAL_HOST),
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(IMAP_CONNECT_ERRORS.loginRejected.i18nKey);
+    await expectNothingStored(admin, newEvents);
+  });
+
+  greenmailWithSmtpsTest("a good login on an IP-literal host connects", async () => {
+    const admin = freshAdmin();
+
+    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      ImapHandlers.connectMailbox,
+      { ...form(PASSWORD, IP_LITERAL_HOST), secure: true },
+      admin,
+    );
+
+    expect(await accountsOf(admin)).toEqual([
+      expect.objectContaining({ id: accountId, status: "active", provider: "imap" }),
+    ]);
+  });
 
   greenmailTest("a rejected login stores nothing and names the cause", async () => {
     const admin = freshAdmin();

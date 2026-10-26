@@ -352,6 +352,24 @@ export function payloadMatchesTriggerFilter(
   return Object.entries(where).every(([key, value]) => payload[key] === value);
 }
 
+type EventJobTrigger = Extract<JobDefinition["trigger"], { readonly on: unknown }>;
+
+export function eventTriggerMatches(
+  trigger: EventJobTrigger,
+  eventName: string,
+  payload: Record<string, unknown>,
+): boolean {
+  const matches = Array.isArray(trigger.on)
+    ? trigger.on.includes(eventName)
+    : trigger.on === eventName;
+  return matches && payloadMatchesTriggerFilter(trigger.where, payload);
+}
+
+// BullMQ rejects ":" in custom ids; job QNs and event ids contain them or dashes.
+export function catchUpJobId(jobName: string, eventId: string): string {
+  return `catchup.${jobName.replaceAll(":", ".")}.${eventId}`;
+}
+
 // BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict
 // OTHER jobs in the same completed/failed zset (moveToFinished lua,
 // removeJobsByMaxAge/removeJobsByMaxCount), not just the finishing job, and

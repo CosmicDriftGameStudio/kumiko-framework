@@ -24,7 +24,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
@@ -46,6 +46,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
+  await unsafeCreateEntityTable(stack.db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

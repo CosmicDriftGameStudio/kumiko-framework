@@ -22,6 +22,7 @@ import type { Context } from "hono";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAuthMethods,
+  InboundMailConnectErrors,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants.ts";
@@ -62,7 +63,26 @@ export type InboundMailConnectRoutesOptions = {
   readonly metricsFor?: InboundMailContext["metricsFor"];
 };
 
-function errorJson(c: Context, status: 400 | 401 | 404 | 500 | 502, code: string, message: string) {
+const CONNECT_CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
+  [InboundMailConnectErrors.addressAlreadyConnected.reason]:
+    "this mailbox address is already connected",
+  [InboundMailConnectErrors.addressDisconnected.reason]:
+    "this mailbox was disconnected before; reconnect it from the mailbox list instead",
+};
+
+function connectFailureResponse(c: Context, error: unknown) {
+  const reason = propertyOf(propertyOf(error, "details"), "reason");
+  const conflict = typeof reason === "string" ? CONNECT_CONFLICT_MESSAGES[reason] : undefined;
+  if (typeof reason === "string" && conflict) return errorJson(c, 409, reason, conflict);
+  return errorJson(c, 502, "account_create_failed", JSON.stringify(error ?? {}));
+}
+
+function errorJson(
+  c: Context,
+  status: 400 | 401 | 404 | 409 | 500 | 502,
+  code: string,
+  message: string,
+) {
   return c.json({ error: { code, message } }, status);
 }
 
@@ -240,7 +260,7 @@ export function createInboundMailConnectRoutes(
         },
       });
       if (!dispatched.isSuccess) {
-        return errorJson(c, 502, "account_create_failed", JSON.stringify(dispatched.error ?? {}));
+        return connectFailureResponse(c, dispatched.error);
       }
       const accountId = propertyOf(dispatched.data, "accountId");
       if (typeof accountId !== "string") {
@@ -264,6 +284,15 @@ export function createInboundMailConnectRoutes(
           inboundRefreshTokenSecretOptions(accountId),
         );
       }
+
+      // Best effort: the account commit already woke the supervisor before the token existed.
+      // Without this event the first sync would wait for the next poll tick; a failure here
+      // only costs that delay, so the connect itself still succeeds.
+      await deps.dispatchSystemWrite({
+        handlerQn: InboundMailFoundationHandlers.markCredentialStored,
+        tenantId: state.tenantId,
+        payload: { accountId },
+      });
 
       if (options.successRedirectUrl) {
         const target = new URL(options.successRedirectUrl);

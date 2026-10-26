@@ -24,6 +24,7 @@ import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
@@ -68,6 +69,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, mailThreadEntity);
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
+  await unsafeCreateEntityTable(testDb.db, quarantineEntity);
 });
 
 afterAll(async () => {

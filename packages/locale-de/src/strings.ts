@@ -2038,6 +2038,20 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Anbieter",
   "inboundMail.accounts.col.status": "Status",
   "inboundMail.accounts.col.connected": "Verbunden seit",
+  "inboundMail.accounts.col.lastError": "Problem",
+  "inboundMail.accounts.col.quarantined": "In Quarantäne",
+  "inboundMail.accounts.lastError.connection_failed":
+    "Der Mailserver ist nicht erreichbar. Der Abruf wird automatisch erneut versucht.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "Der Mailserver begrenzt die Anfragen. Der Abruf wird automatisch erneut versucht.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "Eine Mail konnte nicht importiert werden und wurde beiseitegelegt. Die Quarantäne nach der Prüfung bestätigen.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "Der Dateispeicher ist nicht verfügbar, deshalb werden Anhänge und Originale nicht gespeichert.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Dieses Postfach ist bereits verbunden.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Dieses Postfach wurde früher getrennt. Über die Postfachliste neu verbinden, damit der Verlauf erhalten bleibt.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Quarantäne bestätigen",
   "inboundMail.accounts.status.active": "Aktiv",
   "inboundMail.accounts.status.auth_error": "Anmeldung fehlgeschlagen",
   "inboundMail.accounts.status.degraded": "Unterbrochen",
@@ -2080,6 +2094,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.outgoing": "Senden",
   "inboundMail.imap.connect.outgoingHint":
     "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn dein Anbieter 465/SSL nennt.",
+  "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Kennung des Mailservers",
+  "inboundMail.imap.connect.senderCheck": "Absenderprüfung",
+  "inboundMail.imap.connect.senderCheckHint":
+    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfe seinen Namen.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":
@@ -2098,6 +2116,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfe die Empfängeradresse.",
   "inboundMail.send.errors.invalidMessage":
     "Die Mail wurde nicht gesendet: Ein Empfänger, der Betreff oder der Antwortbezug ist ungültig.",
+  "inboundMail.send.errors.attachmentInvalid":
+    "Die Mail wurde nicht gesendet: Ein Anhang ist nicht mehr verfügbar.",
+  "inboundMail.send.errors.attachmentsTooLarge":
+    "Die Mail wurde nicht gesendet: Die Anhänge sind zusammen größer als 18 MB.",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",
