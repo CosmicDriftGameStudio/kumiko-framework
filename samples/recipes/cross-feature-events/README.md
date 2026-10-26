@@ -26,6 +26,13 @@ Three building blocks:
   external system). With `table`, the apply materializes a persistent
   read model.
 
+- **`r.job(name, { trigger: { on: event.name, catchUp: true } }, run)`**
+  runs a job per stored event. With `catchUp` the job owns its own
+  consumer cursor (`job:<jobQn>`) that starts at the beginning of the
+  event store, so a job added to a running app also processes the
+  events from before its deploy. Each event enqueues at most one run.
+  Without `catchUp` a job only sees events appended after it went live.
+
 ## Flow
 
 ```
@@ -61,3 +68,6 @@ The integration test pins three guarantees:
 ```bash
 bun kumiko test integration samples/cross-feature-events
 ```
+4. **Catch-up job** — `catch-up-job.integration.test.ts` places orders
+   before the first dispatcher pass and checks that the `catchUp` job
+   invoices each of them exactly once.

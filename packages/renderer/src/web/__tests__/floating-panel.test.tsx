@@ -77,8 +77,8 @@ describe("FloatingPanel", () => {
   });
 
   test("defaultGeometry overrides the defaults", () => {
-    renderPanel({ defaultGeometry: { x: 10, y: 20, width: 300, height: 300 } });
-    expect(geometryOf(panel())).toEqual({ x: 10, y: 20, width: 300, height: 300 });
+    renderPanel({ defaultGeometry: { x: 30, y: 40, width: 300, height: 300 } });
+    expect(geometryOf(panel())).toEqual({ x: 30, y: 40, width: 300, height: 300 });
   });
 
   describe("keyboard", () => {
@@ -91,12 +91,12 @@ describe("FloatingPanel", () => {
       expect(geometryOf(panel())).toMatchObject({ x: 840, y: 176 });
     });
 
-    test("moving never pushes the panel out of the viewport", () => {
+    test("moving stops 16px before the viewport edge", () => {
       renderPanel({ defaultGeometry: { x: 0, y: 0 } });
       const grip = screen.getByRole("button", { name: "Move panel" });
       fireEvent.keyDown(grip, { key: "ArrowLeft" });
       fireEvent.keyDown(grip, { key: "ArrowUp" });
-      expect(geometryOf(panel())).toMatchObject({ x: 0, y: 0 });
+      expect(geometryOf(panel())).toMatchObject({ x: 16, y: 16 });
     });
 
     test("a resize separator stops at the minimum size", () => {
@@ -239,8 +239,10 @@ describe("FloatingPanel", () => {
       const { x, y, width, height } = geometryOf(panel());
       expect(width).toBe(WIDE.width - 48);
       expect(height).toBe(WIDE.height - 48);
-      expect(x + width).toBeLessThanOrEqual(WIDE.width);
-      expect(y + height).toBeLessThanOrEqual(WIDE.height);
+      expect(x).toBeGreaterThanOrEqual(16);
+      expect(y).toBeGreaterThanOrEqual(16);
+      expect(x + width).toBeLessThanOrEqual(WIDE.width - 16);
+      expect(y + height).toBeLessThanOrEqual(WIDE.height - 16);
     });
 
     test.each([
@@ -334,14 +336,35 @@ describe("FloatingPanel", () => {
     });
   });
 
-  test("a window resize re-clamps the panel into the smaller viewport", () => {
-    renderPanel();
-    expect(geometryOf(panel())).toEqual({ x: 856, y: 216, width: 400, height: 560 });
-    setViewport({ width: 900, height: 500 });
-    const { x, y, width, height } = geometryOf(panel());
-    expect(width).toBe(400);
-    expect(height).toBe(452);
-    expect(x).toBe(500);
-    expect(y).toBe(48);
+  describe("window resize", () => {
+    test("a panel docked bottom-right keeps its distance to the right and bottom edge", () => {
+      renderPanel();
+      expect(geometryOf(panel())).toEqual({ x: 856, y: 216, width: 400, height: 560 });
+      setViewport({ width: 900, height: 500 });
+      expect(geometryOf(panel())).toEqual({ x: 476, y: 24, width: 400, height: 452 });
+    });
+
+    test("a panel moved away from the right edge keeps that distance while the window narrows", () => {
+      renderPanel({ defaultGeometry: { x: 780, y: 100, width: 400, height: 400 } });
+      setViewport({ width: 1000, height: 800 });
+      expect(geometryOf(panel())).toMatchObject({ x: 500, y: 100 });
+      setViewport({ width: 1100, height: 800 });
+      expect(geometryOf(panel())).toMatchObject({ x: 600, y: 100 });
+    });
+
+    test("a panel near the left edge stays there", () => {
+      renderPanel({ defaultGeometry: { x: 40, y: 60, width: 400, height: 400 } });
+      setViewport({ width: 900, height: 700 });
+      expect(geometryOf(panel())).toMatchObject({ x: 40, y: 60 });
+    });
+
+    test("a panel wider than the new viewport shrinks and keeps 16px to both sides", () => {
+      renderPanel({
+        defaultGeometry: { x: 100, y: 100, width: 1000, height: 400 },
+        maxWidthPx: 5000,
+      });
+      setViewport({ width: 800, height: 800 });
+      expect(geometryOf(panel())).toMatchObject({ x: 16, width: 768 });
+    });
   });
 });

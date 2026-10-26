@@ -15,4 +15,5 @@ export {
   seedInboundMessage,
   seedRejectedInboundMessage,
   setInboundFullContent,
+  watchedTrustedAuthservIdOf,
 } from "./feature.ts";

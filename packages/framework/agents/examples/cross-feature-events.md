@@ -34,6 +34,13 @@ Three building blocks:
   external system). With `table`, the apply materializes a persistent
   read model.
 
+- **`r.job(name, { trigger: { on: event.name, catchUp: true } }, run)`**
+  runs a job per stored event. With `catchUp` the job owns its own
+  consumer cursor (`job:<jobQn>`) that starts at the beginning of the
+  event store, so a job added to a running app also processes the
+  events from before its deploy. Each event enqueues at most one run.
+  Without `catchUp` a job only sees events appended after it went live.
+
 ## Flow
 
 ```
@@ -69,8 +76,74 @@ The integration test pins three guarantees:
 ```bash
 bun kumiko test integration samples/cross-feature-events
 ```
+4. **Catch-up job** — `catch-up-job.integration.test.ts` places orders
+   before the first dispatcher pass and checks that the `catchUp` job
+   invoices each of them exactly once.
 
 ## Source files
+
+### src/__tests__/catch-up-job.integration.test.ts
+
+```ts
+// The invoice-order job is triggered by the order-placed event with catchUp: it runs once per
+// stored event, including orders that were placed before the dispatcher ever looked at the store.
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { invoicedOrderIds, orderEntity, pubsubOrderFeature } from "../feature";
+
+let stack: TestStack;
+
+const customer = createTestUser({ roles: ["Customer"] });
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [pubsubOrderFeature],
+    jobs: { consumerLane: "worker", queueNamePrefix: `cross-feature-events-${generateId()}` },
+  });
+  await unsafeCreateEntityTable(stack.db, orderEntity);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+async function placeOrder(customerName: string): Promise<string> {
+  const data = await stack.http.writeOk(
+    "pubsub-orders:write:order:place",
+    { customer: customerName, product: "Widget" },
+    customer,
+  );
+  return String(data["id"]);
+}
+
+describe("r.job with trigger catchUp", () => {
+  test("invoices every placed order exactly once, older ones included", async () => {
+    const earlier = [await placeOrder("Erin"), await placeOrder("Frank")];
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(invoicedOrderIds.slice().sort()).toEqual(earlier.slice().sort());
+    });
+
+    const later = await placeOrder("Grace");
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(invoicedOrderIds).toContain(later);
+    });
+    expect(invoicedOrderIds).toHaveLength(3);
+  });
+});
+```
 
 ### src/__tests__/feature.integration.test.ts
 
@@ -254,6 +327,7 @@ export type CapturedEvent = {
   readonly tenantId: string;
 };
 export const capturedEvents: CapturedEvent[] = [];
+export const invoicedOrderIds: string[] = [];
 
 // --- Feature ---
 
@@ -296,6 +370,19 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
     },
     access: { roles: ["Admin", "Customer"] },
   });
+
+  // A job can react to the same event. `catchUp: true` gives the job its own
+  // consumer cursor that starts at the beginning of the event store, so a job
+  // added to a running app also processes the orders placed before it existed.
+  // Without catchUp the job only sees events appended after its deploy.
+  r.job(
+    "invoice-order",
+    { trigger: { on: orderPlaced.name, catchUp: true }, runIn: "worker" },
+    async (payload) => {
+      const order = orderPlaced.schema.parse(payload);
+      invoicedOrderIds.push(order.id);
+    },
+  );
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

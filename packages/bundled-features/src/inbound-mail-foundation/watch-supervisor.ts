@@ -167,6 +167,9 @@ type WatcherState = {
   renewFailures: number;
   /** True while plugin.watch() is in flight (re-entrancy guard). */
   starting: boolean;
+  /** The provider reads the account it was handed at watch start; a changed trust setting
+   *  only reaches it through a fresh watch. */
+  trustedAuthservId: string | null;
 };
 
 type WatchLeaseResult = "acquired" | "no-token" | "stale";
@@ -582,6 +585,7 @@ export function createInboundMailSupervisor(
   ): Promise<void> {
     // skip: provider without live push; the reconciliation poll covers the account.
     if (!plugin.watch) return;
+    await retireWatcherWithStaleTrust(account);
     const existing = watchers.get(account.id);
     // skip: the watcher is already running, starting, or scheduled for restart.
     if (existing?.stop || existing?.restartTimer || existing?.starting) return;
@@ -595,6 +599,7 @@ export function createInboundMailSupervisor(
       renewTimer: null,
       renewFailures: 0,
       starting: false,
+      trustedAuthservId: null,
     };
     watchers.set(account.id, state);
 
@@ -633,6 +638,7 @@ export function createInboundMailSupervisor(
     };
 
     state.starting = true;
+    state.trustedAuthservId = account.trustedAuthservId ?? null;
     try {
       const accessToken = await resolveAccessToken(account, plugin);
       const stop = await plugin.watch(
@@ -685,6 +691,13 @@ export function createInboundMailSupervisor(
       if (keepRunning) scheduleRestart(err);
     } finally {
       state.starting = false;
+    }
+  }
+
+  async function retireWatcherWithStaleTrust(account: MailAccountRecord): Promise<void> {
+    const existing = watchers.get(account.id);
+    if (existing?.stop && existing.trustedAuthservId !== (account.trustedAuthservId ?? null)) {
+      await stopWatcher(account.id);
     }
   }
 

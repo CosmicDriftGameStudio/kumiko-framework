@@ -60,6 +60,7 @@ export type CapturedEvent = {
   readonly tenantId: string;
 };
 export const capturedEvents: CapturedEvent[] = [];
+export const invoicedOrderIds: string[] = [];
 
 // --- Feature ---
 
@@ -102,6 +103,19 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
     },
     access: { roles: ["Admin", "Customer"] },
   });
+
+  // A job can react to the same event. `catchUp: true` gives the job its own
+  // consumer cursor that starts at the beginning of the event store, so a job
+  // added to a running app also processes the orders placed before it existed.
+  // Without catchUp the job only sees events appended after its deploy.
+  r.job(
+    "invoice-order",
+    { trigger: { on: orderPlaced.name, catchUp: true }, runIn: "worker" },
+    async (payload) => {
+      const order = orderPlaced.schema.parse(payload);
+      invoicedOrderIds.push(order.id);
+    },
+  );
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

@@ -48,6 +48,7 @@ type AccountState = {
   readonly fullContent: Map<string, RawInboundMessage>;
   readonly contentFetches: string[][];
   watch: WatchHandlers | null;
+  watchedTrustedAuthservId: string | null | undefined;
   nextFetchError: unknown;
   nextVerifyError: unknown;
   hangingFetch: Promise<void> | null;
@@ -65,6 +66,7 @@ function stateFor(accountId: string): AccountState {
       fullContent: new Map(),
       contentFetches: [],
       watch: null,
+      watchedTrustedAuthservId: undefined,
       nextFetchError: null,
       nextVerifyError: null,
       hangingFetch: null,
@@ -165,6 +167,11 @@ export function isWatching(accountId: string): boolean {
   return accounts.get(accountId)?.watch != null;
 }
 
+/** Test helper: the trustedAuthservId of the account the last watch was started with. */
+export function watchedTrustedAuthservIdOf(accountId: string): string | null | undefined {
+  return accounts.get(accountId)?.watchedTrustedAuthservId;
+}
+
 /** Test-Helper: kompletter State-Reset (Test-Isolation — Mock-States
  *  nie zwischen Tests teilen). */
 export function resetInboundInMemory(): void {
@@ -226,6 +233,7 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   watch: async (_ctx, account, handlers) => {
     const state = stateFor(account.id);
     state.watch = handlers;
+    state.watchedTrustedAuthservId = account.trustedAuthservId ?? null;
     return async () => {
       if (state.watch === handlers) state.watch = null;
     };
