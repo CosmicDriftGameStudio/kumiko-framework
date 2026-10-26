@@ -73,10 +73,9 @@ describe("createCheckoutSession", () => {
     const body = call?.body as {
       items: unknown;
       custom_data: { tenantId: string; tenantBinding: string };
-      checkout: unknown;
     };
     expect(body.items).toEqual([{ price_id: "pri_pro", quantity: 1 }]);
-    expect(body.checkout).toEqual({ url: "https://app.example.com/billing/paddle-checkout" });
+    expect(body).not.toHaveProperty("checkout");
     expect(body.custom_data.tenantId).toBe("tenant-paddle");
     expect(
       isValidTenantBinding(TEST_BINDING_KEY, "tenant-paddle", body.custom_data.tenantBinding),
@@ -344,6 +343,36 @@ describe("in-app plan switch", () => {
         proration_billing_mode: "prorated_immediately",
       },
     });
+  });
+
+  test("preview maps the recurring gross amount and its tax when Paddle reports them", async () => {
+    const reply = previewReply(true);
+    const { runtime } = setup(() => ({
+      body: {
+        data: {
+          ...reply.data,
+          // grand_total is lower than total once credit applies; the period price is total.
+          recurring_transaction_details: {
+            totals: { total: "2368", tax: "378", grand_total: "1000" },
+          },
+        },
+      },
+    }));
+    const preview = await createPaddlePreviewPlanSwitch(runtime, () => 0)(stubCtx(), {
+      providerSubscriptionId: "sub_1",
+      targetPriceId: "pri_pro",
+    });
+    expect(preview).toMatchObject({ recurringAmount: 2368, recurringTax: 378 });
+  });
+
+  test("preview without recurring details leaves the recurring fields out", async () => {
+    const { runtime } = setup(() => ({ body: previewReply(true) }));
+    const preview = await createPaddlePreviewPlanSwitch(runtime, () => 0)(stubCtx(), {
+      providerSubscriptionId: "sub_1",
+      targetPriceId: "pri_pro",
+    });
+    expect(preview).not.toHaveProperty("recurringAmount");
+    expect(preview).not.toHaveProperty("recurringTax");
   });
 
   test("preview without an immediate transaction owes nothing now", async () => {

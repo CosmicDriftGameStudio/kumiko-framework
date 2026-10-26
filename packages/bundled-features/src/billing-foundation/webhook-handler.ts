@@ -105,6 +105,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
             providerName: parsed.providerName,
             providerCustomerId: parsed.providerCustomerId,
             priceId: parsed.priceId,
+            ...(parsed.quantity !== undefined && { quantity: parsed.quantity }),
             ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
             ...(parsed.providerCheckoutId !== undefined && {
               providerCheckoutId: parsed.providerCheckoutId,

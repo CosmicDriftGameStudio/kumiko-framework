@@ -129,6 +129,8 @@ export type PaymentEvent = {
   readonly providerCustomerId: string;
   /** Provider's own price/plan-ID of the purchased item. */
   readonly priceId: string;
+  /** Number of units bought; absent = 1. */
+  readonly quantity?: number;
 };
 
 // =============================================================================
@@ -368,6 +370,10 @@ export type PlanSwitchPreview = {
   readonly currency: string;
   /** Credit for the unused time on the old plan, smallest currency unit. */
   readonly credit: number;
+  /** Recurring price per period as charged by the provider, smallest unit, tax included. */
+  readonly recurringAmount?: number;
+  /** Tax part of `recurringAmount`; null when the provider reports none. */
+  readonly recurringTax?: number | null;
   readonly effectiveAt: string;
 };
 
@@ -504,6 +510,16 @@ export type ConsumerProtectionOptions = {
   readonly legalLinks: LegalLinkSet | Readonly<Record<ConsentLocale, LegalLinkSet>>;
 };
 
+export type OneOffCheckoutRequest = {
+  readonly tenantId: TenantId;
+  readonly providerName: string;
+  readonly priceId: string;
+};
+
+export type OneOffCheckoutVerdict =
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly reason: string; readonly i18nKey: string };
+
 export type BillingFoundationOptions<TTier extends string = string> = {
   /** Absolute http(s) URL. Its origin is the only redirect origin
    *  create-checkout-session/create-portal-session (when set) and the plan
@@ -513,6 +529,12 @@ export type BillingFoundationOptions<TTier extends string = string> = {
    *  NOT via `new URL(path, baseUrl)` (which would drop the prefix). */
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog<TTier>;
+  /** Runs before every one-off (mode "payment") checkout, after the oneOffPriceIds gate and
+   *  before any provider call; a rejection becomes an UnprocessableError with `reason` as code. */
+  readonly authorizeOneOffCheckout?: (
+    ctx: HandlerContext,
+    request: OneOffCheckoutRequest,
+  ) => Promise<OneOffCheckoutVerdict>;
   /** Enables the consent gate on checkout; requires `baseUrl`. */
   readonly consumerProtection?: ConsumerProtectionOptions;
   /** Injectable clock for the stale-incomplete-subscription check

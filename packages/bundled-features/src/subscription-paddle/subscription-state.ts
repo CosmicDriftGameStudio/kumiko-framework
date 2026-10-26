@@ -25,7 +25,12 @@ export const paddleSubscriptionSchema = z.object({
   id: z.string().min(1),
   status: z.string(),
   customer_id: z.string().min(1),
-  items: z.array(z.object({ price: z.object({ id: z.string().min(1) }) })),
+  items: z.array(
+    z.object({
+      price: z.object({ id: z.string().min(1) }),
+      quantity: z.number().int().positive().optional(),
+    }),
+  ),
   custom_data: paddleCustomDataSchema,
   current_billing_period: z.object({ ends_at: instantSchema }).nullish(),
   next_billed_at: instantSchema.nullish(),

@@ -230,7 +230,18 @@ describe("transaction.completed", () => {
       providerCheckoutId: "txn_1",
       providerCustomerId: "ctm_paddle_1",
       priceId: "pri_topup",
+      quantity: 1,
     });
+  });
+
+  test("the bought quantity of the first item is carried; missing means 1", async () => {
+    const bought = await parse(
+      envelope(
+        "transaction.completed",
+        transaction({ items: [{ price: { id: "pri_topup" }, quantity: 3 }] }),
+      ),
+    );
+    expect(bought).toMatchObject({ kind: BillingEventKinds.payment, quantity: 3 });
   });
 
   test("a subscription's own transaction is covered by its subscription events", async () => {
@@ -245,6 +256,18 @@ describe("transaction.completed", () => {
         envelope("transaction.completed", transaction({ custom_data: { tenantId: "victim" } })),
       ),
     ).toBeNull();
+  });
+});
+
+describe("subscription item quantity", () => {
+  test("a quantity other than 1 still sets the tier", async () => {
+    const event = await parse(
+      envelope(
+        "subscription.created",
+        subscriptionData({ items: [{ price: { id: "pri_pro" }, quantity: 2 }] }),
+      ),
+    );
+    expect(event).toMatchObject({ tier: "pro" });
   });
 });
 

@@ -66,6 +66,8 @@ export {
   type ConsumerProtectionOptions,
   KNOWN_RECURRING_INTERVALS,
   type LegalLinkSet,
+  type OneOffCheckoutRequest,
+  type OneOffCheckoutVerdict,
   type PaymentEvent,
   type PlanSwitchPreview,
   type ProviderPrice,

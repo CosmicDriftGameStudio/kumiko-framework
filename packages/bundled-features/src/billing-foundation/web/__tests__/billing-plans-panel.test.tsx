@@ -10,7 +10,12 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { BillingPlansResult, BillingPlanView, BillingProviderView } from "../../types.ts";
+import type {
+  BillingPlansResult,
+  BillingPlanView,
+  BillingProviderView,
+  PlanSwitchPreview,
+} from "../../types.ts";
 import { BillingPlansPanel } from "../billing-plans-panel.tsx";
 import {
   BillingPlanActions,
@@ -856,7 +861,7 @@ describe("BillingPlansPanel — in-app plan switch", () => {
     },
   };
 
-  function openSwitchDialog(): void {
+  function openSwitchDialog(previewExtras: Partial<PlanSwitchPreview> = {}): void {
     queryState = {
       data: result({
         subscription: subscription({ tier: "basic" }),
@@ -875,6 +880,7 @@ describe("BillingPlansPanel — in-app plan switch", () => {
           currency: "eur",
           credit: 333,
           effectiveAt: "2026-11-01T10:00:00Z",
+          ...previewExtras,
         },
         target: {
           tier: "pro",
@@ -898,6 +904,20 @@ describe("BillingPlansPanel — in-app plan switch", () => {
     expect(summary).toContain("€6.67");
     expect(summary).toContain("€1.06");
     expect(summary).toContain("€3.33");
+    expect(summary).toContain("€19.90");
+  });
+
+  test("the recurring line shows the provider's gross amount with its tax when the preview has one", () => {
+    openSwitchDialog({ recurringAmount: 2368, recurringTax: 378 });
+    const summary = screen.getByTestId("plan-switch-summary").textContent ?? "";
+    expect(summary).toContain("€23.68");
+    expect(summary).toContain("€3.78");
+    expect(summary).not.toContain("€19.90");
+  });
+
+  test("the recurring line falls back to the catalog price without a provider amount", () => {
+    openSwitchDialog();
+    const summary = screen.getByTestId("plan-switch-summary").textContent ?? "";
     expect(summary).toContain("€19.90");
   });
 

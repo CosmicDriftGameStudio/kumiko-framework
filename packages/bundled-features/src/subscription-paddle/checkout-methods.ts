@@ -3,7 +3,6 @@
 
 import { SubscriptionCancelTimings } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import * as z from "zod";
-import { PADDLE_CHECKOUT_PATH } from "./constants.ts";
 import type { PaddleCtxRuntime, PaddlePluginMethod } from "./runtime.ts";
 import { signTenantBinding } from "./tenant-binding.ts";
 
@@ -30,7 +29,8 @@ export function createPaddleCheckoutSession(
     // No Paddle transaction may be created while billing is not live.
     await runtime.assertBillingLive(ctx);
     const bindingKey = await runtime.tenantBindingKey(ctx);
-    const checkoutPageUrl = new URL(PADDLE_CHECKOUT_PATH, options.successUrl).href;
+    // No `checkout.url` in the body: Paddle rejects unapproved domains and otherwise
+    // answers with the dashboard's Default Payment Link plus `?_ptxn=`.
     const { data } = checkoutResponseSchema.parse(
       await runtime.call(ctx, {
         method: "POST",
@@ -43,7 +43,6 @@ export function createPaddleCheckoutSession(
             tenantBinding: signTenantBinding(bindingKey, options.tenantId),
             ...(options.consentId && { consentId: options.consentId }),
           },
-          checkout: { url: checkoutPageUrl },
         },
       }),
     );

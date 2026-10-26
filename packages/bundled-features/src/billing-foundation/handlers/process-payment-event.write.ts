@@ -31,6 +31,7 @@ export const processPaymentEventSchema = z.object({
   providerCheckoutId: z.string().min(1).max(200).optional(),
   providerCustomerId: z.string().min(1).max(200),
   priceId: z.string().min(1).max(200),
+  quantity: z.number().int().positive().optional(),
   consentId: z.string().min(1).max(100).optional(),
 });
 type ProcessPaymentEventPayload = z.infer<typeof processPaymentEventSchema>;
@@ -97,6 +98,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
       providerName: payload.providerName,
       providerCustomerId: encryptedFields.providerCustomerId,
       priceId: payload.priceId,
+      ...(payload.quantity !== undefined && { quantity: payload.quantity }),
       ...(payload.consentId !== undefined && { consentId: payload.consentId }),
     };
     const headers: PaymentEventHeaders = {
