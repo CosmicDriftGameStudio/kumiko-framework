@@ -40,8 +40,7 @@ if [ -L "$framework_dir" ]; then
   exit 1
 fi
 version="$(bun -e 'console.log(require(process.argv[1]).version)' "$PWD/$framework_dir/package.json")"
-# The version picks the guards package bunx downloads, and the agent could
-# have edited node_modules; accept only a plain release number.
+# The agent could have edited node_modules; accept only a plain release number.
 if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "unexpected framework version: $version" >&2
   exit 1
@@ -69,8 +68,10 @@ run_check unit bun run test
 run_check boot bun run boot
 run_check schema-validate bun kumiko-schema validate
 run_check integration bun run test:integration
-run_check guards bunx "@cosmicdrift/kumiko-guards@$version" guards
-run_check ui-guards bunx "@cosmicdrift/kumiko-guards@$version" ui
+# The project's own guards: a bunx download of the guards package alone lacks
+# the optional framework peer it imports, and the version matches the app.
+run_check guards bun x --no-install kumiko-guards guards
+run_check ui-guards bun x --no-install kumiko-guards ui
 
 # Added lines outside the acceptance test. Every hit is a candidate, not a
 # verdict: read it in context before calling it a rule break.
