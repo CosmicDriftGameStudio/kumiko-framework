@@ -8,6 +8,7 @@ import {
   validateAtMostOneRowClick,
   validateDrawerTargetAction,
 } from "./screens-actions.ts";
+import { validateDashboardPanelVisibleWhen } from "./screens-dashboard.ts";
 import {
   listActionContext,
   rejectEmptyColumns,
@@ -44,6 +45,10 @@ function validateProjectionListToolbarActions(
 ): void {
   const featureName = ctx.feature.name;
   for (const action of toolbarActions) {
+    validateDashboardPanelVisibleWhen(
+      `[Feature ${featureName}] Screen "${screenId}" (projectionList) toolbarAction "${action.id}"`,
+      action.visibleWhen,
+    );
     if (action.kind === "drawer") {
       validateDrawerTargetAction(
         featureName,

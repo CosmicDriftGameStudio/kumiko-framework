@@ -308,6 +308,12 @@ export type {
   ToolbarAction,
 } from "./screen-entity-list.ts";
 export type { EntityListExpandableRow, ExpandableRowGrouping } from "./screen-expandable-row.ts";
+export type {
+  ScreenFallback,
+  ScreenFallbackByReason,
+  ScreenFallbackReason,
+} from "./screen-fallback.ts";
+export { fallbackTargetFor, fallbackTargets, SCREEN_FALLBACK_REASONS } from "./screen-fallback.ts";
 export type { ListBulkAction } from "./screen-list-bulk.ts";
 export { LIST_BULK_ACTION_KEYS, MAX_BULK_SELECTION } from "./screen-list-bulk.ts";
 export type {

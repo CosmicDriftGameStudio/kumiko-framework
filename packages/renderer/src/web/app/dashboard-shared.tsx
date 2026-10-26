@@ -46,6 +46,8 @@ export type ScreenParams = {
   readonly rangeParams: Readonly<Record<string, unknown>>;
   /** `{ [payloadKey]: recordId }` of a record-bound dashboard, else empty. */
   readonly recordParams: Readonly<Record<string, unknown>>;
+  /** Id read from `record.param`; set whenever the dashboard renders its panels. */
+  readonly recordId?: string;
 };
 
 export function panelPayload(

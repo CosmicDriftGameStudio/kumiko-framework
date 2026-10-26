@@ -1,6 +1,8 @@
 // Dashboard Stats Sample
 // Shows: a dashboard screen with a stat-group and a single stat, backed by one
-// query handler that counts in the database.
+// query handler that counts in the database. A second, record-bound dashboard embeds a
+// projectionDetail as a panel, hides a toolbar button behind a capability query, and picks its
+// fallback screen by the reason the gate closed.
 
 import {
   createEntity,
@@ -22,6 +24,7 @@ export const ticketEntity = createEntity({
 });
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
+export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 
 const readerRoles = { roles: ["Admin", "User"] } as const;
 
@@ -57,8 +60,51 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
+  // Gate for the screens below: a flat answer with one boolean the screens test with `eq`.
+  r.queryHandler({
+    name: "ticket:capabilities",
+    schema: z.object({}),
+    outputSchema: z.object({ canClose: z.boolean() }),
+    handler: async (query) => ({ canClose: query.user.roles.includes("Admin") }),
+    access: readerRoles,
+  });
+
+  r.queryHandler({
+    name: "ticket:card",
+    schema: z.object({ id: z.string() }),
+    handler: async (query, ctx) => {
+      const page = await ticketExecutor.list(
+        { filter: { field: "id", op: "eq", value: query.payload.id }, limit: 1 },
+        query.user,
+        ctx.db,
+      );
+      const ticket = page.rows[0];
+      return { id: query.payload.id, title: ticket?.title ?? "", status: ticket?.status ?? "" };
+    },
+    access: readerRoles,
+  });
+
+  r.queryHandler({
+    name: "ticket:rows",
+    schema: z.object({}),
+    handler: async (query, ctx) => {
+      const page = await ticketExecutor.list({ limit: 50 }, query.user, ctx.db);
+      return { rows: page.rows, nextCursor: null };
+    },
+    access: readerRoles,
+  });
+
   r.translations({
     keys: {
+      "screen:ticket-list.title": { en: "Tickets" },
+      "screen:ticket-card.title": { en: "Ticket" },
+      "screen:ticket-record-dashboard.title": { en: "Ticket overview" },
+      "entity:ticket:field:title": { en: "Title" },
+      "entity:ticket:field:status": { en: "Status" },
+      "entity:__projection-detail__:field:title": { en: "Title" },
+      "entity:__projection-detail__:field:status": { en: "Status" },
+      "tickets.toolbar.close": { en: "Close all done" },
+      "tickets.dashboard.card": { en: "Ticket" },
       "tickets.dashboard.group": { en: "Tickets by status" },
       "tickets.dashboard.open": { en: "Open" },
       "tickets.dashboard.closed": { en: "Closed" },
@@ -99,6 +145,50 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         valueField: "total",
       },
     ],
+    access: readerRoles,
+  });
+
+  // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
+  // button, and a fallback chosen by reason.
+  const gate = { query: TICKET_CAPABILITIES_QUERY, field: "canClose", eq: true } as const;
+
+  // The list doubles as the fallback target: it has no visibleWhen of its own.
+  r.screen({
+    id: "ticket-list",
+    type: "projectionList",
+    query: "tickets:query:ticket:rows",
+    columns: ["title", "status"],
+    access: readerRoles,
+    toolbarActions: [
+      {
+        kind: "writeHandler",
+        id: "close-done",
+        label: "tickets.toolbar.close",
+        handler: "tickets:write:ticket:update",
+        // Live and fail-closed: hidden while the query loads and when it fails.
+        visibleWhen: gate,
+      },
+    ],
+  });
+
+  r.screen({
+    id: "ticket-card",
+    type: "projectionDetail",
+    query: "tickets:query:ticket:card",
+    layout: { sections: [{ title: "tickets.dashboard.card", fields: ["title", "status"] }] },
+    access: readerRoles,
+    visibleWhen: gate,
+    // 403 and 404 on the gate query get their own screen; an unmet condition keeps the
+    // default notice and any other failure shows an error banner with retry.
+    fallback: { forbidden: "ticket-list", notFound: "ticket-list" },
+  });
+
+  // `record` reads the id from the URL; the embedded projectionDetail receives it as its entityId.
+  r.screen({
+    id: "ticket-record-dashboard",
+    type: "dashboard",
+    record: { param: "ticketId", payloadKey: "id" },
+    panels: [{ kind: "screen", id: "card", screen: "ticket-card" }],
     access: readerRoles,
   });
 });

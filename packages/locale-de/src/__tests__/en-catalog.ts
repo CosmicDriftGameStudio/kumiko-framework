@@ -739,6 +739,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.screen-missing.home": "Go to start page",
   "kumiko.screen-missing.hint": "It is not enabled for your account or no longer exists.",
   "kumiko.screen-missing.title": "This page is not available",
+  "kumiko.screen.forbidden": "You do not have access to this page.",
+  "kumiko.screen.notFound": "This page could not be found.",
   "kumiko.screen.unavailable": "This page is not available right now.",
   "kumiko.dashboard.brush-end": "Window end",
   "kumiko.dashboard.brush-start": "Window start",

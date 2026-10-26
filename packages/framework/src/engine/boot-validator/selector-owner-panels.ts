@@ -17,7 +17,7 @@ export function validateExtensionSelectorPanels(features: readonly FeatureDefini
           validateDashboardCustomPanel(feature.name, where, panel);
           continue;
         }
-        validateDashboardScreenPanel(feature.name, where, panel, featureMap);
+        validateDashboardScreenPanel(feature.name, where, panel, featureMap, undefined);
         if (panel.visibleWhen !== undefined) {
           checkQueryRef(queryHandlers, panel.visibleWhen.query, () => `${context} visibleWhen`);
         }

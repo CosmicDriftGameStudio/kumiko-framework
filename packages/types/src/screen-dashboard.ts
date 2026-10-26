@@ -1,6 +1,7 @@
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ListColumnSpec, RowAction } from "./screen-entity-list.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 
 // --- dashboard ---
 
@@ -463,7 +464,7 @@ export type DashboardScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   readonly panels: readonly DashboardPanelDefinition[];
   /** Binds the dashboard to one record via a URL search param, see DashboardRecordBinding. */
   readonly record?: DashboardRecordBinding;

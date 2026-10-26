@@ -160,6 +160,10 @@
       "types": "./src/consumer-cli.ts",
       "default": "./src/consumer-cli.ts"
     },
+    "./events-cli": {
+      "types": "./src/events-cli.ts",
+      "default": "./src/events-cli.ts"
+    },
     "./upgrade-cli": {
       "types": "./src/upgrade-cli.ts",
       "default": "./src/upgrade-cli.ts"
@@ -360,6 +364,10 @@
       "./consumer-cli": {
         "types": "./dist/consumer-cli.d.ts",
         "default": "./dist/consumer-cli.js"
+      },
+      "./events-cli": {
+        "types": "./dist/events-cli.d.ts",
+        "default": "./dist/events-cli.js"
       },
       "./upgrade-cli": {
         "types": "./dist/upgrade-cli.d.ts",

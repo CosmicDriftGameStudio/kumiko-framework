@@ -25,7 +25,12 @@ export function useDashboardScreenParams(
 
   const { params: filterParams, picker } = useFilterParams(screen, !recordMissing);
   const { params: rangeParams, control: rangeControl } = useTimeRange(screen, translate);
-  const screenParams: ScreenParams = { filterParams, rangeParams, recordParams };
+  const screenParams: ScreenParams = {
+    filterParams,
+    rangeParams,
+    recordParams,
+    ...(recordId !== "" && { recordId }),
+  };
   const { loadedAtMs, reportLoaded } = useLoadedAt(screenParams);
   return {
     recordBinding,

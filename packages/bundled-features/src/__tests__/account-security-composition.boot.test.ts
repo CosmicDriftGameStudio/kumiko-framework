@@ -68,6 +68,11 @@ describe("account-security composed from bundled screens", () => {
     const nav = Object.values(feature.navs)[0];
     expect(nav?.screen).toBe(ACCOUNT_SECURITY_SCREEN_QN);
     expect(nav?.order).toBe(40);
+    expect(nav?.icon).toBe("user");
+    const custom = Object.values(
+      createAccountSecurityFeature({ nav: { icon: "settings" } }).navs,
+    )[0];
+    expect(custom?.icon).toBe("settings");
     expect(() =>
       validateBoot([...bootFeatures(), createAccountSecurityFeature({ nav: {} })]),
     ).not.toThrow();

@@ -104,6 +104,7 @@
     "./auth-email-password": "./src/auth-email-password/index.ts",
     "./auth-email-password/constants": "./src/auth-email-password/web/constants.ts",
     "./auth-email-password/return-path": "./src/auth-email-password/web/return-path.ts",
+    "./auth-email-password/static-login": "./src/auth-email-password/web/static-login.ts",
     "./auth-email-password/email-templates": "./src/auth-email-password/email-templates.ts",
     "./auth-email-password/seeding": "./src/auth-email-password/seeding.ts",
     "./auth-email-password/testing": "./src/auth-email-password/testing.ts",
@@ -523,6 +524,10 @@
       "./auth-email-password/return-path": {
         "types": "./dist/auth-email-password/web/return-path.d.ts",
         "default": "./dist/auth-email-password/web/return-path.js"
+      },
+      "./auth-email-password/static-login": {
+        "types": "./dist/auth-email-password/web/static-login.d.ts",
+        "default": "./dist/auth-email-password/web/static-login.js"
       },
       "./auth-email-password/seeding": {
         "types": "./dist/auth-email-password/seeding.d.ts",

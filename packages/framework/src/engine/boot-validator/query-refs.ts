@@ -222,6 +222,23 @@ function checkEditFormScreenQueryRefs(
   }
 }
 
+function checkToolbarVisibleWhenQueryRefs(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: Extract<ScreenDefinition, { readonly type: "projectionList" | "entityList" }>,
+): void {
+  for (const action of screen.toolbarActions ?? []) {
+    if (action.visibleWhen === undefined) continue;
+    checkVisibleWhenQueryRef(
+      queryHandlers,
+      action.visibleWhen.query,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) toolbarAction "${action.id}" visibleWhen`,
+    );
+  }
+}
+
 function checkScreenQueryRefs(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -249,7 +266,9 @@ function checkScreenQueryRefs(
       screen.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     );
+    checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {
+    checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
     if (screen.expandableRow !== undefined) {
       checkQueryRef(
         queryHandlers,

@@ -1,13 +1,10 @@
 import type {
   DashboardScreenDefinition,
   ScreenDefinition,
-  ScreenVisibility,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
-import { useQuery } from "../hooks/use-query.ts";
-import { useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { ActionFormBody } from "./action-form-body.tsx";
@@ -22,14 +19,13 @@ import { ProjectionDetailBody } from "./projection-detail-body.tsx";
 import { ProjectionListBody } from "./projection-list-body.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
-import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { type ReturnHost, ReturnHostProvider, useReturnHost } from "./return-to.tsx";
 import { screenAccessAllows } from "./screen-access.ts";
 import { ScreenAccessDeniedBanner, ScreenMissingState } from "./screen-shared.tsx";
+import { ScreenNotice, ScreenVisibilityGate } from "./screen-visibility-gate.tsx";
 import { SecretMintBody } from "./secret-mint-body.tsx";
 import { SecretsEditBody } from "./secrets-edit-body.tsx";
 import { useEmbeddedScreen } from "./use-embedded-screen.ts";
-import { evalVisibleWhenAfterShown } from "./visible-when.ts";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command
@@ -122,10 +118,17 @@ export function KumikoScreen({
       <ScreenVisibilityGate
         key={entityId}
         entityId={entityId}
-        featureName={schema.featureName}
         visibleWhen={screen.visibleWhen}
         fallback={screen.fallback}
         translate={translate}
+        renderFallbackScreen={(target, fallbackEntityId) => (
+          <FallbackScreen
+            featureName={schema.featureName}
+            fallback={target}
+            translate={translate}
+            {...(fallbackEntityId !== undefined && { entityId: fallbackEntityId })}
+          />
+        )}
       >
         <StandInChainBoundary>{screenBody}</StandInChainBoundary>
       </ScreenVisibilityGate>
@@ -138,69 +141,6 @@ export function KumikoScreen({
     return <PageHeaderSlotAvailableProvider value={false}>{body}</PageHeaderSlotAvailableProvider>;
   }
   return <ReturnHostProvider value={ownHost}>{body}</ReturnHostProvider>;
-}
-
-function ScreenVisibilityGate({
-  entityId,
-  featureName,
-  visibleWhen,
-  fallback,
-  translate,
-  children,
-}: {
-  readonly entityId: string | undefined;
-  readonly featureName: string;
-  readonly visibleWhen: ScreenVisibility;
-  readonly fallback: string | undefined;
-  readonly translate?: Translate;
-  readonly children: ReactNode;
-}): ReactNode {
-  // An idParam gate without a route id has nothing to ask: treated as hidden, never queried.
-  const missingRouteId = visibleWhen.idParam !== undefined && entityId === undefined;
-  const result = useQuery<Readonly<Record<string, unknown>>>(
-    visibleWhen.query,
-    visibleWhen.idParam !== undefined && entityId !== undefined
-      ? { [visibleWhen.idParam]: entityId }
-      : {},
-    { live: true, enabled: !missingRouteId },
-  );
-  const wasShown = useRef(false);
-  const verdict = missingRouteId
-    ? "hidden"
-    : evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
-  useEffect(() => {
-    if (verdict === "visible") wasShown.current = true;
-  }, [verdict]);
-  if (verdict === "visible") return children;
-  if (verdict === "loading") {
-    return <QueryLoadingBanner />;
-  }
-  if (fallback !== undefined) {
-    return (
-      <FallbackScreen
-        featureName={featureName}
-        fallback={fallback}
-        translate={translate}
-        {...(visibleWhen.idParam !== undefined && entityId !== undefined && { entityId })}
-      />
-    );
-  }
-  return (
-    <>
-      <LockedHeaderScope />
-      <ScreenUnavailableBanner />
-    </>
-  );
-}
-
-function ScreenUnavailableBanner(): ReactNode {
-  const { Banner } = usePrimitives();
-  const t = useTranslation();
-  return (
-    <Banner padded variant="info" testId="kumiko-screen-unavailable">
-      {t("kumiko.screen.unavailable")}
-    </Banner>
-  );
 }
 
 function FallbackScreen({
@@ -221,7 +161,7 @@ function FallbackScreen({
     return (
       <>
         <LockedHeaderScope />
-        <ScreenUnavailableBanner />
+        <ScreenNotice />
       </>
     );
   }

@@ -14,6 +14,7 @@ import type {
   ScreenFilter,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableOptions } from "./screen-list-table.ts";
 
@@ -95,7 +96,7 @@ export type ProjectionListScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -227,7 +228,7 @@ export type ProjectionDetailScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   readonly query: string;
   /** Query output field whose value titles the page header (breadcrumb) when no `header` is set. */
   readonly recordTitleField?: string;

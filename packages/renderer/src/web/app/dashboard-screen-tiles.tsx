@@ -19,15 +19,26 @@ import {
 } from "./dashboard-visibility.tsx";
 
 function EmbeddedScreenPanelTile({
+  recordId,
   panel,
   target,
   translate,
 }: {
   readonly panel: DashboardScreenPanel;
   readonly target: EmbeddedScreenTarget;
+  readonly recordId: string | undefined;
   readonly translate: Translate;
 }): ReactNode {
-  const screenBody = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
+  // Only a record screen takes the dashboard's bound record; other screens have no id to read.
+  const entityId = target.screenType === "projectionDetail" ? recordId : undefined;
+  const screenBody = (
+    <KumikoScreen
+      schema={target.schema}
+      qn={target.qn}
+      translate={translate}
+      {...(entityId !== undefined && { entityId })}
+    />
+  );
   const embedded =
     panel.chromeless === true ? (
       <EmbeddedFormProvider>
@@ -57,25 +68,36 @@ function FallbackScreenPanelTile({
   panel,
   fallback,
   featureName,
+  recordId,
   translate,
 }: {
   readonly panel: DashboardScreenPanel;
   readonly fallback: string;
   readonly featureName: string;
+  readonly recordId: string | undefined;
   readonly translate: Translate;
 }): ReactNode {
   const target = useEmbeddedScreen(featureName, fallback);
   if (target === undefined) return null;
-  return <EmbeddedScreenPanelTile panel={panel} target={target} translate={translate} />;
+  return (
+    <EmbeddedScreenPanelTile
+      panel={panel}
+      target={target}
+      recordId={recordId}
+      translate={translate}
+    />
+  );
 }
 
 export function ScreenPanelTile({
   panel,
   featureName,
+  recordId,
   translate,
 }: {
   readonly panel: DashboardScreenPanel;
   readonly featureName: string;
+  readonly recordId: string | undefined;
   readonly translate: Translate;
 }): ReactNode {
   const visibleWhen = panel.visibleWhen;
@@ -92,6 +114,7 @@ export function ScreenPanelTile({
         panel={panel}
         fallback={panel.fallback}
         featureName={featureName}
+        recordId={recordId}
         translate={translate}
       />
     );
@@ -111,5 +134,12 @@ export function ScreenPanelTile({
     );
   }
   if (verdict !== "visible") return null;
-  return <EmbeddedScreenPanelTile panel={panel} target={target} translate={translate} />;
+  return (
+    <EmbeddedScreenPanelTile
+      panel={panel}
+      target={target}
+      recordId={recordId}
+      translate={translate}
+    />
+  );
 }

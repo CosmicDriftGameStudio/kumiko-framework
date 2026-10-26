@@ -128,6 +128,20 @@ describe("status command", () => {
     expect(joined).toContain("Clean");
   });
 
+  test("a failing git status is reported, not shown as clean", async () => {
+    const spy = makeSpyOutput();
+    await runStatus(makeContext({ cwd: tmp(), out: spy.out }), {
+      ...realGitDeps,
+      runGit: async (_cwd, args) =>
+        args[0] === "branch"
+          ? { status: 0, stdout: "main\n", stderr: "", timedOut: false }
+          : { status: 128, stdout: "", stderr: "fatal: index file corrupt", timedOut: false },
+    });
+    const joined = spy.logs.join("\n");
+    expect(joined).toContain("git status failed: fatal: index file corrupt");
+    expect(joined).not.toContain("Clean");
+  });
+
   test("dirty working tree is reported", async () => {
     const cwd = tmp({ "file.txt": "hello" });
     runGit(["init", "-b", "main"], cwd);

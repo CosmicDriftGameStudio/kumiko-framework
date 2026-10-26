@@ -2,9 +2,10 @@
 // string, so anything read back from it is untrusted: only same-origin
 // root-relative paths pass (no "//host", no "/\host", no scheme).
 
-import { isSafeReturnPath, RETURN_TO_QUERY_PARAM, readReturnToFromSearch } from "./return-path.ts";
+import { appendReturnTo, NEXT_QUERY_PARAM } from "./login-url.ts";
+import { isSafeReturnPath, readReturnToFromSearch } from "./return-path.ts";
 
-export const NEXT_QUERY_PARAM = "next";
+export { appendReturnTo, NEXT_QUERY_PARAM };
 
 export const isSafeNextPath = isSafeReturnPath;
 
@@ -16,16 +17,6 @@ export function readNextFromSearch(search: string): string | null {
 // The returnTo a mail link or sibling auth page carried in this page's own URL; null on native, where there is no window.
 export function readReturnToFromWindow(): string | null {
   return typeof window === "undefined" ? null : readReturnToFromSearch(window.location.search);
-}
-
-// Adds returnTo to an href of a sibling auth page; a missing value leaves the href untouched.
-export function appendReturnTo(href: string, returnTo: string | null): string {
-  if (returnTo === null) return href;
-  const hashAt = href.indexOf("#");
-  const base = hashAt === -1 ? href : href.slice(0, hashAt);
-  const hash = hashAt === -1 ? "" : href.slice(hashAt);
-  const separator = base.includes("?") ? "&" : "?";
-  return `${base}${separator}${RETURN_TO_QUERY_PARAM}=${encodeURIComponent(returnTo)}${hash}`;
 }
 
 // The safe `next` of this page's URL; null on native, where there is no window.

@@ -8,6 +8,7 @@
 
 // kumiko-lint-ignore cross-feature-import client-only types, the feature's server barrel has no web/ re-export
 import {
+  failureFromErrorField,
   type LoginFailure,
   type LoginResponse,
   toLoginResponse,
@@ -36,13 +37,7 @@ export async function verifyMfaChallenge(
     token?: string;
     user?: LoginResponse["user"];
     landingPath?: string;
-    error?:
-      | {
-          code?: string;
-          message?: string;
-          details?: { reason?: string; retryAfterSeconds?: number };
-        }
-      | string;
+    error?: unknown;
   };
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
     return {
@@ -50,20 +45,7 @@ export async function verifyMfaChallenge(
       data: toLoginResponse(body.token, body.user, body.landingPath),
     };
   }
-  const err = body.error;
-  if (typeof err === "string") {
-    return { kind: "failure", error: { reason: err } };
-  }
-  const reason = err?.details?.reason ?? err?.code ?? "mfa_verify_failed";
-  const retry = err?.details?.retryAfterSeconds;
-  return {
-    kind: "failure",
-    error: {
-      reason,
-      ...(err?.message !== undefined && { message: err.message }),
-      ...(retry !== undefined && { retryAfterSeconds: retry }),
-    },
-  };
+  return { kind: "failure", error: failureFromErrorField(body.error, "mfa_verify_failed") };
 }
 
 export type MfaSetupPreauthStart = {
@@ -101,13 +83,7 @@ export async function startMfaSetupPreauth(
     setupToken?: string;
     otpauthUri?: string;
     recoveryCodes?: readonly string[];
-    error?:
-      | {
-          code?: string;
-          message?: string;
-          details?: { reason?: string; retryAfterSeconds?: number };
-        }
-      | string;
+    error?: unknown;
   };
   if (
     body.isSuccess === true &&
@@ -124,20 +100,7 @@ export async function startMfaSetupPreauth(
       },
     };
   }
-  const err = body.error;
-  if (typeof err === "string") {
-    return { kind: "failure", error: { reason: err } };
-  }
-  const reason = err?.details?.reason ?? err?.code ?? "setup_failed";
-  const retry = err?.details?.retryAfterSeconds;
-  return {
-    kind: "failure",
-    error: {
-      reason,
-      ...(err?.message !== undefined && { message: err.message }),
-      ...(retry !== undefined && { retryAfterSeconds: retry }),
-    },
-  };
+  return { kind: "failure", error: failureFromErrorField(body.error, "setup_failed") };
 }
 
 // Browser side of POST /api/auth/mfa/preauth-confirm — completes both the
@@ -165,13 +128,7 @@ export async function confirmMfaSetupPreauth(
     token?: string;
     user?: LoginResponse["user"];
     landingPath?: string;
-    error?:
-      | {
-          code?: string;
-          message?: string;
-          details?: { reason?: string; retryAfterSeconds?: number };
-        }
-      | string;
+    error?: unknown;
   };
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
     return {
@@ -179,18 +136,5 @@ export async function confirmMfaSetupPreauth(
       data: toLoginResponse(body.token, body.user, body.landingPath),
     };
   }
-  const err = body.error;
-  if (typeof err === "string") {
-    return { kind: "failure", error: { reason: err } };
-  }
-  const reason = err?.details?.reason ?? err?.code ?? "mfa_setup_confirm_failed";
-  const retry = err?.details?.retryAfterSeconds;
-  return {
-    kind: "failure",
-    error: {
-      reason,
-      ...(err?.message !== undefined && { message: err.message }),
-      ...(retry !== undefined && { retryAfterSeconds: retry }),
-    },
-  };
+  return { kind: "failure", error: failureFromErrorField(body.error, "mfa_setup_confirm_failed") };
 }

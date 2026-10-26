@@ -349,6 +349,8 @@ describe("scaffoldApp", () => {
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
     expect(kumikoBin).toContain("runSchemaCli");
     expect(kumikoBin).toContain("runConsumerCli");
+    expect(kumikoBin).toContain("runEventsCli");
+    expect(kumikoBin).toContain('if (cmd === "events")');
     expect(kumikoBin).toContain('import { FEATURES } from "../kumiko/schema";');
     expect(kumikoBin).not.toContain("allAppFeatures");
     expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");

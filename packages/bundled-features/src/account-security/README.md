@@ -25,7 +25,7 @@ const features = [
 | Option | Default | Effect |
 | --- | --- | --- |
 | `access` | `openToAll` | Who may open the dashboard, e.g. `{ roles: ["Admin", "Editor"] }` |
-| `nav` | none | `{ order?, parent? }` adds a sidebar entry. Without it the screen is dormant and apps link it from the user menu |
+| `nav` | none | `{ order?, parent?, icon? }` (icon default `"user"`) adds a sidebar entry. Without it the screen is dormant and apps link it from the user menu |
 
 The MFA panels switch on `auth-mfa:query:status` (`enabled`), exported as
 `accountSecurityMfaStatusVisibility`.

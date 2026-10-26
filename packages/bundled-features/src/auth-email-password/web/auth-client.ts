@@ -9,6 +9,14 @@
 
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
+import {
+  failureFromErrorField,
+  type LoginFailure,
+  parseRetryAfterSeconds,
+} from "./login-failure.ts";
+
+export type { KnownLoginFailureReason, LoginFailure } from "./login-failure.ts";
+export { parseRetryAfterSeconds };
 
 export type TenantSummary = {
   readonly tenantId: string;
@@ -36,28 +44,6 @@ export type LoginResponse = {
   readonly landingPath?: string;
 };
 
-// Reason codes the login-handler is known to emit today (login-screen.tsx's
-// reasonToKey maps every one of these to an i18n key). The server can also
-// send a reason this client doesn't know about yet (rolling deploys, a new
-// enforcement policy) — `string & {}` keeps that open while still giving
-// autocomplete/typo-checking on the known set, instead of collapsing both
-// to plain `string` (coding-standards: no magic strings without a union).
-export type KnownLoginFailureReason =
-  | "invalid_credentials"
-  | "no_membership"
-  | "account_locked"
-  | "email_not_verified"
-  | "rate_limited"
-  | "invalid_body"
-  | "mfa_not_supported"
-  | "mfa_setup_required";
-
-export type LoginFailure = {
-  readonly reason: KnownLoginFailureReason | (string & {});
-  readonly message?: string;
-  readonly retryAfterSeconds?: number;
-};
-
 export function csrfHeader(): Record<string, string> {
   const token = readCsrfToken();
   return token !== undefined ? { [CSRF_HEADER_NAME]: token } : {};
@@ -74,13 +60,6 @@ export class AuthRequestError extends Error {
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
   }
-}
-
-// Only a non-negative integer second count is usable; anything else is treated as absent.
-export function parseRetryAfterSeconds(header: string | null): number | undefined {
-  if (header === null) return undefined;
-  if (!/^\d+$/.test(header)) return undefined;
-  return Number(header);
 }
 
 // LoginResult mirrors the two-step login contract auth-routes.ts owns: a
@@ -128,13 +107,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     mfaSetupRequired?: boolean;
     preauthSetupToken?: string;
     landingPath?: string;
-    error?:
-      | {
-          code?: string;
-          message?: string;
-          details?: { reason?: string; retryAfterSeconds?: number };
-        }
-      | string;
+    error?: unknown;
   };
   if (body.isSuccess === true) {
     if (body.mfaRequired === true && typeof body.challengeToken === "string") {
@@ -153,22 +126,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
       return { kind: "success", data: toLoginResponse(body.token, body.user, body.landingPath) };
     }
   }
-  // The server sends error either as a string ("invalid_body") or as a
-  // structured object. Extract the most descriptive reason.
-  const err = body.error;
-  if (typeof err === "string") {
-    return { kind: "failure", error: { reason: err } };
-  }
-  const reason = err?.details?.reason ?? err?.code ?? "login_failed";
-  const retry = err?.details?.retryAfterSeconds;
-  return {
-    kind: "failure",
-    error: {
-      reason,
-      ...(err?.message !== undefined && { message: err.message }),
-      ...(retry !== undefined && { retryAfterSeconds: retry }),
-    },
-  };
+  return { kind: "failure", error: failureFromErrorField(body.error, "login_failed") };
 }
 
 // POST /api/auth/logout. The server revokes the session when

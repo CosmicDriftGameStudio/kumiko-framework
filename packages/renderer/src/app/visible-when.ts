@@ -1,4 +1,7 @@
-import type { DashboardPanelVisibility } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  DashboardPanelVisibility,
+  ScreenFallbackReason,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { UseQueryResult } from "../hooks/use-query.ts";
 
 export type VisibleWhenVerdict = "loading" | "visible" | "hidden" | "error";
@@ -25,4 +28,18 @@ export function evalVisibleWhenAfterShown(
   const verdict = evalVisibleWhen(visibleWhen, result);
   const lastGoodDataMatches = result?.data?.[visibleWhen.field] === visibleWhen.eq;
   return verdict === "error" && wasShown && lastGoodDataMatches ? "visible" : verdict;
+}
+
+export type FailedVerdict = Exclude<VisibleWhenVerdict, "visible" | "loading">;
+
+// Splits a closed gate by cause so a screen's `fallback` map can answer "not allowed" and
+// "gone" differently from "condition unmet" and "something broke".
+export function screenFallbackReason(
+  verdict: FailedVerdict,
+  error: { readonly httpStatus: number } | null,
+): ScreenFallbackReason {
+  if (verdict === "hidden") return "hidden";
+  if (error?.httpStatus === 403) return "forbidden";
+  if (error?.httpStatus === 404) return "notFound";
+  return "error";
 }

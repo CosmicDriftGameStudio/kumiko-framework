@@ -1,6 +1,12 @@
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
+import {
+  fallbackTargets,
+  SCREEN_FALLBACK_REASONS,
+  type ScreenFallback,
+  type ScreenFallbackByReason,
+} from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.ts";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
@@ -777,7 +783,41 @@ export function validateScreenVisibleWhen(
   }
 }
 
+function assertFallbackMapShape(context: string, fallback: ScreenFallbackByReason): void {
+  const reasons = Object.keys(fallback);
+  if (reasons.length === 0) {
+    throw new Error(
+      `${context} fallback map is empty. Set at least one of ${SCREEN_FALLBACK_REASONS.join(", ")} or use a screen id string.`,
+    );
+  }
+  const unknownReason = reasons.find((reason) => !isOneOf(SCREEN_FALLBACK_REASONS, reason));
+  if (unknownReason !== undefined) {
+    throw new Error(
+      `${context} fallback has unknown reason "${unknownReason}". Use ${SCREEN_FALLBACK_REASONS.join(", ")}.`,
+    );
+  }
+}
+
 function validateScreenFallback(
+  feature: FeatureDefinition,
+  screenId: string,
+  screenType: ScreenDefinition["type"],
+  fallback: ScreenFallback,
+  allScreenQns: ReadonlySet<string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  if (typeof fallback !== "string") {
+    assertFallbackMapShape(
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenType})`,
+      fallback,
+    );
+  }
+  for (const target of fallbackTargets(fallback)) {
+    validateFallbackTarget(feature, screenId, screenType, target, allScreenQns, featureMap);
+  }
+}
+
+function validateFallbackTarget(
   feature: FeatureDefinition,
   screenId: string,
   screenType: ScreenDefinition["type"],

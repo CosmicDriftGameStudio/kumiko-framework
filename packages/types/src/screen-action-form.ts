@@ -4,6 +4,7 @@ import type { IconKey } from "./nav-icon.ts";
 import type { ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ScreenVisibility } from "./screen-dashboard.ts";
 import type { EditLayout } from "./screen-entity-edit.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 
 // --- actionForm ---
 
@@ -58,7 +59,7 @@ export type ActionFormScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Derived by buildAppSchema from the `excludedFields` of the called `handler`; the form
@@ -301,7 +302,7 @@ export type SecretMintScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Submit is enabled without edits: values seeded from navigate `params` count as the

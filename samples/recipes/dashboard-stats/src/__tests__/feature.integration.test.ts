@@ -11,7 +11,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TICKET_STATS_QUERY, ticketEntity, ticketFeature } from "../feature";
+import {
+  TICKET_CAPABILITIES_QUERY,
+  TICKET_STATS_QUERY,
+  ticketEntity,
+  ticketFeature,
+} from "../feature";
 
 let stack: TestStack;
 
@@ -62,5 +67,41 @@ describe("ticket:stats", () => {
     const result = await stack.http.queryOk<Record<string, unknown>>(TICKET_STATS_QUERY, {}, admin);
 
     expect(result).toEqual({ open: 3, closed: 2, total: 5 });
+  });
+});
+
+describe("record-bound dashboard with a gated detail panel", () => {
+  test("the dashboard embeds the detail screen and the gate answers per role", async () => {
+    const dashboard = ticketFeature.screens["ticket-record-dashboard"];
+    if (dashboard?.type !== "dashboard") throw new Error("ticket-record-dashboard missing");
+    expect(dashboard.record).toEqual({ param: "ticketId", payloadKey: "id" });
+    expect(dashboard.panels.map((panel) => panel.kind)).toEqual(["screen"]);
+
+    const card = ticketFeature.screens["ticket-card"];
+    expect(card?.fallback).toEqual({ forbidden: "ticket-list", notFound: "ticket-list" });
+
+    const adminGate = await stack.http.queryOk<{ canClose: boolean }>(
+      TICKET_CAPABILITIES_QUERY,
+      {},
+      admin,
+    );
+    expect(adminGate.canClose).toBe(true);
+    const user = createTestUser({ roles: ["User"], tenantId: testTenantId(31) });
+    const userGate = await stack.http.queryOk<{ canClose: boolean }>(
+      TICKET_CAPABILITIES_QUERY,
+      {},
+      user,
+    );
+    expect(userGate.canClose).toBe(false);
+  });
+
+  test("the toolbar button carries the same gate", () => {
+    const list = ticketFeature.screens["ticket-list"];
+    if (list?.type !== "projectionList") throw new Error("ticket-list missing");
+    expect(list.toolbarActions?.[0]?.visibleWhen).toEqual({
+      query: TICKET_CAPABILITIES_QUERY,
+      field: "canClose",
+      eq: true,
+    });
   });
 });

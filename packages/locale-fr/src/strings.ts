@@ -776,6 +776,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-missing.home": "Aller à la page d'accueil",
   "kumiko.screen-missing.hint": "Elle n'est pas activée pour votre compte ou n'existe plus.",
   "kumiko.screen-missing.title": "Cette page n'est pas disponible",
+  "kumiko.screen.forbidden": "Vous n'avez pas accès à cette page.",
+  "kumiko.screen.notFound": "Cette page est introuvable.",
   "kumiko.screen.unavailable": "Cette page n'est pas disponible pour le moment.",
   "kumiko.dashboard.brush-end": "Fin de la fenêtre",
   "kumiko.dashboard.brush-start": "Début de la fenêtre",

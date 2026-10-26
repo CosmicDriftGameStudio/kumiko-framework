@@ -3,6 +3,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { NavIconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import {
   AuthMfaQueries,
   MFA_DISABLE_SCREEN_ID,
@@ -21,6 +22,7 @@ import { ACCOUNT_SECURITY_I18N } from "./web/i18n.ts";
 export interface AccountSecurityNavOptions {
   readonly order?: number;
   readonly parent?: string;
+  readonly icon?: NavIconKey;
 }
 
 export interface AccountSecurityFeatureOptions {
@@ -37,6 +39,7 @@ const DEFAULT_ACCESS: AccessRule = {
 };
 
 const DEFAULT_NAV_ORDER = 90;
+const DEFAULT_NAV_ICON: NavIconKey = "user";
 
 export const accountSecurityMfaStatusVisibility = {
   query: AuthMfaQueries.status,
@@ -87,10 +90,15 @@ export function createAccountSecurityFeature(
       // Explicit property assignments: the feature-AST parser reads neither
       // `??`, shorthand properties nor a conditional spread, and the boot validator treats
       // `parent: undefined` as a top-level entry.
-      const { order: navOrder = DEFAULT_NAV_ORDER, parent: navParent } = nav;
+      const {
+        order: navOrder = DEFAULT_NAV_ORDER,
+        parent: navParent,
+        icon: navIcon = DEFAULT_NAV_ICON,
+      } = nav;
       r.nav({
         id: ACCOUNT_SECURITY_SCREEN_ID,
         label: ACCOUNT_SECURITY_NAV_LABEL,
+        icon: navIcon,
         screen: ACCOUNT_SECURITY_SCREEN_QN,
         order: navOrder,
         parent: navParent,

@@ -12,6 +12,7 @@
 // pointed at them. The one reference it does not resolve is a nav `parent`
 // pointing at a missing nav; that is pruned here.
 
+import { fallbackTargets } from "@cosmicdrift/kumiko-types/screen";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
@@ -123,11 +124,13 @@ function screensKeptForFallback(feature: FeatureSchema): FeatureSchema["screens"
   while (pending.length > 0) {
     const fallback = pending.pop()?.fallback;
     if (fallback === undefined) continue;
-    const targetQn = resolveScreenTargetQn(feature.featureName, fallback);
-    const target = byQn.get(targetQn);
-    if (target === undefined || kept.has(targetQn)) continue;
-    kept.add(targetQn);
-    pending.push(target);
+    for (const fallbackTarget of fallbackTargets(fallback)) {
+      const targetQn = resolveScreenTargetQn(feature.featureName, fallbackTarget);
+      const target = byQn.get(targetQn);
+      if (target === undefined || kept.has(targetQn)) continue;
+      kept.add(targetQn);
+      pending.push(target);
+    }
   }
   return feature.screens.filter((screen) => kept.has(qnOf(screen.id)));
 }

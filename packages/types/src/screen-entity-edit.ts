@@ -13,6 +13,7 @@ import type {
   RowActionMode,
   RowFieldExtractor,
 } from "./screen-entity-list.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableGrouping, ListTableOptions } from "./screen-list-table.ts";
 import type { ListFacetSpec } from "./screen-projection.ts";
@@ -458,7 +459,7 @@ export type EntityEditScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   /** Derived by buildAppSchema from the navigate `params` targeting this
    *  screen — the only URL query keys the create form prefills. An authored
    *  value is overwritten. */

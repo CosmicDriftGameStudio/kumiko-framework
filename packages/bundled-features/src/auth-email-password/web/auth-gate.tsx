@@ -16,6 +16,10 @@ import {
   followNextOrLandingAfterLogin,
 } from "./auth-redirect.ts";
 import { LoginScreen, type LoginScreenProps } from "./login-screen.tsx";
+import type { LoginUrlBuilder } from "./login-url.ts";
+
+export type { LoginUrlBuilder };
+
 import { SessionProvider, useSession } from "./session.tsx";
 import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.tsx";
 
@@ -158,10 +162,6 @@ export function createLoginRoute(
   }
   return LoginRoute;
 }
-
-/** Builds the login page URL. `returnPath` is the current path + query + hash;
- *  append it as `next` yourself (use `NEXT_QUERY_PARAM`) if the login page should return there. */
-export type LoginUrlBuilder = (locale: string, returnPath: string) => string;
 
 export type AuthGateOptions = LoginRouteOptions & {
   /** Login page outside the SPA (root-relative path or http(s) URL), or a function
