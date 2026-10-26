@@ -24,6 +24,7 @@ jobs:
           redis: "true"
           meilisearch: "true"
           object-storage: "true"
+          greenmail: "true"
 
       - name: Verify services from the host
         env:
@@ -31,6 +32,10 @@ jobs:
           OUT_REDIS_PORT: ${{ steps.services.outputs.redis-port }}
           OUT_MEILI_PORT: ${{ steps.services.outputs.meilisearch-port }}
           OUT_OBJECT_STORAGE_PORT: ${{ steps.services.outputs.object-storage-port }}
+          OUT_GREENMAIL_IMAP_PORT: ${{ steps.services.outputs.greenmail-imap-port }}
+          OUT_GREENMAIL_IMAPS_PORT: ${{ steps.services.outputs.greenmail-imaps-port }}
+          OUT_GREENMAIL_SMTP_PORT: ${{ steps.services.outputs.greenmail-smtp-port }}
+          OUT_GREENMAIL_SMTPS_PORT: ${{ steps.services.outputs.greenmail-smtps-port }}
           OUT_DATABASE_URL: ${{ steps.services.outputs.database-url }}
           OUT_TEST_DATABASE_URL: ${{ steps.services.outputs.test-database-url }}
           OUT_REDIS_URL: ${{ steps.services.outputs.redis-url }}

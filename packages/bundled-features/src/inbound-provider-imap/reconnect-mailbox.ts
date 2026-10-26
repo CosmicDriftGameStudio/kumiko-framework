@@ -1,6 +1,6 @@
 // reconnect-mailbox: new credentials for an existing password IMAP mailbox, typically after the
 // account went to auth_error. The login is checked before the transaction opens; only then the
-// account goes back to active (also from disconnected) and the credential secret of the same account is overwritten, both
+// credential secret of the same account is overwritten and the account goes back to active (also from disconnected), both
 // on the request transaction, so a failure leaves status and secret as they were.
 
 import {
@@ -54,13 +54,7 @@ export const reconnectMailboxHandler = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const { accountId } = event.payload;
-    const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.reactivateAccount, {
-      accountId,
-      // The form shows the stored id, so an empty field means the admin cleared it.
-      trustedAuthservId: event.payload.trustedAuthservId ?? null,
-    });
-    if (!reactivated.isSuccess) return reactivated;
-
+    // Secret first: reactivate from disconnected requires the credential to exist.
     const secrets = requireSecretsContext(
       { secrets: ctx.services.secrets, user: ctx.user },
       "reconnect-mailbox",
@@ -75,6 +69,16 @@ export const reconnectMailboxHandler = defineWriteHandler({
         updatedBy: event.user.id,
       },
     );
+    const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.reactivateAccount, {
+      accountId,
+    });
+    if (!reactivated.isSuccess) return reactivated;
+    // The form shows the stored id, so an empty field means the admin cleared it.
+    const trusted = await ctx.dispatch.write(InboundMailFoundationHandlers.setTrustedAuthservId, {
+      accountId,
+      trustedAuthservId: event.payload.trustedAuthservId ?? null,
+    });
+    if (!trusted.isSuccess) return trusted;
     return { isSuccess: true, data: { accountId } };
   },
 });

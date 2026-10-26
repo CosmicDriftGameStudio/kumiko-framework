@@ -27,6 +27,7 @@ import {
   type MailTestStack,
   rawMsg,
   setupMailStack,
+  storeAccountCredential,
 } from "./mail-test-support.ts";
 
 let env: MailTestStack;
@@ -92,6 +93,7 @@ describe("immediate sync", () => {
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "wake-2", text: "later" }));
     await drainConsumers();
     expect(await importedCount(accountId)).toBe(0);
+    await storeAccountCredential(env, admin.tenantId, accountId, admin.id);
 
     await env.stack.http.writeOk(
       InboundMailFoundationHandlers.reactivateAccount,

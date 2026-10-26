@@ -42,6 +42,7 @@ import type { EntityDefinition } from "./fields.ts";
 import type {
   AccessRule,
   AuthClaimsFn,
+  BeforeTransactionWhenNested,
   ClaimKeyHandle,
   ClaimKeyType,
   DeclarativeEventMigration,
@@ -192,8 +193,20 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   /**
    * @example r.writeHandler({ name: "note:archive", schema, handler, access: { roles: ["User"] } });
    */
-  writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
-    def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
+  writeHandler<
+    TName extends string,
+    TSchema extends ZodType,
+    TPrepared = undefined,
+    TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
+  >(
+    def: WriteHandlerDefinition<
+      TName,
+      TSchema,
+      unknown,
+      KumikoEventTypeMap,
+      TPrepared,
+      TWhenNested
+    >,
   ): HandlerRef;
 
   /**

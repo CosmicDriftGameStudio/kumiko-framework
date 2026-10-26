@@ -143,6 +143,36 @@ describe("content stored at ingest", () => {
     expect(content?.bodyTextTruncated).toBe(true);
   });
 
+  test("an attachment above the 10 MB upload default but within the mail limit is stored", async () => {
+    const admin = adminFor(6106);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    const twelveMegabytes = 12 * 1024 * 1024;
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "twelve-1",
+        text: "see attachment",
+        attachments: [
+          {
+            fileName: "scan.bin",
+            mimeType: "application/octet-stream",
+            data: new Uint8Array(twelveMegabytes),
+          },
+        ],
+      }),
+    );
+
+    await createMailSupervisor(env.stack).pollOnce();
+
+    const content = await contentOf(admin, accountId, "twelve-1");
+    expect(content?.skippedAttachments).toEqual([]);
+    expect(content?.attachmentFileIds).toHaveLength(1);
+    const [ref] = await selectMany(env.stack.db, fileRefsTable, {
+      id: content?.attachmentFileIds[0],
+    });
+    expect(Number(ref?.["size"])).toBe(twelveMegabytes);
+  });
+
   test("an oversized attachment is skipped with its reason, the mail still arrives", async () => {
     const admin = adminFor(6105);
     const accountId = await connectInMemoryAccount(env.stack, admin);

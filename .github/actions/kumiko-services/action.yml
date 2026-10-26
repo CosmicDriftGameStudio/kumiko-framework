@@ -1,5 +1,5 @@
 name: Kumiko CI services
-description: Starts Postgres, Redis, Meilisearch and RustFS object storage as digest-pinned containers (GHCR mirror, upstream fallback).
+description: Starts Postgres, Redis, Meilisearch, RustFS object storage and Greenmail (test mail server) as digest-pinned containers (GHCR mirror, upstream fallback).
 inputs:
   postgres:
     description: Start Postgres (creates kumiko_dev and kumiko_test).
@@ -12,6 +12,9 @@ inputs:
     default: "false"
   object-storage:
     description: Start RustFS object storage and create the kumiko-dev bucket.
+    default: "false"
+  greenmail:
+    description: Start Greenmail (IMAP, IMAPS and SMTP with user testuser/testpass, address testuser@example.com).
     default: "false"
   postgres-port:
     description: Fixed host port for Postgres; empty picks a random free port.
@@ -38,6 +41,18 @@ outputs:
   object-storage-port:
     description: Host port of object storage (empty if not started).
     value: ${{ steps.start.outputs.object-storage-port }}
+  greenmail-imap-port:
+    description: Host port of Greenmail IMAP (empty if not started).
+    value: ${{ steps.start.outputs.greenmail-imap-port }}
+  greenmail-imaps-port:
+    description: Host port of Greenmail IMAPS (empty if not started).
+    value: ${{ steps.start.outputs.greenmail-imaps-port }}
+  greenmail-smtp-port:
+    description: Host port of Greenmail SMTP (empty if not started).
+    value: ${{ steps.start.outputs.greenmail-smtp-port }}
+  greenmail-smtps-port:
+    description: Host port of Greenmail SMTPS, always 465 (empty if not started).
+    value: ${{ steps.start.outputs.greenmail-smtps-port }}
   database-url:
     description: DATABASE_URL for kumiko_dev (empty if Postgres not started).
     value: ${{ steps.start.outputs.database-url }}
@@ -63,6 +78,7 @@ runs:
         INPUT_REDIS: ${{ inputs.redis }}
         INPUT_MEILISEARCH: ${{ inputs.meilisearch }}
         INPUT_OBJECT_STORAGE: ${{ inputs.object-storage }}
+        INPUT_GREENMAIL: ${{ inputs.greenmail }}
         INPUT_POSTGRES_PORT: ${{ inputs.postgres-port }}
         INPUT_REDIS_PORT: ${{ inputs.redis-port }}
         INPUT_MEILISEARCH_PORT: ${{ inputs.meilisearch-port }}

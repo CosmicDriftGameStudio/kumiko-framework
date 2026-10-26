@@ -93,7 +93,7 @@ async function renameReasonsOf(accountId: string, tenantId: TenantId): Promise<u
 }
 
 describe("mailbox rename audit reason", () => {
-  test("is derived from the caller role and ignores a client-supplied reason", async () => {
+  test("is derived from the caller role and a client-supplied reason is refused", async () => {
     const owner = createTestUser({
       id: 4711,
       tenantId: testTenantId(4711),
@@ -116,9 +116,15 @@ describe("mailbox rename audit reason", () => {
       owner,
     )) as { accountId: string };
 
+    const forgedReason = await stack.http.writeErr(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, displayName: "Forged", reason: "watch_supervisor" },
+      tenantAdmin,
+    );
+    expect(JSON.stringify(forgedReason)).toContain("field_requires_system_identity");
     await stack.http.writeOk(
       InboundMailFoundationHandlers.updateAccount,
-      { accountId, displayName: "By tenant admin", reason: "watch_supervisor" },
+      { accountId, displayName: "By tenant admin" },
       tenantAdmin,
     );
     await stack.http.writeOk(

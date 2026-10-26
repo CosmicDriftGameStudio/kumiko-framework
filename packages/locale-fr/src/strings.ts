@@ -2078,6 +2078,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Déconnectée",
   "inboundMail.accounts.edit": "Renommer",
   "inboundMail.accounts.edit.submit": "Enregistrer",
+  "inboundMail.accounts.senderCheck": "Vérification de l'expéditeur",
+  "inboundMail.accounts.senderCheck.submit": "Enregistrer",
+  "inboundMail.accounts.senderCheckHint":
+    "Identifiant du serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identifiant du serveur de messagerie",
   "inboundMail.accounts.disconnect": "Déconnecter",
   "inboundMail.accounts.disconnect.confirm":
     "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",

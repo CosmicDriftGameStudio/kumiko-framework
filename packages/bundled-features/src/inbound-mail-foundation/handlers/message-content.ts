@@ -6,7 +6,11 @@ import {
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createFileRefFromBytes, type FileContext } from "@cosmicdrift/kumiko-framework/files";
+import {
+  configuredMaxUploadBytes,
+  createFileRefFromBytes,
+  type FileContext,
+} from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
 import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity } from "../entities.ts";
 import {
@@ -15,6 +19,7 @@ import {
   skippedAttachmentSchema,
 } from "../events.ts";
 import {
+  INBOUND_ATTACHMENT_MAX_BYTES,
   INBOUND_BODY_HTML_MAX_CHARS,
   INBOUND_BODY_TEXT_MAX_CHARS,
   INBOUND_RAW_MIME_MAX_BYTES,
@@ -131,11 +136,18 @@ export async function storeInboundMessageContent(
   const bodyRef =
     input.bodyRef !== "" ? input.bodyRef : await storeOriginal(files, ctx.user.tenantId, input);
   const attachmentFileIds: string[] = [];
+  // The mail size limit is the cap; an app that configured a smaller upload limit keeps it, but the
+  // 10 MB default of createFileRefFromBytes must not cut a 25 MB mail attachment that was accepted above.
+  const maxSize = Math.min(
+    INBOUND_ATTACHMENT_MAX_BYTES,
+    configuredMaxUploadBytes(ctx.registry) ?? INBOUND_ATTACHMENT_MAX_BYTES,
+  );
   for (const attachment of attachments) {
     const created = await createFileRefFromBytes(ctx, {
       fileName: attachment.fileName,
       mimeType: attachment.mimeType,
       data: attachment.data,
+      maxSize,
     });
     if (created.isSuccess) {
       attachmentFileIds.push(created.data.id);

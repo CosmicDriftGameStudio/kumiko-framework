@@ -81,6 +81,7 @@ import { listMessagesQuery } from "./handlers/list-messages.query.ts";
 import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
 import { messageContentQuery } from "./handlers/message-content.query.ts";
 import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
+import { setTrustedAuthservIdHandler } from "./handlers/set-trusted-authserv-id.write.ts";
 import { updateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
 import { registerMailboxProbe } from "./probe.ts";
@@ -97,7 +98,11 @@ import {
 } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
-import { mailAccountEditScreen, mailAccountListScreen } from "./screens.ts";
+import {
+  mailAccountEditScreen,
+  mailAccountListScreen,
+  mailAccountSenderCheckScreen,
+} from "./screens.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
@@ -246,6 +251,7 @@ export function createInboundMailFoundationFeature() {
       r.writeHandler(updateAccountHandler);
       r.writeHandler(disconnectAccountHandler);
       r.writeHandler(reactivateAccountHandler);
+      r.writeHandler(setTrustedAuthservIdHandler);
       r.writeHandler(acknowledgeQuarantineHandler);
       r.writeHandler(attachMessageContentHandler);
       r.writeHandler(markCredentialStoredHandler);
@@ -259,6 +265,7 @@ export function createInboundMailFoundationFeature() {
       // The app places `mailAccountListScreen` via r.nav in its settings area.
       r.screen(mailAccountListScreen);
       r.screen(mailAccountEditScreen);
+      r.screen(mailAccountSenderCheckScreen);
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
       registerMailboxProbe(r);
 

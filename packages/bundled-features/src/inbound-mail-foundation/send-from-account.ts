@@ -62,7 +62,7 @@ export type MailSendFailure = keyof typeof MAIL_SEND_ERRORS;
 
 export type SendMailFromAccountContext = Pick<
   HandlerContext,
-  "db" | "registry" | "user" | "services" | "obs"
+  "db" | "registry" | "user" | "services" | "obs" | "dispatch"
 >;
 
 export type SendMailFromAccountInput = {

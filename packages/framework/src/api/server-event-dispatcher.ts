@@ -10,7 +10,10 @@ import type { AppContext, Registry } from "../engine/types/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
-import { createCatchUpJobEventConsumer } from "../pipeline/catch-up-job-consumer.ts";
+import {
+  catchUpEventTypesOf,
+  createCatchUpJobEventConsumer,
+} from "../pipeline/catch-up-job-consumer.ts";
 import {
   createEventDispatcher,
   type EventConsumer,
@@ -161,6 +164,7 @@ function buildCatchUpJobConsumers(
         jobRunner,
         jobName,
         options.registry.getJobFeature(jobName),
+        catchUpEventTypesOf(jobDef.trigger),
         upcast,
       ),
     );

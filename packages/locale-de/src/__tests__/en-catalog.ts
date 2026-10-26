@@ -2006,6 +2006,11 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Disconnected",
   "inboundMail.accounts.edit": "Rename",
   "inboundMail.accounts.edit.submit": "Save",
+  "inboundMail.accounts.senderCheck": "Sender check",
+  "inboundMail.accounts.senderCheck.submit": "Save",
+  "inboundMail.accounts.senderCheckHint":
+    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId": "Mail server ID",
   "inboundMail.accounts.disconnect": "Disconnect",
   "inboundMail.accounts.disconnect.confirm":
     "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",

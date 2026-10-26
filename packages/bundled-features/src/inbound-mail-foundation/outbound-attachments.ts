@@ -1,5 +1,6 @@
 // Turns the file references of an outgoing mail into bytes. Only the sender's own tenant is
-// searched, so another tenant's file reads exactly like a missing one.
+// searched, so another tenant's file reads exactly like a missing one; a file the caller may not
+// read counts as missing too (outbound-attachment-access.ts).
 
 import {
   collectPiiSubjectFields,
@@ -15,11 +16,12 @@ import {
   fileContextForTenant,
   readFileRefContent,
 } from "../file-foundation/index.ts";
+import { loadAttachableFileRef, mayAttachFileRef } from "./outbound-attachment-access.ts";
 import { OUTBOUND_ATTACHMENTS_MAX_BYTES, type OutboundAttachment } from "./outbound-mail.ts";
 
 export type ResolveOutboundAttachmentsContext = Pick<
   HandlerContext,
-  "db" | "user" | "services" | "obs"
+  "db" | "user" | "services" | "obs" | "registry" | "dispatch"
 >;
 
 export type ResolvedOutboundAttachments =
@@ -66,6 +68,11 @@ export async function resolveOutboundAttachments(
   let remainingBytes = OUTBOUND_ATTACHMENTS_MAX_BYTES;
   const tenantId = ctx.user.tenantId;
   for (const fileRefId of uniqueIds) {
+    // A file the caller may not read answers like an unknown id, so ids cannot be probed.
+    const fileRef = await loadAttachableFileRef(ctx, fileRefId);
+    if (fileRef === null || !(await mayAttachFileRef(ctx, fileRef))) {
+      return { isSuccess: false, failure: "attachmentInvalid" };
+    }
     let found: Awaited<ReturnType<typeof readFileRefContent>>;
     try {
       found = await readFileRefContent({

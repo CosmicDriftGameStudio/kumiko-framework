@@ -18,35 +18,33 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
-import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
-export const updateAccountSchema = z.object({
-  accountId: z.uuid(),
-  status: z
-    .enum([
-      InboundMailAccountStatuses.active,
-      InboundMailAccountStatuses.authError,
-      InboundMailAccountStatuses.degraded,
-    ])
-    .optional(),
-  /** Why the mailbox is degraded; null clears it. Codes only, never provider error text. */
-  lastError: z.enum(Object.values(InboundMailLastErrors)).nullable().optional(),
-  /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
-  watchState: z.string().max(100).optional(),
-  displayName: z.string().trim().max(200).optional(),
-  /** authserv-id of the mailbox's own server; null or empty clears it, omitted keeps it. */
-  trustedAuthservId: trustedAuthservIdInputSchema,
-  /** Audit reason for metadata.headers, honored for the system identity only
-   *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
-  reason: z.string().min(1).max(100).optional(),
-});
+export const updateAccountSchema = z
+  .object({
+    accountId: z.uuid(),
+    status: z
+      .enum([
+        InboundMailAccountStatuses.active,
+        InboundMailAccountStatuses.authError,
+        InboundMailAccountStatuses.degraded,
+      ])
+      .optional(),
+    /** Why the mailbox is degraded; null clears it. Codes only, never provider error text. */
+    lastError: z.enum(Object.values(InboundMailLastErrors)).nullable().optional(),
+    /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
+    watchState: z.string().max(100).optional(),
+    displayName: z.string().trim().max(200).optional(),
+    /** Audit reason for metadata.headers, honored for the system identity only
+     *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
+    reason: z.string().min(1).max(100).optional(),
+  })
+  .strict();
 type UpdateAccountPayload = z.infer<typeof updateAccountSchema>;
 
 const SYSTEM_FALLBACK_REASON = "system";
 
-function auditReasonFor(user: SessionUser, requestedReason: string | undefined): string {
+export function auditReasonFor(user: SessionUser, requestedReason: string | undefined): string {
   if (user.id === SYSTEM_USER_ID) return requestedReason ?? SYSTEM_FALLBACK_REASON;
   return user.roles.includes(ROLES.SystemAdmin) ? "system_admin" : "tenant_admin";
 }
@@ -56,10 +54,21 @@ export const updateAccountHandler: WriteHandlerDef = {
   schema: updateAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   description:
-    "Records a status, watch-state or display-name change on a connected mailbox as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; use it to flag an auth error or to re-activate a mailbox after fixing its credentials.",
+    "Renames a connected mailbox (display name) as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; status, error and watch state are reserved for the system identity.",
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as UpdateAccountPayload;
+
+    // Status, error and watch state are machine signals of the supervisor and the OAuth refresh; an admin
+    // setting them could hide an auth error or fake an active mailbox.
+    const isSystemOnlyField =
+      payload.status !== undefined ||
+      payload.lastError !== undefined ||
+      payload.watchState !== undefined ||
+      payload.reason !== undefined;
+    if (isSystemOnlyField && event.user.id !== SYSTEM_USER_ID) {
+      return failUnprocessable("field_requires_system_identity");
+    }
 
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) {
@@ -80,9 +89,6 @@ export const updateAccountHandler: WriteHandlerDef = {
       ...(payload.watchState !== undefined ? { watchState: payload.watchState } : {}),
       ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
       ...(payload.lastError !== undefined ? { lastError: payload.lastError } : {}),
-      ...(payload.trustedAuthservId !== undefined
-        ? { trustedAuthservId: normalizeTrustedAuthservId(payload.trustedAuthservId) }
-        : {}),
     };
     const headers: MailAccountEventHeaders = {
       providerName: current.provider,

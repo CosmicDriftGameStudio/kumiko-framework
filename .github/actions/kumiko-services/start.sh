@@ -23,6 +23,7 @@ require_bool postgres "${INPUT_POSTGRES:-}"
 require_bool redis "${INPUT_REDIS:-}"
 require_bool meilisearch "${INPUT_MEILISEARCH:-}"
 require_bool object-storage "${INPUT_OBJECT_STORAGE:-}"
+require_bool greenmail "${INPUT_GREENMAIL:-false}"
 require_port_or_empty postgres-port "${INPUT_POSTGRES_PORT:-}"
 require_port_or_empty redis-port "${INPUT_REDIS_PORT:-}"
 require_port_or_empty meilisearch-port "${INPUT_MEILISEARCH_PORT:-}"
@@ -102,8 +103,21 @@ exec 3<>"/dev/tcp/127.0.0.1/$1" && printf "GET /minio/health/live HTTP/1.0\r\n\r
 PROBE
 }
 
+# Greenmail greets IMAP with "* OK" and SMTP with "220"; IMAPS speaks TLS first, so only the connect is checked.
+probe_greeting() {
+  timeout 5 bash -s "$1" "$2" 2>/dev/null <<'PROBE'
+exec 3<>"/dev/tcp/127.0.0.1/$1" && read -r -t 3 greeting <&3 && case "$greeting" in "$2"*) ;; *) exit 1 ;; esac
+PROBE
+}
+
+probe_tcp() {
+  timeout 5 bash -s "$1" 2>/dev/null <<'PROBE'
+exec 3<>"/dev/tcp/127.0.0.1/$1"
+PROBE
+}
+
 run_label_args=(--label "kumiko-ci.run=$run_label")
-pg_port="" redis_port="" meili_port="" minio_port=""
+pg_port="" redis_port="" meili_port="" minio_port="" gm_imap_port="" gm_imaps_port="" gm_smtp_port="" gm_smtps_port=""
 env_lines=()
 
 if [ "${INPUT_POSTGRES}" = true ]; then
@@ -211,6 +225,36 @@ if [ "${INPUT_OBJECT_STORAGE}" = true ]; then
     "MINIO_REGION=us-east-1" "MINIO_BUCKET=kumiko-dev" "MINIO_ACCESS_KEY=kumiko" "MINIO_SECRET_KEY=kumiko-dev-secret")
 fi
 
+if [ "${INPUT_GREENMAIL:-false}" = true ]; then
+  image=$(pull_image greenmail)
+  gm_container="kumiko-ci-greenmail-$suffix"
+  # hostname=0.0.0.0: greenmail binds to localhost inside the container by default, which docker's port publishing cannot reach.
+  # Throwaway credentials, same as the dev greenmail the live suites document.
+  # SMTPS is published on the fixed host port 465: the mail client takes implicit TLS from the port number
+  # (smtp-client.ts), so a random host port would be sent over STARTTLS and never connect.
+  docker run -d --name "$gm_container" "${run_label_args[@]}" -p 3025 -p 3143 -p 3993 -p 465:3465 \
+    -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=testuser:testpass@example.com" \
+    "$image" >/dev/null
+  gm_smtp_port=$(published_port "$gm_container" 3025)
+  gm_imap_port=$(published_port "$gm_container" 3143)
+  gm_imaps_port=$(published_port "$gm_container" 3993)
+  gm_smtps_port=$(published_port "$gm_container" 3465)
+  gm_ready=false
+  for _ in $(seq 1 60); do
+    if probe_greeting "$gm_imap_port" "* OK" && probe_greeting "$gm_smtp_port" 220 && probe_tcp "$gm_imaps_port" && probe_tcp "$gm_smtps_port"; then
+      gm_ready=true
+      break
+    fi
+    sleep 2
+  done
+  if [ "$gm_ready" != true ]; then
+    docker logs "$gm_container"
+    echo "::error title=Runner infrastructure::greenmail (imap ${gm_imap_port}, imaps ${gm_imaps_port}, smtp ${gm_smtp_port}, smtps ${gm_smtps_port}) did not answer from runner ${RUNNER_NAME:-unknown} within 120s. If the container log shows it listening, this is runner infrastructure (infra#866), not a test failure."
+    exit 1
+  fi
+  env_lines+=("GREENMAIL_CONTAINER=$gm_container")
+fi
+
 [ "${#env_lines[@]}" -eq 0 ] || printf '%s\n' "${env_lines[@]}" >>"$GITHUB_ENV"
 
 url_or_empty() {
@@ -221,6 +265,10 @@ url_or_empty() {
   echo "redis-port=$redis_port"
   echo "meilisearch-port=$meili_port"
   echo "object-storage-port=$minio_port"
+  echo "greenmail-imap-port=$gm_imap_port"
+  echo "greenmail-imaps-port=$gm_imaps_port"
+  echo "greenmail-smtp-port=$gm_smtp_port"
+  echo "greenmail-smtps-port=$gm_smtps_port"
   echo "database-url=$(url_or_empty postgresql://kumiko:kumiko@localhost: "$pg_port" /kumiko_dev)"
   echo "test-database-url=$(url_or_empty postgresql://kumiko:kumiko@localhost: "$pg_port" /kumiko_test)"
   echo "redis-url=$(url_or_empty redis://localhost: "$redis_port" "")"
@@ -228,4 +276,4 @@ url_or_empty() {
   echo "object-storage-endpoint=$(url_or_empty http://localhost: "$minio_port" "")"
 } >>"$GITHUB_OUTPUT"
 
-echo "kumiko-services up: postgres=${pg_port:--} redis=${redis_port:--} meilisearch=${meili_port:--} object-storage=${minio_port:--} run=$run_label"
+echo "kumiko-services up: postgres=${pg_port:--} redis=${redis_port:--} meilisearch=${meili_port:--} object-storage=${minio_port:--} greenmail=${gm_imap_port:--} run=$run_label"

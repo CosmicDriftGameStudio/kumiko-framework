@@ -5,8 +5,10 @@
 // The login cases need greenmail like connect-mailbox.integration.test.ts and skip visibly without it.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -36,7 +38,7 @@ import {
 } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
-import { reachable } from "./greenmail-mailbox.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
@@ -50,13 +52,15 @@ process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
 const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
 const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
-const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
-const smtpsUp = greenmailUp && (await reachable(HOST, SMTPS_PORT));
+const greenmailUp = await greenmailAvailable("reconnect-mailbox", [
+  { host: HOST, port: IMAPS_PORT },
+  { host: HOST, port: IMAP_PORT },
+]);
+const smtpsUp =
+  greenmailUp &&
+  (await greenmailAvailable("reconnect-mailbox (SMTPS)", [{ host: HOST, port: SMTPS_PORT }]));
 const greenmailTest = greenmailUp ? test : test.skip;
 const greenmailWithSmtpsTest = smtpsUp ? test : test.skip;
-if (!smtpsUp) {
-  console.warn(`reconnect-mailbox: no IMAPS/SMTPS on ${HOST}, login cases skipped`);
-}
 
 let stack: TestStack;
 let nextTenant = 4600;
@@ -100,7 +104,7 @@ function freshAdmin() {
 }
 
 type Admin = ReturnType<typeof freshAdmin>;
-type AccountRow = { id: string; status: string };
+type AccountRow = { id: string; status: string; trustedAuthservId?: string | null };
 type ProbeRow = { probe: string; status: string; targetId?: string };
 
 function form(accountId: string, password: string) {
@@ -131,10 +135,10 @@ async function connectAccountRow(admin: Admin, provider: string): Promise<string
 
 async function connectAuthErrorAccount(admin: Admin): Promise<string> {
   const accountId = await connectAccountRow(admin, "imap");
-  await stack.http.writeOk(
+  await stack.dispatcher.write(
     InboundMailFoundationHandlers.updateAccount,
     { accountId, status: InboundMailAccountStatuses.authError },
-    admin,
+    createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
   );
   return accountId;
 }
@@ -196,6 +200,7 @@ describe("reconnect mailbox form", () => {
         user: "testuser",
         smtpHost: HOST,
         smtpPort: SMTPS_PORT,
+        trustedAuthservId: "",
       });
       expect(JSON.stringify(prefill)).not.toContain(PASSWORD);
     },
@@ -243,6 +248,28 @@ describe("reconnect mailbox form", () => {
         expect.objectContaining({ id: accountId, status: "active" }),
       ]);
       expect(await secretsOf(admin)).toHaveLength(1);
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "the sender-check id is set by the form and an empty field clears it again",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectAuthErrorAccount(admin);
+
+      await stack.http.writeOk(
+        ImapHandlers.reconnectMailbox,
+        { ...form(accountId, PASSWORD), trustedAuthservId: "MX.Example.Test" },
+        admin,
+      );
+      expect(await statusesOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, trustedAuthservId: "mx.example.test" }),
+      ]);
+
+      await stack.http.writeOk(ImapHandlers.reconnectMailbox, form(accountId, PASSWORD), admin);
+      expect(await statusesOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, trustedAuthservId: null }),
+      ]);
     },
   );
 

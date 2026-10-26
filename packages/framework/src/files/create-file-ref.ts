@@ -85,7 +85,7 @@ export type StoreFileDeps = {
   // fileRef.created then commit together or not at all, so a failing projection leaves no row.
   readonly rowInOwnTransaction?: boolean;
   readonly registry: Registry | undefined;
-  readonly defaultMaxUploadSize: string;
+  readonly defaultMaxUploadSize: string | number;
   // Must record the upload in the ledger before the bytes land (FileContext.writeUploadBytes).
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
   // Must drop the upload-ledger row together with the bytes.

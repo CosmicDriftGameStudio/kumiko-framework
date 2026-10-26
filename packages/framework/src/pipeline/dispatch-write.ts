@@ -570,6 +570,14 @@ function resolveWriteEntry(
   return { kind: "run", handler, isPerCommand };
 }
 
+// beforeTransactionWhenNested: "skip" lets the handler run nested without the phase and does the work itself.
+// Boot validation rejects the option next to a reservation, so only beforeTransaction is skipped here.
+function runsWithoutPhaseWhenNested(handler: WriteHandlerDef): boolean {
+  return (
+    handler.beforeTransactionWhenNested === "skip" && handler.reserveBeforeTransaction === undefined
+  );
+}
+
 async function runWriteGates(
   ctx: DispatchContext,
   handler: WriteHandlerDef,
@@ -595,7 +603,7 @@ async function runWriteGates(
   // A handler with a pre-transaction phase cannot run that phase from inside an open transaction;
   // running it without would skip the reservation or the prepared data, so a nested ctx.dispatch.write of
   // such a handler is rejected instead.
-  if (needsPreTransactionPhase && !reservation) {
+  if (needsPreTransactionPhase && !reservation && !runsWithoutPhaseWhenNested(handler)) {
     return failedStep(
       writeFailure(
         new InternalError({

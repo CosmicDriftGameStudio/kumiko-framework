@@ -5,6 +5,7 @@ import type {
   AccessRule,
   AgentHandlerHints,
   BeforeTransactionPhase,
+  BeforeTransactionWhenNested,
   EntityRef,
   EscapeHatchDeclaration,
   HandlerRef,
@@ -102,10 +103,14 @@ function agentSlots(source: {
   };
 }
 
-function transactionPhaseSlots<TSchema extends ZodType, TPrepared>(
+function transactionPhaseSlots<
+  TSchema extends ZodType,
+  TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
+>(
   def: Pick<
-    WriteHandlerDefinition<string, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
-    "reserveBeforeTransaction" | "beforeTransaction" | "transaction"
+    WriteHandlerDefinition<string, TSchema, unknown, KumikoEventTypeMap, TPrepared, TWhenNested>,
+    "reserveBeforeTransaction" | "beforeTransaction" | "beforeTransactionWhenNested" | "transaction"
   >,
 ) {
   return {
@@ -114,6 +119,9 @@ function transactionPhaseSlots<TSchema extends ZodType, TPrepared>(
     }),
     ...(def.beforeTransaction && {
       beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
+    }),
+    ...(def.beforeTransactionWhenNested && {
+      beforeTransactionWhenNested: def.beforeTransactionWhenNested,
     }),
     ...(def.transaction && { transaction: def.transaction }),
   };
@@ -182,8 +190,20 @@ export function buildEntityHandlerMethods<TName extends string>(
       if (!state.relations[entityName]) state.relations[entityName] = {};
       state.relations[entityName][resolvedRelationName] = resolvedDefinition;
     },
-    writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
-      def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
+    writeHandler<
+      TName extends string,
+      TSchema extends ZodType,
+      TPrepared = undefined,
+      TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
+    >(
+      def: WriteHandlerDefinition<
+        TName,
+        TSchema,
+        unknown,
+        KumikoEventTypeMap,
+        TPrepared,
+        TWhenNested
+      >,
     ): HandlerRef {
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "writeHandler");
       assertHandlerHasAccess(name, "writeHandler", def.name, def.access);

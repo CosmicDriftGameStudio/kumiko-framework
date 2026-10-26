@@ -2051,6 +2051,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Desconectado",
   "inboundMail.accounts.edit": "Renombrar",
   "inboundMail.accounts.edit.submit": "Guardar",
+  "inboundMail.accounts.senderCheck": "Verificación del remitente",
+  "inboundMail.accounts.senderCheck.submit": "Guardar",
+  "inboundMail.accounts.senderCheckHint":
+    "Identificador del servidor de correo del encabezado Authentication-Results, por ejemplo mx.example.com. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identificador del servidor de correo",
   "inboundMail.accounts.disconnect": "Desconectar",
   "inboundMail.accounts.disconnect.confirm":
     "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",

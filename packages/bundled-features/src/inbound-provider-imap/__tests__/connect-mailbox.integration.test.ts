@@ -33,7 +33,7 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
-import { reachable } from "./greenmail-mailbox.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 
 // The default is a host name so the TLS connect has an SNI server name; IP literals have their own cases.
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
@@ -51,17 +51,15 @@ process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = `${HOST},${IP_LITERAL_HOST}`;
 const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
 const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
-const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
+const greenmailUp = await greenmailAvailable("connect-mailbox", [
+  { host: HOST, port: IMAPS_PORT },
+  { host: HOST, port: IMAP_PORT },
+]);
 const greenmailTest = greenmailUp ? test : test.skip;
-const smtpsUp = greenmailUp && (await reachable(HOST, SMTPS_PORT));
+const smtpsUp =
+  greenmailUp &&
+  (await greenmailAvailable("connect-mailbox (SMTPS)", [{ host: HOST, port: SMTPS_PORT }]));
 const greenmailWithSmtpsTest = smtpsUp ? test : test.skip;
-if (!greenmailUp) {
-  console.warn(
-    `connect-mailbox: no IMAP server on ${HOST}:${IMAPS_PORT} and :${IMAP_PORT}, login cases skipped`,
-  );
-} else if (!smtpsUp) {
-  console.warn(`connect-mailbox: no SMTPS on ${HOST}:${SMTPS_PORT}, good-login case skipped`);
-}
 
 let stack: TestStack;
 let nextTenant = 4400;

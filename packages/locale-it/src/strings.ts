@@ -2057,6 +2057,12 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Disconnessa",
   "inboundMail.accounts.edit": "Rinomina",
   "inboundMail.accounts.edit.submit": "Salva",
+  "inboundMail.accounts.senderCheck": "Verifica del mittente",
+  "inboundMail.accounts.senderCheck.submit": "Salva",
+  "inboundMail.accounts.senderCheckHint":
+    "Identificativo del server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identificativo del server di posta",
   "inboundMail.accounts.disconnect": "Disconnetti",
   "inboundMail.accounts.disconnect.confirm":
     "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",

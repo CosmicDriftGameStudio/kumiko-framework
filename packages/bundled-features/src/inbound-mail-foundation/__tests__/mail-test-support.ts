@@ -1,19 +1,26 @@
 // Shared setup of the content, health and wake integration tests: a real stack with the in-memory
 // provider, optionally with file storage, plus small factories for accounts and messages.
 
+import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  type FeatureDefinition,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
@@ -21,6 +28,11 @@ import {
 } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
@@ -28,6 +40,7 @@ import {
   createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   InboundMailFoundationHandlers,
+  inboundCredentialSecretKey,
   quarantineEntity,
   type RawInboundMessage,
   seenMessageEntity,
@@ -39,31 +52,77 @@ export type MailTestStack = {
   readonly stack: TestStack;
   /** Present when the stack was set up with file storage. */
   readonly files: InMemoryFileProvider | null;
+  /** Secrets store of the stack: disconnect removes the credential, reactivate requires one. */
+  readonly secrets: ReturnType<typeof createSecretsContext>;
 };
 
 export async function setupMailStack(options: {
   readonly withFiles: boolean;
+  readonly extraFeatures?: readonly FeatureDefinition[];
 }): Promise<MailTestStack> {
   const files = options.withFiles ? createInMemoryFileProvider() : null;
+  const masterKeyProvider = createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+    },
+  });
   const stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createSecretsFeature(),
       ...(files ? [createFilesFeature()] : []),
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(),
       createInboundProviderInMemoryFeature(),
+      ...(options.extraFeatures ?? []),
     ],
     ...(files ? { files: { storageProvider: files } } : {}),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider, registry }),
+    }),
   });
+  await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
-  return { stack, files };
+  // The test's own handle on the same store, for credentials written outside a request.
+  const secrets = createSecretsContext({
+    db: stack.db,
+    masterKeyProvider,
+    registry: stack.registry,
+  });
+  return { stack, files, secrets };
+}
+
+/** Stores a credential for the account, as connect and reconnect do through the IMAP provider. */
+export async function storeAccountCredential(
+  env: MailTestStack,
+  tenantId: string,
+  accountId: string,
+  updatedBy: string,
+): Promise<void> {
+  await env.secrets.set(tenantId, inboundCredentialSecretKey(accountId), "credential", {
+    updatedBy,
+  });
+}
+
+/** Status, error and watch state are system-only: this is how the supervisor writes them. */
+export function updateAccountAsSystem(
+  stack: TestStack,
+  tenantId: string,
+  payload: Record<string, unknown>,
+) {
+  return stack.dispatcher.write(
+    InboundMailFoundationHandlers.updateAccount,
+    payload,
+    createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+  );
 }
 
 export function adminFor(tenantNumber: number) {

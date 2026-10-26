@@ -61,6 +61,21 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
     },
   );
 
+  // Its upcaster always throws: only a consumer that decodes it would fail.
+  r.defineEvent("poison", z.object({ id: z.uuid() }), {
+    piiFields: "none",
+    version: 2,
+    migrations: [
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        transform: () => {
+          throw new Error("poison upcaster must not run for the ping catch-up job");
+        },
+      },
+    ],
+  });
+
   r.job("on-ping-plain", { trigger: { on: ping.name }, runIn: "worker" }, async (payload) => {
     plainRuns.push(payload["pingId"] as string);
   });
@@ -110,6 +125,27 @@ describe("r.job trigger.catchUp", () => {
     expect(catchUpRuns).toHaveLength(4);
     expect(catchUpRuns.slice().sort()).toEqual([...early, late].sort());
     expect(plainRuns).toHaveLength(4);
+  });
+
+  test("a foreign stored event with a throwing upcaster is skipped without stalling the cursor", async () => {
+    const poisonId = generateId();
+    await append(stack.db, {
+      aggregateId: poisonId,
+      aggregateType: "poison",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "catch-up-fixture:event:poison",
+      eventVersion: 1,
+      payload: { id: poisonId },
+      metadata: { userId: TestUsers.admin.id },
+    });
+    const pingId = await emitPing();
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(catchUpRuns).toContain(pingId);
+    });
   });
 
   test("the job owns a consumer cursor named after its job QN", async () => {

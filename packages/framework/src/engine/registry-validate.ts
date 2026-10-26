@@ -976,6 +976,11 @@ export function validateMaxPerTenant(state: RegistryState): void {
         `Job "${jobName}" maxPerTenant limit must be a positive integer (got ${resolved.limit})`,
       );
     }
+    if (resolved.onLimit === "skip" && "on" in jobDef.trigger && jobDef.trigger.catchUp) {
+      throw new Error(
+        `Job "${jobName}" cannot combine trigger.catchUp with maxPerTenant onLimit "skip" (a plain number is skip): a replay must not discard history. Use onLimit "defer".`,
+      );
+    }
     if (typeof jobDef.maxPerTenant !== "object") continue;
     const { deferMs } = jobDef.maxPerTenant;
     if (deferMs !== undefined && (!Number.isInteger(deferMs) || deferMs <= 0)) {

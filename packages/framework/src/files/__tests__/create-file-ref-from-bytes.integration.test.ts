@@ -90,6 +90,23 @@ const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
     access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } },
   });
 
+  // Generates the bytes server-side so a multi-megabyte upload does not travel as a JSON array.
+  r.writeHandler({
+    name: "store-sized",
+    schema: z.object({ size: z.number(), maxSize: z.number().optional() }),
+    handler: (event, ctx) => {
+      const data = new Uint8Array(event.payload.size);
+      data.set(PDF_BYTES);
+      return createFileRefFromBytes(ctx, {
+        fileName: "sized.pdf",
+        mimeType: "application/pdf",
+        data,
+        ...(event.payload.maxSize !== undefined && { maxSize: event.payload.maxSize }),
+      });
+    },
+    access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } },
+  });
+
   r.writeHandler(
     defineWriteHandler({
       name: "store-uploaded",
@@ -277,6 +294,31 @@ describe("createFileRefFromBytes from a write handler", () => {
     expect(err.httpStatus).toBe(422);
     expect(JSON.stringify(err.details)).toContain("file_too_large");
     await expectNothingStored();
+  });
+
+  test("maxSize replaces the 10mb default: 11 MB passes under a 25 MB limit, 26 MB is rejected", async () => {
+    const MB = 1024 * 1024;
+    const ok = await stack.http.writeOk<Stored>(
+      "file-ref-from-bytes-fixture:write:store-sized",
+      { size: 11 * MB, maxSize: 25 * MB },
+      userA,
+    );
+    expect(ok.size).toBe(11 * MB);
+
+    const tooBig = await stack.http.writeErr(
+      "file-ref-from-bytes-fixture:write:store-sized",
+      { size: 26 * MB, maxSize: 25 * MB },
+      userA,
+    );
+    expect(tooBig.httpStatus).toBe(422);
+    expect(JSON.stringify(tooBig.details)).toContain("file_too_large");
+
+    const defaultLimit = await stack.http.writeErr(
+      "file-ref-from-bytes-fixture:write:store-sized",
+      { size: 11 * MB },
+      userA,
+    );
+    expect(defaultLimit.httpStatus).toBe(422);
   });
 
   test("extension outside the field's accept list is rejected", async () => {

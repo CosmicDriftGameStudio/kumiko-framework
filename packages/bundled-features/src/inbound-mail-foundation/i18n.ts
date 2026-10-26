@@ -64,6 +64,12 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   "inboundMail.accounts.reconnect": { en: "Reconnect" },
   "inboundMail.accounts.edit": { en: "Rename" },
   "inboundMail.accounts.edit.submit": { en: "Save" },
+  "inboundMail.accounts.senderCheck": { en: "Sender check" },
+  "inboundMail.accounts.senderCheck.submit": { en: "Save" },
+  "inboundMail.accounts.senderCheckHint": {
+    en: "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
+  },
+  [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
   "inboundMail.accounts.disconnect": { en: "Disconnect" },
   "inboundMail.accounts.disconnect.confirm": {
     en: "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",

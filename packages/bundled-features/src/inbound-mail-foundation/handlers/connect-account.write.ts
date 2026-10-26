@@ -39,41 +39,44 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 import { appendMailAccountReactivation } from "./reactivate-account.write.ts";
-import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
-export const connectAccountSchema = z.object({
-  /** Provider key registered with the extension ("imap",
-   *  "m365-graph", "gmail-rest"). */
-  provider: z.string().min(1).max(50),
-  authMethod: z.enum([
-    InboundMailAuthMethods.password,
-    InboundMailAuthMethods.xoauth2,
-    InboundMailAuthMethods.oauth,
-  ]),
-  displayName: z.string().trim().max(200),
-  /** Mailbox address in plaintext; it is encrypted here. */
-  address: z.string().min(1).max(320),
-  /** "shared" = shared across the tenant (info@) · "user" = the caller's
-   *  personal mailbox (ownerUserId is taken from the session, never from
-   *  the payload—preventing claims on another user's mailbox). */
-  scope: z.enum(["shared", "user"]),
-  /** Only for the programmatic OAuth callback path (SystemAdmin): there,
-   *  the dispatcher user is a SystemUser and the actual owner is in the
-   *  HMAC-verified state. Tenant callers must not set this field (the
-   *  handler prevents claims on another user's mailbox). */
-  ownerUserIdOverride: z.string().max(36).nullable().optional(),
-  trustedAuthservId: trustedAuthservIdInputSchema,
-});
+export const connectAccountSchema = z
+  .object({
+    /** Provider key registered with the extension ("imap",
+     *  "m365-graph", "gmail-rest"). */
+    provider: z.string().min(1).max(50),
+    authMethod: z.enum([
+      InboundMailAuthMethods.password,
+      InboundMailAuthMethods.xoauth2,
+      InboundMailAuthMethods.oauth,
+    ]),
+    displayName: z.string().trim().max(200),
+    /** Mailbox address in plaintext; it is encrypted here. */
+    address: z.string().min(1).max(320),
+    /** "shared" = shared across the tenant (info@) · "user" = the caller's
+     *  personal mailbox (ownerUserId is taken from the session, never from
+     *  the payload—preventing claims on another user's mailbox). */
+    scope: z.enum(["shared", "user"]),
+    /** Only for the programmatic OAuth callback path (SystemAdmin): there,
+     *  the dispatcher user is a SystemUser and the actual owner is in the
+     *  HMAC-verified state. Tenant callers must not set this field (the
+     *  handler prevents claims on another user's mailbox). */
+    ownerUserIdOverride: z.string().max(36).nullable().optional(),
+  })
+  // trustedAuthservId is deliberately not accepted here: it decides which Authentication-Results header
+  // is believed, so it only changes through set-trusted-authserv-id.
+  .strict();
 type ConnectAccountPayload = z.infer<typeof connectAccountSchema>;
 
 export const connectAccountHandler: WriteHandlerDef = {
   name: "connect-account",
   schema: connectAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  // Connects a mailbox, like disconnect-account (risk high), which the model must not trigger on its own.
+  agent: { expose: false },
   description:
     "Registers a mailbox for the tenant (provider, auth method, display name, encrypted address, shared or personal) and returns the new accountId that also keys its credential slot; use it to start a mail connection, credentials and the first connection test happen outside this call.",
   handler: async (event, ctx) => {
@@ -94,15 +97,21 @@ export const connectAccountHandler: WriteHandlerDef = {
 
     const existing = await findMailboxByAddress(ctx, tenantId, payload.address);
     if (existing) {
-      const conflict = connectConflictOf(existing, {
+      const matched = connectConflictOf(existing, {
         authMethod: payload.authMethod,
         provider: payload.provider,
         ownerUserId,
       });
+      // Reopening keeps the account without a credential check. Only the OAuth callback (it passes
+      // ownerUserIdOverride) writes a fresh token right after, so everyone else gets the plain conflict.
+      const conflict =
+        matched === "reopen_in_place" && payload.ownerUserIdOverride === undefined
+          ? "address_disconnected"
+          : matched;
       if (conflict === "reopen_in_place") {
         const current = await loadCurrentMailAccountPayload(ctx, existing.id);
         if (!current) return failNotFound("mail-account", existing.id);
-        await appendMailAccountReactivation(ctx, existing.id, current, payload.trustedAuthservId);
+        await appendMailAccountReactivation(ctx, existing.id, current);
         return {
           isSuccess: true as const,
           data: { accountId: existing.id, reconnected: true as const },
@@ -141,7 +150,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       status: InboundMailAccountStatuses.active,
       watchState: "idle",
       lastError: null,
-      trustedAuthservId: normalizeTrustedAuthservId(payload.trustedAuthservId),
+      trustedAuthservId: null,
     };
     const headers: MailAccountEventHeaders = {
       providerName: payload.provider,

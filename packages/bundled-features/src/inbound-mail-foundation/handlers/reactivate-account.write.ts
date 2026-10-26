@@ -3,58 +3,52 @@
 // can never undo a disconnect; a deliberate reconnect goes through here instead, keeping the
 // accountId and with it cursor, seen anchors and threads.
 
+import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  failNotFound,
+  failUnprocessable,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses } from "../constants.ts";
+import { InboundMailAccountStatuses, inboundCredentialSecretKey } from "../constants.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import { normalizeTrustedAuthservId } from "../sender-auth.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
-import { trustedAuthservIdInputSchema } from "./trusted-authserv-id.ts";
 
 export const RECONNECT_AUDIT_REASON = "reconnect";
 
-export const reactivateAccountSchema = z.object({
-  accountId: z.uuid(),
-  trustedAuthservId: trustedAuthservIdInputSchema,
-});
+// Strict: the trusted authserv-id only changes through set-trusted-authserv-id.
+export const reactivateAccountSchema = z.object({ accountId: z.uuid() }).strict();
 
-function isAlreadyHealthy(
-  current: MailAccountEventPayload,
-  trustedAuthservId: string | null,
-): boolean {
+const CREDENTIAL_PRESENCE_REASON =
+  "the credential secret is checked on the request transaction because reconnect-mailbox writes it earlier in the same transaction, which a separate connection would not see";
+
+function isAlreadyHealthy(current: MailAccountEventPayload): boolean {
   return (
     current.status === InboundMailAccountStatuses.active &&
     current.watchState === "idle" &&
-    current.lastError === null &&
-    current.trustedAuthservId === trustedAuthservId
+    current.lastError === null
   );
 }
 
 // Shared with connect-account's in-place OAuth reconnect. Returns false when nothing had to change.
-// requestedTrustedAuthservId undefined keeps the stored id; null or "" clears it.
 export async function appendMailAccountReactivation(
   ctx: Pick<HandlerContext, "events">,
   accountId: string,
   current: MailAccountEventPayload,
-  requestedTrustedAuthservId?: string | null,
 ): Promise<boolean> {
-  const trustedAuthservId =
-    requestedTrustedAuthservId === undefined
-      ? current.trustedAuthservId
-      : normalizeTrustedAuthservId(requestedTrustedAuthservId);
-  if (isAlreadyHealthy(current, trustedAuthservId)) return false;
+  if (isAlreadyHealthy(current)) return false;
   const eventPayload: MailAccountEventPayload = {
     ...current,
     status: InboundMailAccountStatuses.active,
     watchState: "idle",
     lastError: null,
-    trustedAuthservId,
   };
   const headers: MailAccountEventHeaders = {
     providerName: current.provider,
@@ -75,18 +69,30 @@ export const reactivateAccountHandler: WriteHandlerDef = {
   schema: reactivateAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   agent: { expose: false },
+  escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_PRESENCE_REASON },
   description:
     "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
   handler: async (event, ctx) => {
     const payload = reactivateAccountSchema.parse(event.payload);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
-    const changed = await appendMailAccountReactivation(
-      ctx,
-      payload.accountId,
-      current,
-      payload.trustedAuthservId,
-    );
+    // A personal mailbox is the owner's: an admin must not re-arm it, since a reconnect re-reads the
+    // owner's mail with whatever credential the caller supplies.
+    if (current.ownerUserId !== null && event.user.id !== current.ownerUserId) {
+      return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
+    }
+    if (current.status === InboundMailAccountStatuses.disconnected) {
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        "reactivate-account",
+      ).withRunner(ctx.db.unsafeRaw());
+      const hasCredential = await secrets.has(
+        event.user.tenantId,
+        inboundCredentialSecretKey(payload.accountId),
+      );
+      if (!hasCredential) return failUnprocessable("credential_required");
+    }
+    const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
     return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
   },
 };

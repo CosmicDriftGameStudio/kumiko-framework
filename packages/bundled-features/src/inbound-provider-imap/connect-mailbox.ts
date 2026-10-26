@@ -145,7 +145,6 @@ export const connectMailboxHandler = defineWriteHandler({
       displayName,
       address,
       scope: "shared",
-      trustedAuthservId: trustedAuthservId ?? null,
     });
     if (!connected.isSuccess) return connected;
     const { accountId } = connectedAccountSchema.parse(connected.data);
@@ -164,6 +163,13 @@ export const connectMailboxHandler = defineWriteHandler({
         updatedBy: event.user.id,
       },
     );
+    if (trustedAuthservId) {
+      const trusted = await ctx.dispatch.write(InboundMailFoundationHandlers.setTrustedAuthservId, {
+        accountId,
+        trustedAuthservId,
+      });
+      if (!trusted.isSuccess) return trusted;
+    }
     return { isSuccess: true, data: { accountId } };
   },
 });

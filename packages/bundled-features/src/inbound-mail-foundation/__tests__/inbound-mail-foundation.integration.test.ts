@@ -12,7 +12,7 @@
 //   - Crypto shredding: erasing the subject key makes the payload unreadable
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -27,8 +27,8 @@ import {
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
+import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { bridgeStub, createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
   getStreamVersion,
@@ -532,10 +532,16 @@ describe("scenario 4: Account-Lifecycle", () => {
     const admin = adminFor(4004);
     const accountId = await connectSharedAccount(admin);
 
-    await stack.http.writeOk(
+    const asAdmin = await stack.http.writeErr(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, status: "degraded" },
+      admin,
+    );
+    expect(JSON.stringify(asAdmin)).toContain("field_requires_system_identity");
+    await stack.dispatcher.write(
       InboundMailFoundationHandlers.updateAccount,
       { accountId, status: "degraded", watchState: "backoff:5000ms", reason: "test" },
-      admin,
+      createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
     );
     let rows = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
     expect(rows[0]?.["status"]).toBe("degraded");
@@ -563,12 +569,13 @@ describe("scenario 4: Account-Lifecycle", () => {
 
     // Updating a disconnected account returns 422; a supervisor race must not
     // revive a disconnected account.
-    const err = await stack.http.writeErr(
+    const err = await stack.dispatcher.write(
       InboundMailFoundationHandlers.updateAccount,
       { accountId, status: "active", reason: "test" },
-      admin,
+      createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
     );
-    expect(err.httpStatus).toBe(422);
+    expect(err.isSuccess).toBe(false);
+    expect(JSON.stringify(err)).toContain("account_disconnected");
   });
 });
 

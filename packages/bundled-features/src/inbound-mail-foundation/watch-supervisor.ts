@@ -48,13 +48,10 @@ import {
   systemScopedRunner,
   tenantScopedSecrets,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { mapWithConcurrency } from "../shared/index.ts";
 import { createAccountHealth } from "./account-health.ts";
 import { createAccountPoller } from "./account-poll.ts";
-import {
-  forEachWithConcurrency,
-  pollScheduleOf,
-  withPollDeadline,
-} from "./account-poll-schedule.ts";
+import { pollScheduleOf, withPollDeadline } from "./account-poll-schedule.ts";
 import { registerMailAccountWakeListener } from "./account-wake.ts";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.ts";
 import { describeError } from "./describe-error.ts";
@@ -248,16 +245,15 @@ export function createInboundMailSupervisor(
 
   async function pollOnce(): Promise<void> {
     const accounts = await listSyncableAccounts(systemDb, log);
-    await forEachWithConcurrency(
-      accounts,
-      pollConcurrency,
-      async (account) => {
+    // One account failing must not abort the others, and mapWithConcurrency would reject on the first error.
+    await mapWithConcurrency(accounts, Math.max(1, pollConcurrency), async (account) => {
+      try {
         const plugin = resolvePluginOrLog(account);
         if (plugin) await pollAccountOfTick(account, plugin);
-      },
-      (account, err) =>
-        log(`inbound-mail: account ${account.id} tick failed: ${describeError(err)}`),
-    );
+      } catch (err) {
+        log(`inbound-mail: account ${account.id} tick failed: ${describeError(err)}`);
+      }
+    });
     // Remove watchers for accounts that are no longer syncable.
     const syncableIds = new Set(accounts.map((a) => a.id));
     for (const accountId of watchers.keys()) {

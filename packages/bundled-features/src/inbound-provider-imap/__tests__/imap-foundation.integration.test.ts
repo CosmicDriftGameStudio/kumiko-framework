@@ -13,7 +13,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { connect } from "node:net";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -64,6 +63,7 @@ import {
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
@@ -77,28 +77,11 @@ const ADDRESS = "testuser@example.com";
 const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
 process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
 
-function probe(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host, port, timeout: 1500 });
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once("error", () => resolve(false));
-    socket.once("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-}
-
-const available = (await probe(HOST, IMAP_PORT)) && (await probe(HOST, SMTP_PORT));
+const available = await greenmailAvailable("imap-foundation", [
+  { host: HOST, port: IMAP_PORT },
+  { host: HOST, port: SMTP_PORT },
+]);
 const liveTest = available ? test : test.skip;
-if (!available) {
-  console.warn(
-    `imap-foundation: kein IMAP/SMTP-Server auf ${HOST}:${IMAP_PORT}/${SMTP_PORT} — Suite wird geskippt (greenmail starten)`,
-  );
-}
 
 let stack: TestStack;
 let db: DbConnection;

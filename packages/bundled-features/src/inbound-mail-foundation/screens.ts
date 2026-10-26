@@ -16,6 +16,7 @@ export const MAIL_ACCOUNT_LIST_SCREEN_QN = "inbound-mail-foundation:screen:mail-
 // Registered by inbound-provider-imap, which needs the IMAP client to check the login. The
 // renderer drops a navigate action whose target screen is not mounted, so the toolbar button
 // only shows in apps that mount that provider.
+export const MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID = "mail-account-sender-check";
 export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
 // Same reason for the row action "Reconnect" on an account with a sign-in error.
 export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
@@ -84,6 +85,14 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
     },
     {
       kind: "navigate",
+      id: "sender-check",
+      label: i18nKey("inboundMail.accounts.senderCheck"),
+      screen: MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID,
+      params: { map: { accountId: "id", trustedAuthservId: "trustedAuthservId" } },
+      visible: { field: "status", ne: InboundMailAccountStatuses.disconnected },
+    },
+    {
+      kind: "navigate",
       id: "reconnect",
       label: i18nKey("inboundMail.accounts.reconnect"),
       screen: IMAP_RECONNECT_SCREEN_ID,
@@ -140,6 +149,30 @@ export const mailAccountEditScreen: ActionFormScreenDefinition = {
     sections: [{ fields: [{ field: "accountId", readOnly: true }, "displayName"] }],
   },
   submitLabel: i18nKey("inboundMail.accounts.edit.submit"),
+  redirect: MAIL_ACCOUNT_LIST_SCREEN_ID,
+  cancelTarget: MAIL_ACCOUNT_LIST_SCREEN_ID,
+  access: MAIL_ACCOUNT_ADMIN_ACCESS,
+  dormant: true,
+};
+
+export const mailAccountSenderCheckScreen: ActionFormScreenDefinition = {
+  id: MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID,
+  type: "actionForm",
+  agent: { expose: false },
+  handler: InboundMailFoundationHandlers.setTrustedAuthservId,
+  fields: {
+    accountId: { type: "text", required: true },
+    trustedAuthservId: { type: "text", maxLength: 255 },
+  },
+  layout: {
+    sections: [
+      {
+        description: i18nKey("inboundMail.accounts.senderCheckHint"),
+        fields: [{ field: "accountId", readOnly: true }, "trustedAuthservId"],
+      },
+    ],
+  },
+  submitLabel: i18nKey("inboundMail.accounts.senderCheck.submit"),
   redirect: MAIL_ACCOUNT_LIST_SCREEN_ID,
   cancelTarget: MAIL_ACCOUNT_LIST_SCREEN_ID,
   access: MAIL_ACCOUNT_ADMIN_ACCESS,

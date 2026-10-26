@@ -2058,6 +2058,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Getrennt",
   "inboundMail.accounts.edit": "Umbenennen",
   "inboundMail.accounts.edit.submit": "Speichern",
+  "inboundMail.accounts.senderCheck": "Absenderprüfung",
+  "inboundMail.accounts.senderCheck.submit": "Speichern",
+  "inboundMail.accounts.senderCheckHint":
+    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Kennung des Mailservers",
   "inboundMail.accounts.disconnect": "Trennen",
   "inboundMail.accounts.disconnect.confirm":
     "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
