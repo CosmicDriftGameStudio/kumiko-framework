@@ -316,7 +316,7 @@
     },
     {
       "name": "billing-foundation",
-      "description": "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (manual-trigger + runOnBoot, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-dodo` unless you are writing a new payment provider.",
+      "description": "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (manual-trigger + runOnBoot, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-paddle` unless you are writing a new payment provider.",
       "toggleableDefault": null,
       "requires": [
         "tenant-lifecycle",
@@ -2505,123 +2505,6 @@
       }
     },
     {
-      "name": "subscription-dodo",
-      "description": "Dodo Payments provider plugin for `billing-foundation`. Dodo acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), plus a `billingLive` master switch and an `environment` key (test | live). `environment` is its own key because Dodo serves test and live mode from different API hosts and a live key must never hit the test host or the other way round; `billingLive` only decides whether checkouts are offered at all. All four are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionDodoFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env to secrets bridge fallbacks (`DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true. Webhooks arrive at `/api/subscription/webhook/dodo` and are verified per the Standard Webhooks spec (HMAC-SHA256 over id, timestamp and the raw body, 5 minute tolerance); events for products outside `priceToTier` or without tenant metadata are dropped. Implements hosted checkout, customer portal, cancel and resume, `retrievePrices` (10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `plan_changed` webhook to move the tier. A plan switch in Dodo requires all plan products to belong to one Product Collection.",
-      "toggleableDefault": null,
-      "requires": [
-        "billing-foundation",
-        "config",
-        "secrets"
-      ],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "subscriptionProvider",
-          "entityName": "dodo"
-        }
-      ],
-      "configKeys": [
-        {
-          "key": "api-key",
-          "qualifiedName": "subscription-dodo:config:api-key",
-          "type": "text",
-          "scope": "system",
-          "default": null,
-          "encrypted": true,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": null,
-          "writeRoles": [
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ]
-        },
-        {
-          "key": "billing-live",
-          "qualifiedName": "subscription-dodo:config:billing-live",
-          "type": "boolean",
-          "scope": "system",
-          "default": false,
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": null,
-          "writeRoles": [
-            "system",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ]
-        },
-        {
-          "key": "environment",
-          "qualifiedName": "subscription-dodo:config:environment",
-          "type": "select",
-          "scope": "system",
-          "default": "test",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": [
-            "test",
-            "live"
-          ],
-          "bounds": null,
-          "pattern": null,
-          "writeRoles": [
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ]
-        },
-        {
-          "key": "webhook-secret",
-          "qualifiedName": "subscription-dodo:config:webhook-secret",
-          "type": "text",
-          "scope": "system",
-          "default": null,
-          "encrypted": true,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": null,
-          "writeRoles": [
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ]
-        }
-      ],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "Billing · Dodo Payments",
-        "category": "billing",
-        "recommended": false
-      }
-    },
-    {
       "name": "subscription-mollie",
       "description": "Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` — the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType=\"first\"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.",
       "toggleableDefault": null,
@@ -2643,6 +2526,165 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Billing · Mollie",
+        "category": "billing",
+        "recommended": false
+      }
+    },
+    {
+      "name": "subscription-paddle",
+      "description": "Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key, webhook secret and tenant binding key from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`tenantBindingKey`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_TENANT_BINDING_KEY`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with API key and binding key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` is only trusted together with `tenantBinding`, an HMAC of the tenant id under the binding key; events without a valid binding, for prices outside `priceToTier` or without a tenant are dropped. Rotating the binding key makes the webhooks of existing subscriptions fail that check until they are re-bound. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (set it as the default payment link in the Paddle dashboard): an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.",
+      "toggleableDefault": null,
+      "requires": [
+        "billing-foundation",
+        "config",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "subscriptionProvider",
+          "entityName": "paddle"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "api-key",
+          "qualifiedName": "subscription-paddle:config:api-key",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": true,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "billing-live",
+          "qualifiedName": "subscription-paddle:config:billing-live",
+          "type": "boolean",
+          "scope": "system",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "client-token",
+          "qualifiedName": "subscription-paddle:config:client-token",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "environment",
+          "qualifiedName": "subscription-paddle:config:environment",
+          "type": "select",
+          "scope": "system",
+          "default": "sandbox",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": [
+            "sandbox",
+            "live"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "tenant-binding-key",
+          "qualifiedName": "subscription-paddle:config:tenant-binding-key",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": true,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "webhook-secret",
+          "qualifiedName": "subscription-paddle:config:webhook-secret",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": true,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Billing · Paddle",
         "category": "billing",
         "recommended": false
       }

@@ -30,11 +30,11 @@ const port = Number.parseInt(process.env["PORT"] ?? "4196", 10);
 
 const BILLING_FEATURE = "billing-foundation";
 const EMAIL_FEATURE = "channel-email";
-// The stock app mounts the real Mollie and Dodo providers; the gallery's
+// The stock app mounts the real Mollie and Paddle providers; the gallery's
 // provider choice is the two mocks, which never call out.
 const REAL_PROVIDER_FEATURES: ReadonlySet<string> = new Set([
   "subscription-mollie",
-  "subscription-dodo",
+  "subscription-paddle",
 ]);
 
 const features = [

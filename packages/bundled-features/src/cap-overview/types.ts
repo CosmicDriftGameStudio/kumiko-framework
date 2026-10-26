@@ -38,6 +38,8 @@ export type CapSpec = {
     tenantIds: readonly TenantId[],
   ) => Promise<Map<TenantId, number | null>>;
   readonly unit?: CapUnit;
+  /** `false` shows the counter only: the limit is not sent to the client; enforcement stays with cap-counter. Default true. */
+  readonly showLimit?: boolean;
   /** Icon chip on the dashboard cards. Optional — omitted renders the card
    *  without an icon, same as before this field existed. */
   readonly icon?: CapIconKey;

@@ -10,7 +10,7 @@ instead of keeping a hand-written copy of every feature's variables.
   `kmsEnvSchema` and `s3EnvSchema`. `composeEnvSchema` collects them and
   records which feature declared each variable.
 - **App-level blocks in `extend`**: `buildInfoEnvSchema`, `demoAdminEnvSchema`,
-  `stripeEnvSchema({ prices })`, `dodoEnvSchema({ prices })` and
+  `stripeEnvSchema({ prices })`, `paddleEnvSchema({ prices })` and
   `createS3EnvSchema({ prefix })` for a
   second bucket. These belong to no mounted feature, so the app adds them.
 - **Typed result**: `parseEnv(composed.schema, …)` returns the merged type,
@@ -27,7 +27,7 @@ instead of keeping a hand-written copy of every feature's variables.
 | `smtpEnvSchema` | `channel-email` | `createChannelEmailFeature()` |
 | `s3EnvSchema`, `createS3EnvSchema({ prefix })` | `file-provider-s3` | `createFileProviderS3Feature({ fromEnv: true })` |
 | `stripeEnvSchema({ prices })` | `subscription-stripe` | app (`extend`); the feature registers the bridge keys |
-| `dodoEnvSchema({ prices })` | `subscription-dodo` | app (`extend`); the feature registers the bridge keys |
+| `paddleEnvSchema({ prices })` | `subscription-paddle` | app (`extend`); the feature registers the bridge keys |
 | `mfaTokenSecretsEnvSchema` | `auth-mfa` | `createAuthMfaFeature()` |
 | `buildInfoEnvSchema`, `demoAdminEnvSchema` | `foundation-shared` | app (`extend`) |
 | `prometheusMetricsEnvSchema` | `framework/observability` | app (`extend`) |

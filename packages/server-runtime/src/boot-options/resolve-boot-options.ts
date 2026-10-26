@@ -1,7 +1,7 @@
 import { BILLING_FOUNDATION_FEATURE } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { DELIVERY_FEATURE } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { FEATURE_TOGGLES_FEATURE } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { SUBSCRIPTION_DODO_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-dodo";
+import { SUBSCRIPTION_PADDLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { TIER_ENGINE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
@@ -186,8 +186,8 @@ export async function resolveBootOptionWiring(
     if (options.billing.stripe) {
       rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
     }
-    if (options.billing.dodo) {
-      rejectDoubleMount(mounted, "billing.dodo", SUBSCRIPTION_DODO_FEATURE);
+    if (options.billing.paddle) {
+      rejectDoubleMount(mounted, "billing.paddle", SUBSCRIPTION_PADDLE_FEATURE);
     }
     const billing = resolveBillingOption(options.billing, envSource);
     features.push(...billing.features);

@@ -425,6 +425,28 @@ describe("CapCardsPanel", () => {
     expect(screen.getByTestId("cap-card").querySelector(".mt-3")).toBeNull();
   });
 
+  test("a counter-only card (limit hidden by the server) shows only the count next to a normal limited card", () => {
+    queryState = {
+      data: {
+        rows: [
+          unlimitedCapRow({ id: "counter", label: "Notes", used: 7 }),
+          capRow({ id: "limited", label: "Mail", used: 30, limit: 100, percent: 30 }),
+        ],
+      },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    const [counterCard, limitedCard] = screen.getAllByTestId("cap-card");
+    expect(counterCard?.textContent).toContain("7");
+    expect(counterCard?.textContent).not.toMatch(/unlimited|\/|%|left|null/i);
+    expect(counterCard?.querySelector("[data-testid='cap-usage-bar']")).toBeNull();
+    expect(limitedCard?.textContent).toContain("30");
+    expect(limitedCard?.textContent).toContain("100");
+  });
+
   test("a limited card and an unlimited card in the same panel each render their own state", () => {
     queryState = {
       data: {

@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-22
-evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, termination handlers, § 312k pages), #3493 (platform termination scope), #3515 (layout around termination pages); packages/bundled-features/src/billing-foundation/{consumer-protection,web}; samples/apps/use-all-bundled/e2e-billing-gallery; provider texts, several providers and in-app plan switch: packages/bundled-features/src/{billing-foundation,subscription-dodo}"
+verified: 2026-10-26
+evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, termination handlers, § 312k pages), #3493 (platform termination scope), #3515 (layout around termination pages); packages/bundled-features/src/billing-foundation/{consumer-protection,web}; samples/apps/use-all-bundled/e2e-billing-gallery; provider texts, several providers and in-app plan switch: packages/bundled-features/src/{billing-foundation,subscription-paddle}"
 ---
 
 # Billing consumer protection: consent, cancel and termination
@@ -24,13 +24,13 @@ Locales other than `de` and `en` resolve to English.
 
 ### Texts per provider
 
-A merchant of record such as Dodo Payments sells to the customer in its own name. The contract partner, the invoice and the VAT then come from the provider, and the customer has to read that before ordering. `providerTexts` sets this per provider name:
+A merchant of record such as Paddle sells to the customer in its own name. The contract partner, the invoice and the VAT then come from the provider, and the customer has to read that before ordering. `providerTexts` sets this per provider name:
 
 ```ts illustration
 providerTexts: {
-  dodo: {
-    checkoutNote: { de: "Vertragspartner ist Dodo Payments …", en: "Your contract partner is Dodo Payments …" },
-    vatNote: { de: "Dodo Payments weist die Umsatzsteuer aus.", en: "Dodo Payments charges the VAT." },
+  paddle: {
+    checkoutNote: { de: "Vertragspartner ist Paddle …", en: "Your contract partner is Paddle …" },
+    vatNote: { de: "Paddle weist die Umsatzsteuer aus.", en: "Paddle charges the VAT." },
   },
 },
 ```
@@ -50,7 +50,7 @@ Each text needs `de` and `en`. A provider without an entry uses the global texts
 
 After the provider accepted the checkout, the handler appends `checkout-consent-recorded` with the price, the provider, the text version, the terms hash and template version, the locale and the acting user. When a later subscription or payment event with the same `consentId` shows the contract is live, a job sends the contract confirmation mail once.
 
-A plan switch is a new agreement too. Providers with a hosted switch page (Stripe) collect it there. Providers that switch through the API (Dodo) get a confirmation in the app instead: `plan-switch-preview` returns what is due now, the tax, any credit and the new recurring price, and `switch-plan` then takes the same `consent` payload as a checkout and runs the same gate before it calls the provider. The confirmation mail follows once the provider's webhook reports the switch.
+A plan switch is a new agreement too. Providers with a hosted switch page (Stripe) collect it there. Providers that switch through the API (Paddle) get a confirmation in the app instead: `plan-switch-preview` returns what is due now, the tax, any credit and the new recurring price, and `switch-plan` then takes the same `consent` payload as a checkout and runs the same gate before it calls the provider. The confirmation mail follows once the provider's webhook reports the switch.
 
 ## `BillingPlansPanel` dialogs
 
@@ -62,9 +62,9 @@ A plan switch is a new agreement too. Providers with a hosted switch page (Strip
 
 ## Several providers
 
-An app can mount more than one subscription provider, for example `subscription-stripe` and `subscription-dodo`, or set both under `billing` in `runProdApp`. Every provider that exposes `priceToTier` serves the catalog, unless `catalog.providerName` pins one.
+An app can mount more than one subscription provider, for example `subscription-stripe` and `subscription-paddle`, or set both under `billing` in `runProdApp`. Every provider that exposes `priceToTier` serves the catalog, unless `catalog.providerName` pins one.
 
-- Each provider has its own webhook URL, `/api/subscription/webhook/<providerName>`, so `/api/subscription/webhook/stripe` and `/api/subscription/webhook/dodo`. Register each URL in the provider's dashboard with that provider's signing secret.
+- Each provider has its own webhook URL. With the `runProdApp` `billing` option it is `/webhooks/subscription/<providerName>` (`/webhooks/subscription/stripe`, `/webhooks/subscription/paddle`); a hand-mounted `createSubscriptionWebhookRoute` defaults to `/api/subscription/webhook/<providerName>`. Register each URL in the provider's dashboard with that provider's signing secret.
 - A provider is offered for new checkouts once the system admin has set its keys and switched `billingLive` on in the provider's config screen. A provider without `isBillingEnabled`, such as `subscription-mollie`, counts as offered as soon as it is mounted.
 - With more than one offered provider the customer first picks a plan as before. The order dialog then shows one card per provider with its name and `checkoutNote`, and the price on each card when the prices differ. If a plan costs different amounts per provider, its plan card shows the lowest one with "from". `start-plan-checkout` then needs `providerName` and rejects a provider that is not offered. With one offered provider nothing changes for the customer.
 - An existing subscription stays with the provider stored on it. Its prices, plan switch, portal, cancellation and sync all go to that provider, also after a second provider is switched on. A switch never moves a subscription to another provider. To change providers the customer cancels and orders again.

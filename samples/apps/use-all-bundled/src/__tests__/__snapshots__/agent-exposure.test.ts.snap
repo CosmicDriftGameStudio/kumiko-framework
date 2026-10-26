@@ -193,6 +193,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "sessions:write:user-session:revoke expose=true risk=high",
   "sessions:write:user-session:revoke-all-for-user expose=true risk=high",
   "sessions:write:user-session:revoke-all-others expose=true risk=high",
+  "subscription-paddle:query:checkout-config expose=true risk=low",
   "tags:query:tag-assignment:list expose=true risk=low",
   "tags:query:tag:detail expose=true risk=low",
   "tags:query:tag:list expose=true risk=low",

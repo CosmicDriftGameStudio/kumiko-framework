@@ -81,7 +81,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   );
   const dashboardCards = page.getByTestId("cap-cards-panel");
   await expect(dashboardCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(4); // notes + tags + seats + apiCalls (cap-overview-caps.ts)
+  await expect(page.getByTestId("cap-card")).toHaveCount(5); // notes + tags + seats + apiCalls + templates (cap-overview-caps.ts)
   await expect(dashboardCards).toContainText("Notes");
   await expect(dashboardCards).toContainText("Tags");
   await expect(dashboardCards).toContainText("Seats");
@@ -96,6 +96,13 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   const apiCallsCard = page.locator('[data-testid="cap-card"]', { hasText: "API calls" });
   await expect(apiCallsCard).toContainText("12");
   await expect(apiCallsCard).not.toContainText("%");
+  // templates is counter-only (showLimit: false) — a count with no limit,
+  // percent badge or remaining hint.
+  const templatesCard = page.locator('[data-testid="cap-card"]', { hasText: "Templates" });
+  await expect(templatesCard).toBeVisible();
+  await expect(templatesCard).not.toContainText("%");
+  await expect(templatesCard).not.toContainText("/");
+  await expect(templatesCard).not.toContainText("left");
 
   // Regression guard for the grid-track-width bug: an arbitrary Tailwind
   // bracket class on cap-cards-panel.tsx's grid never compiled (bundled-
@@ -130,7 +137,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await page.goto("/tenant-admin/my-caps");
   const myCapsCards = page.getByTestId("cap-cards-panel");
   await expect(myCapsCards).toBeVisible();
-  await expect(page.getByTestId("cap-card")).toHaveCount(4);
+  await expect(page.getByTestId("cap-card")).toHaveCount(5);
   // toHaveText() normalizes only the actual side, not a plain-string
   // expected — compare raw innerText on both sides instead.
   await expect(async () => {
