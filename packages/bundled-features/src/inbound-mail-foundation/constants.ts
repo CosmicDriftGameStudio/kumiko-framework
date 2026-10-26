@@ -41,6 +41,8 @@ export const InboundMailFoundationQueries = {
   /** Tenant-scoped message list (inbox cockpit). PII is decrypted on read.
    */
   listMessages: "inbound-mail-foundation:query:message:list",
+  /** Open quarantine entries of the mailboxes the caller may manage, with sender and subject from the header import. */
+  listQuarantine: "inbound-mail-foundation:query:quarantine:list",
   /** Decrypted full text, attachment ids and content state of one message. */
   messageContent: "inbound-mail-foundation:query:message:content",
 } as const;
@@ -78,6 +80,10 @@ export const InboundMailConnectErrors = {
   addressDisconnected: {
     reason: "address_disconnected",
     i18nKey: "inboundMail.accounts.errors.addressDisconnected",
+  },
+  credentialRequired: {
+    reason: "credential_required",
+    i18nKey: "inboundMail.accounts.errors.credentialRequired",
   },
 } as const;
 

@@ -458,6 +458,8 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
       await waitFor(() => {
         expect(isWatching(accountId)).toBe(true);
       });
+      // The catch-up poll after the watch start would otherwise race the seeded mail and make pollOnce join it.
+      await supervisor.syncAccountNow(accountId);
 
       await seedInboundMessage(
         accountId,

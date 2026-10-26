@@ -72,11 +72,12 @@ import {
 import { createSyncCursorStore } from "./sync-cursor-store.ts";
 import { listSyncableAccounts, type SyncableAccount } from "./syncable-accounts.ts";
 import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "./types.ts";
+import { createWatchCatchUp } from "./watch-catch-up.ts";
+import { createWatchLease } from "./watch-lease.ts";
 import type {
   InboundMailSupervisor,
   InboundMailSupervisorDeps,
   WatcherState,
-  WatchLeaseResult,
 } from "./watch-supervisor-types.ts";
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
@@ -242,8 +243,8 @@ export function createInboundMailSupervisor(
           countBucket: currentCountBucket(deps.now, pollIntervalMs),
         });
       });
-      if (running) await ensureWatcher(account, plugin);
     }
+    if (running) await ensureWatcher(account, plugin);
   }
 
   async function pollOnce(): Promise<void> {
@@ -264,6 +265,13 @@ export function createInboundMailSupervisor(
     }
   }
 
+  const watchCatchUp = createWatchCatchUp({
+    inFlight: inFlightSyncs,
+    pollAccount: pollAccountWithDeadline,
+    isRunning: () => running,
+    log,
+  });
+
   const syncAccountNow = createSyncAccountNow({
     inFlight: inFlightSyncs,
     loadAccount: async (accountId) => (await listSyncableAccounts(systemDb, log, accountId))[0],
@@ -276,108 +284,27 @@ export function createInboundMailSupervisor(
   // ---------------------------------------------------------------
   // Watch lifecycle with backoff restart.
   // ---------------------------------------------------------------
-  // Heartbeat for a held watch lease. Independent of the connection's own
-  // lifecycle — it keeps renewing across reconnect backoff, not just while
-  // `plugin.watch()` is actually connected, so a flaky IMAP link doesn't
-  // make this worker lose the account to a peer mid-backoff.
-  function scheduleRenew(
-    account: MailAccountRecord,
-    state: WatcherState,
-    generation: number,
-  ): void {
-    state.renewTimer = setTimeout(() => {
-      void renewLeaseOnce(account, state, generation);
-    }, renewIntervalMs);
-  }
-
-  async function tearDownAfterRenewFailures(
-    account: MailAccountRecord,
-    state: WatcherState,
-    reason: string,
-  ): Promise<void> {
-    log(
-      `inbound-mail: watch lease ${reason} for account ${account.id} — tearing down local watcher`,
-    );
-    state.lockToken = null;
-    await stopWatcher(account.id);
-  }
-
-  async function renewLeaseOnce(
-    account: MailAccountRecord,
-    state: WatcherState,
-    generation: number,
-  ): Promise<void> {
-    state.renewTimer = null;
-    // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
-    if (!running || state.generation !== generation || !state.lockToken || !deps.lock) return;
-    let renewed: boolean;
-    try {
-      renewed = await deps.lock.renew(account.id, state.lockToken, leaseTtlSeconds);
-    } catch (err) {
-      log(
-        `inbound-mail: watch lease renew for account ${account.id} failed: ${describeError(err)}`,
-      );
-      state.renewFailures += 1;
-      // After failures spanning a full lease TTL, tear down — otherwise a
-      // peer can acquire the expired key while we still hold an IDLE conn.
-      if (state.renewFailures * renewIntervalMs >= leaseTtlSeconds * 1000) {
-        await tearDownAfterRenewFailures(account, state, "renew failed across TTL");
-        // skip: connection torn down, no reschedule
-        return;
-      }
-      rescheduleIfStillHeld(account, state, generation);
-      // skip: renew failed but TTL not yet exhausted, retry already scheduled
-      return;
-    }
-    state.renewFailures = 0;
-    if (!renewed) {
-      await tearDownAfterRenewFailures(account, state, "lost");
-      // skip: lease lost and torn down, nothing to reschedule
-      return;
-    }
-    rescheduleIfStillHeld(account, state, generation);
-  }
-
-  function rescheduleIfStillHeld(
-    account: MailAccountRecord,
-    state: WatcherState,
-    generation: number,
-  ): void {
-    if (running && state.generation === generation && state.lockToken) {
-      scheduleRenew(account, state, generation);
-    }
-  }
-
-  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional
-  async function acquireWatchLease(
-    account: MailAccountRecord,
-    state: WatcherState,
-  ): Promise<WatchLeaseResult> {
-    if (!deps.lock || state.lockToken) return "acquired";
-    const token = await deps.lock.acquire(account.id, { ttlSeconds: leaseTtlSeconds });
-    if (!token) return "no-token";
-    // The acquire() await is a yield point: a concurrent stopWatcher()
-    // (e.g. from a lost-lease renewal on a different generation) may have
-    // already retired this exact state and removed it from the map. If so,
-    // committing the fresh token onto it would leak the lease — nothing
-    // would ever release it, blocking failover for the full TTL.
-    if (watchers.get(account.id) !== state) {
-      await deps.lock.release(account.id, token);
-      return "stale";
-    }
-    state.lockToken = token;
-    scheduleRenew(account, state, state.generation);
-    return "acquired";
-  }
+  const watchLease = createWatchLease({
+    lock: deps.lock,
+    ttlSeconds: leaseTtlSeconds,
+    renewIntervalMs,
+    watchers,
+    isRunning: () => running,
+    stopWatcher,
+    log,
+  });
 
   // kumiko-lint-ignore complexity-budget watch lifecycle (start/stop/restart) stays cohesive
   async function ensureWatcher(
-    account: MailAccountRecord,
+    account: SyncableAccount,
     plugin: InboundMailProviderPlugin,
   ): Promise<void> {
     // skip: provider without live push; the reconciliation poll covers the account.
     if (!plugin.watch) return;
-    await retireWatcherWithStaleTrust(account);
+    const stale = watchers.get(account.id);
+    if (stale?.stop && stale.trustedAuthservId !== (account.trustedAuthservId ?? null)) {
+      await stopWatcher(account.id);
+    }
     const existing = watchers.get(account.id);
     // skip: the watcher is already running, starting, or scheduled for restart.
     if (existing?.stop || existing?.restartTimer || existing?.starting) return;
@@ -394,27 +321,20 @@ export function createInboundMailSupervisor(
       trustedAuthservId: null,
     };
     watchers.set(account.id, state);
+    state.starting = true;
 
-    const leaseResult = await acquireWatchLease(account, state);
-    if (leaseResult === "no-token") {
-      // Another worker already holds this account's watch lease — the poll
-      // still covers it, this worker just doesn't open a second IDLE
-      // connection. Retried on the next tick.
-      if (!existing) watchers.delete(account.id);
-      // skip: no lease token acquired above — nothing more to set up here.
-      return;
-    }
-    if (leaseResult === "stale") {
-      // skip: state was retired by a concurrent stopWatcher while acquire()
-      // awaited — committing here would leak the lease.
+    const leaseResult = await watchLease.acquire(account, state);
+    if (leaseResult !== "acquired") {
+      if (leaseResult === "no-token" && !existing) watchers.delete(account.id);
+      state.starting = false;
+      // skip: no-token means the poll still covers the account and the next tick retries; stale means stopWatcher retired this state.
       return;
     }
 
     const generation = state.generation;
 
     const scheduleRestart = (err: unknown) => {
-      // skip: the supervisor stopped or the watcher generation changed; a restart
-      // would create a zombie watcher.
+      // skip: stopped or superseded generation; a restart would create a zombie watcher.
       if (!running || state.generation !== generation) return;
       state.stop = null;
       const delay = state.backoffMs;
@@ -429,7 +349,6 @@ export function createInboundMailSupervisor(
       }, delay);
     };
 
-    state.starting = true;
     state.trustedAuthservId = account.trustedAuthservId ?? null;
     try {
       const accessToken = await resolveAccessToken(account, plugin);
@@ -478,18 +397,12 @@ export function createInboundMailSupervisor(
           `inbound-mail: markAccount(watching) for account ${account.id} failed: ${describeError(err)}`,
         );
       }
+      watchCatchUp.schedule(account, plugin);
     } catch (err) {
       const keepRunning = await handleSyncError(account, err);
       if (keepRunning) scheduleRestart(err);
     } finally {
       state.starting = false;
-    }
-  }
-
-  async function retireWatcherWithStaleTrust(account: MailAccountRecord): Promise<void> {
-    const existing = watchers.get(account.id);
-    if (existing?.stop && existing.trustedAuthservId !== (account.trustedAuthservId ?? null)) {
-      await await stopWatcher(account.id);
     }
   }
 
@@ -573,7 +486,7 @@ export function createInboundMailSupervisor(
         pollTimer = null;
       }
       if (pollInFlight) await pollInFlight;
-      await Promise.allSettled([...inFlightSyncs.values()]);
+      await Promise.allSettled([...inFlightSyncs.values(), watchCatchUp.settled()]);
       for (const accountId of [...watchers.keys()]) {
         await stopWatcher(accountId);
       }

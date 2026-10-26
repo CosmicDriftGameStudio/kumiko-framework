@@ -31,3 +31,31 @@ type: improvement
 title: The IMAP cursor follows UIDs and skips known mails
 detail: lastUid is derived from the fetched UIDs, so a quarantined or already known mail at the end of a full batch no longer holds the cursor back or gets fetched again; the envelope is read so a mail the parser throws on still gets its header entry. A forwarded mail that cannot be parsed is kept as an attachment instead of failing the whole mail.
 -->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: A watch that starts during a sync catches up on mail that arrived before it opened
+detail: After a successful watch start the supervisor runs one catch-up poll (after a running sync finished), and a tick also starts the watch while the account is still syncing. Mail delivered between the last poll and the watch opening is imported without waiting for the poll interval. The watch start is idempotent per account.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: Exports for consumers of content events and attachment names
+detail: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN, its payload type and schema, and readableFileName({ id, fileName }) are exported from the feature index, so an app can react to fetched content and show decrypted attachment names.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: Reactivate a disconnected mailbox from the mailbox list
+detail: The mailbox list has a row action Reactivate for a disconnected mailbox (list-accounts returns canReactivate: the owner for a personal mailbox, any admin for a shared one); Reconnect is shown only for sign-in errors. The connect-mailbox form reopens a disconnected shared IMAP mailbox of the same address under its old account id with the new password. For anything else connect-account answers with a text pointing to Reactivate, and credential_required from reactivate-account is a plain-text message. A new i18n key set (de, en, fr, es, it) is part of the locale packages.
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: improvement
+title: Quarantined mails are listed with sender and subject and handled one by one
+detail: The query quarantine:list and the dormant screen mail-quarantine show the open entries of the mailboxes the caller may manage, with sender and subject from the header-only import (empty without one), reason and date; row actions fetch a mail again or confirm it. acknowledge-quarantine takes an optional providerMessageId (without it all entries of the mailbox as before) and now also admits the owner of a personal mailbox (role User). The mailbox list gets a row action Quarantine for mailboxes with open entries.
+-->

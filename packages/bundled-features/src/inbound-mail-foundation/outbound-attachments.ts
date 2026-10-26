@@ -37,7 +37,11 @@ const PII_SUBJECT_FIELDS = collectPiiSubjectFields(fileRefEntity);
 
 // The stored name is personal data and may be ciphertext; a name that cannot be read must not
 // stop the mail, and ciphertext or the erased marker never goes into a header.
-async function readableFileName(storedName: string, requestId: string): Promise<string> {
+export async function readableFileName(file: {
+  readonly id: string;
+  readonly fileName: string;
+}): Promise<string> {
+  const storedName = file.fileName;
   if (!isPiiCiphertext(storedName)) return storedName;
   const kms = configuredPiiSubjectKms();
   if (!kms) return FALLBACK_ATTACHMENT_NAME;
@@ -46,7 +50,7 @@ async function readableFileName(storedName: string, requestId: string): Promise<
       { fileName: storedName },
       PII_SUBJECT_FIELDS,
       kms,
-      { requestId },
+      { requestId: `outbound-attachment:${file.id}` },
     );
     const name = decrypted["fileName"];
     if (typeof name !== "string" || isPiiCiphertext(name) || name === PII_ERASED_SENTINEL) {
@@ -98,7 +102,7 @@ export async function resolveOutboundAttachments(
     }
     remainingBytes -= found.content.byteLength;
     attachments.push({
-      fileName: await readableFileName(found.fileName, `outbound-attachment:${fileRefId}`),
+      fileName: await readableFileName({ id: fileRefId, fileName: found.fileName }),
       mimeType: found.contentType,
       data: found.content,
     });

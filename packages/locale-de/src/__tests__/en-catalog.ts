@@ -1998,7 +1998,22 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "File storage is not available, so attachments and originals are not saved.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+    "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
+  "inboundMail.accounts.reactivate": "Reactivate",
+  "inboundMail.accounts.quarantine": "Quarantine",
+  "inboundMail.accounts.errors.credentialRequired":
+    "This mailbox has no stored sign-in. Enter the password again to reactivate it.",
+  "inboundMail.quarantine.col.sender": "Sender",
+  "inboundMail.quarantine.col.subject": "Subject",
+  "inboundMail.quarantine.col.reason": "Reason",
+  "inboundMail.quarantine.col.mailbox": "Mailbox",
+  "inboundMail.quarantine.col.date": "Set aside",
+  "inboundMail.quarantine.retry": "Fetch again",
+  "inboundMail.quarantine.acknowledge": "Confirm",
+  "inboundMail.quarantine.reason.unparseable": "The mail could not be read.",
+  "inboundMail.quarantine.reason.invalid_message": "The mail is incomplete or invalid.",
+  "inboundMail.quarantine.reason.ingest_failed": "Importing the mail failed repeatedly.",
+  "screen:mail-quarantine.title": "Quarantined mails",
   "inboundMail.accounts.acknowledgeQuarantine": "Confirm quarantine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Sign-in failed",
@@ -2009,7 +2024,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Sender check",
   "inboundMail.accounts.senderCheck.submit": "Save",
   "inboundMail.accounts.senderCheckHint":
-    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
+    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
   "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId": "Mail server ID",
   "inboundMail.accounts.disconnect": "Disconnect",
   "inboundMail.accounts.disconnect.confirm":

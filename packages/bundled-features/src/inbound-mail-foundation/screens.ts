@@ -20,6 +20,7 @@ export const MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID = "mail-account-sender-check";
 export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
 // Same reason for the row action "Reconnect" on an account with a sign-in error.
 export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
+export const MAIL_QUARANTINE_SCREEN_ID = "mail-quarantine";
 
 export const MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX = "inboundMail.accounts.status.";
 export const MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX = "inboundMail.accounts.lastError.";
@@ -98,11 +99,24 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
       screen: IMAP_RECONNECT_SCREEN_ID,
       entityId: "id",
       // The handler rejects accounts of other providers; the row condition cannot combine fields.
-      // A disconnected mailbox is reconnected in place, so no duplicate address and no lost history.
-      visible: {
-        field: "status",
-        in: [InboundMailAccountStatuses.authError, InboundMailAccountStatuses.disconnected],
-      },
+      visible: { field: "status", eq: InboundMailAccountStatuses.authError },
+    },
+    {
+      kind: "navigate",
+      id: "reactivate",
+      label: i18nKey("inboundMail.accounts.reactivate"),
+      screen: IMAP_RECONNECT_SCREEN_ID,
+      entityId: "id",
+      // Brings a disconnected mailbox back in place, keeping its history. canReactivate is computed
+      // by the list query because only the owner may re-arm a personal mailbox.
+      visible: { field: "canReactivate", eq: true },
+    },
+    {
+      kind: "navigate",
+      id: "quarantine",
+      label: i18nKey("inboundMail.accounts.quarantine"),
+      screen: MAIL_QUARANTINE_SCREEN_ID,
+      visible: { field: "hasOpenQuarantine", eq: true },
     },
     {
       kind: "writeHandler",

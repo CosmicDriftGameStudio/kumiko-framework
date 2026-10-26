@@ -65,6 +65,7 @@ import { disconnectAccountHandler } from "./handlers/disconnect-account.write.ts
 import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
 import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
 import { listMessagesQuery } from "./handlers/list-messages.query.ts";
+import { listQuarantineQuery } from "./handlers/list-quarantine.query.ts";
 import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
 import { messageContentQuery } from "./handlers/message-content.query.ts";
 import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
@@ -86,6 +87,7 @@ import {
   mailThreadsProjectionTable,
 } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
+import { mailQuarantineScreen } from "./quarantine-screens.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
 import {
   mailAccountEditScreen,
@@ -250,9 +252,7 @@ export function createInboundMailFoundationFeature() {
         reason: "read_side.mail_ingest_failures_direct_write",
       });
 
-      // Write-Handler:
-      //   - ingest-message: programmatic (Supervisor/Poll, SystemAdmin)
-      //   - connect/update/disconnect-account: Lifecycle
+      // ingest-message is programmatic (supervisor/poll, SystemAdmin); the rest is account lifecycle.
       r.writeHandler(ingestMessageHandler);
       r.writeHandler(connectAccountHandler);
       r.writeHandler(updateAccountHandler);
@@ -264,16 +264,16 @@ export function createInboundMailFoundationFeature() {
       r.writeHandler(attachMessageContentHandler);
       r.writeHandler(markCredentialStoredHandler);
 
-      // List-Queries (PII-decrypted, scope-gefiltert).
       r.queryHandler(listAccountsQuery);
       r.queryHandler(listMessagesQuery);
+      r.queryHandler(listQuarantineQuery);
       r.queryHandler(messageContentQuery);
 
-      // Declarative mailbox admin: list (rename, disconnect) and rename form.
       // The app places `mailAccountListScreen` via r.nav in its settings area.
       r.screen(mailAccountListScreen);
       r.screen(mailAccountEditScreen);
       r.screen(mailAccountSenderCheckScreen);
+      r.screen(mailQuarantineScreen);
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
       registerMailboxProbe(r);
 

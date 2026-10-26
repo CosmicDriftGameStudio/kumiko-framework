@@ -21,6 +21,8 @@ import {
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   createInboundMailFoundationFeature,
+  InboundMailConnectErrors,
+  InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   ingestFailureEntity,
   quarantineEntity,
@@ -178,6 +180,81 @@ describe("connect mailbox form", () => {
 
       const otherTenantAdmin = freshAdmin();
       expect(await accountsOf(otherTenantAdmin)).toEqual([]);
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "the same address after a disconnect reopens the account with the new secret",
+    async () => {
+      const admin = freshAdmin();
+      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        admin,
+      );
+      const [firstSecret] = await secretsOf(admin);
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId },
+        admin,
+      );
+      expect(await accountsOf(admin)).toEqual([
+        expect.objectContaining({ status: "disconnected" }),
+      ]);
+
+      const reopened = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        admin,
+      );
+
+      expect(reopened.accountId).toBe(accountId);
+      expect(await accountsOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, status: "active" }),
+      ]);
+      const secrets = await secretsOf(admin);
+      expect(secrets).toHaveLength(1);
+      expect(JSON.stringify(secrets[0])).not.toBe(JSON.stringify(firstSecret));
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "a personal mailbox of someone else is not reopened by the form, the message names Reactivate",
+    async () => {
+      const owner = freshAdmin();
+      const otherAdmin = createTestUser({
+        id: owner.id + 100_000,
+        tenantId: owner.tenantId,
+        roles: ["TenantAdmin"],
+      });
+      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+        InboundMailFoundationHandlers.connectAccount,
+        {
+          provider: "imap",
+          authMethod: "password",
+          displayName: "Mine",
+          address: "testuser@example.com",
+          scope: "user",
+        },
+        owner,
+      );
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId },
+        owner,
+      );
+
+      const error = await stack.http.writeErr(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        otherAdmin,
+      );
+
+      expect(error.i18nKey).toBe(InboundMailConnectErrors.addressDisconnected.i18nKey);
+      expect(await accountsOf(owner)).toEqual([
+        expect.objectContaining({ id: accountId, status: "disconnected" }),
+      ]);
+      expect(await secretsOf(owner)).toEqual([]);
     },
   );
 

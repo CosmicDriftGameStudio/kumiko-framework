@@ -8,11 +8,15 @@ import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framew
 import {
   AccessDeniedError,
   failNotFound,
-  failUnprocessable,
+  UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses, inboundCredentialSecretKey } from "../constants.ts";
+import {
+  InboundMailAccountStatuses,
+  InboundMailConnectErrors,
+  inboundCredentialSecretKey,
+} from "../constants.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
@@ -20,6 +24,7 @@ import {
   type MailAccountEventPayload,
 } from "../events.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
+import { mayReactivateMailbox } from "./scope-visibility.ts";
 
 export const RECONNECT_AUDIT_REASON = "reconnect";
 
@@ -76,9 +81,7 @@ export const reactivateAccountHandler: WriteHandlerDef = {
     const payload = reactivateAccountSchema.parse(event.payload);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
-    // A personal mailbox is the owner's: an admin must not re-arm it, since a reconnect re-reads the
-    // owner's mail with whatever credential the caller supplies.
-    if (current.ownerUserId !== null && event.user.id !== current.ownerUserId) {
+    if (!mayReactivateMailbox(current.ownerUserId, event.user.id)) {
       return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
     }
     if (current.status === InboundMailAccountStatuses.disconnected) {
@@ -90,7 +93,10 @@ export const reactivateAccountHandler: WriteHandlerDef = {
         event.user.tenantId,
         inboundCredentialSecretKey(payload.accountId),
       );
-      if (!hasCredential) return failUnprocessable("credential_required");
+      if (!hasCredential) {
+        const { reason, i18nKey } = InboundMailConnectErrors.credentialRequired;
+        return writeFailure(new UnprocessableError(reason, { i18nKey }));
+      }
     }
     const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
     return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };

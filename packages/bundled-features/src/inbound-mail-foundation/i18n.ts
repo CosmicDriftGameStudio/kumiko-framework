@@ -7,11 +7,13 @@ import {
   InboundMailLastErrors,
 } from "./constants.ts";
 import { INBOUND_PROBE_I18N } from "./probe-keys.ts";
+import { QUARANTINE_REASON_OPTION_KEY_PREFIX } from "./quarantine-screens.ts";
 import {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
+  MAIL_QUARANTINE_SCREEN_ID,
 } from "./screens.ts";
 import { MAIL_SEND_ERRORS } from "./send-from-account.ts";
 
@@ -22,6 +24,7 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   ...INBOUND_PROBE_I18N,
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
+  [`screen:${MAIL_QUARANTINE_SCREEN_ID}.title`]: { en: "Quarantined mails" },
   "inboundMail.accounts.col.name": { en: "Name" },
   "inboundMail.accounts.col.address": { en: "Address" },
   "inboundMail.accounts.col.provider": { en: "Provider" },
@@ -45,7 +48,7 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
     en: "This mailbox is already connected.",
   },
   [InboundMailConnectErrors.addressDisconnected.i18nKey]: {
-    en: "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+    en: "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
   },
   "inboundMail.accounts.acknowledgeQuarantine": { en: "Confirm quarantine" },
   [`${MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX}${InboundMailAccountStatuses.active}`]: {
@@ -62,6 +65,27 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   },
   "inboundMail.accounts.connectImap": { en: "Connect mailbox" },
   "inboundMail.accounts.reconnect": { en: "Reconnect" },
+  "inboundMail.accounts.reactivate": { en: "Reactivate" },
+  "inboundMail.accounts.quarantine": { en: "Quarantine" },
+  [InboundMailConnectErrors.credentialRequired.i18nKey]: {
+    en: "This mailbox has no stored sign-in. Enter the password again to reactivate it.",
+  },
+  "inboundMail.quarantine.col.sender": { en: "Sender" },
+  "inboundMail.quarantine.col.subject": { en: "Subject" },
+  "inboundMail.quarantine.col.reason": { en: "Reason" },
+  "inboundMail.quarantine.col.mailbox": { en: "Mailbox" },
+  "inboundMail.quarantine.col.date": { en: "Set aside" },
+  "inboundMail.quarantine.retry": { en: "Fetch again" },
+  "inboundMail.quarantine.acknowledge": { en: "Confirm" },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}unparseable`]: {
+    en: "The mail could not be read.",
+  },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}invalid_message`]: {
+    en: "The mail is incomplete or invalid.",
+  },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}ingest_failed`]: {
+    en: "Importing the mail failed repeatedly.",
+  },
   "inboundMail.accounts.edit": { en: "Rename" },
   "inboundMail.accounts.edit.submit": { en: "Save" },
   "inboundMail.accounts.senderCheck": { en: "Sender check" },

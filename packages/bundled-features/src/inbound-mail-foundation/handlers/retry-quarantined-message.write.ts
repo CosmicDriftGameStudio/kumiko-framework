@@ -12,20 +12,11 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { quarantineTable } from "../quarantine-entities.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
-import { isVisibleToCaller } from "./scope-visibility.ts";
+import { mayManageQuarantine } from "./scope-visibility.ts";
 
 export const retryQuarantinedMessageSchema = z
   .object({ accountId: z.uuid(), providerMessageId: z.string().min(1).max(500) })
   .strict();
-
-function mayRetry(
-  ownerUserId: string | null,
-  user: { readonly id: string; readonly roles: readonly string[] },
-): boolean {
-  const isAdmin = user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
-  // A shared mailbox is administered by admins; a personal one by its owner (and admins, as for reading).
-  return ownerUserId === null ? isAdmin : isVisibleToCaller({ ownerUserId }, user);
-}
 
 export const retryQuarantinedMessageHandler: WriteHandlerDef = {
   name: "retry-quarantined-message",
@@ -38,7 +29,7 @@ export const retryQuarantinedMessageHandler: WriteHandlerDef = {
     const payload = retryQuarantinedMessageSchema.parse(event.payload);
     const account = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!account) return failNotFound("mail-account", payload.accountId);
-    if (!mayRetry(account.ownerUserId, event.user)) {
+    if (!mayManageQuarantine(account.ownerUserId, event.user)) {
       return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
     }
     const updated = await ctx.db.updateMany(

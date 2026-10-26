@@ -41,10 +41,14 @@ export {
 } from "./entities.ts";
 export {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   INBOUND_MESSAGE_RECEIVED_EVENT_SHORT,
+  type InboundMessageContentFetchedEventPayload,
   type InboundMessageEventHeaders,
   type InboundMessageEventPayload,
+  inboundMessageContentFetchedEventPayloadSchema,
   inboundMessageEventPayloadSchema,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_CONNECTED_EVENT_QN,
@@ -63,6 +67,7 @@ export {
   mailThreadEventPayloadSchema,
 } from "./events.ts";
 export { createInboundMailFoundationFeature } from "./feature.ts";
+export { type AddressMatch, findMailboxByAddress } from "./handlers/account-address.ts";
 export {
   type InboundMessageContent,
   loadInboundMessageContent,
@@ -93,6 +98,7 @@ export {
   type VerifyOAuthStateResult,
   verifyOAuthState,
 } from "./oauth-state.ts";
+export { readableFileName } from "./outbound-attachments.ts";
 export {
   isMailSendNotConfiguredError,
   isMailSendRejectedError,
@@ -138,6 +144,7 @@ export {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
+  MAIL_QUARANTINE_SCREEN_ID,
 } from "./screens.ts";
 export {
   MAIL_SEND_ERRORS,
