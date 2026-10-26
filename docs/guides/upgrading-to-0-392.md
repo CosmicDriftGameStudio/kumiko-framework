@@ -46,11 +46,10 @@ Every tenant table gets Postgres policies, and a statement without a tenant scop
 ```bash
 # once, in the app repo, with the bump
 bun kumiko sync-managed --write
-bun kumiko schema generate   # migration with ENABLE/FORCE ROW LEVEL SECURITY and the policies
-git add kumiko/ && git commit -m "chore: row level security migration"
+bunx kumiko-schema generate row-level-security   # ENABLE/FORCE ROW LEVEL SECURITY and the policies
 ```
 
-Without the migration the app refuses to boot and names the unprotected tables. The database role must have neither SUPERUSER nor BYPASSRLS.
+Commit the generated migration with the bump. Without the migration the app refuses to boot and names the unprotected tables. The database role must have neither SUPERUSER nor BYPASSRLS.
 
 Code that read tenant tables on a raw connection needs a scope:
 
@@ -133,8 +132,8 @@ A name stays exported from a framework subpath only if some package, sample or a
 // before: a removed internal type
 import type { SeedTenantRow } from "@cosmicdrift/kumiko-framework/es-ops";
 
-// after: derive the shape from a public type, or declare the few fields you use
-type TenantSeed = Pick<HandlerContext, "db" | "obs">;
+// after: declare the few fields your code reads
+type TenantSeedRow = { readonly id: string; readonly key: string; readonly name: string };
 ```
 
 The migration guide lists every removed name per subpath. If you need one back, open an issue on the framework; names added since 0.389.0 stayed public.

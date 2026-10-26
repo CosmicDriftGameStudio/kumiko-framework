@@ -64,7 +64,7 @@ The probe context has `db`, `registry`, `obs`, `tz` and `services` of the job, p
 
 ![Detail of one system check run](/screenshots/system-check/run-detail.png)
 
-Paid probes do not start with the normal run. When the app has one, the header shows a second button next to "Start check" with the price, "Test AI extraction · about 1 cent". It starts a run that includes the paid probes. The button sits inline in the header and not in the overflow menu, because it is the only way to test the AI extraction.
+Paid probes do not start with the normal run. When the app has one (the Enterprise AI extraction probe, for example), the header shows a second button next to "Start check" with the price, "Test AI extraction · about 1 cent". It starts a run that includes the paid probes. The button sits inline in the header and not in the overflow menu, because it is the only way to test the AI extraction.
 
 The mail probe sends a test mail to the admin who started the run. A tenant without its own SMTP settings is checked against the platform sender, so the probe reports whether mail leaves the system at all.
 
@@ -74,4 +74,4 @@ The mailbox probe uses `targets` (one row per connected mailbox) and links failu
 
 ## Built-in probes
 
-`readiness` brings probes for the database, the cache and the search index. Other features register their own when they are mounted: mail sending, file storage, connected mailboxes, the PDF service and the AI extraction (paid). A probe of a feature that is not mounted does not exist, so an app never shows a row it cannot pass.
+`readiness` brings probes for the database, the cache and the search index. Other features register their own when they are mounted: mail sending, file storage, connected mailboxes and the PDF service. The paid AI extraction probe comes from the Enterprise AI features. A probe of a feature that is not mounted does not exist, so an app never shows a row it cannot pass.

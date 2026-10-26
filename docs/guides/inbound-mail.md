@@ -39,7 +39,7 @@ The sign-in is checked before anything is saved. The mailbox keeps its id, so th
 The form has three sections:
 
 - **Server sign-in**: IMAP host, port 993, user and password.
-- **Sending**: SMTP host and port 587 with STARTTLS, so replies leave from the same address. Port 25 and 465 are blocked at many hosting providers.
+- **Sending**: SMTP host and port, so replies leave from the same address with the same login. The form suggests 587 with STARTTLS, even when the provider lists 465/SSL.
 - **Sender check**: the authserv-id of your own mail server (see below). Leave it empty if you do not know it.
 
 "Check and connect" signs in before saving. Connecting is rate limited to 10 attempts per tenant in 10 minutes.
