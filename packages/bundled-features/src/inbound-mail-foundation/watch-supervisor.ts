@@ -50,7 +50,10 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import {
+  systemScopedRunner,
+  tenantScopedSecrets,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -187,11 +190,13 @@ export function createInboundMailSupervisor(
   // configured TTL — real deployments (default 90s) never hit it.
   const renewIntervalMs = Math.max(50, Math.floor((leaseTtlSeconds * 1000) / 3));
   const log = deps.log ?? (() => {});
-  // Secret reads in providers require an audit identity; the supervisor runs
-  // outside any request, so it supplies the system identity itself.
+  // The supervisor runs outside any request: secret reads need an audit
+  // identity, and under enforced row-level security they need the account's
+  // tenant scope, or the credential row is invisible and reads as missing.
   const providerCtx: InboundMailContext = {
     ...deps.providerCtx,
     auditUserId: deps.providerCtx.auditUserId ?? SYSTEM_USER_ID,
+    ...(deps.providerCtx.secrets && { secrets: tenantScopedSecrets(deps.providerCtx.secrets) }),
   };
   const systemDb = systemScopedRunner(
     deps.db,
