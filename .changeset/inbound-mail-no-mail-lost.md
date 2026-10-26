@@ -23,6 +23,8 @@ feature: inbound-mail-foundation
 type: breaking
 title: inbound-message-received is v3 and inbound-message-content-fetched is v2
 detail: Both events carry contentUnavailableReason (null for older events through upcasters). The read table read_inbound_messages gets content_unavailable_reason, store_mail_quarantine gets retry_requested_at, and store_mail_ingest_failures is new; generate and apply a migration with `kumiko-schema generate`. ingest-message and attach-message-content upload files before their transaction when called at top level; inside a wrapper handler's transaction they upload in it, as before. RejectedInboundMessage may carry rawMime and headers, and an inbound provider's fetch may take filterUnknownMessageIds to skip mails that are already known.
+migration: |
+  Run `kumiko-schema generate` and apply the migration; read_inbound_messages is rebuilt from events because attachment_file_ids becomes jsonb. Consumers that read the event payloads type them against the new versions (upcasters fill contentUnavailableReason with null). To get the pre-transaction upload, trigger on inbound-message-received or inbound-message-content-fetched instead of wrapping ingest-message in an own write handler.
 -->
 
 <!-- kumiko-changes

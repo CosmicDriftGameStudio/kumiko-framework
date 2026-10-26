@@ -2,6 +2,7 @@
 "@cosmicdrift/kumiko-framework": minor
 "@cosmicdrift/kumiko-types": minor
 "@cosmicdrift/kumiko-feature-ast": patch
+"@cosmicdrift/kumiko-bundled-features": minor
 ---
 
 Per-call upload limit, a handler-side file read check, nested-safe `beforeTransaction`, and a catch-up boot rule.
