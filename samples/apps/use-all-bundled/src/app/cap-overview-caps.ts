@@ -1,6 +1,7 @@
 import type { CapSpec } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
 import { noteEntryTable } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { tagEntity } from "@cosmicdrift/kumiko-bundled-features/tags";
+import { templateResourcesTable } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 
 import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -11,10 +12,11 @@ const tagTable = buildEntityTable("tag", tagEntity);
 const NOTE_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 10, pro: 100 };
 const TAG_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 5, pro: 50 };
 const SEAT_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 5, pro: 20 };
+const TEMPLATE_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 3, pro: 30 };
 const DEFAULT_LIMIT = 10;
 
-// Four example caps built from entities this sample already mounts
-// (notes-history, tags, tenant-membership) — demonstrates the caller-supplied
+// Five example caps built from entities this sample already mounts
+// (notes-history, tags, tenant-membership, template-resolver) — demonstrates the caller-supplied
 // CapSpec contract cap-overview reads against, the same shape a real app
 // would provide for its own usage tables.
 export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
@@ -67,5 +69,17 @@ export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
       return rows.length;
     },
     icon: "gauge",
+  },
+  {
+    id: "templates",
+    label: "cap-overview.caps.templates",
+    limit: (tier) => TEMPLATE_LIMIT_BY_TIER[tier] ?? DEFAULT_LIMIT,
+    usage: async (db, tenantId) => {
+      const rows = await selectMany(db, templateResourcesTable, { tenantId: [tenantId] });
+      return rows.length;
+    },
+    // Counter only: the limit stays enforced server-side but is not shown to the tenant.
+    showLimit: false,
+    icon: "file",
   },
 ];

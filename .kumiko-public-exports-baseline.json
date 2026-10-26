@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-24",
-  "asOfVersion": "0.389.0",
+  "generated": "2026-10-26",
+  "asOfVersion": "0.393.0",
   "packages": {
     "framework": {
       "./compliance": [
@@ -192,6 +192,15 @@
         "PrincipalProfile",
         "PrincipalStatus",
         "PrincipalStatusPlugin",
+        "ProbeContext",
+        "ProbeCost",
+        "ProbeDefinition",
+        "ProbeFailure",
+        "ProbeOptions",
+        "ProbeScope",
+        "ProbeTarget",
+        "ProbeText",
+        "ProbeVerdict",
         "ProjectionDefinition",
         "ProjectionDetailScreenDefinition",
         "ProjectionListScreenDefinition",
@@ -476,6 +485,7 @@
       "./env": [
         "ComposedEnvSchema",
         "EnvFieldInspection",
+        "EnvSource",
         "FeatureWithEnvSchema",
         "KumikoBootError",
         "classifyField",
@@ -486,6 +496,7 @@
         "parseEnv",
         "parseEnvDryRun",
         "readKumikoMeta",
+        "requiredEnvFor",
         "withOptionalEnvKeys"
       ],
       "./env/dry-run": [
@@ -561,6 +572,7 @@
         "assertExistsIn",
         "assertNoActiveRowLevelSecurityScope",
         "assertRowLevelSecurityBootState",
+        "assertRowLevelSecurityTableState",
         "boolean",
         "buildBaseColumns",
         "buildEntityTable",
@@ -792,6 +804,7 @@
         "SseEvent",
         "SystemDispatchArgs",
         "TRUSTED_PROXY_HOPS_ENV",
+        "TimedRunResult",
         "TokenVerifier",
         "UNKNOWN_CLIENT_IP",
         "UserExtraRouteDeps",
@@ -830,6 +843,7 @@
         "publicOriginOf",
         "requestContext",
         "resolveBaseDbAndSearchAdapter",
+        "runWithTimeout",
         "sessionCookieName",
         "setTenantCookie",
         "signatureRoute",
@@ -1111,7 +1125,8 @@
         "runInRowLevelSecurityScope",
         "runInSystemRowLevelSecurityScope",
         "systemScopedRunner",
-        "tenantRowLevelSecurityScope"
+        "tenantRowLevelSecurityScope",
+        "tenantScopedSecrets"
       ],
       "./internal/stack-support": [
         "AnyDb",
@@ -1254,6 +1269,8 @@
         "QualifiedContentCollection",
         "REFERENCE_LOOKUP_SOURCES",
         "RecordHeaderSubtitlePart",
+        "RelatedListEmptyStateSpec",
+        "RelatedListEmptyStateVariant",
         "RelatedListRowTone",
         "RelatedListToolbarAction",
         "RowAction",
@@ -1267,6 +1284,7 @@
         "SYSTEM_REFERENCE_LABELS",
         "ScreenDefinition",
         "ScreenSlots",
+        "ScreenVisibility",
         "SecretMintConfirmStep",
         "SecretMintScreenDefinition",
         "SecretsEditScreenDefinition",
@@ -1474,9 +1492,11 @@
         "tenantRetentionOverrideTable"
       ],
       "./readiness": [
+        "ProbeTextKeys",
         "READINESS_FEATURE",
         "ReadinessMissingSecret",
         "ReadinessQueries",
+        "ReadinessWrites",
         "createReadinessFeature"
       ],
       "./jobs": [
@@ -1665,6 +1685,7 @@
         "SUPPORTED_FIELD_TYPES",
         "SetCustomFieldPayload",
         "SupportedFieldType",
+        "WireCustomFieldsUserDataRightsOptions",
         "clearCustomFieldPayloadSchema",
         "createCustomFieldsFeature",
         "customFieldClearedSchema",
@@ -1677,7 +1698,8 @@
         "isFieldDefinitionRow",
         "parseSerializedField",
         "setCustomFieldPayloadSchema",
-        "wireCustomFieldsFor"
+        "wireCustomFieldsFor",
+        "wireCustomFieldsUserDataRightsFor"
       ],
       "./custom-fields/web": [
         "CUSTOM_FIELDS_FORM_EXTENSION_NAME",
@@ -2061,16 +2083,17 @@
         "stripeEnvSchema",
         "subscriptionStripeEnvSchema"
       ],
-      "./subscription-dodo": [
-        "DODO_BASE_URLS",
-        "DODO_PROVIDER_NAME",
-        "DodoEnvironment",
-        "DodoEnvironments",
-        "SUBSCRIPTION_DODO_FEATURE",
-        "SubscriptionDodoOptions",
-        "createSubscriptionDodoFeature",
-        "dodoEnvSchema",
-        "subscriptionDodoEnvSchema"
+      "./subscription-paddle": [
+        "PADDLE_BASE_URLS",
+        "PADDLE_CHECKOUT_PATH",
+        "PADDLE_PROVIDER_NAME",
+        "PaddleEnvironment",
+        "PaddleEnvironments",
+        "SUBSCRIPTION_PADDLE_FEATURE",
+        "SubscriptionPaddleOptions",
+        "createSubscriptionPaddleFeature",
+        "paddleEnvSchema",
+        "subscriptionPaddleEnvSchema"
       ],
       "./subscription-mollie": [
         "MOLLIE_PROVIDER_NAME",
@@ -2095,7 +2118,8 @@
         "requireDefined",
         "requireNonEmpty",
         "requireSecretSet",
-        "resolveMailConnectTarget"
+        "resolveMailConnectTarget",
+        "sanitizeMailDisplayName"
       ],
       "./auth-foundation": [
         "AuthProviderBuildDeps",
@@ -2135,14 +2159,18 @@
         "MAIL_TRANSPORT_EXTENSION",
         "MailTransportContext",
         "MailTransportPlugin",
+        "TenantMailResolverCtx",
         "TenantMailTransportScope",
         "createMailFoundationFeature",
         "createTransportForTenant",
         "createTransportForTenantIfConfigured",
         "isMailTransportPlugin",
+        "makeTenantMailTransportResolver",
         "tenantMailTransport"
       ],
       "./inbound-mail-foundation": [
+        "IMAP_CONNECT_SCREEN_ID",
+        "IMAP_RECONNECT_SCREEN_ID",
         "INBOUND_MAIL_FOUNDATION_FEATURE",
         "INBOUND_MAIL_PROVIDER_EXTENSION",
         "INBOUND_MESSAGE_AGGREGATE_TYPE",
@@ -2175,9 +2203,11 @@
         "MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT",
         "MAIL_ACCOUNT_EDIT_SCREEN_ID",
         "MAIL_ACCOUNT_LIST_SCREEN_ID",
+        "MAIL_ACCOUNT_LIST_SCREEN_QN",
         "MAIL_ACCOUNT_PII_FIELDS",
         "MAIL_ACCOUNT_UPDATED_EVENT_QN",
         "MAIL_ACCOUNT_UPDATED_EVENT_SHORT",
+        "MAIL_SEND_ERRORS",
         "MAIL_THREAD_AGGREGATE_TYPE",
         "MAIL_THREAD_PII_FIELDS",
         "MAIL_THREAD_UPDATED_EVENT_QN",
@@ -2185,12 +2215,19 @@
         "MailAccountEventHeaders",
         "MailAccountEventPayload",
         "MailAccountRecord",
+        "MailSendFailure",
+        "MailSendNotConfiguredError",
+        "MailSendRejectedError",
         "MailThreadEventPayload",
         "OAuthAccessTokenManager",
         "OAuthAccessTokenManagerDeps",
         "OAuthStatePayload",
         "OAuthTokenSet",
+        "OutboundMailMessage",
+        "OutboundMailSent",
         "RawInboundMessage",
+        "SendMailFromAccountContext",
+        "SendMailFromAccountInput",
         "SyncCursorPayload",
         "VerifyOAuthStateResult",
         "createInboundMailConnectRoutes",
@@ -2208,6 +2245,8 @@
         "isInboundMailProviderPlugin",
         "isInboundRateLimitError",
         "isInboundTransientError",
+        "isMailSendNotConfiguredError",
+        "isMailSendRejectedError",
         "mailAccountEntity",
         "mailAccountEventPayloadSchema",
         "mailAccountsProjectionTable",
@@ -2215,10 +2254,12 @@
         "mailThreadEntity",
         "mailThreadEventPayloadSchema",
         "mailThreadsProjectionTable",
+        "outboundMailMessageSchema",
         "resolveInboundProviderForAccount",
         "resolveInboundProviderForKey",
         "seenMessageEntity",
         "seenMessageTable",
+        "sendMailFromAccount",
         "signOAuthState",
         "syncCursorEntity",
         "syncCursorTable",
@@ -2232,6 +2273,7 @@
         "failNextFetchWith",
         "failNextVerifyWith",
         "isWatching",
+        "requireCredentialSecretOnFetch",
         "resetInboundInMemory",
         "seedInboundMessage"
       ],
@@ -2267,11 +2309,13 @@
         "FileRefContent",
         "FileRefTooLargeError",
         "FileStorageUnavailableError",
+        "TenantStorageResolverCtx",
         "createFileFoundationFeature",
         "createFileProviderForTenant",
         "fileContextForTenant",
         "fileContextFromResolver",
         "isFileProviderPlugin",
+        "makeTenantStorageProviderResolver",
         "readFileRefContent"
       ],
       "./file-provider-s3": [
@@ -2912,6 +2956,8 @@
         "inAppMessagesTable"
       ],
       "./channel-email": [
+        "EMAIL_APP_TRANSPORT_EXTENSION",
+        "EmailAppTransport",
         "EmailAttachment",
         "EmailAttachmentRef",
         "EmailChannelOptions",
@@ -2925,6 +2971,7 @@
         "createInMemoryTransport",
         "createSmtpTransport",
         "createSmtpTransportFromEnv",
+        "findEmailAppTransport",
         "guardEmailMessage",
         "smtpEnvSchema",
         "withPiiCiphertextGuard"

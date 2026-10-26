@@ -23,7 +23,7 @@ describe("env composition", () => {
     expect(sources["S3_BUCKET"]).toBe("file-provider-s3-env");
     expect(sources["RELEASES_S3_BUCKET"]).toBe("app");
     expect(sources["STRIPE_PRICE_PRO"]).toBe("app");
-    expect(sources["DODO_PRODUCT_PRO"]).toBe("app");
+    expect(sources["PADDLE_PRICE_PRO"]).toBe("app");
   });
 
   test("parses into a typed env", () => {
@@ -32,7 +32,7 @@ describe("env composition", () => {
       ...minimalValidValues,
       S3_BUCKET: "uploads",
       STRIPE_PRICE_PRO: "price_pro",
-      DODO_PRODUCT_PRO: "pdt_pro",
+      PADDLE_PRICE_PRO: "pri_pro",
     });
 
     const bucket: string | undefined = parsed.S3_BUCKET;
@@ -40,7 +40,7 @@ describe("env composition", () => {
     expect(bucket).toBe("uploads");
     expect(publicUrl).toBe("https://app.example.com");
     expect(parsed.KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION).toBe("1");
-    expect(parsed.DODO_PRODUCT_PRO).toBe("pdt_pro");
+    expect(parsed.PADDLE_PRICE_PRO).toBe("pri_pro");
   });
 
   test("reports every missing required variable with its source", () => {

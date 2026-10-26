@@ -81,7 +81,7 @@ export function createCapsUsageQuery(
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {
           const used = await cap.usage(db, targetTenantId);
-          const limit = await cap.limit(tier, { config });
+          const limit = cap.showLimit === false ? null : await cap.limit(tier, { config });
           const base = {
             id: cap.id,
             label: cap.label,
@@ -90,8 +90,8 @@ export function createCapsUsageQuery(
             ...(cap.icon !== undefined && { icon: cap.icon }),
             ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
           };
-          if (used === null) {
-            return { ...base, used: null, fraction: 0, tone: "default" as const, percent: null };
+          if (used === null || cap.showLimit === false) {
+            return { ...base, used, fraction: 0, tone: "default" as const, percent: null };
           }
           const fraction = computeFraction(used, limit);
           return {

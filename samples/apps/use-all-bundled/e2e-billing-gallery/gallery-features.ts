@@ -115,12 +115,12 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
         },
         [GALLERY_MOR_PROVIDER]: {
           checkoutNote: {
-            de: "Verkäufer ist Dodo Payments · Rechnung und USt von Dodo Payments",
-            en: "Sold by Dodo Payments · invoice and VAT from Dodo Payments",
+            de: "Verkäufer ist Paddle · Rechnung und USt von Paddle",
+            en: "Sold by Paddle · invoice and VAT from Paddle",
           },
           vatNote: {
-            de: "Rechnung und Umsatzsteuer stellt Dodo Payments als Merchant of Record.",
-            en: "Dodo Payments, as merchant of record, issues the invoice and charges the VAT.",
+            de: "Rechnung und Umsatzsteuer stellt Paddle als Merchant of Record.",
+            en: "Paddle, as merchant of record, issues the invoice and charges the VAT.",
           },
         },
       },
@@ -164,7 +164,7 @@ const galleryProviderPlugin: SubscriptionProviderPlugin = {
 // consent id fails, so a successful switch in the spec proves the consent went
 // through.
 const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
-  displayName: "Dodo Payments",
+  displayName: "Paddle",
   isBillingEnabled: async (ctx) => morEnabledTenants.has(ctx.user.tenantId),
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
   priceToTier: {

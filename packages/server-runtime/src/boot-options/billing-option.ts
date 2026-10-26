@@ -4,9 +4,9 @@ import {
   type TierSyncResult,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
-  createSubscriptionDodoFeature,
-  type SubscriptionDodoOptions,
-} from "@cosmicdrift/kumiko-bundled-features/subscription-dodo";
+  createSubscriptionPaddleFeature,
+  type SubscriptionPaddleOptions,
+} from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import {
   createSubscriptionStripeFeature,
   type SubscriptionStripeOptions,
@@ -14,23 +14,23 @@ import {
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
-/** Mounts `subscription-stripe` and/or `subscription-dodo` plus one webhook
+/** Mounts `subscription-stripe` and/or `subscription-paddle` plus one webhook
  *  route that writes the subscription and syncs the tenant's tier
  *  (`tier-engine`). Needs `billing-foundation`, `tier-engine`, `config` and
  *  `secrets` in `features`. The env keys (`STRIPE_API_KEY` /
- *  `STRIPE_WEBHOOK_SECRET`, `DODO_PAYMENTS_API_KEY` /
- *  `DODO_PAYMENTS_WEBHOOK_KEY`) are only the bridge fallback; the keys
+ *  `STRIPE_WEBHOOK_SECRET`, `PADDLE_API_KEY` / `PADDLE_WEBHOOK_SECRET` /
+ *  `PADDLE_TENANT_BINDING_KEY` / `PADDLE_CLIENT_TOKEN`) are only the bridge fallback; the keys
  *  normally live in the secrets store.
  *
  *  @example
  *  runProdApp({ ..., billing: {
  *    stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } },
- *    dodo: { priceToTier: { [env.DODO_PRODUCT_PRO]: "pro" } },
+ *    paddle: { priceToTier: { [env.PADDLE_PRICE_PRO]: "pro" } },
  *    defaultTier: "free",
  *  } })
  */
 export type BillingBootOption = {
-  /** At least one of `stripe` and `dodo` is required. */
+  /** At least one of `stripe` and `paddle` is required. */
   readonly stripe?: {
     readonly priceToTier: Readonly<Record<string, string>>;
     /** Default `SUBSCRIPTION_WEBHOOK_PATH`; must contain `:providerName`. Applies to every provider. */
@@ -38,9 +38,9 @@ export type BillingBootOption = {
     readonly oneOffPriceIds?: SubscriptionStripeOptions["oneOffPriceIds"];
     readonly paymentInvoiceCreation?: boolean;
   };
-  readonly dodo?: {
+  readonly paddle?: {
     readonly priceToTier: Readonly<Record<string, string>>;
-    readonly oneOffPriceIds?: SubscriptionDodoOptions["oneOffPriceIds"];
+    readonly oneOffPriceIds?: SubscriptionPaddleOptions["oneOffPriceIds"];
   };
   /** Tier a tenant falls back to without an active subscription. */
   readonly defaultTier: string;
@@ -55,7 +55,7 @@ export type BillingBootOption = {
 const PROVIDER_NAME_PARAM = ":providerName";
 
 function warnOnEmptyPriceMap(
-  provider: "stripe" | "dodo",
+  provider: "stripe" | "paddle",
   priceToTier: Readonly<Record<string, string>>,
 ) {
   if (Object.keys(priceToTier).length === 0) {
@@ -77,7 +77,7 @@ function bridgeCredentials(
 }
 
 function providerFeatures(
-  { stripe, dodo }: BillingBootOption,
+  { stripe, paddle }: BillingBootOption,
   envSource: Record<string, string | undefined>,
 ): FeatureDefinition[] {
   const features: FeatureDefinition[] = [];
@@ -94,13 +94,17 @@ function providerFeatures(
       }),
     );
   }
-  if (dodo) {
-    warnOnEmptyPriceMap("dodo", dodo.priceToTier);
+  if (paddle) {
+    const tenantBindingKey = envSource["PADDLE_TENANT_BINDING_KEY"];
+    const clientToken = envSource["PADDLE_CLIENT_TOKEN"];
+    warnOnEmptyPriceMap("paddle", paddle.priceToTier);
     features.push(
-      createSubscriptionDodoFeature({
-        priceToTier: dodo.priceToTier,
-        ...(dodo.oneOffPriceIds && { oneOffPriceIds: dodo.oneOffPriceIds }),
-        ...bridgeCredentials(envSource, "DODO_PAYMENTS_API_KEY", "DODO_PAYMENTS_WEBHOOK_KEY"),
+      createSubscriptionPaddleFeature({
+        priceToTier: paddle.priceToTier,
+        ...(paddle.oneOffPriceIds && { oneOffPriceIds: paddle.oneOffPriceIds }),
+        ...bridgeCredentials(envSource, "PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET"),
+        ...(tenantBindingKey && { tenantBindingKey }),
+        ...(clientToken && { clientToken }),
       }),
     );
   }
@@ -111,10 +115,10 @@ export function resolveBillingOption(
   billing: BillingBootOption,
   envSource: Record<string, string | undefined>,
 ): { readonly features: readonly FeatureDefinition[]; readonly route: ExtraRouteDefinition } {
-  const { stripe, dodo } = billing;
-  if (!stripe && !dodo) {
+  const { stripe, paddle } = billing;
+  if (!stripe && !paddle) {
     throw new Error(
-      "[runProdApp] billing needs at least one provider: set billing.stripe or billing.dodo.",
+      "[runProdApp] billing needs at least one provider: set billing.stripe or billing.paddle.",
     );
   }
   const webhookPath = stripe?.webhookPath ?? SUBSCRIPTION_WEBHOOK_PATH;
@@ -129,7 +133,7 @@ export function resolveBillingOption(
   const tierNames = new Set<string>([
     billing.defaultTier,
     ...Object.values(stripe?.priceToTier ?? {}),
-    ...Object.values(dodo?.priceToTier ?? {}),
+    ...Object.values(paddle?.priceToTier ?? {}),
     ...(billing.tierNames ?? []),
   ]);
   const tierSync = createSubscriptionTierSync({

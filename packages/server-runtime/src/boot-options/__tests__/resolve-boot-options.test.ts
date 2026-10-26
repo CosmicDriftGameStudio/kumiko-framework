@@ -172,23 +172,23 @@ describe("billing option", () => {
     expect(resolved.route.method).toBe("POST");
   });
 
-  test("dodo alone mounts subscription-dodo on the shared route", () => {
+  test("paddle alone mounts subscription-paddle on the shared route", () => {
     const resolved = resolveBillingOption(
-      { dodo: { priceToTier: { pdt_pro: "pro" } }, defaultTier: "free" },
+      { paddle: { priceToTier: { pri_pro: "pro" } }, defaultTier: "free" },
       {},
     );
-    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-dodo"]);
+    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-paddle"]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });
 
-  test("stripe and dodo together mount both providers on one route", () => {
+  test("stripe and paddle together mount both providers on one route", () => {
     const resolved = resolveBillingOption(
-      { ...billing, dodo: { priceToTier: { pdt_pro: "pro" } } },
+      { ...billing, paddle: { priceToTier: { pri_pro: "pro" } } },
       {},
     );
     expect(resolved.features.map((feature) => feature.name)).toEqual([
       "subscription-stripe",
-      "subscription-dodo",
+      "subscription-paddle",
     ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });

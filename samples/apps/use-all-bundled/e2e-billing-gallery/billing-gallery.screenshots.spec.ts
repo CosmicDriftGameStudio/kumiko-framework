@@ -350,11 +350,11 @@ test("flow 6: provider choice in the checkout dialog", async ({ page, request, s
   await shot(page, "06-02-dialog-stripe-selected");
 
   await page.getByTestId("checkout-provider-choice-gallery-mock-mor").click();
-  await expect(choice.getByRole("radio", { name: /Dodo Payments/ })).toBeChecked();
+  await expect(choice.getByRole("radio", { name: /Paddle/ })).toBeChecked();
   await expect(page.getByTestId("checkout-consent-summary")).toContainText("9,90");
-  await shot(page, "06-03-dialog-dodo-selected");
+  await shot(page, "06-03-dialog-paddle-selected");
   await applyDefaultTheme(page, "default-dark");
-  await shot(page, "06-04-dialog-dodo-selected-dark");
+  await shot(page, "06-04-dialog-paddle-selected-dark");
   await applyDefaultTheme(page, "default-light");
 
   await tickBothConsents(page);

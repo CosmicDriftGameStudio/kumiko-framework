@@ -8,14 +8,14 @@ import {
 import { createAuthMfaFeature } from "../auth-mfa/index.ts";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.ts";
 import {
-  createSubscriptionDodoFeature,
-  dodoEnvSchema,
-  subscriptionDodoEnvSchema,
-} from "../subscription-dodo/index.ts";
-import {
   createSubscriptionMollieFeature,
   subscriptionMollieEnvSchema,
 } from "../subscription-mollie/index.ts";
+import {
+  createSubscriptionPaddleFeature,
+  paddleEnvSchema,
+  subscriptionPaddleEnvSchema,
+} from "../subscription-paddle/index.ts";
 import {
   createSubscriptionStripeFeature,
   subscriptionStripeEnvSchema,
@@ -177,63 +177,66 @@ describe("subscriptionStripeEnvSchema", () => {
   });
 });
 
-describe("subscriptionDodoEnvSchema", () => {
-  it("accepts both bridge values and mounts fine without them", () => {
-    const env = parseEnv(subscriptionDodoEnvSchema, {
-      DODO_PAYMENTS_API_KEY: "dodo_key",
-      DODO_PAYMENTS_WEBHOOK_KEY: "whsec_abc",
+describe("subscriptionPaddleEnvSchema", () => {
+  it("accepts the bridge values and mounts fine without them", () => {
+    const env = parseEnv(subscriptionPaddleEnvSchema, {
+      PADDLE_API_KEY: "paddle_key",
+      PADDLE_WEBHOOK_SECRET: "pdl_ntfset_abc",
+      PADDLE_TENANT_BINDING_KEY: "binding",
+      PADDLE_CLIENT_TOKEN: "test_abc123",
     });
-    expect(env.DODO_PAYMENTS_API_KEY).toBe("dodo_key");
-    expect(parseEnv(subscriptionDodoEnvSchema, {}).DODO_PAYMENTS_WEBHOOK_KEY).toBeUndefined();
+    expect(env.PADDLE_API_KEY).toBe("paddle_key");
+    expect(env.PADDLE_CLIENT_TOKEN).toBe("test_abc123");
+    expect(parseEnv(subscriptionPaddleEnvSchema, {}).PADDLE_WEBHOOK_SECRET).toBeUndefined();
   });
 
-  it("rejects empty values", () => {
+  it("rejects empty secrets and a client token without the test_/live_ prefix", () => {
     try {
-      parseEnv(subscriptionDodoEnvSchema, {
-        DODO_PAYMENTS_API_KEY: "",
-        DODO_PAYMENTS_WEBHOOK_KEY: "",
+      parseEnv(subscriptionPaddleEnvSchema, {
+        PADDLE_API_KEY: "",
+        PADDLE_WEBHOOK_SECRET: "",
+        PADDLE_TENANT_BINDING_KEY: "",
+        PADDLE_CLIENT_TOKEN: "abc",
       });
       throw new Error("should have thrown");
     } catch (err) {
-      expect(asBootError(err).errors.length).toBe(2);
+      expect(asBootError(err).errors.length).toBe(4);
     }
   });
 
   it("attaches the schema via r.envSchema() on the factory", () => {
-    expect(createSubscriptionDodoFeature().envSchema).toBe(subscriptionDodoEnvSchema);
+    expect(createSubscriptionPaddleFeature().envSchema).toBe(subscriptionPaddleEnvSchema);
   });
 });
 
-describe("dodoEnvSchema", () => {
-  it("adds one optional product slot per listed price next to the bridge keys", () => {
-    const schema = dodoEnvSchema({ prices: ["PRO", "TEAM"] });
-    const parsed = parseEnv(schema, { DODO_PRODUCT_PRO: "pdt_R8AWMPiV8RyJElcCKvAID" });
-    expect(parsed.DODO_PRODUCT_PRO).toBe("pdt_R8AWMPiV8RyJElcCKvAID");
-    expect(parsed.DODO_PRODUCT_TEAM).toBeUndefined();
-    expect(schema.shape.DODO_PAYMENTS_API_KEY).toBe(
-      subscriptionDodoEnvSchema.shape.DODO_PAYMENTS_API_KEY,
-    );
-    expect(schema.shape.DODO_PAYMENTS_WEBHOOK_KEY).toBe(
-      subscriptionDodoEnvSchema.shape.DODO_PAYMENTS_WEBHOOK_KEY,
+describe("paddleEnvSchema", () => {
+  it("adds one optional price slot per listed price next to the bridge keys", () => {
+    const schema = paddleEnvSchema({ prices: ["PRO", "TEAM"] });
+    const parsed = parseEnv(schema, { PADDLE_PRICE_PRO: "pri_01h8xce0p4q3s8x1y2z3a4b5c6" });
+    expect(parsed.PADDLE_PRICE_PRO).toBe("pri_01h8xce0p4q3s8x1y2z3a4b5c6");
+    expect(parsed.PADDLE_PRICE_TEAM).toBeUndefined();
+    expect(schema.shape.PADDLE_API_KEY).toBe(subscriptionPaddleEnvSchema.shape.PADDLE_API_KEY);
+    expect(schema.shape.PADDLE_WEBHOOK_SECRET).toBe(
+      subscriptionPaddleEnvSchema.shape.PADDLE_WEBHOOK_SECRET,
     );
   });
 
-  it("rejects a product id without the pdt_ prefix", () => {
+  it("rejects a price id without the pri_ prefix", () => {
     try {
-      parseEnv(dodoEnvSchema({ prices: ["PRO"] }), { DODO_PRODUCT_PRO: "price_1" });
+      parseEnv(paddleEnvSchema({ prices: ["PRO"] }), { PADDLE_PRICE_PRO: "pdt_1" });
       throw new Error("should have thrown");
     } catch (err) {
-      expect(asBootError(err).errors.map((e) => e.name)).toEqual(["DODO_PRODUCT_PRO"]);
+      expect(asBootError(err).errors.map((e) => e.name)).toEqual(["PADDLE_PRICE_PRO"]);
     }
   });
 
   it("composes next to the mounted feature without a key clash", () => {
     const composed = composeEnvSchema({
-      features: [createSubscriptionDodoFeature()],
-      extend: dodoEnvSchema({ prices: ["PRO"] }),
+      features: [createSubscriptionPaddleFeature()],
+      extend: paddleEnvSchema({ prices: ["PRO"] }),
     });
-    expect(composed.sources["DODO_PAYMENTS_API_KEY"]).toBe("subscription-dodo");
-    expect(composed.sources["DODO_PRODUCT_PRO"]).toBe("app");
+    expect(composed.sources["PADDLE_API_KEY"]).toBe("subscription-paddle");
+    expect(composed.sources["PADDLE_PRICE_PRO"]).toBe("app");
   });
 });
 

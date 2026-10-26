@@ -75,8 +75,8 @@ import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/r
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
-import { createSubscriptionDodoFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-dodo";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
+import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -212,10 +212,12 @@ export const APP_FEATURES = [
     webhookSecret: "whsec_smoke",
     priceToTier: { price_smoke: "free" },
   }),
-  createSubscriptionDodoFeature({
-    apiKey: "dodo_smoke",
-    webhookSecret: "whsec_smoke",
-    priceToTier: { pdt_smoke: "free" },
+  createSubscriptionPaddleFeature({
+    apiKey: "paddle_smoke",
+    webhookSecret: "pdl_ntfset_smoke",
+    tenantBindingKey: "paddle_smoke_binding_key",
+    clientToken: "test_smoke_client_token",
+    priceToTier: { pri_smoke: "free" },
   }),
   createSubscriptionMollieFeature({
     apiKey: "test_smoke_key",
