@@ -32,6 +32,7 @@ export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitive
 export type {
   AuthGateOptions,
   LoginRouteOptions,
+  LoginUrlBuilder,
   MfaSetupComponentProps,
   MfaVerifyComponentProps,
   SessionAuthGateOptions,
@@ -57,6 +58,7 @@ export { ForgotPasswordScreen } from "./forgot-password-screen.tsx";
 export { defaultTranslations, mergeTranslations } from "./i18n.ts";
 export type { InviteAcceptScreenProps } from "./invite-accept-screen.tsx";
 export { InviteAcceptScreen } from "./invite-accept-screen.tsx";
+export { failureFromErrorField } from "./login-failure.ts";
 export type { AuthLegalLink, LoginScreenProps } from "./login-screen.tsx";
 export { LoginScreen } from "./login-screen.tsx";
 export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-screen.tsx";
