@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.393.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.393.0
+  - @cosmicdrift/kumiko-guards@0.393.0
+  - @cosmicdrift/kumiko-types@0.393.0
+
 ## 0.392.2
 
 ### Patch Changes
