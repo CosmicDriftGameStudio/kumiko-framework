@@ -61,6 +61,11 @@ export async function runStatus(
   }
   const statusRes = await deps.runGit(ctx.cwd, ["status", "--short"]);
   ctx.out.log(`  Branch: ${branch.stdout.trim()}`);
+  // An empty stdout from a failed status is not a clean tree.
+  if (statusRes.status !== 0) {
+    ctx.out.log(`  git status failed: ${statusRes.stderr.trim() || `exit ${statusRes.status}`}`);
+    return 0;
+  }
   const changes = statusRes.stdout.trim();
   if (changes) {
     const formatted = changes.split("\n").map((l: string) => `    ${l}`).join("\n");
