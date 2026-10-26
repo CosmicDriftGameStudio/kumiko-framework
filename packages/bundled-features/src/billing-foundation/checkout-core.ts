@@ -12,7 +12,12 @@ import {
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant.ts";
-import type { BillingPlanCatalog, SubscriptionProviderPlugin } from "./types.ts";
+import { assertOneOffAuthorized, assertOneOffPriceAllowed } from "./one-off-checkout-gate.ts";
+import type {
+  BillingFoundationOptions,
+  BillingPlanCatalog,
+  SubscriptionProviderPlugin,
+} from "./types.ts";
 import {
   BILLING_FOUNDATION_FEATURE,
   isSubscriptionBlockingCheckout,
@@ -264,6 +269,7 @@ export type OpenCheckoutOptions = {
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog;
   readonly now: () => Temporal.Instant;
+  readonly authorizeOneOffCheckout?: BillingFoundationOptions["authorizeOneOffCheckout"];
   /** The caller already ran `assertBillingEnabled` under its own handler name
    *  (before a costly provider lookup), so the gate is not repeated here. */
   readonly billingEnabledChecked?: boolean;
@@ -307,21 +313,6 @@ function assertSubscriptionPriceAllowed(
     throw new UnprocessableError("unknown_price", {
       i18nKey: "billing-foundation.errors.unknownPrice",
       message: `subscription-foundation: priceId "${input.priceId}" maps to tier "${tier}", which is not one of the catalog's plans`,
-    });
-  }
-}
-
-// Missing/empty oneOffPriceIds rejects every payment checkout: same
-// "no gate configured yet = closed" default as the priceToTier gate.
-function assertOneOffPriceAllowed(
-  plugin: SubscriptionProviderPlugin,
-  input: OpenCheckoutInput,
-): void {
-  const oneOffPriceIds = plugin.oneOffPriceIds ?? [];
-  if (!oneOffPriceIds.includes(input.priceId)) {
-    throw new UnprocessableError("unknown_price", {
-      i18nKey: "billing-foundation.errors.unknownPrice",
-      message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s oneOffPriceIds`,
     });
   }
 }
@@ -373,6 +364,7 @@ export async function assertCheckoutAllowed(
         : await assertNoActiveSubscription(ctx, options.now());
   } else {
     assertOneOffPriceAllowed(plugin, input);
+    await assertOneOffAuthorized(ctx, options.authorizeOneOffCheckout, input);
   }
 
   // Rejects a foreign tenant's provider-customer id — otherwise the checkout
