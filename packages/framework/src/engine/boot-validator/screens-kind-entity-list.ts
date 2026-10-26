@@ -19,6 +19,7 @@ import {
   validateDrawerTargetAction,
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
+import { validateDashboardPanelVisibleWhen } from "./screens-dashboard.ts";
 import {
   buildUnknownFieldMessage,
   listActionContext,
@@ -286,6 +287,10 @@ function validateEntityListToolbarAction(
   action: ToolbarAction,
 ): void {
   const featureName = ctx.feature.name;
+  validateDashboardPanelVisibleWhen(
+    `[Feature ${featureName}] Screen "${screenId}" (entityList) toolbarAction "${action.id}"`,
+    action.visibleWhen,
+  );
   if (action.kind === "navigate") {
     const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
     if (!ctx.allScreenQns.has(candidateQn) && !ctx.navTargetShortIds.has(action.screen)) {

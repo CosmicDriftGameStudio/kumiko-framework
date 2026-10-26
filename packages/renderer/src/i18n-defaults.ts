@@ -213,6 +213,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.progress.unlimited": "unlimited",
     "kumiko.dashboard.record.missing": "Open this page from a record to see its dashboard.",
     "kumiko.dashboard.time-range": "Time range",
+    "kumiko.screen.forbidden": "You do not have access to this page.",
+    "kumiko.screen.notFound": "This page could not be found.",
     "kumiko.screen.unavailable": "This page is not available right now.",
     "kumiko.dashboard.brush-end": "Window end",
     "kumiko.dashboard.brush-start": "Window start",

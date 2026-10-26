@@ -1,3 +1,4 @@
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
@@ -7,6 +8,7 @@ import { screenAccessAllows } from "./screen-access.ts";
 export type EmbeddedScreenTarget = {
   readonly schema: FeatureSchema;
   readonly qn: string;
+  readonly screenType: ScreenDefinition["type"];
 };
 
 // Undefined (not KumikoScreen's access-denied banner) so the host can drop the whole tile.
@@ -23,5 +25,5 @@ export function useEmbeddedScreen(
   const target = schema?.screens.find((s) => qualifyScreenId(targetFeatureName, s.id) === qn);
   if (schema === undefined || target === undefined) return undefined;
   if (!screenAccessAllows(target.access, userRoles)) return undefined;
-  return { schema, qn };
+  return { schema, qn, screenType: target.type };
 }

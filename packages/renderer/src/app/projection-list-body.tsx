@@ -135,6 +135,7 @@ export function ProjectionListBody({
   return (
     <>
       {refetchErrorBanner}
+      {actions.toolbarGateQueries}
       <ListGroupPageBridges {...data.listTable.aggregates.groupPages} />
       <ReferenceFacetBridges
         specs={query.facetSpecs}

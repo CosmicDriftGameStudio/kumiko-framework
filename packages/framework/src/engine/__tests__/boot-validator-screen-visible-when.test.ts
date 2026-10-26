@@ -147,6 +147,48 @@ describe("validateBoot — screen visibleWhen", () => {
     expect(() => validateBoot([feature])).toThrow(/fallback "upgrade" has its own visibleWhen/);
   });
 
+  describe("fallback by reason", () => {
+    const visibleWhen = { query: "demo:query:tier:status", field: "enabled", eq: true };
+
+    test("accepts a map whose entries resolve to registered screens", () => {
+      const feature = gatedFeature({
+        visibleWhen,
+        fallback: { forbidden: "upgrade", notFound: "upgrade" },
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("rejects an empty map", () => {
+      const feature = gatedFeature({ visibleWhen, fallback: {} });
+      expect(() => validateBoot([feature])).toThrow(/fallback map is empty/);
+    });
+
+    test("rejects an unknown reason key", () => {
+      // A string-keyed map stands in for untyped (JS or generated) callers.
+      const misspelled: Record<string, string> = { forbiden: "upgrade" };
+      const feature = gatedFeature({ visibleWhen, fallback: misspelled });
+      expect(() => validateBoot([feature])).toThrow(/unknown reason "forbiden"/);
+    });
+
+    test("rejects a map entry that resolves to no registered screen", () => {
+      const feature = gatedFeature({ visibleWhen, fallback: { notFound: "ghost" } });
+      expect(() => validateBoot([feature])).toThrow(/fallback "ghost" does not resolve/);
+    });
+
+    test("rejects a map entry pointing at the screen itself", () => {
+      const feature = gatedFeature({ visibleWhen, fallback: { error: "items" } });
+      expect(() => validateBoot([feature])).toThrow(/fallback points at the screen itself/);
+    });
+
+    test("rejects a map entry that carries its own visibleWhen", () => {
+      const feature = gatedFeature(
+        { visibleWhen, fallback: { hidden: "upgrade" } },
+        { visibleWhen },
+      );
+      expect(() => validateBoot([feature])).toThrow(/fallback "upgrade" has its own visibleWhen/);
+    });
+  });
+
   describe("idParam", () => {
     const detailGate = (query: string) => ({
       visibleWhen: { query, field: "enabled", eq: true, idParam: "recordId" },

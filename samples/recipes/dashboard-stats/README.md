@@ -20,6 +20,14 @@ query and the fields to read, the query does the counting.
   `list` with `filter`, `limit: 1` and `totalCount: true`. The total is counted
   over the whole WHERE clause, so no rows are loaded just to be counted.
 - **Labels are translation keys**: declared with `r.translations`.
+- **Record-bound dashboard**: `ticket-record-dashboard` binds to a record with `record`
+  and embeds the `ticket-card` projectionDetail as a screen panel; the record id
+  becomes its entityId.
+- **Gated toolbar button**: `visibleWhen` on a toolbar action asks a flat
+  capability query; the button is hidden while it loads or fails.
+- **Fallback by reason**: `fallback: { forbidden, notFound }` renders a screen on
+  403/404 of the gate query; other reasons get the default notice or an error
+  banner with retry.
 
 ## When to reach for it
 

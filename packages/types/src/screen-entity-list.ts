@@ -3,7 +3,11 @@ import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
-import type { ScreenVisibility } from "./screen-dashboard.ts";
+import type {
+  DashboardPanelVisibility,
+  ScreenFallback,
+  ScreenVisibility,
+} from "./screen-dashboard.ts";
 import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
@@ -359,7 +363,7 @@ export type RowActionClientAction = {
 // another screen (e.g. a full-page actionForm), dispatch a handler directly
 // (e.g. "Sync All" without a form), or mount an actionForm in a Drawer
 // without leaving the list.
-export type ToolbarAction =
+export type ToolbarAction = (
   | {
       readonly kind: "navigate";
       readonly id: string;
@@ -407,7 +411,13 @@ export type ToolbarAction =
       readonly title?: string;
       /** Line under the drawer heading (i18n key). */
       readonly subtitle?: string;
-    };
+    }
+) & {
+  /** Shown only while the query's `field` equals `eq` (live, empty payload). Hidden while the
+   *  query loads and when it fails. Named like the screen and panel gates because it is
+   *  query-based; a list toolbar has no record to evaluate a row condition against. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+};
 
 // relatedList-only extension of ToolbarAction:
 // a relatedList section's toolbar renders inside a projectionDetail, which
@@ -488,7 +498,7 @@ export type EntityListScreenDefinition = {
   /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
-  readonly fallback?: string;
+  readonly fallback?: ScreenFallback;
   readonly entity: string;
   /** Short screen id (same feature) the create button opens instead of the entity's default edit screen. */
   readonly createScreen?: string;

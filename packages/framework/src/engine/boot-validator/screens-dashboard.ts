@@ -64,7 +64,13 @@ export function validateDashboardScreen(
     } else if (panel.kind === "custom") {
       validateDashboardCustomPanel(featureName, screenId, panel);
     } else if (panel.kind === "screen") {
-      validateDashboardScreenPanel(featureName, screenId, panel, featureMap);
+      validateDashboardScreenPanel(
+        featureName,
+        screenId,
+        panel,
+        featureMap,
+        screen.record !== undefined,
+      );
     } else if (panel.kind === "text") {
       validateDashboardTextPanel(featureName, screenId, panel, featureMap);
     } else {
@@ -284,6 +290,7 @@ function validateDashboardTimeRange(
 
 const EMBEDDABLE_SCREEN_TYPES: ReadonlySet<ScreenDefinition["type"]> = new Set([
   "projectionList",
+  "projectionDetail",
   "actionForm",
   "secretMint",
   "configEdit",
@@ -296,6 +303,7 @@ function validateEmbeddableScreenRef(
   ref: string,
   featureName: string,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  hostHasRecord: boolean | undefined,
 ): ScreenDefinition {
   const targetQn = resolveScreenTargetQn(featureName, ref);
   const [targetFeatureName = "", , targetShortId = ""] = targetQn.split(":");
@@ -310,6 +318,14 @@ function validateEmbeddableScreenRef(
     throw new Error(
       `${context} embeds "${targetQn}" of type "${target.type}", which can't be embedded — allowed: ` +
         `${[...EMBEDDABLE_SCREEN_TYPES].join(", ")}. Use a custom panel for app components.`,
+    );
+  }
+  // The tile hands the dashboard's bound record id to the detail screen; without a binding it has no id.
+  // undefined = host unknown (extension-selector panels), checked nowhere else.
+  if (target.type === "projectionDetail" && hostHasRecord === false) {
+    throw new Error(
+      `${context} embeds "${targetQn}", a projectionDetail, but the host dashboard has no record binding ` +
+        `to take its id from. Add record: { param } to the dashboard or embed another screen type.`,
     );
   }
   // ActionFormBody/SecretMintBody navigate via nav.navigate after submit or
@@ -333,9 +349,17 @@ export function validateDashboardScreenPanel(
   screenId: string,
   panel: DashboardScreenPanel,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  hostHasRecord: boolean | undefined,
 ): void {
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`;
-  validateEmbeddableScreenRef(context, "screen", panel.screen, featureName, featureMap);
+  validateEmbeddableScreenRef(
+    context,
+    "screen",
+    panel.screen,
+    featureName,
+    featureMap,
+    hostHasRecord,
+  );
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
   // skip: no fallback declared, nothing more to validate
   if (panel.fallback === undefined) return;
@@ -350,6 +374,7 @@ export function validateDashboardScreenPanel(
     panel.fallback,
     featureName,
     featureMap,
+    hostHasRecord,
   );
   // A gated fallback could hide in turn; the tile would show nothing where it promised a stand-in.
   if (target.visibleWhen !== undefined) {
@@ -402,7 +427,7 @@ function validateDashboardTextLinkBlock(
   }
 }
 
-function validateDashboardPanelVisibleWhen(
+export function validateDashboardPanelVisibleWhen(
   context: string,
   visibleWhen: DashboardPanelVisibility | undefined,
 ): void {

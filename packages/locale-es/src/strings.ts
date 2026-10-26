@@ -763,6 +763,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.screen-missing.home": "Ir a la página de inicio",
   "kumiko.screen-missing.hint": "No está habilitada para tu cuenta o ya no existe.",
   "kumiko.screen-missing.title": "Esta página no está disponible",
+  "kumiko.screen.forbidden": "No tienes acceso a esta página.",
+  "kumiko.screen.notFound": "No se ha encontrado esta página.",
   "kumiko.screen.unavailable": "Esta página no está disponible en este momento.",
   "kumiko.dashboard.brush-end": "Fin de la ventana",
   "kumiko.dashboard.brush-start": "Inicio de la ventana",

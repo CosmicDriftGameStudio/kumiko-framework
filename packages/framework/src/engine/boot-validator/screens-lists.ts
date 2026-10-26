@@ -390,6 +390,11 @@ function validateRelatedListToolbarActions(
     detailForScreens,
   } = args;
   for (const action of toolbarActions) {
+    if (action.visibleWhen !== undefined) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList toolbarAction "${action.id}" sets visibleWhen, which only list-screen toolbars support. Use visible (a condition on the enclosing record) instead.`,
+      );
+    }
     if (action.kind === "drawer") {
       validateDrawerTargetAction(
         featureName,

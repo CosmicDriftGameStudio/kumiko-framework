@@ -19,6 +19,7 @@ import {
   buildProjectionToolbarActions,
   runProjectionRowNavigate,
 } from "./row-actions.ts";
+import { useGatedToolbarActions } from "./use-gated-toolbar-actions.tsx";
 import type { useProjectionListDefinitions } from "./use-projection-list-definitions.ts";
 
 type ProjectionListActionsInput = {
@@ -94,7 +95,7 @@ export function useProjectionListActions(input: ProjectionListActionsInput) {
     ],
   );
 
-  const toolbarActions = useMemo(
+  const resolvedToolbarActions = useMemo(
     () =>
       buildProjectionToolbarActions({
         toolbarActions: screen.toolbarActions,
@@ -118,6 +119,10 @@ export function useProjectionListActions(input: ProjectionListActionsInput) {
       userRoles,
     ],
   );
+  const { actions: toolbarActions, gateQueries: toolbarGateQueries } = useGatedToolbarActions(
+    screen.toolbarActions,
+    resolvedToolbarActions,
+  );
   const bulk = useListBulk({
     bulkActions: screen.bulkActions,
     rowActions: screen.rowActions,
@@ -132,5 +137,12 @@ export function useProjectionListActions(input: ProjectionListActionsInput) {
     openDrawer,
     onWriteSuccess: refreshRows,
   });
-  return { runNavigate, rowActions, toolbarActions, bulk, emptyContent };
+  return {
+    runNavigate,
+    rowActions,
+    toolbarActions,
+    toolbarGateQueries,
+    bulk,
+    emptyContent,
+  };
 }

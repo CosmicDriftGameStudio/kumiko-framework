@@ -62,6 +62,7 @@ import {
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
 import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
+import { useGatedToolbarActions } from "./use-gated-toolbar-actions.tsx";
 import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
@@ -446,7 +447,7 @@ function EntityListBody({
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions), shared with
   // projectionList and relatedList sections via buildProjectionToolbarActions.
-  const toolbarActions = useMemo(
+  const resolvedToolbarActions = useMemo(
     () =>
       buildProjectionToolbarActions({
         toolbarActions: screen.toolbarActions,
@@ -469,6 +470,10 @@ function EntityListBody({
       appFeatures,
       userRoles,
     ],
+  );
+  const { actions: toolbarActions, gateQueries: toolbarGateQueries } = useGatedToolbarActions(
+    screen.toolbarActions,
+    resolvedToolbarActions,
   );
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
     nav,
@@ -637,6 +642,7 @@ function EntityListBody({
           renderExpandedRow,
         })}
       />
+      {toolbarGateQueries}
       <DrawerHost
         schema={schema}
         drawerAction={drawerAction}

@@ -354,6 +354,21 @@ function checkDashboardOutputFields(
   }
 }
 
+function checkToolbarVisibleWhenFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: Extract<ScreenDefinition, { readonly type: "projectionList" | "entityList" }>,
+): void {
+  for (const action of screen.toolbarActions ?? []) {
+    checkVisibleWhenField(
+      queryHandlers,
+      action.visibleWhen,
+      `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) toolbarAction "${action.id}"`,
+    );
+  }
+}
+
 function checkScreenOutputColumns(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -366,8 +381,10 @@ function checkScreenOutputColumns(
     `[Feature ${featureName}] Screen "${screenId}" (${screen.type})`,
   );
   if (screen.type === "projectionList") {
+    checkToolbarVisibleWhenFields(queryHandlers, featureName, screenId, screen);
     checkProjectionListOutputColumns(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {
+    checkToolbarVisibleWhenFields(queryHandlers, featureName, screenId, screen);
     if (screen.expandableRow !== undefined) {
       const rowShape = resolveListRowShape(
         queryHandlers,

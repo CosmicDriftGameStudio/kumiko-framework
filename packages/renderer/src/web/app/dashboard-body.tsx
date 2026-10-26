@@ -217,6 +217,7 @@ function renderDashboardPanel(
         key={panel.id}
         panel={panel}
         featureName={featureName}
+        recordId={screenParams.recordId}
         translate={translate}
       />
     );

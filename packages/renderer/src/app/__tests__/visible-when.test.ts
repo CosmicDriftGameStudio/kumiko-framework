@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { DispatcherError } from "../../headless/index.ts";
 import type { UseQueryResult } from "../../hooks/use-query.ts";
-import { evalVisibleWhen, evalVisibleWhenAfterShown } from "../visible-when.ts";
+import {
+  evalVisibleWhen,
+  evalVisibleWhenAfterShown,
+  screenFallbackReason,
+} from "../visible-when.ts";
 
 const gate = { query: "demo:query:state", field: "state", eq: "filled" } as const;
 const refetch = async (): Promise<void> => {};
@@ -53,5 +57,25 @@ describe("evalVisibleWhenAfterShown", () => {
 
   test("an error without matching data is still an error", () => {
     expect(evalVisibleWhenAfterShown(gate, result({ error }), true)).toBe("error");
+  });
+});
+
+describe("screenFallbackReason", () => {
+  const withStatus = (httpStatus: number) => ({ httpStatus });
+
+  test("a closed gate without failure is hidden, whatever error is passed", () => {
+    expect(screenFallbackReason("hidden", null)).toBe("hidden");
+    expect(screenFallbackReason("hidden", withStatus(403))).toBe("hidden");
+  });
+
+  test("a failed gate maps 403 to forbidden and 404 to notFound", () => {
+    expect(screenFallbackReason("error", withStatus(403))).toBe("forbidden");
+    expect(screenFallbackReason("error", withStatus(404))).toBe("notFound");
+  });
+
+  test("every other failure is error", () => {
+    expect(screenFallbackReason("error", withStatus(500))).toBe("error");
+    expect(screenFallbackReason("error", withStatus(0))).toBe("error");
+    expect(screenFallbackReason("error", null)).toBe("error");
   });
 });

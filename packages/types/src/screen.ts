@@ -256,9 +256,18 @@ export type {
   DashboardTextParam,
   DashboardTimeRangeDefinition,
   DashboardValueFormat,
+  ScreenFallback,
+  ScreenFallbackByReason,
+  ScreenFallbackReason,
   ScreenVisibility,
 } from "./screen-dashboard.ts";
-export { DASHBOARD_MIN_REFRESH_SECONDS, DASHBOARD_STAT_TONES } from "./screen-dashboard.ts";
+export {
+  DASHBOARD_MIN_REFRESH_SECONDS,
+  DASHBOARD_STAT_TONES,
+  fallbackTargetFor,
+  fallbackTargets,
+  SCREEN_FALLBACK_REASONS,
+} from "./screen-dashboard.ts";
 export type {
   EditExtensionSection,
   EditFieldGroup,
