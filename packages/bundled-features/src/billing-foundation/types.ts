@@ -451,6 +451,8 @@ export type BillingPlanCatalog<TTier extends string = string> = {
   readonly providerName?: string;
   /** Rendered as the last card, no price, visible to `viewRoles` regardless of `purchaseRoles`. */
   readonly contact?: BillingPlanContactCard;
+  /** App i18n key for a small note under every card's price, e.g. "plus VAT" when catalog prices are net. */
+  readonly priceNoteKey?: string;
 };
 
 export type LegalLinkSet = {
@@ -609,6 +611,8 @@ export type BillingPlansResult = {
   readonly inAppPlanSwitch?: true;
   /** Present only when `catalog.contact` is configured. */
   readonly contact?: BillingPlanContactCard;
+  /** Present only when `catalog.priceNoteKey` is configured. */
+  readonly priceNoteKey?: string;
   /** Present only when `consumerProtection` is configured. */
   readonly consumerProtection?: {
     readonly consentTexts: Readonly<

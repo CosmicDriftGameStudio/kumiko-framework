@@ -238,6 +238,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             : {
                 amount: formatMoney(shownPrice.unitAmount, shownPrice.currency, locale),
                 ...(fromPrice !== undefined && { prefix: t("billing-foundation.plans.priceFrom") }),
+                ...(result.priceNoteKey !== undefined && { note: t(result.priceNoteKey) }),
                 ...(key !== undefined && {
                   period: t(key, {
                     count: new Intl.NumberFormat(locale).format(shownPrice.intervalCount ?? 1),

@@ -86,6 +86,19 @@ describe("PlanCard", () => {
     expect(text.indexOf("ab")).toBeLessThan(text.indexOf("9,00 €"));
   });
 
+  test("price.note renders under the price row, and nothing without it", () => {
+    const { rerender } = render(
+      <PlanCard
+        title="Pro"
+        price={{ amount: "9,00 €", note: "plus VAT" }}
+        testId="plan-card-pro"
+      />,
+    );
+    expect(screen.getByTestId("plan-card-pro-price-note").textContent).toBe("plus VAT");
+    rerender(<PlanCard title="Pro" price={{ amount: "9,00 €" }} testId="plan-card-pro" />);
+    expect(screen.queryByTestId("plan-card-pro-price-note")).toBeNull();
+  });
+
   test("price omitted renders neither an amount nor the fallback", () => {
     render(<PlanCard title="Free" />);
     expect(screen.queryByText("Price not available")).toBeNull();

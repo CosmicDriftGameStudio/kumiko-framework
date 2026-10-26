@@ -190,6 +190,27 @@ afterEach(() => {
   window.location.assign = originalAssign;
 });
 
+describe("BillingPlansPanel — price note", () => {
+  test("renders the translated note under the price of every card when priceNoteKey is set", () => {
+    queryState = {
+      data: result({
+        priceNoteKey: "app.plans.priceNote",
+        plans: [plan(), plan({ tier: "team", labelKey: "plan.team.label" })],
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.getAllByText("app.plans.priceNote")).toHaveLength(2);
+  });
+
+  test("renders no note without priceNoteKey", () => {
+    queryState = { data: result(), loading: false, error: null };
+    renderPanel();
+    expect(screen.queryByText("app.plans.priceNote")).toBeNull();
+  });
+});
+
 describe("BillingPlansPanel — contact card", () => {
   const contact = {
     labelKey: "plan.enterprise.label",
