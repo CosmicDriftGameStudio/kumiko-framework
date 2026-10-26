@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-23
+verified: 2026-10-26
 evidence: "packages/server-runtime/src/bundled-lists-table.ts (bundledLists); packages/framework/src/engine/boot-validator/bundled-lists-table.ts; packages/framework/src/engine/define-feature.ts (adoptsBundledLists); packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
 ---
 
@@ -163,6 +163,8 @@ r.screen({
 
 **Card layout.** Below the md breakpoint the list renders as cards. Column visibility applies there, the order does not, because the cards take title, status and meta columns from the column sequence of the screen. A card sort select and the compact density still apply.
 
+![Task list with status chips, a priority facet and the Export button in the toolbar](/screenshots/tables/export.png)
+
 **XLSX export.** The button sends the current search, sort and facets, and the visible columns in their order, to `POST /api/export/xlsx`. The server runs the list query again with the user's session and reads the whole filtered list, not just the loaded page. Above `maxRows` it answers 413 and the button shows a hint instead of a file. The sheet drops encrypted, sensitive, write-only and unreadable fields and virtual columns, so it never holds more than the list query would show this user. Reference columns show the label of the target instead of its id, joined with commas for multiple references. Timestamps use the time zone of the browser, falling back to the profile zone and then UTC. Text cells are always plain strings, never formulas. A `projectionList` query must honor `offset` or return `nextCursor`, otherwise the export stops after the first page. Personal access tokens are rejected on this route.
 
 **Server groups.** With `grouping` the groups are the unit that loads. One `aggregate` query with `groupBy` returns every group with its count and the `totals` measures; the header shows these server numbers, never a count or sum over loaded rows. Each open group whose header is near the viewport loads its rows with the list query plus `<field> eq <key>`, in pages of the list's page size, and "Load more" at the end of the group fetches the next page. At most four groups load at once, a collapsed group sends no query, and the global pager and infinite scroll give way to the per-group paging in both pagination modes. `userChoice` stores the chosen field like the other view choices; "None" turns grouping off. A `relatedList` section groups the same way. An `expandableRow` takes `grouping` with a fixed `field` and no `userChoice` or `fields`; every other `table` option belongs on the entityList itself. The query behind the list must accept `aggregate` (`entityListSchema` does); a hand-written query answers it with `answerListAggregate`, otherwise the boot validator rejects the screen.
@@ -218,6 +220,8 @@ bulkActions: [{ id: "delete", rowAction: "delete" }],
 
 With at least one bulk action the table gets a checkbox column on the left, a header checkbox for the loaded rows and a checkbox on every card in the card layout. A bar above the table shows "n selected", one button per action and "Clear selection". A list without `bulkActions` renders without the column.
 
+![Task board with two selected rows, the bar shows 2 selected, Delete and Clear selection](/screenshots/tables/bulk-actions.png)
+
 **Run.** A bulk action sends one `/api/write` per row, at most 4 at a time, so every row goes through the same access checks, hooks and audit event as a single click. There is no batch endpoint. Rows the row action's `visible` hides are skipped and counted. The bar shows the progress as a counter; "Cancel" stops new writes, running writes finish. Afterwards a banner shows succeeded, failed, skipped and not run, plus the first error. Failed and not-run rows stay selected for a retry, the others are deselected, and the list reloads.
 
 **Confirm.** The dialog appears once for the whole selection and names the count. It appears when the bulk entry sets `confirm` (an i18n key with `{count}` and `{action}`) or the row action has `confirm` or `style: "danger"`.
@@ -227,3 +231,15 @@ With at least one bulk action the table gets a checkbox column on the left, a he
 ## `DataTable`: `onFilterReset`
 
 `onFilterReset` clears all active facets. The table shows the reset button only while at least one facet is active. With `table.resetAll` the screen passes `resetAll` instead and the facet reset is not shown.
+
+## File renderer: `previewOpenByDefault`
+
+A field rendered with `{ format: "file" }` lists its files with a preview toggle. `previewOpenByDefault: true` opens the inline preview of the newest file (the last in the list) when the page loads, which suits a detail page whose main content is a contract or an invoice PDF:
+
+```ts illustration
+fields: [
+  { field: "contractPdf", renderer: { format: "file", previewOpenByDefault: true } },
+],
+```
+
+The preview mounts only for PDFs; other file types keep the closed toggle. Without the option the toggle starts closed, as before.

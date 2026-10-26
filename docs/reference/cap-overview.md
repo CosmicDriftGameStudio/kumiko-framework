@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-25
+verified: 2026-10-26
 evidence: "kumiko-framework#2496 (feat/cap-overview); #2503 (drei Caps, Tone); #2515 (not-measured); admin-shell Opt-in Nav (602174b77); bundled-features/cap-overview; fw#2854"
 ---
 
@@ -22,6 +22,13 @@ Dashboards.
 - **`CapSpec.unit?`** (`"count"`, `"mb"`, `"tokens"`) — steuert die Anzeige:
   `mb` erscheint als MB/GB, sonst als Zahl im Locale-Format. Ein Limit von
   `0` zeigt „Nicht enthalten“ statt eines Balkens.
+- **`CapSpec.showLimit?`** (Default `true`): `false` zeigt nur den Zähler.
+  Das Limit geht dann gar nicht an den Client (`limit: null` im
+  `caps-usage`-Ergebnis), die Durchsetzung bleibt bei `cap-counter`. Bild und
+  Beispiel: `docs/guides/billing-plans-and-checkout.md`.
+- **Cap-Karten auf eigenen Dashboards**: das Panel `CAP_CARDS_PANEL_COMPONENT`
+  nimmt `params: { capKeys: [...] }` und zeigt nur diese Caps; siehe
+  `docs/reference/screen-layout.md`.
 - **`tiers?`** — optionale Werte für den Tier-Facet-Filter der Platform-Liste.
   Weggelassen → **kein** Facet (die Engine trägt keine eigene Tier-Vokabular-
   Enumeration, aus der man eines ableiten könnte; "Filter by tier" war explizit
