@@ -87,7 +87,8 @@ export async function readFileRefContent(args: {
   });
   if (row === undefined) return null;
   const size = Number(row.size);
-  if (args.maxBytes !== undefined && size > args.maxBytes) {
+  // A size that is not a number counts as too large, so the limit cannot be skipped.
+  if (args.maxBytes !== undefined && !(size <= args.maxBytes)) {
     throw new FileRefTooLargeError(size);
   }
   const files = args.filesForTenant(row.tenantId);

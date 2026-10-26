@@ -53,6 +53,21 @@ describe("parseSenderAuthentication", () => {
     });
   });
 
+  test("contradicting dmarc or spf entries are never a pass", () => {
+    const result = parse([
+      "mx.example.com; spf=pass; spf=fail; dmarc=pass header.from=b.de; dmarc=fail header.from=b.de",
+    ]);
+    expect(result).toMatchObject({ spf: "fail", dmarc: "fail" });
+    expect(isSenderAuthenticated(result)).toBe(false);
+  });
+
+  test("an escaped quote inside a quoted value does not shift the result segments", () => {
+    const result = parse([
+      'mx.example.com; dmarc=fail header.from=b.de; spf=pass smtp.mailfrom="x\\"; dmarc=pass header.from=b.de"',
+    ]);
+    expect(result).toMatchObject({ spf: "pass", dmarc: "fail" });
+  });
+
   test("several dkim results: pass wins, then fail, then none; domains are collected", () => {
     const result = parse([
       "mx.example.com; dkim=fail header.d=evil.net; dkim=pass header.d=B.de; dkim=pass header.d=b.de",

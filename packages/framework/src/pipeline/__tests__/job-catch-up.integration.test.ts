@@ -7,6 +7,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import * as z from "zod";
 import { selectMany } from "../../db/query.ts";
 import { defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
 import { eventConsumerStateTable } from "../event-consumer-state.ts";
@@ -15,6 +16,7 @@ const CATCH_UP_JOB_QN = "catch-up-fixture:job:on-ping-catch-up";
 const CATCH_UP_CONSUMER_NAME = `job:${CATCH_UP_JOB_QN}`;
 
 const catchUpRuns: string[] = [];
+const versionedRuns: { readonly pingId: unknown; readonly source: unknown }[] = [];
 const plainRuns: string[] = [];
 
 const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
@@ -42,6 +44,23 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
       catchUpRuns.push(payload["pingId"] as string);
     },
   );
+  const versionedPing = r.defineEvent(
+    "versioned-ping",
+    z.object({ pingId: z.uuid(), source: z.string() }),
+    {
+      piiFields: "none",
+      version: 2,
+      migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { source: "v1" } } }],
+    },
+  );
+  r.job(
+    "on-versioned-ping",
+    { trigger: { on: versionedPing.name, catchUp: true }, runIn: "worker" },
+    async (payload) => {
+      versionedRuns.push({ pingId: payload["pingId"], source: payload["source"] });
+    },
+  );
+
   r.job("on-ping-plain", { trigger: { on: ping.name }, runIn: "worker" }, async (payload) => {
     plainRuns.push(payload["pingId"] as string);
   });
@@ -125,6 +144,28 @@ describe("r.job trigger.catchUp", () => {
     await stack.drainJobs();
 
     expect(catchUpRuns.slice(before)).toEqual([pingId]);
+  });
+});
+
+describe("r.job trigger.catchUp with an older stored event version", () => {
+  test("the job receives the payload upcast to the current version", async () => {
+    const pingId = generateId();
+    await append(stack.db, {
+      aggregateId: pingId,
+      aggregateType: "versioned-ping",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "catch-up-fixture:event:versioned-ping",
+      eventVersion: 1,
+      payload: { pingId },
+      metadata: { userId: TestUsers.admin.id },
+    });
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(versionedRuns).toContainEqual({ pingId, source: "v1" });
+    });
   });
 });
 

@@ -22,6 +22,7 @@ import type { AppContext, Registry, SessionUser, TenantId } from "../engine/type
 
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
+import { type EventUpcasters, upcastStoredEvent } from "../event-store/upcaster.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { SearchAdapter, SearchDocument } from "../search/types.ts";
 import type { EventConsumer } from "./event-dispatcher.ts";
@@ -574,18 +575,24 @@ export const CATCH_UP_JOB_CONSUMER_PREFIX = "job:";
 
 // One consumer per catchUp job: its own cursor starts at the beginning of the
 // event store, so events older than the job are replayed too. The enqueue id is
-// deterministic (job QN + event id), see catchUpJobId.
+// deterministic (job QN + event id), see catchUpJobId. Replayed events can be
+// older than the event's current schema, so they are upcast before the job sees them.
 export function createCatchUpJobEventConsumer(
   jobRunner: JobRunnerRef,
   jobName: string,
   featureName: string | undefined,
+  upcast: { readonly db: DbConnection; readonly upcasters: EventUpcasters },
 ): EventConsumer {
   return {
     name: `${CATCH_UP_JOB_CONSUMER_PREFIX}${jobName}`,
     delivery: "shared",
     startFrom: "beginning",
     ...(featureName !== undefined && { featureName }),
-    handler: async (event) => {
+    handler: async (storedEvent) => {
+      const event = await upcastStoredEvent(storedEvent, upcast.upcasters, {
+        db: upcast.db,
+        tenantId: storedEvent.tenantId,
+      });
       const user: SessionUser = {
         id: event.metadata.userId,
         tenantId: event.tenantId,

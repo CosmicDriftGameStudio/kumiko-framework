@@ -399,7 +399,10 @@ export type JobTrigger =
       // the job existed. A deterministic job id (job QN + event id) makes a
       // redelivery a no-op while the job is still retained in the queue. Every
       // `on` entry must be an r.defineEvent event, not a handler QN. The job
-      // is not fired by the synchronous handler path.
+      // is not fired by the synchronous handler path. The job receives the
+      // payload upcast to the event's current version. Adding catchUp to a
+      // running app runs the job for the whole history of every tenant, so its
+      // side effects (mails, webhooks) must be safe to repeat for old events.
       readonly catchUp?: boolean;
     }
   // `tz`: IANA zone the cron fields are read in (default: the server process

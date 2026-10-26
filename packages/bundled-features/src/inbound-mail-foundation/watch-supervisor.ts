@@ -382,6 +382,8 @@ export function createInboundMailSupervisor(
       );
       totals.storageUnavailable ||= outcome.storageUnavailable;
       totals.storageHealthy ||= outcome.storageHealthy;
+      // A newer poll may already own the account; an abandoned one must not move its cursor back.
+      signal?.throwIfAborted();
       await cursors.save(account, result.nextCursor);
       cursor = result.nextCursor;
       budget -= result.messages.length;

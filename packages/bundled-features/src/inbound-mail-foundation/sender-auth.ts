@@ -59,19 +59,31 @@ const RESULT_TO_VERDICT: Readonly<Record<string, SenderAuthVerdict>> = {
   none: "none",
 };
 
+/** Index right after the quoted string that starts at `start`; a backslash escapes the next char. */
+function quotedStringEnd(value: string, start: number): number {
+  for (let i = start + 1; i < value.length; i++) {
+    const char = value.charAt(i);
+    if (char === "\\") i++;
+    else if (char === '"') return i + 1;
+  }
+  return value.length;
+}
+
 /** Comments in parentheses may nest and may hide quoted text; folding is plain whitespace. */
 function stripComments(value: string): string {
   let depth = 0;
-  let inQuote = false;
   let out = "";
   for (let i = 0; i < value.length; i++) {
     const char = value.charAt(i);
-    if (depth === 0 && char === '"') inQuote = !inQuote;
-    if (!inQuote && char === "\\" && depth > 0) {
+    if (depth === 0 && char === '"') {
+      const end = quotedStringEnd(value, i);
+      out += value.slice(i, end);
+      i = end - 1;
+    } else if (char === "\\" && depth > 0) {
       i++;
-    } else if (!inQuote && char === "(") {
+    } else if (char === "(") {
       depth++;
-    } else if (!inQuote && char === ")" && depth > 0) {
+    } else if (char === ")" && depth > 0) {
       depth--;
     } else if (depth === 0) {
       out += char;
@@ -82,11 +94,14 @@ function stripComments(value: string): string {
 
 function splitSegments(value: string): string[] {
   const segments: string[] = [];
-  let inQuote = false;
   let current = "";
-  for (const char of value) {
-    if (char === '"') inQuote = !inQuote;
-    if (char === ";" && !inQuote) {
+  for (let i = 0; i < value.length; i++) {
+    const char = value.charAt(i);
+    if (char === '"') {
+      const end = quotedStringEnd(value, i);
+      current += value.slice(i, end);
+      i = end - 1;
+    } else if (char === ";") {
       segments.push(current.trim());
       current = "";
     } else {
@@ -135,9 +150,19 @@ function methodResults(segments: readonly string[]): {
   return { byMethod, headerFroms };
 }
 
-function combineVerdicts(results: readonly MethodResult[] | undefined): SenderAuthVerdict {
+// DKIM: one valid signature is enough, a mail may carry several.
+function combineAnyPass(results: readonly MethodResult[] | undefined): SenderAuthVerdict {
   const verdicts = results?.map((result) => result.verdict) ?? [];
   if (verdicts.includes("pass")) return "pass";
+  if (verdicts.includes("fail")) return "fail";
+  if (verdicts.includes("none")) return "none";
+  return "unknown";
+}
+
+// SPF and DMARC have one verdict per mail; contradicting entries must never read as a pass.
+function combineAllPass(results: readonly MethodResult[] | undefined): SenderAuthVerdict {
+  const verdicts = results?.map((result) => result.verdict) ?? [];
+  if (verdicts.length > 0 && verdicts.every((verdict) => verdict === "pass")) return "pass";
   if (verdicts.includes("fail")) return "fail";
   if (verdicts.includes("none")) return "none";
   return "unknown";
@@ -179,10 +204,10 @@ export function parseSenderAuthentication(
     // must give "no statement", not a validation failure that would quarantine the mail.
     const parsed = senderAuthenticationSchema.safeParse({
       authservId,
-      spf: combineVerdicts(byMethod.get("spf")),
-      dkim: combineVerdicts(byMethod.get("dkim")),
+      spf: combineAllPass(byMethod.get("spf")),
+      dkim: combineAnyPass(byMethod.get("dkim")),
       dkimDomains,
-      dmarc: dmarcBound ? combineVerdicts(dmarcResults) : "unknown",
+      dmarc: dmarcBound ? combineAllPass(dmarcResults) : "unknown",
       fromDomain: from,
     });
     return parsed.success ? parsed.data : null;

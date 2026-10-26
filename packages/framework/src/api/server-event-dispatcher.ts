@@ -65,7 +65,7 @@ export function createServerEventDispatcher(deps: {
     context,
     fileProviderResolver,
   });
-  const catchUpJobConsumers = buildCatchUpJobConsumers(options);
+  const catchUpJobConsumers = buildCatchUpJobConsumers(options, baseDb);
   const consumers = [...systemConsumers, ...mspConsumers, ...catchUpJobConsumers];
   const {
     disabled: dispatcherDisabled,
@@ -145,9 +145,11 @@ function buildCatchUpJobConsumers(
     ServerOptions,
     "registry" | "processLane" | "dispatcherOptions" | "eventDispatcher"
   >,
+  baseDb: DbConnection | undefined,
 ): EventConsumer[] {
   const jobRunner = options.dispatcherOptions?.jobRunner;
-  if (!jobRunner) return [];
+  if (!jobRunner || !baseDb) return [];
+  const upcast = { db: baseDb, upcasters: options.registry.getEventUpcasters() };
   if (!(options.eventDispatcher?.systemConsumers?.jobTrigger ?? true)) return [];
   const processLane: RunIn = options.processLane ?? "worker";
   const consumers: EventConsumer[] = [];
@@ -155,7 +157,12 @@ function buildCatchUpJobConsumers(
     if (!("on" in jobDef.trigger) || !jobDef.trigger.catchUp) continue;
     if (!runsInLane(jobDef.runIn, processLane)) continue;
     consumers.push(
-      createCatchUpJobEventConsumer(jobRunner, jobName, options.registry.getJobFeature(jobName)),
+      createCatchUpJobEventConsumer(
+        jobRunner,
+        jobName,
+        options.registry.getJobFeature(jobName),
+        upcast,
+      ),
     );
   }
   return consumers;
