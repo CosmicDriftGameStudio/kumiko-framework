@@ -26,6 +26,10 @@
       "types": "./src/error-boundary.ts",
       "default": "./src/error-boundary.ts"
     },
+    "./kebab-case": {
+      "types": "./src/kebab-case.ts",
+      "default": "./src/kebab-case.ts"
+    },
     "./identifiers": {
       "types": "./src/identifiers.ts",
       "default": "./src/identifiers.ts"
@@ -312,6 +316,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./kebab-case": {
+        "types": "./dist/kebab-case.d.ts",
+        "default": "./dist/kebab-case.js"
       },
       "./identifiers": {
         "types": "./dist/identifiers.d.ts",

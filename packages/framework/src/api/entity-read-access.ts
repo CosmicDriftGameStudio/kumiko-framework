@@ -1,4 +1,5 @@
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
 import type { OwnershipMap } from "@cosmicdrift/kumiko-types/ownership";
 import type { Registry } from "../engine/types/index.ts";
 
@@ -7,10 +8,6 @@ import type { Registry } from "../engine/types/index.ts";
 // carries the id of every row of the entity, so a signed-in connection gets it
 // only when one of these rules grants its roles. An aggregate type without a
 // reading query has no entry and is never put on the tenant channel.
-function toKebabCase(name: string): string {
-  return name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-}
-
 export function collectEntityReadAccess(
   registry: Registry,
 ): ReadonlyMap<string, readonly AccessRule[]> {
@@ -22,7 +19,7 @@ export function collectEntityReadAccess(
     for (const entityName of entities) {
       // Executors may write under the kebab-case form of the camelCase r.entity() name
       // (document-extract for documentExtract); the signal carries that aggregate type.
-      for (const aggregateType of new Set([entityName, toKebabCase(entityName)])) {
+      for (const aggregateType of new Set([entityName, toKebab(entityName)])) {
         const rules = rulesByEntity.get(aggregateType) ?? [];
         rules.push(handler.access);
         rulesByEntity.set(aggregateType, rules);
@@ -39,7 +36,7 @@ export function collectEntityRowReadMaps(registry: Registry): ReadonlyMap<string
   for (const [entityName, entity] of registry.getAllEntities()) {
     const readMap = entity.access?.read;
     if (readMap === undefined || Object.keys(readMap).length === 0) continue;
-    for (const aggregateType of new Set([entityName, toKebabCase(entityName)])) {
+    for (const aggregateType of new Set([entityName, toKebab(entityName)])) {
       mapsByEntity.set(aggregateType, readMap);
     }
   }

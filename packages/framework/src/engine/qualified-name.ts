@@ -9,6 +9,10 @@
 //   "system:hook:search-index"     → scope=system, type=hook, name=search-index
 //   "billing:notify:invoice-sent"  → scope=billing, type=notify, name=invoice-sent
 
+import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
+
+export { toKebab };
+
 // Built-in QN types used by the framework.
 // Features can define additional types — the type segment is validated for format only, not membership.
 export const QnTypes = {
@@ -145,19 +149,4 @@ export function qnScope(qualifiedName: string): string | undefined {
 // means a single place to change if the qualification rule ever evolves.
 export function qualifyEntityName(featureName: string, type: QnType, shortName: string): string {
   return qn(toKebab(featureName), type, toKebab(shortName));
-}
-
-// Convert camelCase or dot.separated strings to kebab-case.
-// "task.create" → "task-create"
-// "ticketAssigned" → "ticket-assigned"
-// "billing-period.create" → "billing-period-create"
-// "monthlyReport" → "monthly-report"
-// Already kebab-case → unchanged
-// Colons are preserved: "task:create" → "task:create"
-export function toKebab(input: string): string {
-  return input
-    .replace(/\./g, "-") // dots → dashes
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2") // consecutive uppercase: SSEBroadcast → SSE-Broadcast
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2") // camelCase boundaries: ticketAssigned → ticket-Assigned
-    .toLowerCase();
 }
