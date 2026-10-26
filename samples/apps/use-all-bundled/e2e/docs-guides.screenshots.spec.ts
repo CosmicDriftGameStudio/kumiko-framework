@@ -92,6 +92,13 @@ test("mailboxes are connected in the states the docs describe", async ({ page })
   await expect(page.getByRole("row", { name: /Invoices/ })).toContainText("Active");
   await expect(page.getByRole("row", { name: /Orders/ })).toContainText("Sign-in failed");
 
+  // Two rows run on the in-memory provider so the real supervisor can quarantine and fail them;
+  // the docs image hides that provider name, which no real installation shows.
+  await page.getByRole("button", { name: "View", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Provider" }).uncheck();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("columnheader", { name: "Provider" })).toHaveCount(0);
+
   await supportRow.getByRole("button", { name: /actions/i }).click();
   await expect(page.getByRole("menuitem", { name: "Confirm quarantine" })).toBeVisible();
   await captureScreenshot(page, "inbound-mail/accounts", { fit: "content" });

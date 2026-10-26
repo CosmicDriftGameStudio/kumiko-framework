@@ -17,7 +17,7 @@ evidence: "packages/bundled-features/src/inbound-mail-foundation/events.ts, quar
 Each mailbox shows its state:
 
 - **Active**: mail is fetched on schedule.
-- **Sign-in failed**: the server rejected the stored login, usually after a password change. Nothing is fetched until the mailbox is reconnected.
+- **Sign-in failed**: the server rejected the stored login, usually after a password change. Nothing is fetched until the mailbox is reconnected. The Problem column stays empty here because the status already names the cause.
 - **Interrupted**: fetching works, but something needs a decision, for example mails that could not be imported. The row says which problem it is.
 
 The quarantine count shows how many mails could not be imported. "Confirm quarantine" in the row menu marks them as seen; the mailbox returns to active on its next sync.
