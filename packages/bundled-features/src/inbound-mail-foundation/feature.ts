@@ -128,28 +128,28 @@ export function createInboundMailFoundationFeature() {
       // personal accounts); encrypting it would break the entity-projection read
       // path that carries it as `personal: false`.
       // v2: lastError, trustedAuthservId. Defaults are shared references across upcast events, so none of them is mutated.
-      const mailAccountV2 = {
+      const mailAccountMigrations = [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: { default: { lastError: null, trustedAuthservId: null } },
+        },
+      ] as const;
+      r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
         piiFields: "none",
         version: 2,
-        migrations: [
-          {
-            fromVersion: 1,
-            toVersion: 2,
-            transform: { default: { lastError: null, trustedAuthservId: null } },
-          },
-        ],
-      } as const;
-      r.defineEvent(
-        MAIL_ACCOUNT_CONNECTED_EVENT_SHORT,
-        mailAccountEventPayloadSchema,
-        mailAccountV2,
-      );
-      r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, mailAccountV2);
-      r.defineEvent(
-        MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT,
-        mailAccountEventPayloadSchema,
-        mailAccountV2,
-      );
+        migrations: mailAccountMigrations,
+      });
+      r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+        piiFields: "none",
+        version: 2,
+        migrations: mailAccountMigrations,
+      });
+      r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+        piiFields: "none",
+        version: 2,
+        migrations: mailAccountMigrations,
+      });
       // v1 mails carry the snippet only: bodyText "" and contentState "snippet" let the content
       // refetch find them.
       r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
