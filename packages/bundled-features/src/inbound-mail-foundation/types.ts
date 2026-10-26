@@ -13,6 +13,7 @@
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.ts";
+import type { InboundOAuthFlow } from "./inbound-oauth-flow.ts";
 import type { OutboundAttachment, OutboundMailMessage, ProviderSentMail } from "./outbound-mail.ts";
 import type { SenderAuthentication } from "./sender-auth.ts";
 
@@ -153,47 +154,6 @@ export type InboundFetchResult = {
   readonly hasMore: boolean;
 };
 
-export type OAuthTokenSet = {
-  readonly accessToken: string;
-  /** ISO-Instant. TTL typisch ~1h ⇒ Foundation refresht before-poll. */
-  readonly expiresAt: string;
-  readonly refreshToken?: string;
-  readonly scopesGranted: readonly string[];
-};
-
-/**
- * OAuth portion of the contract — OAuth providers only; imap in password
- * mode omits `oauth`. The Foundation provides the routes
- * (`/inbound-mail/connect`, `/inbound-mail/oauth/callback`) generically;
- * providers MUST NOT register their own routes.
- */
-export type InboundOAuthFlow = {
-  /** Scopes: request receive AND send in a SINGLE consent; re-consent is costly. */
-  readonly scopes: {
-    readonly receive: readonly string[];
-    readonly send?: readonly string[];
-  };
-  readonly buildAuthorizeUrl: (
-    ctx: InboundMailContext,
-    p: { readonly state: string; readonly redirectUri: string },
-  ) => Promise<string>;
-  readonly exchangeCode: (
-    ctx: InboundMailContext,
-    p: { readonly code: string; readonly redirectUri: string },
-  ) => Promise<OAuthTokenSet>;
-  readonly refreshAccessToken: (
-    ctx: InboundMailContext,
-    account: MailAccountRecord,
-    refreshToken: string,
-    /** The foundation aborts `signal` after a hard timeout while holding a
-     *  per-account lock (a pool connection is pinned meanwhile). Providers
-     *  MUST pass it to their token-endpoint fetch; the foundation awaits the
-     *  provider's result and never drops a late one, because that could lose
-     *  a rotated refresh token. */
-    opts?: { readonly signal?: AbortSignal },
-  ) => Promise<OAuthTokenSet>;
-};
-
 /**
  * Inbound-mail provider plugin contract. Each provider feature
  * (inbound-provider-imap, -m365-graph, -gmail-rest) registers an
@@ -287,79 +247,4 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [INBOUND_MAIL_PROVIDER_EXTENSION]: InboundMailProviderPlugin;
   }
-}
-
-// =============================================================================
-// Typed errors handled uniformly by the Foundation during polling:
-//   InboundAuthError          → status=auth_error, no retry
-//   InboundRateLimitError     → abort poll, wait for the next cron tick
-//   InboundCursorInvalidError → reset cursor + full resync in the backfill
-//                               window; deduplication handles duplicates
-//   InboundTransientError     → job retry (retries: 3, exponential)
-// =============================================================================
-//
-// Use a `kind` discriminant instead of instanceof: plugins and the Foundation
-// may run in separate bundles (dual-package-hazard), and instanceof is
-// unreliable across realm or package-copy boundaries.
-
-export class InboundAuthError extends Error {
-  readonly kind = "inbound-auth-error" as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "InboundAuthError";
-  }
-}
-
-/** The credential secret is not there (yet). Still an auth error for a regular poll; a sync woken
- *  right after connect treats it as "not ready" because the secret is written after the account. */
-export class InboundCredentialNotStoredError extends InboundAuthError {
-  readonly credentialNotStored = true as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "InboundCredentialNotStoredError";
-  }
-}
-
-export class InboundRateLimitError extends Error {
-  readonly kind = "inbound-rate-limit-error" as const;
-  readonly retryAfterMs: number;
-  constructor(message: string, retryAfterMs: number) {
-    super(message);
-    this.name = "InboundRateLimitError";
-    this.retryAfterMs = retryAfterMs;
-  }
-}
-
-export class InboundCursorInvalidError extends Error {
-  readonly kind = "inbound-cursor-invalid-error" as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "InboundCursorInvalidError";
-  }
-}
-
-export class InboundTransientError extends Error {
-  readonly kind = "inbound-transient-error" as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "InboundTransientError";
-  }
-}
-
-export function isInboundAuthError(e: unknown): e is InboundAuthError {
-  return e instanceof Error && "kind" in e && e.kind === "inbound-auth-error";
-}
-export function isInboundCredentialNotStoredError(
-  e: unknown,
-): e is InboundCredentialNotStoredError {
-  return isInboundAuthError(e) && "credentialNotStored" in e && e.credentialNotStored === true;
-}
-export function isInboundRateLimitError(e: unknown): e is InboundRateLimitError {
-  return e instanceof Error && "kind" in e && e.kind === "inbound-rate-limit-error";
-}
-export function isInboundCursorInvalidError(e: unknown): e is InboundCursorInvalidError {
-  return e instanceof Error && "kind" in e && e.kind === "inbound-cursor-invalid-error";
-}
-export function isInboundTransientError(e: unknown): e is InboundTransientError {
-  return e instanceof Error && "kind" in e && e.kind === "inbound-transient-error";
 }

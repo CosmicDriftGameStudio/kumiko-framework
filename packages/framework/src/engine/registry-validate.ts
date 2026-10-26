@@ -844,7 +844,7 @@ export function resolveJobTriggers(state: RegistryState): void {
   // existing r.defineEvent registration. The latter is delivered async via the
   // job-trigger event-consumer (server.ts), not the synchronous write-handler
   // dispatch path — see createJobTriggerEventConsumer in
-  // pipeline/system-hooks.ts. Short names are qualified against the job's own
+  // pipeline/job-trigger-consumer.ts. Short names are qualified against the job's own
   // feature and written back, because the job runner matches by exact QN.
   const allHandlers = allHandlerQns(state);
   for (const [jobName, jobDef] of state.jobMap) {

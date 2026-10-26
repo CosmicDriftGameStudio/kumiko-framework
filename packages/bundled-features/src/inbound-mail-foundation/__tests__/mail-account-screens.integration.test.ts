@@ -24,9 +24,10 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
 
 let stack: TestStack;

@@ -11,9 +11,9 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { errorCodeOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailFoundationHandlers } from "./constants.ts";
-import type { QuarantineReasonCode } from "./entities.ts";
 import { normalizeRawInboundMessage } from "./normalize-inbound-message.ts";
 import { quarantineMessage } from "./quarantine.ts";
+import type { QuarantineReasonCode } from "./quarantine-entities.ts";
 import type { MailAccountRecord, RawInboundMessage, RejectedInboundMessage } from "./types.ts";
 
 const MAX_TRANSIENT_FAILURES_PER_MESSAGE = 3;

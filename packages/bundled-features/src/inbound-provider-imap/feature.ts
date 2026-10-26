@@ -45,15 +45,14 @@ import { INBOUND_PROVIDER_IMAP_I18N } from "./i18n.ts";
 import {
   assertUidValidity,
   closeOnAbort,
-  coerceDate,
   connectOnce,
   createImapClient,
   IMAP_MAILBOX,
   imapMailHostGuard,
   mapImapError,
   parseImapCursor,
-  parseOrReject,
 } from "./imap-client.ts";
+import { coerceDate, parseOrReject } from "./parse-message.ts";
 import { reconnectMailboxHandler } from "./reconnect-mailbox.ts";
 import { reconnectPrefillQuery } from "./reconnect-prefill.query.ts";
 import { imapConnectScreen, imapReconnectScreen } from "./screens.ts";

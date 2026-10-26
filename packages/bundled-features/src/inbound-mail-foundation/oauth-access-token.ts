@@ -24,14 +24,9 @@ import {
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.ts";
-import {
-  InboundAuthError,
-  InboundCredentialNotStoredError,
-  type InboundMailContext,
-  type InboundMailProviderPlugin,
-  type MailAccountRecord,
-  type OAuthTokenSet,
-} from "./types.ts";
+import type { OAuthTokenSet } from "./inbound-oauth-flow.ts";
+import { InboundAuthError, InboundCredentialNotStoredError } from "./provider-errors.ts";
+import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "./types.ts";
 
 // 'inoa' as ASCII — disjoint from the other fixed advisory-lock namespaces.
 const OAUTH_REFRESH_LOCK_NAMESPACE = 0x696e6f61;

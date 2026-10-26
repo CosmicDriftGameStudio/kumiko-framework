@@ -13,9 +13,8 @@ export {
 } from "./feature.ts";
 export {
   assertUidValidity,
-  buildProviderMessageId,
   type ImapCursor,
   mapImapError,
-  normalizeReferences,
   parseImapCursor,
 } from "./imap-client.ts";
+export { buildProviderMessageId, normalizeReferences } from "./parse-message.ts";

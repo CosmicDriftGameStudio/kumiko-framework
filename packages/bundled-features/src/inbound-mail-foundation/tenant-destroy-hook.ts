@@ -18,7 +18,7 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
-import { quarantineTable, seenMessageTable, syncCursorTable } from "./entities.ts";
+import { seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
@@ -29,6 +29,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "./projection.ts";
+import { quarantineTable } from "./quarantine-entities.ts";
 
 const ARCHIVED_BY = "tenant-lifecycle:destroy";
 const REASON = "tenant_destroy";

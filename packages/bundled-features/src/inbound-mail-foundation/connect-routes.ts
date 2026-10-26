@@ -13,16 +13,16 @@
 import type {
   ExtraRouteDefinition,
   SignatureExtraRouteDeps,
-  SignatureExtraRouteVerifyRequest,
   UserExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
-import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import { signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
+import { type VerifiedCallback, verifyCallbackRequest } from "./connect-callback-verify.ts";
+import { connectFailureResponse, errorJson } from "./connect-route-responses.ts";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAuthMethods,
-  InboundMailConnectErrors,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants.ts";
@@ -30,7 +30,7 @@ import {
   inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
 } from "./oauth-access-token.ts";
-import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.ts";
+import { signOAuthState } from "./oauth-state.ts";
 import { resolveInboundProviderForKey } from "./provider-factory.ts";
 import type { InboundMailContext } from "./types.ts";
 
@@ -62,55 +62,6 @@ export type InboundMailConnectRoutesOptions = {
   /** Handed to the provider plugin's context (`InboundMailContext.metricsFor`). */
   readonly metricsFor?: InboundMailContext["metricsFor"];
 };
-
-const CONNECT_CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
-  [InboundMailConnectErrors.addressAlreadyConnected.reason]:
-    "this mailbox address is already connected",
-  [InboundMailConnectErrors.addressDisconnected.reason]:
-    "this mailbox was disconnected before; reconnect it from the mailbox list instead",
-};
-
-function connectFailureResponse(c: Context, error: unknown) {
-  const reason = propertyOf(propertyOf(error, "details"), "reason");
-  const conflict = typeof reason === "string" ? CONNECT_CONFLICT_MESSAGES[reason] : undefined;
-  if (typeof reason === "string" && conflict) return errorJson(c, 409, reason, conflict);
-  return errorJson(c, 502, "account_create_failed", JSON.stringify(error ?? {}));
-}
-
-function errorJson(
-  c: Context,
-  status: 400 | 401 | 404 | 409 | 500 | 502,
-  code: string,
-  message: string,
-) {
-  return c.json({ error: { code, message } }, status);
-}
-
-type VerifiedCallback = { readonly code: string; readonly state: OAuthStatePayload };
-
-function verifyCallbackRequest(
-  request: SignatureExtraRouteVerifyRequest,
-  stateSecret: string,
-): VerifiedCallback {
-  const code = request.query["code"] ?? "";
-  const rawState = request.query["state"] ?? "";
-  if (!code || !rawState) {
-    throw new ExtraRouteRejection(
-      400,
-      { error: { code: "invalid_callback", message: "missing code or state" } },
-      "inbound-mail oauth callback missing code or state",
-    );
-  }
-  const verified = verifyOAuthState(rawState, stateSecret);
-  if (!verified.ok) {
-    throw new ExtraRouteRejection(
-      400,
-      { error: { code: "invalid_state", message: `state rejected: ${verified.reason}` } },
-      `inbound-mail oauth callback state rejected: ${verified.reason}`,
-    );
-  }
-  return { code, state: verified.payload };
-}
 
 /** Builds the `entry:"user"`/`entry:"signature"` extraRoute pair. Mount via
  *  `extraRoutes: createInboundMailConnectRoutes(options)`. */

@@ -39,7 +39,6 @@ import {
 } from "../../tenant-lifecycle/testing.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
 import {
-  quarantineEntity,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -52,6 +51,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "../projection.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 
 let stack: TestStack;
 let db: DbConnection;

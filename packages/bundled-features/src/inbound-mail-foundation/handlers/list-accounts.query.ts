@@ -13,8 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { MAIL_ACCOUNT_PII_FIELDS, quarantineTable } from "../entities.ts";
+import { MAIL_ACCOUNT_PII_FIELDS } from "../entities.ts";
 import { mailAccountsProjectionTable } from "../projection.ts";
+import { quarantineTable } from "../quarantine-entities.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
 
 // The projectionList screen always sends `limit`; unknown keys stay rejected.

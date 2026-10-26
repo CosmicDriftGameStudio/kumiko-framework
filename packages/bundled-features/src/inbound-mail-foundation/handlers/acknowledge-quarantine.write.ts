@@ -4,7 +4,7 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { quarantineTable } from "../entities.ts";
+import { quarantineTable } from "../quarantine-entities.ts";
 
 export const acknowledgeQuarantineSchema = z.object({ accountId: z.uuid() });
 

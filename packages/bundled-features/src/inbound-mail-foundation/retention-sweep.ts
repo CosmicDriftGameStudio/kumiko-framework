@@ -41,10 +41,11 @@ import {
   deleteRowsWithoutReplayableStream,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { quarantineTable, seenMessageTable } from "./entities.ts";
+import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
 import { QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS } from "./quarantine.ts";
+import { quarantineTable } from "./quarantine-entities.ts";
 
 // Provides Temporal.Instant without forcing the caller to obtain it from
 // globalThis (same pattern as data-retention/keep-for.ts).

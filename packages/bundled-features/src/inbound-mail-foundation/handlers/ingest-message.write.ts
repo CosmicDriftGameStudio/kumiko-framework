@@ -27,95 +27,24 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { acquireNamespacedAdvisoryLock, countWhere } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import * as z from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
-import {
-  INBOUND_MESSAGE_PII_FIELDS,
-  inboundMessageEntity,
-  MAIL_THREAD_PII_FIELDS,
-  mailThreadEntity,
-  seenMessageTable,
-} from "../entities.ts";
+import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity, seenMessageTable } from "../entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   type InboundMessageEventHeaders,
   type InboundMessageEventPayload,
-  MAIL_THREAD_AGGREGATE_TYPE,
-  MAIL_THREAD_UPDATED_EVENT_QN,
-  type MailThreadEventPayload,
 } from "../events.ts";
-import { inboundMessagesProjectionTable } from "../projection.ts";
-import { senderAuthenticationFieldSchema } from "../sender-auth.ts";
+import { type IngestMessagePayload, ingestMessageSchema } from "./ingest-message-schema.ts";
 import {
   contentStateOf,
-  inboundContentPayloadShape,
   MESSAGE_LOCK_NAMESPACE,
   storeInboundMessageContent,
 } from "./message-content.ts";
+import { appendThreadRollup, buildThreadKey } from "./thread-rollup.ts";
 
-// =============================================================================
-// Input schema — the normalized provider output (RawInboundMessage,
-// types.ts) plus the envelope (accountId/providerName/providerCursor). The
-// original and attachments ride in-process as bytes and are persisted to file
-// storage here; the event itself stays blob-free (references only).
-// =============================================================================
-
-export const ingestMessageSchema = z.object({
-  accountId: z.uuid(),
-  /** Scope inherited from the account — the supervisor knows the
-   *  MailAccountRecord and passes ownerUserId through. */
-  ownerUserId: z.string().max(36).nullable(),
-  providerName: z.string().min(1).max(50),
-  /** Provider-native Message-ID — idempotency anchor with accountId. */
-  providerMessageId: z.string().min(1).max(500),
-  /** RFC-5322 Message-ID without <>; null → deterministic fallback. */
-  messageIdHeader: z.string().min(1).max(500).nullable(),
-  providerThreadId: z.string().min(1).max(500).nullable(),
-  /** References/In-Reply-To chain, oldest first. */
-  references: z.array(z.string().min(1).max(500)).max(200),
-  from: z.string().min(1).max(2000),
-  to: z.array(z.string().max(2000)).max(200),
-  cc: z.array(z.string().max(2000)).max(200),
-  subject: z.string().max(4000),
-  snippet: z.string().max(4000),
-  receivedAtIso: z.string().min(1),
-  /** From the app's storeBody hook; empty lets the handler store the original itself. */
-  bodyRef: z.string().max(500),
-  scope: z.string().min(1).max(200),
-  /** Cursor snapshot at ingest time — used for debugging/replay and stored in
-   *  metadata.headers, never in the payload. */
-  providerCursor: z.string().max(2000),
-  senderAuthentication: senderAuthenticationFieldSchema.optional(),
-  ...inboundContentPayloadShape,
-});
-type IngestMessagePayload = z.infer<typeof ingestMessageSchema>;
-
-/**
- * Normalizes threadKey:
- *   1. Use the provider thread ID when present — prefix it with the provider
- *      so IMAP References keys and Graph conversationIds never collide.
- *   2. Otherwise use the root of the References chain (the oldest Message-ID,
- *      which is the thread anchor shared by all replies).
- *   3. Otherwise use the own Message-ID → single-message thread; a later
- *      reply carries it as the References root and joins the same thread.
- */
-function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: string): string {
-  if (p.providerThreadId) return `${p.providerName}:${p.providerThreadId}`.slice(0, 500);
-  const referencesRoot = p.references[0];
-  if (referencesRoot) return `mid:${referencesRoot}`.slice(0, 500);
-  return `mid:${effectiveMessageIdHeader}`.slice(0, 500);
-}
-
-const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
-// pg_advisory_xact_lock namespace (int4) for the step-5 thread-rollup lock
-// — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
-// single-int advisory-lock keys (schema bootstrap, es-ops boot).
-const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
 const THREAD_ROLLUP_ADVISORY_LOCK_REASON =
   "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API";
 export const ingestMessageHandler: WriteHandlerDef = {
@@ -263,88 +192,15 @@ export const ingestMessageHandler: WriteHandlerDef = {
       };
     }
 
-    // ---------------------------------------------------------------
-    // 5. Thread-Rollup. New snapshot (live COUNT + max(lastMessageAt)) via
-    //    ctx.events.tryAppend in a bounded retry loop — the apply stays a
-    //    dumb, replay-idempotent UPSERT. lastMessageAtIso is not PII (a
-    //    timestamp), so it stays plaintext-comparable; subject is
-    //    encrypted once up front (constant across retries, doesn't
-    //    depend on the thread's prior state).
-    //
-    //    messageCount is a live COUNT, not previousCount+1, so two
-    //    concurrent ingests on the same thread (Watch-Push vs.
-    //    Poll-Reconciliation overlap, or two different messages of the
-    //    same thread arriving at once) converge on the true count.
-    //    acquireNamespacedAdvisoryLock below serializes this whole
-    //    countWhere+append section per threadAggId — transaction-scoped,
-    //    so it survives events.tryAppend's inner SAVEPOINT and releases at
-    //    the enclosing TX's commit/rollback. Without it, a concurrent
-    //    commit landing between countWhere and events.tryAppend's own fresh
-    //    version-read makes the append succeed with a stale count instead
-    //    of a VersionConflictError, so the retry loop below never sees it
-    //    as a conflict to retry (the original gap). Unlike step 4, a
-    //    lost version-conflict race here must NOT be treated as a no-op
-    //    duplicate — skipping would leave this message's contribution to
-    //    messageCount/lastMessageAt out of the thread forever. Exhausting
-    //    all attempts throws, rolling back the whole TX (including the
-    //    step-4 message append) for a clean re-ingest.
-    // ---------------------------------------------------------------
-    const threadPlainPii = { tenantId, subject: payload.subject };
-    const encryptedThreadFields = piiKms
-      ? await encryptPiiFieldValues(
-          threadPlainPii,
-          mailThreadEntity,
-          MAIL_THREAD_PII_FIELDS,
-          piiKms,
-          {
-            requestId: `inbound-mail-foundation:ingest-message:thread:${threadAggId}`,
-            tenantId,
-          },
-          { tenantId, entityName: MAIL_THREAD_AGGREGATE_TYPE },
-        )
-      : threadPlainPii;
-
-    const threadRollupRunner = ctx.db.unsafeRaw();
-    await acquireNamespacedAdvisoryLock(
-      threadRollupRunner,
-      THREAD_ROLLUP_LOCK_NAMESPACE,
+    await appendThreadRollup(ctx, {
+      tenantId,
       threadAggId,
-    );
-
-    let threadAppendOk = false;
-    for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
-      const threadEvents = await ctx.events.load(threadAggId);
-      const lastThreadEvent = threadEvents[threadEvents.length - 1];
-      // @cast-boundary engine-payload — eigene events, shape via defineEvent
-      const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
-      const previousLastAt = previousThread?.lastMessageAtIso ?? "";
-      const newLastAt =
-        payload.receivedAtIso > previousLastAt ? payload.receivedAtIso : previousLastAt;
-      const messageCount = await countWhere(threadRollupRunner, inboundMessagesProjectionTable, {
-        tenantId,
-        threadKey,
-      });
-
-      const threadEventPayload: MailThreadEventPayload = {
-        threadKey,
-        subject: encryptedThreadFields.subject,
-        lastMessageAtIso: newLastAt,
-        messageCount,
-      };
-      const threadAppend = await ctx.events.tryAppend({
-        aggregateId: threadAggId,
-        aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
-        type: MAIL_THREAD_UPDATED_EVENT_QN,
-        payload: threadEventPayload,
-        headers: messageHeaders,
-      });
-      threadAppendOk = threadAppend.ok;
-    }
-    if (!threadAppendOk) {
-      throw new InternalError({
-        message: `ingest-message: thread-rollup append for "${threadAggId}" lost the version-conflict race ${THREAD_ROLLUP_MAX_ATTEMPTS} times in a row — aborting for a clean re-ingest instead of persisting a stale messageCount.`,
-      });
-    }
+      threadKey,
+      subject: payload.subject,
+      receivedAtIso: payload.receivedAtIso,
+      headers: messageHeaders,
+      piiKms,
+    });
 
     // ---------------------------------------------------------------
     // 6. Deduplication anchor. It runs in the same TX as the appends, so

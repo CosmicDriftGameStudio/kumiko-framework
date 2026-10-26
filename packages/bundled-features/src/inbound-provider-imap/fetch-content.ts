@@ -13,13 +13,12 @@ import { InboundTransientError } from "@cosmicdrift/kumiko-bundled-features/inbo
 import { readCredentialDocument } from "./credential-document.ts";
 import {
   closeOnAbort,
-  coerceDate,
   createImapClient,
   IMAP_MAILBOX,
   imapMailHostGuard,
   mapImapError,
-  parseOrReject,
 } from "./imap-client.ts";
+import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 function uidOf(providerMessageId: string, serverUidValidity: string): number | null {
   const separator = providerMessageId.lastIndexOf(":");

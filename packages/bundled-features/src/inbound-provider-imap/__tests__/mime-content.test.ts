@@ -3,8 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { normalizeRawInboundMessage } from "../../inbound-mail-foundation/index.ts";
-import { parseOrReject } from "../imap-client.ts";
 import { MIME_FORWARD_MAX_DEPTH } from "../mime-content.ts";
+import { parseOrReject } from "../parse-message.ts";
 import { buildMailWithTooManyParts, MAILPARSER_MAX_MIME_NODES } from "./too-many-parts-mail.ts";
 
 async function parseFixture(name: string) {

@@ -9,9 +9,10 @@ import { type MailAccountRow, toMailAccountRecord } from "./account-record.ts";
 import { InboundMailAccountStatuses } from "./constants.ts";
 import { INBOUND_PROBE_KEYS } from "./probe-keys.ts";
 import { mailAccountsProjectionTable } from "./projection.ts";
+import { isInboundAuthError } from "./provider-errors.ts";
 import { resolveInboundProviderForAccount } from "./provider-factory.ts";
 import { MAIL_ACCOUNT_LIST_SCREEN_QN } from "./screens.ts";
-import { type InboundMailContext, isInboundAuthError } from "./types.ts";
+import type { InboundMailContext } from "./types.ts";
 
 const SHORT_ID_LENGTH = 8;
 

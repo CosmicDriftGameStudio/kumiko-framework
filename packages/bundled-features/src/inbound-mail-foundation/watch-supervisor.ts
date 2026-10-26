@@ -43,15 +43,13 @@
 // a Redis outage or expired TTL) tears down the local watcher instead of
 // racing a new holder.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   systemScopedRunner,
   tenantScopedSecrets,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
-import { createAccountHealth, type PollFailureKind } from "./account-health.ts";
+import { createAccountHealth } from "./account-health.ts";
+import { createAccountPoller } from "./account-poll.ts";
 import {
   forEachWithConcurrency,
   pollScheduleOf,
@@ -59,41 +57,29 @@ import {
 } from "./account-poll-schedule.ts";
 import { registerMailAccountWakeListener } from "./account-wake.ts";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.ts";
-import { refetchSnippetOnlyMessages } from "./content-refetch.ts";
-import { seenMessageTable } from "./entities.ts";
+import { describeError } from "./describe-error.ts";
+import { createOAuthAccessTokenManager, usesFoundationManagedOAuth } from "./oauth-access-token.ts";
 import {
-  createOAuthAccessTokenManager,
-  type OAuthAccessTokenManager,
-  usesFoundationManagedOAuth,
-} from "./oauth-access-token.ts";
+  isInboundAuthError,
+  isInboundCursorInvalidError,
+  isInboundRateLimitError,
+} from "./provider-errors.ts";
 import { resolveInboundProviderForAccount } from "./provider-factory.ts";
-import { quarantinedMessageIds } from "./quarantine.ts";
-import { createMessageIngester, type IngestBatchOutcome } from "./supervisor-ingest.ts";
+import { createMessageIngester } from "./supervisor-ingest.ts";
 import {
   createSyncAccountNow,
   type InFlightSyncs,
-  type PollAccountOptions,
-  type PollAccountResult,
   runExclusivePerAccount,
 } from "./sync-account-now.ts";
 import { createSyncCursorStore } from "./sync-cursor-store.ts";
 import { listSyncableAccounts, type SyncableAccount } from "./syncable-accounts.ts";
-import {
-  type InboundMailContext,
-  type InboundMailProviderPlugin,
-  isInboundAuthError,
-  isInboundCredentialNotStoredError,
-  isInboundCursorInvalidError,
-  isInboundRateLimitError,
-  type MailAccountRecord,
-  type RawInboundMessage,
-} from "./types.ts";
-
-// Provider errors can embed token or response data in `message`; logs carry
-// only the error class.
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.name : typeof err;
-}
+import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "./types.ts";
+import type {
+  InboundMailSupervisor,
+  InboundMailSupervisorDeps,
+  WatcherState,
+  WatchLeaseResult,
+} from "./watch-supervisor-types.ts";
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_BACKFILL_WINDOW_DAYS = 30;
@@ -101,88 +87,6 @@ const DEFAULT_MAX_MESSAGES_PER_POLL = 200;
 const DEFAULT_WATCH_BACKOFF_INITIAL_MS = 5_000;
 const DEFAULT_WATCH_BACKOFF_MAX_MS = 5 * 60 * 1000;
 const DEFAULT_WATCH_LEASE_TTL_SECONDS = 90;
-
-const SEEN_LOOKUP_CHUNK_SIZE = 1000;
-
-export type InboundMailSupervisorDeps = {
-  /** Slim context for provider calls (`registry` is required; `secrets` is
-   *  used for provider credential reads). */
-  readonly providerCtx: InboundMailContext;
-  /** App database — direct reads from read_mail_accounts (account snapshot)
-   *  and direct writes to store_mail_sync_cursors (unmanaged store). */
-  readonly db: DbConnection;
-  /** Standard dispatcher with SystemUser — carries ingest-message and
-   *  update-account. */
-  readonly dispatchWrite: (args: {
-    readonly handlerQn: string;
-    readonly payload: unknown;
-    readonly tenantId: string;
-  }) => Promise<{
-    readonly isSuccess: boolean;
-    readonly data?: unknown;
-    readonly error?: unknown;
-  }>;
-  /** Optional override for where the raw MIME original is stored. Without it the ingest handler
-   *  stores original and attachments itself through the tenant's file provider
-   *  (bodyRef = "" here lets it pick the deterministic key). */
-  readonly storeBody?: (account: MailAccountRecord, msg: RawInboundMessage) => Promise<string>;
-  readonly pollIntervalMs?: number;
-  readonly backfillWindowDays?: number;
-  readonly maxMessagesPerPoll?: number;
-  /** Accounts synced side by side within one tick. Default 4. */
-  readonly pollConcurrency?: number;
-  /** Longest a single account's sync may run before the supervisor abandons it as a failed poll.
-   *  Default 10 minutes. */
-  readonly accountPollDeadlineMs?: number;
-  readonly watchBackoffInitialMs?: number;
-  readonly watchBackoffMaxMs?: number;
-  /** Coordinates the IMAP watch (not the poll) across worker processes:
-   *  before `plugin.watch()`, ensureWatcher claims a TTL lease for the
-   *  account via `lock.acquire` and renews it via `lock.renew` while the
-   *  watcher lives. Omit for single-process deployments — every active
-   *  account is watched locally, same as before. */
-  readonly lock?: DistributedLock;
-  /** Access-token lifecycle for OAuth accounts. Defaults to a manager built
-   *  from `db` + `providerCtx.secrets`; pass the instance shared with
-   *  `createInboundMailConnectRoutes` so a fresh connect primes this cache. */
-  readonly oauthTokens?: OAuthAccessTokenManager;
-  /** TTL (seconds) for the per-account watch lease. Default 90s, renewed
-   *  every ttl/3. Only used when `lock` is set. */
-  readonly watchLeaseTtlSeconds?: number;
-  readonly log?: (line: string) => void;
-};
-
-type WatcherState = {
-  stop: (() => Promise<void>) | null;
-  backoffMs: number;
-  restartTimer: ReturnType<typeof setTimeout> | null;
-  /** Incremented by stop() to prevent a delayed restart from reviving
-   *  an already stopped watcher. */
-  generation: number;
-  /** Token from `deps.lock.acquire` while this worker owns the account's
-   *  watch lease; null when unclaimed (no `deps.lock`, or claim lost). */
-  lockToken: string | null;
-  renewTimer: ReturnType<typeof setTimeout> | null;
-  /** Consecutive renew() throws — tear down once failures span a full TTL. */
-  renewFailures: number;
-  /** True while plugin.watch() is in flight (re-entrancy guard). */
-  starting: boolean;
-  /** The provider reads the account it was handed at watch start; a changed trust setting
-   *  only reaches it through a fresh watch. */
-  trustedAuthservId: string | null;
-};
-
-type WatchLeaseResult = "acquired" | "no-token" | "stale";
-
-export type InboundMailSupervisor = {
-  readonly start: () => Promise<void>;
-  /** Reconciliation run across all active accounts; also usable standalone
-   *  for tests and manual operational triggers. */
-  readonly pollOnce: () => Promise<void>;
-  /** Syncs one account immediately (connect/reconnect wake-up); joins a sync already running for it. */
-  readonly syncAccountNow: (accountId: string) => Promise<void>;
-  readonly stop: () => Promise<void>;
-};
 
 export function createInboundMailSupervisor(
   deps: InboundMailSupervisorDeps,
@@ -292,132 +196,19 @@ export function createInboundMailSupervisor(
     return true;
   }
 
-  // ---------------------------------------------------------------
-  // Poll (Reconciliation).
-  // ---------------------------------------------------------------
-  function unknownMessageIdsFilterFor(account: MailAccountRecord) {
-    return async (providerMessageIds: readonly string[]): Promise<ReadonlySet<string>> => {
-      if (providerMessageIds.length === 0) return new Set();
-      // One bind parameter per id: a full-mailbox listing would exceed Postgres' 65535 limit.
-      const seenIds = new Set<string>();
-      for (let start = 0; start < providerMessageIds.length; start += SEEN_LOOKUP_CHUNK_SIZE) {
-        const seen = await selectMany<{ providerMessageId: string }>(
-          systemDb,
-          seenMessageTable,
-          {
-            tenantId: account.tenantId,
-            accountId: account.id,
-            providerMessageId: {
-              in: providerMessageIds.slice(start, start + SEEN_LOOKUP_CHUNK_SIZE),
-            },
-          },
-          { fields: ["providerMessageId"] },
-        );
-        for (const row of seen) seenIds.add(row.providerMessageId);
-      }
-      // A quarantined message counts as seen: re-fetching it would only fail the same way again.
-      for (const id of await quarantinedMessageIds(systemDb, account.id, providerMessageIds)) {
-        seenIds.add(id);
-      }
-      return new Set(providerMessageIds.filter((id) => !seenIds.has(id)));
-    };
-  }
-
-  function pollFailureKindOf(err: unknown): PollFailureKind | null {
-    if (isInboundAuthError(err) || isInboundCursorInvalidError(err)) return null;
-    return isInboundRateLimitError(err) ? "rate_limited" : "transient";
-  }
-
-  async function refetchContentSafely(
-    account: SyncableAccount,
-    plugin: InboundMailProviderPlugin,
-    signal: AbortSignal | undefined,
-  ): Promise<void> {
-    // skip: the provider cannot reload content.
-    if (!plugin.fetchContent) return;
-    try {
-      const accessToken = await resolveAccessToken(account, plugin);
-      await refetchSnippetOnlyMessages({
-        db: systemDb,
-        dispatchWrite: deps.dispatchWrite,
-        providerCtx,
-        account,
-        plugin,
-        windowDays: backfillWindowDays,
-        accessToken,
-        signal,
-      });
-    } catch (err) {
-      // Best effort: the sync itself succeeded, the next tick retries the reload.
-      log(`inbound-mail: content reload for account ${account.id} failed: ${describeError(err)}`);
-    }
-  }
-
-  // Fetches and ingests batch after batch until the provider has no more or the message budget of
-  // this tick is used up. An abandoned sync (deadline) throws out of the loop.
-  async function ingestBatches(
-    account: SyncableAccount,
-    plugin: InboundMailProviderPlugin,
-    signal: AbortSignal | undefined,
-  ): Promise<{ storageUnavailable: boolean; storageHealthy: boolean }> {
-    let cursor = await cursors.load(account.id);
-    let budget = maxMessagesPerPoll;
-    const totals = { storageUnavailable: false, storageHealthy: false };
-    for (;;) {
-      const accessToken = await resolveAccessToken(account, plugin);
-      const result = await plugin.fetch(providerCtx, account, cursor, {
-        backfillWindowDays,
-        maxMessages: budget,
-        filterUnknownMessageIds: unknownMessageIdsFilterFor(account),
-        ...(accessToken !== undefined && { accessToken }),
-        ...(signal && { signal }),
-      });
-      // The sync was abandoned while the provider was busy; its late result is dropped.
-      signal?.throwIfAborted();
-      const outcome: IngestBatchOutcome = await ingester.ingestBatch(
-        account,
-        result.messages,
-        result.rejected ?? [],
-        JSON.stringify(result.nextCursor),
-      );
-      totals.storageUnavailable ||= outcome.storageUnavailable;
-      totals.storageHealthy ||= outcome.storageHealthy;
-      // A newer poll may already own the account; an abandoned one must not move its cursor back.
-      signal?.throwIfAborted();
-      await cursors.save(account, result.nextCursor);
-      cursor = result.nextCursor;
-      budget -= result.messages.length;
-      if (!result.hasMore || budget <= 0) return totals;
-    }
-  }
-
-  async function pollAccount(
-    account: SyncableAccount,
-    plugin: InboundMailProviderPlugin,
-    options: PollAccountOptions = {},
-  ): Promise<PollAccountResult> {
-    let totals: Awaited<ReturnType<typeof ingestBatches>>;
-    try {
-      totals = await ingestBatches(account, plugin, options.signal);
-    } catch (err) {
-      // skip: an error caused by abandoning the sync is already counted as the deadline failure.
-      if (options.signal?.aborted) return "done";
-      if (options.fromWake && isInboundCredentialNotStoredError(err)) {
-        // The secret is written after the account is created; the next tick picks it up.
-        log(`inbound-mail: account ${account.id} credential not stored yet, wake sync skipped`);
-        return "credential_pending";
-      }
-      const stillRunning = await handleSyncError(account, err);
-      const failureKind = pollFailureKindOf(err);
-      if (stillRunning && failureKind) await health.onPollFailure(account, failureKind);
-      return "done";
-    }
-    // skip: abandoned during the last batch; the deadline already counted this poll as failed.
-    if (options.signal?.aborted) return "done";
-    await health.onPollSuccess(account, totals);
-    await refetchContentSafely(account, plugin, options.signal);
-    return "done";
-  }
+  const { pollAccount } = createAccountPoller({
+    systemDb,
+    cursors,
+    ingester,
+    health,
+    providerCtx,
+    dispatchWrite: deps.dispatchWrite,
+    backfillWindowDays,
+    maxMessagesPerPoll,
+    resolveAccessToken,
+    handleSyncError,
+    log,
+  });
 
   function resolvePluginOrLog(account: SyncableAccount): InboundMailProviderPlugin | undefined {
     try {
@@ -699,7 +490,7 @@ export function createInboundMailSupervisor(
   async function retireWatcherWithStaleTrust(account: MailAccountRecord): Promise<void> {
     const existing = watchers.get(account.id);
     if (existing?.stop && existing.trustedAuthservId !== (account.trustedAuthservId ?? null)) {
-      await stopWatcher(account.id);
+      await await stopWatcher(account.id);
     }
   }
 

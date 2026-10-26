@@ -54,7 +54,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
@@ -67,6 +67,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "../projection.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 
 // =============================================================================
 // Setup

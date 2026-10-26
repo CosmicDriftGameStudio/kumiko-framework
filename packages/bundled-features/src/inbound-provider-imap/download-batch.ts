@@ -3,7 +3,7 @@ import type {
   RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import type { ImapFlow } from "imapflow";
-import { coerceDate, parseOrReject } from "./imap-client.ts";
+import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 export async function downloadBatch(
   client: ImapFlow,

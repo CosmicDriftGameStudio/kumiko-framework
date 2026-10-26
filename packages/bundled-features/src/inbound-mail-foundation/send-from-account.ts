@@ -23,13 +23,13 @@ import {
   outboundMailMessageSchema,
 } from "./outbound-mail.ts";
 import { mailAccountsProjectionTable } from "./projection.ts";
-import { resolveInboundProviderForAccount } from "./provider-factory.ts";
 import {
-  type InboundMailContext,
   isInboundAuthError,
   isInboundRateLimitError,
   isInboundTransientError,
-} from "./types.ts";
+} from "./provider-errors.ts";
+import { resolveInboundProviderForAccount } from "./provider-factory.ts";
+import type { InboundMailContext } from "./types.ts";
 
 export const MAIL_SEND_ERRORS = {
   notConfigured: {

@@ -387,7 +387,7 @@ export type JobTrigger =
   // effectively once. An r.defineEvent QN (e.g. one an r.multiStreamProjection
   // appends via ctx.events.unsafeAppend) dispatches asynchronously through the
   // job-trigger event consumer (createJobTriggerEventConsumer,
-  // pipeline/system-hooks.ts) — cursor delivery, at-least-once. Handlers
+  // pipeline/job-trigger-consumer.ts) — cursor delivery, at-least-once. Handlers
   // triggered on an r.defineEvent QN must be idempotent.
   | {
       readonly on: import("./handlers.ts").NameOrRef | readonly import("./handlers.ts").NameOrRef[];

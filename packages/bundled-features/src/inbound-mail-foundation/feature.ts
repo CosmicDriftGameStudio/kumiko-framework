@@ -47,7 +47,6 @@ import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
-  quarantineTable,
   seenMessageTable,
   syncCursorTable,
 } from "./entities.ts";
@@ -96,6 +95,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "./projection.ts";
+import { quarantineTable } from "./quarantine-entities.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "./screens.ts";
 import {
