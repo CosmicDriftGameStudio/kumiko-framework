@@ -26,5 +26,12 @@ detail: A new row action Reconnect opens the screen mail-account-reconnect-imap 
 feature: inbound-mail-foundation
 type: fix
 title: Mailbox names are stored without surrounding spaces
-detail: connect-account, update-account and inbound-provider-imap:write:connect-mailbox trim displayName before storing it, so a name pasted with a leading space no longer shows and sorts with it. connect-account still accepts an empty name as before; connect-mailbox still requires one. The port fields of the IMAP connect and reconnect forms show 993 or 13993 without digit grouping.
+detail: connect-account and update-account trim displayName before storing it, so a name pasted with a leading space no longer shows and sorts with it. connect-account still accepts an empty name as before.
+-->
+
+<!-- kumiko-changes
+feature: inbound-provider-imap
+type: fix
+title: IMAP forms trim the mailbox name and show ports without digit grouping
+detail: connect-mailbox trims displayName and still requires a non-empty name. The port fields of the connect and reconnect forms show 993 or 13993 instead of 13.993 in locales with digit grouping.
 -->
