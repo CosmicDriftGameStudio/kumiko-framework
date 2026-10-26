@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.393.0",
+    "type": "improvement",
+    "title": "The mail account list offers Reconnect for accounts with a sign-in error",
+    "detail": "A new row action Reconnect opens the screen mail-account-reconnect-imap of inbound-provider-imap. It shows for every account with status auth_error and, like the Connect mailbox button, only renders in apps that mount that provider. New export IMAP_RECONNECT_SCREEN_ID. New key in all locale packages."
+  },
+  {
+    "version": "0.393.0",
+    "type": "fix",
+    "title": "Mailbox names are stored without surrounding spaces",
+    "detail": "connect-account and update-account trim displayName before storing it, so a name pasted with a leading space no longer shows and sorts with it. connect-account still accepts an empty name as before."
+  },
+  {
     "version": "0.392.2",
     "type": "fix",
     "title": "Mail sync no longer fails when reading IMAP credentials",
