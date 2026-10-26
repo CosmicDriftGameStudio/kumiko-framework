@@ -36,6 +36,14 @@ mail-triage  ← this sample                                  (the app-side cons
 
 When the provider rejects the stored login, the supervisor sets the account to `auth_error` and stops fetching. With `inbound-provider-imap` mounted, the mail accounts list offers **Reconnect** on that row: the form `mail-account-reconnect-imap` is prefilled with the stored server settings (never the password), `inbound-provider-imap:write:reconnect-mailbox` checks the new login and puts the same account back to `active`. Threads, sync cursor and seen messages stay, so the next poll continues where the account stopped instead of ingesting the mailbox again. The cases are covered in `inbound-provider-imap/__tests__/reconnect-mailbox.integration.test.ts`; they need greenmail, which this sample's in-memory provider does not.
 
+## Mail content, quarantine and status
+
+Every ingested mail now carries its full text (`bodyText`, at most 32,000 characters, flagged by `bodyTextTruncated`), the original (`.eml`, or `.html` for HTML-only mails) and its attachments as file references; `inbound-mail-foundation:query:message:content` returns them, while `message:list` stays light and never carries the body. Retention removes the mail row but keeps the attachment files. Needs file storage in the app; without it the mail is still imported and the mailbox shows **Unterbrochen** (`file_storage_unavailable`).
+
+A mail the provider cannot parse is set aside in quarantine instead of blocking the mailbox: the rest imports, the sync cursor moves on, the account shows `degraded` with `lastError: message_quarantined` and the count, and `acknowledge-quarantine` clears it. Three failed polls in a row (`connection_failed`, `rate_limited`) also mark the mailbox `degraded` until the next success.
+
+A disconnected mailbox keeps its account id: `reactivate-account` (or connecting the same OAuth address again) puts it back to `active` with its cursor, so nothing is imported twice, and the mail arrives right away instead of at the next poll. Connecting an address that is already connected is refused with 409.
+
 ## Tests
 
 - E2E through `createAllInOneEntrypoint` (HTTP → dispatcher → BullMQ worker lane, no framework-internal shortcuts): connect → ingest → triage item appears.
@@ -72,6 +80,7 @@ import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
@@ -116,6 +125,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, mailThreadEntity);
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
+  await unsafeCreateEntityTable(testDb.db, quarantineEntity);
 });
 
 afterAll(async () => {

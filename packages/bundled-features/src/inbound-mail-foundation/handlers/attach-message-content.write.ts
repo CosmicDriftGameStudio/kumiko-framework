@@ -1,0 +1,105 @@
+// attach-message-content — stores the content of a message that was imported as snippet only, after
+// the supervisor re-downloaded it. Appends one content-fetched event on the existing stream; no
+// thread rollup, no new message row. Runs nested-safe: no beforeTransaction.
+
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError, failNotFound, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
+import {
+  INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+  type InboundContentState,
+  type InboundMessageContentFetchedEventPayload,
+} from "../events.ts";
+import {
+  contentStateOf,
+  encryptMessageBodyText,
+  inboundContentPayloadShape,
+  MESSAGE_LOCK_NAMESPACE,
+  storeInboundMessageContent,
+} from "./message-content.ts";
+
+export const attachMessageContentSchema = z.object({
+  accountId: z.uuid(),
+  providerMessageId: z.string().min(1).max(500),
+  /** "unavailable" is terminal: the mail is gone from the server or cannot be parsed. */
+  outcome: z.enum(["fetched", "unavailable"]),
+  ...inboundContentPayloadShape,
+});
+
+const COMPLETE: InboundContentState = "complete";
+
+function hasContentAlready(events: readonly { type: string; payload: unknown }[]): boolean {
+  return events.some((e) => {
+    if (e.type === INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN) return true;
+    const state = z.object({ contentState: z.string() }).safeParse(e.payload);
+    return state.success && state.data.contentState === COMPLETE;
+  });
+}
+
+export const attachMessageContentHandler: WriteHandlerDef = {
+  name: "attach-message-content",
+  schema: attachMessageContentSchema,
+  access: { roles: ["SystemAdmin"] },
+  agent: { expose: false },
+  description:
+    "Stores the full text, original and attachments of an already imported snippet-only mail, or marks its content as unavailable when the provider no longer has it; called by the sync supervisor, a second call for the same mail is a no-op.",
+  handler: async (event, ctx) => {
+    const payload = attachMessageContentSchema.parse(event.payload);
+    const tenantId = event.user.tenantId;
+    const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
+
+    await ctx.db.advisoryXactLock(MESSAGE_LOCK_NAMESPACE, messageAggId);
+    const events = await ctx.events.load(messageAggId);
+    if (events.length === 0) return failNotFound("inbound-message", messageAggId);
+    if (hasContentAlready(events)) {
+      return { isSuccess: true as const, data: { duplicate: true as const } };
+    }
+
+    const fetched = payload.outcome === "fetched";
+    const content = fetched
+      ? await storeInboundMessageContent(ctx, {
+          accountId: payload.accountId,
+          messageAggId,
+          bodyRef: "",
+          rawMime: payload.rawMime,
+          bodyHtml: payload.bodyHtml,
+          attachments: payload.attachments,
+          skippedAttachments: payload.skippedAttachments,
+        })
+      : undefined;
+    const eventPayload: InboundMessageContentFetchedEventPayload = {
+      bodyRef: content?.bodyRef ?? "",
+      bodyText: await encryptMessageBodyText(
+        tenantId,
+        messageAggId,
+        fetched ? payload.bodyText : "",
+      ),
+      bodyTextTruncated: fetched && payload.bodyTextTruncated,
+      attachmentFileIds: content?.attachmentFileIds ?? [],
+      skippedAttachments: content?.skippedAttachments ?? [],
+      contentState: content
+        ? contentStateOf({
+            bodyText: payload.bodyText,
+            hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
+            contentStorage: content.contentStorage,
+          })
+        : "unavailable",
+    };
+    const appended = await ctx.events.tryAppend({
+      aggregateId: messageAggId,
+      aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+      type: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+      payload: eventPayload,
+      headers: { providerMessageId: payload.providerMessageId, outcome: payload.outcome },
+    });
+    // Losing the version race must roll back the stored attachments instead of reporting success.
+    if (!appended.ok) {
+      return writeFailure(
+        new ConflictError({ message: "inbound message content changed concurrently" }),
+      );
+    }
+    return { isSuccess: true as const, data: { duplicate: false as const } };
+  },
+};

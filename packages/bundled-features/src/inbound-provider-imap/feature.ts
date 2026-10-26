@@ -31,6 +31,7 @@ import {
   type InboundMailProviderPlugin,
   type MailAccountRecord,
   type RawInboundMessage,
+  type RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
@@ -39,6 +40,7 @@ import type { ImapFlow, MailboxObject } from "imapflow";
 import { connectMailboxHandler } from "./connect-mailbox.ts";
 import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
 import { readCredentialDocument } from "./credential-document.ts";
+import { fetchMessageContent } from "./fetch-content.ts";
 import { INBOUND_PROVIDER_IMAP_I18N } from "./i18n.ts";
 import {
   assertUidValidity,
@@ -49,7 +51,7 @@ import {
   imapMailHostGuard,
   mapImapError,
   parseImapCursor,
-  toRawInboundMessage,
+  parseOrReject,
 } from "./imap-client.ts";
 import { reconnectMailboxHandler } from "./reconnect-mailbox.ts";
 import { reconnectPrefillQuery } from "./reconnect-prefill.query.ts";
@@ -63,6 +65,39 @@ export { setImapMailHostLookup } from "./imap-client.ts";
 // =============================================================================
 // fetch — inkrementeller UID-Sync
 // =============================================================================
+
+async function downloadBatch(
+  client: ImapFlow,
+  batch: readonly number[],
+  uidValidity: string,
+  startUid: number,
+): Promise<{
+  readonly messages: RawInboundMessage[];
+  readonly rejected: RejectedInboundMessage[];
+  readonly maxUid: number;
+}> {
+  const messages: RawInboundMessage[] = [];
+  const rejected: RejectedInboundMessage[] = [];
+  let maxUid = startUid;
+  if (batch.length === 0) return { messages, rejected, maxUid };
+  for await (const msg of client.fetch(
+    batch.join(","),
+    { uid: true, internalDate: true, source: true },
+    { uid: true },
+  )) {
+    if (!msg.source) continue;
+    const parsed = await parseOrReject({
+      source: msg.source,
+      uid: msg.uid,
+      uidValidity,
+      internalDate: coerceDate(msg.internalDate ?? undefined),
+    });
+    if ("message" in parsed) messages.push(parsed.message);
+    else rejected.push(parsed.rejected);
+    if (msg.uid > maxUid) maxUid = msg.uid;
+  }
+  return { messages, rejected, maxUid };
+}
 
 async function fetchMessages(
   ctx: InboundMailContext,
@@ -98,30 +133,16 @@ async function fetchMessages(
 
     const batch = uids.slice(0, opts.maxMessages);
     const hasMore = uids.length > batch.length;
-    const messages: RawInboundMessage[] = [];
-    let maxUid = parsedCursor?.lastUid ?? 0;
-
-    if (batch.length > 0) {
-      for await (const msg of client.fetch(
-        batch.join(","),
-        { uid: true, internalDate: true, source: true },
-        { uid: true },
-      )) {
-        if (!msg.source) continue;
-        messages.push(
-          await toRawInboundMessage({
-            source: msg.source,
-            uid: msg.uid,
-            uidValidity: serverUidValidity,
-            internalDate: coerceDate(msg.internalDate ?? undefined),
-          }),
-        );
-        if (msg.uid > maxUid) maxUid = msg.uid;
-      }
-    }
+    const { messages, rejected, maxUid } = await downloadBatch(
+      client,
+      batch,
+      serverUidValidity,
+      parsedCursor?.lastUid ?? 0,
+    );
 
     return {
       messages,
+      ...(rejected.length > 0 && { rejected }),
       nextCursor: { uidValidity: serverUidValidity, lastUid: maxUid },
       hasMore,
     };
@@ -161,6 +182,7 @@ async function watchMailbox(
     const drainNew = async () => {
       const messages: RawInboundMessage[] = [];
       let maxSeen = nextUid - 1;
+      // An unparseable mail is dropped here; the reconciliation poll reports and quarantines it.
       for await (const msg of client.fetch(
         `${nextUid}:*`,
         { uid: true, internalDate: true, source: true },
@@ -168,14 +190,13 @@ async function watchMailbox(
       )) {
         // `N:*` gotcha (see fetch): filter out the previous last message.
         if (msg.uid < nextUid || !msg.source) continue;
-        messages.push(
-          await toRawInboundMessage({
-            source: msg.source,
-            uid: msg.uid,
-            uidValidity,
-            internalDate: coerceDate(msg.internalDate ?? undefined),
-          }),
-        );
+        const parsed = await parseOrReject({
+          source: msg.source,
+          uid: msg.uid,
+          uidValidity,
+          internalDate: coerceDate(msg.internalDate ?? undefined),
+        });
+        if ("message" in parsed) messages.push(parsed.message);
         if (msg.uid > maxSeen) maxSeen = msg.uid;
       }
       nextUid = maxSeen + 1;
@@ -238,6 +259,7 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   verify: async (ctx, account) => connectOnce(await readCredentialDocument(ctx, account), false),
   probe: async (ctx, account) => connectOnce(await readCredentialDocument(ctx, account), true),
   fetch: fetchMessages,
+  fetchContent: fetchMessageContent,
   watch: watchMailbox,
   send: sendFromImapAccount,
   // No oauth block: password authentication runs through the credential

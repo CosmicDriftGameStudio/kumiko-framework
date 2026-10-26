@@ -2,7 +2,9 @@ import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  createBooleanField,
   createEntity,
+  createLongTextField,
   createNumberField,
   createTextField,
   createTimestampField,
@@ -64,6 +66,8 @@ export const mailAccountEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
+    // Code of InboundMailLastErrors, never provider error text. Null on rows from before the column.
+    lastError: createTextField({ maxLength: 50, personal: false, reason: "technical_reference" }),
     watchState: createTextField({ maxLength: 100, personal: false, reason: "technical_reference" }),
     connectedAt: createTimestampField({ required: true }),
   },
@@ -106,6 +110,28 @@ export const inboundMessageEntity = createEntity({
     receivedAt: createTimestampField({ required: true }),
     bodyRef: createTextField({ maxLength: 500, personal: false, reason: "technical_reference" }),
     scope: createTextField({ maxLength: 200, personal: false, reason: "technical_reference" }),
+    // Full plaintext, capped at 32_000 characters before encryption (ciphertext is ~2.3x plus envelope).
+    // Null on rows from before the column; list-messages never selects it.
+    bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
+    bodyTextTruncated: createBooleanField(),
+    // JSON-stringified uuid[] / SkippedInboundAttachment[]: nullable JSON stays a text column
+    // (jsonb fields are NOT NULL), like to/cc.
+    attachmentFileIds: createTextField({
+      maxLength: 4000,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    skippedAttachments: createTextField({
+      maxLength: 20_000,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    // "complete" | "snippet" | "unavailable"; null counts as "snippet".
+    contentState: createTextField({
+      maxLength: 20,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 
@@ -210,6 +236,47 @@ export const seenMessageEntity = createEntity({
   },
 });
 
+export const QUARANTINE_REASON_CODES = ["unparseable", "invalid_message", "ingest_failed"] as const;
+export type QuarantineReasonCode = (typeof QUARANTINE_REASON_CODES)[number];
+
+/** A provider message the ingest cannot take. No subject or sender, so nothing here is personal data;
+ *  the UID is enough for the operator to find the mail in the mailbox. */
+export const quarantineEntity = createEntity({
+  table: "store_mail_quarantine",
+  softDelete: false,
+  indexes: [{ unique: true, columns: ["tenantId", "accountId", "providerMessageId"] }],
+  fields: {
+    accountId: createTextField({
+      required: true,
+      maxLength: 36,
+      access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
+    }),
+    providerMessageId: createTextField({
+      required: true,
+      maxLength: 500,
+      access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
+    }),
+    reasonCode: createTextField({
+      required: true,
+      maxLength: 30,
+      access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
+    }),
+    quarantinedAt: createTimestampField({
+      required: true,
+      access: { write: access.privileged },
+    }),
+    acknowledgedAt: createTimestampField({
+      access: { write: access.privileged },
+    }),
+  },
+});
+
 // Plain EntityTableMeta (not a branded EntityTable) — unmanaged direct-
 // write stores; handlers write via ctx.db (see user-session.ts-
 // rationale).
@@ -217,5 +284,8 @@ export const syncCursorTable = deriveEntityTableMeta("mail-sync-cursor", syncCur
   source: "unmanaged",
 });
 export const seenMessageTable = deriveEntityTableMeta("mail-seen-message", seenMessageEntity, {
+  source: "unmanaged",
+});
+export const quarantineTable = deriveEntityTableMeta("mail-quarantine", quarantineEntity, {
   source: "unmanaged",
 });

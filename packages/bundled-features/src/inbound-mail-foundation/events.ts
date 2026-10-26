@@ -35,6 +35,8 @@ export const MAIL_ACCOUNT_UPDATED_EVENT_SHORT = "mail-account-updated" as const;
 export const MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT = "mail-account-disconnected" as const;
 export const INBOUND_MESSAGE_RECEIVED_EVENT_SHORT = "inbound-message-received" as const;
 export const MAIL_THREAD_UPDATED_EVENT_SHORT = "mail-thread-updated" as const;
+export const INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT =
+  "inbound-message-content-fetched" as const;
 
 export const MAIL_ACCOUNT_CONNECTED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${MAIL_ACCOUNT_CONNECTED_EVENT_SHORT}` as const;
@@ -44,6 +46,8 @@ export const MAIL_ACCOUNT_DISCONNECTED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT}` as const;
 export const INBOUND_MESSAGE_RECEIVED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${INBOUND_MESSAGE_RECEIVED_EVENT_SHORT}` as const;
+export const INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN =
+  `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT}` as const;
 export const MAIL_THREAD_UPDATED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${MAIL_THREAD_UPDATED_EVENT_SHORT}` as const;
 
@@ -76,8 +80,38 @@ export const mailAccountEventPayloadSchema = z.object({
   /** Provider-agnostic watch state ("idle", "watching", "backoff:3", ...)
    *  — an operational signal only, not PII. */
   watchState: z.string().max(100),
+  /** Why the mailbox is degraded (InboundMailLastErrors code); null while healthy. A string rather
+   *  than an enum, like authMethod, so a new code needs no upcaster. */
+  lastError: z.string().max(50).nullable(),
 });
 export type MailAccountEventPayload = z.infer<typeof mailAccountEventPayloadSchema>;
+
+export const INBOUND_CONTENT_STATES = ["complete", "snippet", "unavailable"] as const;
+export type InboundContentState = (typeof INBOUND_CONTENT_STATES)[number];
+
+export const skippedAttachmentSchema = z.object({
+  mimeType: z.string().max(255),
+  size: z.number().int().min(0),
+  reason: z.enum([
+    "too_large",
+    "mail_too_large",
+    "rejected",
+    "no_file_storage",
+    "nesting_too_deep",
+  ]),
+});
+
+// Shared by inbound-message-received (v2) and inbound-message-content-fetched.
+// bodyText is ciphertext: 32_000 characters become roughly 75 KB, hence the generous max.
+const inboundMessageContentShape = {
+  bodyText: z.string().max(200_000),
+  bodyTextTruncated: z.boolean(),
+  /** file-foundation FileRef ids (plaintext uuids). Attachments outlive the mail: apps turn them
+   *  into documents, so the retention sweep never deletes them. */
+  attachmentFileIds: z.array(z.uuid()).max(50),
+  skippedAttachments: z.array(skippedAttachmentSchema).max(200),
+  contentState: z.enum(INBOUND_CONTENT_STATES),
+};
 
 // ============================================================================
 // inbound-message stream — exactly ONE received event per message
@@ -110,14 +144,27 @@ export const inboundMessageEventPayloadSchema = z.object({
   /** ISO instant — receipt time reported by the provider (INTERNALDATE or
    *  receivedDateTime), not ingest time. */
   receivedAtIso: z.string().min(1),
-  /** file-foundation reference to the raw body (MIME). Empty when the app
-   *  is mounted without body persistence (snippet-only mode). */
+  /** file-foundation reference to the original (.eml, or .html for HTML-only mails). Empty for
+   *  snippet-only mails and when no file storage is available. */
   bodyRef: z.string().max(500),
   /** Domain scope hint for downstream business processes — generic
    *  ("inbox", folder name), with NO app-specific semantics. */
   scope: z.string().max(200),
+  ...inboundMessageContentShape,
 });
 export type InboundMessageEventPayload = z.infer<typeof inboundMessageEventPayloadSchema>;
+
+// ============================================================================
+// Content of a message that was imported as snippet only and re-downloaded later.
+// Same aggregate as the received event; applies as an update of the projection row.
+// ============================================================================
+export const inboundMessageContentFetchedEventPayloadSchema = z.object({
+  bodyRef: z.string().max(500),
+  ...inboundMessageContentShape,
+});
+export type InboundMessageContentFetchedEventPayload = z.infer<
+  typeof inboundMessageContentFetchedEventPayloadSchema
+>;
 
 // ============================================================================
 // mail-thread-Stream — Thread-Rollup pro (tenantId, threadKey)

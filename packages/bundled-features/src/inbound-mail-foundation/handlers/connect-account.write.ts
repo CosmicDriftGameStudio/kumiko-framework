@@ -11,15 +11,27 @@
 //     and switches to auth_error via update-account on failure—the connect
 //     stays fast and offline-capable (the test result arrives asynchronously
 //     as a status transition).
+//   - No second account for one address: a live or disconnected address is
+//     refused (409 reasons in InboundMailConnectErrors); only a disconnected
+//     OAuth mailbox is reopened in place, keeping its account id and cursor.
 
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  failNotFound,
+  failUnprocessable,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses, InboundMailAuthMethods } from "../constants.ts";
+import {
+  InboundMailAccountStatuses,
+  InboundMailAuthMethods,
+  InboundMailConnectErrors,
+} from "../constants.ts";
 import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
@@ -27,6 +39,9 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
+import { loadCurrentMailAccountPayload } from "./account-state.ts";
+import { appendMailAccountReactivation } from "./reactivate-account.write.ts";
 
 export const connectAccountSchema = z.object({
   /** Provider key registered with the extension ("imap",
@@ -74,6 +89,29 @@ export const connectAccountHandler: WriteHandlerDef = {
           ? event.user.id
           : null;
 
+    const existing = await findMailboxByAddress(ctx, tenantId, payload.address);
+    if (existing) {
+      const conflict = connectConflictOf(existing, {
+        authMethod: payload.authMethod,
+        provider: payload.provider,
+        ownerUserId,
+      });
+      if (conflict === "reopen_in_place") {
+        const current = await loadCurrentMailAccountPayload(ctx, existing.id);
+        if (!current) return failNotFound("mail-account", existing.id);
+        await appendMailAccountReactivation(ctx, existing.id, current);
+        return {
+          isSuccess: true as const,
+          data: { accountId: existing.id, reconnected: true as const },
+        };
+      }
+      const { reason, i18nKey } =
+        conflict === "address_disconnected"
+          ? InboundMailConnectErrors.addressDisconnected
+          : InboundMailConnectErrors.addressAlreadyConnected;
+      return writeFailure(new UnprocessableError(reason, { i18nKey }));
+    }
+
     // PII-encrypt the address before the append. This is the only write path to
     // the stream, so it covers both the event log and the projection.
     const piiKms = configuredPiiSubjectKms();
@@ -99,6 +137,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       // the next tick and downgrades it when credentials fail.
       status: InboundMailAccountStatuses.active,
       watchState: "idle",
+      lastError: null,
     };
     const headers: MailAccountEventHeaders = {
       providerName: payload.provider,
@@ -112,6 +151,6 @@ export const connectAccountHandler: WriteHandlerDef = {
       headers,
     });
 
-    return { isSuccess: true as const, data: { accountId } };
+    return { isSuccess: true as const, data: { accountId, reconnected: false as const } };
   },
 };

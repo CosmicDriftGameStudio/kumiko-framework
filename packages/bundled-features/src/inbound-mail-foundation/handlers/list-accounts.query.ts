@@ -13,7 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { MAIL_ACCOUNT_PII_FIELDS } from "../entities.ts";
+import { MAIL_ACCOUNT_PII_FIELDS, quarantineTable } from "../entities.ts";
 import { mailAccountsProjectionTable } from "../projection.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
 
@@ -37,8 +37,22 @@ export const listAccountsQuery: QueryHandlerDef = {
       .filter((row) => isVisibleToCaller(row, ctx.user))
       .sort((a, b) => String(a["id"]).localeCompare(String(b["id"])))
       .slice(0, limit);
+    // One grouped count for all mailboxes instead of a query per row.
+    const openQuarantine = await ctx.db.aggregate(
+      quarantineTable,
+      { measure: { fn: "count" }, groupBy: [{ field: "accountId" }] },
+      { acknowledgedAt: null },
+    );
+    const quarantinedCountOf = new Map(
+      openQuarantine.map((group) => [String(group.keys[0]), group.value ?? 0]),
+    );
+    // The screen's row condition cannot compare a count, so it gets a boolean next to it.
+    const withQuarantine = (row: Record<string, unknown>) => {
+      const quarantinedCount = quarantinedCountOf.get(String(row["id"])) ?? 0;
+      return { ...row, quarantinedCount, hasOpenQuarantine: quarantinedCount > 0 };
+    };
     const piiKms = configuredPiiSubjectKms();
-    if (!piiKms) return { rows };
+    if (!piiKms) return { rows: rows.map(withQuarantine) };
     const decryptedRows = await Promise.all(
       rows.map((row) =>
         decryptPiiFieldValues(row, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
@@ -46,6 +60,6 @@ export const listAccountsQuery: QueryHandlerDef = {
         }),
       ),
     );
-    return { rows: decryptedRows };
+    return { rows: decryptedRows.map(withQuarantine) };
   },
 };

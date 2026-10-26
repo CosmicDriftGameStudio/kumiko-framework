@@ -1,15 +1,14 @@
 // Loads the mailbox a reconnect targets. The db is tenant-scoped, so another tenant's account id
-// finds nothing.
+// finds nothing. A disconnected mailbox is reconnectable on purpose: it keeps its id, threads and
+// sync cursor, so reconnecting never re-imports history.
 
 import {
-  InboundMailAccountStatuses,
   InboundMailAuthMethods,
   mailAccountsProjectionTable,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   failNotFound,
-  failUnprocessable,
   UnprocessableError,
   type WriteFailure,
   writeFailure,
@@ -36,9 +35,6 @@ export async function findReconnectableAccount(
     id: accountId,
   });
   if (!row) return failNotFound("mail-account", accountId);
-  if (row.status === InboundMailAccountStatuses.disconnected) {
-    return failUnprocessable("account_disconnected", { accountId });
-  }
   if (row.provider !== IMAP_PROVIDER_KEY || row.authMethod !== InboundMailAuthMethods.password) {
     const { reason, i18nKey } = IMAP_RECONNECT_ERRORS.notPasswordImap;
     return writeFailure(new UnprocessableError(reason, { i18nKey, details: { accountId } }));

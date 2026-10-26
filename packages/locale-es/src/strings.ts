@@ -2031,6 +2031,20 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Proveedor",
   "inboundMail.accounts.col.status": "Estado",
   "inboundMail.accounts.col.connected": "Conectado desde",
+  "inboundMail.accounts.col.lastError": "Problema",
+  "inboundMail.accounts.col.quarantined": "En cuarentena",
+  "inboundMail.accounts.lastError.connection_failed":
+    "No se puede acceder al servidor de correo. La sincronización se reintenta automáticamente.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "El servidor de correo limita las solicitudes. La sincronización se reintenta automáticamente.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "No se pudo importar un correo y se apartó. Confirma la cuarentena cuando lo hayas revisado.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "El almacenamiento de archivos no está disponible, por lo que no se guardan adjuntos ni originales.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Este buzón ya está conectado.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Este buzón se desconectó antes. Reconéctalo desde la lista de buzones para conservar su historial.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Confirmar cuarentena",
   "inboundMail.accounts.status.active": "Activo",
   "inboundMail.accounts.status.auth_error": "Error de inicio de sesión",
   "inboundMail.accounts.status.degraded": "Interrumpido",

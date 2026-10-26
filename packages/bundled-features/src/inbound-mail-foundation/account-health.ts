@@ -1,0 +1,95 @@
+// Account health: maps what the supervisor observes (repeated poll failures, quarantined mails, file
+// storage outage) onto the account status "degraded" plus a lastError code, and back to "active" once
+// nothing is wrong any more. Auth errors and disconnects are never touched here. An update is
+// dispatched only when status or lastError really changes, so a healthy mailbox causes no events.
+
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type InboundMailAccountStatus,
+  InboundMailAccountStatuses,
+  InboundMailFoundationHandlers,
+  type InboundMailLastError,
+  InboundMailLastErrors,
+} from "./constants.ts";
+import { hasOpenQuarantine } from "./quarantine.ts";
+import type { DispatchWrite, IngestBatchOutcome } from "./supervisor-ingest.ts";
+import type { SyncableAccount } from "./syncable-accounts.ts";
+
+const FAILURES_BEFORE_DEGRADED = 3;
+const SUPERVISOR_AUDIT_REASON = "watch_supervisor";
+
+export type PollFailureKind = "transient" | "rate_limited";
+
+type AppliedHealth = {
+  readonly status: InboundMailAccountStatus;
+  readonly lastError: string | null;
+};
+
+export type AccountHealth = {
+  readonly onPollSuccess: (
+    account: SyncableAccount,
+    outcome: Pick<IngestBatchOutcome, "storageUnavailable" | "storageHealthy">,
+  ) => Promise<void>;
+  readonly onPollFailure: (account: SyncableAccount, kind: PollFailureKind) => Promise<void>;
+};
+
+export function createAccountHealth(deps: {
+  readonly db: DbConnection;
+  readonly dispatchWrite: DispatchWrite;
+  readonly log: (line: string) => void;
+}): AccountHealth {
+  const consecutiveFailures = new Map<string, number>();
+  const storageUnavailable = new Set<string>();
+  // The account snapshot of a tick is stale after our own update; this keeps the "real change" check honest.
+  // Per process: a drift between workers costs at most one redundant update-account.
+  const applied = new Map<string, AppliedHealth>();
+
+  async function apply(account: SyncableAccount, lastError: InboundMailLastError | null) {
+    const known = applied.get(account.id) ?? {
+      status: account.status,
+      lastError: account.lastError,
+    };
+    const status =
+      lastError === null ? InboundMailAccountStatuses.active : InboundMailAccountStatuses.degraded;
+    // skip: the stored health already matches, nothing to write.
+    if (known.status === status && known.lastError === lastError) return;
+    const result = await deps.dispatchWrite({
+      handlerQn: InboundMailFoundationHandlers.updateAccount,
+      tenantId: account.tenantId,
+      payload: { accountId: account.id, status, lastError, reason: SUPERVISOR_AUDIT_REASON },
+    });
+    if (!result.isSuccess) {
+      deps.log(`inbound-mail: account ${account.id} health update was rejected`);
+      // skip: not recorded as applied, so the next tick retries the update.
+      return;
+    }
+    applied.set(account.id, { status, lastError });
+  }
+
+  return {
+    async onPollSuccess(account, outcome) {
+      consecutiveFailures.delete(account.id);
+      if (outcome.storageUnavailable) storageUnavailable.add(account.id);
+      else if (outcome.storageHealthy) storageUnavailable.delete(account.id);
+      if (await hasOpenQuarantine(deps.db, account.id)) {
+        return apply(account, InboundMailLastErrors.messageQuarantined);
+      }
+      if (storageUnavailable.has(account.id)) {
+        return apply(account, InboundMailLastErrors.fileStorageUnavailable);
+      }
+      return apply(account, null);
+    },
+    async onPollFailure(account, kind) {
+      const count = (consecutiveFailures.get(account.id) ?? 0) + 1;
+      consecutiveFailures.set(account.id, count);
+      // skip: below the failure threshold the mailbox stays as it is.
+      if (count < FAILURES_BEFORE_DEGRADED) return;
+      return apply(
+        account,
+        kind === "rate_limited"
+          ? InboundMailLastErrors.rateLimited
+          : InboundMailLastErrors.connectionFailed,
+      );
+    },
+  };
+}

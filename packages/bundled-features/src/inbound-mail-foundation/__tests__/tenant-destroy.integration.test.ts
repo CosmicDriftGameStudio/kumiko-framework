@@ -39,6 +39,7 @@ import {
 } from "../../tenant-lifecycle/testing.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
 import {
+  quarantineEntity,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -86,6 +87,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantMembershipEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

@@ -47,14 +47,19 @@ import {
   InboundMailFoundationHandlers,
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
+  inboundMessagesProjectionTable,
   type MailAccountRecord,
   mailAccountsProjectionTable,
   type OAuthAccessTokenManager,
   type OAuthTokenSet,
+  quarantineEntity,
+  type RawInboundMessage,
+  registerMailAccountWakeListener,
   seenMessageEntity,
   syncCursorEntity,
 } from "../index.ts";
 import { signOAuthState } from "../oauth-state.ts";
+import { rawMsg } from "./mail-test-support.ts";
 
 const PROVIDER_KEY = "oauth-fake";
 const STATE_SECRET = "oauth-refresh-test-state-secret-0123456789abcdef";
@@ -77,6 +82,8 @@ const fake = {
     | ((refreshToken: string, signal: AbortSignal | undefined) => Promise<OAuthTokenSet>),
   exchange: undefined as undefined | ((code: string) => Promise<OAuthTokenSet>),
   fetchError: undefined as undefined | Error,
+  inbox: [] as RawInboundMessage[],
+  beforeStore: undefined as undefined | ((accountId: string) => Promise<void>),
 };
 
 function tokenSetExpiringIn(minutes: number, refreshToken?: string): OAuthTokenSet {
@@ -94,7 +101,7 @@ const fakePlugin: InboundMailProviderPlugin = {
   fetch: async (_ctx, account, _cursor, opts) => {
     fake.fetchCalls.push({ accountId: account.id, accessToken: opts.accessToken });
     if (fake.fetchError) throw fake.fetchError;
-    return { messages: [], nextCursor: { offset: 0 }, hasMore: false };
+    return { messages: fake.inbox, nextCursor: { offset: 0 }, hasMore: false };
   },
   watch: async (_ctx, account, _handlers, opts) => {
     fake.watchCalls.push({ accountId: account.id, accessToken: opts?.accessToken });
@@ -143,7 +150,10 @@ let tokens: OAuthAccessTokenManager;
 // delegate to the manager built right after.
 const managerFacade: OAuthAccessTokenManager = {
   getAccessToken: (a, p) => tokens.getAccessToken(a, p),
-  storeRefreshToken: (a, t) => tokens.storeRefreshToken(a, t),
+  storeRefreshToken: async (a, t) => {
+    await fake.beforeStore?.(a.id);
+    await tokens.storeRefreshToken(a, t);
+  },
   primeFromExchange: (a, t) => tokens.primeFromExchange(a, t),
   invalidate: (id) => tokens.invalidate(id),
 };
@@ -186,6 +196,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -207,6 +218,8 @@ beforeEach(() => {
   fake.refresh = undefined;
   fake.exchange = undefined;
   fake.fetchError = undefined;
+  fake.inbox = [];
+  fake.beforeStore = undefined;
   tokens = newManager();
 });
 
@@ -248,7 +261,11 @@ async function connectOAuthAccount(
   };
 }
 
-function createSupervisor(opts: { manager?: OAuthAccessTokenManager; log?: (l: string) => void }) {
+function createSupervisor(opts: {
+  manager?: OAuthAccessTokenManager;
+  log?: (l: string) => void;
+  pollIntervalMs?: number;
+}) {
   return createInboundMailSupervisor({
     providerCtx: { registry: stack.registry, secrets },
     db,
@@ -258,7 +275,7 @@ function createSupervisor(opts: { manager?: OAuthAccessTokenManager; log?: (l: s
         payload,
         createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
       ),
-    pollIntervalMs: 60_000,
+    pollIntervalMs: opts.pollIntervalMs ?? 60_000,
     watchBackoffInitialMs: 50,
     watchBackoffMaxMs: 200,
     oauthTokens: opts.manager ?? tokens,
@@ -363,12 +380,15 @@ describe("oauth refresh — rotation", () => {
 });
 
 describe("oauth refresh — concurrency", () => {
-  test("two concurrent pollOnce in one process share a single refresh", async () => {
+  test("two supervisors sharing a token manager share a single refresh", async () => {
     const account = await connectOAuthAccount(4705, "rt-single-flight");
     fake.refreshDelayMs = 100;
-    const supervisor = createSupervisor({});
+    // One supervisor would join its own in-flight poll; two supervisors poll independently.
+    const manager = newManager();
+    const supervisorA = createSupervisor({ manager });
+    const supervisorB = createSupervisor({ manager });
 
-    await Promise.all([supervisor.pollOnce(), supervisor.pollOnce()]);
+    await Promise.all([supervisorA.pollOnce(), supervisorB.pollOnce()]);
 
     expect(refreshesFor(account.id)).toHaveLength(1);
     expect(fetchesFor(account.id)).toHaveLength(2);
@@ -536,5 +556,44 @@ describe("oauth refresh — connect callback", () => {
     const text = await res.text();
     expect(text).toContain("token_exchange_failed");
     expect(text).not.toContain("LEAK-EXCHANGE-TOKEN");
+  });
+});
+
+describe("oauth refresh — first sync after the callback", () => {
+  test("the wake from the account commit finds no token; the credential-stored event syncs the mail without a poll tick", async () => {
+    fake.exchange = async () => tokenSetExpiringIn(60, "rt-first-sync");
+    fake.inbox = [rawMsg({ providerMessageId: "oauth-first-1", text: "first mail" })];
+    const supervisor = createSupervisor({ pollIntervalMs: 600_000 });
+    await supervisor.start();
+    const woken: string[] = [];
+    const unregister = registerMailAccountWakeListener((_tenantId, id) => woken.push(id));
+    let fetchesBeforeToken = -1;
+    // Runs inside the callback, after the account commit and before the token is written.
+    fake.beforeStore = async (accountId) => {
+      await waitFor(async () => {
+        await stack.eventDispatcher?.runOnce();
+        expect(woken).toContain(accountId);
+      });
+      await supervisor.syncAccountNow(accountId);
+      fetchesBeforeToken = fetchesFor(accountId).length;
+    };
+    try {
+      const res = await stack.app.request(
+        `/inbound-mail/oauth/callback?code=ok&state=${encodeURIComponent(signedStateFor(4712))}`,
+      );
+      expect(res.status).toBe(200);
+      const { accountId } = (await res.json()) as { accountId: string };
+      expect(fetchesBeforeToken).toBe(0);
+
+      await waitFor(async () => {
+        await stack.eventDispatcher?.runOnce();
+        const imported = await selectMany(db, inboundMessagesProjectionTable, { accountId });
+        expect(imported).toHaveLength(1);
+      });
+      expect(fetchesFor(accountId).length).toBeGreaterThan(0);
+    } finally {
+      unregister();
+      await supervisor.stop();
+    }
   });
 });

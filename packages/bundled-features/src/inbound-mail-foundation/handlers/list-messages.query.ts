@@ -14,9 +14,21 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { INBOUND_MESSAGE_PII_FIELDS } from "../entities.ts";
+import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity } from "../entities.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
+
+// The full text is delivered only by message:content; selecting it here would also decrypt it.
+const LIST_MESSAGE_COLUMNS = [
+  "id",
+  "tenantId",
+  "version",
+  "insertedAt",
+  "modifiedAt",
+  "insertedById",
+  "modifiedById",
+  ...Object.keys(inboundMessageEntity.fields).filter((name) => name !== "bodyText"),
+];
 
 const listMessagesSchema = z
   .object({
@@ -41,7 +53,9 @@ export const listMessagesQuery: QueryHandlerDef = {
     if (payload.threadKey) filter["threadKey"] = payload.threadKey;
     if (payload.scope) filter["scope"] = payload.scope;
 
-    const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter);
+    const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter, {
+      fields: LIST_MESSAGE_COLUMNS,
+    });
     // Scope visibility: messages in personal mailboxes are visible only to the
     // owner or TenantAdmin/SystemAdmin.
     const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));

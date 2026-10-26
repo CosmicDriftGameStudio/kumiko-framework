@@ -2,6 +2,7 @@
 // Reference implementation: /Users/marc/code/doc-o-mat (HEINZ), but uses an
 // incremental UIDVALIDITY:lastUid cursor instead of a '1:*' full scan.
 
+import { isIP } from "node:net";
 import {
   BlockedHostError,
   type MailHostGuardOptions,
@@ -13,6 +14,7 @@ import {
   InboundCursorInvalidError,
   InboundTransientError,
   type RawInboundMessage,
+  type RejectedInboundMessage,
   type SyncCursorPayload,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
@@ -22,6 +24,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
 import type { ImapCredentialDocument } from "./credential-document.ts";
+import { extractMailContent } from "./mime-content.ts";
 
 export const IMAP_MAILBOX = "INBOX";
 const SNIPPET_MAX = 300;
@@ -80,17 +83,29 @@ export async function createImapClient(
     log.warn("host resolution failed", { host: doc.host, reason });
     throw new InboundTransientError(IMAP_HOST_UNREACHABLE_MESSAGE);
   }
-  return new ImapFlow({
+  return new ImapFlow(imapClientOptions(doc, target));
+}
+
+// For an IP-literal host imapflow itself sets `servername: false`, which Bun's tls.connect rejects
+// ("servername argument must be an string"). Overriding it through `tls` with undefined makes the
+// socket connect without SNI; the certificate is still verified against the IP. Not setting the
+// option at all (as for SMTP, where nodemailer omits a falsy servername) does not help here.
+export function imapClientOptions(
+  doc: ImapCredentialDocument,
+  target: Awaited<ReturnType<typeof resolveMailConnectTarget>>,
+) {
+  return {
     host: target.host,
     port: doc.port,
     secure: doc.secure,
     ...(target.servername && { servername: target.servername }),
+    ...(isIP(target.host) !== 0 && { tls: { servername: undefined } }),
     auth: doc.password
       ? { user: doc.user, pass: doc.password }
       : { user: doc.user, accessToken: doc.accessToken as string },
-    logger: false,
+    logger: false as const,
     emitLogs: false,
-  });
+  };
 }
 
 /** Server-Fehler → typisierte Foundation-Fehlerklassen (Plan §2). */
@@ -210,6 +225,7 @@ export async function toRawInboundMessage(args: {
   const parsed: ParsedMail = await simpleParser(Buffer.from(args.source));
   const messageIdHeader = parsed.messageId ? stripAngles(parsed.messageId) : null;
   const receivedAt = args.internalDate ?? parsed.date;
+  const content = await extractMailContent(parsed);
   const text = parsed.text?.trim() ?? "";
   return {
     providerMessageId: buildProviderMessageId(args.uidValidity, args.uid),
@@ -227,7 +243,37 @@ export async function toRawInboundMessage(args: {
       ? legacyDateToInstant(receivedAt)
       : Temporal.Instant.fromEpochMilliseconds(0)
     ).toString(),
+    text: content.text,
+    ...(content.html !== null && { html: content.html }),
+    attachments: content.attachments,
+    skippedAttachments: content.skipped,
     rawMime: args.source,
     scope: "inbox",
   };
+}
+
+export type ParsedOrRejected =
+  | { readonly message: RawInboundMessage }
+  | { readonly rejected: RejectedInboundMessage };
+
+/** A mail the MIME parser cannot handle must not stop the mailbox: it is reported as rejected so the
+ *  foundation quarantines it and the cursor moves on. */
+export async function parseOrReject(
+  args: Parameters<typeof toRawInboundMessage>[0],
+): Promise<ParsedOrRejected> {
+  try {
+    return { message: await toRawInboundMessage(args) };
+  } catch (err) {
+    // Class name only: parser messages can quote header content.
+    log.warn("mail could not be parsed", {
+      uid: args.uid,
+      error: err instanceof Error ? err.name : typeof err,
+    });
+    return {
+      rejected: {
+        providerMessageId: buildProviderMessageId(args.uidValidity, args.uid),
+        reason: "unparseable",
+      },
+    };
+  }
 }

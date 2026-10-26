@@ -44,6 +44,7 @@ import {
   inboundCredentialSecretKey,
   mailAccountsProjectionTable,
   type OAuthTokenSet,
+  quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "../index.ts";
@@ -135,6 +136,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
+  await unsafeCreateEntityTable(db, quarantineEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -252,6 +254,24 @@ describe("connect-routes — oauth callback", () => {
     expect(stored!.reveal()).toBe("refresh-token-abc");
   });
 
+  test("409 when the mailbox address is already connected", async () => {
+    const user = adminFor(4306);
+    const query = `provider=${OAUTH_PROVIDER_KEY}&scope=user&mailbox=twice@acme.test`;
+    const stateOf = async () => {
+      const res = await getConnect(query, user);
+      return new URL(res.headers.get("location")!).searchParams.get("state")!;
+    };
+    const first = await getCallback(`code=ok&state=${encodeURIComponent(await stateOf())}`);
+    expect(first.status).toBe(200);
+
+    const second = await getCallback(`code=ok&state=${encodeURIComponent(await stateOf())}`);
+
+    expect(second.status).toBe(409);
+    const body = (await second.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("address_already_connected");
+    expect(body.error.message).toContain("already connected");
+  });
+
   test("502 when token exchange fails", async () => {
     const connectRes = await getConnect(
       `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=fail@acme.test`,
@@ -302,6 +322,7 @@ describe("connect-routes — oauth callback without a secrets context", () => {
     await unsafeCreateEntityTable(bareStack.db, tenantComplianceProfileEntity);
     await unsafeCreateEntityTable(bareStack.db, syncCursorEntity);
     await unsafeCreateEntityTable(bareStack.db, seenMessageEntity);
+    await unsafeCreateEntityTable(bareStack.db, quarantineEntity);
   });
 
   afterAll(async () => {

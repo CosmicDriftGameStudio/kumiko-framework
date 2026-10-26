@@ -31,8 +31,8 @@
 //   - No business semantics (intent, ticket, assignment, read/
 //     completed) — those belong to the app consumer (for example, via an
 //     event job on inbound-message-received + its own projection).
-//   - No body blob in the event store: rawMime → file-foundation via
-//     the Supervisor-storeBody-Hook; the event carries only bodyRef.
+//   - No body blob in the event store: the original and attachments go to
+//     file-foundation at ingest; the event carries only bodyRef and file ids.
 //   - No IMAP flag write-back (V1) — inbox status belongs to the consumer.
 //
 // **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
@@ -41,24 +41,23 @@
 // (crypto-shredding, the same pattern as billing-foundation). The destroy
 // hook additionally archives all streams + deletes the rows.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createFileProviderForTenant,
-  type FileStorageProvider,
-} from "@cosmicdrift/kumiko-framework/files";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
 import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
+  quarantineTable,
   seenMessageTable,
   syncCursorTable,
 } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   INBOUND_MESSAGE_RECEIVED_EVENT_SHORT,
+  inboundMessageContentFetchedEventPayloadSchema,
   inboundMessageEventPayloadSchema,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_CONNECTED_EVENT_QN,
@@ -73,15 +72,21 @@ import {
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
 } from "./events.ts";
+import { acknowledgeQuarantineHandler } from "./handlers/acknowledge-quarantine.write.ts";
+import { attachMessageContentHandler } from "./handlers/attach-message-content.write.ts";
 import { connectAccountHandler } from "./handlers/connect-account.write.ts";
 import { disconnectAccountHandler } from "./handlers/disconnect-account.write.ts";
 import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
 import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
 import { listMessagesQuery } from "./handlers/list-messages.query.ts";
+import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
+import { messageContentQuery } from "./handlers/message-content.query.ts";
+import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
 import { updateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
 import { registerMailboxProbe } from "./probe.ts";
 import {
+  applyInboundMessageContentFetched,
   applyInboundMessageReceived,
   applyMailAccountConnected,
   applyMailAccountDisconnected,
@@ -91,7 +96,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "./projection.ts";
-import { runInboundMailRetention } from "./retention-sweep.ts";
+import { registerInboundMailRetentionJob } from "./retention-job.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "./screens.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
@@ -99,6 +104,7 @@ import {
   mailAccountTenantDestroyHook,
   mailThreadTenantDestroyHook,
 } from "./tenant-destroy-hook.ts";
+import { registerMailAccountWakeConsumer } from "./wake-consumer.ts";
 
 export function createInboundMailFoundationFeature() {
   return defineFeature(
@@ -116,23 +122,54 @@ export function createInboundMailFoundationFeature() {
       // The EXT_TENANT_DATA hook requires the tenant-lifecycle host.
       r.requires({ features: ["tenant-lifecycle"] });
 
-      // 5 fine-grained domain-events (Payload-Schemas: events.ts).
+      // 6 fine-grained domain-events (Payload-Schemas: events.ts).
       // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
       // "displayName" stays plaintext (often the mailbox owner's real name for
       // personal accounts); encrypting it would break the entity-projection read
       // path that carries it as `personal: false`.
-      r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+      // v2: lastError. Defaults are shared references across upcast events, so none of them is mutated.
+      const mailAccountV2 = {
         piiFields: "none",
-      });
-      r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, {
-        piiFields: "none",
-      });
-      r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
-        piiFields: "none",
-      });
+        version: 2,
+        migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { lastError: null } } }],
+      } as const;
+      r.defineEvent(
+        MAIL_ACCOUNT_CONNECTED_EVENT_SHORT,
+        mailAccountEventPayloadSchema,
+        mailAccountV2,
+      );
+      r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, mailAccountV2);
+      r.defineEvent(
+        MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT,
+        mailAccountEventPayloadSchema,
+        mailAccountV2,
+      );
+      // v1 mails carry the snippet only: bodyText "" and contentState "snippet" let the content
+      // refetch find them.
       r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
         piiFields: "none",
+        version: 2,
+        migrations: [
+          {
+            fromVersion: 1,
+            toVersion: 2,
+            transform: {
+              default: {
+                bodyText: "",
+                bodyTextTruncated: false,
+                attachmentFileIds: [],
+                skippedAttachments: [],
+                contentState: "snippet",
+              },
+            },
+          },
+        ],
       });
+      r.defineEvent(
+        INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT,
+        inboundMessageContentFetchedEventPayloadSchema,
+        { piiFields: "none" },
+      );
       r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
         piiFields: "none",
       });
@@ -156,6 +193,7 @@ export function createInboundMailFoundationFeature() {
         entity: inboundMessageEntity,
         apply: {
           [INBOUND_MESSAGE_RECEIVED_EVENT_QN]: applyInboundMessageReceived,
+          [INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN]: applyInboundMessageContentFetched,
         },
       });
       r.projection({
@@ -167,6 +205,8 @@ export function createInboundMailFoundationFeature() {
           [MAIL_THREAD_UPDATED_EVENT_QN]: applyMailThreadUpdated,
         },
       });
+
+      registerMailAccountWakeConsumer(r);
 
       // Plugin extension point — providers register via
       // r.useExtension("inboundMailProvider", "<key>", plugin).
@@ -187,6 +227,10 @@ export function createInboundMailFoundationFeature() {
         reason: "read_side.mail_seen_messages_direct_write",
       });
 
+      r.storeTable(quarantineTable, {
+        reason: "read_side.mail_quarantine_direct_write",
+      });
+
       // Write-Handler:
       //   - ingest-message: programmatic (Supervisor/Poll, SystemAdmin)
       //   - connect/update/disconnect-account: Lifecycle
@@ -194,10 +238,15 @@ export function createInboundMailFoundationFeature() {
       r.writeHandler(connectAccountHandler);
       r.writeHandler(updateAccountHandler);
       r.writeHandler(disconnectAccountHandler);
+      r.writeHandler(reactivateAccountHandler);
+      r.writeHandler(acknowledgeQuarantineHandler);
+      r.writeHandler(attachMessageContentHandler);
+      r.writeHandler(markCredentialStoredHandler);
 
       // List-Queries (PII-decrypted, scope-gefiltert).
       r.queryHandler(listAccountsQuery);
       r.queryHandler(listMessagesQuery);
+      r.queryHandler(messageContentQuery);
 
       // Declarative mailbox admin: list (rename, disconnect) and rename form.
       // The app places `mailAccountListScreen` via r.nav in its settings area.
@@ -221,63 +270,7 @@ export function createInboundMailFoundationFeature() {
         escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
       });
 
-      // Data-Retention — perTenant fan-out (one run per tenant, like
-      // data-retention:retention-cleanup): runInboundMailRetention's raw query
-      // helpers need the unfiltered runner, so the handler declares escapeHatch
-      // and reaches for ctx.db.unsafeRaw(). Without this cron, read_inbound_messages
-      // + the bodies grow unbounded (GDPR Art. 5).
-      const INBOUND_MAIL_RETENTION_REASON =
-        "inbound-mail retention runs raw deletes; every statement filters by this run's tenantId";
-      r.job({
-        name: "inbound-mail-retention",
-        trigger: { cron: "0 3 * * *" },
-        perTenant: true,
-        concurrency: "skip",
-        escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
-        handler: async (_payload, ctx) => {
-          if (!ctx.registry) {
-            throw new Error(
-              "inbound-mail-retention: ctx.registry required (JobContext incomplete)",
-            );
-          }
-          const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-          if (tenantId === undefined) {
-            // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-            return;
-          }
-          const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-          const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
-
-          // Body objects are stored in file-foundation. The provider is lazy and memoized —
-          // ingest currently writes no bodyRef (the storeBody hook is not wired),
-          // so the provider is never built. Once storeBody is wired, retention
-          // also cleans up the bodies.
-          let providerPromise: Promise<FileStorageProvider> | null = null;
-          const deleteBodyObject = async (bodyRef: string): Promise<void> => {
-            if (!providerPromise) {
-              providerPromise = createFileProviderForTenant(
-                { config: ctx.config, registry: ctx.registry, secrets: ctx.services.secrets },
-                tenantId,
-              );
-            }
-            const provider = await providerPromise;
-            await provider.delete(bodyRef);
-          };
-
-          const report = await runInboundMailRetention({
-            db: retentionDb,
-            tenantId,
-            now: T.Now.instant(),
-            deleteBodyObject,
-          });
-          if (report.bodyObjectErrors > 0) {
-            // biome-ignore lint/suspicious/noConsole: operator-visibility for failed body deletes
-            console.warn(
-              `[inbound-mail-foundation:inbound-mail-retention] tenant=${tenantId} bodyObjectErrors=${report.bodyObjectErrors}`,
-            );
-          }
-        },
-      });
+      registerInboundMailRetentionJob(r);
     },
     { dedupeOptions: {} },
   );

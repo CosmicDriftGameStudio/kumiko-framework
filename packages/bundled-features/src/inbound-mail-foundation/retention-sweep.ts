@@ -20,6 +20,14 @@
 //     directly through the table's tenant_id column (table-builder convention),
 //     without an Account join.
 //
+//   store_mail_quarantine (unmanaged): acknowledged entries are purged after
+//     QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS; unacknowledged ones stay, they
+//     keep the mailbox flagged until someone looked at them.
+//
+// Attachments (file refs created at ingest) are deliberately NOT deleted here:
+// a business process may have taken them over, and file retention belongs to
+// the files feature, not to the mail copy.
+//
 // LIMITATION: the PII in the message events remains decryptable under the
 // TENANT subject key—per-Row retention does not shred a key. Actual Art.-17
 // erasure of event payloads happens only during tenant-destroy (key erasure).
@@ -33,9 +41,10 @@ import {
   deleteRowsWithoutReplayableStream,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seenMessageTable } from "./entities.ts";
+import { quarantineTable, seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
+import { QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS } from "./quarantine.ts";
 
 // Provides Temporal.Instant without forcing the caller to obtain it from
 // globalThis (same pattern as data-retention/keep-for.ts).
@@ -66,6 +75,7 @@ export interface InboundRetentionReport {
   readonly bodyObjectsDeleted: number;
   readonly bodyObjectErrors: number;
   readonly seenPurged: number;
+  readonly quarantinePurged: number;
 }
 
 export async function runInboundMailRetention(
@@ -79,7 +89,15 @@ export async function runInboundMailRetention(
   const messages = await purgeExpiredMessages(args, messageCutoff);
   const seenPurged = await purgeExpiredSeenAnchors(args.db, args.tenantId, seenCutoff);
 
-  return { ...messages, seenPurged };
+  const quarantineCutoff = args.now.subtract({
+    hours: QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS * 24,
+  });
+  const quarantinePurged = await deleteMany(args.db, quarantineTable, {
+    tenantId: args.tenantId,
+    acknowledgedAt: { lt: quarantineCutoff },
+  });
+
+  return { ...messages, seenPurged, quarantinePurged };
 }
 
 type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null };
@@ -87,7 +105,7 @@ type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null 
 async function purgeExpiredMessages(
   args: InboundRetentionArgs,
   cutoff: Instant,
-): Promise<Omit<InboundRetentionReport, "seenPurged">> {
+): Promise<Omit<InboundRetentionReport, "seenPurged" | "quarantinePurged">> {
   let messagesPurged = 0;
   let bodyObjectsDeleted = 0;
   let bodyObjectErrors = 0;

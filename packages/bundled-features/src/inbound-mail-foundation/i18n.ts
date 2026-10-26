@@ -1,9 +1,15 @@
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
-import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
+import {
+  INBOUND_MAIL_FOUNDATION_FEATURE,
+  InboundMailAccountStatuses,
+  InboundMailConnectErrors,
+  InboundMailLastErrors,
+} from "./constants.ts";
 import { INBOUND_PROBE_I18N } from "./probe-keys.ts";
 import {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
+  MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
 } from "./screens.ts";
@@ -21,6 +27,27 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   "inboundMail.accounts.col.provider": { en: "Provider" },
   "inboundMail.accounts.col.status": { en: "Status" },
   "inboundMail.accounts.col.connected": { en: "Connected" },
+  "inboundMail.accounts.col.lastError": { en: "Problem" },
+  "inboundMail.accounts.col.quarantined": { en: "Quarantined" },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.connectionFailed}`]: {
+    en: "The mail server could not be reached. Syncing is retried automatically.",
+  },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.rateLimited}`]: {
+    en: "The mail server is limiting requests. Syncing is retried automatically.",
+  },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.messageQuarantined}`]: {
+    en: "A mail could not be imported and was set aside. Confirm the quarantine once you have looked into it.",
+  },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.fileStorageUnavailable}`]: {
+    en: "File storage is not available, so attachments and originals are not saved.",
+  },
+  [InboundMailConnectErrors.addressAlreadyConnected.i18nKey]: {
+    en: "This mailbox is already connected.",
+  },
+  [InboundMailConnectErrors.addressDisconnected.i18nKey]: {
+    en: "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+  },
+  "inboundMail.accounts.acknowledgeQuarantine": { en: "Confirm quarantine" },
   [`${MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX}${InboundMailAccountStatuses.active}`]: {
     en: "Active",
   },

@@ -2058,6 +2058,20 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Fournisseur",
   "inboundMail.accounts.col.status": "Statut",
   "inboundMail.accounts.col.connected": "Connectée depuis",
+  "inboundMail.accounts.col.lastError": "Problème",
+  "inboundMail.accounts.col.quarantined": "En quarantaine",
+  "inboundMail.accounts.lastError.connection_failed":
+    "Le serveur de messagerie est inaccessible. La synchronisation est retentée automatiquement.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "Le serveur de messagerie limite les requêtes. La synchronisation est retentée automatiquement.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "Un e-mail n'a pas pu être importé et a été mis de côté. Confirmez la quarantaine une fois l'e-mail examiné.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "Le stockage de fichiers n'est pas disponible, les pièces jointes et les originaux ne sont donc pas enregistrés.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Cette boîte est déjà connectée.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Cette boîte a été déconnectée auparavant. Reconnectez-la depuis la liste des boîtes pour conserver son historique.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Confirmer la quarantaine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Échec de connexion",
   "inboundMail.accounts.status.degraded": "Interrompue",

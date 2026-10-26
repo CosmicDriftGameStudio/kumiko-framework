@@ -21,6 +21,7 @@
 
 import {
   InboundAuthError,
+  InboundCredentialNotStoredError,
   type InboundMailContext,
   inboundCredentialSecretKey,
   type MailAccountRecord,
@@ -82,7 +83,7 @@ export async function readCredentialDocument(
   );
   const secret = await secrets.get(account.tenantId, inboundCredentialSecretKey(account.id));
   if (!secret) {
-    throw new InboundAuthError(
+    throw new InboundCredentialNotStoredError(
       `${FEATURE_NAME}: no credential document in secret slot for account ${account.id} — ` +
         `store the IMAP connection JSON under ${inboundCredentialSecretKey(account.id)} first`,
     );

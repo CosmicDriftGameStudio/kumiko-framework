@@ -1,0 +1,187 @@
+// Content persistence shared by ingest-message and attach-message-content: the original
+// message and the attachments go to file storage, the event only carries references.
+
+import {
+  configuredPiiSubjectKms,
+  encryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createFileRefFromBytes, type FileContext } from "@cosmicdrift/kumiko-framework/files";
+import * as z from "zod";
+import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity } from "../entities.ts";
+import {
+  INBOUND_MESSAGE_AGGREGATE_TYPE,
+  type InboundContentState,
+  skippedAttachmentSchema,
+} from "../events.ts";
+import {
+  INBOUND_BODY_HTML_MAX_CHARS,
+  INBOUND_BODY_TEXT_MAX_CHARS,
+  INBOUND_RAW_MIME_MAX_BYTES,
+  INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT,
+} from "../normalize-inbound-message.ts";
+import type { RawInboundAttachment, SkippedInboundAttachment } from "../types.ts";
+
+// Bytes only travel in-process (system dispatch); no JSON request can carry a Uint8Array.
+export const inboundContentPayloadShape = {
+  bodyText: z.string().max(INBOUND_BODY_TEXT_MAX_CHARS).default(""),
+  bodyTextTruncated: z.boolean().default(false),
+  rawMime: z
+    .instanceof(Uint8Array)
+    .refine((bytes) => bytes.byteLength <= INBOUND_RAW_MIME_MAX_BYTES)
+    .optional(),
+  bodyHtml: z.string().max(INBOUND_BODY_HTML_MAX_CHARS).optional(),
+  attachments: z
+    .array(
+      z.object({
+        fileName: z.string().max(255),
+        mimeType: z.string().max(255),
+        data: z.instanceof(Uint8Array),
+      }),
+    )
+    .max(50)
+    .optional(),
+  skippedAttachments: z.array(skippedAttachmentSchema).max(200).optional(),
+};
+
+export type InboundContentInput = {
+  readonly accountId: string;
+  readonly messageAggId: string;
+  /** From the app's storeBody hook; wins over the default storage. */
+  readonly bodyRef: string;
+  readonly rawMime?: Uint8Array | undefined;
+  readonly bodyHtml?: string | undefined;
+  readonly attachments?: readonly RawInboundAttachment[] | undefined;
+  readonly skippedAttachments?: readonly SkippedInboundAttachment[] | undefined;
+};
+
+export type StoredInboundContent = {
+  readonly bodyRef: string;
+  readonly attachmentFileIds: string[];
+  readonly skippedAttachments: SkippedInboundAttachment[];
+  /** "unavailable" when something had to be stored but the dispatcher has no file storage. */
+  readonly contentStorage: "stored" | "unavailable";
+};
+
+type ContentContext = Pick<HandlerContext, "db" | "services" | "registry" | "user">;
+
+// Deterministic, so a re-ingest after a rollback overwrites the same object instead of orphaning one.
+// Same keyspace the retention sweep deletes from (createFileProviderForTenant).
+export function inboundMessageBodyKey(
+  tenantId: string,
+  accountId: string,
+  messageAggId: string,
+  extension: "eml" | "html",
+): string {
+  return `${tenantId}/inbound-mail/${accountId}/${messageAggId}.${extension}`;
+}
+
+async function storeOriginal(
+  files: FileContext,
+  tenantId: string,
+  input: InboundContentInput,
+): Promise<string> {
+  const original =
+    input.rawMime !== undefined
+      ? { data: input.rawMime, extension: "eml" as const, mimeType: "message/rfc822" }
+      : input.bodyHtml !== undefined
+        ? {
+            data: new TextEncoder().encode(input.bodyHtml),
+            extension: "html" as const,
+            mimeType: "text/html",
+          }
+        : undefined;
+  if (!original) return "";
+  const key = inboundMessageBodyKey(
+    tenantId,
+    input.accountId,
+    input.messageAggId,
+    original.extension,
+  );
+  await files.ref(key).write(original.data, original.mimeType);
+  return key;
+}
+
+export async function storeInboundMessageContent(
+  ctx: ContentContext,
+  input: InboundContentInput,
+): Promise<StoredInboundContent> {
+  const attachments = input.attachments ?? [];
+  const skipped = [...(input.skippedAttachments ?? [])];
+  const hasOriginal = input.rawMime !== undefined || input.bodyHtml !== undefined;
+  const needsStorage = attachments.length > 0 || (input.bodyRef === "" && hasOriginal);
+
+  const { files } = ctx.services;
+  if (!files) {
+    for (const attachment of attachments) {
+      skipped.push({
+        mimeType: attachment.mimeType,
+        size: attachment.data.byteLength,
+        reason: "no_file_storage",
+      });
+    }
+    return {
+      bodyRef: input.bodyRef,
+      attachmentFileIds: [],
+      skippedAttachments: skipped.slice(0, INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT),
+      contentStorage: needsStorage ? "unavailable" : "stored",
+    };
+  }
+
+  const bodyRef =
+    input.bodyRef !== "" ? input.bodyRef : await storeOriginal(files, ctx.user.tenantId, input);
+  const attachmentFileIds: string[] = [];
+  for (const attachment of attachments) {
+    const created = await createFileRefFromBytes(ctx, {
+      fileName: attachment.fileName,
+      mimeType: attachment.mimeType,
+      data: attachment.data,
+    });
+    if (created.isSuccess) {
+      attachmentFileIds.push(created.data.id);
+    } else {
+      skipped.push({
+        mimeType: attachment.mimeType,
+        size: attachment.data.byteLength,
+        reason: "rejected",
+      });
+    }
+  }
+  return {
+    bodyRef,
+    attachmentFileIds,
+    skippedAttachments: skipped.slice(0, INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT),
+    contentStorage: "stored",
+  };
+}
+
+// 'inmc': serializes ingest and content attachment per message; disjoint from the thread-rollup namespace.
+export const MESSAGE_LOCK_NAMESPACE = 0x696e6d63;
+
+// Encrypts a single message PII field outside the batch encryption of ingest-message.
+export async function encryptMessageBodyText(
+  tenantId: string,
+  messageAggId: string,
+  bodyText: string,
+): Promise<string> {
+  const piiKms = configuredPiiSubjectKms();
+  if (!piiKms) return bodyText;
+  const encrypted = await encryptPiiFieldValues(
+    { tenantId, bodyText },
+    inboundMessageEntity,
+    INBOUND_MESSAGE_PII_FIELDS,
+    piiKms,
+    { requestId: `inbound-mail-foundation:message-content:${messageAggId}`, tenantId },
+    { tenantId, entityName: INBOUND_MESSAGE_AGGREGATE_TYPE },
+  );
+  return encrypted.bodyText;
+}
+
+export function contentStateOf(args: {
+  readonly bodyText: string;
+  readonly hasOriginal: boolean;
+  readonly contentStorage: StoredInboundContent["contentStorage"];
+}): InboundContentState {
+  if (args.contentStorage === "unavailable") return "unavailable";
+  return args.bodyText.length > 0 || args.hasOriginal ? "complete" : "snippet";
+}

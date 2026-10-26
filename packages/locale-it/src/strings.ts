@@ -2037,6 +2037,20 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Provider",
   "inboundMail.accounts.col.status": "Stato",
   "inboundMail.accounts.col.connected": "Connessa dal",
+  "inboundMail.accounts.col.lastError": "Problema",
+  "inboundMail.accounts.col.quarantined": "In quarantena",
+  "inboundMail.accounts.lastError.connection_failed":
+    "Il server di posta non è raggiungibile. La sincronizzazione viene ritentata automaticamente.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "Il server di posta limita le richieste. La sincronizzazione viene ritentata automaticamente.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "Una mail non è stata importata ed è stata messa da parte. Conferma la quarantena dopo averla controllata.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "L'archiviazione dei file non è disponibile, quindi allegati e originali non vengono salvati.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Questa casella è già connessa.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Questa casella è stata disconnessa in precedenza. Riconnettila dall'elenco delle caselle per mantenere la cronologia.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Conferma quarantena",
   "inboundMail.accounts.status.active": "Attiva",
   "inboundMail.accounts.status.auth_error": "Accesso non riuscito",
   "inboundMail.accounts.status.degraded": "Interrotta",

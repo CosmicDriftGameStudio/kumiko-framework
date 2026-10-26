@@ -1,6 +1,11 @@
 // Public API of the inbound-mail-foundation bundled-feature.
 
 export {
+  type MailAccountWakeListener,
+  registerMailAccountWakeListener,
+  wakeMailAccount,
+} from "./account-wake.ts";
+export {
   inboundMessageAggregateId,
   mailThreadAggregateId,
 } from "./aggregate-id.ts";
@@ -15,8 +20,11 @@ export {
   InboundMailAccountStatuses,
   type InboundMailAuthMethod,
   InboundMailAuthMethods,
+  InboundMailConnectErrors,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  type InboundMailLastError,
+  InboundMailLastErrors,
   inboundCredentialSecretKey,
 } from "./constants.ts";
 export {
@@ -26,6 +34,10 @@ export {
   MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
   mailThreadEntity,
+  QUARANTINE_REASON_CODES,
+  type QuarantineReasonCode,
+  quarantineEntity,
+  quarantineTable,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -55,6 +67,21 @@ export {
   mailThreadEventPayloadSchema,
 } from "./events.ts";
 export { createInboundMailFoundationFeature } from "./feature.ts";
+export {
+  type InboundMessageContent,
+  loadInboundMessageContent,
+} from "./handlers/message-content.query.ts";
+export {
+  INBOUND_ATTACHMENT_MAX_BYTES,
+  INBOUND_ATTACHMENTS_MAX_COUNT,
+  INBOUND_BODY_HTML_MAX_CHARS,
+  INBOUND_BODY_TEXT_MAX_CHARS,
+  INBOUND_MAIL_ATTACHMENTS_MAX_BYTES,
+  INBOUND_MISSING_SENDER,
+  INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT,
+  type NormalizedInboundMessage,
+  normalizeRawInboundMessage,
+} from "./normalize-inbound-message.ts";
 export {
   createOAuthAccessTokenManager,
   inboundRefreshTokenSecretOptions,
@@ -102,6 +129,8 @@ export {
 } from "./send-from-account.ts";
 export {
   InboundAuthError,
+  type InboundContentFetchResult,
+  InboundCredentialNotStoredError,
   InboundCursorInvalidError,
   type InboundFetchResult,
   type InboundMailContext,
@@ -110,13 +139,17 @@ export {
   InboundRateLimitError,
   InboundTransientError,
   isInboundAuthError,
+  isInboundCredentialNotStoredError,
   isInboundCursorInvalidError,
   isInboundMailProviderPlugin,
   isInboundRateLimitError,
   isInboundTransientError,
   type MailAccountRecord,
   type OAuthTokenSet,
+  type RawInboundAttachment,
   type RawInboundMessage,
+  type RejectedInboundMessage,
+  type SkippedInboundAttachment,
   type SyncCursorPayload,
 } from "./types.ts";
 export {

@@ -1986,6 +1986,20 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Provider",
   "inboundMail.accounts.col.status": "Status",
   "inboundMail.accounts.col.connected": "Connected",
+  "inboundMail.accounts.col.lastError": "Problem",
+  "inboundMail.accounts.col.quarantined": "Quarantined",
+  "inboundMail.accounts.lastError.connection_failed":
+    "The mail server could not be reached. Syncing is retried automatically.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "The mail server is limiting requests. Syncing is retried automatically.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "A mail could not be imported and was set aside. Confirm the quarantine once you have looked into it.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "File storage is not available, so attachments and originals are not saved.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Confirm quarantine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Sign-in failed",
   "inboundMail.accounts.status.degraded": "Interrupted",

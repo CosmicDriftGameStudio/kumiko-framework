@@ -18,7 +18,7 @@ export const reconnectPrefillQuery: QueryHandlerDef = {
   // Only the reconnect form needs these settings; the agent has no write to use them with.
   agent: { expose: false },
   description:
-    "Returns the server settings (IMAP host and port, user name, SMTP host and port) stored for a password IMAP mailbox without its password, or null when the mailbox is not found, disconnected or not a password IMAP mailbox; use it to prefill the reconnect form.",
+    "Returns the server settings (IMAP host and port, user name, SMTP host and port) stored for a password IMAP mailbox without its password, or null when the mailbox is not found or not a password IMAP mailbox; use it to prefill the reconnect form.",
   handler: async (query, ctx) => {
     const { accountId } = reconnectPrefillSchema.parse(query.payload);
     const lookup = await findReconnectableAccount(ctx.db, accountId);

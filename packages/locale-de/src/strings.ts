@@ -2038,6 +2038,20 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.col.provider": "Anbieter",
   "inboundMail.accounts.col.status": "Status",
   "inboundMail.accounts.col.connected": "Verbunden seit",
+  "inboundMail.accounts.col.lastError": "Problem",
+  "inboundMail.accounts.col.quarantined": "In Quarantäne",
+  "inboundMail.accounts.lastError.connection_failed":
+    "Der Mailserver ist nicht erreichbar. Der Abruf wird automatisch erneut versucht.",
+  "inboundMail.accounts.lastError.rate_limited":
+    "Der Mailserver begrenzt die Anfragen. Der Abruf wird automatisch erneut versucht.",
+  "inboundMail.accounts.lastError.message_quarantined":
+    "Eine Mail konnte nicht importiert werden und wurde beiseitegelegt. Die Quarantäne nach der Prüfung bestätigen.",
+  "inboundMail.accounts.lastError.file_storage_unavailable":
+    "Der Dateispeicher ist nicht verfügbar, deshalb werden Anhänge und Originale nicht gespeichert.",
+  "inboundMail.accounts.errors.addressAlreadyConnected": "Dieses Postfach ist bereits verbunden.",
+  "inboundMail.accounts.errors.addressDisconnected":
+    "Dieses Postfach wurde früher getrennt. Über die Postfachliste neu verbinden, damit der Verlauf erhalten bleibt.",
+  "inboundMail.accounts.acknowledgeQuarantine": "Quarantäne bestätigen",
   "inboundMail.accounts.status.active": "Aktiv",
   "inboundMail.accounts.status.auth_error": "Anmeldung fehlgeschlagen",
   "inboundMail.accounts.status.degraded": "Unterbrochen",

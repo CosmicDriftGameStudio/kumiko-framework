@@ -38,6 +38,7 @@ import {
   MAIL_SEND_ERRORS,
   type OutboundMailSent,
   outboundMailMessageSchema,
+  quarantineEntity,
   seenMessageEntity,
   sendMailFromAccount,
   syncCursorEntity,
@@ -127,6 +128,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
+  await unsafeCreateEntityTable(stack.db, quarantineEntity);
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";

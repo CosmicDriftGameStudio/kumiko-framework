@@ -20,6 +20,15 @@ export const InboundMailFoundationHandlers = {
   /** Tenant admin disconnects a mailbox. The stream remains for auditing;
    *  the status becomes disconnected and the watch stops. */
   disconnectAccount: "inbound-mail-foundation:write:disconnect-account",
+  /** The only way from disconnected back to active; also clears auth_error
+   *  and degraded. update-account keeps rejecting disconnected accounts. */
+  reactivateAccount: "inbound-mail-foundation:write:reactivate-account",
+  /** Marks all open quarantine entries of a mailbox as acknowledged. */
+  acknowledgeQuarantine: "inbound-mail-foundation:write:acknowledge-quarantine",
+  /** Supervisor-only: stores the content of an already imported snippet mail. */
+  attachMessageContent: "inbound-mail-foundation:write:attach-message-content",
+  /** OAuth callback only: the refresh token is stored now, so an active account can sync. */
+  markCredentialStored: "inbound-mail-foundation:write:mark-credential-stored",
 } as const;
 
 // Qualified query handler names.
@@ -29,6 +38,8 @@ export const InboundMailFoundationQueries = {
   /** Tenant-scoped message list (inbox cockpit). PII is decrypted on read.
    */
   listMessages: "inbound-mail-foundation:query:message:list",
+  /** Decrypted full text, attachment ids and content state of one message. */
+  messageContent: "inbound-mail-foundation:query:message:content",
 } as const;
 
 // Normalized account status values — provider-agnostic.
@@ -37,13 +48,35 @@ export const InboundMailAccountStatuses = {
   active: "active",
   /** Credentials or token are invalid; the tenant admin must reconnect. */
   authError: "auth_error",
-  /** Transienter Fehler, Supervisor backoff-retried. */
+  /** Interrupted: transient failure, quarantined mail or missing file storage; see lastError. */
   degraded: "degraded",
   /** Disconnected by the tenant admin; no further syncs run. */
   disconnected: "disconnected",
 } as const;
 export type InboundMailAccountStatus =
   (typeof InboundMailAccountStatuses)[keyof typeof InboundMailAccountStatuses];
+
+// Why a mailbox is degraded. Codes only, never provider error text (that carries hosts/tokens).
+export const InboundMailLastErrors = {
+  connectionFailed: "connection_failed",
+  rateLimited: "rate_limited",
+  messageQuarantined: "message_quarantined",
+  fileStorageUnavailable: "file_storage_unavailable",
+} as const;
+export type InboundMailLastError =
+  (typeof InboundMailLastErrors)[keyof typeof InboundMailLastErrors];
+
+// Business reasons of failed connect writes; connect-routes maps both to 409 with the reason code.
+export const InboundMailConnectErrors = {
+  addressAlreadyConnected: {
+    reason: "address_already_connected",
+    i18nKey: "inboundMail.accounts.errors.addressAlreadyConnected",
+  },
+  addressDisconnected: {
+    reason: "address_disconnected",
+    i18nKey: "inboundMail.accounts.errors.addressDisconnected",
+  },
+} as const;
 
 /**
  * Tenant secret slot for an account: IMAP app password OR OAuth refresh

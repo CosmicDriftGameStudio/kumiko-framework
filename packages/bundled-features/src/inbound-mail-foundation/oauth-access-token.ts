@@ -26,6 +26,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.ts";
 import {
   InboundAuthError,
+  InboundCredentialNotStoredError,
   type InboundMailContext,
   type InboundMailProviderPlugin,
   type MailAccountRecord,
@@ -148,7 +149,7 @@ export function createOAuthAccessTokenManager(
       const secrets = deps.secrets.withRunner(tx);
       const stored = await secrets.get(account.tenantId, secretKey);
       if (!stored) {
-        throw new InboundAuthError("no refresh token stored for account");
+        throw new InboundCredentialNotStoredError("no refresh token stored for account");
       }
       const currentRefreshToken = stored.reveal();
       const tokens = await refreshWithTimeout(plugin, account, currentRefreshToken);

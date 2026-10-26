@@ -1,0 +1,38 @@
+From: Alice <alice@example.com>
+To: testuser@example.com
+Subject: Fwd: Original request
+Message-ID: <fwd@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="OUT"
+
+--OUT
+Content-Type: text/plain; charset=utf-8
+
+Please take a look at this.
+--OUT
+Content-Type: message/rfc822
+Content-Disposition: attachment; filename="Original request.eml"
+
+From: Bob <bob@example.org>
+To: testuser@example.com
+Subject: Original request
+Message-ID: <inner@fixture.test>
+Date: Mon, 06 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="IN"
+
+--IN
+Content-Type: text/plain; charset=utf-8
+
+The original text from Bob.
+--IN
+Content-Type: application/pdf; name="spec.pdf"
+Content-Disposition: attachment; filename="spec.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZz4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEg
+MCBSPj4KJSVFT0YK
+--IN--
+
+--OUT--

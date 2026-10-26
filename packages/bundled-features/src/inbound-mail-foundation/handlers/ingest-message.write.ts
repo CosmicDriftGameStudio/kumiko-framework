@@ -2,11 +2,14 @@
 // (watch callback + fetchSince sync). Accepts a normalized
 // RawInboundMessage and performs atomically in ONE TX:
 //
+//   0. Per-message advisory lock, so a watch/poll race cannot store the same
+//      content twice (orphaned FileRefs) before the dedup checks run.
 //   1. Idempotency check (cheap: store_mail_seen_messages; defense in
 //      depth: stream existence check on the deterministic aggregateId).
 //   2. threadKey normalization (provider thread ID preferred, otherwise
 //      References chain root, otherwise Message-ID = single-message thread).
-//   3. PII encryption (from/to/cc/subject/snippet) BEFORE the append —
+//   3. Content storage (original + attachments, only after dedup) and PII
+//      encryption (from/to/cc/subject/snippet/bodyText) BEFORE the append —
 //      both the event log AND projection contain ciphertext.
 //   4. inbound-message-received append (inline projection writes
 //      read_inbound_messages in the same TX). Savepoint-scoped
@@ -47,13 +50,18 @@ import {
   type MailThreadEventPayload,
 } from "../events.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
+import {
+  contentStateOf,
+  inboundContentPayloadShape,
+  MESSAGE_LOCK_NAMESPACE,
+  storeInboundMessageContent,
+} from "./message-content.ts";
 
 // =============================================================================
 // Input schema — the normalized provider output (RawInboundMessage,
-// types.ts) plus the envelope (accountId/providerName/providerCursor). rawMime
-// is intentionally excluded: the caller persists the body to
-// file-foundation BEFORE the ingest call and passes only bodyRef — the
-// handler payload remains blob-free (event-store discipline).
+// types.ts) plus the envelope (accountId/providerName/providerCursor). The
+// original and attachments ride in-process as bytes and are persisted to file
+// storage here; the event itself stays blob-free (references only).
 // =============================================================================
 
 export const ingestMessageSchema = z.object({
@@ -75,12 +83,13 @@ export const ingestMessageSchema = z.object({
   subject: z.string().max(4000),
   snippet: z.string().max(4000),
   receivedAtIso: z.string().min(1),
-  /** file-foundation-Ref; leer im snippet-only-Mode. */
+  /** From the app's storeBody hook; empty lets the handler store the original itself. */
   bodyRef: z.string().max(500),
   scope: z.string().min(1).max(200),
   /** Cursor snapshot at ingest time — used for debugging/replay and stored in
    *  metadata.headers, never in the payload. */
   providerCursor: z.string().max(2000),
+  ...inboundContentPayloadShape,
 });
 type IngestMessagePayload = z.infer<typeof ingestMessageSchema>;
 
@@ -121,6 +130,8 @@ export const ingestMessageHandler: WriteHandlerDef = {
     const payload = event.payload as IngestMessagePayload;
     const tenantId = event.user.tenantId;
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
+
+    await ctx.db.advisoryXactLock(MESSAGE_LOCK_NAMESPACE, messageAggId);
 
     // ---------------------------------------------------------------
     // 1. Idempotency. Use the deduplication anchor row first because it is
@@ -168,9 +179,19 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    (primitives only, upcaster-safe). If no KMS is configured, pass
     //    through plaintext (engine-off behavior).
     // ---------------------------------------------------------------
+    const content = await storeInboundMessageContent(ctx, {
+      accountId: payload.accountId,
+      messageAggId,
+      bodyRef: payload.bodyRef,
+      rawMime: payload.rawMime,
+      bodyHtml: payload.bodyHtml,
+      attachments: payload.attachments,
+      skippedAttachments: payload.skippedAttachments,
+    });
     const piiKms = configuredPiiSubjectKms();
     const messagePlainPii = {
       tenantId,
+      bodyText: payload.bodyText,
       from: payload.from,
       to: JSON.stringify(payload.to),
       cc: JSON.stringify(payload.cc),
@@ -203,8 +224,17 @@ export const ingestMessageHandler: WriteHandlerDef = {
       subject: encryptedMessageFields.subject,
       snippet: encryptedMessageFields.snippet,
       receivedAtIso: payload.receivedAtIso,
-      bodyRef: payload.bodyRef,
+      bodyRef: content.bodyRef,
       scope: payload.scope,
+      bodyText: encryptedMessageFields.bodyText,
+      bodyTextTruncated: payload.bodyTextTruncated,
+      attachmentFileIds: content.attachmentFileIds,
+      skippedAttachments: content.skippedAttachments,
+      contentState: contentStateOf({
+        bodyText: payload.bodyText,
+        hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
+        contentStorage: content.contentStorage,
+      }),
     };
     const messageHeaders: InboundMessageEventHeaders = {
       providerMessageId: payload.providerMessageId,
@@ -331,6 +361,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         inboundMessageAggregateId: messageAggId,
         threadAggregateId: threadAggId,
         threadKey,
+        contentStorage: content.contentStorage,
       },
     };
   },

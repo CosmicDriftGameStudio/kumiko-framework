@@ -1,6 +1,7 @@
 // Public API of the inbound-provider-inmemory bundled-feature.
 
 export {
+  contentFetchesOf,
   createInboundProviderInMemoryFeature,
   emitWatchError,
   failNextFetchWith,
@@ -10,4 +11,6 @@ export {
   requireCredentialSecretOnFetch,
   resetInboundInMemory,
   seedInboundMessage,
+  seedRejectedInboundMessage,
+  setInboundFullContent,
 } from "./feature.ts";

@@ -32,9 +32,10 @@ describe("inboundMailFoundationFeature — shape", () => {
     );
   });
 
-  test("5 domain-events registriert", () => {
+  test("6 domain-events registriert", () => {
     const events = createInboundMailFoundationFeature().events;
     expect(Object.keys(events).sort()).toEqual([
+      "inbound-message-content-fetched",
       "inbound-message-received",
       "mail-account-connected",
       "mail-account-disconnected",
@@ -43,11 +44,11 @@ describe("inboundMailFoundationFeature — shape", () => {
     ]);
   });
 
-  test("SyncCursor + SeenMessage are unmanaged (NOT event-sourced)", () => {
+  test("SyncCursor + SeenMessage + MailQuarantine are unmanaged (NOT event-sourced)", () => {
     // If modeled as r.entity, the tick-state tables would flood the event log
     // and be wiped during projection rebuilds.
     const unmanaged = Object.keys(createInboundMailFoundationFeature().storeTables);
-    expect(unmanaged.length).toBe(2);
+    expect(unmanaged.length).toBe(3);
   });
 });
 
