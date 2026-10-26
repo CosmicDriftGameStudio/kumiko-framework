@@ -24,7 +24,7 @@ import type { OutboundMailMessage, OutboundMailSent } from "./outbound-mail.ts";
  *   secrets  — tenant secret reads (IMAP password, OAuth refresh token)
  *   auditUserId  — audit identity for secret reads. Handler path: unset,
  *              requireSecretsContext falls back to ctx.user.id; worker/provider
- *              path: system identity set by the resolver.
+ *              path: the supervisor sets the system identity.
  *   metricsFor — metrics handle of a feature by name, same behavior as
  *              HandlerContext.metricsFor: unregistered metrics are a silent
  *              no-op instead of a throw.

@@ -49,6 +49,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -186,17 +187,23 @@ export function createInboundMailSupervisor(
   // configured TTL — real deployments (default 90s) never hit it.
   const renewIntervalMs = Math.max(50, Math.floor((leaseTtlSeconds * 1000) / 3));
   const log = deps.log ?? (() => {});
+  // Secret reads in providers require an audit identity; the supervisor runs
+  // outside any request, so it supplies the system identity itself.
+  const providerCtx: InboundMailContext = {
+    ...deps.providerCtx,
+    auditUserId: deps.providerCtx.auditUserId ?? SYSTEM_USER_ID,
+  };
   const systemDb = systemScopedRunner(
     deps.db,
     "mail sync supervisor polls accounts and cursors of all tenants outside a request",
   );
   const oauthTokens =
     deps.oauthTokens ??
-    (deps.providerCtx.secrets
+    (providerCtx.secrets
       ? createOAuthAccessTokenManager({
           db: systemDb,
-          secrets: deps.providerCtx.secrets,
-          providerCtx: deps.providerCtx,
+          secrets: providerCtx.secrets,
+          providerCtx,
         })
       : undefined);
 
@@ -447,7 +454,7 @@ export function createInboundMailSupervisor(
       // exhausted.
       for (;;) {
         const accessToken = await resolveAccessToken(account, plugin);
-        const result = await plugin.fetch(deps.providerCtx, account, cursor, {
+        const result = await plugin.fetch(providerCtx, account, cursor, {
           backfillWindowDays,
           maxMessages: budget,
           filterUnknownMessageIds: unknownMessageIdsFilterFor(account),
@@ -469,7 +476,7 @@ export function createInboundMailSupervisor(
     for (const account of accounts) {
       let plugin: InboundMailProviderPlugin;
       try {
-        plugin = resolveInboundProviderForAccount(deps.providerCtx, account);
+        plugin = resolveInboundProviderForAccount(providerCtx, account);
       } catch (err) {
         log(`inbound-mail: ${describeError(err)}`);
         continue;
@@ -642,7 +649,7 @@ export function createInboundMailSupervisor(
     try {
       const accessToken = await resolveAccessToken(account, plugin);
       const stop = await plugin.watch(
-        deps.providerCtx,
+        providerCtx,
         account,
         {
           onMessages: async (msgs) => {
