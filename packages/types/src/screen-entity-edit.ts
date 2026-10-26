@@ -4,7 +4,7 @@ import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
-import type { ScreenFallback, ScreenVisibility } from "./screen-dashboard.ts";
+import type { ScreenVisibility } from "./screen-dashboard.ts";
 import type {
   ListColumnSpec,
   ListSortSpec,
@@ -13,6 +13,7 @@ import type {
   RowActionMode,
   RowFieldExtractor,
 } from "./screen-entity-list.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableGrouping, ListTableOptions } from "./screen-list-table.ts";
 import type { ListFacetSpec } from "./screen-projection.ts";

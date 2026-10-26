@@ -1,8 +1,9 @@
 import type { FieldDefinition } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
-import type { ScreenFallback, ScreenVisibility } from "./screen-dashboard.ts";
+import type { ScreenVisibility } from "./screen-dashboard.ts";
 import type { EditLayout } from "./screen-entity-edit.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 
 // --- custom ---
 

@@ -2,7 +2,7 @@ import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { NavIconKey } from "./nav-icon.ts";
 import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
-import type { DashboardStatTone, ScreenFallback, ScreenVisibility } from "./screen-dashboard.ts";
+import type { DashboardStatTone, ScreenVisibility } from "./screen-dashboard.ts";
 import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
@@ -14,6 +14,7 @@ import type {
   ScreenFilter,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableOptions } from "./screen-list-table.ts";
 

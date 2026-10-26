@@ -183,8 +183,9 @@ describe("postLoginPath", () => {
     );
   });
 
-  test("an unsafe landing path falls through to the fallback", () => {
+  test("an unsafe or non-app landing path falls through to the fallback", () => {
     expect(postLoginPath({ ...base, search: "", landingPath: "//evil" })).toBe("/app");
+    expect(postLoginPath({ ...base, search: "", landingPath: "/pricing" })).toBe("/app");
     expect(postLoginPath({ ...base, search: "", landingPath: undefined })).toBe("/app");
   });
 });

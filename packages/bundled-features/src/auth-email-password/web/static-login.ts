@@ -126,8 +126,7 @@ export function postLoginPath(options: {
 }): string {
   const next = readAppNext(options.search, options.isAppPath);
   if (next !== null) return next;
-  if (isSafeReturnPath(options.landingPath)) return options.landingPath;
-  return options.fallbackPath;
+  return appReturnPath(options.landingPath, options.isAppPath) ?? options.fallbackPath;
 }
 
 export function forgotPasswordHref(

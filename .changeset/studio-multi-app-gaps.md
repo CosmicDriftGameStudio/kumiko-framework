@@ -35,5 +35,5 @@ detail: A screen-level `fallback` is either a screen id (unchanged) or a map `{ 
 feature: framework
 type: fix
 title: Live signals for entity names with uppercase runs reach the client
-detail: `toKebab` now lives once in `@cosmicdrift/kumiko-types/kebab-case` and is used by the server read-access keys, the qualified-name helpers and the renderer. Before, the renderer and server copies could diverge for names like `aiURLCheck`, so a screen subscribed to a name the server never signalled.
+detail: `toKebab` now lives once in `@cosmicdrift/kumiko-types/kebab-case` and is used by the server read-access keys, the qualified-name helpers and the renderer. Before, the renderer and server copies could diverge for names like `aiURLCheck`, so a screen subscribed to a name the server never signalled. Boot now fails when two entities of different features fold to the same key (`billing.period` and `billingPeriod`), instead of merging their read rules.
 -->

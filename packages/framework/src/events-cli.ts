@@ -9,7 +9,6 @@ import { DEFAULT_ROW_LEVEL_SECURITY_MODE, type RowLevelSecurityMode } from "./db
 import { createRegistry } from "./engine/registry.ts";
 import type { FeatureDefinition } from "./engine/types/feature.ts";
 import {
-  AggregateTypeRemovalError,
   type AggregateTypeRemovalResult,
   removeAggregateTypes,
 } from "./pipeline/aggregate-type-removal.ts";
@@ -136,11 +135,8 @@ export async function runEventsCli(
     return 0;
   } catch (e) {
     out.err("");
-    if (e instanceof AggregateTypeRemovalError) {
-      out.err(`  ${e.message}`);
-    } else {
-      out.err(`  ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
-    }
+    // Message only: a driver error's stack can carry connection details.
+    out.err(`  ${e instanceof Error ? e.message : String(e)}`);
     out.err("");
     return 1;
   } finally {

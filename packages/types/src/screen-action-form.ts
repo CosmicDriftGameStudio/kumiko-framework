@@ -2,8 +2,9 @@ import type { FormFieldDefinition } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { ScreenNavSugar, ScreenSlots } from "./screen.ts";
-import type { ScreenFallback, ScreenVisibility } from "./screen-dashboard.ts";
+import type { ScreenVisibility } from "./screen-dashboard.ts";
 import type { EditLayout } from "./screen-entity-edit.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 
 // --- actionForm ---
 

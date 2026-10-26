@@ -146,8 +146,9 @@ function planProjections(
     if (def.table === undefined) continue;
     const involved = new Set<string>();
     for (const eventType of Object.keys(def.apply)) {
-      const type = aggregateTypeOfEventType(eventType);
-      if (type !== undefined) involved.add(type);
+      // A qualified event name ("feature:event:name") carries no aggregate type; keeping it as its
+      // own entry makes a projection that also reads a removed type "mixed" instead of wiping it.
+      involved.add(aggregateTypeOfEventType(eventType) ?? eventType);
     }
     consider(name, involved, def.table);
   }

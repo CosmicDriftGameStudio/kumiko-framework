@@ -3,13 +3,10 @@ import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
-import type {
-  DashboardPanelVisibility,
-  ScreenFallback,
-  ScreenVisibility,
-} from "./screen-dashboard.ts";
+import type { DashboardPanelVisibility, ScreenVisibility } from "./screen-dashboard.ts";
 import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
+import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListColumnPin, ListTableOptions } from "./screen-list-table.ts";
 
