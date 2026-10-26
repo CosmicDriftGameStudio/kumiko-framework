@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { normalizeRawInboundMessage } from "../../inbound-mail-foundation/index.ts";
 import { parseOrReject } from "../imap-client.ts";
 import { MIME_FORWARD_MAX_DEPTH } from "../mime-content.ts";
+import { buildMailWithTooManyParts, MAILPARSER_MAX_MIME_NODES } from "./too-many-parts-mail.ts";
 
 async function parseFixture(name: string) {
   const source = new Uint8Array(
@@ -77,9 +78,7 @@ describe("parsed fixtures", () => {
   });
 
   test("a structure the parser cannot read is rejected, not thrown", async () => {
-    const source = new Uint8Array(
-      await Bun.file(`${import.meta.dir}/fixtures/unparseable-too-many-parts.eml`).arrayBuffer(),
-    );
+    const source = buildMailWithTooManyParts(MAILPARSER_MAX_MIME_NODES);
 
     const result = await parseOrReject({
       source,

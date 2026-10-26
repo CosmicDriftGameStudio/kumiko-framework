@@ -57,6 +57,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
 import { reachable } from "./greenmail-mailbox.ts";
+import { buildMailWithTooManyParts, MAILPARSER_MAX_MIME_NODES } from "./too-many-parts-mail.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
@@ -264,7 +265,9 @@ describe("fixtures through greenmail", () => {
       const admin = freshAdmin();
       const accountId = await connectImapAccount(admin);
       await appendFixture("text-with-pdf.eml");
-      await appendFixture("unparseable-too-many-parts.eml");
+      await withInbox((client) =>
+        client.append("INBOX", Buffer.from(buildMailWithTooManyParts(MAILPARSER_MAX_MIME_NODES))),
+      );
       await appendFixture("html-only.eml");
       const supervisor = createSupervisor();
 
