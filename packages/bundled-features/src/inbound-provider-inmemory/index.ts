@@ -7,6 +7,7 @@ export {
   failNextVerifyWith,
   INMEMORY_PROVIDER_KEY,
   isWatching,
+  requireCredentialSecretOnFetch,
   resetInboundInMemory,
   seedInboundMessage,
 } from "./feature.ts";

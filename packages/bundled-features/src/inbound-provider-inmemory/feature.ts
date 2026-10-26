@@ -11,13 +11,16 @@
 // **Pattern basis:** mail-transport-inmemory (module-level state +
 // test-helper exports). Not for production.
 
-import type {
-  InboundFetchResult,
-  InboundMailProviderPlugin,
-  MailAccountRecord,
-  RawInboundMessage,
-  SyncCursorPayload,
+import {
+  InboundAuthError,
+  type InboundFetchResult,
+  type InboundMailContext,
+  type InboundMailProviderPlugin,
+  type MailAccountRecord,
+  type RawInboundMessage,
+  type SyncCursorPayload,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURE_NAME = "inbound-provider-inmemory";
@@ -38,6 +41,7 @@ type AccountState = {
   watch: WatchHandlers | null;
   nextFetchError: unknown;
   nextVerifyError: unknown;
+  credentialSecretKey: string | null;
 };
 
 const accounts = new Map<string, AccountState>();
@@ -45,7 +49,13 @@ const accounts = new Map<string, AccountState>();
 function stateFor(accountId: string): AccountState {
   let state = accounts.get(accountId);
   if (!state) {
-    state = { log: [], watch: null, nextFetchError: null, nextVerifyError: null };
+    state = {
+      log: [],
+      watch: null,
+      nextFetchError: null,
+      nextVerifyError: null,
+      credentialSecretKey: null,
+    };
     accounts.set(accountId, state);
   }
   return state;
@@ -69,6 +79,25 @@ export function failNextFetchWith(accountId: string, err: unknown): void {
 /** Test helper: injects a one-shot error into the next verify. */
 export function failNextVerifyWith(accountId: string, err: unknown): void {
   stateFor(accountId).nextVerifyError = err;
+}
+
+/** Test helper: every fetch reads this tenant secret first, like a real
+ *  provider reads its stored credentials; a missing secret is an auth error. */
+export function requireCredentialSecretOnFetch(accountId: string, key: string): void {
+  stateFor(accountId).credentialSecretKey = key;
+}
+
+async function readCredentialSecret(
+  ctx: InboundMailContext,
+  account: MailAccountRecord,
+  key: string,
+): Promise<void> {
+  const secrets = requireSecretsContext(
+    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
+    FEATURE_NAME,
+  );
+  const secret = await secrets.get(account.tenantId, key);
+  if (!secret) throw new InboundAuthError(`${FEATURE_NAME}: no credential secret ${key}`);
 }
 
 /** Test helper: simulates the live connection terminating (the supervisor
@@ -111,12 +140,15 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
       throw err;
     }
   },
-  fetch: async (_ctx, account, cursor, opts): Promise<InboundFetchResult> => {
+  fetch: async (ctx, account, cursor, opts): Promise<InboundFetchResult> => {
     const state = stateFor(account.id);
     if (state.nextFetchError) {
       const err = state.nextFetchError;
       state.nextFetchError = null;
       throw err;
+    }
+    if (state.credentialSecretKey) {
+      await readCredentialSecret(ctx, account, state.credentialSecretKey);
     }
     const offset = offsetOf(cursor);
     const slice = state.log.slice(offset, offset + opts.maxMessages);
