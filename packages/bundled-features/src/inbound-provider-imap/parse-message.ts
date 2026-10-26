@@ -5,6 +5,7 @@ import type {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import type { MessageEnvelopeObject } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
 import { extractMailContent } from "./mime-content.ts";
 import { senderAuthenticationOf } from "./sender-auth-headers.ts";
@@ -63,6 +64,8 @@ export async function toRawInboundMessage(args: {
   readonly uid: number;
   readonly uidValidity: string;
   readonly internalDate: Date | undefined;
+  /** IMAP envelope; lets a mail that cannot be parsed still show sender and subject. */
+  readonly envelope?: MessageEnvelopeObject | undefined;
   /** authserv-id of the mailbox's own server; without it senderAuthentication is null. */
   readonly trustedAuthservId?: string | null;
 }): Promise<RawInboundMessage> {
@@ -97,6 +100,26 @@ export async function toRawInboundMessage(args: {
   };
 }
 
+function envelopeAddresses(list: MessageEnvelopeObject["to"]): string[] {
+  return (list ?? []).map((a) => a.address ?? "").filter((a) => a !== "");
+}
+
+function headersOfEnvelope(
+  envelope: MessageEnvelopeObject,
+  internalDate: Date | undefined,
+): NonNullable<RejectedInboundMessage["headers"]> {
+  const sender = envelope.from?.[0];
+  const receivedAt = internalDate ?? coerceDate(envelope.date);
+  return {
+    from: sender?.address ?? "",
+    to: envelopeAddresses(envelope.to),
+    cc: envelopeAddresses(envelope.cc),
+    subject: envelope.subject ?? "",
+    messageIdHeader: envelope.messageId ? stripAngles(envelope.messageId) : null,
+    receivedAtIso: receivedAt ? legacyDateToInstant(receivedAt).toString() : "",
+  };
+}
+
 export type ParsedOrRejected =
   | { readonly message: RawInboundMessage }
   | { readonly rejected: RejectedInboundMessage };
@@ -118,6 +141,8 @@ export async function parseOrReject(
       rejected: {
         providerMessageId: buildProviderMessageId(args.uidValidity, args.uid),
         reason: "unparseable",
+        rawMime: args.source,
+        ...(args.envelope && { headers: headersOfEnvelope(args.envelope, args.internalDate) }),
       },
     };
   }

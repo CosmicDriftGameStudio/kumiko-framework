@@ -8,7 +8,7 @@
 //      operation, so O(n) is acceptable.
 //   2. Deletes the projection rows.
 //   3. For mail-account only, deletes unmanaged sync state (cursors,
-//      seen anchors, quarantine entries), which is keyed by accountId and must therefore be
+//      seen anchors, quarantine entries, ingest failure counters), which is keyed by accountId and must therefore be
 //      collected from the account rows BEFORE deletion.
 //
 // The actual PII erasure uses crypto-shredding: eraseSubjectKeys deletes the
@@ -24,6 +24,7 @@ import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_THREAD_AGGREGATE_TYPE,
 } from "./events.ts";
+import { ingestFailureTable } from "./ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
@@ -68,6 +69,7 @@ export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Prom
     await ctx.db.deleteMany(syncCursorTable, { accountId });
     await ctx.db.deleteMany(seenMessageTable, { accountId });
     await ctx.db.deleteMany(quarantineTable, { accountId });
+    await ctx.db.deleteMany(ingestFailureTable, { accountId });
   }
 }
 

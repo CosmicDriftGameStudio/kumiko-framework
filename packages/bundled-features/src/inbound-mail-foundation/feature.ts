@@ -1,13 +1,8 @@
 // kumiko-feature-version: 1
-//
 // inbound-mail-foundation — Plugin host for inbound e-mail
 // (inbox federation). Counterpart to mail-foundation (outbound): separate
 // extension points, separate state — architectural model is
 // file-foundation (the foundation owns state), not mail-transport.
-//
-// **Multi-provider from day one** (as with billing-foundation): NO global
-// `provider` config key. A tenant can connect IMAP and (later) M365/Gmail
-// mailboxes in parallel; the provider is specified per MailAccount.
 //
 // **What this foundation provides:**
 //   1. **Plugin API** for inbound providers via r.extendsRegistrar
@@ -15,25 +10,17 @@
 //   2. **3 event-sourced streams** — mail-account (lifecycle),
 //      inbound-message (exactly ONE received event per message, deterministic
 //      aggregateId ⇒ exactly-once despite at-least-once ingest),
-//      mail-thread (rollup). Full replayable history for later
-//      consumers (business processes: ticket, receipt, auto-reply).
+//      mail-thread (rollup), fully replayable for later consumers.
 //   3. **Inline projections** into read_mail_accounts /
 //      read_inbound_messages / read_mail_threads (read-your-own-write).
 //   4. **Write/query handlers**: connect/update/disconnect-account,
 //      ingest-message (programmatic, SystemAdmin), account:list +
 //      message:list (PII-decrypted, scope-filtered).
-//   5. **createInboundMailConnectRoutes**: OAuth connect + anonymous
-//      callback (outside /api/*), with HMAC-signed state.
-//   6. **createInboundMailSupervisor**: app-wired watch (IDLE)
-//      supervisor with backoff + reconciliation poll.
 //
 // **What this foundation does NOT do:**
 //   - No business semantics (intent, ticket, assignment, read/
 //     completed) — those belong to the app consumer (for example, via an
 //     event job on inbound-message-received + its own projection).
-//   - No body blob in the event store: the original and attachments go to
-//     file-foundation at ingest; the event carries only bodyRef and file ids.
-//   - No IMAP flag write-back (V1) — inbox status belongs to the consumer.
 //
 // **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
 // — encrypted BEFORE every event append (the only write path), event log AND
@@ -81,9 +68,11 @@ import { listMessagesQuery } from "./handlers/list-messages.query.ts";
 import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
 import { messageContentQuery } from "./handlers/message-content.query.ts";
 import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
+import { retryQuarantinedMessageHandler } from "./handlers/retry-quarantined-message.write.ts";
 import { setTrustedAuthservIdHandler } from "./handlers/set-trusted-authserv-id.write.ts";
 import { updateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
+import { ingestFailureTable } from "./ingest-failures.ts";
 import { registerMailboxProbe } from "./probe.ts";
 import {
   applyInboundMessageContentFetched,
@@ -156,10 +145,10 @@ export function createInboundMailFoundationFeature() {
         migrations: mailAccountMigrations,
       });
       // v1 mails carry the snippet only: bodyText "" and contentState "snippet" let the content
-      // refetch find them.
+      // refetch find them. v3 adds the reason a message has no content.
       r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
         piiFields: "none",
-        version: 2,
+        version: 3,
         migrations: [
           {
             fromVersion: 1,
@@ -175,12 +164,27 @@ export function createInboundMailFoundationFeature() {
               },
             },
           },
+          {
+            fromVersion: 2,
+            toVersion: 3,
+            transform: { default: { contentUnavailableReason: null } },
+          },
         ],
       });
       r.defineEvent(
         INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT,
         inboundMessageContentFetchedEventPayloadSchema,
-        { piiFields: "none" },
+        {
+          piiFields: "none",
+          version: 2,
+          migrations: [
+            {
+              fromVersion: 1,
+              toVersion: 2,
+              transform: { default: { contentUnavailableReason: null } },
+            },
+          ],
+        },
       );
       r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
         piiFields: "none",
@@ -242,6 +246,9 @@ export function createInboundMailFoundationFeature() {
       r.storeTable(quarantineTable, {
         reason: "read_side.mail_quarantine_direct_write",
       });
+      r.storeTable(ingestFailureTable, {
+        reason: "read_side.mail_ingest_failures_direct_write",
+      });
 
       // Write-Handler:
       //   - ingest-message: programmatic (Supervisor/Poll, SystemAdmin)
@@ -253,6 +260,7 @@ export function createInboundMailFoundationFeature() {
       r.writeHandler(reactivateAccountHandler);
       r.writeHandler(setTrustedAuthservIdHandler);
       r.writeHandler(acknowledgeQuarantineHandler);
+      r.writeHandler(retryQuarantinedMessageHandler);
       r.writeHandler(attachMessageContentHandler);
       r.writeHandler(markCredentialStoredHandler);
 

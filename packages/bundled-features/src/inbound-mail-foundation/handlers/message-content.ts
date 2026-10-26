@@ -5,7 +5,7 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { HandlerContext, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   configuredMaxUploadBytes,
   createFileRefFromBytes,
@@ -81,21 +81,62 @@ export function inboundMessageBodyKey(
   return `${tenantId}/inbound-mail/${accountId}/${messageAggId}.${extension}`;
 }
 
+export type OriginalToStore = {
+  readonly data: Uint8Array;
+  readonly extension: "eml" | "html";
+  readonly mimeType: string;
+};
+
+export function originalOf(input: InboundContentInput): OriginalToStore | undefined {
+  if (input.rawMime !== undefined) {
+    return { data: input.rawMime, extension: "eml", mimeType: "message/rfc822" };
+  }
+  if (input.bodyHtml === undefined) return undefined;
+  return {
+    data: new TextEncoder().encode(input.bodyHtml),
+    extension: "html",
+    mimeType: "text/html",
+  };
+}
+
+// The mail size limit is the cap; an app that configured a smaller upload limit keeps it, but the
+// 10 MB default of createFileRefFromBytes must not cut a 25 MB mail attachment that was accepted above.
+export function inboundAttachmentMaxSize(registry: Registry): number {
+  return Math.min(
+    INBOUND_ATTACHMENT_MAX_BYTES,
+    configuredMaxUploadBytes(registry) ?? INBOUND_ATTACHMENT_MAX_BYTES,
+  );
+}
+
+export function needsFileStorage(input: InboundContentInput): boolean {
+  const hasOriginal = input.rawMime !== undefined || input.bodyHtml !== undefined;
+  return (input.attachments ?? []).length > 0 || (input.bodyRef === "" && hasOriginal);
+}
+
+/** What a dispatcher without file storage makes of the content: nothing is stored, attachments are skipped. */
+export function contentWithoutFileStorage(input: InboundContentInput): StoredInboundContent {
+  const skipped = [...(input.skippedAttachments ?? [])];
+  for (const attachment of input.attachments ?? []) {
+    skipped.push({
+      mimeType: attachment.mimeType,
+      size: attachment.data.byteLength,
+      reason: "no_file_storage",
+    });
+  }
+  return {
+    bodyRef: input.bodyRef,
+    attachmentFileIds: [],
+    skippedAttachments: skipped.slice(0, INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT),
+    contentStorage: needsFileStorage(input) ? "unavailable" : "stored",
+  };
+}
+
 async function storeOriginal(
   files: FileContext,
   tenantId: string,
   input: InboundContentInput,
 ): Promise<string> {
-  const original =
-    input.rawMime !== undefined
-      ? { data: input.rawMime, extension: "eml" as const, mimeType: "message/rfc822" }
-      : input.bodyHtml !== undefined
-        ? {
-            data: new TextEncoder().encode(input.bodyHtml),
-            extension: "html" as const,
-            mimeType: "text/html",
-          }
-        : undefined;
+  const original = originalOf(input);
   if (!original) return "";
   const key = inboundMessageBodyKey(
     tenantId,
@@ -107,42 +148,21 @@ async function storeOriginal(
   return key;
 }
 
+// Nested dispatches (an app handler calling ingest-message) have no pre-transaction phase, so the
+// bytes are written here, inside the caller's transaction.
 export async function storeInboundMessageContent(
   ctx: ContentContext,
   input: InboundContentInput,
 ): Promise<StoredInboundContent> {
-  const attachments = input.attachments ?? [];
-  const skipped = [...(input.skippedAttachments ?? [])];
-  const hasOriginal = input.rawMime !== undefined || input.bodyHtml !== undefined;
-  const needsStorage = attachments.length > 0 || (input.bodyRef === "" && hasOriginal);
-
   const { files } = ctx.services;
-  if (!files) {
-    for (const attachment of attachments) {
-      skipped.push({
-        mimeType: attachment.mimeType,
-        size: attachment.data.byteLength,
-        reason: "no_file_storage",
-      });
-    }
-    return {
-      bodyRef: input.bodyRef,
-      attachmentFileIds: [],
-      skippedAttachments: skipped.slice(0, INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT),
-      contentStorage: needsStorage ? "unavailable" : "stored",
-    };
-  }
+  if (!files) return contentWithoutFileStorage(input);
 
+  const skipped = [...(input.skippedAttachments ?? [])];
   const bodyRef =
     input.bodyRef !== "" ? input.bodyRef : await storeOriginal(files, ctx.user.tenantId, input);
   const attachmentFileIds: string[] = [];
-  // The mail size limit is the cap; an app that configured a smaller upload limit keeps it, but the
-  // 10 MB default of createFileRefFromBytes must not cut a 25 MB mail attachment that was accepted above.
-  const maxSize = Math.min(
-    INBOUND_ATTACHMENT_MAX_BYTES,
-    configuredMaxUploadBytes(ctx.registry) ?? INBOUND_ATTACHMENT_MAX_BYTES,
-  );
-  for (const attachment of attachments) {
+  const maxSize = inboundAttachmentMaxSize(ctx.registry);
+  for (const attachment of input.attachments ?? []) {
     const created = await createFileRefFromBytes(ctx, {
       fileName: attachment.fileName,
       mimeType: attachment.mimeType,

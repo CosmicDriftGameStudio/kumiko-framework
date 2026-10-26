@@ -55,6 +55,7 @@ import { pollScheduleOf, withPollDeadline } from "./account-poll-schedule.ts";
 import { registerMailAccountWakeListener } from "./account-wake.ts";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.ts";
 import { describeError } from "./describe-error.ts";
+import { currentCountBucket } from "./ingest-failures.ts";
 import { createOAuthAccessTokenManager, usesFoundationManagedOAuth } from "./oauth-access-token.ts";
 import {
   isInboundAuthError,
@@ -237,7 +238,9 @@ export function createInboundMailSupervisor(
       log(`inbound-mail: account ${account.id} is still syncing, skipped this tick`);
     } else {
       await runExclusivePerAccount(inFlightSyncs, account.id, async () => {
-        await pollAccountWithDeadline(account, plugin, {});
+        await pollAccountWithDeadline(account, plugin, {
+          countBucket: currentCountBucket(deps.now, pollIntervalMs),
+        });
       });
       if (running) await ensureWatcher(account, plugin);
     }

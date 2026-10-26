@@ -46,6 +46,7 @@ import {
 } from "../entities.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { createInboundMailSupervisor, type RawInboundMessage } from "../index.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
@@ -88,6 +89,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

@@ -12,7 +12,11 @@ import {
   InboundMailLastErrors,
 } from "./constants.ts";
 import { hasOpenQuarantine } from "./quarantine.ts";
-import type { DispatchWrite, IngestBatchOutcome } from "./supervisor-ingest.ts";
+import type {
+  DispatchWrite,
+  IngestBatchOutcome,
+  IngestBlockedReason,
+} from "./supervisor-ingest.ts";
 import type { SyncableAccount } from "./syncable-accounts.ts";
 
 const FAILURES_BEFORE_DEGRADED = 3;
@@ -31,6 +35,11 @@ export type AccountHealth = {
     outcome: Pick<IngestBatchOutcome, "storageUnavailable" | "storageHealthy">,
   ) => Promise<void>;
   readonly onPollFailure: (account: SyncableAccount, kind: PollFailureKind) => Promise<void>;
+  /** The batch stopped before the cursor moved: the mailbox is not failing, a mail or the storage is. */
+  readonly onIngestBlocked: (
+    account: SyncableAccount,
+    blocked: IngestBlockedReason,
+  ) => Promise<void>;
 };
 
 export function createAccountHealth(deps: {
@@ -78,6 +87,16 @@ export function createAccountHealth(deps: {
         return apply(account, InboundMailLastErrors.fileStorageUnavailable);
       }
       return apply(account, null);
+    },
+    async onIngestBlocked(account, blocked) {
+      consecutiveFailures.delete(account.id);
+      if (blocked === "message_failing") {
+        deps.log(`inbound-mail: account ${account.id} waits for a failing message to be counted`);
+        // skip: counted, not failed; the status stays as it is
+        return;
+      }
+      storageUnavailable.add(account.id);
+      return apply(account, InboundMailLastErrors.fileStorageUnavailable);
     },
     async onPollFailure(account, kind) {
       const count = (consecutiveFailures.get(account.id) ?? 0) + 1;

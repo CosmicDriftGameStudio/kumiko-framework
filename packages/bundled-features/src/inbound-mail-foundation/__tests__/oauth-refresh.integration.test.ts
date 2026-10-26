@@ -48,6 +48,7 @@ import {
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
+  ingestFailureEntity,
   type MailAccountRecord,
   mailAccountsProjectionTable,
   type OAuthAccessTokenManager,
@@ -197,6 +198,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });

@@ -52,6 +52,7 @@ import {
   InboundMailFoundationHandlers,
   InboundRateLimitError,
   inboundMessagesProjectionTable,
+  ingestFailureEntity,
   mailAccountsProjectionTable,
   quarantineEntity,
   type RawInboundMessage,
@@ -80,6 +81,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

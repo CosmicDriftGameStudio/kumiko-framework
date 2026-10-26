@@ -136,6 +136,17 @@ export type SyncCursorPayload = Readonly<Record<string, unknown>>;
 export type RejectedInboundMessage = {
   readonly providerMessageId: string;
   readonly reason: "unparseable";
+  /** The original, when the provider has it; kept so the quarantined mail stays visible and retryable. */
+  readonly rawMime?: Uint8Array;
+  /** Envelope headers the provider could read without parsing the body. */
+  readonly headers?: {
+    readonly from: string;
+    readonly to: readonly string[];
+    readonly cc: readonly string[];
+    readonly subject: string;
+    readonly messageIdHeader: string | null;
+    readonly receivedAtIso: string;
+  };
 };
 
 export type InboundContentFetchResult = {

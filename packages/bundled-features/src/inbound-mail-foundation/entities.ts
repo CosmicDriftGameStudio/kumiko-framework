@@ -144,6 +144,12 @@ export const inboundMessageEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
+    // One of INBOUND_CONTENT_UNAVAILABLE_REASONS; null while the content is there or not yet missing.
+    contentUnavailableReason: createTextField({
+      maxLength: 30,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 

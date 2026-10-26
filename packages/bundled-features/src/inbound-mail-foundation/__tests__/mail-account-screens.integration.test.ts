@@ -27,6 +27,7 @@ import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../
 import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
 
@@ -48,6 +49,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

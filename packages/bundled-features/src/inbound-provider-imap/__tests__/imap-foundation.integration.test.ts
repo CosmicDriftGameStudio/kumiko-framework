@@ -50,6 +50,7 @@ import {
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   inboundCredentialSecretKey,
+  ingestFailureEntity,
   mailAccountsProjectionTable,
   quarantineEntity,
   seenMessageEntity,
@@ -126,6 +127,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });

@@ -16,6 +16,7 @@ import {
   setInboundFullContent,
 } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
+import { INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN } from "../events.ts";
 import {
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   InboundMailFoundationHandlers,
@@ -357,13 +358,46 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(2);
+    expect(upcast.eventVersion).toBe(3);
     expect(upcast.payload).toMatchObject({
       bodyText: "",
       bodyTextTruncated: false,
       attachmentFileIds: [],
       skippedAttachments: [],
       contentState: "snippet",
+      contentUnavailableReason: null,
     });
+  });
+
+  test("a v1 content-fetched event reads without an unavailable reason", async () => {
+    const upcasters = env.stack.registry.getEventUpcasters();
+    const v1: StoredEvent = {
+      id: "2",
+      aggregateId: "00000000-0000-4000-8000-0000000000a1",
+      aggregateType: "inbound-message",
+      tenantId: adminFor(6131).tenantId,
+      version: 2,
+      type: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+      eventVersion: 1,
+      payload: {
+        bodyRef: "",
+        bodyText: "",
+        bodyTextTruncated: false,
+        attachmentFileIds: [],
+        skippedAttachments: [],
+        contentState: "unavailable",
+      },
+      metadata: { userId: "1" },
+      createdAt: Temporal.Now.instant(),
+      createdBy: "1",
+    };
+
+    const upcast = await upcastStoredEvent(v1, upcasters, {
+      db: env.stack.db,
+      tenantId: v1.tenantId,
+    });
+
+    expect(upcast.eventVersion).toBe(2);
+    expect(upcast.payload).toMatchObject({ contentUnavailableReason: null });
   });
 });

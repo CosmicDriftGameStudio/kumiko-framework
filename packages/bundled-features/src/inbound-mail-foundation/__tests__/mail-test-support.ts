@@ -22,6 +22,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -41,6 +42,7 @@ import {
   createInboundMailSupervisor,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
+  ingestFailureEntity,
   quarantineEntity,
   type RawInboundMessage,
   seenMessageEntity,
@@ -54,13 +56,40 @@ export type MailTestStack = {
   readonly files: InMemoryFileProvider | null;
   /** Secrets store of the stack: disconnect removes the credential, reactivate requires one. */
   readonly secrets: ReturnType<typeof createSecretsContext>;
+  /** Makes every file write of the stack throw (true) or work again (false). */
+  readonly setFileStorageDown: (down: boolean) => void;
 };
+
+function breakableFileProvider(provider: InMemoryFileProvider) {
+  let down = false;
+  const failWhenDown = () => {
+    if (down) throw new Error("file storage is down");
+  };
+  const files: InMemoryFileProvider = {
+    ...provider,
+    write: async (...args) => {
+      failWhenDown();
+      return provider.write(...args);
+    },
+    writeStream: async (...args) => {
+      failWhenDown();
+      return provider.writeStream(...args);
+    },
+  };
+  return {
+    files,
+    setDown: (value: boolean) => {
+      down = value;
+    },
+  };
+}
 
 export async function setupMailStack(options: {
   readonly withFiles: boolean;
   readonly extraFeatures?: readonly FeatureDefinition[];
 }): Promise<MailTestStack> {
-  const files = options.withFiles ? createInMemoryFileProvider() : null;
+  const breakable = options.withFiles ? breakableFileProvider(createInMemoryFileProvider()) : null;
+  const files = breakable?.files ?? null;
   const masterKeyProvider = createEnvMasterKeyProvider({
     env: {
       KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
@@ -90,6 +119,7 @@ export async function setupMailStack(options: {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   // The test's own handle on the same store, for credentials written outside a request.
   const secrets = createSecretsContext({
@@ -97,7 +127,7 @@ export async function setupMailStack(options: {
     masterKeyProvider,
     registry: stack.registry,
   });
-  return { stack, files, secrets };
+  return { stack, files, secrets, setFileStorageDown: (down) => breakable?.setDown(down) };
 }
 
 /** Stores a credential for the account, as connect and reconnect do through the IMAP provider. */
@@ -178,6 +208,9 @@ export function createMailSupervisor(
   extra: {
     readonly log?: (line: string) => void;
     readonly accountPollDeadlineMs?: number;
+    readonly maxMessagesPerPoll?: number;
+    /** Clock of the failure-count bucket; tests advance it to simulate poll intervals. */
+    readonly now?: () => Temporal.Instant;
     /** Wraps the supervisor's own writes, e.g. to make ingest fail. */
     readonly wrapWrite?: (write: DispatchWrite) => DispatchWrite;
   } = {},

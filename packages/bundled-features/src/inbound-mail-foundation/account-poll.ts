@@ -11,7 +11,13 @@ import {
   isInboundRateLimitError,
 } from "./provider-errors.ts";
 import { quarantinedMessageIds } from "./quarantine.ts";
-import type { DispatchWrite, IngestBatchOutcome, MessageIngester } from "./supervisor-ingest.ts";
+import { retryQuarantinedMessages } from "./quarantine-retry.ts";
+import type {
+  DispatchWrite,
+  IngestBatchOutcome,
+  IngestBlockedReason,
+  MessageIngester,
+} from "./supervisor-ingest.ts";
 import type { PollAccountOptions, PollAccountResult } from "./sync-account-now.ts";
 import type { SyncCursorStore } from "./sync-cursor-store.ts";
 import type { SyncableAccount } from "./syncable-accounts.ts";
@@ -115,13 +121,41 @@ export function createAccountPoller(deps: AccountPollerDeps): {
     }
   }
 
+  async function retryQuarantineSafely(
+    account: SyncableAccount,
+    plugin: InboundMailProviderPlugin,
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
+    try {
+      const accessToken = await resolveAccessToken(account, plugin);
+      await retryQuarantinedMessages({
+        db: systemDb,
+        dispatchWrite: deps.dispatchWrite,
+        providerCtx,
+        account,
+        plugin,
+        accessToken,
+        signal,
+        log,
+      });
+    } catch (err) {
+      // Best effort: the sync itself succeeded, the flag stays and the next tick retries.
+      log(`inbound-mail: quarantine retry for account ${account.id} failed: ${describeError(err)}`);
+    }
+  }
+
   // Fetches and ingests batch after batch until the provider has no more or the message budget of
   // this tick is used up. An abandoned sync (deadline) throws out of the loop.
   async function ingestBatches(
     account: SyncableAccount,
     plugin: InboundMailProviderPlugin,
-    signal: AbortSignal | undefined,
-  ): Promise<{ storageUnavailable: boolean; storageHealthy: boolean }> {
+    options: PollAccountOptions,
+  ): Promise<{
+    storageUnavailable: boolean;
+    storageHealthy: boolean;
+    blocked?: IngestBlockedReason;
+  }> {
+    const { signal } = options;
     let cursor = await cursors.load(account.id);
     let budget = maxMessagesPerPoll;
     const totals = { storageUnavailable: false, storageHealthy: false };
@@ -141,9 +175,15 @@ export function createAccountPoller(deps: AccountPollerDeps): {
         result.messages,
         result.rejected ?? [],
         JSON.stringify(result.nextCursor),
+        {
+          ...(options.countBucket !== undefined && { countBucket: options.countBucket }),
+          ...(signal && { signal }),
+        },
       );
       totals.storageUnavailable ||= outcome.storageUnavailable;
       totals.storageHealthy ||= outcome.storageHealthy;
+      // Blocked: the cursor stays before the stuck mail, the next tick fetches it again.
+      if (outcome.blocked) return { ...totals, blocked: outcome.blocked };
       // A newer poll may already own the account; an abandoned one must not move its cursor back.
       signal?.throwIfAborted();
       await cursors.save(account, result.nextCursor);
@@ -160,7 +200,7 @@ export function createAccountPoller(deps: AccountPollerDeps): {
   ): Promise<PollAccountResult> {
     let totals: Awaited<ReturnType<typeof ingestBatches>>;
     try {
-      totals = await ingestBatches(account, plugin, options.signal);
+      totals = await ingestBatches(account, plugin, options);
     } catch (err) {
       // skip: an error caused by abandoning the sync is already counted as the deadline failure.
       if (options.signal?.aborted) return "done";
@@ -176,7 +216,12 @@ export function createAccountPoller(deps: AccountPollerDeps): {
     }
     // skip: abandoned during the last batch; the deadline already counted this poll as failed.
     if (options.signal?.aborted) return "done";
+    if (totals.blocked) {
+      await health.onIngestBlocked(account, totals.blocked);
+      return "done";
+    }
     await health.onPollSuccess(account, totals);
+    await retryQuarantineSafely(account, plugin, options.signal);
     await refetchContentSafely(account, plugin, options.signal);
     return "done";
   }

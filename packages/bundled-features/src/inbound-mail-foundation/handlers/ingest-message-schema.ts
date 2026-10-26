@@ -35,6 +35,8 @@ export const ingestMessageSchema = z.object({
    *  metadata.headers, never in the payload. */
   providerCursor: z.string().max(2000),
   senderAuthentication: senderAuthenticationFieldSchema.optional(),
+  /** Set when the message is imported from its headers only because it sits in quarantine. */
+  contentUnavailableReason: z.literal("quarantined").optional(),
   ...inboundContentPayloadShape,
 });
 export type IngestMessagePayload = z.infer<typeof ingestMessageSchema>;

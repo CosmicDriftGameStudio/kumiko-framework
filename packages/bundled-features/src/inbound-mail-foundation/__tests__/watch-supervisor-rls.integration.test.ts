@@ -47,6 +47,7 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
+  ingestFailureEntity,
   mailAccountsProjectionTable,
   quarantineEntity,
   seenMessageEntity,
@@ -73,6 +74,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 
   secretsDb = await createTestDb({ applicationRole: true });

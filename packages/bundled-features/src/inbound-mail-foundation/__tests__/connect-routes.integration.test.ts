@@ -42,6 +42,7 @@ import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
+  ingestFailureEntity,
   mailAccountsProjectionTable,
   type OAuthTokenSet,
   quarantineEntity,
@@ -137,6 +138,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -323,6 +325,7 @@ describe("connect-routes — oauth callback without a secrets context", () => {
     await unsafeCreateEntityTable(bareStack.db, syncCursorEntity);
     await unsafeCreateEntityTable(bareStack.db, seenMessageEntity);
     await unsafeCreateEntityTable(bareStack.db, quarantineEntity);
+    await unsafeCreateEntityTable(bareStack.db, ingestFailureEntity);
   });
 
   afterAll(async () => {

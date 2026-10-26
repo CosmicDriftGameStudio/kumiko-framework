@@ -44,11 +44,11 @@ describe("inboundMailFoundationFeature — shape", () => {
     ]);
   });
 
-  test("SyncCursor + SeenMessage + MailQuarantine are unmanaged (NOT event-sourced)", () => {
+  test("SyncCursor + SeenMessage + MailQuarantine + IngestFailure are unmanaged (NOT event-sourced)", () => {
     // If modeled as r.entity, the tick-state tables would flood the event log
     // and be wiped during projection rebuilds.
     const unmanaged = Object.keys(createInboundMailFoundationFeature().storeTables);
-    expect(unmanaged.length).toBe(3);
+    expect(unmanaged.length).toBe(4);
   });
 });
 

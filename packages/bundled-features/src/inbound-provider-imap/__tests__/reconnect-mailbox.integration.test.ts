@@ -22,6 +22,7 @@ import {
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  ingestFailureEntity,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -78,6 +79,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
 });

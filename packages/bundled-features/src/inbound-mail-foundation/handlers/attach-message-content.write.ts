@@ -1,9 +1,11 @@
 // attach-message-content — stores the content of a message that was imported as snippet only, after
 // the supervisor re-downloaded it. Appends one content-fetched event on the existing stream; no
-// thread rollup, no new message row. Runs nested-safe: no beforeTransaction.
+// thread rollup, no new message row. A header-only import from quarantine takes its content the
+// same way. Nested dispatches skip the pre-transaction upload and store in their own transaction.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, failNotFound, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { BeforeTransactionResult, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
@@ -12,6 +14,11 @@ import {
   type InboundContentState,
   type InboundMessageContentFetchedEventPayload,
 } from "../events.ts";
+import {
+  finalizePreparedContent,
+  type PreparedInboundContent,
+  prepareInboundContent,
+} from "./ingest-message-prepare.ts";
 import {
   contentStateOf,
   encryptMessageBodyText,
@@ -28,6 +35,8 @@ export const attachMessageContentSchema = z.object({
   ...inboundContentPayloadShape,
 });
 
+type AttachMessageContentPayload = z.infer<typeof attachMessageContentSchema>;
+
 const COMPLETE: InboundContentState = "complete";
 
 function hasContentAlready(events: readonly { type: string; payload: unknown }[]): boolean {
@@ -38,15 +47,66 @@ function hasContentAlready(events: readonly { type: string; payload: unknown }[]
   });
 }
 
-export const attachMessageContentHandler: WriteHandlerDef = {
+function contentInputOf(payload: AttachMessageContentPayload, messageAggId: string) {
+  return {
+    accountId: payload.accountId,
+    messageAggId,
+    bodyRef: "",
+    rawMime: payload.rawMime,
+    bodyHtml: payload.bodyHtml,
+    attachments: payload.attachments,
+    skippedAttachments: payload.skippedAttachments,
+  };
+}
+
+async function contentEventPayloadOf(
+  payload: AttachMessageContentPayload,
+  content: Awaited<ReturnType<typeof storeInboundMessageContent>> | undefined,
+  tenantId: Parameters<typeof encryptMessageBodyText>[0],
+  messageAggId: string,
+): Promise<InboundMessageContentFetchedEventPayload> {
+  const fetched = payload.outcome === "fetched";
+  return {
+    bodyRef: content?.bodyRef ?? "",
+    bodyText: await encryptMessageBodyText(tenantId, messageAggId, fetched ? payload.bodyText : ""),
+    bodyTextTruncated: fetched && payload.bodyTextTruncated,
+    attachmentFileIds: content?.attachmentFileIds ?? [],
+    skippedAttachments: content?.skippedAttachments ?? [],
+    contentState: content
+      ? contentStateOf({
+          bodyText: payload.bodyText,
+          hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
+          contentStorage: content.contentStorage,
+        })
+      : "unavailable",
+    contentUnavailableReason: !content
+      ? "gone_from_server"
+      : content.contentStorage === "unavailable"
+        ? "no_file_storage"
+        : null,
+  };
+}
+
+export const attachMessageContentHandler = defineWriteHandler({
   name: "attach-message-content",
   schema: attachMessageContentSchema,
   access: { roles: ["SystemAdmin"] },
   agent: { expose: false },
   description:
-    "Stores the full text, original and attachments of an already imported snippet-only mail, or marks its content as unavailable when the provider no longer has it; called by the sync supervisor, a second call for the same mail is a no-op.",
-  handler: async (event, ctx) => {
-    const payload = attachMessageContentSchema.parse(event.payload);
+    "Stores the full text, original and attachments of an already imported snippet-only or quarantined mail, or marks its content as unavailable when the provider no longer has it; called by the sync supervisor, a second call for the same mail is a no-op.",
+  beforeTransactionWhenNested: "skip",
+  beforeTransaction: async (
+    event,
+    ctx,
+  ): Promise<BeforeTransactionResult<PreparedInboundContent | undefined>> => {
+    const { payload } = event;
+    if (payload.outcome !== "fetched") return { isSuccess: true, data: undefined };
+    const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
+    return prepareInboundContent(ctx, contentInputOf(payload, messageAggId));
+  },
+  handler: async (event, ctx): Promise<WriteResult<{ readonly duplicate: boolean }>> => {
+    const { payload } = event;
+    const prepared: PreparedInboundContent | undefined = event.prepared;
     const tenantId = event.user.tenantId;
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
 
@@ -57,36 +117,13 @@ export const attachMessageContentHandler: WriteHandlerDef = {
       return { isSuccess: true as const, data: { duplicate: true as const } };
     }
 
-    const fetched = payload.outcome === "fetched";
-    const content = fetched
-      ? await storeInboundMessageContent(ctx, {
-          accountId: payload.accountId,
-          messageAggId,
-          bodyRef: "",
-          rawMime: payload.rawMime,
-          bodyHtml: payload.bodyHtml,
-          attachments: payload.attachments,
-          skippedAttachments: payload.skippedAttachments,
-        })
-      : undefined;
-    const eventPayload: InboundMessageContentFetchedEventPayload = {
-      bodyRef: content?.bodyRef ?? "",
-      bodyText: await encryptMessageBodyText(
-        tenantId,
-        messageAggId,
-        fetched ? payload.bodyText : "",
-      ),
-      bodyTextTruncated: fetched && payload.bodyTextTruncated,
-      attachmentFileIds: content?.attachmentFileIds ?? [],
-      skippedAttachments: content?.skippedAttachments ?? [],
-      contentState: content
-        ? contentStateOf({
-            bodyText: payload.bodyText,
-            hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
-            contentStorage: content.contentStorage,
-          })
-        : "unavailable",
-    };
+    const content =
+      payload.outcome !== "fetched"
+        ? undefined
+        : prepared
+          ? await finalizePreparedContent(ctx, prepared)
+          : await storeInboundMessageContent(ctx, contentInputOf(payload, messageAggId));
+    const eventPayload = await contentEventPayloadOf(payload, content, tenantId, messageAggId);
     const appended = await ctx.events.tryAppend({
       aggregateId: messageAggId,
       aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
@@ -102,4 +139,4 @@ export const attachMessageContentHandler: WriteHandlerDef = {
     }
     return { isSuccess: true as const, data: { duplicate: false as const } };
   },
-};
+});

@@ -55,7 +55,7 @@ export async function fetchMessageContent(
     if (idByUid.size > 0) {
       for await (const msg of client.fetch(
         [...idByUid.keys()].join(","),
-        { uid: true, internalDate: true, source: true },
+        { uid: true, internalDate: true, source: true, envelope: true },
         { uid: true },
       )) {
         if (!msg.source) continue;
@@ -64,6 +64,7 @@ export async function fetchMessageContent(
           uid: msg.uid,
           uidValidity: serverUidValidity,
           internalDate: coerceDate(msg.internalDate ?? undefined),
+          envelope: msg.envelope,
         });
         idByUid.delete(msg.uid);
         if ("message" in parsed) messages.push(parsed.message);

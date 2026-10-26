@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { OAuthAccessTokenManager } from "./oauth-access-token.ts";
 import type { InboundMailContext, MailAccountRecord, RawInboundMessage } from "./types.ts";
 
@@ -26,6 +27,8 @@ export type InboundMailSupervisorDeps = {
    *  (bodyRef = "" here lets it pick the deterministic key). */
   readonly storeBody?: (account: MailAccountRecord, msg: RawInboundMessage) => Promise<string>;
   readonly pollIntervalMs?: number;
+  /** Clock for the failure-count bucket of a tick; tests inject a fake one. */
+  readonly now?: () => Temporal.Instant;
   readonly backfillWindowDays?: number;
   readonly maxMessagesPerPoll?: number;
   /** Accounts synced side by side within one tick. Default 4. */

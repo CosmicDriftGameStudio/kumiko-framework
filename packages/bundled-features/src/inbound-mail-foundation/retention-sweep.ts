@@ -20,6 +20,10 @@
 //     directly through the table's tenant_id column (table-builder convention),
 //     without an Account join.
 //
+//   store_mail_ingest_failures (unmanaged): counters of mails the ingest could not take. A counter
+//     whose mail never failed again (it went through or was quarantined, which clear it) is stale
+//     after the seen retention.
+//
 //   store_mail_quarantine (unmanaged): acknowledged entries are purged after
 //     QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS; unacknowledged ones stay, they
 //     keep the mailbox flagged until someone looked at them.
@@ -43,6 +47,7 @@ import {
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
+import { ingestFailureTable } from "./ingest-failures.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
 import { QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS } from "./quarantine.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
@@ -77,6 +82,7 @@ export interface InboundRetentionReport {
   readonly bodyObjectErrors: number;
   readonly seenPurged: number;
   readonly quarantinePurged: number;
+  readonly ingestFailuresPurged: number;
 }
 
 export async function runInboundMailRetention(
@@ -98,7 +104,12 @@ export async function runInboundMailRetention(
     acknowledgedAt: { lt: quarantineCutoff },
   });
 
-  return { ...messages, seenPurged, quarantinePurged };
+  const ingestFailuresPurged = await deleteMany(args.db, ingestFailureTable, {
+    tenantId: args.tenantId,
+    lastFailedAt: { lt: seenCutoff },
+  });
+
+  return { ...messages, seenPurged, quarantinePurged, ingestFailuresPurged };
 }
 
 type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null };
@@ -106,7 +117,9 @@ type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null 
 async function purgeExpiredMessages(
   args: InboundRetentionArgs,
   cutoff: Instant,
-): Promise<Omit<InboundRetentionReport, "seenPurged" | "quarantinePurged">> {
+): Promise<
+  Omit<InboundRetentionReport, "seenPurged" | "quarantinePurged" | "ingestFailuresPurged">
+> {
   let messagesPurged = 0;
   let bodyObjectsDeleted = 0;
   let bodyObjectErrors = 0;

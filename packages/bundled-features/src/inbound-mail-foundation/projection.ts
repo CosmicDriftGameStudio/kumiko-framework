@@ -134,6 +134,7 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
       skippedAttachments: JSON.stringify(p.skippedAttachments),
       senderAuthentication: JSON.stringify(p.senderAuthentication),
       contentState: p.contentState,
+      contentUnavailableReason: p.contentUnavailableReason,
     });
   },
 );
@@ -152,6 +153,7 @@ export const applyInboundMessageContentFetched =
         attachmentFileIds: JSON.stringify(p.attachmentFileIds),
         skippedAttachments: JSON.stringify(p.skippedAttachments),
         contentState: p.contentState,
+        contentUnavailableReason: p.contentUnavailableReason,
       },
       { id: event.aggregateId },
     );

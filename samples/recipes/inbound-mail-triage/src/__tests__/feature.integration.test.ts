@@ -22,6 +22,7 @@ import {
   createInboundMailFoundationFeature,
   InboundMailFoundationHandlers,
   inboundMessageEntity,
+  ingestFailureEntity,
   mailAccountEntity,
   mailThreadEntity,
   quarantineEntity,
@@ -70,6 +71,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
   await unsafeCreateEntityTable(testDb.db, quarantineEntity);
+  await unsafeCreateEntityTable(testDb.db, ingestFailureEntity);
 });
 
 afterAll(async () => {

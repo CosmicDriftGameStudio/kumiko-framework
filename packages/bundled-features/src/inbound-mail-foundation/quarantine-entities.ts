@@ -44,6 +44,10 @@ export const quarantineEntity = createEntity({
     acknowledgedAt: createTimestampField({
       access: { write: access.privileged },
     }),
+    // Set by retry-quarantined-message; the next successful sync of the mailbox reloads the mail and clears the row.
+    retryRequestedAt: createTimestampField({
+      access: { write: access.privileged },
+    }),
   },
 });
 

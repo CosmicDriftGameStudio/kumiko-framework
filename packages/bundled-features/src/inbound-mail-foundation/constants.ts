@@ -24,6 +24,8 @@ export const InboundMailFoundationHandlers = {
    *  and degraded. update-account keeps rejecting disconnected accounts. */
   reactivateAccount: "inbound-mail-foundation:write:reactivate-account",
   setTrustedAuthservId: "inbound-mail-foundation:write:set-trusted-authserv-id",
+  /** Owner or admin asks for one quarantined mail to be loaded again on the next sync. */
+  retryQuarantinedMessage: "inbound-mail-foundation:write:retry-quarantined-message",
   /** Marks all open quarantine entries of a mailbox as acknowledged. */
   acknowledgeQuarantine: "inbound-mail-foundation:write:acknowledge-quarantine",
   /** Supervisor-only: stores the content of an already imported snippet mail. */

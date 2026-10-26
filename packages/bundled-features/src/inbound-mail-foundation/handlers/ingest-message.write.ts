@@ -27,7 +27,8 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity, seenMessageTable } from "../entities.ts";
@@ -37,7 +38,12 @@ import {
   type InboundMessageEventHeaders,
   type InboundMessageEventPayload,
 } from "../events.ts";
-import { type IngestMessagePayload, ingestMessageSchema } from "./ingest-message-schema.ts";
+import {
+  finalizePreparedContent,
+  type PreparedIngest,
+  prepareIngestMessage,
+} from "./ingest-message-prepare.ts";
+import { ingestMessageSchema } from "./ingest-message-schema.ts";
 import {
   contentStateOf,
   MESSAGE_LOCK_NAMESPACE,
@@ -47,7 +53,17 @@ import { appendThreadRollup, buildThreadKey } from "./thread-rollup.ts";
 
 const THREAD_ROLLUP_ADVISORY_LOCK_REASON =
   "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API";
-export const ingestMessageHandler: WriteHandlerDef = {
+type IngestMessageData =
+  | { readonly duplicate: true; readonly inboundMessageAggregateId: string }
+  | {
+      readonly duplicate: false;
+      readonly inboundMessageAggregateId: string;
+      readonly threadAggregateId: string;
+      readonly threadKey: string;
+      readonly contentStorage: "stored" | "unavailable";
+    };
+
+export const ingestMessageHandler = defineWriteHandler({
   name: "ingest-message",
   schema: ingestMessageSchema,
   access: { roles: ["SystemAdmin"] },
@@ -56,9 +72,11 @@ export const ingestMessageHandler: WriteHandlerDef = {
     grants: ["unsafeRaw"],
     reason: THREAD_ROLLUP_ADVISORY_LOCK_REASON,
   },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as IngestMessagePayload;
+  // Nested (an app handler dispatching ingest-message) there is no phase; the handler then stores in its own transaction.
+  beforeTransactionWhenNested: "skip",
+  beforeTransaction: prepareIngestMessage,
+  handler: async (event, ctx): Promise<WriteResult<IngestMessageData>> => {
+    const { payload } = event;
     const tenantId = event.user.tenantId;
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
 
@@ -110,15 +128,22 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    (primitives only, upcaster-safe). If no KMS is configured, pass
     //    through plaintext (engine-off behavior).
     // ---------------------------------------------------------------
-    const content = await storeInboundMessageContent(ctx, {
-      accountId: payload.accountId,
-      messageAggId,
-      bodyRef: payload.bodyRef,
-      rawMime: payload.rawMime,
-      bodyHtml: payload.bodyHtml,
-      attachments: payload.attachments,
-      skippedAttachments: payload.skippedAttachments,
-    });
+    const prepared: PreparedIngest | undefined = event.prepared;
+    const content =
+      prepared?.duplicate === false
+        ? await finalizePreparedContent(ctx, prepared.content)
+        : await storeInboundMessageContent(ctx, {
+            accountId: payload.accountId,
+            messageAggId,
+            bodyRef: payload.bodyRef,
+            rawMime: payload.rawMime,
+            bodyHtml: payload.bodyHtml,
+            attachments: payload.attachments,
+            skippedAttachments: payload.skippedAttachments,
+          });
+    const contentUnavailableReason =
+      payload.contentUnavailableReason ??
+      (content.contentStorage === "unavailable" ? ("no_file_storage" as const) : null);
     const piiKms = configuredPiiSubjectKms();
     const messagePlainPii = {
       tenantId,
@@ -162,11 +187,15 @@ export const ingestMessageHandler: WriteHandlerDef = {
       bodyTextTruncated: payload.bodyTextTruncated,
       attachmentFileIds: content.attachmentFileIds,
       skippedAttachments: content.skippedAttachments,
-      contentState: contentStateOf({
-        bodyText: payload.bodyText,
-        hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
-        contentStorage: content.contentStorage,
-      }),
+      contentState:
+        payload.contentUnavailableReason !== undefined
+          ? "unavailable"
+          : contentStateOf({
+              bodyText: payload.bodyText,
+              hasOriginal: payload.rawMime !== undefined || payload.bodyHtml !== undefined,
+              contentStorage: content.contentStorage,
+            }),
+      contentUnavailableReason,
     };
     const messageHeaders: InboundMessageEventHeaders = {
       providerMessageId: payload.providerMessageId,
@@ -224,4 +253,4 @@ export const ingestMessageHandler: WriteHandlerDef = {
       },
     };
   },
-};
+});

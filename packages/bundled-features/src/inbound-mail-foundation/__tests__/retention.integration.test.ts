@@ -33,6 +33,7 @@ import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
 import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
 import { runInboundMailRetention } from "../retention-sweep.ts";
@@ -57,6 +58,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

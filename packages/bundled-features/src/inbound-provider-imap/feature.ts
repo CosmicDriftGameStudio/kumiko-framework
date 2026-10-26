@@ -52,7 +52,7 @@ import {
   mapImapError,
   parseImapCursor,
 } from "./imap-client.ts";
-import { coerceDate, parseOrReject } from "./parse-message.ts";
+import { buildProviderMessageId, coerceDate, parseOrReject } from "./parse-message.ts";
 import { reconnectMailboxHandler } from "./reconnect-mailbox.ts";
 import { reconnectPrefillQuery } from "./reconnect-prefill.query.ts";
 import { imapConnectScreen, imapReconnectScreen } from "./screens.ts";
@@ -66,6 +66,17 @@ export { setImapMailHostLookup } from "./imap-client.ts";
 // fetch — inkrementeller UID-Sync
 // =============================================================================
 
+async function unknownUidsOf(
+  uids: readonly number[],
+  uidValidity: string,
+  filterUnknownMessageIds: (ids: readonly string[]) => Promise<ReadonlySet<string>>,
+): Promise<number[]> {
+  const unknownIds = await filterUnknownMessageIds(
+    uids.map((uid) => buildProviderMessageId(uidValidity, uid)),
+  );
+  return uids.filter((uid) => unknownIds.has(buildProviderMessageId(uidValidity, uid)));
+}
+
 async function fetchMessages(
   ctx: InboundMailContext,
   account: MailAccountRecord,
@@ -73,6 +84,7 @@ async function fetchMessages(
   opts: {
     readonly backfillWindowDays: number;
     readonly maxMessages: number;
+    readonly filterUnknownMessageIds?: (ids: readonly string[]) => Promise<ReadonlySet<string>>;
     readonly signal?: AbortSignal;
   },
 ): Promise<InboundFetchResult> {
@@ -103,20 +115,25 @@ async function fetchMessages(
     }
     uids.sort((a, b) => a - b);
 
-    const batch = uids.slice(0, opts.maxMessages);
-    const hasMore = uids.length > batch.length;
-    const { messages, rejected, maxUid } = await downloadBatch(
+    // Known mails (ingested or quarantined) are not downloaded again; the cursor still moves past them.
+    const unknown = opts.filterUnknownMessageIds
+      ? await unknownUidsOf(uids, serverUidValidity, opts.filterUnknownMessageIds)
+      : uids;
+    const batch = unknown.slice(0, opts.maxMessages);
+    const hasMore = unknown.length > batch.length;
+    const { messages, rejected } = await downloadBatch(
       client,
       batch,
       serverUidValidity,
-      parsedCursor?.lastUid ?? 0,
       account.trustedAuthservId ?? null,
     );
+    // From the UIDs, not from what was downloaded: a known or skipped mail must not hold the cursor back.
+    const lastUid = Math.max(parsedCursor?.lastUid ?? 0, ...(hasMore ? batch : uids));
 
     return {
       messages,
       ...(rejected.length > 0 && { rejected }),
-      nextCursor: { uidValidity: serverUidValidity, lastUid: maxUid },
+      nextCursor: { uidValidity: serverUidValidity, lastUid },
       hasMore,
     };
   } catch (err) {

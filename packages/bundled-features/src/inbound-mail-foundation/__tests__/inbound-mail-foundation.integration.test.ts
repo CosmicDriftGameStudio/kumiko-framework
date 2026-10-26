@@ -62,6 +62,7 @@ import {
 } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { ingestMessageHandler } from "../handlers/ingest-message.write.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
@@ -94,6 +95,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   // PII fields are tenantOwned; handlers call configuredPiiSubjectKms()
   // directly (raw r.projection, without executor wiring), as run{Prod,Dev}App
   // does at boot.
@@ -449,6 +451,7 @@ describe("ingest-message — thread-rollup retry exhaustion", () => {
         {
           type: InboundMailFoundationHandlers.ingestMessage,
           user: admin,
+          prepared: undefined,
           payload: {
             ...ingestPayload(accountId, { providerMessageId: "exhaustion-1", messageIdHeader }),
             // The handler is called directly, so the schema defaults do not apply.

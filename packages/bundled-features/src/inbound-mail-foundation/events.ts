@@ -93,6 +93,14 @@ export type MailAccountEventPayload = z.infer<typeof mailAccountEventPayloadSche
 export const INBOUND_CONTENT_STATES = ["complete", "snippet", "unavailable"] as const;
 export type InboundContentState = (typeof INBOUND_CONTENT_STATES)[number];
 
+/** Why a message has no content: held back by the quarantine (retry possible), no file storage wired, or gone from the server. */
+export const INBOUND_CONTENT_UNAVAILABLE_REASONS = [
+  "quarantined",
+  "no_file_storage",
+  "gone_from_server",
+] as const;
+export type InboundContentUnavailableReason = (typeof INBOUND_CONTENT_UNAVAILABLE_REASONS)[number];
+
 export const skippedAttachmentSchema = z.object({
   mimeType: z.string().max(255),
   size: z.number().int().min(0),
@@ -105,7 +113,7 @@ export const skippedAttachmentSchema = z.object({
   ]),
 });
 
-// Shared by inbound-message-received (v2) and inbound-message-content-fetched.
+// Shared by inbound-message-received (v2+) and inbound-message-content-fetched.
 // bodyText is ciphertext: 32_000 characters become roughly 75 KB, hence the generous max.
 const inboundMessageContentShape = {
   bodyText: z.string().max(200_000),
@@ -115,6 +123,7 @@ const inboundMessageContentShape = {
   attachmentFileIds: z.array(z.uuid()).max(50),
   skippedAttachments: z.array(skippedAttachmentSchema).max(200),
   contentState: z.enum(INBOUND_CONTENT_STATES),
+  contentUnavailableReason: z.enum(INBOUND_CONTENT_UNAVAILABLE_REASONS).nullable(),
 };
 
 // ============================================================================

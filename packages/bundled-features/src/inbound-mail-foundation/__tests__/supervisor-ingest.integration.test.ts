@@ -1,14 +1,21 @@
-// A failing ingest must never push good mail into quarantine: an outage (every ingest fails) leaves
-// the cursor and the quarantine alone, a single poison mail between good ones is quarantined after
-// three counted ticks and the cursor then moves on. stop() waits for syncs that are still running.
+// A failing ingest must never push good mail into quarantine and a poison mail must never block its
+// mailbox for good. The failure count is persisted and counted once per poll interval (injected
+// clock), so replicas and restarts see the same count: a poison mail is quarantined after three
+// counted ticks and the cursor moves on, a file storage outage counts nothing at all.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
+  InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
+  InboundMailLastErrors,
   inboundMessagesProjectionTable,
+  ingestFailureTable,
+  mailAccountsProjectionTable,
   quarantineTable,
   syncCursorTable,
 } from "../index.ts";
@@ -22,10 +29,12 @@ import {
   setupMailStack,
 } from "./mail-test-support.ts";
 
+const POLL_INTERVAL_MS = 600_000;
+
 let env: MailTestStack;
 
 beforeAll(async () => {
-  env = await setupMailStack({ withFiles: false });
+  env = await setupMailStack({ withFiles: true });
 });
 
 afterAll(async () => {
@@ -35,49 +44,96 @@ afterAll(async () => {
 
 beforeEach(() => {
   resetInboundInMemory();
+  env.setFileStorageDown(false);
 });
 
 const INGEST_FAILURE = { isSuccess: false, error: { code: "internal_error" } } as const;
 
+// The header import of a quarantined mail goes through the same handler: it must not fail with it.
 function failIngestWhen(shouldFail: (providerMessageId: string) => boolean) {
   return (write: DispatchWrite): DispatchWrite =>
     (args) => {
       if (args.handlerQn === InboundMailFoundationHandlers.ingestMessage) {
-        const id = (args.payload as { providerMessageId: string }).providerMessageId;
-        if (shouldFail(id)) return Promise.resolve(INGEST_FAILURE);
+        const payload = args.payload as {
+          providerMessageId: string;
+          contentUnavailableReason?: string;
+        };
+        if (
+          payload.contentUnavailableReason !== "quarantined" &&
+          shouldFail(payload.providerMessageId)
+        ) {
+          return Promise.resolve(INGEST_FAILURE);
+        }
       }
       return write(args);
     };
 }
 
+function tickClock() {
+  let tick = 1;
+  return {
+    now: () => Temporal.Instant.fromEpochMilliseconds(tick * POLL_INTERVAL_MS + 1),
+    nextInterval: () => {
+      tick += 1;
+    },
+  };
+}
+
+async function accountRow(accountId: string) {
+  const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, { id: accountId });
+  return row;
+}
+
+async function importedRows(accountId: string) {
+  return selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId });
+}
+
 describe("ingest failures", () => {
-  test("an outage over many ticks quarantines nothing and keeps the cursor", async () => {
-    const admin = adminFor(6601);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
+  test("when every ingest fails, one mail per counted tick moves towards quarantine, never the whole batch", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6601));
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "a-1", text: "one" }));
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "a-2", text: "two" }));
-    const supervisor = createMailSupervisor(env.stack, { wrapWrite: failIngestWhen(() => true) });
-
-    for (let tick = 0; tick < 5; tick++) await supervisor.pollOnce();
-
-    expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
-    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
-  });
-
-  test("a single poison mail between good ones is quarantined after three ticks, then the cursor moves", async () => {
-    const admin = adminFor(6602);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-1", text: "good" }));
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-poison", text: "bad" }));
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-3", text: "good too" }));
+    const clock = tickClock();
     const supervisor = createMailSupervisor(env.stack, {
-      wrapWrite: failIngestWhen((id) => id === "b-poison"),
+      wrapWrite: failIngestWhen(() => true),
+      now: clock.now,
     });
 
     for (let tick = 1; tick <= 2; tick++) {
       await supervisor.pollOnce();
+      clock.nextInterval();
+    }
+    expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
+    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
+
+    await supervisor.pollOnce();
+
+    expect(
+      (await selectMany(env.stack.db, quarantineTable, { accountId })).map(
+        (row) => row["providerMessageId"],
+      ),
+    ).toEqual(["a-1"]);
+    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
+  });
+
+  test("a poison mail as the newest mail is quarantined after three ticks and stays visible", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6602));
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-1", text: "good" }));
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-poison", text: "bad" }));
+    const clock = tickClock();
+    const supervisor = createMailSupervisor(env.stack, {
+      wrapWrite: failIngestWhen((id) => id === "b-poison"),
+      now: clock.now,
+    });
+
+    for (let tick = 1; tick <= 2; tick++) {
+      await supervisor.pollOnce();
+      clock.nextInterval();
       expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
       expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
+      expect((await accountRow(accountId))?.["lastError"]).not.toBe(
+        InboundMailLastErrors.connectionFailed,
+      );
     }
     await supervisor.pollOnce();
 
@@ -85,29 +141,136 @@ describe("ingest failures", () => {
     expect(quarantined.map((row) => row["providerMessageId"])).toEqual(["b-poison"]);
     expect(quarantined[0]?.["reasonCode"]).toBe("ingest_failed");
     expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toHaveLength(1);
-    const imported = await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId });
-    expect(imported).toHaveLength(2);
+    const account = await accountRow(accountId);
+    expect(account?.["lastError"]).toBe(InboundMailLastErrors.messageQuarantined);
+    expect(account?.["status"]).toBe(InboundMailAccountStatuses.degraded);
+    const rows = await importedRows(accountId);
+    expect(rows).toHaveLength(2);
+    const header = rows.find(
+      (row) => row["id"] === inboundMessageAggregateId(accountId, "b-poison"),
+    );
+    expect(header?.["contentState"]).toBe("unavailable");
+    expect(header?.["contentUnavailableReason"]).toBe("quarantined");
+    expect(await selectMany(env.stack.db, ingestFailureTable, { accountId })).toEqual([]);
   });
 
-  test("a failing last mail of the batch has no successor and is never counted", async () => {
-    const admin = adminFor(6603);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "c-1", text: "good" }));
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "c-last", text: "bad" }));
+  test("a poison mail at the end of a full batch does not hold back the mails behind it", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6603));
+    const batchSize = 20;
+    for (let position = 1; position <= batchSize + 5; position++) {
+      const providerMessageId = position === batchSize ? "c-poison" : `c-${position}`;
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId, text: `mail ${position}` }));
+    }
+    const clock = tickClock();
     const supervisor = createMailSupervisor(env.stack, {
-      wrapWrite: failIngestWhen((id) => id === "c-last"),
+      wrapWrite: failIngestWhen((id) => id === "c-poison"),
+      maxMessagesPerPoll: batchSize,
+      now: clock.now,
     });
 
-    for (let tick = 0; tick < 5; tick++) await supervisor.pollOnce();
+    for (let tick = 1; tick <= 3; tick++) {
+      await supervisor.pollOnce();
+      clock.nextInterval();
+    }
+
+    // The message budget of the quarantining tick is used up; the five mails behind it follow next tick.
+    clock.nextInterval();
+    await supervisor.pollOnce();
+
+    expect(
+      (await selectMany(env.stack.db, quarantineTable, { accountId })).map(
+        (row) => row["providerMessageId"],
+      ),
+    ).toEqual(["c-poison"]);
+    // 24 good mails plus the header of the poison mail; the five behind it came with the next batch.
+    expect(await importedRows(accountId)).toHaveLength(batchSize + 5);
+  });
+
+  test("two polls in the same interval count a failure once", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6604));
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "d-poison", text: "bad" }));
+    const clock = tickClock();
+    const supervisor = createMailSupervisor(env.stack, {
+      wrapWrite: failIngestWhen(() => true),
+      now: clock.now,
+    });
+
+    await supervisor.pollOnce();
+    await supervisor.pollOnce();
+    await supervisor.pollOnce();
+
+    const counters = await selectMany(env.stack.db, ingestFailureTable, { accountId });
+    expect(counters.map((row) => row["failureCount"])).toEqual([1]);
+    expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
+  });
+
+  test("a manual sync and a wake sync never count", async () => {
+    const supervisor = createMailSupervisor(env.stack, {
+      wrapWrite: failIngestWhen((id) => id === "e-poison"),
+    });
+    await supervisor.start();
+    try {
+      const accountId = await connectInMemoryAccount(env.stack, adminFor(6605));
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "e-1", text: "good" }));
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: "e-poison", text: "bad" }));
+      // The connect event wakes the supervisor of the process.
+      await env.stack.eventDispatcher?.runOnce();
+      await waitFor(async () => {
+        expect(await importedRows(accountId)).toHaveLength(1);
+      });
+
+      for (let sync = 0; sync < 4; sync++) await supervisor.syncAccountNow(accountId);
+
+      expect(await selectMany(env.stack.db, ingestFailureTable, { accountId })).toEqual([]);
+      expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
+    } finally {
+      await supervisor.stop();
+    }
+  });
+});
+
+describe("file storage outage", () => {
+  test("keeps the cursor, never quarantines, and the mails come in once storage is back", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6606));
+    const original = new TextEncoder().encode("From: a@example.com\r\n\r\nbody");
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "f-1", text: "one", rawMime: original }),
+    );
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "f-2", text: "two", rawMime: original }),
+    );
+    const clock = tickClock();
+    const supervisor = createMailSupervisor(env.stack, { now: clock.now });
+    env.setFileStorageDown(true);
+
+    for (let tick = 0; tick < 5; tick++) {
+      await supervisor.pollOnce();
+      clock.nextInterval();
+    }
 
     expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
+    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
+    expect(await selectMany(env.stack.db, ingestFailureTable, { accountId })).toEqual([]);
+    expect(await importedRows(accountId)).toEqual([]);
+    const outage = await accountRow(accountId);
+    expect(outage?.["lastError"]).toBe(InboundMailLastErrors.fileStorageUnavailable);
+
+    env.setFileStorageDown(false);
+    await supervisor.pollOnce();
+
+    expect(await importedRows(accountId)).toHaveLength(2);
+    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toHaveLength(1);
+    const recovered = await accountRow(accountId);
+    expect(recovered?.["status"]).toBe(InboundMailAccountStatuses.active);
+    expect(recovered?.["lastError"] ?? null).toBeNull();
   });
 });
 
 describe("stop", () => {
   test("waits for a sync that is still running", async () => {
-    const admin = adminFor(6610);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6610));
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "s-1", text: "slow" }));
     const release = Promise.withResolvers<void>();
     const reached = Promise.withResolvers<void>();
@@ -135,8 +298,6 @@ describe("stop", () => {
     await sync;
     await stopping;
     expect(stopped).toBe(true);
-    expect(
-      await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId }),
-    ).toHaveLength(1);
+    expect(await importedRows(accountId)).toHaveLength(1);
   });
 });

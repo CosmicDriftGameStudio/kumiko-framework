@@ -87,7 +87,9 @@ describe("parsed fixtures", () => {
       internalDate: undefined,
     });
 
-    expect(result).toEqual({ rejected: { providerMessageId: "7:9", reason: "unparseable" } });
+    expect(result).toEqual({
+      rejected: { providerMessageId: "7:9", reason: "unparseable", rawMime: source },
+    });
   });
 });
 
@@ -157,5 +159,43 @@ describe("forward depth", () => {
     if (!("message" in result)) throw new Error("rejected");
     expect(result.message.attachments).toEqual([]);
     expect(result.message.skippedAttachments?.map((s) => s.reason)).toEqual(["nesting_too_deep"]);
+  });
+});
+
+describe("an unreadable forwarded mail", () => {
+  test("stays an attachment and the outer mail is still read", async () => {
+    const poison = Buffer.from(buildMailWithTooManyParts(MAILPARSER_MAX_MIME_NODES)).toString(
+      "latin1",
+    );
+    const outer = [
+      "From: a@example.com",
+      "Message-ID: <outer@x>",
+      "MIME-Version: 1.0",
+      'Content-Type: multipart/mixed; boundary="O"',
+      "",
+      "--O",
+      "Content-Type: text/plain",
+      "",
+      "outer text",
+      "--O",
+      "Content-Type: message/rfc822",
+      "",
+      poison,
+      "--O--",
+      "",
+    ].join("\r\n");
+
+    const result = await parseOrReject({
+      source: new TextEncoder().encode(outer),
+      uid: 2,
+      uidValidity: "7",
+      internalDate: undefined,
+    });
+
+    if (!("message" in result)) throw new Error("rejected");
+    expect(result.message.text).toContain("outer text");
+    expect(result.message.attachments?.map((a) => [a.fileName, a.mimeType])).toEqual([
+      ["forwarded.eml", "message/rfc822"],
+    ]);
   });
 });
