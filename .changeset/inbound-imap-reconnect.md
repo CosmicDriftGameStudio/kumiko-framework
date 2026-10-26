@@ -21,3 +21,10 @@ type: improvement
 title: The mail account list offers Reconnect for accounts with a sign-in error
 detail: A new row action Reconnect opens the screen mail-account-reconnect-imap of inbound-provider-imap. It shows for every account with status auth_error and, like the Connect mailbox button, only renders in apps that mount that provider. New export IMAP_RECONNECT_SCREEN_ID. New key in all locale packages.
 -->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: fix
+title: Mailbox names are stored without surrounding spaces
+detail: connect-account, update-account and inbound-provider-imap:write:connect-mailbox trim displayName before storing it, so a name pasted with a leading space no longer shows and sorts with it. connect-account still accepts an empty name as before; connect-mailbox still requires one. The port fields of the IMAP connect and reconnect forms show 993 or 13993 without digit grouping.
+-->
