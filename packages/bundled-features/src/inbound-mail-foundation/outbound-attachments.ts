@@ -10,13 +10,13 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
+import { canCallerReadFileRef, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   FileRefTooLargeError,
   fileContextForTenant,
   readFileRefContent,
 } from "../file-foundation/index.ts";
-import { loadAttachableFileRef, mayAttachFileRef } from "./outbound-attachment-access.ts";
+import { loadAttachableFileRef } from "./outbound-attachment-access.ts";
 import { OUTBOUND_ATTACHMENTS_MAX_BYTES, type OutboundAttachment } from "./outbound-mail.ts";
 
 export type ResolveOutboundAttachmentsContext = Pick<
@@ -74,7 +74,7 @@ export async function resolveOutboundAttachments(
   for (const fileRefId of uniqueIds) {
     // A file the caller may not read answers like an unknown id, so ids cannot be probed.
     const fileRef = await loadAttachableFileRef(ctx, fileRefId);
-    if (fileRef === null || !(await mayAttachFileRef(ctx, fileRef))) {
+    if (fileRef === null || !(await canCallerReadFileRef(ctx, fileRef))) {
       return { isSuccess: false, failure: "attachmentInvalid" };
     }
     let found: Awaited<ReturnType<typeof readFileRefContent>>;

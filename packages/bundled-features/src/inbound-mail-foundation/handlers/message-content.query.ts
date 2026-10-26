@@ -67,7 +67,7 @@ export async function loadInboundMessageContent(
     bodyText: typeof bodyText === "string" ? bodyText : "",
     bodyTextTruncated: row["bodyTextTruncated"] === true,
     bodyRef: typeof row["bodyRef"] === "string" ? row["bodyRef"] : "",
-    attachmentFileIds: parseJsonColumn(row["attachmentFileIds"], fileIdsSchema, []),
+    attachmentFileIds: fileIdsSchema.parse(row["attachmentFileIds"] ?? []),
     skippedAttachments: parseJsonColumn(row["skippedAttachments"], skippedListSchema, []),
     contentState: contentStateOfRow(row["contentState"]),
     contentUnavailableReason:

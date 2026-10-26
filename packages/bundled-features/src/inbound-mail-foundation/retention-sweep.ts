@@ -28,9 +28,9 @@
 //     QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS; unacknowledged ones stay, they
 //     keep the mailbox flagged until someone looked at them.
 //
-// Attachments (file refs created at ingest) are deliberately NOT deleted here:
-// a business process may have taken them over, and file retention belongs to
-// the files feature, not to the mail copy.
+// Attachments are fileRefs bound to the mail row: they go with it (soft delete through the
+// fileRef executor; the generic soft-delete cleanup removes the bytes). A failure keeps the Row
+// for the next sweep, like a failed body delete.
 //
 // LIMITATION: the PII in the message events remains decryptable under the
 // TENANT subject key—per-Row retention does not shred a key. Actual Art.-17
@@ -74,6 +74,8 @@ export interface InboundRetentionArgs {
   /** Deletes a file-storage body object by bodyRef key. Wired lazily by the job
    * (createFileProviderForTenant); if absent, no body is deleted. */
   readonly deleteBodyObject?: (bodyRef: string) => Promise<void>;
+  /** Removes the fileRefs bound to an expired mail (its attachments); wired by the job. */
+  readonly deleteAttachments?: (messageId: string) => Promise<void>;
 }
 
 export interface InboundRetentionReport {
@@ -157,15 +159,16 @@ async function purgeExpiredMessages(
         archivedBy: ARCHIVED_BY,
         reason: REASON,
       });
-      if (row.bodyRef && args.deleteBodyObject) {
-        try {
+      try {
+        if (row.bodyRef && args.deleteBodyObject) {
           await args.deleteBodyObject(row.bodyRef);
           bodyObjectsDeleted++;
-        } catch {
-          bodyObjectErrors++;
-          failedIds.add(row.id);
-          continue;
         }
+        await args.deleteAttachments?.(row.id);
+      } catch {
+        bodyObjectErrors++;
+        failedIds.add(row.id);
+        continue;
       }
       ids.push(row.id);
     }

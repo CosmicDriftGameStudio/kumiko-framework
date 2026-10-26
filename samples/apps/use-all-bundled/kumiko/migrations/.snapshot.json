@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-26T22:22:58.555Z",
+  "generatedAt": "2026-10-26T23:39:10.236Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1179,8 +1179,9 @@
         },
         {
           "name": "attachment_file_ids",
-          "pgType": "text",
-          "notNull": false
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
         },
         {
           "name": "skipped_attachments",

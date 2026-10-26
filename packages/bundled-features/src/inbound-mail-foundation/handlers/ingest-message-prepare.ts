@@ -23,6 +23,7 @@ import {
   contentWithoutFileStorage,
   type InboundContentInput,
   inboundAttachmentMaxSize,
+  inboundAttachmentTarget,
   inboundMessageBodyKey,
   originalOf,
   type StoredInboundContent,
@@ -96,6 +97,7 @@ export async function prepareInboundContent(
         fileName: attachment.fileName,
         mimeType: attachment.mimeType,
         data: attachment.data,
+        attachTo: inboundAttachmentTarget(input.messageAggId),
         maxSize,
       });
     } catch (err) {

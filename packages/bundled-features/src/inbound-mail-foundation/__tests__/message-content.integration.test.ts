@@ -1,11 +1,12 @@
 // Full text, original and attachments of an imported mail: stored by default, readable through
-// message:content, absent from message:list, encrypted at rest, and kept when the retention sweep
-// removes the mail. Also the reload of snippet-only mails and the v1 event upcast.
+// message:content, absent from message:list, encrypted at rest, and removed with the mail by the
+// retention sweep. Also the reload of snippet-only mails and the v1 event upcast.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { type StoredEvent, upcastStoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { deleteFileRefsBoundToRecord, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -16,7 +17,10 @@ import {
   setInboundFullContent,
 } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
-import { INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN } from "../events.ts";
+import {
+  INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+} from "../events.ts";
 import {
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   InboundMailFoundationHandlers,
@@ -202,8 +206,8 @@ describe("content stored at ingest", () => {
   });
 });
 
-describe("retention does not delete attachments", () => {
-  test("the attachment FileRef survives when the mail is purged", async () => {
+describe("retention removes the attachments of a purged mail", () => {
+  test("the attachment FileRef is deleted with the mail", async () => {
     const admin = adminFor(6110);
     const accountId = await connectInMemoryAccount(env.stack, admin);
     await seedInboundMessage(
@@ -220,18 +224,33 @@ describe("retention does not delete attachments", () => {
     const fileId = content?.attachmentFileIds[0];
     expect(fileId).toBeDefined();
 
+    const [boundRef] = await selectMany(env.stack.db, fileRefsTable, { id: fileId });
+    expect(boundRef?.["entityType"]).toBe(INBOUND_MESSAGE_AGGREGATE_TYPE);
+    expect(boundRef?.["entityId"]).toBe(inboundMessageAggregateId(accountId, "old-1"));
+    expect(boundRef?.["fieldName"]).toBe("attachmentFileIds");
+
+    const tenantDb = createTenantDb({ db: env.stack.db, tenantId: admin.tenantId });
     const report = await runInboundMailRetention({
       db: env.stack.db,
       tenantId: admin.tenantId,
       now: getTemporal().Instant.from("2026-07-13T00:00:00Z"),
       seenRetentionDays: 100000,
+      deleteAttachments: async (messageId) => {
+        await deleteFileRefsBoundToRecord({
+          db: tenantDb,
+          user: createSystemUser(admin.tenantId),
+          entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+          entityId: messageId,
+        });
+      },
     });
 
     expect(report.messagesPurged).toBe(1);
     expect(await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId })).toEqual(
       [],
     );
-    expect(await selectMany(env.stack.db, fileRefsTable, { id: fileId })).toHaveLength(1);
+    const [afterSweep] = await selectMany(env.stack.db, fileRefsTable, { id: fileId });
+    expect(afterSweep?.["isDeleted"]).toBe(true);
   });
 });
 

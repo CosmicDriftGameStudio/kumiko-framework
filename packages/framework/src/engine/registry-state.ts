@@ -239,6 +239,10 @@ export const qualify = qualifyEntityName;
 export type RegistryState = {
   featureMap: Map<string, FeatureDefinition>;
   entityMap: Map<string, EntityDefinition>;
+  readModelEntityMap: Map<
+    string,
+    { readonly entity: EntityDefinition; readonly featureName: string }
+  >;
   relationMap: Map<string, Record<string, RelationDefinition>>;
   writeHandlerMap: Map<string, WriteHandlerDef>;
   queryHandlerMap: Map<string, QueryHandlerDef>;
@@ -310,6 +314,7 @@ export function createInitialState(): RegistryState {
   return {
     featureMap: new Map(),
     entityMap: new Map(),
+    readModelEntityMap: new Map(),
     relationMap: new Map(),
     writeHandlerMap: new Map(),
     queryHandlerMap: new Map(),

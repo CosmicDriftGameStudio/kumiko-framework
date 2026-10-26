@@ -108,6 +108,15 @@ export function inboundAttachmentMaxSize(registry: Registry): number {
   );
 }
 
+/** Binds an attachment fileRef to the mail row, so the file guard uses the mail's visibility. */
+export function inboundAttachmentTarget(messageAggId: string) {
+  return {
+    entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+    entityId: messageAggId,
+    fieldName: "attachmentFileIds",
+  } as const;
+}
+
 export function needsFileStorage(input: InboundContentInput): boolean {
   const hasOriginal = input.rawMime !== undefined || input.bodyHtml !== undefined;
   return (input.attachments ?? []).length > 0 || (input.bodyRef === "" && hasOriginal);
@@ -167,6 +176,7 @@ export async function storeInboundMessageContent(
       fileName: attachment.fileName,
       mimeType: attachment.mimeType,
       data: attachment.data,
+      attachTo: inboundAttachmentTarget(input.messageAggId),
       maxSize,
     });
     if (created.isSuccess) {

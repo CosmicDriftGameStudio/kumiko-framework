@@ -4,6 +4,7 @@ import {
   access,
   createBooleanField,
   createEntity,
+  createFilesField,
   createLongTextField,
   createNumberField,
   createTextField,
@@ -120,13 +121,11 @@ export const inboundMessageEntity = createEntity({
     // Null on rows from before the column; list-messages never selects it.
     bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
     bodyTextTruncated: createBooleanField(),
-    // JSON-stringified uuid[] / SkippedInboundAttachment[]: nullable JSON stays a text column
+    // Bound to the message (entityType = the aggregate type), so the file guard answers with the
+    // mail's visibility. The fileRefs are bound at ingest, the projection copies the ids.
+    attachmentFileIds: createFilesField({ personal: false, reason: "technical_reference" }),
+    // JSON-stringified SkippedInboundAttachment[]: nullable JSON stays a text column
     // (jsonb fields are NOT NULL), like to/cc.
-    attachmentFileIds: createTextField({
-      maxLength: 4000,
-      personal: false,
-      reason: "technical_reference",
-    }),
     skippedAttachments: createTextField({
       maxLength: 20_000,
       personal: false,

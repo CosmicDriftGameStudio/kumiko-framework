@@ -78,6 +78,7 @@ export async function createFileRefFromBytes(
       tenantDb: ctx.db,
       rowInOwnTransaction: runnerCanBeginTransaction(tenantDbRunner(ctx.db)),
       registry: ctx.registry,
+      attachTargets: "entities-and-read-models",
       defaultMaxUploadSize: defaultUploadLimit(ctx.registry, input),
       writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
       deleteBytes: async (key) => {
@@ -140,6 +141,7 @@ export async function uploadFileBytesBeforeTransaction(
     {
       user: ctx.user,
       registry: ctx.registry,
+      attachTargets: "entities-and-read-models",
       defaultMaxUploadSize: defaultUploadLimit(ctx.registry, input),
       writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
     },

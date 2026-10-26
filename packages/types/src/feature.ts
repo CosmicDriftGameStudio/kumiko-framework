@@ -431,6 +431,11 @@ export type Registry = {
 
   getFeature(name: string): FeatureDefinition | undefined;
   getEntity(name: string): EntityDefinition | undefined;
+  // Entity of an r.projection({ entity }) keyed by its source aggregate type. Not an
+  // r.entity: no CRUD, hooks or write checks. Only file binding and the file read check use it.
+  getReadModelEntity(name: string): EntityDefinition | undefined;
+  // Feature that registered the read-model entity; owns its "<name>:detail" query.
+  getReadModelEntityOwner(name: string): string | undefined;
   getAllEntities(): ReadonlyMap<string, EntityDefinition>;
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;

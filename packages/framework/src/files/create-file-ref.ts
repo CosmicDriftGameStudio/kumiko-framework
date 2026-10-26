@@ -42,6 +42,8 @@ const ACTION_FORM_STORAGE_SEGMENT = "action-form";
 
 const SAFE_IDENTIFIER = /^[A-Za-z0-9_-]+$/;
 
+export type AttachTargets = "entities" | "entities-and-read-models";
+
 type AttachedFieldResolution =
   | { readonly kind: "unattached" }
   | { readonly kind: "resolved"; readonly fieldDef: AnyFileFieldDef }
@@ -52,14 +54,22 @@ type AttachedFieldResolution =
 // pairing) — attaching to a field nobody can resolve would leave that
 // decision hanging on an unverified client string. Either both are omitted
 // (unattached upload, allowed) or both must resolve to a real registered
-// field.
+// field. "entities-and-read-models" is for server-side callers only: a client upload must
+// never name a projection entity, whose rows nobody can write-check.
 export function resolveAttachedField(
   registry: Registry | undefined,
   entityType: string | undefined,
   fieldName: string | undefined,
+  attachTargets: AttachTargets = "entities",
 ): AttachedFieldResolution {
   if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
-  const entity = entityType !== undefined ? registry?.getEntity(entityType) : undefined;
+  const entity =
+    entityType !== undefined
+      ? (registry?.getEntity(entityType) ??
+        (attachTargets === "entities-and-read-models"
+          ? registry?.getReadModelEntity(entityType)
+          : undefined))
+      : undefined;
   const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
   if (!entityType || !fieldName || !entity || !fieldDef || !isFileField(fieldDef))
     return { kind: "unresolvable" };
@@ -85,6 +95,7 @@ export type StoreFileDeps = {
   // fileRef.created then commit together or not at all, so a failing projection leaves no row.
   readonly rowInOwnTransaction?: boolean;
   readonly registry: Registry | undefined;
+  readonly attachTargets?: AttachTargets;
   readonly defaultMaxUploadSize: string | number;
   // Must record the upload in the ledger before the bytes land (FileContext.writeUploadBytes).
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
@@ -135,9 +146,12 @@ type UploadFieldResolution =
 function resolveUploadField(
   registry: Registry | undefined,
   input: Pick<StoreFileInput, "entityType" | "entityId" | "fieldName" | "actionForm">,
+  attachTargets: AttachTargets | undefined,
 ): UploadFieldResolution {
   const { entityType, entityId, fieldName, actionForm } = input;
-  if (actionForm === undefined) return resolveAttachedField(registry, entityType, fieldName);
+  if (actionForm === undefined) {
+    return resolveAttachedField(registry, entityType, fieldName, attachTargets);
+  }
   if (entityType !== undefined || entityId !== undefined) {
     return {
       kind: "rejected",
@@ -165,7 +179,7 @@ function resolveUploadField(
 }
 
 function acceptFile(
-  deps: Pick<StoreFileDeps, "registry" | "defaultMaxUploadSize">,
+  deps: Pick<StoreFileDeps, "registry" | "attachTargets" | "defaultMaxUploadSize">,
   input: StoreFileInput,
 ): AcceptedFile {
   const { fileName, declaredMimeType, data, entityType, entityId, fieldName } = input;
@@ -184,7 +198,7 @@ function acceptFile(
     }
   }
 
-  const field = resolveUploadField(deps.registry, input);
+  const field = resolveUploadField(deps.registry, input, deps.attachTargets);
   if (field.kind === "rejected") return field;
   if (field.kind === "unresolvable") {
     return rejected(
@@ -230,7 +244,10 @@ function acceptFile(
 // Upload step: validates and writes the binary. Outside any transaction on purpose — network/disk
 // I/O doesn't belong inside a PG connection's tx window.
 export async function writeAcceptedFileBytes(
-  deps: Pick<StoreFileDeps, "user" | "registry" | "defaultMaxUploadSize" | "writeBytes">,
+  deps: Pick<
+    StoreFileDeps,
+    "user" | "registry" | "attachTargets" | "defaultMaxUploadSize" | "writeBytes"
+  >,
   input: StoreFileInput,
 ): Promise<UploadBytesOutcome> {
   const { fileName, data, entityType, entityId, fieldName, actionForm } = input;

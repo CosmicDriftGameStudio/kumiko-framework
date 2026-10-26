@@ -70,6 +70,14 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.entityMap.get(name);
     },
 
+    getReadModelEntity(name: string): EntityDefinition | undefined {
+      return state.readModelEntityMap.get(name)?.entity;
+    },
+
+    getReadModelEntityOwner(name: string): string | undefined {
+      return state.readModelEntityMap.get(name)?.featureName;
+    },
+
     getAllEntities(): ReadonlyMap<string, EntityDefinition> {
       return state.entityMap;
     },

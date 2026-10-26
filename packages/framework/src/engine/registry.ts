@@ -16,6 +16,7 @@ import {
   populateSystemEvents,
   populateTranslations,
 } from "./registry-ingest.ts";
+import { populateReadModelEntities } from "./registry-read-models.ts";
 import { createInitialState } from "./registry-state.ts";
 import {
   applyExtensionUsages,
@@ -79,6 +80,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   applyExtensionUsages(state);
   buildSearchableSortableCaches(state);
   buildImplicitProjections(state, features);
+  populateReadModelEntities(state);
   buildIncomingRelations(state);
   validateFieldAccessHandlersAreEntityMapped(state, features);
   validateExtensionPreSaveWiring(features);

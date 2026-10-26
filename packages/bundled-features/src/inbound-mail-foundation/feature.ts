@@ -68,6 +68,7 @@ import { listMessagesQuery } from "./handlers/list-messages.query.ts";
 import { listQuarantineQuery } from "./handlers/list-quarantine.query.ts";
 import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
 import { messageContentQuery } from "./handlers/message-content.query.ts";
+import { messageDetailQuery } from "./handlers/message-detail.query.ts";
 import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
 import { retryQuarantinedMessageHandler } from "./handlers/retry-quarantined-message.write.ts";
 import { setTrustedAuthservIdHandler } from "./handlers/set-trusted-authserv-id.write.ts";
@@ -118,7 +119,6 @@ export function createInboundMailFoundationFeature() {
       // The EXT_TENANT_DATA hook requires the tenant-lifecycle host.
       r.requires({ features: ["tenant-lifecycle"] });
 
-      // 6 fine-grained domain-events (Payload-Schemas: events.ts).
       // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
       // "displayName" stays plaintext (often the mailbox owner's real name for
       // personal accounts); encrypting it would break the entity-projection read
@@ -192,7 +192,6 @@ export function createInboundMailFoundationFeature() {
         piiFields: "none",
       });
 
-      // Inline projections — apply in the same transaction as the append.
       r.projection({
         name: "mail-account",
         source: MAIL_ACCOUNT_AGGREGATE_TYPE,
@@ -268,6 +267,7 @@ export function createInboundMailFoundationFeature() {
       r.queryHandler(listMessagesQuery);
       r.queryHandler(listQuarantineQuery);
       r.queryHandler(messageContentQuery);
+      r.queryHandler(messageDetailQuery);
 
       // The app places `mailAccountListScreen` via r.nav in its settings area.
       r.screen(mailAccountListScreen);
