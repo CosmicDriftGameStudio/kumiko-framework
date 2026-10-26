@@ -3,6 +3,18 @@ export const IMAP_PROVIDER_KEY = "imap";
 
 export const ImapHandlers = {
   connectMailbox: "inbound-provider-imap:write:connect-mailbox",
+  reconnectMailbox: "inbound-provider-imap:write:reconnect-mailbox",
+} as const;
+
+export const ImapQueries = {
+  reconnectPrefill: "inbound-provider-imap:query:reconnect-prefill",
+} as const;
+
+export const IMAP_RECONNECT_ERRORS = {
+  notPasswordImap: {
+    reason: "reconnect_not_password_imap",
+    i18nKey: "inboundMail.imap.reconnect.errors.notPasswordImap",
+  },
 } as const;
 
 export const IMAP_CONNECT_ERRORS = {

@@ -2046,6 +2046,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
   "inboundMail.accounts.connectImap": "Collega casella",
   "screen:mail-account-connect-imap.title": "Collega casella",
+  "inboundMail.accounts.reconnect": "Ricollega",
+  "screen:mail-account-reconnect-imap.title": "Ricollega casella",
+  "inbound-provider-imap:entity:__action-form__:field:accountId": "Casella",
+  "inboundMail.imap.reconnect.hint":
+    "L'accesso viene verificato prima del salvataggio. Poi il sistema riprende a scaricare le email.",
+  "inboundMail.imap.reconnect.submit": "Verifica e ricollega",
+  "inboundMail.imap.reconnect.errors.notPasswordImap":
+    "Qui si possono ricollegare solo caselle IMAP con password.",
   "inbound-provider-imap:entity:__action-form__:field:displayName": "Nome",
   "inbound-provider-imap:entity:__action-form__:field:address": "Indirizzo e-mail",
   "inbound-provider-imap:entity:__action-form__:field:host": "Server IMAP",

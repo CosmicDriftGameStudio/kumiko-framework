@@ -24,6 +24,10 @@ mail-triage  ← this sample                                  (the app-side cons
 3. The handler-trigger fans the write out to the worker lane; the triage job records `{ from, subject, scope, threadHint }`.
 4. A replay of the same `providerMessageId` reports `duplicate: true`, creates no second row — and the keyed triage store stays at one item.
 
+## Sign-in errors
+
+When the provider rejects the stored login, the supervisor sets the account to `auth_error` and stops fetching. With `inbound-provider-imap` mounted, the mail accounts list offers **Reconnect** on that row: the form `mail-account-reconnect-imap` is prefilled with the stored server settings (never the password), `inbound-provider-imap:write:reconnect-mailbox` checks the new login and puts the same account back to `active`. Threads, sync cursor and seen messages stay, so the next poll continues where the account stopped instead of ingesting the mailbox again. The cases are covered in `inbound-provider-imap/__tests__/reconnect-mailbox.integration.test.ts`; they need greenmail, which this sample's in-memory provider does not.
+
 ## Tests
 
 - E2E through `createAllInOneEntrypoint` (HTTP → dispatcher → BullMQ worker lane, no framework-internal shortcuts): connect → ingest → triage item appears.

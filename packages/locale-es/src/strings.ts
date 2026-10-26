@@ -2040,6 +2040,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
   "inboundMail.accounts.connectImap": "Conectar buzón",
   "screen:mail-account-connect-imap.title": "Conectar buzón",
+  "inboundMail.accounts.reconnect": "Reconectar",
+  "screen:mail-account-reconnect-imap.title": "Reconectar buzón",
+  "inbound-provider-imap:entity:__action-form__:field:accountId": "Buzón",
+  "inboundMail.imap.reconnect.hint":
+    "El inicio de sesión se comprueba antes de guardar. Después el sistema vuelve a recoger el correo.",
+  "inboundMail.imap.reconnect.submit": "Comprobar y reconectar",
+  "inboundMail.imap.reconnect.errors.notPasswordImap":
+    "Aquí solo se pueden reconectar buzones IMAP con contraseña.",
   "inbound-provider-imap:entity:__action-form__:field:displayName": "Nombre",
   "inbound-provider-imap:entity:__action-form__:field:address": "Correo electrónico",
   "inbound-provider-imap:entity:__action-form__:field:host": "Servidor IMAP",

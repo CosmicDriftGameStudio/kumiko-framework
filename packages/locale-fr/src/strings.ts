@@ -2067,6 +2067,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
   "inboundMail.accounts.connectImap": "Connecter une boîte mail",
   "screen:mail-account-connect-imap.title": "Connecter une boîte mail",
+  "inboundMail.accounts.reconnect": "Reconnecter",
+  "screen:mail-account-reconnect-imap.title": "Reconnecter la boîte mail",
+  "inbound-provider-imap:entity:__action-form__:field:accountId": "Boîte mail",
+  "inboundMail.imap.reconnect.hint":
+    "La connexion est vérifiée avant l'enregistrement. Ensuite, le système récupère de nouveau les e-mails.",
+  "inboundMail.imap.reconnect.submit": "Vérifier et reconnecter",
+  "inboundMail.imap.reconnect.errors.notPasswordImap":
+    "Seules les boîtes IMAP avec mot de passe peuvent être reconnectées ici.",
   "inbound-provider-imap:entity:__action-form__:field:displayName": "Nom",
   "inbound-provider-imap:entity:__action-form__:field:address": "Adresse e-mail",
   "inbound-provider-imap:entity:__action-form__:field:host": "Serveur IMAP",
