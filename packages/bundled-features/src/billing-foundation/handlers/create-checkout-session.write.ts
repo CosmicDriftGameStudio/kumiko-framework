@@ -39,6 +39,7 @@ import {
   prepareConsent,
   recordConsent,
 } from "../consumer-protection/consent-gate.ts";
+import { withOwnProviderCustomer } from "../one-off-customer.ts";
 import type {
   ProviderPrice,
   ResolvedBillingFoundationOptions,
@@ -86,8 +87,13 @@ export function createCheckoutSessionHandler(
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as CreateCheckoutSessionPayload;
 
-      const openOptions = { baseUrl: options.baseUrl, catalog: options.catalog, now: options.now };
-      const checkoutInput: OpenCheckoutInput = {
+      const openOptions = {
+        baseUrl: options.baseUrl,
+        catalog: options.catalog,
+        now: options.now,
+        authorizeOneOffCheckout: options.authorizeOneOffCheckout,
+      };
+      const requestedInput: OpenCheckoutInput = {
         providerName: payload.providerName,
         priceId: payload.priceId,
         successUrl: payload.successUrl,
@@ -95,6 +101,7 @@ export function createCheckoutSessionHandler(
         ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
         ...(payload.mode && { mode: payload.mode }),
       };
+      const checkoutInput = await withOwnProviderCustomer(ctx, requestedInput);
 
       if (!consumerProtection) {
         const result = await openCheckout(ctx, openOptions, checkoutInput);

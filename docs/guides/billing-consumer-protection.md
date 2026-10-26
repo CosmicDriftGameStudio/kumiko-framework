@@ -35,6 +35,8 @@ providerTexts: {
 },
 ```
 
+In the Paddle catalog, create subscription prices with quantity minimum and maximum both 1. For one-off packs, set the quantity limits on purpose: the payment event carries `quantity`, and the app has to multiply the credits it grants by it. The Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`.
+
 - `checkoutNote` is the short line on the provider's card in the order dialog, for example who sells and who invoices. With only one offered provider it shows as a note under the price in the same dialog.
 - `vatNote` replaces the global `vatNote` in the confirmation mail of a contract closed with this provider. The consent record stores the provider name, so the mail picks the text of the provider the customer actually ordered with.
 

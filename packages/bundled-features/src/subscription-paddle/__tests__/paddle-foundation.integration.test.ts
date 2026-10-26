@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createHash, randomBytes } from "node:crypto";
 import { selectMany, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
@@ -17,7 +18,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { subscriptionAggregateId } from "../../billing-foundation/aggregate-id.ts";
+import {
+  paymentAggregateId,
+  subscriptionAggregateId,
+} from "../../billing-foundation/aggregate-id.ts";
 import { createBillingFoundationFeature } from "../../billing-foundation/feature.ts";
 import { createSubscriptionWebhookRoute } from "../../billing-foundation/index.ts";
 import {
@@ -368,6 +372,28 @@ describe("webhook", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ providerName: "paddle", providerCustomerId: "ctm_8105" });
   });
+
+  test("the bought quantity reaches the stored payment event, and defaults to 1", async () => {
+    const packs = testTenantId(8106);
+    const single = testTenantId(8107);
+    for (const [tenantId, id, items] of [
+      [packs, "txn_8106", [{ price: { id: ONE_OFF_PRICE }, quantity: 3 }]],
+      [single, "txn_8107", [{ price: { id: ONE_OFF_PRICE } }]],
+    ] as const) {
+      const response = await postPaddleWebhook(`evt_${id}`, "transaction.completed", {
+        id,
+        subscription_id: null,
+        customer_id: `ctm_${id}`,
+        custom_data: boundCustomData(tenantId),
+        items,
+      });
+      expect(response.status).toBe(200);
+    }
+    const quantityOf = async (tenantId: typeof packs) =>
+      (await loadAggregate(stack.db, paymentAggregateId(tenantId), tenantId))[0]?.payload;
+    expect(await quantityOf(packs)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 3 });
+    expect(await quantityOf(single)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 1 });
+  });
 });
 
 describe("checkout", () => {
@@ -387,8 +413,8 @@ describe("checkout", () => {
         tenantId: admin.tenantId,
         tenantBinding: signTenantBinding(TEST_BINDING_KEY, admin.tenantId),
       },
-      checkout: { url: `https://app.example.com${PADDLE_CHECKOUT_PATH}` },
     });
+    expect(transaction?.body).not.toHaveProperty("checkout");
     const url = new URL(result.url);
     expect(url.pathname).toBe(PADDLE_CHECKOUT_PATH);
     expect(url.searchParams.get("_ptxn")).toBe("txn_1");

@@ -9,6 +9,7 @@ import {
   type SubscriptionEventType,
   SubscriptionEventTypes,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -48,7 +49,12 @@ const paddleTransactionSchema = z.object({
   subscription_id: z.string().nullish(),
   customer_id: z.string().min(1).nullish(),
   custom_data: paddleCustomDataSchema,
-  items: z.array(z.object({ price: z.object({ id: z.string().min(1) }) })),
+  items: z.array(
+    z.object({
+      price: z.object({ id: z.string().min(1) }),
+      quantity: z.number().int().positive().optional(),
+    }),
+  ),
 });
 
 export type PaddleWebhookOptions = {
@@ -72,6 +78,7 @@ function parsePaymentEvent(
   // A subscription's own payments are covered by its subscription.* events.
   if (transaction.subscription_id) return null;
   const priceId = transaction.items[0]?.price.id;
+  const quantity = transaction.items[0]?.quantity ?? 1;
   const bound = boundTenantOf(transaction.custom_data, bindingKey);
   if (!bound || !priceId || !transaction.customer_id) return null;
   return {
@@ -83,7 +90,24 @@ function parsePaymentEvent(
     providerCheckoutId: transaction.id,
     providerCustomerId: transaction.customer_id,
     priceId,
+    quantity,
   };
+}
+
+// Subscription prices are meant to be quantity 1; the tier is still set, but a
+// different quantity is worth an operator's attention. Event id and quantity only.
+function warnOnUnexpectedQuantity(
+  providerEventId: string,
+  items: readonly { readonly quantity?: number | undefined }[],
+): void {
+  for (const item of items) {
+    if (item.quantity !== undefined && item.quantity !== 1) {
+      createFallbackLogger("subscription-paddle").warn(
+        "paddle subscription item quantity is not 1; the tier is still set",
+        { providerEventId, quantity: item.quantity },
+      );
+    }
+  }
 }
 
 function parseSubscriptionEvent(
@@ -99,6 +123,7 @@ function parseSubscriptionEvent(
   const bound = boundTenantOf(sub.custom_data, options.bindingKey);
   const state = mapPaddleSubscriptionState(sub, options.priceToTier);
   if (!bound || !state) return null;
+  warnOnUnexpectedQuantity(providerEventId, sub.items);
   return {
     providerEventId,
     providerName: PADDLE_PROVIDER_NAME,

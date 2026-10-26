@@ -33,6 +33,16 @@ const previewResponseSchema = z.object({
         }),
       })
       .nullish(),
+    recurring_transaction_details: z
+      .object({
+        // `total` is the full period price incl. tax; `grand_total` is already
+        // reduced by credit, so it would understate the recurring price.
+        totals: z.object({
+          total: paddleAmountSchema.nullish(),
+          tax: paddleAmountSchema.nullish(),
+        }),
+      })
+      .nullish(),
     update_summary: z.object({ credit: z.object({ amount: paddleAmountSchema }) }).nullish(),
   }),
 });
@@ -57,11 +67,16 @@ export function createPaddlePreviewPlanSwitch(
       }),
     );
     const totals = data.immediate_transaction?.details.totals;
+    const recurring = data.recurring_transaction_details?.totals;
     return {
       amountDueNow: totals ? parseAmount(totals.grand_total) : 0,
       tax: totals ? parseAmount(totals.tax) : null,
       currency: (totals?.currency_code ?? data.currency_code).toLowerCase(),
       credit: data.update_summary ? parseAmount(data.update_summary.credit.amount) : 0,
+      ...(recurring?.total != null && {
+        recurringAmount: parseAmount(recurring.total),
+        recurringTax: recurring.tax != null ? parseAmount(recurring.tax) : null,
+      }),
       effectiveAt: Temporal.Instant.fromEpochMilliseconds(now()).toString(),
     };
   };

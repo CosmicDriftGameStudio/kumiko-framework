@@ -105,6 +105,8 @@ export const paymentEventPayloadSchema = z.object({
   // subscriptionEventPayloadSchema's same rationale.
   providerCustomerId: z.string().min(1).max(1000),
   priceId: z.string().min(1).max(200),
+  // Optional so payloads stored before quantity existed still parse; absent = 1.
+  quantity: z.number().int().positive().optional(),
   consentId: z.string().min(1).max(100).optional(),
 });
 export type PaymentEventPayload = z.infer<typeof paymentEventPayloadSchema>;
