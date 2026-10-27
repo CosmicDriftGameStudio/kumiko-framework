@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sanitizeDocumentHtml } from "../../template-resolver/index.ts";
 import { detectLossyMarkdown, type LossyMarkdownFeature } from "../web/lossy-markdown.ts";
 import { markdownToDocumentHtml } from "../web/markdown-to-document.ts";
 
@@ -66,5 +67,34 @@ describe("markdownToDocumentHtml", () => {
     const html = markdownToDocumentHtml("<script>alert(1)</script>");
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("markdownToDocumentHtml drops what the sanitizer would reject", () => {
+  test("a relative link keeps its text without the link", () => {
+    expect(markdownToDocumentHtml("[Contact](/contact)")).toBe("<p>Contact</p>\n");
+  });
+
+  test("an allowed link stays a link", () => {
+    expect(markdownToDocumentHtml("[Docs](https://example.com/a)")).toContain(
+      '<a href="https://example.com/a">Docs</a>',
+    );
+  });
+
+  test("an image is dropped", () => {
+    expect(markdownToDocumentHtml("![](https://cdn.example.com/x.png)")).not.toContain("<img");
+  });
+});
+
+describe("markdownToDocumentHtml output passes the document sanitizer", () => {
+  test("relative links, external images and raw html do not make the body rejectable", () => {
+    const markdown = [
+      "[Contact](/contact) and [Docs](https://example.com)",
+      "",
+      "![](https://cdn.example.com/x.png)",
+      "",
+      "<script>alert(1)</script>",
+    ].join("\n");
+    expect(sanitizeDocumentHtml(markdownToDocumentHtml(markdown)).ok).toBe(true);
   });
 });

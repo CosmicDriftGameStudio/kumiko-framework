@@ -170,6 +170,16 @@ const managedPageEditFlow = () => async (page: Page) => {
   await page.getByTestId("render-edit-form").waitFor();
 };
 
+// template-resolver collections — the "New entry" form opened from the collection's nav "+",
+// filled with a realistic slug and title.
+const collectionCreateForm = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform");
+  await page.getByLabel("New entry").first().click();
+  await page.getByTestId("collection-entry-create").waitFor();
+  await page.getByLabel("Slug").fill("late-payment-reminder");
+  await page.getByLabel("Title").fill("Late payment reminder");
+};
 // export-job-list — a read-only SystemAdmin inspector over rows the GDPR
 // export worker produces; nothing seeds one. request-export (user-data-
 // rights, openToAll) is the same self-service write a logged-in user's
@@ -313,6 +323,7 @@ const SCENARIOS: readonly Scenario[] = [
   // template-resolver — the mounted "reply-snippets" collection: rich editor
   // open on one entry, showing the variable chips its variableSchema declares.
   { name: "template-resolver", flow: collectionEditor() },
+  { name: "template-resolver-create", flow: collectionCreateForm() },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens") },
   // secrets — mask-derived secretsEdit under the tenant-admin workspace nav.

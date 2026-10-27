@@ -77,10 +77,11 @@ function renderForm(
   write: ReturnType<typeof mock>,
   opts: { readonly tenantId?: string; readonly collectionId?: string } = {},
 ): void {
-  // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
-  (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Agent"] });
-  // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
-  (useDispatcher as any).mockReturnValue({ write, query: mock() });
+  (useShellUser as unknown as ReturnType<typeof mock>).mockReturnValue({
+    id: "u1",
+    roles: ["Agent"],
+  });
+  (useDispatcher as unknown as ReturnType<typeof mock>).mockReturnValue({ write, query: mock() });
   const Create = textBlocksClient(
     opts.tenantId !== undefined ? { tenantId: opts.tenantId } : undefined,
   ).resolvers?.["template-resolver:create"];

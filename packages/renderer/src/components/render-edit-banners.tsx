@@ -165,6 +165,11 @@ export function renderFormErrorBanner<TValues extends FormValues, TCtx>({
             {translate(issue.i18nKey, issue.params)}
           </Text>
         ))}
+        {layout.unplacedIssues.map((issue) => (
+          <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-unplaced">
+            {translate(issue.i18nKey, issue.params)}
+          </Text>
+        ))}
         {state.extraDeleteIssues.map((issue) => (
           <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-extra">
             {translate(issue.i18nKey, issue.params)}

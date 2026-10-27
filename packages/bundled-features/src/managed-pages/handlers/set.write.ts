@@ -5,7 +5,7 @@ import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { BODY_FORMATS, DEFAULT_BODY_FORMAT } from "../constants.ts";
 import { type PageRow, pageEntity, pagesTable } from "../table.ts";
-import { pageBodyIssues } from "./page-body-issues.ts";
+import { sanitizePageBody } from "./page-body-issues.ts";
 
 const slugSchema = z
   .string()
@@ -47,8 +47,9 @@ export const setWrite = defineWriteHandler({
     const override = event.payload.tenantIdOverride;
     const tenantId = (override ?? event.user.tenantId) as TenantId; // @cast-boundary engine-bridge
     const bodyFormat = event.payload.bodyFormat ?? DEFAULT_BODY_FORMAT;
-    const bodyIssues = pageBodyIssues(event.payload.body, bodyFormat);
-    if (bodyIssues.length > 0) return writeFailure(new ValidationError({ fields: bodyIssues }));
+    const sanitized = sanitizePageBody(event.payload.body, bodyFormat);
+    if (!sanitized.ok) return writeFailure(new ValidationError({ fields: sanitized.issues }));
+    const { body } = sanitized;
     // ctx.db is scoped to the executing user's tenant, wrong for a cross-tenant override
     // on both the existing-check and the executor's stream reads; re-scope to the target.
     const { db: scopedDb, streamTenantId } = requireForTenant(ctx, tenantId);
@@ -65,7 +66,7 @@ export const setWrite = defineWriteHandler({
           version: existing.version,
           changes: {
             title: event.payload.title,
-            body: event.payload.body,
+            body,
             bodyFormat,
             description:
               event.payload.description !== undefined
@@ -92,7 +93,7 @@ export const setWrite = defineWriteHandler({
         slug: event.payload.slug,
         lang: event.payload.lang,
         title: event.payload.title,
-        body: event.payload.body,
+        body,
         bodyFormat,
         description: event.payload.description ?? null,
         ogImage: event.payload.ogImage ?? null,

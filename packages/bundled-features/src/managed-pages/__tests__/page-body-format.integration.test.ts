@@ -19,6 +19,7 @@ import {
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { sanitizeDocumentHtml } from "../../template-resolver/index.ts";
 import { createManagedPagesFeature } from "../feature.ts";
 import { BODY_REJECTED_I18N_KEY } from "../handlers/page-body-issues.ts";
 import { seedPage } from "../seeding.ts";
@@ -258,19 +259,103 @@ describe("managed-pages :: set with bodyFormat", () => {
   });
 });
 
-describe("managed-pages :: public render of a stored document that fails the sanitizer", () => {
-  test("serves an empty body instead of the raw HTML", async () => {
-    // seedPage writes through the executor and skips the write-time check, like
-    // a row that predates the validation.
+describe("managed-pages :: document bodies are stored as the rebuilt html", () => {
+  const LOOSE_BODY = '<p class="x">Hi <a href="https://example.com" target="_blank">link</a></p>';
+  const rebuilt = (() => {
+    const result = sanitizeDocumentHtml(LOOSE_BODY);
+    if (!result.ok) throw new Error("fixture body must be accepted");
+    return result.html;
+  })();
+
+  test("the fixture really changes under the sanitizer", () => {
+    expect(rebuilt).not.toBe(LOOSE_BODY);
+    expect(rebuilt).not.toContain("target");
+  });
+
+  test("create stores the rebuilt html", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      { slug: "rb-create", lang: "en", title: "x", body: LOOSE_BODY, bodyFormat: "document" },
+      adminA,
+    );
+    expect((await pageBySlug("rb-create"))?.body).toBe(rebuilt);
+  });
+
+  test("update stores the rebuilt html", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      { slug: "rb-update", lang: "en", title: "x", body: DOCUMENT_BODY, bodyFormat: "document" },
+      adminA,
+    );
+    const row = await pageBySlug("rb-update");
+    if (row === null) throw new Error("page missing");
+    await stack.http.writeOk(
+      "managed-pages:write:page:update",
+      { id: row.id, version: row.version, changes: { body: LOOSE_BODY } },
+      adminA,
+    );
+    expect((await pageBySlug("rb-update"))?.body).toBe(rebuilt);
+  });
+
+  test("set stores the rebuilt html", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:set",
+      { slug: "rb-set", lang: "en", title: "x", body: LOOSE_BODY, bodyFormat: "document" },
+      adminA,
+    );
+    expect((await pageBySlug("rb-set"))?.body).toBe(rebuilt);
+  });
+
+  test("seedPage stores the rebuilt html and throws on a rejected body", async () => {
     await seedPage(stack.db, {
       tenantId: TENANT_A,
-      slug: "doc-stored-bad",
+      slug: "rb-seed",
       lang: "en",
-      title: "Stored bad",
-      body: SCRIPT_BODY,
+      title: "x",
+      body: LOOSE_BODY,
       bodyFormat: "document",
-      published: true,
     });
+    expect((await pageBySlug("rb-seed"))?.body).toBe(rebuilt);
+    await expect(
+      seedPage(stack.db, {
+        tenantId: TENANT_A,
+        slug: "rb-seed-bad",
+        lang: "en",
+        title: "x",
+        body: SCRIPT_BODY,
+        bodyFormat: "document",
+      }),
+    ).rejects.toThrow("seedPage rejected the body");
+    expect(await pageBySlug("rb-seed-bad")).toBeNull();
+  });
+});
+
+describe("managed-pages :: public render of a stored document that fails the sanitizer", () => {
+  test("serves an empty body instead of the raw HTML", async () => {
+    // A raw executor write skips the write-time check, like a row that predates the validation.
+    const created = await createEventStoreExecutor(pagesTable, pageEntity, {
+      entityName: "page",
+    }).create(
+      {
+        slug: "doc-stored-bad",
+        lang: "en",
+        title: "Stored bad",
+        body: SCRIPT_BODY,
+        bodyFormat: "document",
+        description: null,
+        ogImage: null,
+        published: true,
+        tenantId: TENANT_A,
+      },
+      createSystemUser(TENANT_A),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_A,
+        mode: "system",
+        reason: "test stores a document body that predates write-time validation",
+      }),
+    );
+    expect(created.isSuccess).toBe(true);
     const { status, html } = await publicHtml("doc-stored-bad");
     expect(status).toBe(200);
     expect(html).toContain("Stored bad");

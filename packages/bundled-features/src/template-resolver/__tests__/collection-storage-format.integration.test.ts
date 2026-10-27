@@ -24,6 +24,7 @@ const agent = createTestUser({ id: 4, roles: ["Agent"] });
 
 const NOTES_SET = collectionHandlerName("notes");
 const LETTERS_SET = collectionHandlerName("letters");
+const BLOCKS_SET = collectionHandlerName("blocks");
 
 const feature = createTemplateResolverFeature({
   collections: [
@@ -39,6 +40,13 @@ const feature = createTemplateResolverFeature({
       contentFormat: "document",
       access: { roles: ["Agent"] },
       nav: { label: "mail:nav.letters" },
+    },
+    {
+      id: "blocks",
+      kind: "text-block",
+      contentFormat: "document",
+      access: { roles: ["Agent"] },
+      nav: { label: "mail:nav.blocks" },
     },
   ],
 });
@@ -99,6 +107,32 @@ describe("collection storage format", () => {
     );
     expect(error.code).toBe("validation_error");
     expect(await rowOf("document-pdf", "c")).toBeUndefined();
+  });
+
+  test("a text-block document collection rejects a script element instead of storing raw html", async () => {
+    const error = await stack.http.writeErr(
+      BLOCKS_SET,
+      { slug: "e", locale: "de", title: "E", content: "<p>x</p><script>alert(1)</script>" },
+      agent,
+    );
+    expect(error.code).toBe("validation_error");
+    expect(await rowOf("text-block", "e")).toBeUndefined();
+  });
+
+  test("a text-block document collection stores the rebuilt html", async () => {
+    await stack.http.writeOk(
+      BLOCKS_SET,
+      {
+        slug: "f",
+        locale: "de",
+        title: "F",
+        content: '<p class="x">Hallo <span data-variable="name"></span></p>',
+      },
+      agent,
+    );
+    const row = await rowOf("text-block", "f");
+    expect(row?.content).not.toContain("class=");
+    expect(row?.content).toContain("data-variable");
   });
 
   test("createOnly reports a taken slug and keeps the existing entry", async () => {

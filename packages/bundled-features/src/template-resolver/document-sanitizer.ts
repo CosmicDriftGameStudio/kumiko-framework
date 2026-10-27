@@ -299,6 +299,18 @@ function isSanitizedHtmlKind(kind: string): boolean {
   return kind === "snippet" || isOneOf(DOCUMENT_HTML_KINDS, kind);
 }
 
+type SanitizeBodyInput = {
+  readonly kind: string;
+  readonly contentFormat: ContentFormat;
+  readonly content: string | null;
+  /** A document collection stores html whatever its kind, so its html is always rebuilt. */
+  readonly alwaysSanitizeHtml?: boolean;
+};
+
+function isSanitizedBody(input: SanitizeBodyInput): boolean {
+  return input.alwaysSanitizeHtml === true || isSanitizedHtmlKind(input.kind);
+}
+
 const HTML_ONLY_KINDS: ReadonlySet<string> = new Set(DOCUMENT_HTML_KINDS);
 
 function requiredFormatViolation(
@@ -319,14 +331,10 @@ const IMAGES_BLOCK_KIND = "document-pdf";
 
 // The node is part of the shared document model, so a mail body would keep it after the
 // rebuild; only a PDF resolves the record's images.
-function imagesBlockViolation(input: {
-  readonly kind: string;
-  readonly contentFormat: ContentFormat;
-  readonly content: string | null;
-}): DocumentViolation | null {
+function imagesBlockViolation(input: SanitizeBodyInput): DocumentViolation | null {
   if (
     input.kind === IMAGES_BLOCK_KIND ||
-    !isSanitizedHtmlKind(input.kind) ||
+    !isSanitizedBody(input) ||
     input.contentFormat !== "html" ||
     input.content === null
   ) {
@@ -345,20 +353,12 @@ function imagesBlockViolation(input: {
     : null;
 }
 
-export function sanitizeTemplateBody(input: {
-  readonly kind: string;
-  readonly contentFormat: ContentFormat;
-  readonly content: string | null;
-}): SanitizeBodyResult {
+export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
   const imagesViolation = imagesBlockViolation(input);
   if (imagesViolation !== null) return { ok: false, violations: [imagesViolation] };
-  if (
-    !isSanitizedHtmlKind(input.kind) ||
-    input.contentFormat !== "html" ||
-    input.content === null
-  ) {
+  if (!isSanitizedBody(input) || input.contentFormat !== "html" || input.content === null) {
     return { ok: true, content: input.content };
   }
   const result = sanitizeDocumentHtml(input.content);

@@ -1,7 +1,9 @@
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { isDocumentReferenceName } from "./document-reference-name.ts";
 
 // Matches tags with quoted attribute values, so a `>` inside an attribute does not end the tag.
-const HTML_TAG = /(<(?:"[^"]*"|'[^']*'|[^>"'])*>)/;
+// The unquoted branch excludes `<` so a scan stops at the next tag start (no quadratic backtracking).
+const HTML_TAG = /(<(?:"[^"]*"|'[^']*'|[^"'<>])*>)/;
 // Triple braces are raw output and `{{else}}`/`{{this}}` belong to blocks; neither is a variable.
 const TEXT_VARIABLE = /(?<!\{)\{\{\s*([^{}\s]+)\s*\}\}(?!\})/g;
 const BLOCK_KEYWORDS: ReadonlySet<string> = new Set(["else", "this"]);
@@ -19,7 +21,9 @@ export function convertLegacyVariableText(html: string): string {
       index % 2 === 1
         ? part
         : part.replace(TEXT_VARIABLE, (match, name: string) =>
-            isLegacyVariableName(name) ? `<span data-variable="${name}"></span>` : match,
+            isLegacyVariableName(name)
+              ? `<span data-variable="${escapeHtmlAttr(name)}"></span>`
+              : match,
           ),
     )
     .join("");

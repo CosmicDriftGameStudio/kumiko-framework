@@ -16,6 +16,7 @@ import {
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.ts";
+import { sanitizePageBody } from "./handlers/page-body-issues.ts";
 import { type PageRow, pageEntity, pagesTable } from "./table.ts";
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
@@ -56,6 +57,11 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
   const ogImage = opts.ogImage ?? null;
   const published = opts.published ?? false;
   const bodyFormat = opts.bodyFormat ?? DEFAULT_BODY_FORMAT;
+  const sanitized = sanitizePageBody(opts.body, bodyFormat);
+  if (!sanitized.ok) {
+    throw new Error(`seedPage rejected the body: ${JSON.stringify(sanitized.issues)}`);
+  }
+  const { body } = sanitized;
 
   return runEventStoreSeed({
     existing,
@@ -66,7 +72,7 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
           slug: opts.slug,
           lang: opts.lang,
           title: opts.title,
-          body: opts.body ?? null,
+          body,
           bodyFormat,
           description,
           ogImage,
@@ -94,7 +100,7 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
           version: row.version,
           changes: {
             title: opts.title,
-            body: opts.body ?? null,
+            body,
             bodyFormat,
             description,
             ogImage,

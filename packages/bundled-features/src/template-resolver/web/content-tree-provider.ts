@@ -71,12 +71,8 @@ function attachBlock(
     },
     state: block.content ? "filled" : "stub",
   };
-  if (block.folder === null) {
-    root.leaves.push(leaf);
-    return;
-  }
   let cur = root;
-  for (const segment of block.folder.split("/")) {
+  for (const segment of block.folder === null ? [] : block.folder.split("/")) {
     let next = cur.subFolders.get(segment);
     if (next === undefined) {
       next = newFolderNode();
@@ -230,6 +226,7 @@ export function makeTreeProvider(
     const load = (): void => {
       loadBlocks(queryType, override)
         .then(({ blocks, tenantIdOverride: effectiveOverride }) => {
+          // skip: subscription was cancelled while the request was in flight
           if (!active) return;
           override = effectiveOverride;
           // The app-side r.nav node IS the "Content" container → the provider's
@@ -238,6 +235,7 @@ export function makeTreeProvider(
           emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
         })
         .catch((e) => {
+          // skip: subscription was cancelled while the request was in flight
           if (!active) return;
           // Explicit error signal via emitError; ProviderBranch shows a banner
           // plus retry. Falls back to emit([]) for consumers without emitError.

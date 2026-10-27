@@ -30,6 +30,13 @@ describe("convertLegacyVariableText", () => {
     expect(convertLegacyVariableText(html)).toBe(html);
   });
 
+  test("treats a long run of unclosed angle brackets as text and still converts the variable", () => {
+    const run = "<".repeat(20_000);
+    expect(convertLegacyVariableText(`${run}{{name}}`)).toBe(
+      `${run}<span data-variable="name"></span>`,
+    );
+  });
+
   test("is idempotent", () => {
     const once = convertLegacyVariableText("<p>{{name}}</p>");
     expect(convertLegacyVariableText(once)).toBe(once);

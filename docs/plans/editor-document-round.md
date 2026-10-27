@@ -38,7 +38,9 @@ in dieser Runde nicht neu verhandelt.
 3. **FormScreenLayout.** FW-Formular-Masken mit eigener Karte (`<Form title subtitle actions>`)
    wechseln auf `FormScreenLayout`: Text-Block- und Collection-Editor
    (template-resolver), Secrets-Edit, Löschantrag (user-data-rights), Profil
-   (user-profile). Auth- und MFA-Screens bleiben Karte. Collections bekommen ein Formular
+   (user-profile). Auth- und MFA-Screens bleiben Karte. Abweichung bei der Umsetzung: Der
+   Löschantrag ist ein anonymer Apex-Screen ohne App-Shell und bleibt deshalb eine schmale
+   Karte; das Profil hatte schon keine eigene Karte. Collections bekommen ein Formular
    zum Anlegen neuer Einträge („+“ an der Collection im Nav, Titel „New …“).
 4. **marketing-demo.** Die Screenshot-Spec läuft wie die anderen Samples über `runMatrix`.
    Das Dark-Theme (dunkle Sidebar auf cremefarbenem Inhalt) wird an der Ursache in Theme
@@ -63,7 +65,8 @@ In dieser Runde nicht angefasst, nur im Changeset beschrieben:
 | Repo | Betroffen | Zu tun beim Bump |
 | --- | --- | --- |
 | solon | `ai-orchestration/web/reply-composer.tsx` importiert `RichContentEditor` | auf `DocumentContentEditor` aus `template-resolver/web` umstellen, `plain-text-draft.ts` prüfen |
-| publicstatus | managed-pages gemountet | Migration für `bodyFormat` erzeugen, Seiten im Document-Editor abnehmen |
+| publicstatus | managed-pages gemountet, `managedPagesClient()` schon gemountet | `kumiko-schema generate` (Spalte `body_format`, Default `markdown`), Migration anwenden, Seiten im Document-Editor abnehmen |
 | money-horse | managed-pages gemountet | wie publicstatus |
 | show-pony | managed-pages gemountet | wie publicstatus |
+| kumiko-enterprise, offlot-app, phronexsis, studio, platform | laut Grep vom 2026-10-27 nichts betroffen | nur Bump |
 | alle | Collections mit `contentFormat: "rich"`/`"markdown"` | `bun kumiko-upgrade --apply` (Codemod) |

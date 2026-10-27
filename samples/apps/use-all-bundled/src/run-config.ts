@@ -359,6 +359,8 @@ export const APP_FEATURES = [
   // companion toggle is handler-less, has no subpath export, and is recipe-
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
   createManagedPagesFeature({
+    // Mapping every host to the dev tenant is for this sample and its e2e only; production maps
+    // its known hosts and returns null for any other.
     resolveApexTenant: () => DEV_TENANT_ID as TenantId,
     allowCustomCss: true,
   }),

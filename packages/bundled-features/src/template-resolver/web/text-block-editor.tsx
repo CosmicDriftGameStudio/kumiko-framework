@@ -1,32 +1,48 @@
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  FormScreenLayout,
-  usePrimitives,
-  useQuery,
-  useTranslation,
-} from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useEffect, useState } from "react";
+import { FormScreenLayout, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { ReactNode } from "react";
 import { ContentField } from "./content-field.tsx";
-import { refreshTree, TEXT_BLOCK_TREE_KEY } from "./content-tree-provider.ts";
-import { convertLegacyVariableText } from "./legacy-variable-text.ts";
-import {
-  collectionHandlerName,
-  collectionQueryName,
-  TemplateResolverHandlers,
-  TemplateResolverQueries,
-} from "./qualified-names.ts";
-import { useCollectionEditorContext } from "./use-collection-editor-context.ts";
-import { useContentWrite } from "./use-content-write.ts";
+import { useTextBlockEditor } from "./use-text-block-editor.ts";
 
-type TextBlock = {
-  readonly slug: string;
-  readonly locale: string;
-  readonly title: string | null;
-  readonly content: string | null;
-  readonly contentFormat: string;
-  readonly folder: string | null;
-  readonly modifiedAt: string | null;
-};
+type EditorState = ReturnType<typeof useTextBlockEditor>;
+
+function LoadBanners({ state }: { readonly state: EditorState }): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  return (
+    <>
+      {state.loading && <Banner variant="loading">{t("template-resolver.editor.loading")}</Banner>}
+      {state.loadError !== null && (
+        <Banner variant="error">
+          {t("template-resolver.editor.loadFailed")}: {state.loadError.code}
+        </Banner>
+      )}
+      {!state.canWrite && !state.loading && (
+        <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
+      )}
+    </>
+  );
+}
+
+function SaveBanners({ state }: { readonly state: EditorState }): ReactNode {
+  const { Banner } = usePrimitives();
+  return (
+    <>
+      {state.saveError !== null && <Banner variant="error">{state.saveError}</Banner>}
+      {state.savedMsg !== null && <Banner variant="info">{state.savedMsg}</Banner>}
+    </>
+  );
+}
+
+function SaveButton({ state }: { readonly state: EditorState }): ReactNode {
+  const { Button } = usePrimitives();
+  const t = useTranslation();
+  return (
+    <Button type="submit" loading={state.submitting} disabled={state.disabled}>
+      {state.submitting ? t("template-resolver.editor.saving") : t("template-resolver.editor.save")}
+    </Button>
+  );
+}
 
 export function TextBlockEditor({
   target,
@@ -36,85 +52,10 @@ export function TextBlockEditor({
   // but is unused: tree selection navigates, there is no close button.
   readonly onClose: () => void;
 }): ReactNode {
-  // @cast-boundary visual-tree-args — TargetRef.args is erased to
-  // Record<string, unknown>; the resolver knows the action shape (see the
-  // treeActions.edit definition in feature.ts) and de-erases per action, the
-  // same way event payloads do. Optional chaining absorbs missing fields so a
-  // hand-edited URL cannot crash the editor.
-  const args = target.args as
-    | { slug?: string; locale?: string; collectionId?: string; tenantIdOverride?: string }
-    | undefined;
-  const slug = args?.slug ?? "";
-  const locale = args?.locale ?? "";
-  const tenantIdOverride = args?.tenantIdOverride;
-  // Which collection the node came from. Absent → the public text-block pair,
-  // which is what the hand-wired content tree uses.
-  const collectionId = args?.collectionId;
-
-  const { Field, Input, Button, Banner, PageHeader, Section } = usePrimitives();
+  const { Field, Input, PageHeader, Section } = usePrimitives();
   const t = useTranslation();
-  const editorContext = useCollectionEditorContext(collectionId);
-  const { contentFormat, canWrite } = editorContext;
-  const { submitting, error: saveError, clearError, write } = useContentWrite();
-
-  // Same split as the tree provider: a node without a collection reads through
-  // the public by-slug, a collection node through that collection's handlers.
-  const readQuery =
-    collectionId === undefined
-      ? TemplateResolverQueries.bySlug
-      : collectionQueryName(collectionId, "item");
-  const writeHandler =
-    collectionId === undefined ? TemplateResolverHandlers.set : collectionHandlerName(collectionId);
-  const {
-    data: loaded,
-    loading,
-    error: loadError,
-  } = useQuery<TextBlock | null>(
-    readQuery,
-    { slug, locale, ...(tenantIdOverride !== undefined && { tenantIdOverride }) },
-    { enabled: slug !== "" && locale !== "" },
-  );
-
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [savedMsg, setSavedMsg] = useState<string | null>(null);
-
-  // Sync loaded data into the form state. loaded === null means the block does
-  // not exist yet — empty form for the create flow.
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-  useEffect(() => {
-    if (loading) return;
-    const loadedContent = loaded?.content ?? "";
-    setTitle(loaded?.title ?? "");
-    setContent(
-      contentFormat === "document" ? convertLegacyVariableText(loadedContent) : loadedContent,
-    );
-    clearError();
-    setSavedMsg(null);
-  }, [loading, loaded, contentFormat, clearError]);
-
-  const handleSave = async (): Promise<void> => {
-    setSavedMsg(null);
-    const response = await write(writeHandler, {
-      slug,
-      locale,
-      title,
-      content: content.length > 0 ? content : null,
-      folder: loaded?.folder ?? null,
-      // A collection derives its storage format on the server; the public set keeps what was saved.
-      ...(collectionId === undefined &&
-        loaded?.contentFormat !== undefined && { contentFormat: loaded.contentFormat }),
-      ...(tenantIdOverride !== undefined && { tenantIdOverride }),
-    });
-    if (response === null) return;
-    refreshTree(collectionId ?? TEXT_BLOCK_TREE_KEY);
-    setSavedMsg(
-      response.isNew ? t("template-resolver.editor.created") : t("template-resolver.editor.saved"),
-    );
-  };
-
-  const disabled = submitting || loading || !canWrite;
-  const headerTitle = title || slug || undefined;
+  const state = useTextBlockEditor(target);
+  const headerTitle = state.title || state.slug || undefined;
 
   return (
     <>
@@ -122,49 +63,32 @@ export function TextBlockEditor({
       {PageHeader !== undefined && headerTitle !== undefined && <PageHeader title={headerTitle} />}
       <FormScreenLayout
         onSubmit={() => {
-          void handleSave();
+          void state.save();
         }}
         testId="text-block-editor"
-        description={locale !== "" ? `${slug} · (${locale})` : slug}
-        actions={
-          canWrite ? (
-            <Button type="submit" loading={submitting} disabled={disabled}>
-              {submitting
-                ? t("template-resolver.editor.saving")
-                : t("template-resolver.editor.save")}
-            </Button>
-          ) : undefined
-        }
+        description={state.locale !== "" ? `${state.slug} · (${state.locale})` : state.slug}
+        actions={state.canWrite ? <SaveButton state={state} /> : undefined}
       >
         <Section>
-          {loading && <Banner variant="loading">{t("template-resolver.editor.loading")}</Banner>}
-          {loadError !== null && (
-            <Banner variant="error">
-              {t("template-resolver.editor.loadFailed")}: {loadError.code}
-            </Banner>
-          )}
-          {!canWrite && !loading && (
-            <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
-          )}
+          <LoadBanners state={state} />
           <Field id="text-block-title" label={t("template-resolver.editor.titleLabel")} required>
             <Input
               kind="text"
               id="text-block-title"
               name="text-block-title"
-              value={title}
-              onChange={setTitle}
-              disabled={disabled}
+              value={state.title}
+              onChange={state.setTitle}
+              disabled={state.disabled}
               required
             />
           </Field>
           <ContentField
-            editorContext={editorContext}
-            value={content}
-            onChange={setContent}
-            disabled={disabled}
+            editorContext={state.editorContext}
+            value={state.content}
+            onChange={state.setContent}
+            disabled={state.disabled}
           />
-          {saveError !== null && <Banner variant="error">{saveError}</Banner>}
-          {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
+          <SaveBanners state={state} />
         </Section>
       </FormScreenLayout>
     </>

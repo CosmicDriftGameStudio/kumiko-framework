@@ -1,5 +1,5 @@
+import { isAllowedDocumentLinkHref } from "@cosmicdrift/kumiko-bundled-features/template-resolver/document-schema";
 import { Lexer, type Token } from "marked";
-import { isAllowedDocumentLinkHref } from "../../template-resolver/web/document-schema.ts";
 
 export const LOSSY_MARKDOWN_FEATURES = [
   "image",
