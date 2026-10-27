@@ -2032,6 +2032,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "L'indirizzo da cui vengono inviate le e-mail, ad esempio status@example.com. Il tuo provider deve consentirlo.",
   "screen:mail-accounts.title": "Caselle di posta",
   "screen:mail-account-edit.title": "Modifica casella di posta",
+  "screen:mail-account-sender-check.title": "Verifica del mittente",
   "inboundMail.accounts.col.name": "Nome",
   "inboundMail.accounts.col.address": "Indirizzo",
   "inboundMail.accounts.col.provider": "Provider",

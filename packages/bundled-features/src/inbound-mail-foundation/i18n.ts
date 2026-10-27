@@ -12,6 +12,7 @@ import {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
+  MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
   MAIL_QUARANTINE_SCREEN_ID,
 } from "./screens.ts";
@@ -24,6 +25,7 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   ...INBOUND_PROBE_I18N,
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
+  [`screen:${MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID}.title`]: { en: "Sender check" },
   [`screen:${MAIL_QUARANTINE_SCREEN_ID}.title`]: { en: "Quarantined mails" },
   "inboundMail.accounts.col.name": { en: "Name" },
   "inboundMail.accounts.col.address": { en: "Address" },

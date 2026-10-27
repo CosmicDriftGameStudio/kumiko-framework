@@ -1981,6 +1981,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The address mails are sent from, for example status@example.com. Your provider must allow it.",
   "screen:mail-accounts.title": "Mailboxes",
   "screen:mail-account-edit.title": "Edit mailbox",
+  "screen:mail-account-sender-check.title": "Sender check",
   "inboundMail.accounts.col.name": "Name",
   "inboundMail.accounts.col.address": "Address",
   "inboundMail.accounts.col.provider": "Provider",

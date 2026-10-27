@@ -1428,6 +1428,8 @@
         "inbound-mail-foundation:write:ingest-message",
         "inbound-mail-foundation:write:mark-credential-stored",
         "inbound-mail-foundation:write:reactivate-account",
+        "inbound-mail-foundation:write:retry-quarantined-message",
+        "inbound-mail-foundation:write:set-trusted-authserv-id",
         "inbound-mail-foundation:write:update-account"
       ],
       "uiHints": {

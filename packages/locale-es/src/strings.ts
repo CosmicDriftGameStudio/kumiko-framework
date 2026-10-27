@@ -2026,6 +2026,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "La dirección desde la que se envían los correos, por ejemplo status@example.com. Tu proveedor debe permitirla.",
   "screen:mail-accounts.title": "Buzones",
   "screen:mail-account-edit.title": "Editar buzón",
+  "screen:mail-account-sender-check.title": "Verificación del remitente",
   "inboundMail.accounts.col.name": "Nombre",
   "inboundMail.accounts.col.address": "Dirección",
   "inboundMail.accounts.col.provider": "Proveedor",

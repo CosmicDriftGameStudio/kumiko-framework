@@ -2033,6 +2033,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
   "screen:mail-accounts.title": "Postfächer",
   "screen:mail-account-edit.title": "Postfach bearbeiten",
+  "screen:mail-account-sender-check.title": "Absenderprüfung",
   "inboundMail.accounts.col.name": "Name",
   "inboundMail.accounts.col.address": "Adresse",
   "inboundMail.accounts.col.provider": "Anbieter",

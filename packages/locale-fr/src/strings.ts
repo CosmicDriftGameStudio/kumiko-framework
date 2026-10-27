@@ -2053,6 +2053,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "L'adresse depuis laquelle les e-mails sont envoyés, par exemple status@example.com. Votre fournisseur doit l'autoriser.",
   "screen:mail-accounts.title": "Boîtes mail",
   "screen:mail-account-edit.title": "Modifier la boîte mail",
+  "screen:mail-account-sender-check.title": "Vérification de l'expéditeur",
   "inboundMail.accounts.col.name": "Nom",
   "inboundMail.accounts.col.address": "Adresse",
   "inboundMail.accounts.col.provider": "Fournisseur",
