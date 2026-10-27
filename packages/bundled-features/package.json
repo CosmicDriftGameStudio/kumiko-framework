@@ -752,7 +752,7 @@
     "LICENSE"
   ],
   "devDependencies": {
-    "@testing-library/user-event": "^14.6.1",
+    "@testing-library/user-event": "^14.6.8",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
     "@cosmicdrift/kumiko-locale-fr": "workspace:*",
