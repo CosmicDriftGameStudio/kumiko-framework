@@ -8,7 +8,7 @@ import { DEFAULT_COLLECTION_ACCESS } from "../web/constants.ts";
 import {
   type CollectionEntryRow,
   collectionStore,
-  toCollectionEntry,
+  readableCollectionEntry,
 } from "./collection-shared.ts";
 
 // One list handler per declared collection: `kind`, `ownership` and `access`
@@ -42,7 +42,11 @@ export function makeCollectionListQuery(collection: ContentCollectionDefinition)
           ...store.scopeOf(query.user),
         }),
       );
-      return { blocks: rows.map(toCollectionEntry) };
+      return {
+        blocks: await Promise.all(
+          rows.map((row) => readableCollectionEntry(row, store, `${collection.id}-list`)),
+        ),
+      };
     },
   });
 }
