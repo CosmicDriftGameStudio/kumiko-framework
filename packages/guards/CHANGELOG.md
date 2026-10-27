@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.395.0
+
+### Patch Changes
+
+- Updated dependencies [6599341]
+- Updated dependencies [373a722]
+  - @cosmicdrift/kumiko-types@0.395.0
+  - @cosmicdrift/kumiko-framework@0.395.0
+
 ## 0.394.0
 
 ### Patch Changes

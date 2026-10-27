@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-locale-fr
 
+## 0.395.0
+
+### Minor Changes
+
+- 6599341: Content collections have two editor formats, plain and document.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Content collections edit in plain or document format; rich and markdown are gone
+  detail: ContentEditorFormat is "plain" | "document". RichContentEditor and the old tiptap editor are removed from @cosmicdrift/kumiko-renderer/web; the document editor is DocumentContentEditor from @cosmicdrift/kumiko-bundled-features/template-resolver/web. A collection's storage format comes from its declaration on the server (plain stores plain, document stores html sanitized with sanitizeDocumentHtml for every collection kind) and the collection write no longer takes contentFormat. Saved content with {{name}} as text opens with variable nodes. Every collection gets a create form behind a "+" in its nav (unless it declares its own createAction); the collection write takes createOnly and answers an existing slug with the field error slug_exists. The text block editor and the secrets edit screen use FormScreenLayout, which takes an optional unsavedCount. useDispatchTarget is exported from @cosmicdrift/kumiko-renderer/web.
+  migration: Run bun kumiko-upgrade --apply. It rewrites contentFormat "rich" and "markdown" in collection declarations to "document". Replace imports of RichContentEditor with DocumentContentEditor from @cosmicdrift/kumiko-bundled-features/template-resolver/web, and drop contentFormat from collection write payloads.
+  codemod: scripts/codemod/content-collection-format.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Server field errors without a field on the form show in the form banner
+  detail: An entityEdit save that fails with a field error whose path is not a rendered field (for example a field an extension section writes) now shows the message in the form error banner instead of losing it.
+  -->
+- 6599341: Managed pages can have an editor document as their body.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: A managed page body is Markdown or an editor document, edited in the document editor
+  detail: The page entity has a new field bodyFormat ("markdown" or "document", default markdown). Pages and events from before the field read as markdown and render unchanged. A document body is HTML from the template-resolver document editor; page create, update and managed-pages:write:set check it with sanitizeDocumentHtml and store the rebuilt HTML and answer a rejected body with field errors on body (i18n key managed-pages.errors.document.rejected, new in all locale packages). The public render sanitizes a document body again and serves an empty body, with a logged warning, when a stored one fails. managed-pages:write:set takes an optional bodyFormat; omitting it sets markdown, it does not preserve the stored format. The page-edit screen no longer has a body textarea: its body section is the extension section managed-pages:page-body (PAGE_BODY_EXTENSION_NAME), which opens a Markdown body converted to HTML, shows a warning for what the conversion drops (images, block quotes, code, headings below level 3, relative links) and writes body and bodyFormat "document" only after the first edit. The ETag of the public page includes bodyFormat. seedPage takes an optional bodyFormat and throws on a rejected document body.
+  migration: Run `kumiko-schema generate` and apply the migration; read_pages gets a bodyFormat column with default 'markdown', no rebuild is needed. Mount `managedPagesClient()` from `@cosmicdrift/kumiko-bundled-features/managed-pages/web` in createKumikoApp({ clientFeatures }); without it the body section of page-edit shows the missing-component placeholder. Apps that replaced page-edit with their own screen keep the textarea and send no bodyFormat, so their pages stay markdown.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [373a722]
+  - @cosmicdrift/kumiko-framework@0.395.0
+
 ## 0.394.0
 
 ### Minor Changes

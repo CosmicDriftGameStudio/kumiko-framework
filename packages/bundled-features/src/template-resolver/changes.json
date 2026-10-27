@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.395.0",
+    "type": "breaking",
+    "title": "Content collections edit in plain or document format; rich and markdown are gone",
+    "detail": "ContentEditorFormat is \"plain\" | \"document\". RichContentEditor and the old tiptap editor are removed from @cosmicdrift/kumiko-renderer/web; the document editor is DocumentContentEditor from @cosmicdrift/kumiko-bundled-features/template-resolver/web. A collection's storage format comes from its declaration on the server (plain stores plain, document stores html sanitized with sanitizeDocumentHtml for every collection kind) and the collection write no longer takes contentFormat. Saved content with {{name}} as text opens with variable nodes. Every collection gets a create form behind a \"+\" in its nav (unless it declares its own createAction); the collection write takes createOnly and answers an existing slug with the field error slug_exists. The text block editor and the secrets edit screen use FormScreenLayout, which takes an optional unsavedCount. useDispatchTarget is exported from @cosmicdrift/kumiko-renderer/web.",
+    "migration": "Run bun kumiko-upgrade --apply. It rewrites contentFormat \"rich\" and \"markdown\" in collection declarations to \"document\". Replace imports of RichContentEditor with DocumentContentEditor from @cosmicdrift/kumiko-bundled-features/template-resolver/web, and drop contentFormat from collection write payloads.",
+    "codemod": "scripts/codemod/content-collection-format.ts"
+  },
+  {
     "version": "0.394.0",
     "type": "fix",
     "title": "collection trees and Save follow the server's access rules",
