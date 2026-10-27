@@ -2097,6 +2097,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.reconnect.invalidRow":
     "Dieses Postfach lässt sich hier nicht reaktivieren.",
   "screen:mail-account-reconnect-imap.title": "Postfach neu verbinden",
+  "screen:my-mail-account-reconnect-imap.title": "Postfach neu verbinden",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Postfach",
   "inboundMail.imap.reconnect.hint":
     "Der Login wird vor dem Speichern geprüft. Danach holt das System die Mails wieder ab.",

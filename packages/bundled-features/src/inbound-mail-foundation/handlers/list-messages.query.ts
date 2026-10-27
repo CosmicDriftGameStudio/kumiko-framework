@@ -15,6 +15,7 @@ import {
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity } from "../entities.ts";
+import type { InboundMailRoles } from "../mail-roles.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
 
@@ -39,35 +40,36 @@ const listMessagesSchema = z
   .strict();
 type ListMessagesPayload = z.infer<typeof listMessagesSchema>;
 
-export const listMessagesQuery: QueryHandlerDef = {
-  name: "message:list",
-  schema: listMessagesSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
-  description:
-    "Lists received mail of the caller's tenant with sender, recipients, subject and snippet decrypted, optionally narrowed to one account, thread or folder scope and hiding messages of personal mailboxes the caller neither owns nor administers; use it to read an inbox or a conversation.",
-  handler: async (query, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = query.payload as ListMessagesPayload;
-    const filter: Record<string, unknown> = { tenantId: ctx.user.tenantId };
-    if (payload.accountId) filter["accountId"] = payload.accountId;
-    if (payload.threadKey) filter["threadKey"] = payload.threadKey;
-    if (payload.scope) filter["scope"] = payload.scope;
+export function createListMessagesQuery({ memberRoles }: InboundMailRoles): QueryHandlerDef {
+  return {
+    name: "message:list",
+    schema: listMessagesSchema,
+    access: { roles: [...memberRoles] },
+    description:
+      "Lists received mail of the caller's tenant with sender, recipients, subject and snippet decrypted, optionally narrowed to one account, thread or folder scope and hiding messages of personal mailboxes the caller does not own; use it to read an inbox or a conversation.",
+    handler: async (query, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = query.payload as ListMessagesPayload;
+      const filter: Record<string, unknown> = { tenantId: ctx.user.tenantId };
+      if (payload.accountId) filter["accountId"] = payload.accountId;
+      if (payload.threadKey) filter["threadKey"] = payload.threadKey;
+      if (payload.scope) filter["scope"] = payload.scope;
 
-    const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter, {
-      fields: LIST_MESSAGE_COLUMNS,
-    });
-    // Scope visibility: messages in personal mailboxes are visible only to the
-    // owner or TenantAdmin/SystemAdmin.
-    const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));
-    const piiKms = configuredPiiSubjectKms();
-    if (!piiKms) return { rows };
-    const decryptedRows = await Promise.all(
-      rows.map((row) =>
-        decryptPiiFieldValues(row, INBOUND_MESSAGE_PII_FIELDS, piiKms, {
-          requestId: `inbound-mail-foundation:list-messages:${ctx.user.tenantId}`,
-        }),
-      ),
-    );
-    return { rows: decryptedRows };
-  },
-};
+      const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter, {
+        fields: LIST_MESSAGE_COLUMNS,
+      });
+      // Scope visibility: messages in personal mailboxes are visible only to the owner.
+      const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));
+      const piiKms = configuredPiiSubjectKms();
+      if (!piiKms) return { rows };
+      const decryptedRows = await Promise.all(
+        rows.map((row) =>
+          decryptPiiFieldValues(row, INBOUND_MESSAGE_PII_FIELDS, piiKms, {
+            requestId: `inbound-mail-foundation:list-messages:${ctx.user.tenantId}`,
+          }),
+        ),
+      );
+      return { rows: decryptedRows };
+    },
+  };
+}

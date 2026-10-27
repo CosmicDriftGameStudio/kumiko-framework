@@ -25,18 +25,22 @@
 
 import { mailAllowedPrivateHostsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
+  assertRolesMatchFoundation,
   INBOUND_MAIL_PROVIDER_EXTENSION,
   type InboundFetchResult,
   type InboundMailContext,
   type InboundMailProviderPlugin,
+  type InboundMailRoleOptions,
   type MailAccountRecord,
   type RawInboundMessage,
+  resolveInboundMailRoles,
+  roleDedupeOptions,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ImapFlow, MailboxObject } from "imapflow";
-import { connectMailboxHandler } from "./connect-mailbox.ts";
+import { createConnectMailboxHandler } from "./connect-mailbox.ts";
 import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
 import { readCredentialDocument } from "./credential-document.ts";
 import { downloadBatch } from "./download-batch.ts";
@@ -53,9 +57,13 @@ import {
   parseImapCursor,
 } from "./imap-client.ts";
 import { buildProviderMessageId, coerceDate, parseOrReject } from "./parse-message.ts";
-import { reconnectMailboxHandler } from "./reconnect-mailbox.ts";
-import { reconnectPrefillQuery } from "./reconnect-prefill.query.ts";
-import { imapConnectScreen, imapReconnectScreen } from "./screens.ts";
+import { createReconnectMailboxHandler } from "./reconnect-mailbox.ts";
+import { createReconnectPrefillQuery } from "./reconnect-prefill.query.ts";
+import {
+  createImapConnectScreen,
+  createImapReconnectScreen,
+  createMyImapReconnectScreen,
+} from "./screens.ts";
 import { sendFromImapAccount } from "./send-mail.ts";
 
 export { IMAP_PROVIDER_KEY } from "./constants.ts";
@@ -259,7 +267,8 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   // the OAuth providers (M365/Gmail).
 };
 
-export function createInboundProviderImapFeature() {
+export function createInboundProviderImapFeature(options: InboundMailRoleOptions = {}) {
+  const roles = resolveInboundMailRoles(options);
   return defineFeature(
     FEATURE_NAME,
     (r) => {
@@ -275,13 +284,15 @@ export function createInboundProviderImapFeature() {
       r.requires({ features: ["secrets"] });
       r.envSchema(mailAllowedPrivateHostsEnvSchema);
       r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
-      r.writeHandler(connectMailboxHandler);
-      r.writeHandler(reconnectMailboxHandler);
-      r.queryHandler(reconnectPrefillQuery);
-      r.screen(imapConnectScreen);
-      r.screen(imapReconnectScreen);
+      r.bootCheck(({ features }) => assertRolesMatchFoundation(FEATURE_NAME, roles, features));
+      r.writeHandler(createConnectMailboxHandler(roles));
+      r.writeHandler(createReconnectMailboxHandler(roles));
+      r.queryHandler(createReconnectPrefillQuery(roles));
+      r.screen(createImapConnectScreen(roles));
+      r.screen(createImapReconnectScreen(roles));
+      r.screen(createMyImapReconnectScreen(roles));
       r.translations({ keys: INBOUND_PROVIDER_IMAP_I18N });
     },
-    { dedupeOptions: {} },
+    { dedupeOptions: roleDedupeOptions(roles) },
   );
 }

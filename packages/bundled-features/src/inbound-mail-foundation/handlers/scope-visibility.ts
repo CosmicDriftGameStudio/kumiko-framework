@@ -1,19 +1,32 @@
-// Scope visibility: shared rows (`ownerUserId=null`) are visible to any authorized caller;
-// personal rows are visible only to the owner, `TenantAdmin`, or `SystemAdmin` for compliance.
-// The same rule applies to `read_mail_accounts` and `read_inbound_messages`.
+// Scope visibility: shared rows (`ownerUserId=null`) are visible to any authorized caller.
+// A personal mailbox is private to its owner: its messages, bodies, attachments and quarantine are
+// never shown to admins, who see only the operational metadata of the account (address, status).
 
-export function isVisibleToCaller(
-  row: Readonly<Record<string, unknown>>,
-  user: { readonly id: string; readonly roles: readonly string[] },
-): boolean {
-  const owner = row["ownerUserId"];
-  if (owner == null || owner === "") return true;
-  if (owner === user.id) return true;
-  return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
+type Caller = { readonly id: string; readonly roles: readonly string[] };
+
+function isShared(ownerUserId: unknown): boolean {
+  return ownerUserId == null || ownerUserId === "";
 }
 
-export function isMailAdmin(user: { readonly roles: readonly string[] }): boolean {
-  return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
+export function isVisibleToCaller(row: Readonly<Record<string, unknown>>, user: Caller): boolean {
+  const owner = row["ownerUserId"];
+  return isShared(owner) || owner === user.id;
+}
+
+export function isMailAdmin(
+  user: { readonly roles: readonly string[] },
+  adminRoles: readonly string[],
+): boolean {
+  return adminRoles.some((role) => user.roles.includes(role));
+}
+
+// Account metadata (not content) of a personal mailbox stays visible to admins for operations.
+export function isAccountListableBy(
+  row: Readonly<Record<string, unknown>>,
+  user: Caller,
+  adminRoles: readonly string[],
+): boolean {
+  return isVisibleToCaller(row, user) || isMailAdmin(user, adminRoles);
 }
 
 // A personal mailbox is re-armed (and its sender check changed) by its owner only: a reconnect
@@ -21,17 +34,19 @@ export function isMailAdmin(user: { readonly roles: readonly string[] }): boolea
 // it. A shared mailbox belongs to the tenant: admins only.
 export function mayReactivateMailbox(
   ownerUserId: unknown,
-  user: { readonly id: string; readonly roles: readonly string[] },
+  user: Caller,
+  adminRoles: readonly string[],
 ): boolean {
-  if (ownerUserId == null || ownerUserId === "") return isMailAdmin(user);
+  if (isShared(ownerUserId)) return isMailAdmin(user, adminRoles);
   return ownerUserId === user.id;
 }
 
-// Quarantine entries of a shared mailbox are administered by admins; those of a personal mailbox by
-// its owner (and admins, as for reading).
+// Quarantine entries carry sender and subject of the mail, so those of a personal mailbox are the
+// owner's alone; shared mailboxes are administered by admins.
 export function mayManageQuarantine(
   ownerUserId: string | null,
-  user: { readonly id: string; readonly roles: readonly string[] },
+  user: Caller,
+  adminRoles: readonly string[],
 ): boolean {
-  return ownerUserId === null ? isMailAdmin(user) : isVisibleToCaller({ ownerUserId }, user);
+  return isShared(ownerUserId) ? isMailAdmin(user, adminRoles) : ownerUserId === user.id;
 }

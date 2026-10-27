@@ -13,7 +13,12 @@ import {
   InboundMailFoundationQueries,
   MailAccountReactivationPaths,
 } from "../constants.ts";
-import { mailAccountListScreen, myMailAccountListScreen } from "../screens.ts";
+import { resolveInboundMailRoles } from "../mail-roles.ts";
+import {
+  createMailAccountListScreen,
+  createMyMailAccountListScreen,
+  MY_IMAP_RECONNECT_SCREEN_ID,
+} from "../screens.ts";
 import {
   adminFor,
   type MailTestAdmin,
@@ -203,6 +208,9 @@ describe("reactivate-account with the User role", () => {
 });
 
 describe("mailbox list row actions", () => {
+  const roles = resolveInboundMailRoles();
+  const mailAccountListScreen = createMailAccountListScreen(roles);
+  const myMailAccountListScreen = createMyMailAccountListScreen(roles);
   const actionOf = (screen: typeof mailAccountListScreen, id: string) =>
     screen.rowActions?.find((candidate) => candidate.id === id);
 
@@ -217,6 +225,14 @@ describe("mailbox list row actions", () => {
         eq: MailAccountReactivationPaths.oauthFlow,
       });
     }
-    expect(actionOf(myMailAccountListScreen, "reactivate")).toBeUndefined();
+  });
+
+  test("my mailboxes reactivate a password mailbox in the owner's own reconnect form", () => {
+    const action = actionOf(myMailAccountListScreen, "reactivate");
+    expect(action).toMatchObject({
+      kind: "navigate",
+      screen: MY_IMAP_RECONNECT_SCREEN_ID,
+      visible: { field: "reactivateVia", eq: MailAccountReactivationPaths.passwordForm },
+    });
   });
 });

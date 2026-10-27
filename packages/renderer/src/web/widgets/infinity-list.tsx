@@ -96,6 +96,10 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // overwrite it, leaving stale rows on screen.
   const requestSeq = useRef(0);
 
+  // Lets refreshFirstPage tell "initial load still running" from outside a state updater.
+  const stateKindRef = useRef(state.kind);
+  stateKindRef.current = state.kind;
+
   // IDs of the most recently loaded first page. refreshFirstPage() needs
   // this to tell "row dropped from page 1 elsewhere" (must be pruned) apart
   // from "row belongs to an already-accumulated later page" (must survive)
@@ -162,10 +166,10 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // scroll position.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
   const refreshFirstPage = useCallback(async (): Promise<void> => {
-    // Read, don't bump: a concurrent load() (e.g. the mount fetch still
-    // in flight) must still land. Bumping here would make load()'s own
-    // sequence check discard it, and the refresh below then bails on
-    // `prev.kind !== "ready"` — the list gets stuck in loading forever.
+    // Read, don't bump at the start: a concurrent load() (e.g. the mount
+    // fetch still in flight) must not be discarded by a refresh that then
+    // fails or is superseded. Only a refresh that actually delivers fresh
+    // rows bumps (below), because those are newer than the running load's.
     const seqAtStart = requestSeq.current;
     const res = await dispatcher.query<TData>(query, { ...payload, limit: pageSize });
     if (seqAtStart !== requestSeq.current) return;
@@ -173,6 +177,15 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     if (!res.isSuccess) return;
     const freshRows = rowsRef.current(res.data);
     const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
+    if (stateKindRef.current === "loading") {
+      // The initial load was issued before the change that triggered this
+      // refresh (the live stream reports its first open as a resync), so
+      // its page 1 may be stale: adopt the fresh page and drop the older load.
+      requestSeq.current += 1;
+      firstPageIdsRef.current = freshIds;
+      setState({ kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) });
+      return;
+    }
     // A row absent from freshIds is stale for one of two reasons: it was
     // dropped from page 1 (deleted, or filtered out elsewhere) and must be
     // pruned, or it belongs to an already-accumulated later page and must
@@ -181,9 +194,6 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     const previousFirstPageIds = firstPageIdsRef.current;
     firstPageIdsRef.current = freshIds;
     setState((prev) => {
-      // skip: the initial load() is still in flight and owns the eventual
-      // state — a concurrent refresh landing here has nothing accumulated
-      // to merge into yet.
       if (prev.kind === "loading") return prev;
       if (prev.kind !== "ready") {
         // prev.kind === "error": this refresh succeeded — promote straight

@@ -106,7 +106,7 @@ async function quarantinePoison(accountId: string, poisonId: string) {
 }
 
 describe("who may retry", () => {
-  test("the owner and a tenant admin may, another user may not", async () => {
+  test("only the owner may on a personal mailbox, a tenant admin and another user may not", async () => {
     const owner = adminFor(6701);
     const tenantAdmin = createTestUser({
       id: 6702,
@@ -127,17 +127,20 @@ describe("who may retry", () => {
     expect(JSON.stringify(denied)).toContain("not_mailbox_owner");
     expect((await quarantinedRows(accountId))[0]?.["retryRequestedAt"] ?? null).toBeNull();
 
-    await env.stack.http.writeOk(
+    const deniedAdmin = await env.stack.http.writeErr(
       InboundMailFoundationHandlers.retryQuarantinedMessage,
       payload,
       tenantAdmin,
     );
-    expect((await quarantinedRows(accountId))[0]?.["retryRequestedAt"]).not.toBeNull();
+    expect(JSON.stringify(deniedAdmin)).toContain("not_mailbox_owner");
+    expect((await quarantinedRows(accountId))[0]?.["retryRequestedAt"] ?? null).toBeNull();
+
     await env.stack.http.writeOk(
       InboundMailFoundationHandlers.retryQuarantinedMessage,
       payload,
       owner,
     );
+    expect((await quarantinedRows(accountId))[0]?.["retryRequestedAt"]).not.toBeNull();
   });
 
   test("a mail that is not quarantined is not found", async () => {

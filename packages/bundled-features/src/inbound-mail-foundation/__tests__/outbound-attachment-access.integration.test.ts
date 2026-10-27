@@ -56,7 +56,7 @@ const probeFeature = defineFeature("outbound-access-test", (r) => {
     description: "Runs the attachment resolution of an outgoing mail, as sendMailFromAccount does.",
     agent: { expose: false },
     schema: z.object({ fileIds: z.array(z.string()) }),
-    access: { roles: ["TenantAdmin", "User"] },
+    access: { roles: ["TenantAdmin", "SystemAdmin", "Admin", "User"] },
     handler: async (event, ctx) => {
       const resolved = await resolveOutboundAttachments(ctx, event.payload.fileIds);
       return {
@@ -152,6 +152,44 @@ describe("attachments of an imported mail", () => {
 
     expect(await resolveAs(owner, [fileId])).toEqual({ ok: true, count: 1 });
     expect(await resolveAs(other, [fileId])).toEqual({ ok: false, failure: "attachmentInvalid" });
+  });
+
+  test("admins and file-privileged roles may not attach a personal mailbox's attachments", async () => {
+    const owner = adminFor(6707);
+    const tenantAdmin = createTestUser({
+      id: 6708,
+      tenantId: owner.tenantId,
+      roles: ["TenantAdmin"],
+    });
+    const systemAdmin = createTestUser({
+      id: 6709,
+      tenantId: owner.tenantId,
+      roles: ["SystemAdmin"],
+    });
+    // "Admin" is a default privileged role of the files feature: it normally reads every file.
+    const filesPrivileged = createTestUser({
+      id: 6710,
+      tenantId: owner.tenantId,
+      roles: ["Admin"],
+    });
+    const { accountId } = await env.stack.http.writeOk<{ accountId: string }>(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "inmemory",
+        authMethod: "password",
+        displayName: "Mine",
+        address: "private@tenant.example",
+        scope: "user",
+      },
+      owner,
+    );
+    const fileId = await importedAttachmentOf(owner, accountId);
+
+    const refused = { ok: false, failure: "attachmentInvalid" };
+    expect(await resolveAs(owner, [fileId])).toEqual({ ok: true, count: 1 });
+    expect(await resolveAs(tenantAdmin, [fileId])).toEqual(refused);
+    expect(await resolveAs(systemAdmin, [fileId])).toEqual(refused);
+    expect(await resolveAs(filesPrivileged, [fileId])).toEqual(refused);
   });
 
   test("a shared mailbox's attachments are open to every caller of the tenant", async () => {

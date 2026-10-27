@@ -10,6 +10,7 @@ import {
   InboundMailAccountStatuses,
   InboundMailAuthMethods,
   InboundMailFoundationHandlers,
+  type InboundMailRoles,
   inboundCredentialSecretKey,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -135,70 +136,74 @@ export async function checkMailboxLogin(
   return { isSuccess: true, data: null };
 }
 
-export const connectMailboxHandler = defineWriteHandler({
-  name: "connect-mailbox",
-  description:
-    "Connects a shared IMAP mailbox with a password over implicit TLS: checks the IMAP login and the SMTP login of the outgoing server (given, or derived from the IMAP host) first, then creates the mail account and stores both servers, user and password as its credential secret in one step.",
-  // The payload carries the plaintext password: as a tool call it would reach the model provider.
-  agent: { expose: false },
-  schema: connectMailboxSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
-  // Each call opens a connection to a host the caller picks; the cap keeps the form from being
-  // used to scan ports or to guess passwords at someone else's mail server.
-  rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
-  escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
-  beforeTransaction: (event, ctx) =>
-    checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
-  handler: async (event, ctx) => {
-    const { displayName, address, trustedAuthservId } = event.payload;
-    // A shared password mailbox that was disconnected is brought back under its old account id, so
-    // cursor, seen anchors and threads survive; anything else keeps connect-account's conflict answer.
-    const existing = await findMailboxByAddress(ctx, event.user.tenantId, address);
-    const reopened = existing !== undefined && isReopenableByThisForm(existing);
-    let accountId: string;
-    if (reopened) {
-      accountId = existing.id;
-    } else {
-      const connected = await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, {
-        provider: IMAP_PROVIDER_KEY,
-        authMethod: InboundMailAuthMethods.password,
-        displayName,
-        address,
-        scope: "shared",
-      });
-      if (!connected.isSuccess) return connected;
-      accountId = connectedAccountSchema.parse(connected.data).accountId;
-    }
+export const createConnectMailboxHandler = ({ adminRoles }: InboundMailRoles) =>
+  defineWriteHandler({
+    name: "connect-mailbox",
+    description:
+      "Connects a shared IMAP mailbox with a password over implicit TLS: checks the IMAP login and the SMTP login of the outgoing server (given, or derived from the IMAP host) first, then creates the mail account and stores both servers, user and password as its credential secret in one step.",
+    // The payload carries the plaintext password: as a tool call it would reach the model provider.
+    agent: { expose: false },
+    schema: connectMailboxSchema,
+    access: { roles: [...adminRoles] },
+    // Each call opens a connection to a host the caller picks; the cap keeps the form from being
+    // used to scan ports or to guess passwords at someone else's mail server.
+    rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
+    escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
+    beforeTransaction: (event, ctx) =>
+      checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
+    handler: async (event, ctx) => {
+      const { displayName, address, trustedAuthservId } = event.payload;
+      // A shared password mailbox that was disconnected is brought back under its old account id, so
+      // cursor, seen anchors and threads survive; anything else keeps connect-account's conflict answer.
+      const existing = await findMailboxByAddress(ctx, event.user.tenantId, address);
+      const reopened = existing !== undefined && isReopenableByThisForm(existing);
+      let accountId: string;
+      if (reopened) {
+        accountId = existing.id;
+      } else {
+        const connected = await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, {
+          provider: IMAP_PROVIDER_KEY,
+          authMethod: InboundMailAuthMethods.password,
+          displayName,
+          address,
+          scope: "shared",
+        });
+        if (!connected.isSuccess) return connected;
+        accountId = connectedAccountSchema.parse(connected.data).accountId;
+      }
 
-    const secrets = requireSecretsContext(
-      { secrets: ctx.services.secrets, user: ctx.user },
-      "connect-mailbox",
-    ).withRunner(ctx.db.unsafeRaw());
-    await secrets.set(
-      event.user.tenantId,
-      inboundCredentialSecretKey(accountId),
-      JSON.stringify(credentialDocumentOf(event.payload)),
-      {
-        redact: () => CREDENTIAL_PREVIEW,
-        hint: `IMAP credentials for inbound mail account ${accountId}`,
-        updatedBy: event.user.id,
-      },
-    );
-    if (reopened) {
-      // Secret first: reactivating a disconnected account requires the credential to exist.
-      const reactivated = await ctx.dispatch.write(
-        InboundMailFoundationHandlers.reactivateAccount,
-        { accountId },
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        "connect-mailbox",
+      ).withRunner(ctx.db.unsafeRaw());
+      await secrets.set(
+        event.user.tenantId,
+        inboundCredentialSecretKey(accountId),
+        JSON.stringify(credentialDocumentOf(event.payload)),
+        {
+          redact: () => CREDENTIAL_PREVIEW,
+          hint: `IMAP credentials for inbound mail account ${accountId}`,
+          updatedBy: event.user.id,
+        },
       );
-      if (!reactivated.isSuccess) return reactivated;
-    }
-    if (trustedAuthservId) {
-      const trusted = await ctx.dispatch.write(InboundMailFoundationHandlers.setTrustedAuthservId, {
-        accountId,
-        trustedAuthservId,
-      });
-      if (!trusted.isSuccess) return trusted;
-    }
-    return { isSuccess: true, data: { accountId } };
-  },
-});
+      if (reopened) {
+        // Secret first: reactivating a disconnected account requires the credential to exist.
+        const reactivated = await ctx.dispatch.write(
+          InboundMailFoundationHandlers.reactivateAccount,
+          { accountId },
+        );
+        if (!reactivated.isSuccess) return reactivated;
+      }
+      if (trustedAuthservId) {
+        const trusted = await ctx.dispatch.write(
+          InboundMailFoundationHandlers.setTrustedAuthservId,
+          {
+            accountId,
+            trustedAuthservId,
+          },
+        );
+        if (!trusted.isSuccess) return trusted;
+      }
+      return { isSuccess: true, data: { accountId } };
+    },
+  });

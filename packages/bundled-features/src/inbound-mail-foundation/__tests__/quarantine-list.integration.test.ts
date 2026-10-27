@@ -13,12 +13,13 @@ import {
 } from "../../inbound-provider-inmemory/index.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "../i18n.ts";
+import { resolveInboundMailRoles } from "../mail-roles.ts";
 import { QUARANTINE_REASON_CODES } from "../quarantine-entities.ts";
 import {
-  mailQuarantineScreen,
+  createMailQuarantineScreen,
   QUARANTINE_REASON_OPTION_KEY_PREFIX,
 } from "../quarantine-screens.ts";
-import { mailAccountListScreen } from "../screens.ts";
+import { createMailAccountListScreen } from "../screens.ts";
 import type { DispatchWrite } from "../supervisor-ingest.ts";
 import {
   adminFor,
@@ -30,6 +31,10 @@ import {
 } from "./mail-test-support.ts";
 
 const POLL_INTERVAL_MS = 600_000;
+
+const mailRoles = resolveInboundMailRoles();
+const mailQuarantineScreen = createMailQuarantineScreen(mailRoles);
+const mailAccountListScreen = createMailAccountListScreen(mailRoles);
 
 type QuarantineRow = {
   readonly accountId: string;
@@ -130,7 +135,7 @@ describe("quarantine:list", () => {
     );
   });
 
-  test("a user who does not own the personal mailbox sees nothing, an admin does", async () => {
+  test("a user who does not own the personal mailbox sees nothing, not even an admin", async () => {
     const owner = adminFor(6802);
     const stranger = createTestUser({ id: 6803, tenantId: owner.tenantId, roles: ["User"] });
     const tenantAdmin = createTestUser({
@@ -144,8 +149,44 @@ describe("quarantine:list", () => {
 
     expect(await listFor(stranger)).toEqual([]);
     expect(await listFor(stranger, accountId)).toEqual([]);
-    expect(await listFor(tenantAdmin, accountId)).toHaveLength(1);
+    expect(await listFor(tenantAdmin, accountId)).toEqual([]);
+    expect(await listFor(tenantAdmin)).toEqual([]);
     expect(await listFor(owner, accountId)).toHaveLength(1);
+  });
+
+  test("a tenant admin may neither acknowledge nor retry personal quarantine, but manages shared", async () => {
+    const owner = adminFor(6810);
+    const tenantAdmin = createTestUser({
+      id: 6811,
+      tenantId: owner.tenantId,
+      roles: ["TenantAdmin"],
+    });
+    const personalId = await connect(owner, "user", "private@tenant.example");
+    const sharedId = await connect(owner, "shared", "team@tenant.example");
+    seedRejectedInboundMessage(personalId, "u-1");
+    seedRejectedInboundMessage(sharedId, "u-2");
+    await createMailSupervisor(env.stack).pollOnce();
+
+    for (const handler of [
+      InboundMailFoundationHandlers.acknowledgeQuarantine,
+      InboundMailFoundationHandlers.retryQuarantinedMessage,
+    ]) {
+      const denied = await env.stack.http.writeErr(
+        handler,
+        { accountId: personalId, providerMessageId: "u-1" },
+        tenantAdmin,
+      );
+      expect(JSON.stringify(denied)).toContain("not_mailbox_owner");
+    }
+    expect(await listFor(owner, personalId)).toHaveLength(1);
+
+    expect(await listFor(tenantAdmin, sharedId)).toHaveLength(1);
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.acknowledgeQuarantine,
+      { accountId: sharedId, providerMessageId: "u-2" },
+      tenantAdmin,
+    );
+    expect(await listFor(tenantAdmin, sharedId)).toEqual([]);
   });
 
   test("acknowledging one row leaves the other open, and a stranger may not", async () => {

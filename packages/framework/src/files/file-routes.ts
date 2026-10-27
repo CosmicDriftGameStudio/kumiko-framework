@@ -40,6 +40,7 @@ import { createFileContext, createTenantFileContext } from "./file-handle.ts";
 import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import type { FileProviderResolver } from "./provider-resolver.ts";
+import { collectRecordOnlyFileEntityTypes } from "./record-only-file-entity-types.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
 import {
   isStoredRecordLocked,
@@ -208,6 +209,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       privilegedRoles,
       options.canReadRecord,
       options.unclaimedUploadReaders ?? [],
+      options.registry ? collectRecordOnlyFileEntityTypes(options.registry) : new Set<string>(),
     );
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);

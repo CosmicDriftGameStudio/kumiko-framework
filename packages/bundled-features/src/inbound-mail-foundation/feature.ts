@@ -1,32 +1,26 @@
 // kumiko-feature-version: 1
-// inbound-mail-foundation — Plugin host for inbound e-mail
-// (inbox federation). Counterpart to mail-foundation (outbound): separate
-// extension points, separate state — architectural model is
-// file-foundation (the foundation owns state), not mail-transport.
+// inbound-mail-foundation: plugin host for inbound e-mail (inbox federation), the counterpart to
+// mail-foundation (outbound) with its own extension points and state. Modelled on file-foundation
+// (the foundation owns state), not on mail-transport.
 //
 // **What this foundation provides:**
-//   1. **Plugin API** for inbound providers via r.extendsRegistrar
-//      ("inboundMailProvider"): verify/fetch/oauth?/watch? (types.ts).
+//   1. **Plugin API** for providers via r.extendsRegistrar: verify/fetch/oauth?/watch? (types.ts).
 //   2. **3 event-sourced streams** — mail-account (lifecycle),
 //      inbound-message (exactly ONE received event per message, deterministic
 //      aggregateId ⇒ exactly-once despite at-least-once ingest),
 //      mail-thread (rollup), fully replayable for later consumers.
-//   3. **Inline projections** into read_mail_accounts /
-//      read_inbound_messages / read_mail_threads (read-your-own-write).
+//   3. **Inline projections** into read_mail_accounts/_inbound_messages/_mail_threads (RYOW).
 //   4. **Write/query handlers**: connect/update/disconnect-account,
 //      ingest-message (programmatic, SystemAdmin), account:list +
-//      message:list (PII-decrypted, scope-filtered).
+//      message:list (PII-decrypted; personal mail only for its owner).
 //
-// **What this foundation does NOT do:**
-//   - No business semantics (intent, ticket, assignment, read/
-//     completed) — those belong to the app consumer (for example, via an
-//     event job on inbound-message-received + its own projection).
+// **Not here:** business semantics (intent, ticket, assignment, read/completed) belong to the
+// app consumer, for example an event job on inbound-message-received with its own projection.
 //
-// **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
-// — encrypted BEFORE every event append (the only write path), event log AND
-// projections carry ciphertext; tenant-destroy shreds the subject key
-// (crypto-shredding, the same pattern as billing-foundation). The destroy
-// hook additionally archives all streams + deletes the rows.
+// **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`, encrypted BEFORE every
+// event append (the only write path), so event log AND projections carry ciphertext; tenant-destroy
+// shreds the subject key (crypto-shredding, as in billing-foundation) and its hook additionally
+// archives all streams and deletes the rows.
 
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
@@ -58,23 +52,28 @@ import {
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
 } from "./events.ts";
-import { acknowledgeQuarantineHandler } from "./handlers/acknowledge-quarantine.write.ts";
+import { createAcknowledgeQuarantineHandler } from "./handlers/acknowledge-quarantine.write.ts";
 import { attachMessageContentHandler } from "./handlers/attach-message-content.write.ts";
-import { connectAccountHandler } from "./handlers/connect-account.write.ts";
-import { disconnectAccountHandler } from "./handlers/disconnect-account.write.ts";
+import { createConnectAccountHandler } from "./handlers/connect-account.write.ts";
+import { createDisconnectAccountHandler } from "./handlers/disconnect-account.write.ts";
 import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
-import { listAccountsQuery } from "./handlers/list-accounts.query.ts";
-import { listMessagesQuery } from "./handlers/list-messages.query.ts";
-import { listQuarantineQuery } from "./handlers/list-quarantine.query.ts";
+import { createListAccountsQuery } from "./handlers/list-accounts.query.ts";
+import { createListMessagesQuery } from "./handlers/list-messages.query.ts";
+import { createListQuarantineQuery } from "./handlers/list-quarantine.query.ts";
 import { markCredentialStoredHandler } from "./handlers/mark-credential-stored.write.ts";
-import { messageContentQuery } from "./handlers/message-content.query.ts";
-import { messageDetailQuery } from "./handlers/message-detail.query.ts";
-import { reactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
-import { retryQuarantinedMessageHandler } from "./handlers/retry-quarantined-message.write.ts";
-import { setTrustedAuthservIdHandler } from "./handlers/set-trusted-authserv-id.write.ts";
-import { updateAccountHandler } from "./handlers/update-account.write.ts";
+import { createMessageContentQuery } from "./handlers/message-content.query.ts";
+import { createMessageDetailQuery } from "./handlers/message-detail.query.ts";
+import { createReactivateAccountHandler } from "./handlers/reactivate-account.write.ts";
+import { createRetryQuarantinedMessageHandler } from "./handlers/retry-quarantined-message.write.ts";
+import { createSetTrustedAuthservIdHandler } from "./handlers/set-trusted-authserv-id.write.ts";
+import { createUpdateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
+import {
+  type InboundMailRoleOptions,
+  resolveInboundMailRoles,
+  roleDedupeOptions,
+} from "./mail-roles.ts";
 import { registerMailboxProbe } from "./probe.ts";
 import {
   applyInboundMessageContentFetched,
@@ -88,9 +87,9 @@ import {
   mailThreadsProjectionTable,
 } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
-import { mailQuarantineScreen } from "./quarantine-screens.ts";
+import { createMailQuarantineScreen } from "./quarantine-screens.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
-import { MAIL_ACCOUNT_SCREENS } from "./screens.ts";
+import { createMailAccountScreens } from "./screens.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
@@ -99,7 +98,8 @@ import {
 } from "./tenant-destroy-hook.ts";
 import { registerMailAccountWakeConsumer } from "./wake-consumer.ts";
 
-export function createInboundMailFoundationFeature() {
+export function createInboundMailFoundationFeature(options: InboundMailRoleOptions = {}) {
+  const roles = resolveInboundMailRoles(options);
   return defineFeature(
     INBOUND_MAIL_FOUNDATION_FEATURE,
     (r) => {
@@ -174,12 +174,17 @@ export function createInboundMailFoundationFeature() {
         inboundMessageContentFetchedEventPayloadSchema,
         {
           piiFields: "none",
-          version: 2,
+          version: 3,
           migrations: [
             {
               fromVersion: 1,
               toVersion: 2,
               transform: { default: { contentUnavailableReason: null } },
+            },
+            {
+              fromVersion: 2,
+              toVersion: 3,
+              transform: { default: { accountId: null, ownerUserId: null } },
             },
           ],
         },
@@ -249,24 +254,25 @@ export function createInboundMailFoundationFeature() {
 
       // ingest-message is programmatic (supervisor/poll, SystemAdmin); the rest is account lifecycle.
       r.writeHandler(ingestMessageHandler);
-      r.writeHandler(connectAccountHandler);
-      r.writeHandler(updateAccountHandler);
-      r.writeHandler(disconnectAccountHandler);
-      r.writeHandler(reactivateAccountHandler);
-      r.writeHandler(setTrustedAuthservIdHandler);
-      r.writeHandler(acknowledgeQuarantineHandler);
-      r.writeHandler(retryQuarantinedMessageHandler);
+      r.writeHandler(createConnectAccountHandler(roles));
+      r.writeHandler(createUpdateAccountHandler(roles));
+      r.writeHandler(createDisconnectAccountHandler(roles));
+      r.writeHandler(createReactivateAccountHandler(roles));
+      r.writeHandler(createSetTrustedAuthservIdHandler(roles));
+      r.writeHandler(createAcknowledgeQuarantineHandler(roles));
+      r.writeHandler(createRetryQuarantinedMessageHandler(roles));
       r.writeHandler(attachMessageContentHandler);
       r.writeHandler(markCredentialStoredHandler);
 
-      r.queryHandler(listAccountsQuery);
-      r.queryHandler(listMessagesQuery);
-      r.queryHandler(listQuarantineQuery);
-      r.queryHandler(messageContentQuery);
-      r.queryHandler(messageDetailQuery);
+      r.queryHandler(createListAccountsQuery(roles));
+      r.queryHandler(createListMessagesQuery(roles));
+      r.queryHandler(createListQuarantineQuery(roles));
+      r.queryHandler(createMessageContentQuery(roles));
+      r.queryHandler(createMessageDetailQuery(roles));
 
       // The app places the mailbox lists via r.nav (admins in settings, users next to their connect flow).
-      for (const screen of [...MAIL_ACCOUNT_SCREENS, mailQuarantineScreen]) r.screen(screen);
+      for (const screen of createMailAccountScreens(roles)) r.screen(screen);
+      r.screen(createMailQuarantineScreen(roles));
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
       registerMailboxProbe(r);
 
@@ -286,7 +292,8 @@ export function createInboundMailFoundationFeature() {
       });
 
       registerInboundMailRetentionJob(r);
+      return { roles };
     },
-    { dedupeOptions: {} },
+    { dedupeOptions: roleDedupeOptions(roles) },
   );
 }

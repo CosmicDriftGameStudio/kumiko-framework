@@ -93,8 +93,7 @@ export const inboundMessageEntity = createEntity({
       reason: "technical_reference",
     }),
     // Scope is inherited from the account at ingest time: messages from a
-    // personal mailbox are visible only to the owner (+ TenantAdmin),
-    // without joining read_mail_accounts.
+    // personal mailbox are visible only to the owner, without joining read_mail_accounts.
     ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
     messageIdHeader: createTextField({
       required: true,
@@ -150,6 +149,7 @@ export const inboundMessageEntity = createEntity({
       reason: "technical_reference",
     }),
   },
+  attachedFileAccess: "record-only",
 });
 
 /** Thread-Rollup. PK = aggregateId = mailThreadAggregateId(tenantId,

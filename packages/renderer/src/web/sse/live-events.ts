@@ -15,8 +15,11 @@ import {
 //
 // Connection lifecycle: lazy on the first subscribe, and closed when the
 // last unsubscribe fires. A browser-abandoned stream (CLOSED) is rebuilt
-// after a session probe with backoff; listeners receive a resync signal
-// after each rebuild because frames may have been lost during the gap.
+// after a session probe with backoff. Listeners receive a resync signal on
+// EVERY open, the first one included: a list loads page 1 in parallel with the
+// connection setup, so a change between its query and the stream going live
+// would otherwise never reach it. After a rebuild, frames may also have been
+// lost during the gap.
 // Multiple consumers share the same EventSource to reduce CPU and server load.
 
 type EntitySubscriber = {
@@ -125,7 +128,6 @@ export function createEventSourceLiveEvents(
   const wiredEntities = new Set<string>();
   let cancelReconnect: (() => void) | undefined;
   let reconnectAttempt = 0;
-  let needsResync = false;
 
   // `subscribers` is a flat Set across all entities — the browser-side
   // addEventListener(entityName, ...) gate below only filters which frames
@@ -182,9 +184,6 @@ export function createEventSourceLiveEvents(
     };
     connection.addEventListener("open", () => {
       reconnectAttempt = 0;
-      // skip: first connect, nothing was missed
-      if (!needsResync) return;
-      needsResync = false;
       emitResync();
     });
     connection.addEventListener(SESSION_ENDED_EVENT, (e) => {
@@ -193,7 +192,6 @@ export function createEventSourceLiveEvents(
         signalSessionEnded();
     });
     connection.addEventListener("error", () => {
-      needsResync = true;
       // skip: CONNECTING means a dropped stream the browser retries itself;
       // only a refused handshake (non-200) closes the EventSource for good.
       if (connection.readyState !== EventSource.CLOSED) return;
@@ -238,7 +236,6 @@ export function createEventSourceLiveEvents(
       cancelReconnect = undefined;
     }
     reconnectAttempt = 0;
-    needsResync = false;
     // skip: already closed, nothing to close
     if (source === undefined) return;
     source.close();

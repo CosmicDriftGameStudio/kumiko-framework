@@ -28,8 +28,13 @@ import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { ingestFailureEntity } from "../ingest-failures.ts";
+import { resolveInboundMailRoles } from "../mail-roles.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
-import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
+import { createMailAccountEditScreen, createMailAccountListScreen } from "../screens.ts";
+
+const mailRoles = resolveInboundMailRoles();
+const mailAccountListScreen = createMailAccountListScreen(mailRoles);
+const mailAccountEditScreen = createMailAccountEditScreen(mailRoles);
 
 let stack: TestStack;
 

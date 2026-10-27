@@ -15,6 +15,7 @@ import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+  INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   type InboundContentState,
   type InboundMessageContentFetchedEventPayload,
 } from "../events.ts";
@@ -52,6 +53,14 @@ function hasContentAlready(events: readonly { type: string; payload: unknown }[]
   });
 }
 
+const receivedOwnerSchema = z.object({ ownerUserId: z.string().nullable() });
+
+function ownerUserIdOfStream(events: readonly { type: string; payload: unknown }[]): string | null {
+  const received = events.find((e) => e.type === INBOUND_MESSAGE_RECEIVED_EVENT_QN);
+  const parsed = receivedOwnerSchema.safeParse(received?.payload);
+  return parsed.success ? parsed.data.ownerUserId : null;
+}
+
 // Read before the transaction, so it can only skip work: a row that already shows attached content
 // spares parallel refetches the upload. The event check under the message lock stays authoritative.
 async function showsAttachedContent(
@@ -86,9 +95,12 @@ async function contentEventPayloadOf(
   content: Awaited<ReturnType<typeof storeInboundMessageContent>> | undefined,
   tenantId: Parameters<typeof encryptMessageBodyText>[0],
   messageAggId: string,
+  ownerUserId: string | null,
 ): Promise<InboundMessageContentFetchedEventPayload> {
   const fetched = payload.outcome === "fetched";
   return {
+    accountId: payload.accountId,
+    ownerUserId,
     bodyRef: content?.bodyRef ?? "",
     bodyText: await encryptMessageBodyText(tenantId, messageAggId, fetched ? payload.bodyText : ""),
     bodyTextTruncated: fetched && payload.bodyTextTruncated,
@@ -147,7 +159,13 @@ export const attachMessageContentHandler = defineWriteHandler({
         : prepared
           ? await finalizePreparedContent(ctx, prepared)
           : await storeInboundMessageContent(ctx, contentInputOf(payload, messageAggId));
-    const eventPayload = await contentEventPayloadOf(payload, content, tenantId, messageAggId);
+    const eventPayload = await contentEventPayloadOf(
+      payload,
+      content,
+      tenantId,
+      messageAggId,
+      ownerUserIdOfStream(events),
+    );
     const appended = await ctx.events.tryAppend({
       aggregateId: messageAggId,
       aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,

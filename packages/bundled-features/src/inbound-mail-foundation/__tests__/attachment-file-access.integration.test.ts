@@ -1,6 +1,6 @@
 // Who may open the attachment of an imported mail through GET /files/:id: the mail's own
-// visibility (personal mailbox: owner and admins, shared mailbox: every user of the tenant), and
-// a client upload can never attach to the mail.
+// visibility (personal mailbox: its owner alone, not even admins or the files privileged roles;
+// shared mailbox: every user of the tenant), and a client upload can never attach to the mail.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -75,7 +75,7 @@ async function fileStatusAs(user: ReturnType<typeof createTestUser>, fileId: str
 }
 
 describe("download of a mail attachment", () => {
-  test("personal mailbox: owner and admin may open it, another user gets 404", async () => {
+  test("personal mailbox: only the owner may open it, admins and privileged file roles get 404", async () => {
     const connector = adminFor(6801);
     const { accountId } = await env.stack.http.writeOk<{ accountId: string }>(
       InboundMailFoundationHandlers.connectAccount,
@@ -98,11 +98,24 @@ describe("download of a mail attachment", () => {
       tenantId: connector.tenantId,
       roles: ["TenantAdmin"],
     });
+    const systemAdmin = createTestUser({
+      id: 6807,
+      tenantId: connector.tenantId,
+      roles: ["SystemAdmin"],
+    });
+    // "Admin" is a default privileged role of the files feature: it normally reads every file.
+    const filesPrivileged = createTestUser({
+      id: 6808,
+      tenantId: connector.tenantId,
+      roles: ["Admin"],
+    });
     const stranger = createTestUser({ id: 6803, tenantId: connector.tenantId, roles: ["User"] });
     const fileId = await attachmentOf(accountId, connector, "personal-1");
 
     expect(await fileStatusAs(owner, fileId)).toBe(200);
-    expect(await fileStatusAs(tenantAdmin, fileId)).toBe(200);
+    expect(await fileStatusAs(tenantAdmin, fileId)).toBe(404);
+    expect(await fileStatusAs(systemAdmin, fileId)).toBe(404);
+    expect(await fileStatusAs(filesPrivileged, fileId)).toBe(404);
     expect(await fileStatusAs(stranger, fileId)).toBe(404);
   });
 

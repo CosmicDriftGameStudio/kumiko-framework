@@ -14,19 +14,17 @@ export function createDefaultGuard(
   privilegedRoles: readonly string[],
   canReadRecord: RecordReadCheck | undefined,
   unclaimedUploadReaders: readonly string[],
+  recordOnlyEntityTypes: ReadonlySet<string>,
 ): FileAccessGuard {
   return async ({ fileRef, user, operation }) => {
     if (fileRef.insertedById === user.id) return "allow";
-    if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
-    // System-generated documents are created without attachTo too, but belong to a person's data, not to an inbox.
-    const isUnclaimedUpload =
-      fileRef.entityType === null &&
-      fileRef.entityId === null &&
-      fileRef.insertedById !== SYSTEM_USER_ID;
+    const isRecordOnly =
+      fileRef.entityType !== null && recordOnlyEntityTypes.has(fileRef.entityType);
+    if (!isRecordOnly && hasAnyRole(user, privilegedRoles)) return "allow";
     if (
-      isUnclaimedUpload &&
+      isUnclaimedUpload(fileRef) &&
       operation === "read" &&
-      unclaimedUploadReaders.some((role) => user.roles.includes(role))
+      hasAnyRole(user, unclaimedUploadReaders)
     ) {
       return "allow";
     }
@@ -39,4 +37,20 @@ export function createDefaultGuard(
     });
     return recordReadable ? "allow" : "deny";
   };
+}
+
+function hasAnyRole(
+  user: { readonly roles: readonly string[] },
+  roles: readonly string[],
+): boolean {
+  return roles.some((role) => user.roles.includes(role));
+}
+
+// System-generated documents are created without attachTo too, but belong to a person's data, not to an inbox.
+function isUnclaimedUpload(fileRef: Parameters<FileAccessGuard>[0]["fileRef"]): boolean {
+  return (
+    fileRef.entityType === null &&
+    fileRef.entityId === null &&
+    fileRef.insertedById !== SYSTEM_USER_ID
+  );
 }

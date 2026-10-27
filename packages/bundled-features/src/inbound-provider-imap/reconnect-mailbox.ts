@@ -5,13 +5,17 @@
 
 import {
   InboundMailFoundationHandlers,
+  type InboundMailRoles,
   inboundCredentialSecretKey,
+  isMailAdmin,
+  mayReactivateMailbox,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   type BeforeTransactionResult,
   defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   CREDENTIAL_PREVIEW,
@@ -36,49 +40,64 @@ const reconnectMailboxSchema = connectMailboxSchema
 const SECRET_TRANSACTION_REASON =
   "the credential secret is written on the request transaction so a failed reconnect rolls the account status back too";
 
-export const reconnectMailboxHandler = defineWriteHandler({
-  name: "reconnect-mailbox",
-  description:
-    "Replaces the credentials of an existing password IMAP mailbox: checks the IMAP login and the SMTP login of the outgoing server first, then overwrites the credential secret of the same account and sets it back to active, keeping its threads and sync cursor.",
-  // The payload carries the plaintext password: as a tool call it would reach the model provider.
-  agent: { expose: false },
-  schema: reconnectMailboxSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
-  // Same cap as connect: each call opens a connection to a host the caller picks.
-  rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
-  escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
-  beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<null>> => {
-    const lookup = await findReconnectableAccount(ctx.db, event.payload.accountId);
-    if (!lookup.isSuccess) return lookup;
-    return checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log);
-  },
-  handler: async (event, ctx) => {
-    const { accountId } = event.payload;
-    // Secret first: reactivate from disconnected requires the credential to exist.
-    const secrets = requireSecretsContext(
-      { secrets: ctx.services.secrets, user: ctx.user },
-      "reconnect-mailbox",
-    ).withRunner(ctx.db.unsafeRaw());
-    await secrets.set(
-      event.user.tenantId,
-      inboundCredentialSecretKey(accountId),
-      JSON.stringify(credentialDocumentOf(event.payload)),
-      {
-        redact: () => CREDENTIAL_PREVIEW,
-        hint: `IMAP credentials for inbound mail account ${accountId}`,
-        updatedBy: event.user.id,
-      },
-    );
-    const reactivated = await ctx.dispatch.write(InboundMailFoundationHandlers.reactivateAccount, {
-      accountId,
-    });
-    if (!reactivated.isSuccess) return reactivated;
-    // The form shows the stored id, so an empty field means the admin cleared it.
-    const trusted = await ctx.dispatch.write(InboundMailFoundationHandlers.setTrustedAuthservId, {
-      accountId,
-      trustedAuthservId: event.payload.trustedAuthservId ?? null,
-    });
-    if (!trusted.isSuccess) return trusted;
-    return { isSuccess: true, data: { accountId } };
-  },
-});
+export const createReconnectMailboxHandler = ({ memberRoles, adminRoles }: InboundMailRoles) =>
+  defineWriteHandler({
+    name: "reconnect-mailbox",
+    description:
+      "Replaces the credentials of an existing password IMAP mailbox: checks the IMAP login and the SMTP login of the outgoing server first, then overwrites the credential secret of the same account and sets it back to active, keeping its threads and sync cursor.",
+    // The payload carries the plaintext password: as a tool call it would reach the model provider.
+    agent: { expose: false },
+    schema: reconnectMailboxSchema,
+    // Members: the owner re-arms a personal mailbox; the lookup gate keeps shared ones to admins.
+    access: { roles: [...memberRoles] },
+    // Same cap as connect: each call opens a connection to a host the caller picks.
+    rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
+    escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
+    beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<null>> => {
+      const lookup = await findReconnectableAccount(ctx.db, event.payload.accountId);
+      if (!lookup.isSuccess) return lookup;
+      // Before the login check, so a denied caller cannot make the server probe a host; same answer as a missing account.
+      if (!mayReactivateMailbox(lookup.row.ownerUserId, ctx.user, adminRoles)) {
+        return failNotFound("mail-account", event.payload.accountId);
+      }
+      return checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log);
+    },
+    handler: async (event, ctx) => {
+      const { accountId } = event.payload;
+      // Secret first: reactivate from disconnected requires the credential to exist.
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        "reconnect-mailbox",
+      ).withRunner(ctx.db.unsafeRaw());
+      await secrets.set(
+        event.user.tenantId,
+        inboundCredentialSecretKey(accountId),
+        JSON.stringify(credentialDocumentOf(event.payload)),
+        {
+          redact: () => CREDENTIAL_PREVIEW,
+          hint: `IMAP credentials for inbound mail account ${accountId}`,
+          updatedBy: event.user.id,
+        },
+      );
+      const reactivated = await ctx.dispatch.write(
+        InboundMailFoundationHandlers.reactivateAccount,
+        {
+          accountId,
+        },
+      );
+      if (!reactivated.isSuccess) return reactivated;
+      // The sender-check policy is tenant-wide: only admins set it, the owner's form does not carry it.
+      if (isMailAdmin(event.user, adminRoles)) {
+        // The admin form shows the stored id, so an empty field means the admin cleared it.
+        const trusted = await ctx.dispatch.write(
+          InboundMailFoundationHandlers.setTrustedAuthservId,
+          {
+            accountId,
+            trustedAuthservId: event.payload.trustedAuthservId ?? null,
+          },
+        );
+        if (!trusted.isSuccess) return trusted;
+      }
+      return { isSuccess: true, data: { accountId } };
+    },
+  });

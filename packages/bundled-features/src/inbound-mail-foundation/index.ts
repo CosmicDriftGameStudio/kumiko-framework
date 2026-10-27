@@ -77,8 +77,19 @@ export {
   type InboundMessageContent,
   loadInboundMessageContent,
 } from "./handlers/message-content.query.ts";
+export { isMailAdmin, mayReactivateMailbox } from "./handlers/scope-visibility.ts";
 export type { InboundOAuthFlow, OAuthCodeExchange, OAuthTokenSet } from "./inbound-oauth-flow.ts";
 export { ingestFailureEntity, ingestFailureTable } from "./ingest-failures.ts";
+export {
+  assertRolesMatchFoundation,
+  DEFAULT_INBOUND_MAIL_ADMIN_ROLES,
+  DEFAULT_INBOUND_MAIL_USER_ROLES,
+  type InboundMailRoleOptions,
+  type InboundMailRoles,
+  readInboundMailRoles,
+  resolveInboundMailRoles,
+  roleDedupeOptions,
+} from "./mail-roles.ts";
 export {
   INBOUND_ATTACHMENT_MAX_BYTES,
   INBOUND_ATTACHMENTS_MAX_COUNT,
@@ -150,7 +161,9 @@ export {
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
   MAIL_QUARANTINE_SCREEN_ID,
+  MY_IMAP_RECONNECT_SCREEN_ID,
   MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_QN,
 } from "./screens.ts";
 export {
   MAIL_SEND_ERRORS,

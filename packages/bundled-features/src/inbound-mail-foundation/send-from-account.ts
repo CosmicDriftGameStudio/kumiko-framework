@@ -60,10 +60,12 @@ export const MAIL_SEND_ERRORS = {
 } as const;
 export type MailSendFailure = keyof typeof MAIL_SEND_ERRORS;
 
+// Query-only dispatch: attachment reads run as the caller, and a send path must not be able to
+// write through the caller's rights.
 export type SendMailFromAccountContext = Pick<
   HandlerContext,
-  "db" | "registry" | "user" | "services" | "obs" | "dispatch"
->;
+  "db" | "registry" | "user" | "services" | "obs"
+> & { readonly dispatch: Pick<HandlerContext["dispatch"], "query"> };
 
 export type SendMailFromAccountInput = {
   readonly accountId: string;

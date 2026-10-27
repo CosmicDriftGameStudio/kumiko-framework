@@ -322,7 +322,48 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(2);
-    expect(upcast.payload).toMatchObject({ contentUnavailableReason: null });
+    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.payload).toMatchObject({
+      contentUnavailableReason: null,
+      accountId: null,
+      ownerUserId: null,
+    });
+  });
+
+  test("a v2 content-fetched event reads with null accountId and ownerUserId", async () => {
+    const upcasters = env.stack.registry.getEventUpcasters();
+    const v2: StoredEvent = {
+      id: "3",
+      aggregateId: "00000000-0000-4000-8000-0000000000a2",
+      aggregateType: "inbound-message",
+      tenantId: adminFor(6132).tenantId,
+      version: 2,
+      type: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+      eventVersion: 2,
+      payload: {
+        bodyRef: "",
+        bodyText: "",
+        bodyTextTruncated: false,
+        attachmentFileIds: [],
+        skippedAttachments: [],
+        contentState: "unavailable",
+        contentUnavailableReason: "gone_from_server",
+      },
+      metadata: { userId: "1" },
+      createdAt: Temporal.Now.instant(),
+      createdBy: "1",
+    };
+
+    const upcast = await upcastStoredEvent(v2, upcasters, {
+      db: env.stack.db,
+      tenantId: v2.tenantId,
+    });
+
+    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.payload).toMatchObject({
+      contentUnavailableReason: "gone_from_server",
+      accountId: null,
+      ownerUserId: null,
+    });
   });
 });

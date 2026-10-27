@@ -18,6 +18,7 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import type { InboundMailRoles } from "../mail-roles.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 
 export const disconnectAccountSchema = z.object({
@@ -29,61 +30,63 @@ const CREDENTIAL_DELETE_REASON =
 
 type DisconnectAccountPayload = z.infer<typeof disconnectAccountSchema>;
 
-export const disconnectAccountHandler: WriteHandlerDef = {
-  name: "disconnect-account",
-  schema: disconnectAccountSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
-  description:
-    "Puts a connected mailbox into the final disconnected state so the watch supervisor stops fetching it, keeping the stream for audit and requiring a fresh connect to resume; use it to stop mail ingestion for one mailbox.",
-  agent: { risk: "high" },
-  escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_DELETE_REASON },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as DisconnectAccountPayload;
+export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
+  return {
+    name: "disconnect-account",
+    schema: disconnectAccountSchema,
+    access: { roles: [...adminRoles] },
+    description:
+      "Puts a connected mailbox into the final disconnected state so the watch supervisor stops fetching it, keeping the stream for audit and requiring a fresh connect to resume; use it to stop mail ingestion for one mailbox.",
+    agent: { risk: "high" },
+    escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_DELETE_REASON },
+    handler: async (event, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = event.payload as DisconnectAccountPayload;
 
-    const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
-    if (!current) {
-      return failNotFound("mail-account", payload.accountId);
-    }
-    if (current.status === InboundMailAccountStatuses.disconnected) {
+      const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
+      if (!current) {
+        return failNotFound("mail-account", payload.accountId);
+      }
+      if (current.status === InboundMailAccountStatuses.disconnected) {
+        return {
+          isSuccess: true as const,
+          data: { accountId: payload.accountId, alreadyDisconnected: true as const },
+        };
+      }
+
+      const eventPayload: MailAccountEventPayload = {
+        ...current,
+        status: InboundMailAccountStatuses.disconnected,
+        watchState: "idle",
+      };
+      const headers: MailAccountEventHeaders = {
+        providerName: current.provider,
+        reason: payload.reason,
+      };
+      await ctx.events.unsafeAppend({
+        aggregateId: payload.accountId,
+        aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
+        type: MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,
+        payload: eventPayload,
+        headers,
+      });
+
+      // Tests and apps without a secrets store have no credential to remove.
+      if (ctx.services.secrets) {
+        await requireSecretsContext(
+          { secrets: ctx.services.secrets, user: ctx.user },
+          "disconnect-account",
+        )
+          .withRunner(ctx.db.unsafeRaw())
+          .delete(event.user.tenantId, inboundCredentialSecretKey(payload.accountId), {
+            deletedBy: event.user.id,
+          });
+      }
+
       return {
         isSuccess: true as const,
-        data: { accountId: payload.accountId, alreadyDisconnected: true as const },
+        data: { accountId: payload.accountId, alreadyDisconnected: false as const },
       };
-    }
-
-    const eventPayload: MailAccountEventPayload = {
-      ...current,
-      status: InboundMailAccountStatuses.disconnected,
-      watchState: "idle",
-    };
-    const headers: MailAccountEventHeaders = {
-      providerName: current.provider,
-      reason: payload.reason,
-    };
-    await ctx.events.unsafeAppend({
-      aggregateId: payload.accountId,
-      aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
-      type: MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,
-      payload: eventPayload,
-      headers,
-    });
-
-    // Tests and apps without a secrets store have no credential to remove.
-    if (ctx.services.secrets) {
-      await requireSecretsContext(
-        { secrets: ctx.services.secrets, user: ctx.user },
-        "disconnect-account",
-      )
-        .withRunner(ctx.db.unsafeRaw())
-        .delete(event.user.tenantId, inboundCredentialSecretKey(payload.accountId), {
-          deletedBy: event.user.id,
-        });
-    }
-
-    return {
-      isSuccess: true as const,
-      data: { accountId: payload.accountId, alreadyDisconnected: false as const },
-    };
-  },
-};
+    },
+  };
+}
