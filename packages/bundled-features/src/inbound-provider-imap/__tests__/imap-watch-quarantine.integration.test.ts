@@ -21,6 +21,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImapFlow } from "imapflow";
 import {
   createComplianceProfilesFeature,
@@ -164,16 +165,20 @@ async function connectedAccount() {
   return accountId;
 }
 
-function createSupervisor(log: string[]) {
+function createSupervisor(log: string[], ingested: Readonly<Record<string, unknown>>[] = []) {
   return createInboundMailSupervisor({
     providerCtx: { registry: stack.registry, secrets },
     db: stack.unscopedDb,
-    dispatchWrite: ({ handlerQn, payload, tenantId }) =>
-      stack.dispatcher.write(
+    dispatchWrite: ({ handlerQn, payload, tenantId }) => {
+      if (handlerQn === InboundMailFoundationHandlers.ingestMessage && isPlainObject(payload)) {
+        ingested.push(payload);
+      }
+      return stack.dispatcher.write(
         handlerQn,
         payload,
         createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
-      ),
+      );
+    },
     pollIntervalMs: 60 * 60 * 1000,
     log: (line) => log.push(line),
   });
@@ -217,6 +222,41 @@ describe("unparseable mail through greenmail", () => {
           waitFor(async () => {
             const quarantined = await selectMany(stack.db, quarantineTable, { accountId });
             expect(quarantined.length).toBeGreaterThan(baseline);
+          }),
+        );
+      } finally {
+        await supervisor.stop();
+      }
+    },
+    60_000,
+  );
+
+  liveTest(
+    "a mail the watch quarantines keeps its sender and subject",
+    async () => {
+      const accountId = await connectedAccount();
+      const ingested: Readonly<Record<string, unknown>>[] = [];
+      const supervisor = createSupervisor([], ingested);
+      try {
+        await supervisor.start();
+        await waitFor(async () => {
+          const [row] = await selectMany(stack.db, mailAccountsProjectionTable, { id: accountId });
+          expect(row?.["watchState"]).toBe("watching");
+        });
+
+        // Header imports of the first poll come with the poll's envelope; only the watch's count.
+        ingested.length = 0;
+
+        await withPoisonMail(() =>
+          waitFor(async () => {
+            const headerImports = ingested.filter(
+              (payload) => payload["contentUnavailableReason"] === "quarantined",
+            );
+            expect(headerImports.length).toBeGreaterThan(0);
+            for (const payload of headerImports) {
+              expect(payload["subject"]).toBe("Pathological structure");
+              expect(payload["from"]).toContain("alice@example.com");
+            }
           }),
         );
       } finally {

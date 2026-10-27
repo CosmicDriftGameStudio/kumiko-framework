@@ -185,13 +185,14 @@ async function watchMailbox(
       let maxSeen = nextUid - 1;
       for await (const msg of client.fetch(
         `${nextUid}:*`,
-        { uid: true, internalDate: true, source: true },
+        { uid: true, internalDate: true, source: true, envelope: true },
         { uid: true },
       )) {
         // `N:*` gotcha (see fetch): filter out the previous last message.
         if (msg.uid < nextUid || !msg.source) continue;
         const parsed = await parseOrReject({
           source: msg.source,
+          envelope: msg.envelope,
           uid: msg.uid,
           uidValidity,
           internalDate: coerceDate(msg.internalDate ?? undefined),
