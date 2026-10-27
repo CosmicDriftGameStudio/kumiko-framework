@@ -4,7 +4,12 @@
 // accountId and with it cursor, seen anchors and threads.
 
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type HandlerContext,
+  SYSTEM_ROLE,
+  SYSTEM_USER_ID,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   failNotFound,
@@ -34,6 +39,12 @@ export const reactivateAccountSchema = z.object({ accountId: z.uuid() }).strict(
 const CREDENTIAL_PRESENCE_REASON =
   "the credential secret is checked on the request transaction because reconnect-mailbox writes it earlier in the same transaction, which a separate connection would not see";
 
+// The OAuth callback re-arms a personal mailbox for its owner after the owner signed in: the signed
+// state carries the owner, the dispatcher only sees the system user.
+function isSystemActor(user: { readonly id: string; readonly roles: readonly string[] }): boolean {
+  return user.id === SYSTEM_USER_ID && user.roles.includes(SYSTEM_ROLE);
+}
+
 function isAlreadyHealthy(current: MailAccountEventPayload): boolean {
   return (
     current.status === InboundMailAccountStatuses.active &&
@@ -42,8 +53,8 @@ function isAlreadyHealthy(current: MailAccountEventPayload): boolean {
   );
 }
 
-// Shared with connect-account's in-place OAuth reconnect. Returns false when nothing had to change.
-export async function appendMailAccountReactivation(
+// Returns false when nothing had to change.
+async function appendMailAccountReactivation(
   ctx: Pick<HandlerContext, "events">,
   accountId: string,
   current: MailAccountEventPayload,
@@ -82,7 +93,7 @@ export const reactivateAccountHandler: WriteHandlerDef = {
     const payload = reactivateAccountSchema.parse(event.payload);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
-    if (!mayReactivateMailbox(current.ownerUserId, event.user)) {
+    if (!isSystemActor(event.user) && !mayReactivateMailbox(current.ownerUserId, event.user)) {
       return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
     }
     // Nothing to re-arm, so no credential is needed either.

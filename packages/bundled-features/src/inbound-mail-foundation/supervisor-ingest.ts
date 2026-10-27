@@ -8,9 +8,9 @@
 //     - proven (another mail of the account went through in the same poll, for a storage failure
 //       another storage write) -> counted once per poll interval (persisted); the third counted
 //       failure quarantines the mail as "ingest_failed", below that the cursor stays before it
-//     - a mail that was counted before and is the only failure of this poll keeps being counted:
-//       the counter row exists only because the mail failed while others went through. A KMS
-//       failure is the exception, it is never the mail's
+//     - when every failure of this poll was counted before, they all keep being counted: a
+//       counter row exists only because its mail failed while others went through. A KMS failure
+//       among them voids this, it is never the mail's
 //     - unproven -> nothing is counted, the account is disrupted (degraded with the class of the
 //       failure) and the next interval retries from the same cursor
 //
@@ -123,6 +123,23 @@ function blockedReasonOf(failures: readonly FailureClass[]): IngestBlockedReason
 }
 
 // The original is what failed to store; writing it again would fail the header import too.
+async function everyFailureCountedBefore(
+  db: DbConnection,
+  account: MailAccountRecord,
+  failures: readonly Failure[],
+): Promise<boolean> {
+  for (const { msg, failure } of failures) {
+    if (failure === "encryption") return false;
+    const target = {
+      tenantId: account.tenantId,
+      accountId: account.id,
+      providerMessageId: msg.providerMessageId,
+    };
+    if (!(await hasCountedIngestFailure(db, target))) return false;
+  }
+  return true;
+}
+
 function quarantineHeadersOf(msg: RawInboundMessage, failure: FailureClass): RawInboundMessage {
   const headerOnly = headerOnlyOf(msg);
   return failure === "storage" ? { ...headerOnly, rawMime: null } : headerOnly;
@@ -197,22 +214,21 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     let waiting = false;
     // An abandoned sync (deadline) must not count; its failures are the deadline's.
     const bucket = options.signal?.aborted ? undefined : options.countBucket;
+    // Accepted residue, no mail is lost and each case is visible:
+    //   - a first failure without proof never counts: degraded until the next new mail
+    //   - a KMS failure only holds the cursor, shown as encryption_unavailable
+    //   - a storage or ingest outage can finish the count of mails counted before (retry exists)
+    const countedBefore =
+      !(proof.ingested && proof.storageHealthy) &&
+      (await everyFailureCountedBefore(deps.db, account, failures));
     for (const { msg, failure } of failures) {
       const target = {
         tenantId: account.tenantId,
         accountId: account.id,
         providerMessageId: msg.providerMessageId,
       };
-      // A KMS failure is the key store's, so an earlier count of the mail never carries it.
-      // Accepted residue, no mail is lost and each case is visible:
-      //   - a first failure without proof never counts: degraded until the next new mail
-      //   - a KMS failure of one mail only holds the cursor, shown as encryption_unavailable
-      //   - a storage or ingest outage can finish the count of a mail counted before (retry exists)
       const proven =
-        (failure === "storage" ? proof.storageHealthy : proof.ingested) ||
-        (failure !== "encryption" &&
-          failures.length === 1 &&
-          (await hasCountedIngestFailure(deps.db, target)));
+        (failure === "storage" ? proof.storageHealthy : proof.ingested) || countedBefore;
       if (!proven) {
         unproven.push(failure);
         continue;

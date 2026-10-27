@@ -1,7 +1,8 @@
 // A user connects a personal OAuth mailbox and re-arms it alone: after a disconnect or a sign-in error,
 // "Reactivate" sends the owner through the same connect route and callback, which reopens the account
-// in place. Nobody else can do that for the owner, a user cannot connect a shared mailbox, and the
-// account that signs in at the provider must be the mailbox itself.
+// in place, switched on only once the new token is stored. Nobody else can do that for the owner, a
+// user cannot connect a shared mailbox, and for a personal mailbox the account that signs in at the
+// provider must be the mailbox itself.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -111,6 +112,30 @@ describe("the owner re-arms a personal OAuth mailbox", () => {
     expect(((await again.json()) as { accountId: string }).accountId).toBe(accountId);
     expect(await statusOf(accountId)).toBe(InboundMailAccountStatuses.active);
   });
+
+  test("when the new token cannot be stored, the mailbox stays off and says so", async () => {
+    const tenant = 7161;
+    const owner = plainUser(7162, tenant);
+    const accountId = await connectPersonal(owner, "owner-store@acme.test");
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId },
+      adminFor(tenant),
+    );
+
+    env.setSecretWritesFailing(true);
+    const failed = await connectViaOauth(env.stack, personalQuery("owner-store@acme.test"), owner);
+    env.setSecretWritesFailing(false);
+
+    expect(failed.status).toBe(502);
+    const body = (await failed.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("credential_store_failed");
+    expect(body.error.message).toContain("could not be saved");
+    expect(await statusOf(accountId)).toBe(InboundMailAccountStatuses.disconnected);
+    const again = await connectViaOauth(env.stack, personalQuery("owner-store@acme.test"), owner);
+    expect(again.status).toBe(200);
+    expect(await statusOf(accountId)).toBe(InboundMailAccountStatuses.active);
+  });
 });
 
 describe("nobody re-arms it for the owner", () => {
@@ -154,7 +179,7 @@ describe("nobody re-arms it for the owner", () => {
   });
 });
 
-describe("the account that signs in must be the mailbox", () => {
+describe("for a personal mailbox, the account that signs in must be the mailbox", () => {
   test("signing in with another account creates nothing, so no one claims a foreign address", async () => {
     const tenant = 7141;
     const stranger = plainUser(7142, tenant);
@@ -187,5 +212,21 @@ describe("the account that signs in must be the mailbox", () => {
     );
 
     expect(res.status).toBe(200);
+  });
+
+  test("an admin connects a shared mailbox with their own login, as for delegated access", async () => {
+    const tenant = 7171;
+    const admin = adminFor(tenant);
+
+    const res = await connectViaOauth(
+      env.stack,
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=team-shared@acme.test`,
+      admin,
+      "admin@acme.test",
+    );
+
+    expect(res.status).toBe(200);
+    const { accountId } = (await res.json()) as { accountId: string };
+    expect(await statusOf(accountId)).toBe(InboundMailAccountStatuses.active);
   });
 });

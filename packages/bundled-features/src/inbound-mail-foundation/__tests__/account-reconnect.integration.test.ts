@@ -115,7 +115,7 @@ describe("one mailbox per address", () => {
     expect(row?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
   });
 
-  test("a disconnected OAuth mailbox is reopened in place by the OAuth callback", async () => {
+  test("the OAuth callback's connect finds the disconnected mailbox and leaves it off until the token is stored", async () => {
     const admin = adminFor(6303);
     const first = (await env.stack.http.writeOk(
       InboundMailFoundationHandlers.connectAccount,
@@ -139,7 +139,7 @@ describe("one mailbox per address", () => {
     const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, {
       id: first.accountId,
     });
-    expect(row?.["status"]).toBe(InboundMailAccountStatuses.active);
+    expect(row?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
   });
 });
 

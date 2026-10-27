@@ -49,13 +49,17 @@ beforeEach(() => {
 
 const INGEST_FAILURE = { isSuccess: false, error: { code: "internal_error" } } as const;
 
-// Fails every ingest of the matching mails, the header import of a quarantine included.
-function failIngestWhen(shouldFail: (providerMessageId: string) => boolean) {
+// Fails every ingest of the matching mails; headerOnly marks the header import of a quarantine.
+function failIngestWhen(shouldFail: (providerMessageId: string, headerOnly: boolean) => boolean) {
   return (write: DispatchWrite): DispatchWrite =>
     (args) => {
       if (args.handlerQn === InboundMailFoundationHandlers.ingestMessage) {
-        const { providerMessageId } = args.payload as { providerMessageId: string };
-        if (shouldFail(providerMessageId)) return Promise.resolve(INGEST_FAILURE);
+        const { providerMessageId, contentUnavailableReason } = args.payload as {
+          providerMessageId: string;
+          contentUnavailableReason?: string;
+        };
+        const headerOnly = contentUnavailableReason !== undefined;
+        if (shouldFail(providerMessageId, headerOnly)) return Promise.resolve(INGEST_FAILURE);
       }
       return write(args);
     };
@@ -226,6 +230,26 @@ describe("failure of one mail while the others go through", () => {
     expect((await accountRow(accountId))?.["lastError"]).toBe(
       InboundMailLastErrors.messageQuarantined,
     );
+  });
+
+  test("two failing mails of one poll stay counted without a new mail, both quarantined after three intervals", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6627));
+    for (const id of ["p-1", "p-ok", "p-2"]) {
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: id, text: id }));
+    }
+    const clock = tickClock();
+    const supervisor = createMailSupervisor(env.stack, {
+      wrapWrite: failIngestWhen((id, headerOnly) => !headerOnly && id !== "p-ok"),
+      now: clock.now,
+    });
+
+    for (let tick = 1; tick <= 3; tick++) {
+      await supervisor.pollOnce();
+      clock.nextInterval();
+    }
+
+    const quarantined = await selectMany(env.stack.db, quarantineTable, { accountId });
+    expect(quarantined.map((row) => row["providerMessageId"]).sort()).toEqual(["p-1", "p-2"]);
   });
 });
 

@@ -18,20 +18,22 @@ import type {
 import { signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
-import { type VerifiedCallback, verifyCallbackRequest } from "./connect-callback-verify.ts";
+import {
+  refreshTokenOrRefusal,
+  type VerifiedCallback,
+  verifyCallbackRequest,
+} from "./connect-callback-verify.ts";
 import { connectFailureResponse, errorJson } from "./connect-route-responses.ts";
 import {
   INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAuthMethods,
   InboundMailFoundationHandlers,
-  inboundCredentialSecretKey,
 } from "./constants.ts";
-import { normalizeMailAddress } from "./handlers/account-address.ts";
 import { isMailAdmin } from "./handlers/scope-visibility.ts";
 import {
-  inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
+  storeOAuthCallbackCredential,
 } from "./oauth-access-token.ts";
 import { signOAuthState } from "./oauth-state.ts";
 import { resolveInboundProviderForKey } from "./provider-factory.ts";
@@ -39,6 +41,24 @@ import type { InboundMailContext } from "./types.ts";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
 const DEFAULT_CALLBACK_PATH = "/inbound-mail/oauth/callback";
+
+// connect-account leaves a reopened mailbox off: switched on before its token is stored, the
+// supervisor would sync it with the old, failing credential.
+async function reactivateIfReopened(
+  c: Context,
+  deps: SignatureExtraRouteDeps,
+  tenantId: string,
+  accountId: string,
+  connected: unknown,
+): Promise<Response | undefined> {
+  if (propertyOf(connected, "reconnected") !== true) return undefined;
+  const reactivated = await deps.dispatchSystemWrite({
+    handlerQn: InboundMailFoundationHandlers.reactivateAccount,
+    tenantId,
+    payload: { accountId },
+  });
+  return reactivated.isSuccess ? undefined : connectFailureResponse(c, reactivated.error);
+}
 
 export type InboundMailConnectRoutesOptions = {
   /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
@@ -197,25 +217,8 @@ export function createInboundMailConnectRoutes(
           "token exchange with the provider failed",
         );
       }
-      if (normalizeMailAddress(tokens.accountAddress) !== normalizeMailAddress(state.mailbox)) {
-        return errorJson(
-          c,
-          403,
-          "mailbox_address_mismatch",
-          `the account you signed in with is not ${state.mailbox}; sign in with that mailbox's account`,
-        );
-      }
-      if (!tokens.refreshToken) {
-        // No refresh token → no server-side sync possible. Consent must
-        // request offline_access (or access_type=offline) — the provider's
-        // oauth block owns the scopes.
-        return errorJson(
-          c,
-          502,
-          "no_refresh_token",
-          `provider "${state.providerKey}" returned no refresh token — check the offline-access scope in the provider's oauth.scopes`,
-        );
-      }
+      const refreshToken = refreshTokenOrRefusal(c, state, tokens);
+      if (typeof refreshToken !== "string") return refreshToken;
 
       // Account creation (programmatic SystemUser; the real owner comes from
       // the HMAC-verified state → ownerUserIdOverride).
@@ -239,23 +242,30 @@ export function createInboundMailConnectRoutes(
         return errorJson(c, 502, "account_create_failed", "connect-account returned no accountId");
       }
 
-      // Refresh-token into the per-account secret slot (Slot = accountId).
-      // Access tokens (~1h) are never persisted — the supervisor re-mints
-      // them from the refresh token (oauth-access-token.ts).
-      if (options.oauthTokens) {
-        await options.oauthTokens.storeRefreshToken(
+      try {
+        await storeOAuthCallbackCredential(
+          options.oauthTokens,
+          deps.secrets,
           { id: accountId, tenantId: state.tenantId },
-          tokens.refreshToken,
+          tokens,
+          refreshToken,
         );
-        options.oauthTokens.primeFromExchange({ id: accountId }, tokens);
-      } else {
-        await deps.secrets.set(
-          state.tenantId,
-          inboundCredentialSecretKey(accountId),
-          tokens.refreshToken,
-          inboundRefreshTokenSecretOptions(accountId),
+      } catch {
+        return errorJson(
+          c,
+          502,
+          "credential_store_failed",
+          "the sign-in worked but its token could not be saved; the mailbox keeps its previous state, connect it again",
         );
       }
+      const refused = await reactivateIfReopened(
+        c,
+        deps,
+        state.tenantId,
+        accountId,
+        dispatched.data,
+      );
+      if (refused) return refused;
 
       // Best effort: the account commit already woke the supervisor before the token existed.
       // Without this event the first sync would wait for the next poll tick; a failure here

@@ -203,3 +203,25 @@ export function createOAuthAccessTokenManager(
     },
   };
 }
+
+// Refresh token into the per-account secret slot (slot = accountId); access tokens (~1h) are never
+// persisted. A shared manager writes under the account's refresh lock and primes its cache.
+export async function storeOAuthCallbackCredential(
+  manager: OAuthAccessTokenManager | undefined,
+  secrets: SecretsContext,
+  account: Pick<MailAccountRecord, "id" | "tenantId">,
+  tokens: OAuthTokenSet,
+  refreshToken: string,
+): Promise<void> {
+  if (manager) {
+    await manager.storeRefreshToken(account, refreshToken);
+    manager.primeFromExchange(account, tokens);
+  } else {
+    await secrets.set(
+      account.tenantId,
+      inboundCredentialSecretKey(account.id),
+      refreshToken,
+      inboundRefreshTokenSecretOptions(account.id),
+    );
+  }
+}

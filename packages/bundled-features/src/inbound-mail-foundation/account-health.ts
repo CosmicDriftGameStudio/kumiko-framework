@@ -20,6 +20,11 @@ import type {
 import type { AccountHealthRef, SyncableAccount } from "./syncable-accounts.ts";
 
 const FAILURES_BEFORE_DEGRADED = 3;
+const OUTAGE_LAST_ERRORS: ReadonlySet<string> = new Set([
+  InboundMailLastErrors.encryptionUnavailable,
+  InboundMailLastErrors.ingestUnavailable,
+  InboundMailLastErrors.fileStorageUnavailable,
+]);
 const SUPERVISOR_AUDIT_REASON = "watch_supervisor";
 
 export type PollFailureKind = "transient" | "rate_limited";
@@ -39,6 +44,7 @@ export type AccountHealth = {
   readonly onIngestBlocked: (
     account: SyncableAccount,
     blocked: IngestBlockedReason,
+    outcome: Pick<IngestBatchOutcome, "storageHealthy">,
   ) => Promise<void>;
   /** The address did not decrypt because the key store is down, so the account could not be polled. */
   readonly onKeyStoreUnavailable: (account: AccountHealthRef) => Promise<void>;
@@ -77,25 +83,31 @@ export function createAccountHealth(deps: {
     applied.set(account.id, { status, lastError });
   }
 
+  async function lastErrorWithoutOutage(account: AccountHealthRef) {
+    if (await hasOpenQuarantine(deps.db, account.id)) {
+      return InboundMailLastErrors.messageQuarantined;
+    }
+    if (storageUnavailable.has(account.id)) return InboundMailLastErrors.fileStorageUnavailable;
+    return null;
+  }
+
   return {
     async onPollSuccess(account, outcome) {
       consecutiveFailures.delete(account.id);
       if (outcome.storageUnavailable) storageUnavailable.add(account.id);
       else if (outcome.storageHealthy) storageUnavailable.delete(account.id);
-      if (await hasOpenQuarantine(deps.db, account.id)) {
-        return apply(account, InboundMailLastErrors.messageQuarantined);
-      }
-      if (storageUnavailable.has(account.id)) {
-        return apply(account, InboundMailLastErrors.fileStorageUnavailable);
-      }
-      return apply(account, null);
+      return apply(account, await lastErrorWithoutOutage(account));
     },
-    async onIngestBlocked(account, blocked) {
+    async onIngestBlocked(account, blocked, outcome) {
       consecutiveFailures.delete(account.id);
       if (blocked === "message_failing") {
         deps.log(`inbound-mail: account ${account.id} waits for a failing message to be counted`);
-        // skip: counted, not failed; the status stays as it is
-        return;
+        if (outcome.storageHealthy) storageUnavailable.delete(account.id);
+        // A counted failure proves the ingest works again, so a shown outage is over; anything else stays.
+        const shown = (applied.get(account.id) ?? account).lastError;
+        // skip: no outage is shown, the status stays as it is
+        if (shown === null || !OUTAGE_LAST_ERRORS.has(shown)) return;
+        return apply(account, await lastErrorWithoutOutage(account));
       }
       // KMS and ingest outages need no memory like storage: the next unblocked poll proves they are over.
       if (blocked === "encryption_unavailable") {

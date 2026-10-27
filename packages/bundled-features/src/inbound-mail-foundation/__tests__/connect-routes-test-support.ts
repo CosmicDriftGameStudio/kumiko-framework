@@ -5,7 +5,10 @@ import { randomBytes } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -110,17 +113,22 @@ export async function createMailAccountTables(db: DbConnection): Promise<void> {
 export type ConnectRoutesEnv = {
   readonly stack: TestStack;
   readonly secrets: ReturnType<typeof createSecretsContext>;
+  /** While true, every secret write fails as with an unreachable master key. */
+  readonly setSecretWritesFailing: (failing: boolean) => void;
 };
 
 export async function setupConnectRoutesStack(): Promise<ConnectRoutesEnv> {
-  const providerRef = createMutableMasterKeyProvider(
-    createEnvMasterKeyProvider({
-      env: {
-        KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
-        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
-      },
-    }),
-  );
+  const masterKey = createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+    },
+  });
+  const providerRef = createMutableMasterKeyProvider(masterKey);
+  const failingMasterKey: MasterKeyProvider = {
+    ...masterKey,
+    wrapDek: () => Promise.reject(new Error("master key unavailable")),
+  };
   const stack = await setupTestStack({
     features: [...connectRouteFeatures, createSecretsFeature()],
     masterKeyProvider: providerRef,
@@ -137,7 +145,12 @@ export async function setupConnectRoutesStack(): Promise<ConnectRoutesEnv> {
     masterKeyProvider: providerRef,
     registry: stack.registry,
   });
-  return { stack, secrets };
+  return {
+    stack,
+    secrets,
+    setSecretWritesFailing: (failing) =>
+      providerRef.replace(failing ? failingMasterKey : masterKey),
+  };
 }
 
 export function adminFor(tenantNumber: number) {

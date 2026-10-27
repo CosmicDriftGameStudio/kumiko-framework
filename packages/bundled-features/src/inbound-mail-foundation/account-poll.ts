@@ -220,9 +220,12 @@ export function createAccountPoller(deps: AccountPollerDeps): {
     // skip: abandoned during the last batch; the deadline already counted this poll as failed.
     if (options.signal?.aborted) return "done";
     if (totals.blocked) {
-      await health.onIngestBlocked(account, totals.blocked);
+      await health.onIngestBlocked(account, totals.blocked, totals);
       // A retry asked for by an admin does not depend on the cursor, so a stuck mail must not hold it.
-      await retryQuarantineSafely(account, plugin, options.signal);
+      // During an outage it would fail the same way; the flag stays and runs after the recovery.
+      if (totals.blocked === "message_failing") {
+        await retryQuarantineSafely(account, plugin, options.signal);
+      }
       return "done";
     }
     await health.onPollSuccess(account, totals);

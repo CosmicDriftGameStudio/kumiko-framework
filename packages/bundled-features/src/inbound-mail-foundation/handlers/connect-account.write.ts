@@ -14,6 +14,7 @@
 //   - No second account for one address: a live or disconnected address is
 //     refused (409 reasons in InboundMailConnectErrors); only a disconnected or
 //     sign-in-failed OAuth mailbox is reopened in place, keeping its account id and cursor.
+//     The reopen returns the existing id and changes nothing yet; the callback re-arms it.
 
 import {
   configuredPiiSubjectKms,
@@ -21,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  failNotFound,
   failUnprocessable,
   UnprocessableError,
   writeFailure,
@@ -40,8 +40,6 @@ import {
   type MailAccountEventPayload,
 } from "../events.ts";
 import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
-import { loadCurrentMailAccountPayload } from "./account-state.ts";
-import { appendMailAccountReactivation } from "./reactivate-account.write.ts";
 
 export const connectAccountSchema = z
   .object({
@@ -102,8 +100,8 @@ export const connectAccountHandler: WriteHandlerDef = {
         provider: payload.provider,
         ownerUserId,
       });
-      // Reopening keeps the account without a credential check. Only the OAuth callback (it passes
-      // ownerUserIdOverride) writes a fresh token right after, so everyone else gets the plain conflict.
+      // Only the OAuth callback (it passes ownerUserIdOverride) reopens: it stores the fresh token and
+      // only then switches the account on via reactivate-account. Everyone else gets the plain conflict.
       const conflict =
         matched === "reopen_in_place" && payload.ownerUserIdOverride === undefined
           ? existing.status === InboundMailAccountStatuses.disconnected
@@ -111,9 +109,6 @@ export const connectAccountHandler: WriteHandlerDef = {
             : "already_connected"
           : matched;
       if (conflict === "reopen_in_place") {
-        const current = await loadCurrentMailAccountPayload(ctx, existing.id);
-        if (!current) return failNotFound("mail-account", existing.id);
-        await appendMailAccountReactivation(ctx, existing.id, current);
         return {
           isSuccess: true as const,
           data: { accountId: existing.id, reconnected: true as const },
