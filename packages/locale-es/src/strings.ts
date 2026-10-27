@@ -1002,6 +1002,15 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Cambiar de espacio de trabajo",
   "managed-pages:actions.delete": "Eliminar",
   "managed-pages:actions.edit": "Editar",
+  "managed-pages.errors.document.rejected":
+    "El contenido incluye elementos no permitidos: {detail}",
+  "managed-pages:body.lossy.warning":
+    "Esta página se escribió en Markdown. Al convertirla al editor se pierden: {features}. Revisa el resultado antes de guardar.",
+  "managed-pages:body.lossy.image": "imágenes",
+  "managed-pages:body.lossy.blockquote": "citas",
+  "managed-pages:body.lossy.code": "código",
+  "managed-pages:body.lossy.deepHeading": "títulos por debajo del nivel 3",
+  "managed-pages:body.lossy.relativeLink": "enlaces relativos",
   "managed-pages:branding.section.custom-css": "CSS personalizado",
   "managed-pages:branding.section.identity": "Identidad",
   "managed-pages:confirms.page-delete": "¿Seguro que quieres eliminar esta página?",
@@ -1302,15 +1311,21 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.resourceKey": "Clave de recurso",
   "template-resolver.documentEditor.table": "Tabla",
   "template-resolver.editor.contentLabel": "Contenido",
+  "template-resolver.editor.create": "Crear",
   "template-resolver.editor.created": "Creado.",
   "template-resolver.editor.loadFailed": "No se pudo cargar el bloque",
   "template-resolver.editor.loading": "Cargando versión actual…",
   "template-resolver.editor.networkError": "Error de red al guardar.",
+  "template-resolver.editor.newEntry": "Nueva entrada",
+  "template-resolver.editor.newEntryTitle": "Nuevo: {label}",
   "template-resolver.editor.readOnly": "Solo lectura. Tu rol no permite cambios aquí.",
   "template-resolver.editor.save": "Guardar",
   "template-resolver.editor.saveFailed": "Error al guardar.",
   "template-resolver.editor.saved": "Guardado.",
   "template-resolver.editor.saving": "Guardando…",
+  "template-resolver.editor.slugInvalid":
+    "Solo minúsculas, dígitos y guiones; debe empezar por una letra o un dígito.",
+  "template-resolver.editor.slugLabel": "Identificador (slug)",
   "template-resolver.editor.titleLabel": "Título",
   "templateResolver.errors.document.imagesBlockPdfOnly":
     "Los bloques de fotos solo se permiten en documentos PDF.",
@@ -1404,6 +1419,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Los idiomas de esta plantilla difieren en el formato del contenido o en las variables, por lo que no se pueden exportar como un solo paquete.",
   "templateResolver.errors.collection.kindNotAllowed":
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
+  "templateResolver.errors.collection.slugExists":
+    "Ya existe una entrada con el identificador «{detail}». Elija otro.",
   "templateResolver.errors.noSystemTemplate":
     "No hay una plantilla de sistema activa a la que volver.",
   "templateResolver.errors.noDraft": "No hay ningún borrador que descartar.",

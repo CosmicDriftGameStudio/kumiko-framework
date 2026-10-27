@@ -2,6 +2,7 @@ import type {
   DispatcherError,
   EditFieldViewModel,
   EditSectionViewModel,
+  FieldIssue,
   SubmitResult,
 } from "../headless/index.ts";
 
@@ -67,6 +68,27 @@ export function hasIssueWithoutRenderedField(
     s.kind === "fields" && s.visible ? s.fields : [],
   );
   return hasIssueWithoutVisibleField(paths, renderedFields);
+}
+
+// The server issues the banner has to carry itself because no rendered field shows them
+// (an extension section's value such as a page body, `version`, a hidden field).
+export function issuesWithoutRenderedField(
+  errors: Readonly<Record<string, readonly FieldIssue[]>>,
+  sections: readonly EditSectionViewModel[],
+  derivedTargets: ReadonlySet<string> = new Set(),
+): readonly FieldIssue[] {
+  const visibleFields = new Set(
+    sections
+      .flatMap((s) => (s.kind === "fields" && s.visible ? s.fields : []))
+      .filter((f) => f.visible)
+      .map((f) => f.field),
+  );
+  return Object.entries(errors)
+    .filter(([path]) => {
+      const root = issueRootField(path);
+      return path !== ROOT_ISSUE_PATH && !derivedTargets.has(root) && !visibleFields.has(root);
+    })
+    .flatMap(([, issues]) => issues);
 }
 
 export function hasIssueWithoutVisibleField(

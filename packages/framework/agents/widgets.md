@@ -77,7 +77,6 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ResizablePanelGroup` |  |
 | `ResultPanel` | Result section for a calculator: SectionCard with an empty state (Banner) or a metric list (DetailList) plus optional extras (table, notes). |
 | `ResultTable` | Static, prop-driven result table for calculated rows (tranches, scenarios). |
-| `RichContentEditor` |  |
 | `ScreenWidthProvider` |  |
 | `SectionCard` | Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens. |
 | `SelectField` | Select field = Field + Input(kind:"select"). |
@@ -115,6 +114,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | --- | --- |
 | `useBrowserNavApi` | React hook that builds a NavApi from browser history. |
 | `useBrowserTokensApi` | Builds a TokensApi for the browser. |
+| `useDispatchTarget` | Recommended production dispatch. |
 | `useDispatcher` |  |
 | `useDispatcherStatus` |  |
 | `useDraft` | Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField). |

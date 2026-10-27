@@ -9,14 +9,14 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "asset-list",
     description:
-      "Asset-Tracker — DataTable mit Status-Spalte (verfügbar / ausgeliehen / in Wartung), DACH-Persona-Beweis",
+      "Asset tracker — data table with a status column (available / on loan / in maintenance)",
     url: "/asset-list",
     waitFor: "table tbody tr",
   },
   {
     name: "asset-edit",
     description:
-      "Schema-driven Edit-Form — Stammdaten + Zuordnung Sections, Status-Dropdown, Datums-Field. Auto-generiert aus Entity",
+      "Schema-driven edit form — master data and assignment sections, status dropdown, date field. Generated from the entity",
     flow: async (page) => {
       await page.goto("/asset-list");
       await page.locator("table tbody tr").first().waitFor({ state: "visible" });
@@ -28,13 +28,13 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "ticket-list",
     description:
-      "Helpdesk — zweite App auf gleicher Plattform. Severity-Default-Sort, Schema-driven, gleicher Look wie Assets",
+      "Helpdesk — a second app on the same platform. Severity default sort, schema-driven, same look as assets",
     url: "/ticket-list",
     waitFor: "table tbody tr",
   },
   {
     name: "ticket-edit",
-    description: "Ticket-Form — Severity- + Status-Selects, Multi-Section-Layout, Personen-Felder",
+    description: "Ticket form — severity and status selects, multi-section layout, person fields",
     flow: async (page) => {
       await page.goto("/ticket-list");
       await page.locator("table tbody tr").first().waitFor({ state: "visible" });

@@ -23,53 +23,21 @@
 
 @source "./**/*.{ts,tsx}";
 
+/* Only brand-neutral tokens here: @theme is the dark default of the renderer,
+   so surface colors set here would also apply in dark mode. Brand primary
+   (amber) reads on both surfaces. */
 @theme {
-  /* Light-Cream Surface — warmes Off-White statt purem #FFFFFF;
-     Cards leicht heller (reines Weiß) damit sie auf Cream "schweben". */
-  --color-background: #faf7f0;
-  --color-foreground: #1a1814;
-  --color-card: #ffffff;
-  --color-card-foreground: #1a1814;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #1a1814;
-  --color-border: #e8e2d5;
-  --color-input: #e8e2d5;
-  --color-muted: #f5f2ea;
-  --color-muted-foreground: #6b6259;
-  --color-secondary: #f0ede5;
-  --color-secondary-foreground: #1a1814;
-  --color-accent: #f0ede5;
-  --color-accent-foreground: #1a1814;
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #ffffff;
-  --color-ring: #d97706;
-
-  /* Bernstein als Brand-Primary — Action-Buttons (Sign in, Save, Submit).
-     Status-Grün bleibt für operational indicators (--color-status-ok),
-     so dass Brand und Semantik visuell getrennt sind. */
   --color-primary: #d97706;
   --color-primary-foreground: #ffffff;
-
-  /* Publicstatus-Brand-Tokens — von Components direkt via
-     text-[var(--color-status-ok)] etc. referenziert. Light-Mode-
-     adjustiert (etwas dunkler/sättiger als Dark-Variante für
-     Lesbarkeit auf cream BG). */
-  --color-status-ok: #16a34a;
-  --color-status-warn: #f59e0b;
-  --color-status-bad: #dc2626;
-  --color-status-critical: #991b1b;
+  --color-ring: #d97706;
 
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* App-Theme-Override: Renderer-Web definiert in @layer base einen
-   `:root:not(.dark)`-Block mit pure-white Light-Mode-Tokens. Dessen
-   Spezifität (eine Klasse mehr) schlägt unseren @theme-Default oben
-   — daher hier explizit auf gleicher Selektor-Ebene überschreiben.
-   `:root:not(.dark)` greift solange <html> keine `.dark`-Klasse hat
-   (siehe theme-toggle.tsx). Wenn der Operator später Dark wählt,
-   fällt die App auf den Renderer-Dark-Default zurück. */
+/* The renderer's `:root:not(.dark)` block has higher specificity than @theme,
+   so the cream palette must sit on the same selector. Dark mode (`.dark` on
+   <html>, see theme-toggle.tsx) falls back to the renderer's dark palette. */
 @layer base {
   :root:not(.dark) {
     --color-background: #faf7f0;
@@ -91,19 +59,12 @@
     --color-primary: #d97706;
     --color-primary-foreground: #ffffff;
     --color-ring: #d97706;
-  }
-}
 
-/* Tints für Badge-Hintergründe — Tailwind v4 kann arbitrary opacity
-   nicht ohne weiteres aus einem Custom-Token derivieren, daher
-   direkt als Var auf :root. Light-Mode: schwächere Opacity (0.10)
-   damit Tints auf cream BG nicht überstrahlen. */
-:root {
-  --tint-ok: rgba(22, 163, 74, 0.1);
-  --tint-warn: rgba(217, 119, 6, 0.1);
-  --tint-bad: rgba(220, 38, 38, 0.1);
-  --tint-critical: rgba(153, 27, 27, 0.15);
-  --tint-muted: rgba(107, 98, 89, 0.12);
+    --color-status-ok: #16a34a;
+    --color-status-warn: #f59e0b;
+    --color-status-bad: #dc2626;
+    --color-status-critical: #991b1b;
+  }
 }
 
 /* Public-Page-Live-Banner-Pulse — handgerollt weil Tailwind-eigene

@@ -14,6 +14,7 @@ export type FormScreenLayoutProps = {
   readonly secondaryActions?: ReactNode;
   readonly onSubmit?: () => void;
   readonly width?: FormWidth;
+  readonly unsavedCount?: number;
   readonly testId?: string;
 };
 
@@ -27,6 +28,7 @@ export function FormScreenLayout({
   secondaryActions,
   onSubmit = NOOP,
   width,
+  unsavedCount,
   testId,
 }: FormScreenLayoutProps): ReactNode {
   const { Form } = usePrimitives();
@@ -38,6 +40,7 @@ export function FormScreenLayout({
       {...(actions !== undefined && { actions })}
       {...(secondaryActions !== undefined && { secondaryActions })}
       {...(width !== undefined && { width })}
+      {...(unsavedCount !== undefined && { unsavedCount })}
       {...(testId !== undefined && { testId })}
     >
       {children}

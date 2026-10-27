@@ -2,7 +2,13 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import * as z from "zod";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { templateSlugSchema } from "../template-meta.ts";
-import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../web/constants.ts";
+import {
+  CONTENT_FORMATS,
+  SLUG_MAX_LENGTH,
+  SLUG_PATTERN,
+  TEMPLATE_STATUSES,
+  UPSERT_KINDS,
+} from "../web/constants.ts";
 
 // One executor per bundle, shared by all four handlers for create/update via
 // event store + optimistic lock.
@@ -14,8 +20,8 @@ export const executor = createEventStoreExecutor(templateResourcesTable, templat
 export const slugSchema = z
   .string()
   .min(1)
-  .max(80)
-  .regex(/^[a-z0-9][a-z0-9-]*$/, "slug must be kebab-case (lowercase, digits, dashes)");
+  .max(SLUG_MAX_LENGTH)
+  .regex(SLUG_PATTERN, "slug must be kebab-case (lowercase, digits, dashes)");
 
 export { templateSlugSchema };
 

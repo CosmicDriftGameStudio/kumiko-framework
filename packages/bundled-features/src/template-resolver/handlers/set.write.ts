@@ -48,6 +48,7 @@ export function makeSetWrite(policy: TemplateEditPolicy) {
       kind: z.enum(TEMPLATE_KINDS).optional(),
       title: z.string().min(1).max(200),
       content: z.string().max(200_000).nullable(),
+      // Provisioning callers omit it and rely on markdown.
       contentFormat: contentFormatSchema.default("markdown"),
       /** Folder path for the content tree. Optional + null = root node. */
       folder: folderSchema.nullable().optional(),

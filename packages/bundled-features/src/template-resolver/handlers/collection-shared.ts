@@ -14,6 +14,7 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table.ts";
+import type { ContentFormat } from "../web/constants.ts";
 
 const templateExecutor = createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
   entityName: "template-resource",
@@ -106,4 +107,10 @@ export function toCollectionEntry(row: CollectionEntryRow) {
     folder: row.folder,
     modifiedAt: row.modifiedAt,
   };
+}
+
+// The client never names the storage format: the declared editor decides it, so a
+// stale or tampered client cannot stamp a "plain" collection with html or the reverse.
+export function storageFormatOf(collection: ContentCollectionDefinition): ContentFormat {
+  return collection.contentFormat === "document" ? "html" : "plain";
 }

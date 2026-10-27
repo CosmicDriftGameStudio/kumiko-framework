@@ -34,6 +34,7 @@ const feature = createTemplateResolverFeature({
     {
       id: "reply-snippets",
       kind: "document-pdf",
+      contentFormat: "document",
       access: { roles: ["Agent"] },
       nav: { label: "mail:nav.snippets" },
     },

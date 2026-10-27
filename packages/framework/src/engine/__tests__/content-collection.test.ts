@@ -136,19 +136,6 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.contentCollections?.["templates"]?.contentFormat).toBeUndefined();
   });
 
-  test("records contentFormat markdown as a third format alongside plain/rich", () => {
-    const feature = defineFeature("mail", (r) => {
-      r.contentCollection({
-        id: "notes",
-        kind: "text-block",
-        contentFormat: "markdown",
-        nav: { label: "mail:nav.notes" },
-      });
-    });
-
-    expect(feature.contentCollections?.["notes"]?.contentFormat).toBe("markdown");
-  });
-
   test("records variableSchema so the client can offer the right chips", () => {
     const feature = defineFeature("mail", (r) => {
       r.contentCollection({
@@ -238,7 +225,7 @@ describe("buildAppSchema — content collections", () => {
         r.contentCollection({
           id: "templates",
           kind: "mail",
-          contentFormat: "rich",
+          contentFormat: "document",
           nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         });
       }),
@@ -250,7 +237,7 @@ describe("buildAppSchema — content collections", () => {
       {
         id: "templates",
         kind: "mail",
-        contentFormat: "rich",
+        contentFormat: "document",
         nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         navQn: "mail:nav:templates",
       },

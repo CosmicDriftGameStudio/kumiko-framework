@@ -1017,6 +1017,15 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Changer d'espace de travail",
   "managed-pages:actions.delete": "Supprimer",
   "managed-pages:actions.edit": "Modifier",
+  "managed-pages.errors.document.rejected":
+    "Le contenu comporte des éléments non autorisés : {detail}",
+  "managed-pages:body.lossy.warning":
+    "Cette page a été rédigée en Markdown. La conversion vers l'éditeur supprime : {features}. Vérifiez le résultat avant d'enregistrer.",
+  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.blockquote": "citations",
+  "managed-pages:body.lossy.code": "code",
+  "managed-pages:body.lossy.deepHeading": "titres au-delà du niveau 3",
+  "managed-pages:body.lossy.relativeLink": "liens relatifs",
   "managed-pages:branding.section.custom-css": "CSS personnalisé",
   "managed-pages:branding.section.identity": "Identité",
   "managed-pages:confirms.page-delete": "Supprimer cette page ?",
@@ -1318,16 +1327,22 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.resourceKey": "Clé de ressource",
   "template-resolver.documentEditor.table": "Tableau",
   "template-resolver.editor.contentLabel": "Contenu",
+  "template-resolver.editor.create": "Créer",
   "template-resolver.editor.created": "Créé.",
   "template-resolver.editor.loadFailed": "Impossible de charger le bloc",
   "template-resolver.editor.loading": "Chargement de la version actuelle…",
   "template-resolver.editor.networkError": "Erreur réseau lors de l'enregistrement.",
+  "template-resolver.editor.newEntry": "Nouvelle entrée",
+  "template-resolver.editor.newEntryTitle": "Nouveau : {label}",
   "template-resolver.editor.readOnly":
     "Lecture seule. Votre rôle ne permet pas de modifications ici.",
   "template-resolver.editor.save": "Enregistrer",
   "template-resolver.editor.saveFailed": "Échec de l'enregistrement.",
   "template-resolver.editor.saved": "Enregistré.",
   "template-resolver.editor.saving": "Enregistrement…",
+  "template-resolver.editor.slugInvalid":
+    "Uniquement des minuscules, des chiffres et des tirets ; doit commencer par une lettre ou un chiffre.",
+  "template-resolver.editor.slugLabel": "Identifiant (slug)",
   "template-resolver.editor.titleLabel": "Titre",
   "templateResolver.errors.document.imagesBlockPdfOnly":
     "Les blocs de photos ne sont autorisés que dans les documents PDF.",
@@ -1424,6 +1439,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Les langues de ce modèle diffèrent par leur format de contenu ou leurs variables ; elles ne peuvent donc pas être exportées en un seul lot.",
   "templateResolver.errors.collection.kindNotAllowed":
     "Les modèles « {detail} » s'écrivent via leur propre éditeur, pas via une collection.",
+  "templateResolver.errors.collection.slugExists":
+    "Une entrée avec l'identifiant « {detail} » existe déjà. Choisissez-en un autre.",
   "templateResolver.errors.noSystemTemplate":
     "Il n'existe aucun modèle système actif vers lequel réinitialiser.",
   "templateResolver.errors.noDraft": "Il n'y a aucun brouillon à abandonner.",

@@ -11,8 +11,8 @@ import { systemTemplateExists } from "../api.ts";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.ts";
 import { refuseTemplateEdit, type TemplateEditPolicy } from "../template-edit-policy.ts";
 import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "../web/constants.ts";
-import { type CollectionEntryRow, collectionStore } from "./collection-shared.ts";
-import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.ts";
+import { type CollectionEntryRow, collectionStore, storageFormatOf } from "./collection-shared.ts";
+import { folderSchema, localeSchema, slugSchema } from "./shared.ts";
 
 // Upsert inside one collection. Mirrors set.write for text-blocks, but the
 // kind comes from the declaration and the access rule is the collection's own,
@@ -26,6 +26,7 @@ export function makeCollectionSetWrite(
   editPolicy: TemplateEditPolicy,
 ) {
   const store = collectionStore(collection);
+  const contentFormat = storageFormatOf(collection);
   return defineWriteHandler({
     name: `${collection.id}-set`,
     schema: z.object({
@@ -33,8 +34,9 @@ export function makeCollectionSetWrite(
       locale: localeSchema,
       title: z.string().min(1).max(200),
       content: z.string().max(200_000).nullable(),
-      contentFormat: contentFormatSchema.default("markdown"),
       folder: folderSchema.nullable().optional(),
+      /** The create form sets it so a taken slug is reported instead of overwritten. */
+      createOnly: z.boolean().optional(),
       /** Optional cross-tenant write — SystemAdmin only. */
       tenantIdOverride: z.string().min(1).optional(),
     }),
@@ -71,8 +73,9 @@ export function makeCollectionSetWrite(
 
       const body = sanitizeTemplateBody({
         kind: collection.kind,
-        contentFormat: event.payload.contentFormat,
+        contentFormat,
         content: event.payload.content,
+        alwaysSanitizeHtml: collection.contentFormat === "document",
       });
       if (!body.ok) {
         return writeFailure(
@@ -100,6 +103,21 @@ export function makeCollectionSetWrite(
         ...owner,
       });
 
+      if (existing && event.payload.createOnly === true) {
+        return writeFailure(
+          new ValidationError({
+            fields: [
+              {
+                path: "slug",
+                code: "slug_exists",
+                i18nKey: "templateResolver.errors.collection.slugExists",
+                params: { detail: event.payload.slug },
+              },
+            ],
+          }),
+        );
+      }
+
       if (existing) {
         const result = await store.executor.update(
           {
@@ -111,7 +129,7 @@ export function makeCollectionSetWrite(
             changes: {
               title: event.payload.title,
               content: body.content,
-              contentFormat: event.payload.contentFormat,
+              contentFormat,
               folder: event.payload.folder ?? null,
             },
           },
@@ -134,7 +152,7 @@ export function makeCollectionSetWrite(
           locale: event.payload.locale,
           title: event.payload.title,
           content: body.content,
-          contentFormat: event.payload.contentFormat,
+          contentFormat,
           folder: event.payload.folder ?? null,
           ...store.createDefaults(tenantId),
           ...owner,

@@ -63,6 +63,9 @@ export function isCollectionRefusedKind(
   return isOneOf(COLLECTION_REFUSED_KINDS, kind);
 }
 
+export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+export const SLUG_MAX_LENGTH = 80;
+
 export const CONTENT_FORMATS = ["markdown", "mjml", "html", "plain"] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
 

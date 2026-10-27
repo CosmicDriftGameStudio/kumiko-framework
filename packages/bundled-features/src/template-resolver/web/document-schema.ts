@@ -8,12 +8,14 @@ import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
 import { createDocumentImagesNode } from "./document-images.ts";
+import { isDocumentReferenceName } from "./document-reference-name.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
 
 const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
-const REFERENCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 const RESOURCE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const ALLOWED_LINK_SCHEMES = ["https://", "http://", "mailto:", "tel:"] as const;
+
+export { isDocumentReferenceName };
 
 export function isDocumentPlaceholderHref(href: string): boolean {
   const name = PLACEHOLDER_HREF.exec(href)?.[1];
@@ -21,7 +23,6 @@ export function isDocumentPlaceholderHref(href: string): boolean {
 }
 
 const UNSAFE_URL_CHARACTERS = new Set(["<", ">", '"']);
-const FORBIDDEN_REFERENCE_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
 
 function hasUnsafeUrlCharacter(value: string): boolean {
   return Array.from(value).some((character) => {
@@ -51,15 +52,6 @@ function hasAllowedLinkScheme(href: string): boolean {
 export function isAllowedDocumentLinkHref(href: string): boolean {
   if (hasUnsafeUrlCharacter(href)) return false;
   return hasAllowedLinkScheme(href) || isDocumentPlaceholderHref(href);
-}
-
-// Segments that hit the prototype chain are refused: the renderer later walks
-// the dotted path into a data object.
-export function isDocumentReferenceName(value: string): boolean {
-  return (
-    REFERENCE_NAME.test(value) &&
-    !value.split(".").some((segment) => FORBIDDEN_REFERENCE_SEGMENTS.has(segment))
-  );
 }
 
 export function isDocumentResourceKey(value: string): boolean {

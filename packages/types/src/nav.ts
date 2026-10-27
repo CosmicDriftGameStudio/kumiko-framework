@@ -81,7 +81,7 @@ export type NavDefinition = {
 // dangling refs, so a collection mounted under a feature that isn't mounted
 // fails boot instead of silently disappearing from the sidebar.
 /** Client editor format for r.contentCollection() — not template body storage formats. */
-export type ContentEditorFormat = "plain" | "rich" | "markdown" | "document";
+export type ContentEditorFormat = "plain" | "document";
 
 export type ContentCollectionDefinition = {
   // Feature-local short id, kebab-case. Also becomes the nav entry's id, so
@@ -104,10 +104,9 @@ export type ContentCollectionDefinition = {
   // snippets an admin curates). "user": every user keeps their own (mail
   // signatures). Defaults to "tenant".
   readonly ownership?: "tenant" | "user";
-  // Which editor the client renders for this collection's entries — not how
-  // the content is stored. "rich" still stores HTML, because mail and PDF
-  // rendering want HTML either way. "markdown" stores markdown text, not
-  // HTML. "document" stores HTML in the document model
+  // Which editor the client renders for this collection's entries. The stored
+  // format follows from it on the server: "plain" stores text, "document"
+  // stores sanitized HTML in the document model
   // (template-resolver/document-schema), variables as data-variable nodes.
   // Defaults to "plain" (textarea).
   readonly contentFormat?: ContentEditorFormat;

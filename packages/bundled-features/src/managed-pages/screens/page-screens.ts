@@ -2,6 +2,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { PAGE_BODY_EXTENSION_NAME } from "../web/constants.ts";
 
 // Admin authoring screens for the `page` entity. These are JSON-safe data only —
 // the generic DataTable/form renderer mounts them, so no React component is
@@ -78,10 +79,13 @@ export const pageEditScreen: EntityEditScreenDefinition = {
           { field: "published", span: 1 },
         ],
       },
+      // Not a plain field: the body is edited as a document and a Markdown
+      // body is converted on open, so the section also patches `bodyFormat`.
       {
+        kind: "extension",
         title: "managed-pages:section.body",
-        columns: 1,
-        fields: [{ field: "body", span: 1 }],
+        component: { react: { __component: PAGE_BODY_EXTENSION_NAME } },
+        entityName: "page",
       },
     ],
   },

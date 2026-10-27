@@ -51,6 +51,7 @@ const feature = createTemplateResolverFeature({
     {
       id: "reply-snippets",
       kind: "document-pdf",
+      contentFormat: "document",
       access: { roles: ["Agent", "TenantAdmin"] },
       nav: { label: "mail:nav.snippets" },
     },
@@ -284,6 +285,7 @@ describe("mount-time entity registration", () => {
         {
           id: "signatures",
           kind: "document-pdf",
+          contentFormat: "document",
           ownership: "user",
           access: { roles: ["Agent"] },
           nav: { label: "mail:nav.signatures" },

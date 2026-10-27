@@ -316,10 +316,10 @@ export const APP_FEATURES = [
           label: "templateResolver:nav.snippets",
           workspaces: ["admin-shell:workspace:platform"],
         },
-        // rich + variableSchema so the smoke app renders the WYSIWYG with
+        // document + variableSchema so the smoke app renders the WYSIWYG with
         // insertable chips, not just the plain textarea — the preview
         // substitutes these example values for `{{customerName}}` & co.
-        contentFormat: "rich",
+        contentFormat: "document",
         variableSchema: {
           customerName: "Max Mustermann",
           orderId: "A-1042",
@@ -335,7 +335,7 @@ export const APP_FEATURES = [
           label: "templateResolver:nav.signatures",
           workspaces: ["admin-shell:workspace:platform"],
         },
-        contentFormat: "rich",
+        contentFormat: "document",
       },
     ],
   }),
@@ -352,12 +352,18 @@ export const APP_FEATURES = [
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
 
-  // managed-pages: requires config (auto-bundled). Smoke resolver never serves
-  // (boot-only). allowCustomCss:true boot-validates the CSS code path + emits
+  // managed-pages: requires config (auto-bundled). Every host resolves to the
+  // dev tenant so the document-editor e2e can read a saved page back from the
+  // public route. allowCustomCss:true boot-validates the CSS code path + emits
   // the branding-custom-css key into the manifest. The managed-pages-css
   // companion toggle is handler-less, has no subpath export, and is recipe-
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
-  createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
+  createManagedPagesFeature({
+    // Mapping every host to the dev tenant is for this sample and its e2e only; production maps
+    // its known hosts and returns null for any other.
+    resolveApexTenant: () => DEV_TENANT_ID as TenantId,
+    allowCustomCss: true,
+  }),
 
   // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages above.
   createDocumentDesignerFeature(),

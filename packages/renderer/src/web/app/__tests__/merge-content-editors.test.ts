@@ -8,15 +8,15 @@ const editor = (): ContentEditorComponent => (() => null) as ContentEditorCompon
 describe("mergeContentEditors", () => {
   test("merges contentEditors from multiple clientFeatures", () => {
     const plainEditor = editor();
-    const richEditor = editor();
+    const documentEditor = editor();
     const features: ClientFeatureDefinition[] = [
       { name: "a", contentEditors: { plain: plainEditor } },
-      { name: "b", contentEditors: { rich: richEditor } },
+      { name: "b", contentEditors: { document: documentEditor } },
     ];
 
     const merged = mergeContentEditors(features);
     expect(merged["plain"]).toBe(plainEditor);
-    expect(merged["rich"]).toBe(richEditor);
+    expect(merged["document"]).toBe(documentEditor);
   });
 
   test("key collision → warns + last-wins applies", () => {

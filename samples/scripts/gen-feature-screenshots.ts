@@ -52,7 +52,7 @@ type Runner = {
   /** Wipe `out` before spawning — only safe for a runMatrix() sample-preview
    *  dir dedicated to this one runner. NOT set on use-all-bundled (`out` IS
    *  the shared features tree that also holds apps/, the manifest and
-   *  index.html) or on apex-landing/marketing-demo (no runMatrix, no per-scenario
+   *  index.html) or on apex-landing (no runMatrix, no per-scenario
    *  dirs to go stale). */
   readonly cleanOut?: boolean;
 };
@@ -94,8 +94,9 @@ const SCREENSHOT_RUNNERS: readonly Runner[] = [
   {
     id: "marketing-demo",
     cwd: resolve(SAMPLES_ROOT, "apps/marketing-demo"),
-    command: ["bun", "run", "screenshots"],
-    out: `${APPS_OUT}/marketing-demo`,
+    command: SCREENSHOTS_CMD,
+    out: sampleOut("apps/marketing-demo"),
+    cleanOut: true,
   },
   {
     // Its screenshots.spec.ts is the German design review (`bun run

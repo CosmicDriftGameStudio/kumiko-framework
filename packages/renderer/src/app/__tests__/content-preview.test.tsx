@@ -63,48 +63,27 @@ describe("substituteVariables", () => {
 });
 
 describe("ContentPreview", () => {
-  test("rich format escapes attribute-breaking quotes in substituted values", () => {
-    function RichEditor({ value }: ContentEditorProps): ReactNode {
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: XSS regression fixture for escapeHtml
-      return <div data-testid="rich" dangerouslySetInnerHTML={{ __html: value }} />;
-    }
-    render(
-      <Wrapper>
-        <ContentEditorsProvider value={{ rich: RichEditor }}>
-          <ContentPreview
-            content={'<a href="{{url}}">x</a>'}
-            variables={{ url: '" onerror="x' }}
-            contentFormat="rich"
-          />
-        </ContentEditorsProvider>
-      </Wrapper>,
-    );
-    const html = screen.getByTestId("rich").innerHTML;
-    expect(html).toContain("&quot;");
-    expect(html).not.toContain('onerror="x');
-  });
-
   test("renders the format's registered editor read-only, with variables substituted", () => {
-    function RichEditor({ value, readOnly }: ContentEditorProps): ReactNode {
+    function PlainEditor({ value, readOnly }: ContentEditorProps): ReactNode {
       return (
-        <div data-testid="cp-rich" data-readonly={readOnly}>
+        <div data-testid="cp-plain" data-readonly={readOnly}>
           {value}
         </div>
       );
     }
 
     render(
-      <ContentEditorsProvider value={{ rich: RichEditor }}>
+      <ContentEditorsProvider value={{ plain: PlainEditor }}>
         <ContentPreview
           content="Hallo {{customerName}}"
           variables={{ customerName: "Max Mustermann" }}
-          contentFormat="rich"
+          contentFormat="plain"
         />
       </ContentEditorsProvider>,
       { wrapper: Wrapper },
     );
 
-    const el = screen.getByTestId("cp-rich");
+    const el = screen.getByTestId("cp-plain");
     expect(el.textContent).toBe("Hallo Max Mustermann");
     expect(el.dataset["readonly"]).toBe("true");
   });
@@ -123,49 +102,6 @@ describe("ContentPreview", () => {
     expect(el.value).toBe("Hi A-1042");
     expect(el.readOnly).toBe(true);
     expect(el.disabled).toBe(false);
-  });
-
-  test("rich format: an example value with markup characters is escaped, not injected as HTML", () => {
-    function RichEditor({ value }: ContentEditorProps): ReactNode {
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: proves the substituted value is escaped, not injected — the whole point of this test.
-      return <div data-testid="cp-rich" dangerouslySetInnerHTML={{ __html: value }} />;
-    }
-
-    render(
-      <ContentEditorsProvider value={{ rich: RichEditor }}>
-        <ContentPreview
-          content="Preis: {{price}}"
-          variables={{ price: "<b>0</b> & up" }}
-          contentFormat="rich"
-        />
-      </ContentEditorsProvider>,
-      { wrapper: Wrapper },
-    );
-
-    const el = screen.getByTestId("cp-rich");
-    expect(el.querySelector("b")).toBeNull();
-    expect(el.textContent).toBe("Preis: <b>0</b> & up");
-  });
-
-  // Known limitation: escaping is keyed off the *declared* format, not the
-  // actually-resolved editor. If "rich" is declared but no rich editor is
-  // registered, useContentEditor falls back to the plain textarea and the
-  // markup-safe escaping (only applied for contentFormat === "rich") never
-  // ran for the plain path — entities show up literal instead of rendered.
-  // Pinned here rather than fixed: fixing it needs a per-editor
-  // `rendersHtml` flag threaded through content-editors.tsx.
-  test("rich format with no registered editor → falls back to the textarea, entities shown literally", () => {
-    render(
-      <ContentPreview
-        content="Preis: {{price}}"
-        variables={{ price: "<b>0</b> & up" }}
-        contentFormat="rich"
-      />,
-      { wrapper: Wrapper },
-    );
-
-    const el = screen.getByTestId("cp-textarea") as HTMLTextAreaElement;
-    expect(el.value).toBe("Preis: &lt;b&gt;0&lt;/b&gt; &amp; up");
   });
 
   test("document format passes the content to the editor without substituting placeholders", () => {

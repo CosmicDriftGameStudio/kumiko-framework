@@ -1010,6 +1010,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Workspace wechseln",
   "managed-pages:actions.delete": "Löschen",
   "managed-pages:actions.edit": "Bearbeiten",
+  "managed-pages.errors.document.rejected": "Der Inhalt enthält nicht erlaubte Elemente: {detail}",
+  "managed-pages:body.lossy.warning":
+    "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
+  "managed-pages:body.lossy.image": "Bilder",
+  "managed-pages:body.lossy.blockquote": "Zitate",
+  "managed-pages:body.lossy.code": "Code",
+  "managed-pages:body.lossy.deepHeading": "Überschriften unterhalb von Ebene 3",
+  "managed-pages:body.lossy.relativeLink": "relative Links",
   "managed-pages:branding.section.custom-css": "Eigenes CSS",
   "managed-pages:branding.section.identity": "Identität",
   "managed-pages:confirms.page-delete": "Diese Seite wirklich löschen?",
@@ -1310,15 +1318,21 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.resourceKey": "Ressourcenschlüssel",
   "template-resolver.documentEditor.table": "Tabelle",
   "template-resolver.editor.contentLabel": "Inhalt",
+  "template-resolver.editor.create": "Anlegen",
   "template-resolver.editor.created": "Neu angelegt.",
   "template-resolver.editor.loadFailed": "Konnte Block nicht laden",
   "template-resolver.editor.loading": "Lädt aktuellen Stand…",
   "template-resolver.editor.networkError": "Netzwerkfehler beim Speichern.",
+  "template-resolver.editor.newEntry": "Neuer Eintrag",
+  "template-resolver.editor.newEntryTitle": "Neu: {label}",
   "template-resolver.editor.readOnly": "Nur lesbar. Ihre Rolle erlaubt hier keine Änderungen.",
   "template-resolver.editor.save": "Speichern",
   "template-resolver.editor.saveFailed": "Speichern fehlgeschlagen.",
   "template-resolver.editor.saved": "Gespeichert.",
   "template-resolver.editor.saving": "Speichern…",
+  "template-resolver.editor.slugInvalid":
+    "Nur Kleinbuchstaben, Ziffern und Bindestriche; muss mit Buchstabe oder Ziffer beginnen.",
+  "template-resolver.editor.slugLabel": "Kürzel (Slug)",
   "template-resolver.editor.titleLabel": "Titel",
   "templateResolver.errors.document.imagesBlockPdfOnly":
     "Fotoblöcke sind nur in PDF-Dokumenten erlaubt.",
@@ -1415,6 +1429,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Die Sprachen dieser Vorlage unterscheiden sich in Inhaltsformat oder Variablen und lassen sich nicht als ein Bundle exportieren.",
   "templateResolver.errors.collection.kindNotAllowed":
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
+  "templateResolver.errors.collection.slugExists":
+    "Ein Eintrag mit dem Kürzel „{detail}“ existiert bereits. Wählen Sie ein anderes.",
   "templateResolver.errors.noSystemTemplate":
     "Es gibt keine aktive Systemvorlage, auf die zurückgesetzt werden könnte.",
   "templateResolver.errors.noDraft": "Es gibt keinen Entwurf, der verworfen werden könnte.",

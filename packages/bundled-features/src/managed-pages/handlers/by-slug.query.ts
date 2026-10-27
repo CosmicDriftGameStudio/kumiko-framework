@@ -1,6 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { effectiveBodyFormat } from "../constants.ts";
 import { type PageRow, pagesTable } from "../table.ts";
 
 // Public read by (tenantId, slug, lang), including anonymous access for landing and
@@ -30,6 +31,7 @@ export const bySlugQuery = defineQueryHandler({
       lang: row.lang,
       title: row.title,
       body: row.body,
+      bodyFormat: effectiveBodyFormat(row.bodyFormat),
       description: row.description,
       ogImage: row.ogImage,
       version: row.version,

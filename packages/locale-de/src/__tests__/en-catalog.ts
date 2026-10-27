@@ -977,6 +977,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Switch workspace",
   "managed-pages:actions.delete": "Delete",
   "managed-pages:actions.edit": "Edit",
+  "managed-pages.errors.document.rejected":
+    "The content contains elements that are not allowed: {detail}",
+  "managed-pages:body.lossy.warning":
+    "This page was written in Markdown. Converting it to the editor drops: {features}. Check the result before saving.",
+  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.blockquote": "block quotes",
+  "managed-pages:body.lossy.code": "code",
+  "managed-pages:body.lossy.deepHeading": "headings below level 3",
+  "managed-pages:body.lossy.relativeLink": "relative links",
   "managed-pages:branding.section.custom-css": "Custom CSS",
   "managed-pages:branding.section.identity": "Identity",
   "managed-pages:confirms.page-delete": "Delete this page?",
@@ -1271,15 +1280,21 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.resourceKey": "Resource key",
   "template-resolver.documentEditor.table": "Table",
   "template-resolver.editor.contentLabel": "Content",
+  "template-resolver.editor.create": "Create",
   "template-resolver.editor.created": "Created.",
   "template-resolver.editor.loadFailed": "Could not load block",
   "template-resolver.editor.loading": "Loading current version…",
   "template-resolver.editor.networkError": "Network error while saving.",
+  "template-resolver.editor.newEntry": "New entry",
+  "template-resolver.editor.newEntryTitle": "New {label}",
   "template-resolver.editor.readOnly": "Read-only. Your role does not allow changes here.",
   "template-resolver.editor.save": "Save",
   "template-resolver.editor.saveFailed": "Save failed.",
   "template-resolver.editor.saved": "Saved.",
   "template-resolver.editor.saving": "Saving…",
+  "template-resolver.editor.slugInvalid":
+    "Use lowercase letters, digits and dashes only; start with a letter or digit.",
+  "template-resolver.editor.slugLabel": "Slug",
   "template-resolver.editor.titleLabel": "Title",
   "templateResolver.errors.document.imagesBlockPdfOnly":
     "Photo blocks are only allowed in PDF documents.",
@@ -1372,6 +1387,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The locales of this template differ in content format or variables, so they cannot be exported as one bundle.",
   "templateResolver.errors.collection.kindNotAllowed":
     "“{detail}” templates are written through their own editor, not through a collection.",
+  "templateResolver.errors.collection.slugExists":
+    "An entry with the slug “{detail}” already exists. Pick another one.",
   "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",
   "templateResolver.errors.noDraft": "There is no draft to discard.",
   "templateResolver.errors.template.invalidMeta": "The template settings are invalid.",

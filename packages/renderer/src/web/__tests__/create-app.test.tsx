@@ -500,14 +500,14 @@ describe("createKumikoApp", () => {
     // useContentEditor in the consumer. Without the provider mount,
     // useContentEditor would always fall back to the textarea — this test
     // would fail then.
-    function RichEditor({ value }: ContentEditorProps): ReactNode {
-      return <div data-testid="ca-rich-editor">{value}</div>;
+    function DocumentEditor({ value }: ContentEditorProps): ReactNode {
+      return <div data-testid="ca-document-editor">{value}</div>;
     }
     function EditorProbe(): ReactNode {
-      const Editor = useContentEditor("rich");
+      const Editor = useContentEditor("document");
       return (
         <Editor
-          id="ca-rich-editor-probe"
+          id="ca-document-editor-probe"
           value="hello"
           onChange={() => {}}
           variables={[]}
@@ -530,7 +530,7 @@ describe("createKumikoApp", () => {
     const clientFeature: ClientFeatureDefinition = {
       name: "tasks",
       components: { "editor-probe": EditorProbe },
-      contentEditors: { rich: RichEditor },
+      contentEditors: { document: DocumentEditor },
     };
 
     mountRoot();
@@ -540,8 +540,8 @@ describe("createKumikoApp", () => {
       clientFeatures: [clientFeature],
     });
 
-    expect(await screen.findByTestId("ca-rich-editor")).toBeTruthy();
-    expect(screen.getByTestId("ca-rich-editor").textContent).toBe("hello");
+    expect(await screen.findByTestId("ca-document-editor")).toBeTruthy();
+    expect(screen.getByTestId("ca-document-editor").textContent).toBe("hello");
   });
 
   test("schema.translations (r.translations) resolves nav/dashboard labels without any clientFeatures duplication", async () => {

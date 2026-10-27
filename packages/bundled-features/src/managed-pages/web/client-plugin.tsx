@@ -1,12 +1,13 @@
-// Client feature factory for managed-pages. It provides ONLY translations —
-// the screens (page-list/page-edit/branding-settings) are schema-driven
-// (entityList/entityEdit/configEdit), so no custom React components are
-// registered. Apps mount it in createKumikoApp({ clientFeatures:
+// Client feature factory for managed-pages: translations plus the page-body
+// extension section (document editor) of the page-edit screen. The screens
+// themselves are schema-driven. Apps mount it in createKumikoApp({ clientFeatures:
 // [managedPagesClient()] }) so the admin labels render translated.
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
+import { PAGE_BODY_EXTENSION_NAME } from "./constants.ts";
 import { defaultTranslations } from "./default-translations.ts";
+import { PageBodySection } from "./page-body-section.tsx";
 
 export type ManagedPagesClientOptions = {
   /** Key-wise overrides of the default bundles (de/en). */
@@ -17,5 +18,6 @@ export function managedPagesClient(options?: ManagedPagesClientOptions): ClientF
   return {
     name: "managed-pages",
     translations: mergeTranslations(defaultTranslations, options?.translations ?? {}),
+    extensionSectionComponents: { [PAGE_BODY_EXTENSION_NAME]: PageBodySection },
   };
 }

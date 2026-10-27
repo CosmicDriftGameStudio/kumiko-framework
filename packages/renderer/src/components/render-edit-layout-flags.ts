@@ -2,11 +2,16 @@ import { PROJECTION_DETAIL_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types
 import type { useExtensionSectionComponent } from "../app/extension-sections.tsx";
 import type { FieldIssue, FormValues } from "../headless/index.ts";
 import { shouldRenderActionsIconOnly } from "../primitives.tsx";
-import { ROOT_ISSUE_PATH, resolveExtensionEntityId } from "./render-edit-logic.ts";
+import {
+  issuesWithoutRenderedField,
+  ROOT_ISSUE_PATH,
+  resolveExtensionEntityId,
+} from "./render-edit-logic.ts";
 import type { RenderEditEngine, ResolvedRenderEditProps } from "./render-edit-render-model.ts";
 
 export type LayoutFlags = {
   readonly rootIssues: readonly FieldIssue[];
+  readonly unplacedIssues: readonly FieldIssue[];
   readonly isScreenForm: boolean;
   readonly titleInShell: boolean;
   readonly menuPageHeaderActions: boolean;
@@ -54,6 +59,7 @@ export function deriveLayoutFlags<TValues extends FormValues, TCtx>({
   props,
   state,
   form,
+  sections,
 }: RenderEditEngine<TValues, TCtx>): LayoutFlags {
   const { fillScreenHeight, hideSectionTitles, headerRegion, actions, onCancel } = props;
   const { PageHeader, ActionOverflowMenu } = state.primitives;
@@ -71,6 +77,11 @@ export function deriveLayoutFlags<TValues extends FormValues, TCtx>({
   const cancelInHeaderMenu = menuPageHeaderActions && state.isWizard && onCancel !== undefined;
   return {
     rootIssues,
+    unplacedIssues: issuesWithoutRenderedField(
+      form.snapshot.errors,
+      sections.filteredSections,
+      new Set(Object.keys(props.formDerivation?.derive ?? {})),
+    ),
     isScreenForm,
     titleInShell,
     menuPageHeaderActions,
