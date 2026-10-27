@@ -24,20 +24,6 @@ export function createCollectionEntryCreateForm(
 
 type CreateState = ReturnType<typeof useCollectionEntryCreate>;
 
-function SubmitButton({ state }: { readonly state: CreateState }): ReactNode {
-  const { Button } = usePrimitives();
-  const t = useTranslation();
-  return (
-    <Button
-      type="submit"
-      loading={state.submitting}
-      disabled={state.disabled || !state.slugValid || state.title === ""}
-    >
-      {t("template-resolver.editor.create")}
-    </Button>
-  );
-}
-
 function CreateFields({ state }: { readonly state: CreateState }): ReactNode {
   const { Field, Input, Banner } = usePrimitives();
   const t = useTranslation();
@@ -91,7 +77,8 @@ export function CollectionEntryCreateForm({
   readonly onClose: () => void;
   readonly tenantId?: string | undefined;
 }): ReactNode {
-  const { PageHeader, Section } = usePrimitives();
+  const { Button, PageHeader, Section } = usePrimitives();
+  const t = useTranslation();
   const state = useCollectionEntryCreate(target, tenantId);
   return (
     <>
@@ -101,7 +88,13 @@ export function CollectionEntryCreateForm({
           void state.create();
         }}
         testId="collection-entry-create"
-        actions={state.editorContext.canWrite ? <SubmitButton state={state} /> : undefined}
+        actions={
+          state.editorContext.canWrite ? (
+            <Button type="submit" loading={state.submitting} disabled={state.createDisabled}>
+              {t("template-resolver.editor.create")}
+            </Button>
+          ) : undefined
+        }
       >
         <Section>
           <CreateFields state={state} />

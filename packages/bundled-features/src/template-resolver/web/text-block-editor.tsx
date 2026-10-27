@@ -34,16 +34,6 @@ function SaveBanners({ state }: { readonly state: EditorState }): ReactNode {
   );
 }
 
-function SaveButton({ state }: { readonly state: EditorState }): ReactNode {
-  const { Button } = usePrimitives();
-  const t = useTranslation();
-  return (
-    <Button type="submit" loading={state.submitting} disabled={state.disabled}>
-      {state.submitting ? t("template-resolver.editor.saving") : t("template-resolver.editor.save")}
-    </Button>
-  );
-}
-
 export function TextBlockEditor({
   target,
 }: {
@@ -52,7 +42,7 @@ export function TextBlockEditor({
   // but is unused: tree selection navigates, there is no close button.
   readonly onClose: () => void;
 }): ReactNode {
-  const { Field, Input, PageHeader, Section } = usePrimitives();
+  const { Button, Field, Input, PageHeader, Section } = usePrimitives();
   const t = useTranslation();
   const state = useTextBlockEditor(target);
   const headerTitle = state.title || state.slug || undefined;
@@ -67,7 +57,13 @@ export function TextBlockEditor({
         }}
         testId="text-block-editor"
         description={state.locale !== "" ? `${state.slug} · (${state.locale})` : state.slug}
-        actions={state.canWrite ? <SaveButton state={state} /> : undefined}
+        actions={
+          state.canWrite ? (
+            <Button type="submit" loading={state.submitting} disabled={state.disabled}>
+              {t(state.saveLabelKey)}
+            </Button>
+          ) : undefined
+        }
       >
         <Section>
           <LoadBanners state={state} />

@@ -82,6 +82,7 @@ export function useCollectionEntryCreate(target: TargetRef, tenantId: string | u
     content,
     setContent,
     slugValid,
+    createDisabled: disabled || !slugValid || title === "",
     slugInvalid: slug !== "" && !slugValid,
     disabled,
     submitting,

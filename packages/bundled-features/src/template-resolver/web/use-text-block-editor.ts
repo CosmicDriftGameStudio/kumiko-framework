@@ -117,6 +117,7 @@ export function useTextBlockEditor(target: TargetRef) {
     saveError,
     savedMsg,
     disabled: submitting || loading || !canWrite,
+    saveLabelKey: submitting ? "template-resolver.editor.saving" : "template-resolver.editor.save",
     title,
     setTitle,
     content,
