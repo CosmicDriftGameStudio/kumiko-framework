@@ -2043,6 +2043,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "You are taken to the provider's sign-in page. After signing in, the mailbox fetches mail again and keeps its history.",
   "inboundMail.accounts.reconnect.invalidRow": "This mailbox cannot be reactivated from here.",
   "screen:mail-account-reconnect-imap.title": "Reconnect mailbox",
+  "screen:my-mail-account-reconnect-imap.title": "Reconnect mailbox",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Mailbox",
   "inboundMail.imap.reconnect.hint":
     "The sign-in is checked before saving. Then the system fetches the mail again.",

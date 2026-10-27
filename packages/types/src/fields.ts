@@ -1277,14 +1277,12 @@ export type EntityDefinition<
   readonly derivedFields?: DerivedFieldsMap;
   /** Optional free-text semantics for the AI agent manifest — see TextFieldDef.description. */
   readonly description?: string;
-  /**
-   * Opts this entity's rows into the `tenant-handover` bundled feature
-   *: a row-bound-grant-legitimated ownership change
-   * from an anonymous/public tenant to a freshly signed-up account's tenant.
-   * An entity reachable from a transfer's root — the root itself, or any
-   * entity whose `parentRef` names the root's type — that is NOT declared
-   * `transferable: true` makes the whole transfer fail with a named error
-   * instead of silently leaving that entity's rows behind.
-   */
+  /** Opts the rows into `tenant-handover`, a grant-legitimated move from an anonymous tenant to the
+   *  signed-up account's tenant. An entity reachable from a transfer's root (the root, or one whose
+   *  `parentRef` names the root's type) without `transferable: true` fails the whole transfer with
+   *  a named error instead of silently leaving its rows behind. */
   readonly transferable?: boolean;
+  /** Attached files are readable only through the record's detail query: the files feature's
+   *  privilegedRoles do not bypass it, the uploader check stays. */
+  readonly attachedFileAccess?: "record-only";
 };

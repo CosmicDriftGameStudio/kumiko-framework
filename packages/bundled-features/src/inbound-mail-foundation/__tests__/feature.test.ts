@@ -147,11 +147,11 @@ describe("scope-visibility (Plan Entscheidung 2)", () => {
     expect(isVisibleToCaller({ ownerUserId: null }, other)).toBe(true);
   });
 
-  test("personal row only for owner + TenantAdmin", () => {
+  test("personal row only for the owner, not even for an admin", () => {
     const row = { ownerUserId: "user-1" };
     expect(isVisibleToCaller(row, owner)).toBe(true);
     expect(isVisibleToCaller(row, other)).toBe(false);
-    expect(isVisibleToCaller(row, admin)).toBe(true);
+    expect(isVisibleToCaller(row, admin)).toBe(false);
   });
 });
 

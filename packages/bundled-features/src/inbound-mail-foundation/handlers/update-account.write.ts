@@ -18,6 +18,7 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import type { InboundMailRoles } from "../mail-roles.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 
 export const updateAccountSchema = z
@@ -49,59 +50,61 @@ export function auditReasonFor(user: SessionUser, requestedReason: string | unde
   return user.roles.includes(ROLES.SystemAdmin) ? "system_admin" : "tenant_admin";
 }
 
-export const updateAccountHandler: WriteHandlerDef = {
-  name: "update-account",
-  schema: updateAccountSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
-  description:
-    "Renames a connected mailbox (display name) as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; status, error and watch state are reserved for the system identity.",
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as UpdateAccountPayload;
+export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
+  return {
+    name: "update-account",
+    schema: updateAccountSchema,
+    access: { roles: [...adminRoles] },
+    description:
+      "Renames a connected mailbox (display name) as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; status, error and watch state are reserved for the system identity.",
+    handler: async (event, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = event.payload as UpdateAccountPayload;
 
-    // Status, error and watch state are machine signals of the supervisor and the OAuth refresh; an admin
-    // setting them could hide an auth error or fake an active mailbox.
-    const isSystemOnlyField =
-      payload.status !== undefined ||
-      payload.lastError !== undefined ||
-      payload.watchState !== undefined ||
-      payload.reason !== undefined;
-    if (isSystemOnlyField && event.user.id !== SYSTEM_USER_ID) {
-      return failUnprocessable("field_requires_system_identity");
-    }
+      // Status, error and watch state are machine signals of the supervisor and the OAuth refresh; an admin
+      // setting them could hide an auth error or fake an active mailbox.
+      const isSystemOnlyField =
+        payload.status !== undefined ||
+        payload.lastError !== undefined ||
+        payload.watchState !== undefined ||
+        payload.reason !== undefined;
+      if (isSystemOnlyField && event.user.id !== SYSTEM_USER_ID) {
+        return failUnprocessable("field_requires_system_identity");
+      }
 
-    const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
-    if (!current) {
-      return failNotFound("mail-account", payload.accountId);
-    }
-    if (current.status === InboundMailAccountStatuses.disconnected) {
-      // Only reactivate-account may leave disconnected. This prevents a delayed
-      // supervisor tick from restoring a disconnected account to active
-      // (disconnect vs. poll race).
-      return failUnprocessable("account_disconnected", { accountId: payload.accountId });
-    }
+      const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
+      if (!current) {
+        return failNotFound("mail-account", payload.accountId);
+      }
+      if (current.status === InboundMailAccountStatuses.disconnected) {
+        // Only reactivate-account may leave disconnected. This prevents a delayed
+        // supervisor tick from restoring a disconnected account to active
+        // (disconnect vs. poll race).
+        return failUnprocessable("account_disconnected", { accountId: payload.accountId });
+      }
 
-    // address/provider/authMethod come unchanged from the latest snapshot
-    // (address remains ciphertext—never re-encrypt it).
-    const eventPayload: MailAccountEventPayload = {
-      ...current,
-      ...(payload.status !== undefined ? { status: payload.status } : {}),
-      ...(payload.watchState !== undefined ? { watchState: payload.watchState } : {}),
-      ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
-      ...(payload.lastError !== undefined ? { lastError: payload.lastError } : {}),
-    };
-    const headers: MailAccountEventHeaders = {
-      providerName: current.provider,
-      reason: auditReasonFor(event.user, payload.reason),
-    };
-    await ctx.events.unsafeAppend({
-      aggregateId: payload.accountId,
-      aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
-      type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
-      payload: eventPayload,
-      headers,
-    });
+      // address/provider/authMethod come unchanged from the latest snapshot
+      // (address remains ciphertext—never re-encrypt it).
+      const eventPayload: MailAccountEventPayload = {
+        ...current,
+        ...(payload.status !== undefined ? { status: payload.status } : {}),
+        ...(payload.watchState !== undefined ? { watchState: payload.watchState } : {}),
+        ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
+        ...(payload.lastError !== undefined ? { lastError: payload.lastError } : {}),
+      };
+      const headers: MailAccountEventHeaders = {
+        providerName: current.provider,
+        reason: auditReasonFor(event.user, payload.reason),
+      };
+      await ctx.events.unsafeAppend({
+        aggregateId: payload.accountId,
+        aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
+        type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
+        payload: eventPayload,
+        headers,
+      });
 
-    return { isSuccess: true as const, data: { accountId: payload.accountId } };
-  },
-};
+      return { isSuccess: true as const, data: { accountId: payload.accountId } };
+    },
+  };
+}

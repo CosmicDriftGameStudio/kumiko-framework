@@ -1,7 +1,11 @@
 // Initial values of the reconnect form: the server settings of the stored credential, never the
 // password. A missing or unreadable credential leaves the fields empty for the admin to fill in.
 
-import { inboundCredentialSecretKey } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import {
+  type InboundMailRoles,
+  inboundCredentialSecretKey,
+  mayReactivateMailbox,
+} from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
@@ -11,10 +15,13 @@ import { findReconnectableAccount } from "./reconnect-account.ts";
 
 const reconnectPrefillSchema = z.object({ accountId: z.uuid() }).strict();
 
-export const reconnectPrefillQuery: QueryHandlerDef = {
+export const createReconnectPrefillQuery = ({
+  memberRoles,
+  adminRoles,
+}: InboundMailRoles): QueryHandlerDef => ({
   name: "reconnect-prefill",
   schema: reconnectPrefillSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  access: { roles: [...memberRoles] },
   // Only the reconnect form needs these settings; the agent has no write to use them with.
   agent: { expose: false },
   description:
@@ -22,7 +29,10 @@ export const reconnectPrefillQuery: QueryHandlerDef = {
   handler: async (query, ctx) => {
     const { accountId } = reconnectPrefillSchema.parse(query.payload);
     const lookup = await findReconnectableAccount(ctx.db, accountId);
-    if (!lookup.isSuccess) return null;
+    // Same null as for a missing account: a caller who may not reconnect it learns nothing about it.
+    if (!lookup.isSuccess || !mayReactivateMailbox(lookup.row.ownerUserId, ctx.user, adminRoles)) {
+      return null;
+    }
 
     const secrets = requireSecretsContext(
       { secrets: ctx.services.secrets, user: ctx.user },
@@ -36,4 +46,4 @@ export const reconnectPrefillQuery: QueryHandlerDef = {
     const { host, port, user, smtpHost, smtpPort } = parsed.doc;
     return { accountId, displayName, host, port, user, smtpHost, smtpPort, trustedAuthservId };
   },
-};
+});

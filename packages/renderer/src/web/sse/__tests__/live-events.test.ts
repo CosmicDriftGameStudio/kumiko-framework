@@ -369,7 +369,7 @@ describe("createEventSourceLiveEvents — reconnect", () => {
     expect(userEvents.map((e) => e.data.id)).toEqual(["u1"]);
   });
 
-  test("open after an error sends one resync event per subscribed entity, the first open sends none", async () => {
+  test("every open sends one resync event per subscribed entity, the first one included", async () => {
     stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
     const { timers, scheduled } = createManualTimers();
     const liveEvents = createEventSourceLiveEvents({
@@ -383,28 +383,29 @@ describe("createEventSourceLiveEvents — reconnect", () => {
     liveEvents("invoice", (event) => invoiceEvents.push(event));
     liveEvents("user", (event) => userEvents.push(event));
 
+    const resyncOf = (entity: string): LiveEvent => ({
+      type: entity,
+      data: {
+        aggregateType: entity,
+        eventType: LIVE_RESYNC_EVENT_TYPE,
+        createdAt: "2026-02-03T04:05:06Z",
+      },
+    });
+
     FakeEventSource.instances.at(-1)?.open();
-    expect(invoiceEvents).toEqual([]);
+    expect(invoiceEvents).toEqual([resyncOf("invoice")]);
+    expect(userEvents).toEqual([resyncOf("user")]);
 
     FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
     await nextTick();
     scheduled[0]?.callback();
     FakeEventSource.instances.at(-1)?.open();
 
-    expect(invoiceEvents).toEqual([
-      {
-        type: "invoice",
-        data: {
-          aggregateType: "invoice",
-          eventType: LIVE_RESYNC_EVENT_TYPE,
-          createdAt: "2026-02-03T04:05:06Z",
-        },
-      },
+    expect(invoiceEvents).toEqual([resyncOf("invoice"), resyncOf("invoice")]);
+    expect(userEvents.map((e) => e.data.eventType)).toEqual([
+      LIVE_RESYNC_EVENT_TYPE,
+      LIVE_RESYNC_EVENT_TYPE,
     ]);
-    expect(userEvents.map((e) => e.data.eventType)).toEqual([LIVE_RESYNC_EVENT_TYPE]);
-
-    FakeEventSource.instances.at(-1)?.open();
-    expect(invoiceEvents).toHaveLength(1);
   });
 
   test("a browser-side retry (CONNECTING) also resyncs once the stream is open again", () => {

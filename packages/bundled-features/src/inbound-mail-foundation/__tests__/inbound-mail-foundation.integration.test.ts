@@ -467,7 +467,7 @@ describe("ingest-message — thread-rollup retry exhaustion", () => {
 });
 
 describe("Scope visibility (personal mailbox)", () => {
-  test("Only the owner (+ TenantAdmin) can see messages from a user-scoped account", async () => {
+  test("Only the owner sees messages of a user-scoped account, an admin sees just the account", async () => {
     const tenantNumber = 4003;
     const owner = createTestUser({
       id: 40031,
@@ -526,7 +526,21 @@ describe("Scope visibility (personal mailbox)", () => {
       { accountId: connect.accountId },
       otherAdmin,
     )) as { rows: unknown[] };
-    expect(forAdmin.rows).toHaveLength(1);
+    expect(forAdmin.rows).toHaveLength(0);
+
+    const adminAccounts = (await stack.http.queryOk(
+      InboundMailFoundationQueries.listAccounts,
+      {},
+      otherAdmin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(adminAccounts.rows).toEqual([
+      expect.objectContaining({
+        id: connect.accountId,
+        address: "owner@tenant.example",
+        quarantinedCount: 0,
+        hasOpenQuarantine: false,
+      }),
+    ]);
   });
 });
 

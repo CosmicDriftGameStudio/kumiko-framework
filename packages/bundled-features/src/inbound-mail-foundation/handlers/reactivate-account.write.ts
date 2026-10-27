@@ -28,6 +28,7 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
+import type { InboundMailRoles } from "../mail-roles.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 import { mayReactivateMailbox } from "./scope-visibility.ts";
 
@@ -80,40 +81,48 @@ async function appendMailAccountReactivation(
   return true;
 }
 
-export const reactivateAccountHandler: WriteHandlerDef = {
-  name: "reactivate-account",
-  schema: reactivateAccountSchema,
-  // User: the owner re-arms a personal mailbox; mayReactivateMailbox keeps shared ones to admins.
-  access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
-  agent: { expose: false },
-  escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_PRESENCE_REASON },
-  description:
-    "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
-  handler: async (event, ctx) => {
-    const payload = reactivateAccountSchema.parse(event.payload);
-    const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
-    if (!current) return failNotFound("mail-account", payload.accountId);
-    if (!isSystemActor(event.user) && !mayReactivateMailbox(current.ownerUserId, event.user)) {
-      return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
-    }
-    // Nothing to re-arm, so no credential is needed either.
-    if (isAlreadyHealthy(current)) {
-      return { isSuccess: true as const, data: { accountId: payload.accountId, changed: false } };
-    }
-    // Every other starting state: without a credential the supervisor would only fail again.
-    const secrets = requireSecretsContext(
-      { secrets: ctx.services.secrets, user: ctx.user },
-      "reactivate-account",
-    ).withRunner(ctx.db.unsafeRaw());
-    const hasCredential = await secrets.has(
-      event.user.tenantId,
-      inboundCredentialSecretKey(payload.accountId),
-    );
-    if (!hasCredential) {
-      const { reason, i18nKey } = InboundMailConnectErrors.credentialRequired;
-      return writeFailure(new UnprocessableError(reason, { i18nKey }));
-    }
-    const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
-    return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
-  },
-};
+export function createReactivateAccountHandler({
+  memberRoles,
+  adminRoles,
+}: InboundMailRoles): WriteHandlerDef {
+  return {
+    name: "reactivate-account",
+    schema: reactivateAccountSchema,
+    // Members: the owner re-arms a personal mailbox; mayReactivateMailbox keeps shared ones to admins.
+    access: { roles: [...memberRoles] },
+    agent: { expose: false },
+    escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_PRESENCE_REASON },
+    description:
+      "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
+    handler: async (event, ctx) => {
+      const payload = reactivateAccountSchema.parse(event.payload);
+      const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
+      if (!current) return failNotFound("mail-account", payload.accountId);
+      if (
+        !isSystemActor(event.user) &&
+        !mayReactivateMailbox(current.ownerUserId, event.user, adminRoles)
+      ) {
+        return writeFailure(new AccessDeniedError({ details: { reason: "not_mailbox_owner" } }));
+      }
+      // Nothing to re-arm, so no credential is needed either.
+      if (isAlreadyHealthy(current)) {
+        return { isSuccess: true as const, data: { accountId: payload.accountId, changed: false } };
+      }
+      // Every other starting state: without a credential the supervisor would only fail again.
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        "reactivate-account",
+      ).withRunner(ctx.db.unsafeRaw());
+      const hasCredential = await secrets.has(
+        event.user.tenantId,
+        inboundCredentialSecretKey(payload.accountId),
+      );
+      if (!hasCredential) {
+        const { reason, i18nKey } = InboundMailConnectErrors.credentialRequired;
+        return writeFailure(new UnprocessableError(reason, { i18nKey }));
+      }
+      const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
+      return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
+    },
+  };
+}

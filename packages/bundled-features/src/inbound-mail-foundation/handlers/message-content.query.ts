@@ -16,6 +16,7 @@ import {
   type InboundContentUnavailableReason,
   skippedAttachmentSchema,
 } from "../events.ts";
+import type { InboundMailRoles } from "../mail-roles.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { type SenderAuthentication, senderAuthenticationFieldSchema } from "../sender-auth.ts";
 import type { SkippedInboundAttachment } from "../types.ts";
@@ -82,15 +83,17 @@ export async function loadInboundMessageContent(
   };
 }
 
-export const messageContentQuery: QueryHandlerDef = {
-  name: "message:content",
-  schema: messageContentSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
-  agent: { expose: false },
-  description:
-    "Returns the full decrypted text, the attachment file ids, the skipped attachments and the content state (complete, snippet or unavailable) of one received mail, or null when it does not exist or belongs to a personal mailbox the caller may not see; use it to read a mail beyond its snippet.",
-  handler: async (query, ctx) => {
-    const { messageId } = messageContentSchema.parse(query.payload);
-    return loadInboundMessageContent(ctx, messageId);
-  },
-};
+export function createMessageContentQuery({ memberRoles }: InboundMailRoles): QueryHandlerDef {
+  return {
+    name: "message:content",
+    schema: messageContentSchema,
+    access: { roles: [...memberRoles] },
+    agent: { expose: false },
+    description:
+      "Returns the full decrypted text, the attachment file ids, the skipped attachments and the content state (complete, snippet or unavailable) of one received mail, or null when it does not exist or belongs to a personal mailbox the caller may not see; use it to read a mail beyond its snippet.",
+    handler: async (query, ctx) => {
+      const { messageId } = messageContentSchema.parse(query.payload);
+      return loadInboundMessageContent(ctx, messageId);
+    },
+  };
+}

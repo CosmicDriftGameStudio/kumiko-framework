@@ -1,6 +1,7 @@
 import {
   IMAP_CONNECT_SCREEN_ID,
   IMAP_RECONNECT_SCREEN_ID,
+  MY_IMAP_RECONNECT_SCREEN_ID,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
@@ -17,6 +18,7 @@ const formFieldKey = (field: string): string =>
 export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: string }>> = {
   [`screen:${IMAP_CONNECT_SCREEN_ID}.title`]: { en: "Connect mailbox" },
   [`screen:${IMAP_RECONNECT_SCREEN_ID}.title`]: { en: "Reconnect mailbox" },
+  [`screen:${MY_IMAP_RECONNECT_SCREEN_ID}.title`]: { en: "Reconnect mailbox" },
   [formFieldKey("accountId")]: { en: "Mailbox" },
   [formFieldKey("displayName")]: { en: "Name" },
   [formFieldKey("address")]: { en: "Email address" },

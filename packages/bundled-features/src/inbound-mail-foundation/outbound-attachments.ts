@@ -21,8 +21,8 @@ import { OUTBOUND_ATTACHMENTS_MAX_BYTES, type OutboundAttachment } from "./outbo
 
 export type ResolveOutboundAttachmentsContext = Pick<
   HandlerContext,
-  "db" | "user" | "services" | "obs" | "registry" | "dispatch"
->;
+  "db" | "user" | "services" | "obs" | "registry"
+> & { readonly dispatch: Pick<HandlerContext["dispatch"], "query"> };
 
 export type ResolvedOutboundAttachments =
   | {

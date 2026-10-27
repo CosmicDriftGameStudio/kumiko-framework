@@ -31,6 +31,7 @@ import {
   InboundMailFoundationHandlers,
 } from "./constants.ts";
 import { isMailAdmin } from "./handlers/scope-visibility.ts";
+import { readInboundMailRoles } from "./mail-roles.ts";
 import {
   type OAuthAccessTokenManager,
   storeOAuthCallbackCredential,
@@ -111,7 +112,10 @@ export function createInboundMailConnectRoutes(
 
       // The callback connects as a system user, so connect-account's admin rule for shared mailboxes
       // has to hold here, before the signed state is handed out.
-      if (scope === "shared" && !isMailAdmin(deps.user)) {
+      if (
+        scope === "shared" &&
+        !isMailAdmin(deps.user, readInboundMailRoles(deps.registry).adminRoles)
+      ) {
         return errorJson(
           c,
           403,

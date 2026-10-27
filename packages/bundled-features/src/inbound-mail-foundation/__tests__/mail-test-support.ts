@@ -45,6 +45,7 @@ import {
   createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   InboundMailFoundationHandlers,
+  type InboundMailRoleOptions,
   type InboundMailSupervisorDeps,
   inboundCredentialSecretKey,
   ingestFailureEntity,
@@ -122,6 +123,10 @@ function breakableKms(adapter: InMemoryKmsAdapter) {
 export async function setupMailStack(options: {
   readonly withFiles: boolean;
   readonly extraFeatures?: readonly FeatureDefinition[];
+  /** Role options of the foundation, for apps that name their own roles. */
+  readonly roles?: InboundMailRoleOptions;
+  /** Wires the job runner, for tests whose extra feature subscribes to an event with r.job. */
+  readonly jobs?: { readonly consumerLane: "worker"; readonly queueNamePrefix?: string };
 }): Promise<MailTestStack> {
   const breakable = options.withFiles ? breakableFileProvider(createInMemoryFileProvider()) : null;
   const files = breakable?.files ?? null;
@@ -139,11 +144,12 @@ export async function setupMailStack(options: {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      createInboundMailFoundationFeature(),
+      createInboundMailFoundationFeature(options.roles),
       createInboundProviderInMemoryFeature(),
       ...(options.extraFeatures ?? []),
     ],
     ...(files ? { files: { storageProvider: files } } : {}),
+    ...(options.jobs ? { jobs: options.jobs } : {}),
     extraContext: ({ db, registry }) => ({
       secrets: createSecretsContext({ db, masterKeyProvider, registry }),
     }),

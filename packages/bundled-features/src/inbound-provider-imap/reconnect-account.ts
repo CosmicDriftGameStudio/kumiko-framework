@@ -20,6 +20,7 @@ type ReconnectAccountRow = {
   readonly provider: string;
   readonly authMethod: string;
   readonly displayName: string | null;
+  readonly ownerUserId: string | null;
   readonly status: string | null;
   readonly trustedAuthservId: string | null;
 };

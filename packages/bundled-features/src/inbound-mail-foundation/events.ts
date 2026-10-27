@@ -175,6 +175,10 @@ export type InboundMessageEventPayload = z.infer<typeof inboundMessageEventPaylo
 // Same aggregate as the received event; applies as an update of the projection row.
 // ============================================================================
 export const inboundMessageContentFetchedEventPayloadSchema = z.object({
+  /** Account and scope of the message, so a subscriber can route the event without loading the
+   *  stream. Null on events stored before v3: the stream id cannot be reversed to the account. */
+  accountId: z.uuid().nullable(),
+  ownerUserId: z.string().max(36).nullable(),
   bodyRef: z.string().max(500),
   ...inboundMessageContentShape,
 });
