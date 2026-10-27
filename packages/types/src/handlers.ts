@@ -644,10 +644,11 @@ export type AppContext = SharedContextFields & {
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   /** For job-handler calls triggered by an event
-   *  (`r.job` with `trigger: { on: ... }`): the name of the handler that
-   *  emitted the event. For multi-trigger jobs (`on: [...]`), this is the
-   *  only way for the handler to know which trigger fired. Cron and manual
-   *  jobs leave the field undefined. */
+   *  (`r.job` with `trigger: { on: ... }`): the qualified name of the event
+   *  that fired the trigger, e.g. `inbound-mail-foundation:event:inbound-message-received`.
+   *  For multi-trigger jobs (`on: [...]`), this is the only way for the
+   *  handler to know which trigger fired. Cron and manual jobs leave the
+   *  field undefined. */
   readonly triggerName?: string;
   /** Optional Geo→zone adapter. When set (via buildServer context or
    *  `runProdApp`/`runDevApp` `extraContext`), the dispatcher passes it to
