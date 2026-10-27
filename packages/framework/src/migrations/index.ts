@@ -1,4 +1,12 @@
 // Drizzle-free gate (kumiko/migrations system) — the canonical boot-gate.
+
+// Erases chosen payload fields of stored events and rebuilds the projections fed by them.
+export {
+  type EventScrubCandidate,
+  type ScrubEventPayloadOptions,
+  type ScrubEventPayloadResult,
+  scrubEventPayloadFields,
+} from "./event-payload-scrub.ts";
 export {
   assertKumikoSchemaCurrent,
   SchemaDriftError,

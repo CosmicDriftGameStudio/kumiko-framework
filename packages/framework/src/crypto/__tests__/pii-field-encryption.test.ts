@@ -3,12 +3,15 @@ import { createCipheriv, randomBytes } from "node:crypto";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
-  KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
   subjectIdFromKey,
   subjectIdToKey,
 } from "../kms-adapter.ts";
+import {
+  PII_CIPHERTEXT_CORRUPT_CODE,
+  PiiCiphertextCorruptError,
+} from "../pii-ciphertext-corrupt.ts";
 import {
   decryptPiiFieldValues,
   decryptPiiValueForSubject,
@@ -375,9 +378,7 @@ describe("cross-subject decrypt leak", () => {
     const forgedForA = `${PII_CIPHERTEXT_PREFIX}${subjectIdToKey(subjectA)}:${blob}`;
 
     const attempt = decryptPiiValueForSubject(kms, forgedForA, KMS_CTX, "secret");
-    await expect(attempt).rejects.not.toBeInstanceOf(KeyNotFoundError);
-    await expect(attempt).rejects.not.toBeInstanceOf(KeyErasedError);
-    await expect(attempt).rejects.toThrow();
+    await expect(attempt).rejects.toBeInstanceOf(PiiCiphertextCorruptError);
   });
 });
 
@@ -396,7 +397,7 @@ describe("cross-field decrypt leak", () => {
     // Same subject, same DEK — only the declared field differs. Key
     // selection alone can't catch this; AAD must.
     const attempt = decryptPiiValueForSubject(kms, storedAsEmail, KMS_CTX, "phone");
-    await expect(attempt).rejects.toThrow();
+    await expect(attempt).rejects.toBeInstanceOf(PiiCiphertextCorruptError);
   });
 
   test("legacy v1 ciphertext (no AAD) still decrypts under the matching subject/field", async () => {
@@ -415,5 +416,62 @@ describe("cross-field decrypt leak", () => {
 
     const read = await decryptPiiValueForSubject(kms, v1, KMS_CTX, "email");
     expect(read).toBe("legacy-value");
+  });
+});
+
+describe("corrupt PII ciphertext", () => {
+  async function storedEmail(kms: InMemoryKmsAdapter): Promise<string> {
+    return encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: UUID_A },
+      "secret@example.com",
+      KMS_CTX,
+      "email",
+    );
+  }
+
+  function withFlippedLastByte(stored: string): string {
+    const sep = stored.lastIndexOf(":");
+    const blob = Buffer.from(stored.slice(sep + 1), "base64");
+    blob[blob.length - 1] = (blob[blob.length - 1] ?? 0) ^ 0xff;
+    return `${stored.slice(0, sep + 1)}${blob.toString("base64")}`;
+  }
+
+  test("a damaged ciphertext rejects with PiiCiphertextCorruptError naming the field", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const damaged = withFlippedLastByte(await storedEmail(kms));
+
+    const error = await decryptPiiFieldValues({ email: damaged }, ["email"], kms, KMS_CTX).catch(
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(PiiCiphertextCorruptError);
+    expect(error).toMatchObject({ code: PII_CIPHERTEXT_CORRUPT_CODE, field: "email" });
+  });
+
+  test("a ciphertext without a subject/blob separator is corrupt, not a generic error", async () => {
+    const kms = new InMemoryKmsAdapter();
+
+    const attempt = decryptPiiValueForSubject(
+      kms,
+      `${PII_CIPHERTEXT_PREFIX}garbage`,
+      KMS_CTX,
+      "email",
+    );
+
+    await expect(attempt).rejects.toBeInstanceOf(PiiCiphertextCorruptError);
+  });
+
+  test("a missing key stays KeyNotFoundError, so the caller can tell the key store apart", async () => {
+    const stored = await storedEmail(new InMemoryKmsAdapter());
+
+    const attempt = decryptPiiFieldValues(
+      { email: stored },
+      ["email"],
+      new InMemoryKmsAdapter(),
+      KMS_CTX,
+    );
+
+    await expect(attempt).rejects.toBeInstanceOf(KeyNotFoundError);
   });
 });

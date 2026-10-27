@@ -92,7 +92,7 @@ export async function createPiiBackfillStateTable(db: DbConnection): Promise<voi
 
 // Replicas boot concurrently: two of them can both pass the tableExists gate and
 // one CREATE then fails. The table existing afterwards means the other won.
-async function ensureInfraTable(
+export async function ensureInfraTable(
   db: DbConnection,
   tableName: string,
   create: (db: DbConnection) => Promise<void>,
@@ -156,7 +156,7 @@ export type PiiEventBackfillResult =
       readonly rebuild: PiiRebuildRun | null;
     };
 
-async function queueRebuildTables(
+export async function queueRebuildTables(
   db: DbRunner,
   tableNames: readonly string[],
   migrationId: string,
@@ -171,7 +171,7 @@ async function queueRebuildTables(
   }
 }
 
-function affectedProjectionTables(
+export function affectedProjectionTables(
   registry: Registry,
   touchedAggregateTypes: ReadonlySet<string>,
   touchedEventTypes: ReadonlySet<string>,
@@ -415,7 +415,15 @@ async function backfillPiiEvents(
   );
   reportRunOutcome(log, progress);
 
-  const rebuild = aborted ? null : await rebuildQueuedTables(db, registry, options.signal, log);
+  const rebuild = aborted
+    ? null
+    : await rebuildQueuedTables(db, registry, {
+        migrationIdPrefix: PII_BACKFILL_MIGRATION_PREFIX,
+        signal: options.signal,
+        log,
+        failureMessage:
+          "Projection rebuild after PII backfill failed; tables stay queued and are retried on the next boot",
+      });
   const queuedTables = [...progress.queuedTables];
   log.debug("PII event backfill finished", {
     mode,
@@ -446,14 +454,21 @@ function maxBigInt(a: bigint, b: bigint): bigint {
 // Only our own queue rows: runPendingRebuilds would drain the whole queue and
 // silently clear entries this process cannot map (a worker with a narrower
 // feature set would swallow rebuilds queued by the API pod or by schema apply).
-async function rebuildQueuedTables(
+// Rebuilds the projections of the tables queued under the run's migration id prefix; a failed one
+// stays queued.
+export async function rebuildQueuedTables(
   db: DbConnection,
   registry: Registry,
-  signal: AbortSignal | undefined,
-  log: ReturnType<typeof createFallbackLogger>,
+  options: {
+    readonly migrationIdPrefix: string;
+    readonly signal: AbortSignal | undefined;
+    readonly log: Pick<Logger, "error" | "warn">;
+    readonly failureMessage: string;
+  },
 ): Promise<PiiRebuildRun | null> {
+  const { signal, log } = options;
   const ownRows = (await listPendingRebuildRows(db)).filter((row) =>
-    row.migrationId.startsWith(PII_BACKFILL_MIGRATION_PREFIX),
+    row.migrationId.startsWith(options.migrationIdPrefix),
   );
   if (ownRows.length === 0) return null;
 
@@ -491,11 +506,6 @@ async function rebuildQueuedTables(
       failed.push({ projection, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  if (failed.length > 0) {
-    log.error(
-      "Projection rebuild after PII backfill failed; tables stay queued and are retried on the next boot",
-      { failed },
-    );
-  }
+  if (failed.length > 0) log.error(options.failureMessage, { failed });
   return { rebuilt, failed, skippedTables };
 }

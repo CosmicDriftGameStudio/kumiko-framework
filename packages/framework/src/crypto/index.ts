@@ -34,6 +34,10 @@ export {
   rewrapSubjectKeys,
 } from "./pg-kms-adapter.ts";
 export {
+  PII_CIPHERTEXT_CORRUPT_CODE,
+  PiiCiphertextCorruptError,
+} from "./pii-ciphertext-corrupt.ts";
+export {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
   decryptPiiFieldValues,

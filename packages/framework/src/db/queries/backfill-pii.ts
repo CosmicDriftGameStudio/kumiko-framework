@@ -912,7 +912,7 @@ function projectionRowToCamel(
   return camel;
 }
 
-function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
+export function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
   if (!eventType.startsWith(`${aggregateType}.`)) return false;
   const verb = eventType.slice(aggregateType.length + 1);
   return isOneOf(LIFECYCLE_VERBS, verb);
@@ -921,7 +921,7 @@ function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
 // created events carry the fields flat; updated carries { changes, previous };
 // deleted/forgotten/restored carry { previous }. Returned sections are the
 // mutable objects INSIDE the payload clone — encryptField writes in place.
-function lifecycleSections(payload: Record<string, unknown>): Record<string, unknown>[] {
+export function lifecycleSections(payload: Record<string, unknown>): Record<string, unknown>[] {
   const sections: Record<string, unknown>[] = [];
   if (isRecord(payload["changes"])) sections.push(payload["changes"]);
   if (isRecord(payload["previous"])) sections.push(payload["previous"]);
