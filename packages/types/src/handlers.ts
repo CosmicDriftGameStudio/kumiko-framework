@@ -1325,6 +1325,16 @@ export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
 /** `perCommand`: the handler runs without a transaction of its own. */
 export type WriteHandlerTransactionMode = "perCommand";
 
+/** `skip`: run as a nested write without the `beforeTransaction` phase. */
+export type BeforeTransactionWhenNested = "skip";
+
+/** The `prepared` type a handler sees: with `beforeTransactionWhenNested: "skip"` a nested run leaves it undefined. */
+export type PreparedOrSkipped<TPrepared, TWhenNested> = [TWhenNested] extends [
+  BeforeTransactionWhenNested,
+]
+  ? TPrepared | undefined
+  : TPrepared;
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
@@ -1354,6 +1364,11 @@ export type WriteHandlerDef = {
    *  `ctx.tenants.writeTarget` is available but read-only here: its db denies writes for the own and a
    *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
+  /** `"skip"`: a nested ctx.dispatch.write of this handler runs without the beforeTransaction phase
+   *  (`event.prepared` is undefined) and without a reservation, so the handler does that work inside
+   *  its own transaction. Top-level commands still run the phase. Requires beforeTransaction; not
+   *  combinable with reserveBeforeTransaction or transaction: "perCommand". */
+  readonly beforeTransactionWhenNested?: BeforeTransactionWhenNested;
   /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.dispatch.write/writeAs it
    *  issues runs as its own top-level command with its own transaction and afterCommit hooks;
    *  ctx.db writes and event appends throw. It cannot run as a nested write or inside a

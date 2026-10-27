@@ -1,5 +1,10 @@
-// Feature name
-export const INBOUND_MAIL_FOUNDATION_FEATURE = "inbound-mail-foundation" as const;
+import { INBOUND_MAIL_FOUNDATION_FEATURE } from "./web/constants.ts";
+
+export {
+  INBOUND_MAIL_CONNECT_PATH,
+  INBOUND_MAIL_FOUNDATION_FEATURE,
+  INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
+} from "./web/constants.ts";
 
 // Extension-point name for provider plugins (inbound-provider-imap,
 // inbound-provider-m365-graph, inbound-provider-gmail-rest, ...).
@@ -23,6 +28,9 @@ export const InboundMailFoundationHandlers = {
   /** The only way from disconnected back to active; also clears auth_error
    *  and degraded. update-account keeps rejecting disconnected accounts. */
   reactivateAccount: "inbound-mail-foundation:write:reactivate-account",
+  setTrustedAuthservId: "inbound-mail-foundation:write:set-trusted-authserv-id",
+  /** Owner or admin asks for one quarantined mail to be loaded again on the next sync. */
+  retryQuarantinedMessage: "inbound-mail-foundation:write:retry-quarantined-message",
   /** Marks all open quarantine entries of a mailbox as acknowledged. */
   acknowledgeQuarantine: "inbound-mail-foundation:write:acknowledge-quarantine",
   /** Supervisor-only: stores the content of an already imported snippet mail. */
@@ -38,6 +46,8 @@ export const InboundMailFoundationQueries = {
   /** Tenant-scoped message list (inbox cockpit). PII is decrypted on read.
    */
   listMessages: "inbound-mail-foundation:query:message:list",
+  /** Open quarantine entries of the mailboxes the caller may manage, with sender and subject from the header import. */
+  listQuarantine: "inbound-mail-foundation:query:quarantine:list",
   /** Decrypted full text, attachment ids and content state of one message. */
   messageContent: "inbound-mail-foundation:query:message:content",
 } as const;
@@ -48,7 +58,7 @@ export const InboundMailAccountStatuses = {
   active: "active",
   /** Credentials or token are invalid; the tenant admin must reconnect. */
   authError: "auth_error",
-  /** Interrupted: transient failure, quarantined mail or missing file storage; see lastError. */
+  /** Interrupted: transient failure, quarantined mail, missing file storage or KMS; see lastError. */
   degraded: "degraded",
   /** Disconnected by the tenant admin; no further syncs run. */
   disconnected: "disconnected",
@@ -62,6 +72,8 @@ export const InboundMailLastErrors = {
   rateLimited: "rate_limited",
   messageQuarantined: "message_quarantined",
   fileStorageUnavailable: "file_storage_unavailable",
+  encryptionUnavailable: "encryption_unavailable",
+  ingestUnavailable: "ingest_unavailable",
 } as const;
 export type InboundMailLastError =
   (typeof InboundMailLastErrors)[keyof typeof InboundMailLastErrors];
@@ -75,6 +87,10 @@ export const InboundMailConnectErrors = {
   addressDisconnected: {
     reason: "address_disconnected",
     i18nKey: "inboundMail.accounts.errors.addressDisconnected",
+  },
+  credentialRequired: {
+    reason: "credential_required",
+    i18nKey: "inboundMail.accounts.errors.credentialRequired",
   },
 } as const;
 
@@ -103,6 +119,20 @@ export const InboundMailAuthMethods = {
 } as const;
 export type InboundMailAuthMethod =
   (typeof InboundMailAuthMethods)[keyof typeof InboundMailAuthMethods];
+
+/** Provider key of inbound-provider-imap: only its password mailboxes have a credential form. */
+export const IMAP_PROVIDER_KEY = "imap";
+
+// How a mailbox the caller may re-arm gets its credential back, computed by account:list because a
+// screen row condition cannot combine provider, auth method, status and owner.
+export const MailAccountReactivationPaths = {
+  /** The IMAP form of inbound-provider-imap (reconnect-mailbox). */
+  passwordForm: "password_form",
+  /** The provider's OAuth sign-in through the connect route; its callback reopens the account. */
+  oauthFlow: "oauth_flow",
+} as const;
+export type MailAccountReactivationPath =
+  (typeof MailAccountReactivationPaths)[keyof typeof MailAccountReactivationPaths];
 
 // **Multi-provider:** no global `provider` config key
 // (unlike mail-foundation, as with billing-foundation). A tenant can connect

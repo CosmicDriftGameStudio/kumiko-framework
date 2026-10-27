@@ -465,11 +465,13 @@ jobs:
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Start services
+        id: services
         uses: ./.github/actions/kumiko-services
         with:
           redis: "true"
           meilisearch: "true"
           object-storage: "true"
+          greenmail: "true"
           postgres-port: "15432"
           redis-port: "16379"
           meilisearch-port: "17700"
@@ -481,6 +483,14 @@ jobs:
           # job misconfiguration, not a real absence; fail loud instead of
           # the live adapter suite silently skipping (kumiko-framework#1124).
           REQUIRE_MEILI: "1"
+          # The IMAP live suites under inbound-provider-imap fail hard under CI=true without greenmail.
+          IMAP_LIVE_HOST: localhost
+          IMAP_LIVE_PORT: ${{ steps.services.outputs.greenmail-imap-port }}
+          IMAP_LIVE_TLS_PORT: ${{ steps.services.outputs.greenmail-imaps-port }}
+          IMAP_LIVE_SMTP_PORT: ${{ steps.services.outputs.greenmail-smtp-port }}
+          # send-from-account reads the same greenmail; its SMTPS listener is the fixed host port 465.
+          IMAP_SEND_HOST: localhost
+          IMAP_SEND_TLS_PORT: ${{ steps.services.outputs.greenmail-imaps-port }}
           # Main pushes only, feeds the coverage badge. Timing therefore differs
           # from PR runs on purpose: a flake that only turns red on main is
           # investigated as coverage overhead first. A single

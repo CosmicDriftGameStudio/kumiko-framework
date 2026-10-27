@@ -1980,7 +1980,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "The address mails are sent from, for example status@example.com. Your provider must allow it.",
   "screen:mail-accounts.title": "Mailboxes",
+  "screen:my-mail-accounts.title": "Your mailboxes",
   "screen:mail-account-edit.title": "Edit mailbox",
+  "screen:mail-account-sender-check.title": "Sender check",
   "inboundMail.accounts.col.name": "Name",
   "inboundMail.accounts.col.address": "Address",
   "inboundMail.accounts.col.provider": "Provider",
@@ -1996,9 +1998,28 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "A mail could not be imported and was set aside. Confirm the quarantine once you have looked into it.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "File storage is not available, so attachments and originals are not saved.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "The key store is unavailable. New mails are fetched again in the next interval.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Mails cannot be imported right now. The next interval tries again.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+    "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
+  "inboundMail.accounts.reactivate": "Reactivate",
+  "inboundMail.accounts.quarantine": "Quarantine",
+  "inboundMail.accounts.errors.credentialRequired":
+    "This mailbox has no stored sign-in. Enter the password again to reactivate it.",
+  "inboundMail.quarantine.col.sender": "Sender",
+  "inboundMail.quarantine.col.subject": "Subject",
+  "inboundMail.quarantine.col.reason": "Reason",
+  "inboundMail.quarantine.col.mailbox": "Mailbox",
+  "inboundMail.quarantine.col.date": "Set aside",
+  "inboundMail.quarantine.retry": "Fetch again",
+  "inboundMail.quarantine.acknowledge": "Confirm",
+  "inboundMail.quarantine.reason.unparseable": "The mail could not be read.",
+  "inboundMail.quarantine.reason.invalid_message": "The mail is incomplete or invalid.",
+  "inboundMail.quarantine.reason.ingest_failed": "Importing the mail failed repeatedly.",
+  "screen:mail-quarantine.title": "Quarantined mails",
   "inboundMail.accounts.acknowledgeQuarantine": "Confirm quarantine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Sign-in failed",
@@ -2006,6 +2027,11 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Disconnected",
   "inboundMail.accounts.edit": "Rename",
   "inboundMail.accounts.edit.submit": "Save",
+  "inboundMail.accounts.senderCheck": "Sender check",
+  "inboundMail.accounts.senderCheck.submit": "Save",
+  "inboundMail.accounts.senderCheckHint":
+    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId": "Mail server ID",
   "inboundMail.accounts.disconnect": "Disconnect",
   "inboundMail.accounts.disconnect.confirm":
     "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",
@@ -2013,7 +2039,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Connect mailbox",
   "screen:mail-account-connect-imap.title": "Connect mailbox",
-  "inboundMail.accounts.reconnect": "Reconnect",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "You are taken to the provider's sign-in page. After signing in, the mailbox fetches mail again and keeps its history.",
+  "inboundMail.accounts.reconnect.invalidRow": "This mailbox cannot be reactivated from here.",
   "screen:mail-account-reconnect-imap.title": "Reconnect mailbox",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Mailbox",
   "inboundMail.imap.reconnect.hint":

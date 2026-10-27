@@ -1,6 +1,8 @@
 export { listActionFormFileFields, resolveActionFormFileField } from "./action-form-upload.ts";
 export type { PendingFileRef } from "./bind-pending-file-refs.ts";
 export { bindPendingFileRef, loadPendingFileRef } from "./bind-pending-file-refs.ts";
+export type { CanReadFileRefContext } from "./can-caller-read-file-ref.ts";
+export { canCallerReadFileRef } from "./can-caller-read-file-ref.ts";
 export type {
   CreatedFileRef,
   CreateFileRefInput,
@@ -11,6 +13,8 @@ export {
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
 } from "./create-file-ref-from-bytes.ts";
+export { createDefaultGuard } from "./default-file-guard.ts";
+export { deleteFileRefsBoundToRecord } from "./delete-record-file-refs.ts";
 export { createFilesFeature, FILES_FEATURE } from "./feature.ts";
 export type { FileContext } from "./file-handle.ts";
 // `createFileHandle` is an implementation detail — construct handles via
@@ -23,8 +27,9 @@ export {
 } from "./file-handle.ts";
 export { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 export { fileRefsTable } from "./file-ref-table.ts";
-export type { FileAccessGuard } from "./file-routes.ts";
+export type { FileAccessGuard, FileRef } from "./file-routes.ts";
 export {
+  configuredMaxUploadBytes,
   readFilesRouteOptions,
   resolveMaxUploadBodyBytes,
 } from "./file-routes.ts";

@@ -7,11 +7,15 @@ import {
   InboundMailLastErrors,
 } from "./constants.ts";
 import { INBOUND_PROBE_I18N } from "./probe-keys.ts";
+import { QUARANTINE_REASON_OPTION_KEY_PREFIX } from "./quarantine-screens.ts";
 import {
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
+  MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
+  MAIL_QUARANTINE_SCREEN_ID,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
 } from "./screens.ts";
 import { MAIL_SEND_ERRORS } from "./send-from-account.ts";
 
@@ -21,7 +25,10 @@ const formFieldKey = (field: string): string =>
 export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en: string }>> = {
   ...INBOUND_PROBE_I18N,
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
+  [`screen:${MY_MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Your mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
+  [`screen:${MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID}.title`]: { en: "Sender check" },
+  [`screen:${MAIL_QUARANTINE_SCREEN_ID}.title`]: { en: "Quarantined mails" },
   "inboundMail.accounts.col.name": { en: "Name" },
   "inboundMail.accounts.col.address": { en: "Address" },
   "inboundMail.accounts.col.provider": { en: "Provider" },
@@ -41,11 +48,17 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.fileStorageUnavailable}`]: {
     en: "File storage is not available, so attachments and originals are not saved.",
   },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.encryptionUnavailable}`]: {
+    en: "The key store is unavailable. New mails are fetched again in the next interval.",
+  },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.ingestUnavailable}`]: {
+    en: "Mails cannot be imported right now. The next interval tries again.",
+  },
   [InboundMailConnectErrors.addressAlreadyConnected.i18nKey]: {
     en: "This mailbox is already connected.",
   },
   [InboundMailConnectErrors.addressDisconnected.i18nKey]: {
-    en: "This mailbox was disconnected before. Reconnect it from the mailbox list to keep its history.",
+    en: "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
   },
   "inboundMail.accounts.acknowledgeQuarantine": { en: "Confirm quarantine" },
   [`${MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX}${InboundMailAccountStatuses.active}`]: {
@@ -61,9 +74,41 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
     en: "Disconnected",
   },
   "inboundMail.accounts.connectImap": { en: "Connect mailbox" },
-  "inboundMail.accounts.reconnect": { en: "Reconnect" },
+  "inboundMail.accounts.reactivateOauth.confirm": {
+    en: "You are taken to the provider's sign-in page. After signing in, the mailbox fetches mail again and keeps its history.",
+  },
+  "inboundMail.accounts.reconnect.invalidRow": {
+    en: "This mailbox cannot be reactivated from here.",
+  },
+  "inboundMail.accounts.reactivate": { en: "Reactivate" },
+  "inboundMail.accounts.quarantine": { en: "Quarantine" },
+  [InboundMailConnectErrors.credentialRequired.i18nKey]: {
+    en: "This mailbox has no stored sign-in. Enter the password again to reactivate it.",
+  },
+  "inboundMail.quarantine.col.sender": { en: "Sender" },
+  "inboundMail.quarantine.col.subject": { en: "Subject" },
+  "inboundMail.quarantine.col.reason": { en: "Reason" },
+  "inboundMail.quarantine.col.mailbox": { en: "Mailbox" },
+  "inboundMail.quarantine.col.date": { en: "Set aside" },
+  "inboundMail.quarantine.retry": { en: "Fetch again" },
+  "inboundMail.quarantine.acknowledge": { en: "Confirm" },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}unparseable`]: {
+    en: "The mail could not be read.",
+  },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}invalid_message`]: {
+    en: "The mail is incomplete or invalid.",
+  },
+  [`${QUARANTINE_REASON_OPTION_KEY_PREFIX}ingest_failed`]: {
+    en: "Importing the mail failed repeatedly.",
+  },
   "inboundMail.accounts.edit": { en: "Rename" },
   "inboundMail.accounts.edit.submit": { en: "Save" },
+  "inboundMail.accounts.senderCheck": { en: "Sender check" },
+  "inboundMail.accounts.senderCheck.submit": { en: "Save" },
+  "inboundMail.accounts.senderCheckHint": {
+    en: "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
+  },
+  [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
   "inboundMail.accounts.disconnect": { en: "Disconnect" },
   "inboundMail.accounts.disconnect.confirm": {
     en: "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",

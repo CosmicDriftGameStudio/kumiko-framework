@@ -1,6 +1,6 @@
 # kumiko-services
 
-Composite action that starts the Kumiko CI services (Postgres, Redis, Meilisearch, RustFS object storage) as digest-pinned containers and exports the connection settings. Images are pulled from the GHCR mirror and fall back to upstream by digest.
+Composite action that starts the Kumiko CI services (Postgres, Redis, Meilisearch, RustFS object storage, Greenmail) as digest-pinned containers and exports the connection settings. Images are pulled from the GHCR mirror and fall back to upstream by digest.
 
 ```yaml
 - uses: ./.github/actions/kumiko-services # in kumiko-framework
@@ -14,12 +14,12 @@ Composite action that starts the Kumiko CI services (Postgres, Redis, Meilisearc
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `postgres` | `true` | start Postgres (`kumiko_dev`, `kumiko_test`) |
-| `redis`, `meilisearch`, `object-storage` | `false` | start the service |
+| `redis`, `meilisearch`, `object-storage`, `greenmail` | `false` | start the service (Greenmail: user `testuser` / `testpass`, address `testuser@example.com`; TLS is self-signed) |
 | `<service>-port` | empty | fixed host port; empty = random |
 
-Outputs: `postgres-port`, `redis-port`, `meilisearch-port`, `object-storage-port`, `database-url`, `test-database-url`, `redis-url`, `meili-url`, `object-storage-endpoint` (empty for services not started).
+Outputs: `postgres-port`, `redis-port`, `meilisearch-port`, `object-storage-port`, `greenmail-imap-port`, `greenmail-imaps-port`, `greenmail-smtp-port`, `greenmail-smtps-port` (fixed 465), `database-url`, `test-database-url`, `redis-url`, `meili-url`, `object-storage-endpoint` (empty for services not started).
 
-Exported env (only for started services): `PG_CONTAINER`, `DATABASE_URL`, `TEST_DATABASE_URL`, `REDIS_CONTAINER`, `REDIS_URL`, `MEILI_CONTAINER`, `MEILI_PORT`, `MEILI_URL`, `MEILI_MASTER_KEY`, `MINIO_CONTAINER`, `MINIO_ENDPOINT`, `MINIO_REGION`, `MINIO_BUCKET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`.
+Exported env (only for started services): `PG_CONTAINER`, `DATABASE_URL`, `TEST_DATABASE_URL`, `REDIS_CONTAINER`, `REDIS_URL`, `MEILI_CONTAINER`, `MEILI_PORT`, `MEILI_URL`, `MEILI_MASTER_KEY`, `MINIO_CONTAINER`, `MINIO_ENDPOINT`, `MINIO_REGION`, `MINIO_BUCKET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `GREENMAIL_CONTAINER`.
 
 ## Pins
 

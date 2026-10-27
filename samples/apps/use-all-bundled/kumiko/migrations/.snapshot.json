@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-26T18:55:14.837Z",
+  "generatedAt": "2026-10-26T23:39:10.236Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1130,8 +1130,9 @@
         },
         {
           "name": "attachment_file_ids",
-          "pgType": "text",
-          "notNull": false
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
         },
         {
           "name": "skipped_attachments",
@@ -1145,6 +1146,11 @@
         },
         {
           "name": "content_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content_unavailable_reason",
           "pgType": "text",
           "notNull": false
         }
@@ -4119,6 +4125,89 @@
       "piiSubjectFields": ["payload", "error"]
     },
     {
+      "tableName": "store_mail_ingest_failures",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "account_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "provider_message_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "failure_count",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "0"
+        },
+        {
+          "name": "last_counted_bucket",
+          "pgType": "double precision",
+          "notNull": true,
+          "defaultSql": "0"
+        },
+        {
+          "name": "last_failed_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_mail_ingest_failures_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_mail_ingest_failures_tenant_id_account_id_provider_message_id_unique",
+          "columns": ["tenant_id", "account_id", "provider_message_id"],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_mail_quarantine",
       "columns": [
         {
@@ -4182,6 +4271,11 @@
         },
         {
           "name": "acknowledged_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "retry_requested_at",
           "pgType": "timestamptz",
           "notNull": false
         }
@@ -5503,6 +5597,25 @@
       ]
     },
     "store_job_runs": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "store_mail_ingest_failures": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

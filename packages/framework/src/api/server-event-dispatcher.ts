@@ -11,15 +11,18 @@ import { createTenantFileContext } from "../files/file-handle.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
 import {
+  catchUpEventTypesOf,
+  createCatchUpJobEventConsumer,
+} from "../pipeline/catch-up-job-consumer.ts";
+import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
 } from "../pipeline/event-dispatcher.ts";
+import { createJobTriggerEventConsumer } from "../pipeline/job-trigger-consumer.ts";
 import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
 import {
   createAccessInvalidationEventConsumer,
-  createCatchUpJobEventConsumer,
-  createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks.ts";
@@ -161,6 +164,7 @@ function buildCatchUpJobConsumers(
         jobRunner,
         jobName,
         options.registry.getJobFeature(jobName),
+        catchUpEventTypesOf(jobDef.trigger),
         upcast,
       ),
     );

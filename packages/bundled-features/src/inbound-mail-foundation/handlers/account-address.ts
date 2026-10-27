@@ -56,8 +56,8 @@ export async function findMailboxByAddress(
 
 export type ConnectConflict = "already_connected" | "address_disconnected" | "reopen_in_place";
 
-// A disconnected OAuth mailbox of the same provider and owner is reopened (the callback writes the new
-// token into the same slot); everything else must not silently create a second stream for one address.
+// A disconnected or sign-in-failed OAuth mailbox of the same provider and owner is reopened (the
+// callback writes the new token into the same slot); everything else must not silently create a second stream for one address.
 export function connectConflictOf(
   existing: AddressMatch,
   wanted: {
@@ -66,11 +66,14 @@ export function connectConflictOf(
     readonly ownerUserId: string | null;
   },
 ): ConnectConflict {
-  if (existing.status !== InboundMailAccountStatuses.disconnected) return "already_connected";
+  const disconnected = existing.status === InboundMailAccountStatuses.disconnected;
+  // A sign-in error of an OAuth mailbox is healed by signing in again, so it reopens like a disconnect.
+  const signInFailed = existing.status === InboundMailAccountStatuses.authError;
+  if (!disconnected && !signInFailed) return "already_connected";
   const bothOauth =
     wanted.authMethod === InboundMailAuthMethods.oauth &&
     existing.authMethod === InboundMailAuthMethods.oauth &&
     existing.provider === wanted.provider;
-  if (!bothOauth) return "address_disconnected";
+  if (!bothOauth) return disconnected ? "address_disconnected" : "already_connected";
   return existing.ownerUserId === wanted.ownerUserId ? "reopen_in_place" : "already_connected";
 }

@@ -13,30 +13,52 @@
 import type {
   ExtraRouteDefinition,
   SignatureExtraRouteDeps,
-  SignatureExtraRouteVerifyRequest,
   UserExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
-import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import { signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import {
+  refreshTokenOrRefusal,
+  type VerifiedCallback,
+  verifyCallbackRequest,
+} from "./connect-callback-verify.ts";
+import { connectFailureResponse, errorJson } from "./connect-route-responses.ts";
+import {
+  INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAuthMethods,
-  InboundMailConnectErrors,
   InboundMailFoundationHandlers,
-  inboundCredentialSecretKey,
 } from "./constants.ts";
+import { isMailAdmin } from "./handlers/scope-visibility.ts";
 import {
-  inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
+  storeOAuthCallbackCredential,
 } from "./oauth-access-token.ts";
-import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.ts";
+import { signOAuthState } from "./oauth-state.ts";
 import { resolveInboundProviderForKey } from "./provider-factory.ts";
 import type { InboundMailContext } from "./types.ts";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
-const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";
 const DEFAULT_CALLBACK_PATH = "/inbound-mail/oauth/callback";
+
+// connect-account leaves a reopened mailbox off: switched on before its token is stored, the
+// supervisor would sync it with the old, failing credential.
+async function reactivateIfReopened(
+  c: Context,
+  deps: SignatureExtraRouteDeps,
+  tenantId: string,
+  accountId: string,
+  connected: unknown,
+): Promise<Response | undefined> {
+  if (propertyOf(connected, "reconnected") !== true) return undefined;
+  const reactivated = await deps.dispatchSystemWrite({
+    handlerQn: InboundMailFoundationHandlers.reactivateAccount,
+    tenantId,
+    payload: { accountId },
+  });
+  return reactivated.isSuccess ? undefined : connectFailureResponse(c, reactivated.error);
+}
 
 export type InboundMailConnectRoutesOptions = {
   /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
@@ -63,55 +85,6 @@ export type InboundMailConnectRoutesOptions = {
   readonly metricsFor?: InboundMailContext["metricsFor"];
 };
 
-const CONNECT_CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
-  [InboundMailConnectErrors.addressAlreadyConnected.reason]:
-    "this mailbox address is already connected",
-  [InboundMailConnectErrors.addressDisconnected.reason]:
-    "this mailbox was disconnected before; reconnect it from the mailbox list instead",
-};
-
-function connectFailureResponse(c: Context, error: unknown) {
-  const reason = propertyOf(propertyOf(error, "details"), "reason");
-  const conflict = typeof reason === "string" ? CONNECT_CONFLICT_MESSAGES[reason] : undefined;
-  if (typeof reason === "string" && conflict) return errorJson(c, 409, reason, conflict);
-  return errorJson(c, 502, "account_create_failed", JSON.stringify(error ?? {}));
-}
-
-function errorJson(
-  c: Context,
-  status: 400 | 401 | 404 | 409 | 500 | 502,
-  code: string,
-  message: string,
-) {
-  return c.json({ error: { code, message } }, status);
-}
-
-type VerifiedCallback = { readonly code: string; readonly state: OAuthStatePayload };
-
-function verifyCallbackRequest(
-  request: SignatureExtraRouteVerifyRequest,
-  stateSecret: string,
-): VerifiedCallback {
-  const code = request.query["code"] ?? "";
-  const rawState = request.query["state"] ?? "";
-  if (!code || !rawState) {
-    throw new ExtraRouteRejection(
-      400,
-      { error: { code: "invalid_callback", message: "missing code or state" } },
-      "inbound-mail oauth callback missing code or state",
-    );
-  }
-  const verified = verifyOAuthState(rawState, stateSecret);
-  if (!verified.ok) {
-    throw new ExtraRouteRejection(
-      400,
-      { error: { code: "invalid_state", message: `state rejected: ${verified.reason}` } },
-      `inbound-mail oauth callback state rejected: ${verified.reason}`,
-    );
-  }
-  return { code, state: verified.payload };
-}
-
 /** Builds the `entry:"user"`/`entry:"signature"` extraRoute pair. Mount via
  *  `extraRoutes: createInboundMailConnectRoutes(options)`. */
 export function createInboundMailConnectRoutes(
@@ -121,7 +94,7 @@ export function createInboundMailConnectRoutes(
 
   const connectRoute: ExtraRouteDefinition = {
     method: "GET",
-    path: options.connectPath ?? DEFAULT_CONNECT_PATH,
+    path: options.connectPath ?? INBOUND_MAIL_CONNECT_PATH,
     entry: "user",
     handler: async (c: Context, deps: UserExtraRouteDeps): Promise<Response> => {
       const providerKey = c.req.query("provider") ?? "";
@@ -133,6 +106,17 @@ export function createInboundMailConnectRoutes(
           400,
           "invalid_connect_request",
           `${INBOUND_MAIL_FOUNDATION_FEATURE}: expected ?provider=<key>&scope=user|shared&mailbox=<address>`,
+        );
+      }
+
+      // The callback connects as a system user, so connect-account's admin rule for shared mailboxes
+      // has to hold here, before the signed state is handed out.
+      if (scope === "shared" && !isMailAdmin(deps.user)) {
+        return errorJson(
+          c,
+          403,
+          "shared_mailbox_requires_admin",
+          `${INBOUND_MAIL_FOUNDATION_FEATURE}: only TenantAdmin or SystemAdmin connect a shared mailbox`,
         );
       }
 
@@ -233,17 +217,8 @@ export function createInboundMailConnectRoutes(
           "token exchange with the provider failed",
         );
       }
-      if (!tokens.refreshToken) {
-        // No refresh token → no server-side sync possible. Consent must
-        // request offline_access (or access_type=offline) — the provider's
-        // oauth block owns the scopes.
-        return errorJson(
-          c,
-          502,
-          "no_refresh_token",
-          `provider "${state.providerKey}" returned no refresh token — check the offline-access scope in the provider's oauth.scopes`,
-        );
-      }
+      const refreshToken = refreshTokenOrRefusal(c, state, tokens);
+      if (typeof refreshToken !== "string") return refreshToken;
 
       // Account creation (programmatic SystemUser; the real owner comes from
       // the HMAC-verified state → ownerUserIdOverride).
@@ -267,23 +242,30 @@ export function createInboundMailConnectRoutes(
         return errorJson(c, 502, "account_create_failed", "connect-account returned no accountId");
       }
 
-      // Refresh-token into the per-account secret slot (Slot = accountId).
-      // Access tokens (~1h) are never persisted — the supervisor re-mints
-      // them from the refresh token (oauth-access-token.ts).
-      if (options.oauthTokens) {
-        await options.oauthTokens.storeRefreshToken(
+      try {
+        await storeOAuthCallbackCredential(
+          options.oauthTokens,
+          deps.secrets,
           { id: accountId, tenantId: state.tenantId },
-          tokens.refreshToken,
+          tokens,
+          refreshToken,
         );
-        options.oauthTokens.primeFromExchange({ id: accountId }, tokens);
-      } else {
-        await deps.secrets.set(
-          state.tenantId,
-          inboundCredentialSecretKey(accountId),
-          tokens.refreshToken,
-          inboundRefreshTokenSecretOptions(accountId),
+      } catch {
+        return errorJson(
+          c,
+          502,
+          "credential_store_failed",
+          "the sign-in worked but its token could not be saved; the mailbox keeps its previous state, connect it again",
         );
       }
+      const refused = await reactivateIfReopened(
+        c,
+        deps,
+        state.tenantId,
+        accountId,
+        dispatched.data,
+      );
+      if (refused) return refused;
 
       // Best effort: the account commit already woke the supervisor before the token existed.
       // Without this event the first sync would wait for the next poll tick; a failure here

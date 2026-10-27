@@ -2,8 +2,10 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileProviderForTenant,
+  deleteFileRefsBoundToRecord,
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
 import { runInboundMailRetention } from "./retention-sweep.ts";
 
 export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mail-foundation">) {
@@ -33,8 +35,7 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
       const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 
       // Original (.eml/.html) objects live in file-foundation; the provider is lazy and
-      // memoized so a tenant without purgeable mails never builds it. Attachment files are
-      // deliberately kept: they are ordinary file records the tenant may still use.
+      // memoized so a tenant without purgeable mails never builds it.
       let providerPromise: Promise<FileStorageProvider> | null = null;
       const deleteBodyObject = async (bodyRef: string): Promise<void> => {
         if (!providerPromise) {
@@ -47,11 +48,24 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
         await provider.delete(bodyRef);
       };
 
+      const { systemUser } = ctx;
+      const deleteAttachments = systemUser
+        ? async (messageId: string): Promise<void> => {
+            await deleteFileRefsBoundToRecord({
+              db: ctx.db,
+              user: systemUser,
+              entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+              entityId: messageId,
+            });
+          }
+        : undefined;
+
       const report = await runInboundMailRetention({
         db: retentionDb,
         tenantId,
         now: T.Now.instant(),
         deleteBodyObject,
+        ...(deleteAttachments ? { deleteAttachments } : {}),
       });
       if (report.bodyObjectErrors > 0) {
         // biome-ignore lint/suspicious/noConsole: operator-visibility for failed body deletes

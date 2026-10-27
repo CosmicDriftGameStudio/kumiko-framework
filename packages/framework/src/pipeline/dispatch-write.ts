@@ -55,6 +55,7 @@ import {
   type ConsumedReservation,
   consumeReservation,
   hasPreTransactionPhase,
+  nestedPreTransactionDenial,
 } from "./pre-transaction-reservations.ts";
 import { runProjections } from "./projections-runner.ts";
 
@@ -592,18 +593,8 @@ async function runWriteGates(
   if (!gates.isSuccess) return failedStep(gates);
   const parsedPayload = reservation ? reservation.parsedPayload : gates.payload;
 
-  // A handler with a pre-transaction phase cannot run that phase from inside an open transaction;
-  // running it without would skip the reservation or the prepared data, so a nested ctx.dispatch.write of
-  // such a handler is rejected instead.
-  if (needsPreTransactionPhase && !reservation) {
-    return failedStep(
-      writeFailure(
-        new InternalError({
-          message: `handler "${type}" has a pre-transaction phase (reserveBeforeTransaction/beforeTransaction) and cannot run as a nested write unless the top-level command ran it`,
-        }),
-      ),
-    );
-  }
+  const nestedDenial = reservation ? undefined : nestedPreTransactionDenial(handler, type);
+  if (nestedDenial) return failedStep(nestedDenial);
   return { kind: "run", parsedPayload, reservation };
 }
 

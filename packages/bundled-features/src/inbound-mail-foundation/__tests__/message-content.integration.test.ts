@@ -1,24 +1,23 @@
 // Full text, original and attachments of an imported mail: stored by default, readable through
-// message:content, absent from message:list, encrypted at rest, and kept when the retention sweep
-// removes the mail. Also the reload of snippet-only mails and the v1 event upcast.
+// message:content, absent from message:list, encrypted at rest, and removed with the mail by the
+// retention sweep. Also the v1 event upcast; the reload of snippet-only mails is in content-refetch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { type StoredEvent, upcastStoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { deleteFileRefsBoundToRecord, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import {
-  contentFetchesOf,
-  resetInboundInMemory,
-  seedInboundMessage,
-  setInboundFullContent,
-} from "../../inbound-provider-inmemory/index.ts";
+import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
+  INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+} from "../events.ts";
+import {
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
-  InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   type InboundMessageContent,
   inboundMessagesProjectionTable,
@@ -143,6 +142,36 @@ describe("content stored at ingest", () => {
     expect(content?.bodyTextTruncated).toBe(true);
   });
 
+  test("an attachment above the 10 MB upload default but within the mail limit is stored", async () => {
+    const admin = adminFor(6106);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    const twelveMegabytes = 12 * 1024 * 1024;
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "twelve-1",
+        text: "see attachment",
+        attachments: [
+          {
+            fileName: "scan.bin",
+            mimeType: "application/octet-stream",
+            data: new Uint8Array(twelveMegabytes),
+          },
+        ],
+      }),
+    );
+
+    await createMailSupervisor(env.stack).pollOnce();
+
+    const content = await contentOf(admin, accountId, "twelve-1");
+    expect(content?.skippedAttachments).toEqual([]);
+    expect(content?.attachmentFileIds).toHaveLength(1);
+    const [ref] = await selectMany(env.stack.db, fileRefsTable, {
+      id: content?.attachmentFileIds[0],
+    });
+    expect(Number(ref?.["size"])).toBe(twelveMegabytes);
+  });
+
   test("an oversized attachment is skipped with its reason, the mail still arrives", async () => {
     const admin = adminFor(6105);
     const accountId = await connectInMemoryAccount(env.stack, admin);
@@ -171,8 +200,8 @@ describe("content stored at ingest", () => {
   });
 });
 
-describe("retention does not delete attachments", () => {
-  test("the attachment FileRef survives when the mail is purged", async () => {
+describe("retention removes the attachments of a purged mail", () => {
+  test("the attachment FileRef is deleted with the mail", async () => {
     const admin = adminFor(6110);
     const accountId = await connectInMemoryAccount(env.stack, admin);
     await seedInboundMessage(
@@ -189,106 +218,33 @@ describe("retention does not delete attachments", () => {
     const fileId = content?.attachmentFileIds[0];
     expect(fileId).toBeDefined();
 
+    const [boundRef] = await selectMany(env.stack.db, fileRefsTable, { id: fileId });
+    expect(boundRef?.["entityType"]).toBe(INBOUND_MESSAGE_AGGREGATE_TYPE);
+    expect(boundRef?.["entityId"]).toBe(inboundMessageAggregateId(accountId, "old-1"));
+    expect(boundRef?.["fieldName"]).toBe("attachmentFileIds");
+
+    const tenantDb = createTenantDb({ db: env.stack.db, tenantId: admin.tenantId });
     const report = await runInboundMailRetention({
       db: env.stack.db,
       tenantId: admin.tenantId,
       now: getTemporal().Instant.from("2026-07-13T00:00:00Z"),
       seenRetentionDays: 100000,
+      deleteAttachments: async (messageId) => {
+        await deleteFileRefsBoundToRecord({
+          db: tenantDb,
+          user: createSystemUser(admin.tenantId),
+          entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+          entityId: messageId,
+        });
+      },
     });
 
     expect(report.messagesPurged).toBe(1);
     expect(await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId })).toEqual(
       [],
     );
-    expect(await selectMany(env.stack.db, fileRefsTable, { id: fileId })).toHaveLength(1);
-  });
-});
-
-describe("snippet-only mails are reloaded", () => {
-  async function ingestSnippetOnly(
-    admin: ReturnType<typeof adminFor>,
-    accountId: string,
-    providerMessageId: string,
-  ) {
-    await env.stack.http.writeOk(
-      InboundMailFoundationHandlers.ingestMessage,
-      {
-        accountId,
-        ownerUserId: null,
-        providerName: "inmemory",
-        providerMessageId,
-        messageIdHeader: `${providerMessageId}@example.com`,
-        providerThreadId: null,
-        references: [],
-        from: "sender@example.com",
-        to: ["inbox@tenant.example"],
-        cc: [],
-        subject: "Old import",
-        snippet: "only the snippet",
-        receivedAtIso: Temporal.Now.instant().toString(),
-        bodyRef: "",
-        scope: "inbox",
-        providerCursor: '{"offset":0}',
-      },
-      admin,
-    );
-  }
-
-  test("the full content is attached once, a second poll fetches nothing", async () => {
-    const admin = adminFor(6120);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "snip-1");
-    expect((await contentOf(admin, accountId, "snip-1"))?.contentState).toBe("snippet");
-    setInboundFullContent(
-      accountId,
-      rawMsg({
-        providerMessageId: "snip-1",
-        text: "the complete text",
-        rawMime: EML_BYTES,
-        attachments: [{ fileName: "late.pdf", mimeType: "application/pdf", data: PDF_BYTES }],
-      }),
-    );
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-
-    const content = await contentOf(admin, accountId, "snip-1");
-    expect(content?.bodyText).toBe("the complete text");
-    expect(content?.contentState).toBe("complete");
-    expect(content?.attachmentFileIds).toHaveLength(1);
-    expect(contentFetchesOf(accountId)).toEqual([["snip-1"]]);
-
-    await supervisor.pollOnce();
-
-    expect(contentFetchesOf(accountId)).toEqual([["snip-1"]]);
-    expect((await contentOf(admin, accountId, "snip-1"))?.attachmentFileIds).toHaveLength(1);
-  });
-
-  test("a fetch that returns neither text nor original ends as unavailable, not asked again", async () => {
-    const admin = adminFor(6122);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "empty-1");
-    setInboundFullContent(accountId, rawMsg({ providerMessageId: "empty-1", rawMime: null }));
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-    await supervisor.pollOnce();
-
-    expect((await contentOf(admin, accountId, "empty-1"))?.contentState).toBe("unavailable");
-    expect(contentFetchesOf(accountId)).toEqual([["empty-1"]]);
-  });
-
-  test("a mail that is gone from the server becomes unavailable and is not asked for again", async () => {
-    const admin = adminFor(6121);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "gone-1");
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-    await supervisor.pollOnce();
-
-    expect((await contentOf(admin, accountId, "gone-1"))?.contentState).toBe("unavailable");
-    expect(contentFetchesOf(accountId)).toEqual([["gone-1"]]);
+    const [afterSweep] = await selectMany(env.stack.db, fileRefsTable, { id: fileId });
+    expect(afterSweep?.["isDeleted"]).toBe(true);
   });
 });
 
@@ -327,13 +283,46 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(2);
+    expect(upcast.eventVersion).toBe(3);
     expect(upcast.payload).toMatchObject({
       bodyText: "",
       bodyTextTruncated: false,
       attachmentFileIds: [],
       skippedAttachments: [],
       contentState: "snippet",
+      contentUnavailableReason: null,
     });
+  });
+
+  test("a v1 content-fetched event reads without an unavailable reason", async () => {
+    const upcasters = env.stack.registry.getEventUpcasters();
+    const v1: StoredEvent = {
+      id: "2",
+      aggregateId: "00000000-0000-4000-8000-0000000000a1",
+      aggregateType: "inbound-message",
+      tenantId: adminFor(6131).tenantId,
+      version: 2,
+      type: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+      eventVersion: 1,
+      payload: {
+        bodyRef: "",
+        bodyText: "",
+        bodyTextTruncated: false,
+        attachmentFileIds: [],
+        skippedAttachments: [],
+        contentState: "unavailable",
+      },
+      metadata: { userId: "1" },
+      createdAt: Temporal.Now.instant(),
+      createdBy: "1",
+    };
+
+    const upcast = await upcastStoredEvent(v1, upcasters, {
+      db: env.stack.db,
+      tenantId: v1.tenantId,
+    });
+
+    expect(upcast.eventVersion).toBe(2);
+    expect(upcast.payload).toMatchObject({ contentUnavailableReason: null });
   });
 });

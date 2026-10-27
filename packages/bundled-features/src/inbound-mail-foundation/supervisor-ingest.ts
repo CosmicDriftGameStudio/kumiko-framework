@@ -1,22 +1,43 @@
 // Per-message ingest for the sync supervisor. Every message is isolated: a poison mail must not
-// block the cursor of its mailbox, but a systemic outage (database, KMS, file storage) must not
-// quarantine good mail either.
+// block the cursor of its mailbox, but a systemic outage (database, projection, KMS, file storage,
+// the app's storeBody hook) must not quarantine good mail either.
 //
 //   - permanent rejection (validation/unprocessable) -> quarantine immediately, continue
-//   - anything else -> the batch aborts before the cursor is saved. The failure only counts once a
-//     later mail of the batch succeeded (so it is mail-specific); the third counted failure of the
-//     same message quarantines it as "ingest_failed"
 //   - provider-side parse failures (`rejected`) -> quarantine "unparseable"
+//   - any other failure -> the batch goes on, then the failure is settled:
+//     - proven (another mail of the account went through in the same poll, for a storage failure
+//       another storage write) -> counted once per poll interval (persisted); the third counted
+//       failure quarantines the mail as "ingest_failed", below that the cursor stays before it
+//     - when every failure of this poll was counted before, they all keep being counted: a
+//       counter row exists only because its mail failed while others went through. A KMS failure
+//       among them voids this, it is never the mail's
+//     - unproven -> nothing is counted, the account is disrupted (degraded with the class of the
+//       failure) and the next interval retries from the same cursor
+//
+// Every quarantine also imports the headers, so the mail stays visible in the inbox.
 
+import { ENCRYPTION_UNAVAILABLE_CODE } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { errorCodeOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailFoundationHandlers } from "./constants.ts";
-import type { QuarantineReasonCode } from "./entities.ts";
+import { FileStorageWriteFailedError, isFileStorageWriteFailure } from "./file-storage-failure.ts";
+import {
+  clearIngestFailures,
+  countIngestFailure,
+  hasCountedIngestFailure,
+  MAX_COUNTED_INGEST_FAILURES,
+} from "./ingest-failures.ts";
+import { ingestPayloadOf } from "./ingest-payload.ts";
 import { normalizeRawInboundMessage } from "./normalize-inbound-message.ts";
 import { quarantineMessage } from "./quarantine.ts";
+import type { QuarantineReasonCode } from "./quarantine-entities.ts";
+import {
+  headerOnlyOf,
+  headerOnlyOfRejected,
+  importQuarantinedHeaders,
+} from "./quarantine-header-import.ts";
 import type { MailAccountRecord, RawInboundMessage, RejectedInboundMessage } from "./types.ts";
 
-const MAX_TRANSIENT_FAILURES_PER_MESSAGE = 3;
 const PERMANENT_ERROR_CODES: ReadonlySet<string> = new Set(["validation_error", "unprocessable"]);
 
 export type DispatchWrite = (args: {
@@ -25,12 +46,33 @@ export type DispatchWrite = (args: {
   readonly tenantId: string;
 }) => Promise<{ readonly isSuccess: boolean; readonly data?: unknown; readonly error?: unknown }>;
 
-export type IngestBatchOutcome = {
+export type IngestBlockedReason =
+  | "file_storage_unavailable"
+  | "encryption_unavailable"
+  | "ingest_unavailable"
+  | "message_failing";
+
+/** What earlier batches of the same poll proved to work. */
+export type IngestProof = {
+  /** A mail was newly ingested (a duplicate proves nothing: it returns before any write). */
+  readonly ingested: boolean;
+  /** A content write to file storage or through the storeBody hook went through. */
+  readonly storageHealthy: boolean;
+};
+
+export type IngestBatchOutcome = IngestProof & {
   readonly quarantinedNew: number;
   /** True when a message needed file storage and none was available. */
   readonly storageUnavailable: boolean;
-  /** True when at least one message with stored content went through. */
-  readonly storageHealthy: boolean;
+  /** Set when the batch has an unresolved failure: the cursor must not move past it. */
+  readonly blocked?: IngestBlockedReason;
+};
+
+export type IngestBatchOptions = {
+  /** Poll-interval bucket of a regular tick; absent (wake, manual sync) means failures are not counted. */
+  readonly countBucket?: number;
+  readonly signal?: AbortSignal;
+  readonly proof?: IngestProof;
 };
 
 export type MessageIngester = {
@@ -39,6 +81,7 @@ export type MessageIngester = {
     msgs: readonly RawInboundMessage[],
     rejected: readonly RejectedInboundMessage[],
     cursorSnapshot: string,
+    options?: IngestBatchOptions,
   ) => Promise<IngestBatchOutcome>;
 };
 
@@ -49,111 +92,172 @@ type IngesterDeps = {
   readonly log: (line: string) => void;
 };
 
-function isPermanentRejection(error: unknown): boolean {
-  const code = errorCodeOf(error);
-  return code !== undefined && PERMANENT_ERROR_CODES.has(code);
+type FailureClass = "storage" | "encryption" | "ingest";
+
+type Attempt =
+  | {
+      readonly kind: "ingested";
+      readonly duplicate: boolean;
+      readonly storage: unknown;
+      readonly storedBody: boolean;
+    }
+  | { readonly kind: "permanent" }
+  | { readonly kind: "failed"; readonly failure: FailureClass };
+
+type Failure = { readonly msg: RawInboundMessage; readonly failure: FailureClass };
+
+function attemptOfFailure(failure: unknown): Attempt {
+  if (isFileStorageWriteFailure(failure)) return { kind: "failed", failure: "storage" };
+  const code = errorCodeOf(failure);
+  if (code === ENCRYPTION_UNAVAILABLE_CODE) return { kind: "failed", failure: "encryption" };
+  return code !== undefined && PERMANENT_ERROR_CODES.has(code)
+    ? { kind: "permanent" }
+    : { kind: "failed", failure: "ingest" };
+}
+
+// The most specific class names the outage: a KMS or storage failure explains the generic ones.
+function blockedReasonOf(failures: readonly FailureClass[]): IngestBlockedReason {
+  if (failures.includes("encryption")) return "encryption_unavailable";
+  if (failures.includes("storage")) return "file_storage_unavailable";
+  return "ingest_unavailable";
+}
+
+// The original is what failed to store; writing it again would fail the header import too.
+async function everyFailureCountedBefore(
+  db: DbConnection,
+  account: MailAccountRecord,
+  failures: readonly Failure[],
+): Promise<boolean> {
+  for (const { msg, failure } of failures) {
+    if (failure === "encryption") return false;
+    const target = {
+      tenantId: account.tenantId,
+      accountId: account.id,
+      providerMessageId: msg.providerMessageId,
+    };
+    if (!(await hasCountedIngestFailure(db, target))) return false;
+  }
+  return true;
+}
+
+function quarantineHeadersOf(msg: RawInboundMessage, failure: FailureClass): RawInboundMessage {
+  const headerOnly = headerOnlyOf(msg);
+  return failure === "storage" ? { ...headerOnly, rawMime: null } : headerOnly;
 }
 
 export function createMessageIngester(deps: IngesterDeps): MessageIngester {
-  const failures = new Map<string, number>();
-
   async function quarantine(
     account: MailAccountRecord,
     providerMessageId: string,
     reason: QuarantineReasonCode,
+    headerOnly: RawInboundMessage | null,
   ): Promise<boolean> {
     const created = await quarantineMessage(
       deps.db,
       { tenantId: account.tenantId, accountId: account.id, providerMessageId },
       reason,
     );
+    await clearIngestFailures(deps.db, account.id, [providerMessageId]);
+    await importQuarantinedHeaders(deps, account, headerOnly);
     // Ids only: subject and sender of a poison mail stay out of logs.
     deps.log(`inbound-mail: account ${account.id} quarantined a message (${reason})`);
     return created;
   }
 
-  async function ingestOne(
-    account: MailAccountRecord,
-    raw: RawInboundMessage,
-    cursorSnapshot: string,
-  ): Promise<Awaited<ReturnType<DispatchWrite>>> {
-    const msg = normalizeRawInboundMessage(raw);
-    const bodyRef = deps.storeBody && raw.rawMime ? await deps.storeBody(account, raw) : "";
-    return deps.dispatchWrite({
-      handlerQn: InboundMailFoundationHandlers.ingestMessage,
-      tenantId: account.tenantId,
-      payload: {
-        accountId: account.id,
-        ownerUserId: account.ownerUserId,
-        providerName: account.provider,
-        providerMessageId: msg.providerMessageId,
-        messageIdHeader: msg.messageIdHeader,
-        providerThreadId: msg.providerThreadId,
-        references: msg.references,
-        from: msg.from,
-        to: msg.to,
-        cc: msg.cc,
-        subject: msg.subject,
-        snippet: msg.snippet,
-        receivedAtIso: msg.receivedAtIso,
-        bodyRef,
-        scope: msg.scope,
-        providerCursor: cursorSnapshot,
-        bodyText: msg.bodyText,
-        bodyTextTruncated: msg.bodyTextTruncated,
-        ...(msg.rawMime != null && { rawMime: msg.rawMime }),
-        ...(msg.bodyHtml !== null && { bodyHtml: msg.bodyHtml }),
-        attachments: msg.attachments,
-        skippedAttachments: msg.skippedAttachments,
-        ...(msg.senderAuthentication !== undefined && {
-          senderAuthentication: msg.senderAuthentication,
-        }),
-      },
-    });
+  async function storeBodyOf(account: MailAccountRecord, raw: RawInboundMessage): Promise<string> {
+    if (!deps.storeBody || !raw.rawMime) return "";
+    try {
+      return await deps.storeBody(account, raw);
+    } catch (err) {
+      // The app hook writes to the app's storage: its failure is a storage failure, not the mail's.
+      throw new FileStorageWriteFailedError(err instanceof Error ? err : undefined);
+    }
   }
-
-  type Suspect = { readonly providerMessageId: string; readonly failureKey: string };
-
-  type Attempt =
-    | { readonly kind: "ingested"; readonly storage: unknown }
-    | { readonly kind: "permanent" }
-    | { readonly kind: "failed" };
 
   async function attempt(
     account: MailAccountRecord,
-    msg: RawInboundMessage,
+    raw: RawInboundMessage,
     cursorSnapshot: string,
   ): Promise<Attempt> {
-    let failure: unknown;
     try {
-      const result = await ingestOne(account, msg, cursorSnapshot);
-      if (result.isSuccess)
-        return { kind: "ingested", storage: propertyOf(result.data, "contentStorage") };
-      failure = result.error ?? {};
+      const msg = normalizeRawInboundMessage(raw);
+      const bodyRef = await storeBodyOf(account, raw);
+      const result = await deps.dispatchWrite({
+        handlerQn: InboundMailFoundationHandlers.ingestMessage,
+        tenantId: account.tenantId,
+        payload: ingestPayloadOf(account, msg, { providerCursor: cursorSnapshot, bodyRef }),
+      });
+      if (result.isSuccess) {
+        return {
+          kind: "ingested",
+          duplicate: propertyOf(result.data, "duplicate") === true,
+          storage: propertyOf(result.data, "contentStorage"),
+          storedBody: bodyRef !== "",
+        };
+      }
+      return attemptOfFailure(result.error ?? {});
     } catch (err) {
-      failure = err;
+      return attemptOfFailure(err);
     }
-    return { kind: isPermanentRejection(failure) ? "permanent" : "failed" };
   }
 
-  /** A later mail went through, so the earlier failures are mail-specific: count them. */
-  async function countSuspects(
+  // Returns the failures left unresolved: "proven" ones wait for their count, the others are the
+  // account's outage.
+  async function settleFailures(
     account: MailAccountRecord,
-    suspects: readonly Suspect[],
-  ): Promise<{ readonly quarantined: number; readonly unresolved: number }> {
-    let quarantined = 0;
-    let unresolved = 0;
-    for (const suspect of suspects) {
-      const count = (failures.get(suspect.failureKey) ?? 0) + 1;
-      if (count < MAX_TRANSIENT_FAILURES_PER_MESSAGE) {
-        failures.set(suspect.failureKey, count);
-        unresolved += 1;
+    failures: readonly Failure[],
+    proof: IngestProof,
+    options: IngestBatchOptions,
+  ): Promise<{ quarantinedNew: number; blocked?: IngestBlockedReason }> {
+    let quarantinedNew = 0;
+    const unproven: FailureClass[] = [];
+    let waiting = false;
+    // An abandoned sync (deadline) must not count; its failures are the deadline's.
+    const bucket = options.signal?.aborted ? undefined : options.countBucket;
+    // Accepted residue, no mail is lost and each case is visible:
+    //   - a first failure without proof never counts: degraded until the next new mail
+    //   - a KMS failure only holds the cursor, shown as encryption_unavailable
+    //   - a storage or ingest outage can finish the count of mails counted before (retry exists)
+    const countedBefore =
+      !(proof.ingested && proof.storageHealthy) &&
+      (await everyFailureCountedBefore(deps.db, account, failures));
+    for (const { msg, failure } of failures) {
+      const target = {
+        tenantId: account.tenantId,
+        accountId: account.id,
+        providerMessageId: msg.providerMessageId,
+      };
+      const proven =
+        (failure === "storage" ? proof.storageHealthy : proof.ingested) || countedBefore;
+      if (!proven) {
+        unproven.push(failure);
         continue;
       }
-      failures.delete(suspect.failureKey);
-      if (await quarantine(account, suspect.providerMessageId, "ingest_failed")) quarantined += 1;
+      const count = bucket === undefined ? null : await countIngestFailure(deps.db, target, bucket);
+      if (count !== null && count >= MAX_COUNTED_INGEST_FAILURES) {
+        const headerOnly = quarantineHeadersOf(msg, failure);
+        if (await quarantine(account, msg.providerMessageId, "ingest_failed", headerOnly)) {
+          quarantinedNew += 1;
+        }
+        continue;
+      }
+      waiting = true;
     }
-    return { quarantined, unresolved };
+    if (unproven.length > 0) return { quarantinedNew, blocked: blockedReasonOf(unproven) };
+    return { quarantinedNew, ...(waiting && { blocked: "message_failing" as const }) };
+  }
+
+  async function quarantineRejected(
+    account: MailAccountRecord,
+    rejected: readonly RejectedInboundMessage[],
+  ): Promise<number> {
+    let created = 0;
+    for (const entry of rejected) {
+      const headerOnly = headerOnlyOfRejected(entry);
+      if (await quarantine(account, entry.providerMessageId, "unparseable", headerOnly))
+        created += 1;
+    }
+    return created;
   }
 
   async function ingestBatch(
@@ -161,46 +265,46 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     msgs: readonly RawInboundMessage[],
     rejected: readonly RejectedInboundMessage[],
     cursorSnapshot: string,
+    options: IngestBatchOptions = {},
   ): Promise<IngestBatchOutcome> {
-    let quarantinedNew = 0;
+    let quarantinedNew = await quarantineRejected(account, rejected);
     let storageUnavailable = false;
-    let storageHealthy = false;
-    for (const entry of rejected) {
-      if (await quarantine(account, entry.providerMessageId, "unparseable")) quarantinedNew += 1;
-    }
-    // Non-permanent failures are only counted once a later mail of the batch went through: then
-    // the failure is specific to that mail. Without such a successor it may be an outage (KMS,
-    // file storage, database) and must never push good mail towards quarantine.
-    let unproven: Suspect[] = [];
-    let unresolved = 0;
+    let ingested = options.proof?.ingested ?? false;
+    let storageHealthy = options.proof?.storageHealthy ?? false;
+    const failures: Failure[] = [];
     for (const msg of msgs) {
-      const failureKey = `${account.id}:${msg.providerMessageId}`;
-      const outcome = await attempt(account, msg, cursorSnapshot);
-      if (outcome.kind === "failed") {
-        unproven.push({ providerMessageId: msg.providerMessageId, failureKey });
+      const result = await attempt(account, msg, cursorSnapshot);
+      if (result.kind === "permanent") {
+        const headerOnly = headerOnlyOf(msg);
+        const created = await quarantine(
+          account,
+          msg.providerMessageId,
+          "invalid_message",
+          headerOnly,
+        );
+        if (created) quarantinedNew += 1;
         continue;
       }
-      if (outcome.kind === "permanent") {
-        if (await quarantine(account, msg.providerMessageId, "invalid_message"))
-          quarantinedNew += 1;
+      if (result.kind === "failed") {
+        failures.push({ msg, failure: result.failure });
         continue;
       }
-      failures.delete(failureKey);
-      if (outcome.storage === "unavailable") storageUnavailable = true;
-      if (outcome.storage === "stored") storageHealthy = true;
-      const counted = await countSuspects(account, unproven);
-      quarantinedNew += counted.quarantined;
-      unresolved += counted.unresolved;
-      unproven = [];
+      await clearIngestFailures(deps.db, account.id, [msg.providerMessageId]);
+      if (result.storage === "unavailable") storageUnavailable = true;
+      if (result.storage === "stored" || result.storedBody) storageHealthy = true;
+      if (!result.duplicate) ingested = true;
     }
-    if (unproven.length > 0 || unresolved > 0) {
-      // The cursor is never saved behind a mail that is neither ingested nor quarantined; the next
-      // tick refetches and the seen anchors skip what already went through.
-      throw new Error(
-        `ingest-message failed for account ${account.id}: ${unproven.length} mail(s) without a successful successor, ${unresolved} below the quarantine threshold`,
-      );
-    }
-    return { quarantinedNew, storageUnavailable, storageHealthy };
+    const settled =
+      failures.length > 0
+        ? await settleFailures(account, failures, { ingested, storageHealthy }, options)
+        : { quarantinedNew: 0 };
+    return {
+      quarantinedNew: quarantinedNew + settled.quarantinedNew,
+      storageUnavailable,
+      storageHealthy,
+      ingested,
+      ...(settled.blocked && { blocked: settled.blocked }),
+    };
   }
 
   return { ingestBatch };

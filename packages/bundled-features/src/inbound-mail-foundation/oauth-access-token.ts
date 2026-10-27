@@ -24,14 +24,9 @@ import {
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.ts";
-import {
-  InboundAuthError,
-  InboundCredentialNotStoredError,
-  type InboundMailContext,
-  type InboundMailProviderPlugin,
-  type MailAccountRecord,
-  type OAuthTokenSet,
-} from "./types.ts";
+import type { OAuthTokenSet } from "./inbound-oauth-flow.ts";
+import { InboundAuthError, InboundCredentialNotStoredError } from "./provider-errors.ts";
+import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "./types.ts";
 
 // 'inoa' as ASCII — disjoint from the other fixed advisory-lock namespaces.
 const OAUTH_REFRESH_LOCK_NAMESPACE = 0x696e6f61;
@@ -207,4 +202,26 @@ export function createOAuthAccessTokenManager(
       cache.delete(accountId);
     },
   };
+}
+
+// Refresh token into the per-account secret slot (slot = accountId); access tokens (~1h) are never
+// persisted. A shared manager writes under the account's refresh lock and primes its cache.
+export async function storeOAuthCallbackCredential(
+  manager: OAuthAccessTokenManager | undefined,
+  secrets: SecretsContext,
+  account: Pick<MailAccountRecord, "id" | "tenantId">,
+  tokens: OAuthTokenSet,
+  refreshToken: string,
+): Promise<void> {
+  if (manager) {
+    await manager.storeRefreshToken(account, refreshToken);
+    manager.primeFromExchange(account, tokens);
+  } else {
+    await secrets.set(
+      account.tenantId,
+      inboundCredentialSecretKey(account.id),
+      refreshToken,
+      inboundRefreshTokenSecretOptions(account.id),
+    );
+  }
 }

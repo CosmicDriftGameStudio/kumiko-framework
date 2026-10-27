@@ -41,6 +41,7 @@ import {
   createInboundMailFoundationFeature,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
+  ingestFailureEntity,
   MAIL_SEND_ERRORS,
   type OutboundMailSent,
   outboundMailMessageSchema,
@@ -59,12 +60,8 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { ImapHandlers, SMTP_CONNECT_ERRORS } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT } from "../smtp-client.ts";
-import {
-  findByMessageId,
-  findSourceByMessageId,
-  reachable,
-  withMailbox,
-} from "./greenmail-mailbox.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
+import { findByMessageId, findSourceByMessageId, withMailbox } from "./greenmail-mailbox.ts";
 
 const HOST = process.env["IMAP_SEND_HOST"] ?? "localhost";
 const IMAPS_PORT = Number(process.env["IMAP_SEND_TLS_PORT"] ?? 4993);
@@ -80,13 +77,11 @@ const SENDER_LOGIN = { host: HOST, port: IMAPS_PORT, user: USER, password: PASSW
 // greenmail creates an unknown recipient on delivery, with the address as user and password.
 const RECIPIENT_LOGIN = { host: HOST, port: IMAPS_PORT, user: RECIPIENT, password: RECIPIENT };
 
-const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, SMTPS_PORT));
+const greenmailUp = await greenmailAvailable("send-from-account", [
+  { host: HOST, port: IMAPS_PORT },
+  { host: HOST, port: SMTPS_PORT },
+]);
 const greenmailTest = greenmailUp ? test : test.skip;
-if (!greenmailUp) {
-  console.warn(
-    `send-from-account: no IMAPS/SMTPS on ${HOST}:${IMAPS_PORT}/${SMTPS_PORT}, greenmail cases skipped`,
-  );
-}
 
 const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
 process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
@@ -165,6 +160,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";

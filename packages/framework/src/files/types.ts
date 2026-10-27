@@ -18,7 +18,8 @@ export type {
 } from "@cosmicdrift/kumiko-types/file-storage-provider-types";
 
 export type FileValidationOptions = {
-  readonly maxSize?: string | undefined;
+  /** "10mb"-style string or a byte count. */
+  readonly maxSize?: string | number | undefined;
   readonly accept?: readonly string[] | undefined;
 };
 
@@ -209,7 +210,8 @@ export function validateFile(
   options: FileValidationOptions,
 ): string | null {
   if (options.maxSize) {
-    const maxBytes = parseMaxSize(options.maxSize);
+    const maxBytes =
+      typeof options.maxSize === "number" ? options.maxSize : parseMaxSize(options.maxSize);
     if (metadata.size > maxBytes) {
       return `file_too_large: ${metadata.size} bytes exceeds ${options.maxSize}`;
     }

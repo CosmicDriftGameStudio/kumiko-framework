@@ -2031,7 +2031,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "L'indirizzo da cui vengono inviate le e-mail, ad esempio status@example.com. Il tuo provider deve consentirlo.",
   "screen:mail-accounts.title": "Caselle di posta",
+  "screen:my-mail-accounts.title": "Le tue caselle di posta",
   "screen:mail-account-edit.title": "Modifica casella di posta",
+  "screen:mail-account-sender-check.title": "Verifica del mittente",
   "inboundMail.accounts.col.name": "Nome",
   "inboundMail.accounts.col.address": "Indirizzo",
   "inboundMail.accounts.col.provider": "Provider",
@@ -2047,9 +2049,29 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Una mail non è stata importata ed è stata messa da parte. Conferma la quarantena dopo averla controllata.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "L'archiviazione dei file non è disponibile, quindi allegati e originali non vengono salvati.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "L'archivio delle chiavi non è raggiungibile. Le nuove email vengono riprese al prossimo intervallo.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Al momento le email non possono essere importate. Si riprova al prossimo intervallo.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Questa casella è già connessa.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "Questa casella è stata disconnessa in precedenza. Riconnettila dall'elenco delle caselle per mantenere la cronologia.",
+    "Questa casella è stata disconnessa in precedenza. Usa «Riattiva» nell'elenco delle caselle per mantenere la cronologia.",
+  "inboundMail.accounts.reactivate": "Riattiva",
+  "inboundMail.accounts.quarantine": "Quarantena",
+  "inboundMail.accounts.errors.credentialRequired":
+    "Per questa casella non è salvato alcun accesso. Inserisci di nuovo la password per riattivarla.",
+  "inboundMail.quarantine.col.sender": "Mittente",
+  "inboundMail.quarantine.col.subject": "Oggetto",
+  "inboundMail.quarantine.col.reason": "Motivo",
+  "inboundMail.quarantine.col.mailbox": "Casella",
+  "inboundMail.quarantine.col.date": "Messo da parte",
+  "inboundMail.quarantine.retry": "Recupera di nuovo",
+  "inboundMail.quarantine.acknowledge": "Conferma",
+  "inboundMail.quarantine.reason.unparseable": "Non è stato possibile leggere il messaggio.",
+  "inboundMail.quarantine.reason.invalid_message": "Il messaggio è incompleto o non valido.",
+  "inboundMail.quarantine.reason.ingest_failed":
+    "L'importazione del messaggio è fallita più volte.",
+  "screen:mail-quarantine.title": "Messaggi in quarantena",
   "inboundMail.accounts.acknowledgeQuarantine": "Conferma quarantena",
   "inboundMail.accounts.status.active": "Attiva",
   "inboundMail.accounts.status.auth_error": "Accesso non riuscito",
@@ -2057,6 +2079,12 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Disconnessa",
   "inboundMail.accounts.edit": "Rinomina",
   "inboundMail.accounts.edit.submit": "Salva",
+  "inboundMail.accounts.senderCheck": "Verifica del mittente",
+  "inboundMail.accounts.senderCheck.submit": "Salva",
+  "inboundMail.accounts.senderCheckHint":
+    "Identificativo del server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identificativo del server di posta",
   "inboundMail.accounts.disconnect": "Disconnetti",
   "inboundMail.accounts.disconnect.confirm":
     "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",
@@ -2064,7 +2092,10 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
   "inboundMail.accounts.connectImap": "Collega casella",
   "screen:mail-account-connect-imap.title": "Collega casella",
-  "inboundMail.accounts.reconnect": "Ricollega",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Verrai indirizzato alla pagina di accesso del provider. Dopo l'accesso la casella riceve di nuovo le e-mail e mantiene la sua cronologia.",
+  "inboundMail.accounts.reconnect.invalidRow":
+    "Questa casella di posta non può essere riattivata da qui.",
   "screen:mail-account-reconnect-imap.title": "Ricollega casella",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Casella",
   "inboundMail.imap.reconnect.hint":

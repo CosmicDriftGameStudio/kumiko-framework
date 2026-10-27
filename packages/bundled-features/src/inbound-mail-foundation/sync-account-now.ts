@@ -9,6 +9,8 @@ export type PollAccountOptions = {
   readonly fromWake?: boolean;
   /** Aborted when the supervisor abandons this sync; an aborted sync stores nothing. */
   readonly signal?: AbortSignal;
+  /** Set by regular ticks only: ingest failures count once per bucket. Wake and manual syncs never count. */
+  readonly countBucket?: number;
 };
 /** "credential_pending": the secret is not stored yet, nothing was polled and no status was set. */
 export type PollAccountResult = "done" | "credential_pending";

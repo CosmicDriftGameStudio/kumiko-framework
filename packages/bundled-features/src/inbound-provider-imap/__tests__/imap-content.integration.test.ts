@@ -41,12 +41,14 @@ import {
   type InboundMessageContent,
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
+  ingestFailureEntity,
   isSenderAuthenticated,
   mailAccountsProjectionTable,
   quarantineEntity,
   quarantineTable,
   seenMessageEntity,
   syncCursorEntity,
+  syncCursorTable,
 } from "../../inbound-mail-foundation/index.ts";
 import {
   createSecretsContext,
@@ -56,7 +58,7 @@ import {
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
-import { reachable } from "./greenmail-mailbox.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 import { buildMailWithTooManyParts, MAILPARSER_MAX_MIME_NODES } from "./too-many-parts-mail.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
@@ -66,9 +68,8 @@ const FIXTURES = `${import.meta.dir}/fixtures`;
 const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
 process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
 
-const available = await reachable(HOST, IMAP_PORT);
+const available = await greenmailAvailable("imap-content", [{ host: HOST, port: IMAP_PORT }]);
 const liveTest = available ? test : test.skip;
-if (!available) console.warn(`imap-content: no IMAP server on ${HOST}:${IMAP_PORT}, suite skipped`);
 
 let stack: TestStack;
 let secrets: ReturnType<typeof createSecretsContext>;
@@ -104,6 +105,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -173,10 +175,21 @@ async function connectImapAccount(admin: Admin, trustedAuthservId?: string): Pro
       displayName: "Greenmail",
       address: "testuser@example.com",
       scope: "shared",
-      ...(trustedAuthservId !== undefined && { trustedAuthservId }),
     },
     admin,
   )) as { accountId: string };
+  await storeCredential(admin, accountId);
+  if (trustedAuthservId !== undefined) {
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.setTrustedAuthservId,
+      { accountId, trustedAuthservId },
+      admin,
+    );
+  }
+  return accountId;
+}
+
+async function storeCredential(admin: Admin, accountId: string): Promise<void> {
   await secrets.set(
     admin.tenantId,
     inboundCredentialSecretKey(accountId),
@@ -188,11 +201,11 @@ async function connectImapAccount(admin: Admin, trustedAuthservId?: string): Pro
       password: "testpass",
     }),
   );
-  return accountId;
 }
 
-function createSupervisor() {
+function createSupervisor(maxMessagesPerPoll?: number) {
   return createInboundMailSupervisor({
+    ...(maxMessagesPerPoll === undefined ? {} : { maxMessagesPerPoll }),
     providerCtx: { registry: stack.registry, secrets },
     db: stack.unscopedDb,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
@@ -273,9 +286,12 @@ describe("fixtures through greenmail", () => {
 
       await supervisor.pollOnce();
 
+      // Two good mails plus the header-only entry of the quarantined one.
+      const imported = await selectMany(stack.db, inboundMessagesProjectionTable, { accountId });
+      expect(imported).toHaveLength(3);
       expect(
-        await selectMany(stack.db, inboundMessagesProjectionTable, { accountId }),
-      ).toHaveLength(2);
+        imported.filter((row) => row["contentUnavailableReason"] === "quarantined"),
+      ).toHaveLength(1);
       expect(await selectMany(stack.db, quarantineTable, { accountId })).toHaveLength(1);
       const degraded = (
         await selectMany(stack.db, mailAccountsProjectionTable, { id: accountId })
@@ -306,6 +322,35 @@ describe("fixtures through greenmail", () => {
     },
     45_000,
   );
+
+  liveTest(
+    "a quarantined mail at the end of a full batch is skipped by the next fetch and the cursor moves past it",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectImapAccount(admin);
+      await appendFixture("text-with-pdf.eml");
+      await appendFixture("html-only.eml");
+      await withInbox((client) =>
+        client.append("INBOX", Buffer.from(buildMailWithTooManyParts(MAILPARSER_MAX_MIME_NODES))),
+      );
+      await appendFixture("no-from.eml");
+      const supervisor = createSupervisor(3);
+
+      await supervisor.pollOnce();
+      expect(await selectMany(stack.db, quarantineTable, { accountId })).toHaveLength(1);
+      const cursorAfterFirst = await selectMany(stack.db, syncCursorTable, { accountId });
+      expect(cursorAfterFirst).toHaveLength(1);
+
+      await supervisor.pollOnce();
+
+      // Three good mails plus the header entry; the poison mail is not fetched and quarantined again.
+      expect(
+        await selectMany(stack.db, inboundMessagesProjectionTable, { accountId }),
+      ).toHaveLength(4);
+      expect(await selectMany(stack.db, quarantineTable, { accountId })).toHaveLength(1);
+    },
+    45_000,
+  );
 });
 
 describe("immediate sync with a real mailbox", () => {
@@ -320,6 +365,7 @@ describe("immediate sync with a real mailbox", () => {
       await stack.eventDispatcher?.runOnce();
       expect(await selectMany(stack.db, inboundMessagesProjectionTable, { accountId })).toEqual([]);
 
+      await storeCredential(admin, accountId);
       await stack.http.writeOk(
         InboundMailFoundationHandlers.reactivateAccount,
         { accountId },
@@ -412,11 +458,11 @@ describe("sender authentication through greenmail", () => {
     expect(await senderAuthenticationOf(admin, accountId, "auth-pass@fixture.test")).toBeNull();
   });
 
-  liveTest("update-account sets the trusted id for mail imported afterwards", async () => {
+  liveTest("set-trusted-authserv-id sets the trusted id for mail imported afterwards", async () => {
     const admin = freshAdmin();
     const accountId = await connectImapAccount(admin);
     await stack.http.writeOk(
-      InboundMailFoundationHandlers.updateAccount,
+      InboundMailFoundationHandlers.setTrustedAuthservId,
       { accountId, trustedAuthservId: " MX.Fixture.Test " },
       admin,
     );

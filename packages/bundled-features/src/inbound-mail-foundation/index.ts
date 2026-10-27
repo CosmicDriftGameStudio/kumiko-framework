@@ -14,8 +14,11 @@ export {
   type InboundMailConnectRoutesOptions,
 } from "./connect-routes.ts";
 export {
+  IMAP_PROVIDER_KEY,
+  INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
+  INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
   type InboundMailAccountStatus,
   InboundMailAccountStatuses,
   type InboundMailAuthMethod,
@@ -26,6 +29,8 @@ export {
   type InboundMailLastError,
   InboundMailLastErrors,
   inboundCredentialSecretKey,
+  type MailAccountReactivationPath,
+  MailAccountReactivationPaths,
 } from "./constants.ts";
 export {
   INBOUND_MESSAGE_PII_FIELDS,
@@ -34,10 +39,6 @@ export {
   MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
   mailThreadEntity,
-  QUARANTINE_REASON_CODES,
-  type QuarantineReasonCode,
-  quarantineEntity,
-  quarantineTable,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -45,10 +46,14 @@ export {
 } from "./entities.ts";
 export {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
+  INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
   INBOUND_MESSAGE_RECEIVED_EVENT_SHORT,
+  type InboundMessageContentFetchedEventPayload,
   type InboundMessageEventHeaders,
   type InboundMessageEventPayload,
+  inboundMessageContentFetchedEventPayloadSchema,
   inboundMessageEventPayloadSchema,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_CONNECTED_EVENT_QN,
@@ -67,10 +72,13 @@ export {
   mailThreadEventPayloadSchema,
 } from "./events.ts";
 export { createInboundMailFoundationFeature } from "./feature.ts";
+export { type AddressMatch, findMailboxByAddress } from "./handlers/account-address.ts";
 export {
   type InboundMessageContent,
   loadInboundMessageContent,
 } from "./handlers/message-content.query.ts";
+export type { InboundOAuthFlow, OAuthCodeExchange, OAuthTokenSet } from "./inbound-oauth-flow.ts";
+export { ingestFailureEntity, ingestFailureTable } from "./ingest-failures.ts";
 export {
   INBOUND_ATTACHMENT_MAX_BYTES,
   INBOUND_ATTACHMENTS_MAX_COUNT,
@@ -95,6 +103,7 @@ export {
   type VerifyOAuthStateResult,
   verifyOAuthState,
 } from "./oauth-state.ts";
+export { readableFileName } from "./outbound-attachments.ts";
 export {
   isMailSendNotConfiguredError,
   isMailSendRejectedError,
@@ -113,15 +122,35 @@ export {
   mailThreadsProjectionTable,
 } from "./projection.ts";
 export {
+  InboundAuthError,
+  InboundCredentialNotStoredError,
+  InboundCursorInvalidError,
+  InboundRateLimitError,
+  InboundTransientError,
+  isInboundAuthError,
+  isInboundCredentialNotStoredError,
+  isInboundCursorInvalidError,
+  isInboundRateLimitError,
+  isInboundTransientError,
+} from "./provider-errors.ts";
+export {
   resolveInboundProviderForAccount,
   resolveInboundProviderForKey,
 } from "./provider-factory.ts";
+export {
+  QUARANTINE_REASON_CODES,
+  type QuarantineReasonCode,
+  quarantineEntity,
+  quarantineTable,
+} from "./quarantine-entities.ts";
 export {
   IMAP_CONNECT_SCREEN_ID,
   IMAP_RECONNECT_SCREEN_ID,
   MAIL_ACCOUNT_EDIT_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
+  MAIL_QUARANTINE_SCREEN_ID,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
 } from "./screens.ts";
 export {
   MAIL_SEND_ERRORS,
@@ -141,32 +170,20 @@ export {
   senderAuthenticationSchema,
 } from "./sender-auth.ts";
 export {
-  InboundAuthError,
   type InboundContentFetchResult,
-  InboundCredentialNotStoredError,
-  InboundCursorInvalidError,
   type InboundFetchResult,
   type InboundMailContext,
   type InboundMailProviderPlugin,
-  type InboundOAuthFlow,
-  InboundRateLimitError,
-  InboundTransientError,
-  isInboundAuthError,
-  isInboundCredentialNotStoredError,
-  isInboundCursorInvalidError,
   isInboundMailProviderPlugin,
-  isInboundRateLimitError,
-  isInboundTransientError,
   type MailAccountRecord,
-  type OAuthTokenSet,
   type RawInboundAttachment,
   type RawInboundMessage,
   type RejectedInboundMessage,
   type SkippedInboundAttachment,
   type SyncCursorPayload,
 } from "./types.ts";
-export {
-  createInboundMailSupervisor,
-  type InboundMailSupervisor,
-  type InboundMailSupervisorDeps,
-} from "./watch-supervisor.ts";
+export { createInboundMailSupervisor } from "./watch-supervisor.ts";
+export type {
+  InboundMailSupervisor,
+  InboundMailSupervisorDeps,
+} from "./watch-supervisor-types.ts";

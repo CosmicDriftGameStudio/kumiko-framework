@@ -5,6 +5,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   configurePiiSubjectKms,
+  EncryptionUnavailableError,
   InMemoryKmsAdapter,
   KeyErasedError,
   PII_CIPHERTEXT_PREFIX,
@@ -365,7 +366,7 @@ describe("step-dispatcher job delivery", () => {
       };
       const erases = countEraseCalls();
 
-      await expect(deliver(aggregateId, 1, false)).rejects.toThrow("kms down");
+      await expect(deliver(aggregateId, 1, false)).rejects.toThrow(EncryptionUnavailableError);
 
       kms.getKey = realGetKey;
       expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);

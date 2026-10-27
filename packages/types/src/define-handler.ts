@@ -5,9 +5,11 @@ import type {
   AccessRule,
   AgentHandlerHints,
   BeforeTransactionPhase,
+  BeforeTransactionWhenNested,
   EscapeHatchDeclaration,
   HandlerContext,
   PayloadRateLimitOption,
+  PreparedOrSkipped,
   PreparedWriteEvent,
   PreTransactionReservation,
   QueryEvent,
@@ -38,6 +40,7 @@ export type WriteHandlerDefinition<
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
   TPrepared = undefined,
+  TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
 > = {
   readonly name: TName;
   readonly schema: TSchema;
@@ -55,10 +58,11 @@ export type WriteHandlerDefinition<
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
+  readonly beforeTransactionWhenNested?: TWhenNested;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
   readonly handler: (
-    event: PreparedWriteEvent<z.infer<TSchema>, TPrepared>,
+    event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>,
     context: HandlerContext<TMap>,
   ) => Promise<WriteResult<TData>>;
   // Preserved when the author wrote a `perform` block — the original
@@ -77,6 +81,7 @@ export type WriteHandlerInput<
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
   TPrepared = undefined,
+  TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
 > = {
   readonly name: TName;
   readonly schema: TSchema;
@@ -92,12 +97,13 @@ export type WriteHandlerInput<
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
+  readonly beforeTransactionWhenNested?: TWhenNested;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
 } & (
   | {
       readonly handler: (
-        event: PreparedWriteEvent<z.infer<TSchema>, TPrepared>,
+        event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>,
         context: HandlerContext<TMap>,
       ) => Promise<WriteResult<TData>>;
       readonly perform?: never;

@@ -3,12 +3,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
 import {
   InboundMailAccountStatuses,
   InboundMailConnectErrors,
   InboundMailFoundationHandlers,
+  inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   syncCursorTable,
@@ -20,6 +22,7 @@ import {
   type MailTestStack,
   rawMsg,
   setupMailStack,
+  storeAccountCredential,
 } from "./mail-test-support.ts";
 
 let env: MailTestStack;
@@ -86,7 +89,33 @@ describe("one mailbox per address", () => {
     expect(JSON.stringify(error)).toContain(InboundMailConnectErrors.addressDisconnected.reason);
   });
 
-  test("a disconnected OAuth mailbox is reopened in place", async () => {
+  test("a disconnected OAuth mailbox is not reopened without the OAuth callback's owner override", async () => {
+    const admin = adminFor(6304);
+    const first = (await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      connectPayload("oauth-plain@tenant.example", "oauth"),
+      admin,
+    )) as { accountId: string };
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId: first.accountId },
+      admin,
+    );
+
+    const error = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.connectAccount,
+      connectPayload("oauth-plain@tenant.example", "oauth"),
+      admin,
+    );
+
+    expect(JSON.stringify(error)).toContain(InboundMailConnectErrors.addressDisconnected.reason);
+    const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, {
+      id: first.accountId,
+    });
+    expect(row?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
+  });
+
+  test("the OAuth callback's connect finds the disconnected mailbox and leaves it off until the token is stored", async () => {
     const admin = adminFor(6303);
     const first = (await env.stack.http.writeOk(
       InboundMailFoundationHandlers.connectAccount,
@@ -101,7 +130,7 @@ describe("one mailbox per address", () => {
 
     const second = (await env.stack.http.writeOk(
       InboundMailFoundationHandlers.connectAccount,
-      connectPayload("oauth@tenant.example", "oauth"),
+      { ...connectPayload("oauth@tenant.example", "oauth"), ownerUserIdOverride: null },
       admin,
     )) as { accountId: string; reconnected?: boolean };
 
@@ -110,7 +139,7 @@ describe("one mailbox per address", () => {
     const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, {
       id: first.accountId,
     });
-    expect(row?.["status"]).toBe(InboundMailAccountStatuses.active);
+    expect(row?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
   });
 });
 
@@ -135,6 +164,7 @@ describe("reactivating a disconnected mailbox", () => {
       await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId }),
     ).toHaveLength(1);
 
+    await storeAccountCredential(env, admin.tenantId, accountId, admin.id);
     await env.stack.http.writeOk(
       InboundMailFoundationHandlers.reactivateAccount,
       { accountId },
@@ -150,6 +180,83 @@ describe("reactivating a disconnected mailbox", () => {
       "while-off-1@example.com",
     ]);
     expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toHaveLength(1);
+  });
+
+  test("disconnecting removes the credential secret", async () => {
+    const admin = adminFor(6312);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await storeAccountCredential(env, admin.tenantId, accountId, admin.id);
+    expect(await env.secrets.has(admin.tenantId, inboundCredentialSecretKey(accountId))).toBe(true);
+
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId },
+      admin,
+    );
+
+    expect(await env.secrets.has(admin.tenantId, inboundCredentialSecretKey(accountId))).toBe(
+      false,
+    );
+  });
+
+  test("reactivating a disconnected mailbox without a new credential is refused", async () => {
+    const admin = adminFor(6313);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await storeAccountCredential(env, admin.tenantId, accountId, admin.id);
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId },
+      admin,
+    );
+
+    const error = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.reactivateAccount,
+      { accountId },
+      admin,
+    );
+
+    expect(JSON.stringify(error)).toContain("credential_required");
+    const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, { id: accountId });
+    expect(row?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
+  });
+
+  test("only the owner reactivates a personal mailbox, not another tenant admin", async () => {
+    const owner = adminFor(6314);
+    const otherAdmin = createTestUser({
+      id: 6315,
+      tenantId: owner.tenantId,
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const { accountId } = (await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      { ...connectPayload("personal@tenant.example"), scope: "user" },
+      owner,
+    )) as { accountId: string };
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId },
+      owner,
+    );
+    await storeAccountCredential(env, owner.tenantId, accountId, owner.id);
+
+    const denied = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.reactivateAccount,
+      { accountId },
+      otherAdmin,
+    );
+    expect(JSON.stringify(denied)).toContain("not_mailbox_owner");
+    const [stillOff] = await selectMany(env.stack.db, mailAccountsProjectionTable, {
+      id: accountId,
+    });
+    expect(stillOff?.["status"]).toBe(InboundMailAccountStatuses.disconnected);
+
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.reactivateAccount,
+      { accountId },
+      owner,
+    );
+    const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, { id: accountId });
+    expect(row?.["status"]).toBe(InboundMailAccountStatuses.active);
   });
 
   test("reactivating an active mailbox changes nothing", async () => {

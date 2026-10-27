@@ -15,8 +15,11 @@ import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
 import { isSelectOptionTone } from "./select-option-tone.ts";
+import {
+  validateBeforeTransactionWhenNested,
+  validatePerCommandTransaction,
+} from "./transaction-phases.ts";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -165,6 +168,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
     validateAdditionalRateLimits(feature.name, name, handler);
     validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
+    validateBeforeTransactionWhenNested(feature.name, name, handler);
   }
 }
 
@@ -242,29 +246,6 @@ function validatePayloadBucket(
   if (!Number.isInteger(entry.windowSeconds) || entry.windowSeconds <= 0) {
     throw new Error(
       `${where} for "${field}" with windowSeconds ${entry.windowSeconds} — must be a positive integer.`,
-    );
-  }
-}
-
-function perCommandConflict(
-  handler: FeatureDefinition["writeHandlers"][string],
-): string | undefined {
-  if (handler.transaction !== "perCommand") return undefined;
-  if (handler.beforeTransaction) return "beforeTransaction";
-  if (handler.reserveBeforeTransaction) return "reserveBeforeTransaction";
-  return undefined;
-}
-
-export function validatePerCommandTransaction(
-  featureName: string,
-  handlerName: string,
-  handler: FeatureDefinition["writeHandlers"][string],
-): void {
-  const conflicting = perCommandConflict(handler);
-  if (conflicting !== undefined) {
-    throw new Error(
-      `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
-        "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.dispatch.write.",
     );
   }
 }

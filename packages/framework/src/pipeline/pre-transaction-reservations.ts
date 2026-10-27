@@ -3,10 +3,11 @@ import type {
   ReservationHandle,
   ReservationRelease,
   WriteHandlerDef,
+  WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { SessionUser } from "../engine/types/index.ts";
 
-import type { WriteErrorInfo } from "../errors/index.ts";
+import { InternalError, type WriteErrorInfo, writeFailure } from "../errors/index.ts";
 import { toWriteErrorInfo } from "../errors/write-error-info.ts";
 
 import { createFallbackLogger } from "../logging/utils.ts";
@@ -30,6 +31,29 @@ export type ConsumedReservation = {
 
 export function hasPreTransactionPhase(handler: WriteHandlerDef): boolean {
   return handler.reserveBeforeTransaction !== undefined || handler.beforeTransaction !== undefined;
+}
+
+// beforeTransactionWhenNested: "skip" lets the handler run nested without the phase and does the work itself.
+// Boot validation rejects the option next to a reservation, so only beforeTransaction is skipped here.
+function runsWithoutPhaseWhenNested(handler: WriteHandlerDef): boolean {
+  return (
+    handler.beforeTransactionWhenNested === "skip" && handler.reserveBeforeTransaction === undefined
+  );
+}
+
+// For a run the top-level command did not prepare. A pre-transaction phase cannot run from inside an
+// open transaction, and running without it would skip the reservation or the prepared data, so a
+// nested ctx.dispatch.write of such a handler is rejected instead.
+export function nestedPreTransactionDenial(
+  handler: WriteHandlerDef,
+  type: string,
+): WriteResult | undefined {
+  if (!hasPreTransactionPhase(handler) || runsWithoutPhaseWhenNested(handler)) return undefined;
+  return writeFailure(
+    new InternalError({
+      message: `handler "${type}" has a pre-transaction phase (reserveBeforeTransaction/beforeTransaction) and cannot run as a nested write unless the top-level command ran it`,
+    }),
+  );
 }
 
 // One-shot permission per top-level command: the handler that reserved before the transaction

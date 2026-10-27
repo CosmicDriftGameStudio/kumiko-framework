@@ -50,7 +50,7 @@ describe("a changed trusted authserv-id", () => {
     expect(watchedTrustedAuthservIdOf(accountId)).toBeNull();
 
     await env.stack.http.writeOk(
-      InboundMailFoundationHandlers.updateAccount,
+      InboundMailFoundationHandlers.setTrustedAuthservId,
       { accountId, trustedAuthservId: "mx.tenant.example" },
       admin,
     );

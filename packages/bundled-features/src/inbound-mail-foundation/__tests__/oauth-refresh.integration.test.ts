@@ -48,6 +48,7 @@ import {
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
   inboundMessagesProjectionTable,
+  ingestFailureEntity,
   type MailAccountRecord,
   mailAccountsProjectionTable,
   type OAuthAccessTokenManager,
@@ -110,9 +111,10 @@ const fakePlugin: InboundMailProviderPlugin = {
   oauth: {
     scopes: { receive: ["mail.read"] },
     buildAuthorizeUrl: async () => "https://oauth.test/authorize",
+    // The code is the address of the account that signed in.
     exchangeCode: async (_ctx, p) => {
       if (!fake.exchange) throw new Error("exchange not scripted");
-      return fake.exchange(p.code);
+      return { ...(await fake.exchange(p.code)), accountAddress: p.code };
     },
     refreshAccessToken: async (_ctx, account, refreshToken, opts) => {
       fake.refreshCalls.push({ accountId: account.id, refreshToken });
@@ -197,6 +199,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -283,13 +286,17 @@ function createSupervisor(opts: {
   });
 }
 
+function mailboxOf(tenantNumber: number): string {
+  return `cb${tenantNumber}@tenant.example`;
+}
+
 function signedStateFor(tenantNumber: number): string {
   return signOAuthState(
     {
       tenantId: testTenantId(tenantNumber),
       ownerUserId: null,
       providerKey: PROVIDER_KEY,
-      mailbox: `cb${tenantNumber}@tenant.example`,
+      mailbox: mailboxOf(tenantNumber),
     },
     15,
     STATE_SECRET,
@@ -529,7 +536,7 @@ describe("oauth refresh — connect callback", () => {
     fake.exchange = async () => tokenSetExpiringIn(60, "rt-from-exchange");
     const state = signedStateFor(4710);
     const res = await stack.app.request(
-      `/inbound-mail/oauth/callback?code=ok&state=${encodeURIComponent(state)}`,
+      `/inbound-mail/oauth/callback?code=${encodeURIComponent(mailboxOf(4710))}&state=${encodeURIComponent(state)}`,
     );
     expect(res.status).toBe(200);
     const { accountId } = (await res.json()) as { accountId: string };
@@ -579,7 +586,7 @@ describe("oauth refresh — first sync after the callback", () => {
     };
     try {
       const res = await stack.app.request(
-        `/inbound-mail/oauth/callback?code=ok&state=${encodeURIComponent(signedStateFor(4712))}`,
+        `/inbound-mail/oauth/callback?code=${encodeURIComponent(mailboxOf(4712))}&state=${encodeURIComponent(signedStateFor(4712))}`,
       );
       expect(res.status).toBe(200);
       const { accountId } = (await res.json()) as { accountId: string };

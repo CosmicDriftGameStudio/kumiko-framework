@@ -2052,7 +2052,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "L'adresse depuis laquelle les e-mails sont envoyés, par exemple status@example.com. Votre fournisseur doit l'autoriser.",
   "screen:mail-accounts.title": "Boîtes mail",
+  "screen:my-mail-accounts.title": "Vos boîtes mail",
   "screen:mail-account-edit.title": "Modifier la boîte mail",
+  "screen:mail-account-sender-check.title": "Vérification de l'expéditeur",
   "inboundMail.accounts.col.name": "Nom",
   "inboundMail.accounts.col.address": "Adresse",
   "inboundMail.accounts.col.provider": "Fournisseur",
@@ -2068,9 +2070,29 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Un e-mail n'a pas pu être importé et a été mis de côté. Confirmez la quarantaine une fois l'e-mail examiné.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "Le stockage de fichiers n'est pas disponible, les pièces jointes et les originaux ne sont donc pas enregistrés.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "Le magasin de clés est indisponible. Les nouveaux e-mails seront récupérés à l'intervalle suivant.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Les e-mails ne peuvent pas être importés pour le moment. Une nouvelle tentative a lieu à l'intervalle suivant.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Cette boîte est déjà connectée.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "Cette boîte a été déconnectée auparavant. Reconnectez-la depuis la liste des boîtes pour conserver son historique.",
+    "Cette boîte a été déconnectée auparavant. Utilisez « Réactiver » dans la liste des boîtes pour conserver son historique.",
+  "inboundMail.accounts.reactivate": "Réactiver",
+  "inboundMail.accounts.quarantine": "Quarantaine",
+  "inboundMail.accounts.errors.credentialRequired":
+    "Aucune connexion n'est enregistrée pour cette boîte. Saisissez à nouveau le mot de passe pour la réactiver.",
+  "inboundMail.quarantine.col.sender": "Expéditeur",
+  "inboundMail.quarantine.col.subject": "Objet",
+  "inboundMail.quarantine.col.reason": "Motif",
+  "inboundMail.quarantine.col.mailbox": "Boîte mail",
+  "inboundMail.quarantine.col.date": "Mis de côté",
+  "inboundMail.quarantine.retry": "Récupérer à nouveau",
+  "inboundMail.quarantine.acknowledge": "Confirmer",
+  "inboundMail.quarantine.reason.unparseable": "Le message n'a pas pu être lu.",
+  "inboundMail.quarantine.reason.invalid_message": "Le message est incomplet ou invalide.",
+  "inboundMail.quarantine.reason.ingest_failed":
+    "L'importation du message a échoué à plusieurs reprises.",
+  "screen:mail-quarantine.title": "Messages en quarantaine",
   "inboundMail.accounts.acknowledgeQuarantine": "Confirmer la quarantaine",
   "inboundMail.accounts.status.active": "Active",
   "inboundMail.accounts.status.auth_error": "Échec de connexion",
@@ -2078,6 +2100,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Déconnectée",
   "inboundMail.accounts.edit": "Renommer",
   "inboundMail.accounts.edit.submit": "Enregistrer",
+  "inboundMail.accounts.senderCheck": "Vérification de l'expéditeur",
+  "inboundMail.accounts.senderCheck.submit": "Enregistrer",
+  "inboundMail.accounts.senderCheckHint":
+    "Identifiant du serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identifiant du serveur de messagerie",
   "inboundMail.accounts.disconnect": "Déconnecter",
   "inboundMail.accounts.disconnect.confirm":
     "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",
@@ -2085,7 +2113,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
   "inboundMail.accounts.connectImap": "Connecter une boîte mail",
   "screen:mail-account-connect-imap.title": "Connecter une boîte mail",
-  "inboundMail.accounts.reconnect": "Reconnecter",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Vous êtes redirigé vers la page de connexion du fournisseur. Après la connexion, la boîte mail récupère de nouveau les e-mails et conserve son historique.",
+  "inboundMail.accounts.reconnect.invalidRow": "Cette boîte mail ne peut pas être réactivée ici.",
   "screen:mail-account-reconnect-imap.title": "Reconnecter la boîte mail",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Boîte mail",
   "inboundMail.imap.reconnect.hint":

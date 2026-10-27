@@ -3,10 +3,10 @@
 // ends in null (no statement) or "unknown".
 //
 // Trust (RFC 8601 sections 5 and 7.1): the account names the authserv-id of its own mail server
-// (trustedAuthservId). Reading starts at the topmost Authentication-Results header; the first one
-// whose authserv-id equals the trusted id counts, every header below it is ignored, because the
-// receiving server prepends its own entry and anything further down may have been sent along by
-// the sender. Without a trusted id, without a matching header or when the header was evaluated for
+// (trustedAuthservId). Only the topmost Authentication-Results header is read: the receiving server
+// prepends its own entry, so the topmost one is from the own server and everything below it can be
+// forged by the sender. If the topmost header names a different authserv-id there is no result.
+// Without a trusted id, without a matching header or when the header was evaluated for
 // another From domain than the mail's, there is no result at all.
 
 import * as z from "zod";
@@ -186,31 +186,30 @@ export function parseSenderAuthentication(
   const trusted = normalizeTrustedAuthservId(trustedAuthservId);
   const from = fromDomain?.toLowerCase() ?? "";
   if (trusted === null || from === "") return null;
-  for (const headerValue of headerValues) {
-    const [head = "", ...resultSegments] = splitSegments(stripComments(headerValue));
-    const authservId = head.split(/\s+/)[0]?.toLowerCase() ?? "";
-    if (authservId !== trusted) continue;
-    const { byMethod, headerFroms } = methodResults(resultSegments);
-    if (headerFroms.some((value) => domainOfHeaderFrom(value) !== from)) return null;
-    const dmarcResults = byMethod.get("dmarc");
-    // A dmarc pass only means something for the domain it was evaluated for.
-    const dmarcBound = dmarcResults?.every((result) => result.headerFrom !== null) ?? false;
-    const dkimDomains = [
-      ...new Set(
-        (byMethod.get("dkim") ?? []).flatMap((result) => (result.headerD ? [result.headerD] : [])),
-      ),
-    ].slice(0, MAX_DKIM_DOMAINS);
-    // Values come from sender-controlled headers: one that does not fit the stored shape (length)
-    // must give "no statement", not a validation failure that would quarantine the mail.
-    const parsed = senderAuthenticationSchema.safeParse({
-      authservId,
-      spf: combineAllPass(byMethod.get("spf")),
-      dkim: combineAnyPass(byMethod.get("dkim")),
-      dkimDomains,
-      dmarc: dmarcBound ? combineAllPass(dmarcResults) : "unknown",
-      fromDomain: from,
-    });
-    return parsed.success ? parsed.data : null;
-  }
-  return null;
+  const headerValue = headerValues[0];
+  if (headerValue === undefined) return null;
+  const [head = "", ...resultSegments] = splitSegments(stripComments(headerValue));
+  const authservId = head.split(/\s+/)[0]?.toLowerCase() ?? "";
+  if (authservId !== trusted) return null;
+  const { byMethod, headerFroms } = methodResults(resultSegments);
+  if (headerFroms.some((value) => domainOfHeaderFrom(value) !== from)) return null;
+  const dmarcResults = byMethod.get("dmarc");
+  // A dmarc pass only means something for the domain it was evaluated for.
+  const dmarcBound = dmarcResults?.every((result) => result.headerFrom !== null) ?? false;
+  const dkimDomains = [
+    ...new Set(
+      (byMethod.get("dkim") ?? []).flatMap((result) => (result.headerD ? [result.headerD] : [])),
+    ),
+  ].slice(0, MAX_DKIM_DOMAINS);
+  // Values come from sender-controlled headers: one that does not fit the stored shape (length)
+  // must give "no statement", not a validation failure that would quarantine the mail.
+  const parsed = senderAuthenticationSchema.safeParse({
+    authservId,
+    spf: combineAllPass(byMethod.get("spf")),
+    dkim: combineAnyPass(byMethod.get("dkim")),
+    dkimDomains,
+    dmarc: dmarcBound ? combineAllPass(dmarcResults) : "unknown",
+    fromDomain: from,
+  });
+  return parsed.success ? parsed.data : null;
 }

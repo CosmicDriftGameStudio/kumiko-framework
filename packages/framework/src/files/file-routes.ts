@@ -24,7 +24,7 @@ import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { createDerivativesContext, resolveRenderer } from "../derivatives/derivatives-context.ts";
 import { resolveFieldVariant } from "../derivatives/index.ts";
 import { isFileField } from "../engine/field-helpers.ts";
-import { isAnonymousSessionUser, SYSTEM_USER_ID } from "../engine/system-user.ts";
+import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
 
 import { createFailOpenReporter, respondRateLimited } from "../rate-limit/middleware.ts";
@@ -35,6 +35,7 @@ import {
   getFileRefExecutor,
   storeFileAsFileRef,
 } from "./create-file-ref.ts";
+import { createDefaultGuard, DEFAULT_PRIVILEGED_ROLES } from "./default-file-guard.ts";
 import { createFileContext, createTenantFileContext } from "./file-handle.ts";
 import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
@@ -125,8 +126,6 @@ export type FileRoutesOptions = {
   readonly canWriteRecord?: RecordWriteCheck;
 };
 
-const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
-
 // 15 minutes — long enough for a download to start, short enough that a
 // leaked URL (e.g. from a browser history screenshot) isn't a long-lived
 // credential (see "Signed-URL default expiry" in core-files.md).
@@ -142,43 +141,6 @@ type FileMeta = Pick<
   FileRef,
   "id" | "fileName" | "mimeType" | "size" | "entityType" | "entityId" | "fieldName"
 >;
-
-// Default guard: on attached files, allow the uploader or a privileged role,
-// and for reads also everyone who may read the record. Delete stays with the
-// uploader and privileged roles: reading a record is no right to remove its
-// files. Pending uploads (entityType set, record not yet created) are the
-// uploader's own until bound; so are uploads without an entityType, which no
-// record can ever claim.
-function createDefaultGuard(
-  privilegedRoles: readonly string[],
-  canReadRecord: RecordReadCheck | undefined,
-  unclaimedUploadReaders: readonly string[],
-): FileAccessGuard {
-  return async ({ fileRef, user, operation }) => {
-    if (fileRef.insertedById === user.id) return "allow";
-    if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
-    // System-generated documents are created without attachTo too, but belong to a person's data, not to an inbox.
-    const isUnclaimedUpload =
-      fileRef.entityType === null &&
-      fileRef.entityId === null &&
-      fileRef.insertedById !== SYSTEM_USER_ID;
-    if (
-      isUnclaimedUpload &&
-      operation === "read" &&
-      unclaimedUploadReaders.some((role) => user.roles.includes(role))
-    ) {
-      return "allow";
-    }
-    if (fileRef.entityType === null || fileRef.entityId === null) return "deny";
-    if (operation !== "read" || canReadRecord === undefined) return "deny";
-    const recordReadable = await canReadRecord({
-      entityType: fileRef.entityType,
-      entityId: fileRef.entityId,
-      user,
-    });
-    return recordReadable ? "allow" : "deny";
-  };
-}
 
 // Multipart framing plus the small entityType/entityId/fieldName parts
 // riding alongside the file.
@@ -224,6 +186,12 @@ export function readFilesRouteOptions(
     }
   }
   return {};
+}
+
+// Explicitly configured global upload limit in bytes; undefined when createFilesFeature set none.
+export function configuredMaxUploadBytes(registry: Registry): number | undefined {
+  const configured = readFilesRouteOptions(registry).maxUploadSize;
+  return configured === undefined ? undefined : parseMaxSize(configured);
 }
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {

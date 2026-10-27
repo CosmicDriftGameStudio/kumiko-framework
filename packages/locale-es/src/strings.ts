@@ -2025,7 +2025,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "La dirección desde la que se envían los correos, por ejemplo status@example.com. Tu proveedor debe permitirla.",
   "screen:mail-accounts.title": "Buzones",
+  "screen:my-mail-accounts.title": "Tus buzones",
   "screen:mail-account-edit.title": "Editar buzón",
+  "screen:mail-account-sender-check.title": "Verificación del remitente",
   "inboundMail.accounts.col.name": "Nombre",
   "inboundMail.accounts.col.address": "Dirección",
   "inboundMail.accounts.col.provider": "Proveedor",
@@ -2041,9 +2043,28 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "No se pudo importar un correo y se apartó. Confirma la cuarentena cuando lo hayas revisado.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "El almacenamiento de archivos no está disponible, por lo que no se guardan adjuntos ni originales.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "El almacén de claves no está disponible. Los correos nuevos se vuelven a recoger en el siguiente intervalo.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Ahora mismo no se pueden importar los correos. Se vuelve a intentar en el siguiente intervalo.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Este buzón ya está conectado.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "Este buzón se desconectó antes. Reconéctalo desde la lista de buzones para conservar su historial.",
+    "Este buzón se desconectó antes. Usa «Reactivar» en la lista de buzones para conservar su historial.",
+  "inboundMail.accounts.reactivate": "Reactivar",
+  "inboundMail.accounts.quarantine": "Cuarentena",
+  "inboundMail.accounts.errors.credentialRequired":
+    "Este buzón no tiene un inicio de sesión guardado. Introduce la contraseña de nuevo para reactivarlo.",
+  "inboundMail.quarantine.col.sender": "Remitente",
+  "inboundMail.quarantine.col.subject": "Asunto",
+  "inboundMail.quarantine.col.reason": "Motivo",
+  "inboundMail.quarantine.col.mailbox": "Buzón",
+  "inboundMail.quarantine.col.date": "Apartado",
+  "inboundMail.quarantine.retry": "Volver a obtener",
+  "inboundMail.quarantine.acknowledge": "Confirmar",
+  "inboundMail.quarantine.reason.unparseable": "No se pudo leer el correo.",
+  "inboundMail.quarantine.reason.invalid_message": "El correo está incompleto o no es válido.",
+  "inboundMail.quarantine.reason.ingest_failed": "La importación del correo falló varias veces.",
+  "screen:mail-quarantine.title": "Correos en cuarentena",
   "inboundMail.accounts.acknowledgeQuarantine": "Confirmar cuarentena",
   "inboundMail.accounts.status.active": "Activo",
   "inboundMail.accounts.status.auth_error": "Error de inicio de sesión",
@@ -2051,6 +2072,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Desconectado",
   "inboundMail.accounts.edit": "Renombrar",
   "inboundMail.accounts.edit.submit": "Guardar",
+  "inboundMail.accounts.senderCheck": "Verificación del remitente",
+  "inboundMail.accounts.senderCheck.submit": "Guardar",
+  "inboundMail.accounts.senderCheckHint":
+    "Identificador del servidor de correo del encabezado Authentication-Results, por ejemplo mx.example.com. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Identificador del servidor de correo",
   "inboundMail.accounts.disconnect": "Desconectar",
   "inboundMail.accounts.disconnect.confirm":
     "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",
@@ -2058,7 +2085,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
   "inboundMail.accounts.connectImap": "Conectar buzón",
   "screen:mail-account-connect-imap.title": "Conectar buzón",
-  "inboundMail.accounts.reconnect": "Reconectar",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Se te redirige a la página de inicio de sesión del proveedor. Tras iniciar sesión, el buzón vuelve a recibir correos y conserva su historial.",
+  "inboundMail.accounts.reconnect.invalidRow": "Este buzón no se puede reactivar desde aquí.",
   "screen:mail-account-reconnect-imap.title": "Reconectar buzón",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Buzón",
   "inboundMail.imap.reconnect.hint":

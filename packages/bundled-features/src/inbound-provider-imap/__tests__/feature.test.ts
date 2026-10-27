@@ -14,13 +14,8 @@ import {
 import { createMailTransportSmtpFeature } from "../../mail-transport-smtp/index.ts";
 import { parseImapCredentialDocument } from "../credential-document.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
-import {
-  assertUidValidity,
-  buildProviderMessageId,
-  mapImapError,
-  normalizeReferences,
-  parseImapCursor,
-} from "../imap-client.ts";
+import { assertUidValidity, mapImapError, parseImapCursor } from "../imap-client.ts";
+import { buildProviderMessageId, normalizeReferences } from "../parse-message.ts";
 
 describe("inboundProviderImapFeature — shape", () => {
   test("has the expected name + requirements", () => {

@@ -2032,7 +2032,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
   "screen:mail-accounts.title": "Postfächer",
+  "screen:my-mail-accounts.title": "Ihre Postfächer",
   "screen:mail-account-edit.title": "Postfach bearbeiten",
+  "screen:mail-account-sender-check.title": "Absenderprüfung",
   "inboundMail.accounts.col.name": "Name",
   "inboundMail.accounts.col.address": "Adresse",
   "inboundMail.accounts.col.provider": "Anbieter",
@@ -2048,9 +2050,28 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Eine Mail konnte nicht importiert werden und wurde beiseitegelegt. Die Quarantäne nach der Prüfung bestätigen.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "Der Dateispeicher ist nicht verfügbar, deshalb werden Anhänge und Originale nicht gespeichert.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "Der Schlüsselspeicher ist nicht erreichbar. Neue Mails werden im nächsten Intervall erneut abgeholt.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Mails lassen sich gerade nicht importieren. Im nächsten Intervall wird es erneut versucht.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Dieses Postfach ist bereits verbunden.",
   "inboundMail.accounts.errors.addressDisconnected":
-    "Dieses Postfach wurde früher getrennt. Über die Postfachliste neu verbinden, damit der Verlauf erhalten bleibt.",
+    "Dieses Postfach wurde früher getrennt. In der Postfachliste „Reaktivieren“ wählen, damit der Verlauf erhalten bleibt.",
+  "inboundMail.accounts.reactivate": "Reaktivieren",
+  "inboundMail.accounts.quarantine": "Quarantäne",
+  "inboundMail.accounts.errors.credentialRequired":
+    "Für dieses Postfach ist keine Anmeldung gespeichert. Das Passwort erneut eingeben, um es zu reaktivieren.",
+  "inboundMail.quarantine.col.sender": "Absender",
+  "inboundMail.quarantine.col.subject": "Betreff",
+  "inboundMail.quarantine.col.reason": "Grund",
+  "inboundMail.quarantine.col.mailbox": "Postfach",
+  "inboundMail.quarantine.col.date": "Beiseitegelegt",
+  "inboundMail.quarantine.retry": "Erneut abrufen",
+  "inboundMail.quarantine.acknowledge": "Bestätigen",
+  "inboundMail.quarantine.reason.unparseable": "Die Mail konnte nicht gelesen werden.",
+  "inboundMail.quarantine.reason.invalid_message": "Die Mail ist unvollständig oder ungültig.",
+  "inboundMail.quarantine.reason.ingest_failed": "Der Import der Mail ist mehrfach fehlgeschlagen.",
+  "screen:mail-quarantine.title": "Quarantäne-Mails",
   "inboundMail.accounts.acknowledgeQuarantine": "Quarantäne bestätigen",
   "inboundMail.accounts.status.active": "Aktiv",
   "inboundMail.accounts.status.auth_error": "Anmeldung fehlgeschlagen",
@@ -2058,6 +2079,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.status.disconnected": "Getrennt",
   "inboundMail.accounts.edit": "Umbenennen",
   "inboundMail.accounts.edit.submit": "Speichern",
+  "inboundMail.accounts.senderCheck": "Absenderprüfung",
+  "inboundMail.accounts.senderCheck.submit": "Speichern",
+  "inboundMail.accounts.senderCheckHint":
+    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
+  "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
+    "Kennung des Mailservers",
   "inboundMail.accounts.disconnect": "Trennen",
   "inboundMail.accounts.disconnect.confirm":
     "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
@@ -2065,7 +2092,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Postfach verbinden",
   "screen:mail-account-connect-imap.title": "Postfach verbinden",
-  "inboundMail.accounts.reconnect": "Neu verbinden",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Sie werden zur Anmeldeseite des Anbieters weitergeleitet. Nach der Anmeldung ruft das Postfach wieder Mails ab und behält seinen Verlauf.",
+  "inboundMail.accounts.reconnect.invalidRow":
+    "Dieses Postfach lässt sich hier nicht reaktivieren.",
   "screen:mail-account-reconnect-imap.title": "Postfach neu verbinden",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Postfach",
   "inboundMail.imap.reconnect.hint":

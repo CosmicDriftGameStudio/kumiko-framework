@@ -1,5 +1,6 @@
 // Turns the file references of an outgoing mail into bytes. Only the sender's own tenant is
-// searched, so another tenant's file reads exactly like a missing one.
+// searched, so another tenant's file reads exactly like a missing one; a file the caller may not
+// read counts as missing too (outbound-attachment-access.ts).
 
 import {
   collectPiiSubjectFields,
@@ -9,17 +10,18 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
+import { canCallerReadFileRef, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   FileRefTooLargeError,
   fileContextForTenant,
   readFileRefContent,
 } from "../file-foundation/index.ts";
+import { loadAttachableFileRef } from "./outbound-attachment-access.ts";
 import { OUTBOUND_ATTACHMENTS_MAX_BYTES, type OutboundAttachment } from "./outbound-mail.ts";
 
 export type ResolveOutboundAttachmentsContext = Pick<
   HandlerContext,
-  "db" | "user" | "services" | "obs"
+  "db" | "user" | "services" | "obs" | "registry" | "dispatch"
 >;
 
 export type ResolvedOutboundAttachments =
@@ -35,7 +37,11 @@ const PII_SUBJECT_FIELDS = collectPiiSubjectFields(fileRefEntity);
 
 // The stored name is personal data and may be ciphertext; a name that cannot be read must not
 // stop the mail, and ciphertext or the erased marker never goes into a header.
-async function readableFileName(storedName: string, requestId: string): Promise<string> {
+export async function readableFileName(file: {
+  readonly id: string;
+  readonly fileName: string;
+}): Promise<string> {
+  const storedName = file.fileName;
   if (!isPiiCiphertext(storedName)) return storedName;
   const kms = configuredPiiSubjectKms();
   if (!kms) return FALLBACK_ATTACHMENT_NAME;
@@ -44,7 +50,7 @@ async function readableFileName(storedName: string, requestId: string): Promise<
       { fileName: storedName },
       PII_SUBJECT_FIELDS,
       kms,
-      { requestId },
+      { requestId: `outbound-attachment:${file.id}` },
     );
     const name = decrypted["fileName"];
     if (typeof name !== "string" || isPiiCiphertext(name) || name === PII_ERASED_SENTINEL) {
@@ -66,6 +72,11 @@ export async function resolveOutboundAttachments(
   let remainingBytes = OUTBOUND_ATTACHMENTS_MAX_BYTES;
   const tenantId = ctx.user.tenantId;
   for (const fileRefId of uniqueIds) {
+    // A file the caller may not read answers like an unknown id, so ids cannot be probed.
+    const fileRef = await loadAttachableFileRef(ctx, fileRefId);
+    if (fileRef === null || !(await canCallerReadFileRef(ctx, fileRef))) {
+      return { isSuccess: false, failure: "attachmentInvalid" };
+    }
     let found: Awaited<ReturnType<typeof readFileRefContent>>;
     try {
       found = await readFileRefContent({
@@ -91,7 +102,7 @@ export async function resolveOutboundAttachments(
     }
     remainingBytes -= found.content.byteLength;
     attachments.push({
-      fileName: await readableFileName(found.fileName, `outbound-attachment:${fileRefId}`),
+      fileName: await readableFileName({ id: fileRefId, fileName: found.fileName }),
       mimeType: found.contentType,
       data: found.content,
     });

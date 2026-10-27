@@ -18,24 +18,6 @@ export function pollScheduleOf(options: {
   };
 }
 
-/** Runs `work` for every item with at most `limit` running at once; a failing item is reported and does not stop the rest. */
-export async function forEachWithConcurrency<T>(
-  items: readonly T[],
-  limit: number,
-  work: (item: T) => Promise<void>,
-  onError: (item: T, err: unknown) => void,
-): Promise<void> {
-  // One shared iterator: advancing it is synchronous, so no two lanes take the same item.
-  const queue = items[Symbol.iterator]();
-  const lane = async (): Promise<void> => {
-    for (let step = queue.next(); !step.done; step = queue.next()) {
-      const item = step.value;
-      await work(item).catch((err: unknown) => onError(item, err));
-    }
-  };
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, lane));
-}
-
 type DeadlineOutcome<T> =
   | { readonly timedOut: false; readonly value: T }
   | { readonly timedOut: true };

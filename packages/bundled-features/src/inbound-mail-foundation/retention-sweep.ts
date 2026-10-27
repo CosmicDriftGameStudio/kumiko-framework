@@ -20,13 +20,17 @@
 //     directly through the table's tenant_id column (table-builder convention),
 //     without an Account join.
 //
+//   store_mail_ingest_failures (unmanaged): counters of mails the ingest could not take. A counter
+//     whose mail never failed again (it went through or was quarantined, which clear it) is stale
+//     after the seen retention.
+//
 //   store_mail_quarantine (unmanaged): acknowledged entries are purged after
 //     QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS; unacknowledged ones stay, they
 //     keep the mailbox flagged until someone looked at them.
 //
-// Attachments (file refs created at ingest) are deliberately NOT deleted here:
-// a business process may have taken them over, and file retention belongs to
-// the files feature, not to the mail copy.
+// Attachments are fileRefs bound to the mail row: they go with it (soft delete through the
+// fileRef executor; the generic soft-delete cleanup removes the bytes). A failure keeps the Row
+// for the next sweep, like a failed body delete.
 //
 // LIMITATION: the PII in the message events remains decryptable under the
 // TENANT subject key—per-Row retention does not shred a key. Actual Art.-17
@@ -41,10 +45,12 @@ import {
   deleteRowsWithoutReplayableStream,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { quarantineTable, seenMessageTable } from "./entities.ts";
+import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
+import { ingestFailureTable } from "./ingest-failures.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
 import { QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS } from "./quarantine.ts";
+import { quarantineTable } from "./quarantine-entities.ts";
 
 // Provides Temporal.Instant without forcing the caller to obtain it from
 // globalThis (same pattern as data-retention/keep-for.ts).
@@ -68,6 +74,8 @@ export interface InboundRetentionArgs {
   /** Deletes a file-storage body object by bodyRef key. Wired lazily by the job
    * (createFileProviderForTenant); if absent, no body is deleted. */
   readonly deleteBodyObject?: (bodyRef: string) => Promise<void>;
+  /** Removes the fileRefs bound to an expired mail (its attachments); wired by the job. */
+  readonly deleteAttachments?: (messageId: string) => Promise<void>;
 }
 
 export interface InboundRetentionReport {
@@ -76,6 +84,7 @@ export interface InboundRetentionReport {
   readonly bodyObjectErrors: number;
   readonly seenPurged: number;
   readonly quarantinePurged: number;
+  readonly ingestFailuresPurged: number;
 }
 
 export async function runInboundMailRetention(
@@ -97,7 +106,12 @@ export async function runInboundMailRetention(
     acknowledgedAt: { lt: quarantineCutoff },
   });
 
-  return { ...messages, seenPurged, quarantinePurged };
+  const ingestFailuresPurged = await deleteMany(args.db, ingestFailureTable, {
+    tenantId: args.tenantId,
+    lastFailedAt: { lt: seenCutoff },
+  });
+
+  return { ...messages, seenPurged, quarantinePurged, ingestFailuresPurged };
 }
 
 type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null };
@@ -105,7 +119,9 @@ type ExpiredMessageRow = { readonly id: string; readonly bodyRef: string | null 
 async function purgeExpiredMessages(
   args: InboundRetentionArgs,
   cutoff: Instant,
-): Promise<Omit<InboundRetentionReport, "seenPurged" | "quarantinePurged">> {
+): Promise<
+  Omit<InboundRetentionReport, "seenPurged" | "quarantinePurged" | "ingestFailuresPurged">
+> {
   let messagesPurged = 0;
   let bodyObjectsDeleted = 0;
   let bodyObjectErrors = 0;
@@ -143,15 +159,16 @@ async function purgeExpiredMessages(
         archivedBy: ARCHIVED_BY,
         reason: REASON,
       });
-      if (row.bodyRef && args.deleteBodyObject) {
-        try {
+      try {
+        if (row.bodyRef && args.deleteBodyObject) {
           await args.deleteBodyObject(row.bodyRef);
           bodyObjectsDeleted++;
-        } catch {
-          bodyObjectErrors++;
-          failedIds.add(row.id);
-          continue;
         }
+        await args.deleteAttachments?.(row.id);
+      } catch {
+        bodyObjectErrors++;
+        failedIds.add(row.id);
+        continue;
       }
       ids.push(row.id);
     }

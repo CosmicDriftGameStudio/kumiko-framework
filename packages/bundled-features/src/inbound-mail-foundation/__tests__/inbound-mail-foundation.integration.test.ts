@@ -12,7 +12,7 @@
 //   - Crypto shredding: erasing the subject key makes the payload unreadable
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -27,8 +27,8 @@ import {
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
+import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { bridgeStub, createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
   getStreamVersion,
@@ -54,7 +54,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
@@ -62,11 +62,13 @@ import {
 } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { ingestMessageHandler } from "../handlers/ingest-message.write.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "../projection.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 
 // =============================================================================
 // Setup
@@ -93,6 +95,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   // PII fields are tenantOwned; handlers call configuredPiiSubjectKms()
   // directly (raw r.projection, without executor wiring), as run{Prod,Dev}App
   // does at boot.
@@ -448,6 +451,7 @@ describe("ingest-message — thread-rollup retry exhaustion", () => {
         {
           type: InboundMailFoundationHandlers.ingestMessage,
           user: admin,
+          prepared: undefined,
           payload: {
             ...ingestPayload(accountId, { providerMessageId: "exhaustion-1", messageIdHeader }),
             // The handler is called directly, so the schema defaults do not apply.
@@ -531,10 +535,16 @@ describe("scenario 4: Account-Lifecycle", () => {
     const admin = adminFor(4004);
     const accountId = await connectSharedAccount(admin);
 
-    await stack.http.writeOk(
+    const asAdmin = await stack.http.writeErr(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, status: "degraded" },
+      admin,
+    );
+    expect(JSON.stringify(asAdmin)).toContain("field_requires_system_identity");
+    await stack.dispatcher.write(
       InboundMailFoundationHandlers.updateAccount,
       { accountId, status: "degraded", watchState: "backoff:5000ms", reason: "test" },
-      admin,
+      createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
     );
     let rows = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
     expect(rows[0]?.["status"]).toBe("degraded");
@@ -562,12 +572,13 @@ describe("scenario 4: Account-Lifecycle", () => {
 
     // Updating a disconnected account returns 422; a supervisor race must not
     // revive a disconnected account.
-    const err = await stack.http.writeErr(
+    const err = await stack.dispatcher.write(
       InboundMailFoundationHandlers.updateAccount,
       { accountId, status: "active", reason: "test" },
-      admin,
+      createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
     );
-    expect(err.httpStatus).toBe(422);
+    expect(err.isSuccess).toBe(false);
+    expect(JSON.stringify(err)).toContain("account_disconnected");
   });
 });
 

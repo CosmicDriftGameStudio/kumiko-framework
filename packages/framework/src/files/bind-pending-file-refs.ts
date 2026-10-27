@@ -12,10 +12,11 @@ import {
   UnprocessableError,
   type WriteErrorInfo,
 } from "../errors/index.ts";
-import { getFileRefExecutor, resolveAttachedField } from "./create-file-ref.ts";
+import { getFileRefExecutor } from "./create-file-ref.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { type FileRefRows, loadFileRefRows } from "./load-save-file-refs.ts";
 import { validateFile } from "./types.ts";
+import { resolveAttachedField } from "./upload-field-resolution.ts";
 
 export function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];

@@ -177,7 +177,8 @@ function isPersonalFileRow(registry: Registry, row: Record<string, unknown>): bo
   if (row["entityId"] === null && resolveActionFormFileField(registry, entityType, fieldName)) {
     return true;
   }
-  const fieldDef = registry.getEntity(entityType)?.fields[fieldName];
+  const entity = registry.getEntity(entityType) ?? registry.getReadModelEntity(entityType);
+  const fieldDef = entity?.fields[fieldName];
   return isPersonalPiiField(fieldDef);
 }
 

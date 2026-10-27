@@ -844,7 +844,7 @@ export function resolveJobTriggers(state: RegistryState): void {
   // existing r.defineEvent registration. The latter is delivered async via the
   // job-trigger event-consumer (server.ts), not the synchronous write-handler
   // dispatch path — see createJobTriggerEventConsumer in
-  // pipeline/system-hooks.ts. Short names are qualified against the job's own
+  // pipeline/job-trigger-consumer.ts. Short names are qualified against the job's own
   // feature and written back, because the job runner matches by exact QN.
   const allHandlers = allHandlerQns(state);
   for (const [jobName, jobDef] of state.jobMap) {
@@ -974,6 +974,11 @@ export function validateMaxPerTenant(state: RegistryState): void {
     if (!Number.isInteger(resolved.limit) || resolved.limit <= 0) {
       throw new Error(
         `Job "${jobName}" maxPerTenant limit must be a positive integer (got ${resolved.limit})`,
+      );
+    }
+    if (resolved.onLimit === "skip" && "on" in jobDef.trigger && jobDef.trigger.catchUp) {
+      throw new Error(
+        `Job "${jobName}" cannot combine trigger.catchUp with maxPerTenant onLimit "skip" (a plain number is skip): a replay must not discard history. Use onLimit "defer".`,
       );
     }
     if (typeof jobDef.maxPerTenant !== "object") continue;

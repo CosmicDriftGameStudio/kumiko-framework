@@ -21,7 +21,10 @@ import {
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
   createInboundMailFoundationFeature,
+  InboundMailConnectErrors,
+  InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  ingestFailureEntity,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -33,7 +36,7 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
-import { reachable } from "./greenmail-mailbox.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 
 // The default is a host name so the TLS connect has an SNI server name; IP literals have their own cases.
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "localhost";
@@ -51,17 +54,15 @@ process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = `${HOST},${IP_LITERAL_HOST}`;
 const TLS_VERIFY_ENV_VAR = "NODE_TLS_REJECT_UNAUTHORIZED";
 const originalTlsVerifyEnv = process.env[TLS_VERIFY_ENV_VAR];
 
-const greenmailUp = (await reachable(HOST, IMAPS_PORT)) && (await reachable(HOST, IMAP_PORT));
+const greenmailUp = await greenmailAvailable("connect-mailbox", [
+  { host: HOST, port: IMAPS_PORT },
+  { host: HOST, port: IMAP_PORT },
+]);
 const greenmailTest = greenmailUp ? test : test.skip;
-const smtpsUp = greenmailUp && (await reachable(HOST, SMTPS_PORT));
+const smtpsUp =
+  greenmailUp &&
+  (await greenmailAvailable("connect-mailbox (SMTPS)", [{ host: HOST, port: SMTPS_PORT }]));
 const greenmailWithSmtpsTest = smtpsUp ? test : test.skip;
-if (!greenmailUp) {
-  console.warn(
-    `connect-mailbox: no IMAP server on ${HOST}:${IMAPS_PORT} and :${IMAP_PORT}, login cases skipped`,
-  );
-} else if (!smtpsUp) {
-  console.warn(`connect-mailbox: no SMTPS on ${HOST}:${SMTPS_PORT}, good-login case skipped`);
-}
 
 let stack: TestStack;
 let nextTenant = 4400;
@@ -79,6 +80,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
 });
@@ -178,6 +180,81 @@ describe("connect mailbox form", () => {
 
       const otherTenantAdmin = freshAdmin();
       expect(await accountsOf(otherTenantAdmin)).toEqual([]);
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "the same address after a disconnect reopens the account with the new secret",
+    async () => {
+      const admin = freshAdmin();
+      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        admin,
+      );
+      const [firstSecret] = await secretsOf(admin);
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId },
+        admin,
+      );
+      expect(await accountsOf(admin)).toEqual([
+        expect.objectContaining({ status: "disconnected" }),
+      ]);
+
+      const reopened = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        admin,
+      );
+
+      expect(reopened.accountId).toBe(accountId);
+      expect(await accountsOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, status: "active" }),
+      ]);
+      const secrets = await secretsOf(admin);
+      expect(secrets).toHaveLength(1);
+      expect(JSON.stringify(secrets[0])).not.toBe(JSON.stringify(firstSecret));
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "a personal mailbox of someone else is not reopened by the form, the message names Reactivate",
+    async () => {
+      const owner = freshAdmin();
+      const otherAdmin = createTestUser({
+        id: owner.id + 100_000,
+        tenantId: owner.tenantId,
+        roles: ["TenantAdmin"],
+      });
+      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+        InboundMailFoundationHandlers.connectAccount,
+        {
+          provider: "imap",
+          authMethod: "password",
+          displayName: "Mine",
+          address: "testuser@example.com",
+          scope: "user",
+        },
+        owner,
+      );
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.disconnectAccount,
+        { accountId },
+        owner,
+      );
+
+      const error = await stack.http.writeErr(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        otherAdmin,
+      );
+
+      expect(error.i18nKey).toBe(InboundMailConnectErrors.addressDisconnected.i18nKey);
+      expect(await accountsOf(owner)).toEqual([
+        expect.objectContaining({ id: accountId, status: "disconnected" }),
+      ]);
+      expect(await secretsOf(owner)).toEqual([]);
     },
   );
 

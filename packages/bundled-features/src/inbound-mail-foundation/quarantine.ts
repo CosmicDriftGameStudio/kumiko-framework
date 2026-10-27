@@ -5,7 +5,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { type QuarantineReasonCode, quarantineTable } from "./entities.ts";
+import { type QuarantineReasonCode, quarantineTable } from "./quarantine-entities.ts";
 
 const LOOKUP_CHUNK_SIZE = 1000;
 export const QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS = 90;

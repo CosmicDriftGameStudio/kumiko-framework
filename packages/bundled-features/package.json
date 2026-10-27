@@ -71,6 +71,7 @@
     "./auth-foundation": "./src/auth-foundation/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
     "./inbound-mail-foundation": "./src/inbound-mail-foundation/index.ts",
+    "./inbound-mail-foundation/web": "./src/inbound-mail-foundation/web/index.ts",
     "./inbound-provider-inmemory": "./src/inbound-provider-inmemory/index.ts",
     "./inbound-provider-imap": "./src/inbound-provider-imap/index.ts",
     "./mail-transport-smtp": "./src/mail-transport-smtp/index.ts",
@@ -388,6 +389,10 @@
       "./inbound-mail-foundation": {
         "types": "./dist/inbound-mail-foundation/index.d.ts",
         "default": "./dist/inbound-mail-foundation/index.js"
+      },
+      "./inbound-mail-foundation/web": {
+        "types": "./dist/inbound-mail-foundation/web/index.d.ts",
+        "default": "./dist/inbound-mail-foundation/web/index.js"
       },
       "./inbound-provider-inmemory": {
         "types": "./dist/inbound-provider-inmemory/index.d.ts",

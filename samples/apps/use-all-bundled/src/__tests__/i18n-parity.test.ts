@@ -28,6 +28,7 @@ const CLIENTS_WITHOUT_OWN_COPY: ReadonlySet<string> = new Set([
   "client:tenant",
   "client:delivery",
   "client:legal-pages",
+  "client:inbound-mail-foundation",
 ]);
 
 let harvest: EnHarvest;

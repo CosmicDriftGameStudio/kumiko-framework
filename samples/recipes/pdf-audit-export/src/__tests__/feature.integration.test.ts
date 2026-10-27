@@ -5,7 +5,7 @@
 // and its text contains exactly the inspections of the requested period.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -17,7 +17,21 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { extractText, getDocumentProxy } from "unpdf";
+import * as z from "zod";
 import { inspectionEntity, pdfAuditExportFeature } from "../feature";
+
+const EXPORT_AUDIT = "pdf-audit-export:write:export-audit";
+
+// Another command calling export-audit runs it nested: no beforeTransaction phase of its own.
+const nestedExportFeature = defineFeature("nested-export", (r) => {
+  r.requires({ features: ["pdf-audit-export"] });
+  r.writeHandler({
+    name: "run",
+    schema: z.object({ assetName: z.string(), from: z.string(), to: z.string() }),
+    access: { roles: ["Admin"] },
+    handler: async (event, ctx) => ctx.dispatch.write(EXPORT_AUDIT, event.payload),
+  });
+});
 
 let stack: TestStack;
 
@@ -26,7 +40,7 @@ const userB = createTestUser({ id: 2, tenantId: testTenantId(2), roles: ["Admin"
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createFilesFeature(), pdfAuditExportFeature],
+    features: [createFilesFeature(), pdfAuditExportFeature, nestedExportFeature],
     files: { storageProvider: createInMemoryFileProvider() },
   });
   await unsafeCreateEntityTable(stack.db, inspectionEntity);
@@ -125,5 +139,21 @@ describe("export-audit", () => {
       userA,
     );
     expect(err.httpStatus).toBe(422);
+  });
+
+  test("called from another handler it renders and stores inside the caller's transaction", async () => {
+    await addInspection("2026-02-05", "defect", "Zeile-verschachtelt", "Kessel 9");
+
+    const { fileRefId } = await stack.http.writeOk<{ fileRefId: string }>(
+      "nested-export:write:run",
+      { assetName: "Kessel 9", from: "2026-02-01", to: "2026-03-31" },
+      userA,
+    );
+
+    const res = await download(userA, fileRefId);
+    expect(res.status).toBe(200);
+    const proxy = await getDocumentProxy(new Uint8Array(await res.arrayBuffer()));
+    const { text } = await extractText(proxy, { mergePages: true });
+    expect(text).toContain("Zeile-verschachtelt");
   });
 });

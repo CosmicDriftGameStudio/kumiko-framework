@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../../auth-mfa/index.ts";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
+import { createInboundMailFoundationFeature } from "../../inbound-mail-foundation/index.ts";
 import { createLedgerFeature } from "../../ledger/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
 import { createSecretsFeature } from "../../secrets/index.ts";
@@ -39,6 +40,7 @@ const userDataRights = createUserDataRightsFeature();
 const pat = createPersonalAccessTokensFeature({ scopes: {} });
 const secrets = createSecretsFeature();
 const cryptoShredding = createCryptoShreddingFeature();
+const inboundMail = createInboundMailFoundationFeature();
 
 const CASES: readonly ExposureCase[] = [
   { feature: tenant, kind: "query", handlerName: "members", expose: true, risk: "high" },
@@ -103,6 +105,16 @@ const CASES: readonly ExposureCase[] = [
   { feature: mfa, kind: "write", handlerName: "regenerate-recovery", expose: false },
   { feature: pat, kind: "write", handlerName: "create", expose: false },
   { feature: secrets, kind: "write", handlerName: "set", expose: false },
+  { feature: inboundMail, kind: "write", handlerName: "connect-account", expose: false },
+  { feature: inboundMail, kind: "write", handlerName: "reactivate-account", expose: false },
+  { feature: inboundMail, kind: "write", handlerName: "set-trusted-authserv-id", expose: false },
+  {
+    feature: inboundMail,
+    kind: "write",
+    handlerName: "disconnect-account",
+    expose: true,
+    risk: "high",
+  },
 ];
 
 describe("bundled handlers keep their agent exposure and risk", () => {

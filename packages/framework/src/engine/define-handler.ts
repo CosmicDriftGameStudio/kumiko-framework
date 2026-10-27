@@ -1,6 +1,10 @@
 import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-types/event-type-map";
-import type { WriteEvent, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  BeforeTransactionWhenNested,
+  WriteEvent,
+  WriteResult,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
@@ -27,15 +31,19 @@ function pickPreTransactionPhases<
   TData,
   TMap extends object,
   TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
 >(
-  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
 ): Pick<
-  WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
-  "reserveBeforeTransaction" | "beforeTransaction"
+  WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
+  "reserveBeforeTransaction" | "beforeTransaction" | "beforeTransactionWhenNested"
 > {
   return {
     ...(def.reserveBeforeTransaction && { reserveBeforeTransaction: def.reserveBeforeTransaction }),
     ...(def.beforeTransaction && { beforeTransaction: def.beforeTransaction }),
+    ...(def.beforeTransactionWhenNested && {
+      beforeTransactionWhenNested: def.beforeTransactionWhenNested,
+    }),
   };
 }
 
@@ -52,8 +60,9 @@ export function defineWriteHandler<
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
   TPrepared = undefined,
+  TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
 >(
-  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
   // R6: a phantom rest-param. When the inferred response `TData` carries a
   // Secret<> anywhere, ContainsSecret<TData> is `true` and this resolves to a
   // 1-tuple the caller can't supply → compile error at the leak site. Clean
@@ -78,7 +87,7 @@ export function defineWriteHandler<
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
     : []
-): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared> {
+): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested> {
   // Runtime-guard against accidentally setting BOTH handler+perform.
   // The discriminated-union type-error
   //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."

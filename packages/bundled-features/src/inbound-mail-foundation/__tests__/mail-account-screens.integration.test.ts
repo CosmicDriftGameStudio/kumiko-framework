@@ -24,9 +24,11 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { quarantineEntity, seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
 import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
 
 let stack: TestStack;
@@ -47,6 +49,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 
@@ -92,7 +95,7 @@ async function renameReasonsOf(accountId: string, tenantId: TenantId): Promise<u
 }
 
 describe("mailbox rename audit reason", () => {
-  test("is derived from the caller role and ignores a client-supplied reason", async () => {
+  test("is derived from the caller role and a client-supplied reason is refused", async () => {
     const owner = createTestUser({
       id: 4711,
       tenantId: testTenantId(4711),
@@ -115,9 +118,15 @@ describe("mailbox rename audit reason", () => {
       owner,
     )) as { accountId: string };
 
+    const forgedReason = await stack.http.writeErr(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, displayName: "Forged", reason: "watch_supervisor" },
+      tenantAdmin,
+    );
+    expect(JSON.stringify(forgedReason)).toContain("field_requires_system_identity");
     await stack.http.writeOk(
       InboundMailFoundationHandlers.updateAccount,
-      { accountId, displayName: "By tenant admin", reason: "watch_supervisor" },
+      { accountId, displayName: "By tenant admin" },
       tenantAdmin,
     );
     await stack.http.writeOk(

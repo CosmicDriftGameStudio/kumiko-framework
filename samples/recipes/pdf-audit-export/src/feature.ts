@@ -4,7 +4,9 @@
 // FileRef: renderTablePdf draws the table (pure JS, no browser). The storage
 // write runs in the beforeTransaction phase, so the transaction holds no pool
 // connection while the bytes upload; the handler then only creates the
-// fileRef row from event.prepared.
+// fileRef row from event.prepared. Called from another handler (a nested
+// write) there is no such phase, so the handler renders and stores inside the
+// caller's transaction instead.
 
 import { renderTablePdf } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import {
@@ -19,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
+  createFileRefFromBytes,
   createFileRefFromUploadedBytes,
   uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -60,6 +63,62 @@ export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
   r.entity({ name: "inspection", ...inspectionEntity });
   const { executor: inspectionExecutor } = createEntityExecutor("inspection", inspectionEntity);
 
+  type AuditPayload = { assetName: string; from: string; to: string };
+  type ExecutorUser = Parameters<typeof inspectionExecutor.list>[1];
+  type ExecutorDb = Parameters<typeof inspectionExecutor.list>[2];
+
+  async function renderAudit(payload: AuditPayload, user: ExecutorUser, db: ExecutorDb) {
+    const { assetName, from, to } = payload;
+    const inspections = await inspectionExecutor.list(
+      {
+        filters: [
+          { field: "assetName", op: "eq", value: assetName },
+          { field: "inspectedOn", op: "gte", value: from },
+          { field: "inspectedOn", op: "lte", value: to },
+        ],
+        sort: "inspectedOn",
+        sortDirection: "asc",
+        limit: AUDIT_ROW_LIMIT + 1,
+      },
+      user,
+      db,
+    );
+    // A protocol that silently drops inspections would look complete.
+    if (inspections.rows.length > AUDIT_ROW_LIMIT) {
+      return writeFailure(
+        new UnprocessableError("audit_period_too_large", {
+          details: { limit: AUDIT_ROW_LIMIT },
+        }),
+      );
+    }
+
+    const { pdfBytes } = await renderTablePdf({
+      title: `Prüfprotokoll ${assetName}`,
+      meta: [
+        { label: "Zeitraum", value: `${formatGermanDate(from)} bis ${formatGermanDate(to)}` },
+        { label: "Prüfungen", value: String(inspections.rows.length) },
+      ],
+      columns: [{ header: "Datum" }, { header: "Ergebnis" }, { header: "Prüfer", weight: 2 }],
+      rows: inspections.rows.map((row) => [
+        formatGermanDate(String(row["inspectedOn"])),
+        RESULT_LABELS[z.enum(INSPECTION_RESULTS).parse(row["result"])],
+        String(row["inspector"] ?? ""),
+      ]),
+      emptyText: "Keine Prüfungen im Zeitraum",
+      footerText: `Prüfbericht ${assetName}`,
+      pageLabel: "Seite {page} von {pages}",
+    });
+
+    return {
+      isSuccess: true as const,
+      data: {
+        fileName: `audit-${toFileNameSegment(assetName)}.pdf`,
+        mimeType: "application/pdf",
+        data: pdfBytes,
+      },
+    };
+  }
+
   r.writeHandler({
     name: "inspection:create",
     schema: z.object({
@@ -77,56 +136,20 @@ export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
       name: "export-audit",
       schema: z.object({ assetName: z.string().min(1), from: z.iso.date(), to: z.iso.date() }),
       access: access.access,
+      // Nested in another command there is no phase of its own; the handler then does this work itself.
+      beforeTransactionWhenNested: "skip",
       beforeTransaction: async (event, ctx) => {
-        const { assetName, from, to } = event.payload;
-        const inspections = await inspectionExecutor.list(
-          {
-            filters: [
-              { field: "assetName", op: "eq", value: assetName },
-              { field: "inspectedOn", op: "gte", value: from },
-              { field: "inspectedOn", op: "lte", value: to },
-            ],
-            sort: "inspectedOn",
-            sortDirection: "asc",
-            limit: AUDIT_ROW_LIMIT + 1,
-          },
-          event.user,
-          ctx.db,
-        );
-        // A protocol that silently drops inspections would look complete.
-        if (inspections.rows.length > AUDIT_ROW_LIMIT) {
-          return writeFailure(
-            new UnprocessableError("audit_period_too_large", {
-              details: { limit: AUDIT_ROW_LIMIT },
-            }),
-          );
-        }
-
-        const { pdfBytes } = await renderTablePdf({
-          title: `Prüfprotokoll ${assetName}`,
-          meta: [
-            { label: "Zeitraum", value: `${formatGermanDate(from)} bis ${formatGermanDate(to)}` },
-            { label: "Prüfungen", value: String(inspections.rows.length) },
-          ],
-          columns: [{ header: "Datum" }, { header: "Ergebnis" }, { header: "Prüfer", weight: 2 }],
-          rows: inspections.rows.map((row) => [
-            formatGermanDate(String(row["inspectedOn"])),
-            RESULT_LABELS[z.enum(INSPECTION_RESULTS).parse(row["result"])],
-            String(row["inspector"] ?? ""),
-          ]),
-          emptyText: "Keine Prüfungen im Zeitraum",
-          footerText: `Prüfbericht ${assetName}`,
-          pageLabel: "Seite {page} von {pages}",
-        });
-
-        return uploadFileBytesBeforeTransaction(ctx, {
-          fileName: `audit-${toFileNameSegment(assetName)}.pdf`,
-          mimeType: "application/pdf",
-          data: pdfBytes,
-        });
+        const rendered = await renderAudit(event.payload, event.user, ctx.db);
+        if (!rendered.isSuccess) return rendered;
+        return uploadFileBytesBeforeTransaction(ctx, rendered.data);
       },
       handler: async (event, ctx) => {
-        const created = await createFileRefFromUploadedBytes(ctx, event.prepared);
+        const created =
+          event.prepared !== undefined
+            ? await createFileRefFromUploadedBytes(ctx, event.prepared)
+            : await renderAudit(event.payload, event.user, ctx.db).then((rendered) =>
+                rendered.isSuccess ? createFileRefFromBytes(ctx, rendered.data) : rendered,
+              );
         if (!created.isSuccess) return created;
         return { isSuccess: true as const, data: { fileRefId: created.data.id } };
       },

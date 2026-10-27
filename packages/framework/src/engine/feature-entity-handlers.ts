@@ -3,8 +3,7 @@ import type { EntityObjectDefinition } from "@cosmicdrift/kumiko-types/feature-r
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
   AccessRule,
-  AgentHandlerHints,
-  BeforeTransactionPhase,
+  BeforeTransactionWhenNested,
   EntityRef,
   EscapeHatchDeclaration,
   HandlerRef,
@@ -33,6 +32,7 @@ import {
   registerCrudHandlers,
 } from "./entity-handlers.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 
@@ -90,33 +90,6 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
       state.handlerEntityMappings[handlerName] = onlyEntityName;
     }
   }
-}
-
-function agentSlots(source: {
-  readonly description?: string;
-  readonly agent?: AgentHandlerHints;
-}): { description?: string; agent?: AgentHandlerHints } {
-  return {
-    ...(source.description !== undefined && { description: source.description }),
-    ...(source.agent && { agent: source.agent }),
-  };
-}
-
-function transactionPhaseSlots<TSchema extends ZodType, TPrepared>(
-  def: Pick<
-    WriteHandlerDefinition<string, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
-    "reserveBeforeTransaction" | "beforeTransaction" | "transaction"
-  >,
-) {
-  return {
-    ...(def.reserveBeforeTransaction && {
-      reserveBeforeTransaction: def.reserveBeforeTransaction,
-    }),
-    ...(def.beforeTransaction && {
-      beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
-    }),
-    ...(def.transaction && { transaction: def.transaction }),
-  };
 }
 
 // Typed callers cannot omit `access`; untyped ones (JS, designer output) must not get a
@@ -182,8 +155,20 @@ export function buildEntityHandlerMethods<TName extends string>(
       if (!state.relations[entityName]) state.relations[entityName] = {};
       state.relations[entityName][resolvedRelationName] = resolvedDefinition;
     },
-    writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
-      def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
+    writeHandler<
+      TName extends string,
+      TSchema extends ZodType,
+      TPrepared = undefined,
+      TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
+    >(
+      def: WriteHandlerDefinition<
+        TName,
+        TSchema,
+        unknown,
+        KumikoEventTypeMap,
+        TPrepared,
+        TWhenNested
+      >,
     ): HandlerRef {
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "writeHandler");
       assertHandlerHasAccess(name, "writeHandler", def.name, def.access);

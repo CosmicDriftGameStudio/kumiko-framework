@@ -11,7 +11,9 @@ import * as z from "zod";
 import { INBOUND_MESSAGE_PII_FIELDS } from "../entities.ts";
 import {
   INBOUND_CONTENT_STATES,
+  INBOUND_CONTENT_UNAVAILABLE_REASONS,
   type InboundContentState,
+  type InboundContentUnavailableReason,
   skippedAttachmentSchema,
 } from "../events.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
@@ -27,6 +29,7 @@ export type InboundMessageContent = {
   readonly attachmentFileIds: readonly string[];
   readonly skippedAttachments: readonly SkippedInboundAttachment[];
   readonly contentState: InboundContentState;
+  readonly contentUnavailableReason: InboundContentUnavailableReason | null;
   /** null = no trustworthy statement; see isSenderAuthenticated. */
   readonly senderAuthentication: SenderAuthentication | null;
 };
@@ -64,9 +67,13 @@ export async function loadInboundMessageContent(
     bodyText: typeof bodyText === "string" ? bodyText : "",
     bodyTextTruncated: row["bodyTextTruncated"] === true,
     bodyRef: typeof row["bodyRef"] === "string" ? row["bodyRef"] : "",
-    attachmentFileIds: parseJsonColumn(row["attachmentFileIds"], fileIdsSchema, []),
+    attachmentFileIds: fileIdsSchema.parse(row["attachmentFileIds"] ?? []),
     skippedAttachments: parseJsonColumn(row["skippedAttachments"], skippedListSchema, []),
     contentState: contentStateOfRow(row["contentState"]),
+    contentUnavailableReason:
+      INBOUND_CONTENT_UNAVAILABLE_REASONS.find(
+        (reason) => reason === row["contentUnavailableReason"],
+      ) ?? null,
     senderAuthentication: parseJsonColumn(
       row["senderAuthentication"],
       senderAuthenticationFieldSchema,

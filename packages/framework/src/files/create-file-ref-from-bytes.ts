@@ -43,7 +43,13 @@ export type CreateFileRefInput = {
     readonly fieldName: string;
     readonly entityId?: string;
   };
+  /** Byte limit replacing the configured default upload limit; a file field's own maxSize still applies first. */
+  readonly maxSize?: number;
 };
+
+function defaultUploadLimit(registry: Registry, input: CreateFileRefInput): string | number {
+  return input.maxSize ?? readFilesRouteOptions(registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE;
+}
 
 // The handler context has no HTTP/job/seed marker to name, so the message states the actual
 // cause: the dispatcher's AppContext carries no file-provider resolver.
@@ -72,8 +78,8 @@ export async function createFileRefFromBytes(
       tenantDb: ctx.db,
       rowInOwnTransaction: runnerCanBeginTransaction(tenantDbRunner(ctx.db)),
       registry: ctx.registry,
-      defaultMaxUploadSize:
-        readFilesRouteOptions(ctx.registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
+      attachTargets: "entities-and-read-models",
+      defaultMaxUploadSize: defaultUploadLimit(ctx.registry, input),
       writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
       deleteBytes: async (key) => {
         await files.ref(key).delete();
@@ -135,8 +141,8 @@ export async function uploadFileBytesBeforeTransaction(
     {
       user: ctx.user,
       registry: ctx.registry,
-      defaultMaxUploadSize:
-        readFilesRouteOptions(ctx.registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
+      attachTargets: "entities-and-read-models",
+      defaultMaxUploadSize: defaultUploadLimit(ctx.registry, input),
       writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
     },
     {

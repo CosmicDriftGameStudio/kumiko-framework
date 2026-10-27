@@ -29,6 +29,14 @@ function buildDetailQueryIndex(registry: Registry): ReadonlyMap<string, string> 
       detailQueryByEntity.set(entityName, qn);
     }
   }
+  for (const projection of registry.getAllProjections().values()) {
+    const entityName = projection.source;
+    if (typeof entityName !== "string") continue;
+    const owner = registry.getReadModelEntityOwner(entityName);
+    if (owner === undefined) continue;
+    const qn = `${owner}:query:${toKebab(entityName)}:detail`;
+    if (registry.getAllQueryHandlers().has(qn)) detailQueryByEntity.set(entityName, qn);
+  }
   return detailQueryByEntity;
 }
 

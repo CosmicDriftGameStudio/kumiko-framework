@@ -13,13 +13,12 @@ import { InboundTransientError } from "@cosmicdrift/kumiko-bundled-features/inbo
 import { readCredentialDocument } from "./credential-document.ts";
 import {
   closeOnAbort,
-  coerceDate,
   createImapClient,
   IMAP_MAILBOX,
   imapMailHostGuard,
   mapImapError,
-  parseOrReject,
 } from "./imap-client.ts";
+import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 function uidOf(providerMessageId: string, serverUidValidity: string): number | null {
   const separator = providerMessageId.lastIndexOf(":");
@@ -56,7 +55,7 @@ export async function fetchMessageContent(
     if (idByUid.size > 0) {
       for await (const msg of client.fetch(
         [...idByUid.keys()].join(","),
-        { uid: true, internalDate: true, source: true },
+        { uid: true, internalDate: true, source: true, envelope: true },
         { uid: true },
       )) {
         if (!msg.source) continue;
@@ -65,6 +64,7 @@ export async function fetchMessageContent(
           uid: msg.uid,
           uidValidity: serverUidValidity,
           internalDate: coerceDate(msg.internalDate ?? undefined),
+          envelope: msg.envelope,
         });
         idByUid.delete(msg.uid);
         if ("message" in parsed) messages.push(parsed.message);

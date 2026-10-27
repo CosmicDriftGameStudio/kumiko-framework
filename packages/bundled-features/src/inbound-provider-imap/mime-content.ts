@@ -13,6 +13,7 @@ export const MIME_FORWARD_MAX_DEPTH = 3;
 
 const FORWARDED_MESSAGE_MIME = "message/rfc822";
 const FALLBACK_ATTACHMENT_NAME = "attachment";
+const FALLBACK_FORWARDED_NAME = "forwarded.eml";
 
 export type MailContent = {
   readonly text: string;
@@ -35,6 +36,18 @@ function forwardedHeader(inner: ParsedMail): string {
   return `\n\n---------- Forwarded message ----------\nFrom: ${inner.from?.text ?? ""}\nSubject: ${inner.subject ?? ""}\n\n`;
 }
 
+async function readForwardedMail(
+  source: Buffer,
+  depth: number,
+): Promise<{ readonly header: string; readonly content: MailContent } | null> {
+  try {
+    const parsed = await simpleParser(source);
+    return { header: forwardedHeader(parsed), content: await extractMailContent(parsed, depth) };
+  } catch {
+    return null;
+  }
+}
+
 export async function extractMailContent(parsed: ParsedMail, depth = 0): Promise<MailContent> {
   let text = parsed.text?.trim() ?? "";
   const attachments: RawInboundAttachment[] = [];
@@ -47,11 +60,19 @@ export async function extractMailContent(parsed: ParsedMail, depth = 0): Promise
         skipped.push({ mimeType, size: attachment.size, reason: "nesting_too_deep" });
         continue;
       }
-      const innerParsed = await simpleParser(attachment.content);
-      const inner = await extractMailContent(innerParsed, depth + 1);
-      text += forwardedHeader(innerParsed) + inner.text;
-      attachments.push(...inner.attachments);
-      skipped.push(...inner.skipped);
+      const inner = await readForwardedMail(attachment.content, depth + 1);
+      if (inner === null) {
+        // A forwarded mail the parser chokes on must not sink the outer mail: keep it as a plain .eml.
+        attachments.push({
+          fileName: attachment.filename ?? FALLBACK_FORWARDED_NAME,
+          mimeType,
+          data: attachment.content,
+        });
+        continue;
+      }
+      text += inner.header + inner.content.text;
+      attachments.push(...inner.content.attachments);
+      skipped.push(...inner.content.skipped);
       continue;
     }
     attachments.push({

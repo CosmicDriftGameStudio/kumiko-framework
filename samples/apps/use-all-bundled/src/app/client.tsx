@@ -26,6 +26,7 @@ import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-
 import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/web";
 import { featureTogglesClient } from "@cosmicdrift/kumiko-bundled-features/feature-toggles/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
+import { inboundMailFoundationClient } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { sessionsClient } from "@cosmicdrift/kumiko-bundled-features/sessions/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
@@ -115,6 +116,7 @@ createKumikoApp({
     userDataRightsClient(),
     customFieldsClient(),
     foldersClient(),
+    inboundMailFoundationClient(),
     complianceProfilesClient(),
     featureTogglesClient(),
     // tag-list management screen (TagManager) + TagSection/TagFilter extension

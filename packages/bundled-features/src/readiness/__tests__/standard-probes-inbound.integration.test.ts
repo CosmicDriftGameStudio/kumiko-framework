@@ -11,13 +11,11 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.ts";
 import { InboundMailFoundationHandlers } from "../../inbound-mail-foundation/constants.ts";
-import {
-  quarantineEntity,
-  seenMessageEntity,
-  syncCursorEntity,
-} from "../../inbound-mail-foundation/entities.ts";
+import { seenMessageEntity, syncCursorEntity } from "../../inbound-mail-foundation/entities.ts";
 import { createInboundMailFoundationFeature } from "../../inbound-mail-foundation/feature.ts";
-import { InboundAuthError } from "../../inbound-mail-foundation/types.ts";
+import { ingestFailureEntity } from "../../inbound-mail-foundation/ingest-failures.ts";
+import { InboundAuthError } from "../../inbound-mail-foundation/provider-errors.ts";
+import { quarantineEntity } from "../../inbound-mail-foundation/quarantine-entities.ts";
 import {
   createInboundProviderInMemoryFeature,
   failNextVerifyWith,
@@ -57,6 +55,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
+  await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

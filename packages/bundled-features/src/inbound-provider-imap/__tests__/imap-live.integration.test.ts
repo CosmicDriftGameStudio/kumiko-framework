@@ -14,7 +14,6 @@
 // inbound-mail-foundation.integration.test.ts.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { connect } from "node:net";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTransport } from "nodemailer";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
@@ -26,6 +25,7 @@ import {
   type RawInboundMessage,
 } from "../../inbound-mail-foundation/index.ts";
 import { imapInboundMailPlugin } from "../feature.ts";
+import { greenmailAvailable } from "./greenmail-availability.ts";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
@@ -46,28 +46,8 @@ afterAll(() => {
   }
 });
 
-function probe(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host, port, timeout: 1500 });
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once("error", () => resolve(false));
-    socket.once("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-}
-
-const available = await probe(HOST, IMAP_PORT);
+const available = await greenmailAvailable("imap-live", [{ host: HOST, port: IMAP_PORT }]);
 const liveTest = available ? test : test.skip;
-if (!available) {
-  console.warn(
-    `imap-live: kein IMAP-Server auf ${HOST}:${IMAP_PORT} — Live-Tests werden geskippt (greenmail starten, siehe Header)`,
-  );
-}
 
 function credentialDoc(password: string): string {
   return JSON.stringify({

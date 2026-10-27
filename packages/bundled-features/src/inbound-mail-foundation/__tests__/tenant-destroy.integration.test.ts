@@ -39,7 +39,6 @@ import {
 } from "../../tenant-lifecycle/testing.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
 import {
-  quarantineEntity,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -47,11 +46,13 @@ import {
 } from "../entities.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { createInboundMailSupervisor, type RawInboundMessage } from "../index.ts";
+import { ingestFailureEntity } from "../ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "../projection.ts";
+import { quarantineEntity } from "../quarantine-entities.ts";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -88,6 +89,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafeCreateEntityTable(db, quarantineEntity);
+  await unsafeCreateEntityTable(db, ingestFailureEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 

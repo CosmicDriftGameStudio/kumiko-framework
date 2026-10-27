@@ -130,10 +130,11 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
       scope: p.scope,
       bodyText: p.bodyText,
       bodyTextTruncated: p.bodyTextTruncated,
-      attachmentFileIds: JSON.stringify(p.attachmentFileIds),
+      attachmentFileIds: p.attachmentFileIds,
       skippedAttachments: JSON.stringify(p.skippedAttachments),
       senderAuthentication: JSON.stringify(p.senderAuthentication),
       contentState: p.contentState,
+      contentUnavailableReason: p.contentUnavailableReason,
     });
   },
 );
@@ -149,9 +150,10 @@ export const applyInboundMessageContentFetched =
         bodyRef: p.bodyRef,
         bodyText: p.bodyText,
         bodyTextTruncated: p.bodyTextTruncated,
-        attachmentFileIds: JSON.stringify(p.attachmentFileIds),
+        attachmentFileIds: p.attachmentFileIds,
         skippedAttachments: JSON.stringify(p.skippedAttachments),
         contentState: p.contentState,
+        contentUnavailableReason: p.contentUnavailableReason,
       },
       { id: event.aggregateId },
     );

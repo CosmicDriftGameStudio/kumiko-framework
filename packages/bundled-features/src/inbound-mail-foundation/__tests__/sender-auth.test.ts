@@ -104,8 +104,12 @@ describe("parseSenderAuthentication", () => {
     expect(isSenderAuthenticated(result)).toBe(false);
   });
 
-  test("the first trusted header counts even below a header of another hop", () => {
-    expect(parse(["relay.example.net; spf=pass", PASS_HEADER])?.dmarc).toBe("pass");
+  test("a trusted header below a foreign topmost header is forged and gives null", () => {
+    expect(parse(["relay.example.net; spf=pass", PASS_HEADER])).toBeNull();
+  });
+
+  test("a trusted topmost header is parsed", () => {
+    expect(parse([PASS_HEADER, "relay.example.net; spf=pass"])?.dmarc).toBe("pass");
   });
 
   test("a header evaluated for another From domain gives null", () => {
