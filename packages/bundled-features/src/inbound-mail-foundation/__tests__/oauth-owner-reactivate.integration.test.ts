@@ -1,6 +1,7 @@
 // A user connects a personal OAuth mailbox and re-arms it alone: after a disconnect or a sign-in error,
 // "Reactivate" sends the owner through the same connect route and callback, which reopens the account
-// in place. Nobody else can do that for the owner, and a user cannot connect a shared mailbox.
+// in place. Nobody else can do that for the owner, a user cannot connect a shared mailbox, and the
+// account that signs in at the provider must be the mailbox itself.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -150,5 +151,41 @@ describe("nobody re-arms it for the owner", () => {
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("shared_mailbox_requires_admin");
+  });
+});
+
+describe("the account that signs in must be the mailbox", () => {
+  test("signing in with another account creates nothing, so no one claims a foreign address", async () => {
+    const tenant = 7141;
+    const stranger = plainUser(7142, tenant);
+    const victim = plainUser(7143, tenant);
+
+    const claim = await connectViaOauth(
+      env.stack,
+      personalQuery("victim@acme.test"),
+      stranger,
+      "stranger@acme.test",
+    );
+
+    expect(claim.status).toBe(403);
+    const body = (await claim.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("mailbox_address_mismatch");
+    expect(body.error.message).toContain("victim@acme.test");
+    expect((await listedFor(adminFor(tenant))).size).toBe(0);
+    const own = await connectViaOauth(env.stack, personalQuery("victim@acme.test"), victim);
+    expect(own.status).toBe(200);
+  });
+
+  test("the address comparison ignores case", async () => {
+    const owner = plainUser(7152, 7151);
+
+    const res = await connectViaOauth(
+      env.stack,
+      personalQuery("owner-case@acme.test"),
+      owner,
+      "Owner-Case@ACME.test",
+    );
+
+    expect(res.status).toBe(200);
   });
 });

@@ -34,7 +34,7 @@ import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
   type InboundMailProviderPlugin,
   ingestFailureEntity,
-  type OAuthTokenSet,
+  type OAuthCodeExchange,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -53,19 +53,22 @@ const oauthTestPlugin: InboundMailProviderPlugin = {
     scopes: { receive: ["mail.read"] },
     buildAuthorizeUrl: async (_ctx, p) =>
       `https://oauth.test/authorize?state=${encodeURIComponent(p.state)}&redirect_uri=${encodeURIComponent(p.redirectUri)}`,
-    exchangeCode: async (_ctx, p): Promise<OAuthTokenSet> => {
+    // Any other code is the address of the account that signed in.
+    exchangeCode: async (_ctx, p): Promise<OAuthCodeExchange> => {
       if (p.code === "fail-exchange") {
         throw new Error("token endpoint unavailable");
       }
       if (p.code === "no-refresh") {
         return {
           accessToken: "access-only",
+          accountAddress: "norefresh@acme.test",
           expiresAt: "2099-01-01T00:00:00Z",
           scopesGranted: ["mail.read"],
         };
       }
       return {
         accessToken: "access-token",
+        accountAddress: p.code,
         refreshToken: "refresh-token-abc",
         expiresAt: "2099-01-01T00:00:00Z",
         scopesGranted: ["mail.read"],
@@ -158,9 +161,23 @@ export async function getCallback(stack: TestStack, query: string) {
   return stack.app.request(`${CALLBACK_PATH}?${query}`);
 }
 
-// Runs the connect route as `user` and the callback with a good code, like the provider redirect would.
-export async function connectViaOauth(stack: TestStack, query: string, user: ConnectTestUser) {
+export function stateFrom(connectRes: Response): string {
+  return new URL(connectRes.headers.get("location") ?? "").searchParams.get("state") ?? "";
+}
+
+export function callbackQuery(signedInAs: string, state: string): string {
+  return `code=${encodeURIComponent(signedInAs)}&state=${encodeURIComponent(state)}`;
+}
+
+// Runs the connect route as `user` and the callback as the provider redirect would, signed in with
+// the mailbox's own account unless `signedInAs` names another one.
+export async function connectViaOauth(
+  stack: TestStack,
+  query: string,
+  user: ConnectTestUser,
+  signedInAs?: string,
+) {
   const connectRes = await getConnect(stack, query, user);
-  const state = new URL(connectRes.headers.get("location") ?? "").searchParams.get("state") ?? "";
-  return getCallback(stack, `code=ok&state=${encodeURIComponent(state)}`);
+  const mailbox = new URLSearchParams(query).get("mailbox") ?? "";
+  return getCallback(stack, callbackQuery(signedInAs ?? mailbox, stateFrom(connectRes)));
 }

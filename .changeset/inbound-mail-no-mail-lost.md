@@ -68,12 +68,3 @@ type: improvement
 title: Mail attachments are bound to the mail and follow its visibility
 detail: The attachment fileRefs of an imported mail are bound to the inbound-message record (field attachmentFileIds). GET /files/:id answers with the mail's visibility: owner and admins for a personal mailbox, whoever may see the mail for a shared one. The new query inbound-message:detail ({ id }) backs that check and is not exposed to agents. Outbound attachments use the same rule (canCallerReadFileRef). Retention now also removes the attachment files of a purged mail. read_inbound_messages.attachment_file_ids is jsonb; the migration 0056 carries a table rebuild marker, so the read table is rebuilt from the events. InboundMessageContent.attachmentFileIds stays string[].
 -->
-
-<!-- kumiko-changes
-feature: inbound-mail-foundation
-type: breaking
-title: The mailbox row action Reconnect is folded into Reactivate
-detail: The row action reconnect of mailAccountListScreen and its i18n key inboundMail.accounts.reconnect are removed. A password IMAP mailbox with a sign-in error now shows Reactivate, which opens the same screen mail-account-reconnect-imap; OAuth mailboxes get the client action reactivate-oauth instead.
-migration: |
-  Apps that override inboundMail.accounts.reconnect move the text to inboundMail.accounts.reactivate. Apps that reference the row action id reconnect (tests, screen extensions) use reactivate for password IMAP and reactivate-oauth for OAuth mailboxes, and mount inboundMailFoundationClient() from @cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web so the OAuth action runs.
--->

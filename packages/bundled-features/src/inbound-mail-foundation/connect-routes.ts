@@ -27,6 +27,7 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants.ts";
+import { normalizeMailAddress } from "./handlers/account-address.ts";
 import { isMailAdmin } from "./handlers/scope-visibility.ts";
 import {
   inboundRefreshTokenSecretOptions,
@@ -194,6 +195,14 @@ export function createInboundMailConnectRoutes(
           502,
           "token_exchange_failed",
           "token exchange with the provider failed",
+        );
+      }
+      if (normalizeMailAddress(tokens.accountAddress) !== normalizeMailAddress(state.mailbox)) {
+        return errorJson(
+          c,
+          403,
+          "mailbox_address_mismatch",
+          `the account you signed in with is not ${state.mailbox}; sign in with that mailbox's account`,
         );
       }
       if (!tokens.refreshToken) {

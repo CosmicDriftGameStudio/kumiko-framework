@@ -77,7 +77,7 @@ export {
   type InboundMessageContent,
   loadInboundMessageContent,
 } from "./handlers/message-content.query.ts";
-export type { InboundOAuthFlow, OAuthTokenSet } from "./inbound-oauth-flow.ts";
+export type { InboundOAuthFlow, OAuthCodeExchange, OAuthTokenSet } from "./inbound-oauth-flow.ts";
 export { ingestFailureEntity, ingestFailureTable } from "./ingest-failures.ts";
 export {
   INBOUND_ATTACHMENT_MAX_BYTES,

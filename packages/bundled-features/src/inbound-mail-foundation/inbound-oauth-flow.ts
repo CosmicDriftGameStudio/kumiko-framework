@@ -8,6 +8,12 @@ export type OAuthTokenSet = {
   readonly scopesGranted: readonly string[];
 };
 
+export type OAuthCodeExchange = OAuthTokenSet & {
+  /** Mailbox address of the account that signed in, from a token claim or the provider's profile
+   *  call. The callback refuses a mailbox whose address differs, so nobody claims someone else's. */
+  readonly accountAddress: string;
+};
+
 /**
  * OAuth portion of the contract — OAuth providers only; imap in password
  * mode omits `oauth`. The Foundation provides the routes
@@ -27,7 +33,7 @@ export type InboundOAuthFlow = {
   readonly exchangeCode: (
     ctx: InboundMailContext,
     p: { readonly code: string; readonly redirectUri: string },
-  ) => Promise<OAuthTokenSet>;
+  ) => Promise<OAuthCodeExchange>;
   readonly refreshAccessToken: (
     ctx: InboundMailContext,
     account: MailAccountRecord,

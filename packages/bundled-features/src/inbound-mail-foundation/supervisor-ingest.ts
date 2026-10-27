@@ -198,6 +198,10 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
         providerMessageId: msg.providerMessageId,
       };
       // A KMS failure is the key store's, so an earlier count of the mail never carries it.
+      // Accepted residue, no mail is lost and each case is visible:
+      //   - a first failure without proof never counts: degraded until the next new mail
+      //   - a KMS failure of one mail only holds the cursor, shown as encryption_unavailable
+      //   - a storage or ingest outage can finish the count of a mail counted before (retry exists)
       const proven =
         (failure === "storage" ? proof.storageHealthy : proof.ingested) ||
         (failure !== "encryption" &&

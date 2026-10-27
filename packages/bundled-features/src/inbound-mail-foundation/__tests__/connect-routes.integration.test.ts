@@ -16,6 +16,7 @@ import {
   type ConnectRoutesEnv,
   type ConnectTestUser,
   getCallback as callbackOn,
+  callbackQuery,
   getConnect as connectOn,
   connectRouteFeatures,
   connectRoutes,
@@ -108,7 +109,7 @@ describe("connect-routes — oauth callback", () => {
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
     expect(state).toBeTruthy();
 
-    const callbackRes = await getCallback(`code=ok&state=${encodeURIComponent(state!)}`);
+    const callbackRes = await getCallback(callbackQuery("owner@acme.test", state!));
     expect(callbackRes.status).toBe(200);
     const body = (await callbackRes.json()) as { connected: boolean; accountId: string };
     expect(body.connected).toBe(true);
@@ -133,10 +134,10 @@ describe("connect-routes — oauth callback", () => {
       const res = await getConnect(query, user);
       return new URL(res.headers.get("location")!).searchParams.get("state")!;
     };
-    const first = await getCallback(`code=ok&state=${encodeURIComponent(await stateOf())}`);
+    const first = await getCallback(callbackQuery("twice@acme.test", await stateOf()));
     expect(first.status).toBe(200);
 
-    const second = await getCallback(`code=ok&state=${encodeURIComponent(await stateOf())}`);
+    const second = await getCallback(callbackQuery("twice@acme.test", await stateOf()));
 
     expect(second.status).toBe(409);
     const body = (await second.json()) as { error: { code: string; message: string } };
@@ -196,7 +197,7 @@ describe("connect-routes — oauth callback without a secrets context", () => {
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
 
     const res = await bareStack.app.request(
-      `${CALLBACK_PATH}?code=ok&state=${encodeURIComponent(state!)}`,
+      `${CALLBACK_PATH}?${callbackQuery("nosecrets@acme.test", state!)}`,
     );
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: { code: string } };
