@@ -6,8 +6,12 @@
 import { PII_ERASED_SENTINEL } from "../crypto/pii-field-encryption.ts";
 import type { DbConnection, DbRunner } from "../db/connection.ts";
 import { isLifecycleEventOf, lifecycleSections } from "../db/queries/backfill-pii.ts";
-import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.ts";
-import { asRawClient } from "../db/query.ts";
+import {
+  deleteSnapshotsOfAggregates,
+  replaceEventPayload,
+  type ScrubEventRow,
+  selectEventsOfTypeAfter,
+} from "../db/queries/event-store-payload-scrub.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { assertReason } from "../engine/escape-hatch-reason.ts";
@@ -61,15 +65,6 @@ export type ScrubEventPayloadResult = {
   readonly rebuild: PiiRebuildRun | null;
 };
 
-type EventRow = {
-  readonly id: bigint | string;
-  readonly aggregate_id: string;
-  readonly aggregate_type: string;
-  readonly tenant_id: string;
-  readonly type: string;
-  readonly payload: Record<string, unknown>;
-};
-
 type Totals = {
   scannedEvents: number;
   scrubbedEvents: number;
@@ -82,14 +77,14 @@ function hasValue(value: unknown): boolean {
 }
 
 function payloadSections(
-  row: EventRow,
+  row: ScrubEventRow,
   payload: Record<string, unknown>,
 ): Record<string, unknown>[] {
   return isLifecycleEventOf(row.type, row.aggregate_type) ? lifecycleSections(payload) : [payload];
 }
 
 async function scrubPayload(
-  row: EventRow,
+  row: ScrubEventRow,
   options: ScrubEventPayloadOptions,
 ): Promise<{ readonly payload: Record<string, unknown>; readonly scrubbed: number }> {
   const payload = structuredClone(row.payload);
@@ -131,14 +126,11 @@ async function scrubOneBatch(
 ): Promise<{ readonly lastEventId: string | null; readonly scannedAll: boolean }> {
   const { options, totals } = args;
   return db.begin(async (tx: DbRunner) => {
-    const raw = asRawClient(tx);
-    const rows = await raw.unsafe<EventRow>(
-      `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
-         FROM "kumiko_events"
-        WHERE "type" = $1 AND "id" > $2::bigint
-        ORDER BY "id" ASC
-        LIMIT $3`,
-      [options.eventType, args.afterEventId, args.batchSize],
+    const rows = await selectEventsOfTypeAfter(
+      tx,
+      options.eventType,
+      args.afterEventId,
+      args.batchSize,
     );
     const last = rows[rows.length - 1];
     if (last === undefined) return { lastEventId: null, scannedAll: true };
@@ -152,20 +144,13 @@ async function scrubOneBatch(
       totals.scrubbedEvents++;
       totals.scrubbedFields += scrubbed;
       if (options.dryRun) continue;
-      await raw.unsafe(`UPDATE "kumiko_events" SET "payload" = $1::jsonb WHERE "id" = $2`, [
-        payload,
-        row.id,
-      ]);
+      await replaceEventPayload(tx, row.id, payload);
       touchedAggregates.add(row.aggregate_id);
       touchedAggregateTypes.add(row.aggregate_type);
     }
 
     if (touchedAggregates.size > 0) {
-      const deleted = await raw.unsafe(
-        `DELETE FROM "kumiko_snapshots" WHERE "aggregate_id" = ANY($1::uuid[]) RETURNING "aggregate_id"`,
-        [toPostgresArrayLiteral([...touchedAggregates])],
-      );
-      totals.deletedSnapshots += deleted.length;
+      totals.deletedSnapshots += await deleteSnapshotsOfAggregates(tx, [...touchedAggregates]);
       const tables = affectedProjectionTables(
         registry,
         touchedAggregateTypes,
