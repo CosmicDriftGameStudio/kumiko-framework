@@ -5,7 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo, useState } from "react";
 import { DocumentContentEditor } from "../../template-resolver/web/index.ts";
-import { effectiveBodyFormat } from "../constants.ts";
+import { effectiveBodyFormat } from "./constants.ts";
 import { detectLossyMarkdown, type LossyMarkdownFeature } from "./lossy-markdown.ts";
 import { markdownToDocumentHtml } from "./markdown-to-document.ts";
 
