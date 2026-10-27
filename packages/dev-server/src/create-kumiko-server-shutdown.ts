@@ -1,4 +1,5 @@
 /// <reference types="bun-types" preserve="true" />
+import type { RedisSseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DevDbMode, DevJobRunners } from "./create-kumiko-server-stack.ts";
 import { type BunServer, logError, logInfo } from "./dev-server-runtime.ts";
@@ -35,10 +36,12 @@ export type DevServerStopDeps = {
   readonly stack: TestStack;
   readonly devJobRunners: DevJobRunners;
   readonly dbMode: DevDbMode;
+  readonly ownedRedisSseBroker: RedisSseBroker | undefined;
 };
 
 export function createDevServerStop(deps: DevServerStopDeps): () => Promise<void> {
-  const { watcherAbort, killTailwind, server, stack, devJobRunners, dbMode } = deps;
+  const { watcherAbort, killTailwind, server, stack, devJobRunners, dbMode, ownedRedisSseBroker } =
+    deps;
   return async () => {
     // Stop the watcher first so no onChange callback runs during teardown;
     // otherwise removing the temporary directory could trigger process.exit(75).
@@ -51,6 +54,7 @@ export function createDevServerStop(deps: DevServerStopDeps): () => Promise<void
       await stack.eventDispatcher.stop();
     }
     await devJobRunners.stop();
+    await ownedRedisSseBroker?.close();
     const rawRedis = dbMode.persistentDb
       ? undefined
       : stack.redis.redis.duplicate({ keyPrefix: "" });

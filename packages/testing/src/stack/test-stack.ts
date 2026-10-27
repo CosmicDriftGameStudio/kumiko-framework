@@ -129,6 +129,8 @@ export type TestStackOptions = {
   /** Inject a process lifecycle so tests can drain() and observe
    *  /health/ready flipping to 503. Omit if the suite doesn't care. */
   lifecycle?: Lifecycle;
+  /** Replaces the default in-memory broker; the caller owns its lifecycle. */
+  sseBroker?: SseBroker;
   /** Wire L1 (global-IP) and/or L2 (auth-endpoint) rate-limit middleware.
    *  The resolver is auto-built from the test Redis. Mirrors
    *  buildServer's `rateLimit` option 1:1 — see there for shape. */

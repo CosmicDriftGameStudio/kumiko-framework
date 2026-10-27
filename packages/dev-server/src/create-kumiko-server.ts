@@ -255,6 +255,9 @@ export type KumikoServerHandle = {
   /** BullMQ queue-name prefix of this boot: per-boot in ephemeral mode, so
    *  its `bull:<prefix>-*` keys belong to this server alone on a shared Redis. */
   readonly jobQueueNamePrefix: string;
+  /** KUMIKO_REDIS_CHANNEL_PREFIX value of this boot's SSE broker; a separate worker
+   *  must set the same value for its live signals to reach this server. */
+  readonly sseChannelPrefix: string;
 };
 
 // Under Node the handle's .fetch() is the test surface. Bun.serve options come
@@ -286,7 +289,7 @@ export async function createKumikoServer(
   const templates = await loadHtmlTemplates(entries, options.htmlPath);
 
   const dbMode = resolveDevDbMode(process.env);
-  const stack = await bootDevStack(options, dbMode);
+  const { stack, ownedRedisSseBroker } = await bootDevStack(options, dbMode);
   const devJobRunners = await startDevBackgroundRunners(stack, dbMode.jobQueueNamePrefix);
   // Built once purely to surface authoring warnings (settings-hub placement
   // etc.) at the same point prod would; clients fetch the schema themselves
@@ -316,6 +319,7 @@ export async function createKumikoServer(
     stack,
     devJobRunners,
     dbMode,
+    ownedRedisSseBroker,
   });
   startDevFileWatchers({
     entries,
@@ -337,5 +341,12 @@ export async function createKumikoServer(
           : ""),
     );
   }
-  return { fetch: handleFetch, server, stack, stop, jobQueueNamePrefix: dbMode.jobQueueNamePrefix };
+  return {
+    fetch: handleFetch,
+    server,
+    stack,
+    stop,
+    jobQueueNamePrefix: dbMode.jobQueueNamePrefix,
+    sseChannelPrefix: dbMode.sseChannelPrefix,
+  };
 }

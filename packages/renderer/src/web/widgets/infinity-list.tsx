@@ -158,6 +158,13 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     };
   }, [load]);
 
+  // Trailing debounce + in-flight coalesce: bulk SSE storms must not fan out
+  // into one query per event. A refresh already running schedules
+  // exactly one trailing pass after it settles.
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveInFlightRef = useRef(false);
+  const liveTrailingRef = useRef(false);
+
   // Live-mode: on an SSE event for the query's entity, refetch only the
   // first page and merge it in — rows the fresh page still contains move
   // to the front (newest-first feeds), rows it dropped (edited/deleted
@@ -172,7 +179,12 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     // rows bumps (below), because those are newer than the running load's.
     const seqAtStart = requestSeq.current;
     const res = await dispatcher.query<TData>(query, { ...payload, limit: pageSize });
-    if (seqAtStart !== requestSeq.current) return;
+    if (seqAtStart !== requestSeq.current) {
+      // A load-more bumps the sequence without covering page 1, so the signal that
+      // triggered this refresh would otherwise be lost.
+      liveTrailingRef.current = true;
+      return;
+    }
     // skip: background live refresh failed, keep showing the current rows
     if (!res.isSuccess) return;
     const freshRows = rowsRef.current(res.data);
@@ -208,13 +220,6 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
       return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };
     });
   }, [dispatcher, query, pageSize, payloadKey]);
-
-  // Trailing debounce + in-flight coalesce: bulk SSE storms must not fan out
-  // into one query per event. A refresh already running schedules
-  // exactly one trailing pass after it settles.
-  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const liveInFlightRef = useRef(false);
-  const liveTrailingRef = useRef(false);
 
   useEffect(() => {
     // skip: live mode off, no SSE subscription needed
