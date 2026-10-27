@@ -22,11 +22,11 @@ Each mailbox shows its state:
 
 The quarantine count shows how many mails could not be imported. "Confirm quarantine" in the row menu marks them as seen; the mailbox returns to active on its next sync.
 
-### Reconnect after a sign-in error
+### Reactivate after a sign-in error
 
-![Row menu of a mailbox with failed sign-in: Reconnect and Disconnect](/screenshots/inbound-mail/accounts-reconnect-menu.png)
+![Row menu of a mailbox with failed sign-in: Reactivate and Disconnect](/screenshots/inbound-mail/accounts-reconnect-menu.png)
 
-"Reconnect" opens the connect form for the same mailbox. The name stays read-only; the admin enters the new password and clicks "Check and reconnect":
+"Reactivate" opens the connect form for the same mailbox. The name stays read-only; the admin enters the new password and clicks "Check and reconnect":
 
 ![Reconnect form for the mailbox Orders](/screenshots/inbound-mail/reconnect-imap.png)
 
