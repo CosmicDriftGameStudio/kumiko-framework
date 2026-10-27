@@ -450,6 +450,7 @@ export function defineEntityWriteHandler(
         // they rely on to intentionally force a fresh event/ciphertext.
         return executor.update(payload, event.user, db, {
           streamTenantId,
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
           skipUnchanged: true,
           preSave:
             runPreSave &&
@@ -463,7 +464,10 @@ export function defineEntityWriteHandler(
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
         const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
-        return executor.delete(payload, event.user, db, { streamTenantId });
+        return executor.delete(payload, event.user, db, {
+          streamTenantId,
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
+        });
       };
       break;
     case "restore":
@@ -472,7 +476,10 @@ export function defineEntityWriteHandler(
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
         const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
-        return executor.restore(payload, event.user, db, { streamTenantId });
+        return executor.restore(payload, event.user, db, {
+          streamTenantId,
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
+        });
       };
       break;
     default:

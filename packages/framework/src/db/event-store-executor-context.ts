@@ -1,3 +1,4 @@
+import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { requestContext } from "../api/request-context.ts";
@@ -45,6 +46,7 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
 import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
+import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
@@ -215,6 +217,12 @@ export type ExecutorContext = {
     streamTenantId: TenantId,
     aggregateId: string,
   ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
+  readonly isRowReadable: (
+    id: EntityId,
+    user: SessionUser,
+    db: TenantDb,
+    parentVisibility: ParentVisibilityOption | undefined,
+  ) => Promise<boolean>;
   readonly loadDetailSnapshot: (
     db: TenantDb,
     idWhere: WhereObject,
@@ -595,6 +603,36 @@ export function buildExecutorContext(
     return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
   }
 
+  // Same read predicate detail applies (access.read plus the parent-ref gate), evaluated
+  // for one row. The row's own isDeleted is not filtered because restore targets a
+  // soft-deleted row; includeDeleted below only concerns the parent host. Writers use it
+  // to treat an unreadable row as nonexistent.
+  async function isRowReadable(
+    id: EntityId,
+    user: SessionUser,
+    db: TenantDb,
+    parentVisibility: ParentVisibilityOption | undefined,
+  ): Promise<boolean> {
+    const ownership = resolveReadOwnership(
+      { entity, table },
+      String(schemaTableName(table)),
+      user,
+      db,
+      parentVisibility,
+      { includeDeleted: false, narrowTypes: undefined },
+    );
+    if (ownership.kind === "pass") return true;
+    if (ownership.kind === "empty") return false;
+    const tableName = String(schemaTableName(table));
+    const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
+      tenantDbRunner(db),
+      `SELECT 1 AS "__readable" FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`,
+      params,
+    );
+    return rows.length > 0;
+  }
+
   // Row and MAX(version) in ONE statement: two reads can pair a post-write
   // version with a pre-write row, and update({version: detail.version}) would
   // then pass the optimistic lock and overwrite the newer write (lost update).
@@ -703,6 +741,7 @@ export function buildExecutorContext(
     loadById,
     assertStreamWritable,
     probeOwnershipWithStreamVersion,
+    isRowReadable,
     loadDetailSnapshot,
     loadExpectSnapshot,
     encryptForStorage,

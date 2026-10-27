@@ -269,7 +269,7 @@ describe("entity-level WRITE: create/update/delete/restore", () => {
       { id: opsRow.id, version: opsRow.version, changes: { title: "grabbed" } },
       managerEng,
     );
-    expectErrorIncludes(err, "ownership_denied");
+    expectErrorIncludes(err, "not_found");
   });
 
   test("Manager eng CANNOT rewrite teamId on their own row (row-grab via column move)", async () => {
@@ -298,7 +298,7 @@ describe("entity-level WRITE: create/update/delete/restore", () => {
       { id: opsRow.id },
       managerEng,
     );
-    expectErrorIncludes(err, "ownership_denied");
+    expectErrorIncludes(err, "not_found");
     expect(await detail(admin, opsRow.id)).not.toBeNull();
   });
 
@@ -316,7 +316,7 @@ describe("entity-level WRITE: create/update/delete/restore", () => {
       { id: opsRow.id },
       managerEng,
     );
-    expectErrorIncludes(err, "ownership_denied");
+    expectErrorIncludes(err, "not_found");
   });
 
   test("Admin 'all' short-circuit: every write succeeds regardless of row", async () => {
@@ -409,18 +409,15 @@ describe("field-level WRITE: individual fields fail-loud", () => {
     expectErrorIncludes(err, "access_denied");
   });
 
-  test("TeamMember ops CANNOT write propC on eng row (ownership denied, fail-loud)", async () => {
-    // Entity-level write on ops user against eng row would already fail at
-    // the entity-level check. To exercise the field-level path explicitly,
-    // teamOps would need entity-level access which it doesn't have — so
-    // the entity-level check fires first. Asserting the error code is
-    // sufficient: ops can't touch eng's row.
+  test("TeamMember ops CANNOT write propC on eng row (unreadable row reads as not_found)", async () => {
+    // teamOps cannot read the eng row, so the write is rejected as not_found before any
+    // field-level check runs: ops can't touch eng's row.
     const err = await stack.http.writeErr(
       "h2contracts:write:contract:update",
       { id: engRow.id, version: engRow.version, changes: { propC: "rogue" } },
       teamOps,
     );
-    expectErrorIncludes(err, "ownership_denied");
+    expectErrorIncludes(err, "not_found");
   });
 
   test("TeamMember eng CAN write propC on their own team row", async () => {

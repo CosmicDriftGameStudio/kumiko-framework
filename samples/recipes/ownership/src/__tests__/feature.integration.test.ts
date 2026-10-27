@@ -168,14 +168,14 @@ describe("entity-level write: create/update/delete blocked on foreign rows", () 
   });
 
   test("TeamMember eng CANNOT update the ops row (not visible → not modifiable)", async () => {
-    // The row exists but entity-level ownership rejects the update.
-    // version is guessed — doesn't matter, the ownership check fires first.
+    // The row exists, but a row the caller cannot read answers like a missing
+    // one, so the write does not reveal it. The guessed version never matters.
     const err = await stack.http.writeErr(
       "contracts:write:contract:update",
       { id: opsRowId, version: 1, changes: { propA: "hack" } },
       teamMemberEng,
     );
-    expectErrorIncludes(err, "ownership_denied");
+    expectErrorIncludes(err, "not_found");
   });
 
   test("TeamMember eng CANNOT move their row to another team (teamId rewrite blocked)", async () => {
