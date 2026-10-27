@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "request-helper sessions carry a realistic IP and user agent",
+    "detail": "Sessions the request helper opens record a documentation-range IP and a desktop Chrome user agent instead of \"test\" and \"request-helper\", so seeded sample apps show plausible rows on My sessions."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "kumiko-testing exports main(argv, io)",

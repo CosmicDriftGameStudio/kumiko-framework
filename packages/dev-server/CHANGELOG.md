@@ -1,5 +1,62 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.394.0
+
+### Patch Changes
+
+- a91f814: New `events prune` command removes whole aggregate types from the event log.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: events prune removes retired aggregate types from the event log
+  detail: `@cosmicdrift/kumiko-framework/events-cli` exports `runEventsCli(argv, out, { features, rowLevelSecurity? })`. `events prune --aggregate-type <type> [--aggregate-type <type> ...]` reports events, aggregates and tenants per type; with `--apply` it deletes, in one transaction and in system scope, the events, snapshots, archive markers and dead letters of these types and empties the projections fed only by them. A projection that also reads other types makes the run refuse. Unknown or empty types fail without deleting anything. Use it when old events of a retired type break the rebuild of `schema apply`. Apps add `if (cmd === "events")` to `bin/kumiko.ts`; new scaffolds get it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded bin/kumiko.ts dispatches events
+  detail: The generated standalone CLI now forwards `events` to `runEventsCli` with the app's features and row level security mode.
+  -->
+- Updated dependencies [a91f814]
+- Updated dependencies [6effc06]
+- Updated dependencies [5760047]
+- Updated dependencies [5760047]
+- Updated dependencies [5760047]
+- Updated dependencies [5760047]
+- Updated dependencies [0a3288c]
+- Updated dependencies [b638ec7]
+- Updated dependencies [307f9cb]
+- Updated dependencies [6831978]
+- Updated dependencies [a91f814]
+- Updated dependencies [9638cd4]
+- Updated dependencies [ddfbdbb]
+- Updated dependencies [9c4e277]
+- Updated dependencies [9638cd4]
+- Updated dependencies [9638cd4]
+- Updated dependencies [9638cd4]
+- Updated dependencies [d24b405]
+- Updated dependencies [eecf6fa]
+- Updated dependencies [9638cd4]
+- Updated dependencies [d40dded]
+- Updated dependencies [9c4e277]
+- Updated dependencies [9c4e277]
+- Updated dependencies [a91f814]
+- Updated dependencies [a91f814]
+- Updated dependencies [b638ec7]
+- Updated dependencies [b638ec7]
+- Updated dependencies [307f9cb]
+  - @cosmicdrift/kumiko-bundled-features@0.394.0
+  - @cosmicdrift/kumiko-framework@0.394.0
+  - @cosmicdrift/kumiko-renderer@0.394.0
+  - @cosmicdrift/kumiko-testing@0.394.0
+  - @cosmicdrift/kumiko-types@0.394.0
+  - @cosmicdrift/kumiko-feature-ast@0.394.0
+  - @cosmicdrift/kumiko-guards@0.394.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.394.0
+  - @cosmicdrift/kumiko-server-runtime@0.394.0
+
 ## 0.393.0
 
 ### Patch Changes

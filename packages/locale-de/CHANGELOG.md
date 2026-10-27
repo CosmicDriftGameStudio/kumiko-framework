@@ -1,5 +1,223 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.394.0
+
+### Minor Changes
+
+- 9c4e277: Imported mails keep their full text, the original and their attachments. A mail the provider cannot parse no longer blocks a mailbox, a mailbox that stops syncing says so, a disconnected mailbox can come back without duplicates, and a new or reactivated mailbox syncs right away.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Imported mails store full text, original and attachments
+  detail: ingest-message now takes bodyText (at most 32,000 characters, cut with bodyTextTruncated set; 32,000 keeps a long mail readable while one event, one projection row and the PII-encrypted column stay small, the original keeps everything), rawMime, bodyHtml, attachments (at most 50) and skippedAttachments (at most 200). The original is stored as .eml (or .html for HTML-only mails) and each attachment as a file reference through file storage; apps without a file provider still import the mail, mark contentState unavailable and show the mailbox as interrupted. The event inbound-message-received is now v2 with an upcast that defaults the new fields; bodyText is personal tenant data. The new query inbound-mail-foundation:query:message:content returns text, original reference and attachments of one mail; message:list never carries the body. Retention removes the mail row, its body object and its attachment files. RawInboundMessage gains text, html, attachments and skippedAttachments.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: improvement
+  title: The IMAP provider reads text, HTML and attachments
+  detail: The provider parses full mails. Inline images are skipped, forwarded message/rfc822 mails are unpacked up to depth 3, and the limits are 25 MB per attachment, 50 MB per mail and 50 attachments; everything skipped is reported in skippedAttachments with its reason. The new plugin method fetchContent reloads the content of a mail by provider id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: A mail that cannot be parsed is quarantined instead of blocking the mailbox
+  detail: A mail the provider reports as rejected, or whose ingest fails, is normalized where possible and otherwise stored in the unmanaged table store_mail_quarantine; every message is isolated in the supervisor, so the rest of the batch imports and the sync cursor moves on. An ingest failure only counts against a mail once a later mail of the batch succeeded, and the third counted failure quarantines it as ingest_failed; an outage of the database, KMS or file storage never quarantines good mail and never moves the cursor past an unhandled mail. The account list shows quarantinedCount and lastError, the new handler acknowledge-quarantine confirms the entries, acknowledged entries are purged by retention after 90 days, and the tenant-destroy hook removes them.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: A mailbox that stops syncing shows as interrupted with a reason
+  detail: The account events mail-account-connected and mail-account-updated are v2 with lastError (connection_failed, rate_limited, message_quarantined, file_storage_unavailable). Three failed polls in a row set the status degraded, shown as Unterbrochen in German; the next successful poll sets it back to active. New key in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: A disconnected mailbox is reactivated under the same account
+  detail: The new handler reactivate-account puts a disconnected mailbox back to active with its stream and sync cursor, so no mail is imported twice. connect-account refuses an address that is already connected (address_already_connected) or disconnected (address_disconnected) and reopens a disconnected OAuth mailbox in place; connect-routes answers 409 with the reason. reconnect-mailbox now also accepts a disconnected account.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Snippet-only mails get their content reloaded
+  detail: Mails imported before this change carry only a snippet. The supervisor asks the provider for their content through fetchContent and stores it with attach-message-content (event inbound-message-content-fetched v1); a mail the server no longer has becomes unavailable and is not asked for again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: IMAP and SMTP hosts given as IP addresses connect over TLS
+  detail: imapflow passes servername false for an IP literal, which Bun's TLS rejects, so such mailboxes could not connect. The IMAP client now sets an undefined servername; nodemailer already omits it for SMTP.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Connected, reconnected and reactivated mailboxes sync immediately
+  detail: A per-instance event consumer wakes the supervisor on a new or active-again mailbox, which syncs once right away instead of waiting for the next poll. A sync of one account never runs twice at the same time. A woken sync that finds the credential not stored yet (the OAuth secret is written after the account) sets no status and leaves it to the next tick; stop() waits for running syncs.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: The first sync after an OAuth connect no longer waits for the next poll
+  detail: The OAuth callback now dispatches the internal handler mark-credential-stored once the refresh token is saved, so the sync that the account commit triggers earlier than the token is repeated as soon as the credential exists. Originals above 50 MB are not stored; they are listed in skippedAttachments as message/rfc822 with reason too_large while text and attachments are kept. attach-message-content no longer accepts a caller-supplied bodyRef.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Outgoing mail carries attachments
+  detail: sendMailFromAccount takes attachmentFileIds (at most 10 file references of the caller's tenant, at most 18 MB together, duplicates dropped). The bytes are read through file storage and sent over SMTP and stored in the sent folder unchanged; an unknown or foreign file gives mail_send_attachment_invalid, too many bytes mail_send_attachments_too_large, and nothing is sent. The plugin method send now receives the resolved attachments as a fourth argument and returns ProviderSentMail. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: A hanging mailbox no longer blocks the others
+  detail: The supervisor syncs up to 4 accounts at the same time (pollConcurrency), skips an account whose previous sync is still running, and abandons a sync after 10 minutes (accountPollDeadlineMs) as one failed poll; plugin.fetch and plugin.fetchContent receive an AbortSignal, and an abandoned sync stores nothing and moves no cursor. The IMAP client sets connection (20 s) and greeting (16 s) timeouts explicitly.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: r.job event triggers can catch up on stored events
+  detail: trigger { on, catchUp: true } gives the job its own event consumer job:<jobQn> that starts at the beginning of the event store, so events from before the job existed run it too, once per event (job id derived from job QN and event id). Every "on" entry must be an r.defineEvent event, otherwise boot fails. The job is no longer fired by the shared job-trigger consumer. JobRunner gains handleCatchUpEvent.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Sender authentication (SPF, DKIM, DMARC) of imported mails
+  detail: inbound-message-received v2 carries senderAuthentication ({ authservId, spf, dkim, dkimDomains, dmarc, fromDomain } or null; verdicts pass, fail, none, unknown; dkimDomains at most 10), stored as JSON text in read_inbound_messages.sender_authentication and returned by message:content and loadInboundMessageContent; isSenderAuthenticated is true only for a dmarc pass. The mail account has a new optional trustedAuthservId (events mail-account-* v2, read_mail_accounts.trusted_authserv_id, input of connect-account, update-account, reactivate-account and the IMAP connect and reconnect forms). Only the first Authentication-Results header from the top whose authserv-id equals it counts; without an id, without such a header or when its header.from domain differs from the From domain the result is null, and a dmarc result without header.from is unknown. Headers below the trusted one are ignored, so a sender cannot inject a pass. Mails imported before, and content refetched later, have null. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Mail account handlers are stricter and the trusted authserv-id has its own handler
+  detail: trustedAuthservId is no longer accepted by connect-account, update-account and reactivate-account (strict schemas reject unknown keys); set it with the new set-trusted-authserv-id (SystemAdmin, TenantAdmin, not model-callable). update-account accepts status, lastError, watchState and reason only from the system identity; connect-account is no longer exposed to agents. reactivate-account checks the account owner (unless the OAuth override is set), fails with credential_required when a password account has no stored credential, and reopens an account in place only with that override; disconnect-account deletes the stored secret. Outgoing attachments must pass the file read check of the sender, and SendMailFromAccountContext needs dispatch. New screen "Absenderprüfung" edits the id. The watch supervisor and the IMAP forms use mapWithConcurrency and implicit TLS on port 465 for SMTPS.
+  migration: |
+    Drop trustedAuthservId from connect-account, update-account and reactivate-account payloads and dispatch set-trusted-authserv-id after connecting. Wrapping or agent setups that called connect-account as a model tool need their own exposed handler. Callers of sendMailFromAccount pass a context that includes dispatch. Personal mailboxes are reactivated by their owner only; after disconnect-account a new credential must be stored before reactivate-account.
+  -->
+- d40dded: Members connect a personal IMAP mailbox themselves.
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: improvement
+  title: Members connect a personal IMAP mailbox from "My mail accounts"
+  detail: The new write handler inbound-provider-imap:write:connect-my-mailbox (every mail member role, not exposed to the agent, 10 calls per user in 10 minutes) takes the connect-mailbox fields without trustedAuthservId, checks the IMAP and SMTP login first and creates a mailbox owned by the caller. A disconnected personal mailbox of the caller with the same address is reactivated under its old account id; an address that belongs to another user or to a shared mailbox is refused with the usual conflict answer. connect-account stays admin-only; the handler creates the personal account through the system identity with the owner taken from the caller session, never from the payload. The dormant screen my-mail-account-connect-imap (exported as MY_IMAP_CONNECT_SCREEN_ID) is reached from the new "Connect mailbox" toolbar action of my-mail-accounts; it has no sender-check field, that policy stays with the admin form. New keys in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: The IMAP watch quarantines an unparseable mail right away
+  detail: A mail the MIME parser cannot handle used to be dropped by the live watch and reached the quarantine only with the next reconciliation poll, up to five minutes later. The provider watch handler now passes such mails to `handlers.onMessages(messages, rejected)` and the supervisor quarantines them through the same ingest path as the poll. `onMessages` takes an optional second argument, so existing providers are unaffected. A failed account health update after a quarantine now logs the error code of the rejected write.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Supervisor and OAuth callback writes work when the app roles leave out SystemAdmin
+  detail: `update-account`, `connect-account` and `reactivate-account` are dispatched as the system user by the watch supervisor, the account health and the OAuth callback, but their access list held only the configured `adminRoles`/`memberRoles`. An app whose roles exclude SystemAdmin saw every health, watch-state and callback write refused ("health update was rejected"), so mailboxes never showed `degraded`. These three handlers now also accept SystemAdmin (the list is `SYSTEM_DISPATCHED_MAIL_HANDLERS`). `isMailAdmin`, screens and what real users may do stay on the configured roles.
+  -->
+
+### Patch Changes
+
+- 307f9cb: Content collection trees and the text block editor follow the server's access rules, and an edit screen opened to create names itself accordingly.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: collection trees and Save follow the server's access rules
+  detail: textBlocksClient({ tenantId }) no longer sends tenantIdOverride for `ownership: "user"` collections, and a tenant-wide tree that the server answers with tenant_override_requires_system_admin reloads on the session tenant, so members see and edit their own entries instead of an error. The Save button follows the collection's own access rule (DEFAULT_COLLECTION_ACCESS when none is declared), the same rule the list, item and set handlers check; the public text-block pair keeps TenantAdmin or SystemAdmin. A save reloads the tree of its collection, so a new per-user entry shows without a page reload. The editor sets the page header title to the entry title, so the breadcrumb no longer shows the screen behind it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: edit screens opened without a record use screen:<id>.createTitle
+  detail: When a detail screen is opened without an entity id and the feature translates `screen:<id>.createTitle`, the breadcrumb and page title use it instead of the edit title. managed-pages names its create state "New page".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: compliance profile labels are English
+  detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) were German in the English source; locale packages keep their option translations, and the compliance-profiles catalog now shows those translations instead of the raw source label. Authority names such as the de-hr authority contact stay as the authority calls itself.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: request-helper sessions carry a realistic IP and user agent
+  detail: Sessions the request helper opens record a documentation-range IP and a desktop Chrome user agent instead of "test" and "request-helper", so seeded sample apps show plausible rows on My sessions.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: resizable tables size columns by content until the user resizes one
+  detail: With `table.resizing` on (also through `bundledLists`), columns without a schema `width` no longer start at a flat 160px. The table keeps the auto layout and sizes them by content until the user drags or arrow-keys a column; that first resize stores the displayed widths of the other columns too, so nothing jumps. The first column of a resizable table breaks only when the table runs out of width, and a clickable first cell wraps instead of truncating, and dates and timestamps (also through a `format` renderer) stay on one line. `onWidthChange` gets an optional third argument with those widths. Stored widths from earlier sessions still apply; a browser that saved any view setting before this release still holds the old 160px widths until the view is reset. Apps with `bundledLists.table.resizing` (use-all-bundled, solon) see wider name columns and narrower leftover space on first visit.
+  -->
+- d24b405: Inbound mail with configurable roles and private personal mailboxes
+  
+  `createInboundMailFoundationFeature` and `createInboundProviderImapFeature` take `{ userRoles, adminRoles }` (defaults `User` and `TenantAdmin`/`SystemAdmin`); a boot check rejects deviating options. The mail of a personal mailbox (messages, body, attachments, quarantine) is now readable by its owner only, not by admins; admins still see the account metadata and manage shared mailboxes. The owner reactivates a personal IMAP mailbox in the new "My mailboxes" flow. The content-fetched event is version 3 and carries `accountId` and `ownerUserId` (null for older events). `EntityDefinition.attachedFileAccess: "record-only"` keeps the files privileged roles from reading or deleting attached files, and `createDefaultGuard` takes the matching fourth parameter. `SendMailFromAccountContext.dispatch` is query-only. A live list now resyncs on every stream open and an infinity list adopts a refresh that lands during its first load.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Personal mail is private to its owner, roles are configurable
+  detail: Admins no longer read messages, bodies, attachments or quarantine of a personal mailbox; list-accounts still shows them the account without counts. The screens and the IMAP handlers are factories (createMailAccountListScreen, createImapConnectScreen and others) taking the resolved roles instead of constants. The content-fetched event is version 3 with accountId and ownerUserId. createDefaultGuard has a fourth parameter recordOnlyEntityTypes; for those entity types the files privilegedRoles no longer read or delete attached files (shared mailboxes included), only the uploader and readers of the record do. The OAuth connect route answers 403 mail_role_required to callers without a mail role.
+  migration: |
+    Apps that import mailAccountListScreen, mailAccountEditScreen, mailAccountSenderCheckScreen, myMailAccountListScreen, mailQuarantineScreen, imapConnectScreen or imapReconnectScreen call the matching create*Screen factory with resolveInboundMailRoles(). Apps with their own roles pass { userRoles, adminRoles } to createInboundMailFoundationFeature and the same options to createInboundProviderImapFeature. Callers of createDefaultGuard pass a Set of record-only entity types as fourth argument. Code that read personal mail as an admin must run as the owner; the nullable accountId and ownerUserId on content-fetched events need no action.
+  -->
+- a91f814: Dashboards can embed a projectionDetail as a screen panel, list toolbar actions can be gated with `visibleWhen`, a screen `fallback` can pick its screen by failure reason, and the live-signal entity name now comes from one shared `toKebab`. All additions are optional.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A projectionDetail can be a dashboard screen panel
+  detail: A `screen` panel or its `fallback` may point at a projectionDetail. The id comes from the host dashboard's `record` binding and is passed to the embedded screen as its entityId. Boot fails when the host dashboard has no `record`. Header, fields and Detail query render inline in the tile.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Toolbar actions accept visibleWhen
+  detail: Every toolbar action of a projectionList or entityList takes an optional `visibleWhen` ({ query, field, eq }). The button shows only while the live query matches; it stays hidden while the query loads and when it fails. Buttons gating on the same query share one request. Boot checks the query, its output field and that it needs no input. relatedList toolbar actions reject `visibleWhen`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screen fallback can depend on the failure reason
+  detail: A screen-level `fallback` is either a screen id (unchanged) or a map `{ hidden, forbidden, notFound, error }`. `forbidden` is a 403 and `notFound` a 404 on the gate query; `hidden` is an unmet condition; `error` is any other failure. A reason without an entry shows a default notice (new keys kumiko.screen.forbidden and kumiko.screen.notFound) and `error` shows an error banner with retry. Boot rejects an empty map and checks each entry like a string fallback.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Live signals for entity names with uppercase runs reach the client
+  detail: `toKebab` now lives once in `@cosmicdrift/kumiko-types/kebab-case` and is used by the server read-access keys, the qualified-name helpers and the renderer. Before, the renderer and server copies could diverge for names like `aiURLCheck`, so a screen subscribed to a name the server never signalled. Boot now fails when two entities of different features fold to the same key (`billing.period` and `billingPeriod`), instead of merging their read rules.
+  -->
+- Updated dependencies [6effc06]
+- Updated dependencies [307f9cb]
+- Updated dependencies [6831978]
+- Updated dependencies [a91f814]
+- Updated dependencies [9638cd4]
+- Updated dependencies [9c4e277]
+- Updated dependencies [d24b405]
+- Updated dependencies [9638cd4]
+- Updated dependencies [a91f814]
+  - @cosmicdrift/kumiko-framework@0.394.0
+
 ## 0.393.0
 
 ### Minor Changes

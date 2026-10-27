@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "authorizeOneOffCheckout hook gates one-off checkouts per tenant",
+    "detail": "BillingFoundationOptions.authorizeOneOffCheckout runs before every one-off (mode payment) checkout, after the oneOffPriceIds gate and before any provider call. A rejection becomes an UnprocessableError with the hook's reason as code. Without the hook the behavior is unchanged."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "One-off checkouts reuse the tenant's provider customer",
+    "detail": "create-checkout-session with mode payment and no providerCustomerId now passes the customer id of the tenant's own subscription at the same provider, so Stripe also receives the customer on one-off checkouts. The foreign-customer guard still applies."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "PaymentEvent carries the bought quantity",
+    "detail": "PaymentEvent.quantity (absent means 1) reaches the stored payment-received event payload, which stays readable for events stored before. Apps that grant credits per pack have to multiply by it. No read-model column."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Plan-switch preview shows the recurring price gross",
+    "detail": "PlanSwitchPreview.recurringAmount and recurringTax carry the provider's gross recurring price; the confirm dialog shows them with the tax when set and falls back to the catalog price otherwise. subscription-paddle fills them from recurring_transaction_details."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Plan cards can show a note under the price",
+    "detail": "`BillingPlanCatalog.priceNoteKey` (an app i18n key) renders a small note under the price of every plan card, e.g. \"plus VAT\" when catalog prices are net. `PlanCardPrice` gets an optional `note`."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "Revoking one termination no longer resumes a subscription another termination still cancels",

@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.394.0
+
+### Patch Changes
+
+- ddfbdbb: kumiko-guards declares @cosmicdrift/kumiko-types as a dependency. Its guards import kumiko-types at runtime, so an install without the framework next to it failed with "Cannot find module '@cosmicdrift/kumiko-types/handlers'".
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: kumiko-guards declares its kumiko-types dependency
+  detail: error-reasons, app-dockerfile and check-subpath-exports import @cosmicdrift/kumiko-types at runtime, but the package listed only ts-morph and zod. Installs that get kumiko-types through the framework kept working; an install of kumiko-guards alone failed on that import. The framework stays an optional peer, so run the guards from a project that installs it. Apps that install the framework need no change.
+  -->
+- Updated dependencies [6effc06]
+- Updated dependencies [307f9cb]
+- Updated dependencies [6831978]
+- Updated dependencies [a91f814]
+- Updated dependencies [9638cd4]
+- Updated dependencies [9c4e277]
+- Updated dependencies [d24b405]
+- Updated dependencies [eecf6fa]
+- Updated dependencies [9638cd4]
+- Updated dependencies [a91f814]
+  - @cosmicdrift/kumiko-framework@0.394.0
+  - @cosmicdrift/kumiko-types@0.394.0
+
 ## 0.393.0
 
 ### Patch Changes

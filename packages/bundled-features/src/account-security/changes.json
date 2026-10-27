@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "account-security nav has a default icon and an icon option",
+    "detail": "The nav entry shows the `user` icon by default. `nav.icon` takes any nav icon key to override it, so apps no longer need their own nav entry just for an icon."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "Client-safe account-security/constants subpath",

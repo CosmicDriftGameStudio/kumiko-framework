@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "collection trees and Save follow the server's access rules",
+    "detail": "textBlocksClient({ tenantId }) no longer sends tenantIdOverride for `ownership: \"user\"` collections, and a tenant-wide tree that the server answers with tenant_override_requires_system_admin reloads on the session tenant, so members see and edit their own entries instead of an error. The Save button follows the collection's own access rule (DEFAULT_COLLECTION_ACCESS when none is declared), the same rule the list, item and set handlers check; the public text-block pair keeps TenantAdmin or SystemAdmin. A save reloads the tree of its collection, so a new per-user entry shows without a page reload. The editor sets the page header title to the entry title, so the breadcrumb no longer shows the screen behind it."
+  },
+  {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "user-owned collection entries no longer fail with pii_ciphertext_leak",
+    "detail": "With a PII key service configured, the list and item queries of an `ownership: \"user\"` collection (signatures) returned the stored ciphertext, so the API rejected the response and the editor showed \"Could not load block\". Both queries now decrypt `content` for the owner before returning it."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "Rail inserts no longer do nothing after the placeholder labels load",

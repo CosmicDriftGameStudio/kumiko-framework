@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "edit screens opened without a record use screen:<id>.createTitle",
+    "detail": "When a detail screen is opened without an entity id and the feature translates `screen:<id>.createTitle`, the breadcrumb and page title use it instead of the edit title. managed-pages names its create state \"New page\"."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "resizable tables size columns by content until the user resizes one",
+    "detail": "With `table.resizing` on (also through `bundledLists`), columns without a schema `width` no longer start at a flat 160px. The table keeps the auto layout and sizes them by content until the user drags or arrow-keys a column; that first resize stores the displayed widths of the other columns too, so nothing jumps. The first column of a resizable table breaks only when the table runs out of width, and a clickable first cell wraps instead of truncating, and dates and timestamps (also through a `format` renderer) stay on one line. `onWidthChange` gets an optional third argument with those widths. Stored widths from earlier sessions still apply; a browser that saved any view setting before this release still holds the old 160px widths until the view is reset. Apps with `bundledLists.table.resizing` (use-all-bundled, solon) see wider name columns and narrower leftover space on first visit."
+  },
+  {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "Floating panel keeps its distance to the window edge",
+    "detail": "Moving, resizing and window resizes clamp the panel 16px inside the viewport instead of at the border. On a window resize the panel keeps its gap to the nearer horizontal and vertical edge, so a bottom-right panel no longer sticks to the right border when the window narrows. Stored geometry stays valid and is only clamped again."
+  },
+  {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "One copy of Radix dismissable layers",
+    "detail": "Dialog, Popover, DropdownMenu and Toast now come from the radix-ui package instead of the single @radix-ui/react-* packages, which dropped nine direct dependencies. A root override pins @radix-ui/react-dialog to 1.3.1 because cmdk would otherwise pull an older dialog with its own react-dismissable-layer. Apps that import @radix-ui/react-* themselves, or add cmdk, should align their own lockfile to one react-dialog version."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "A projectionDetail can be a dashboard screen panel",
+    "detail": "A `screen` panel or its `fallback` may point at a projectionDetail. The id comes from the host dashboard's `record` binding and is passed to the embedded screen as its entityId. Boot fails when the host dashboard has no `record`. Header, fields and Detail query render inline in the tile."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Toolbar actions accept visibleWhen",
+    "detail": "Every toolbar action of a projectionList or entityList takes an optional `visibleWhen` ({ query, field, eq }). The button shows only while the live query matches; it stays hidden while the query loads and when it fails. Buttons gating on the same query share one request. Boot checks the query, its output field and that it needs no input. relatedList toolbar actions reject `visibleWhen`."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Screen fallback can depend on the failure reason",
+    "detail": "A screen-level `fallback` is either a screen id (unchanged) or a map `{ hidden, forbidden, notFound, error }`. `forbidden` is a 403 and `notFound` a 404 on the gate query; `hidden` is an unmet condition; `error` is any other failure. A reason without an entry shows a default notice (new keys kumiko.screen.forbidden and kumiko.screen.notFound) and `error` shows an error banner with retry. Boot rejects an empty map and checks each entry like a string fallback."
+  },
+  {
     "version": "0.392.1",
     "type": "fix",
     "title": "List descriptions sit beside the toolbar actions",

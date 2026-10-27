@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Scaffolded bin/kumiko.ts dispatches events",
+    "detail": "The generated standalone CLI now forwards `events` to `runEventsCli` with the app's features and row level security mode."
+  },
+  {
     "version": "0.392.1",
     "type": "fix",
     "title": "New apps start on infra reusables v1.2.4",

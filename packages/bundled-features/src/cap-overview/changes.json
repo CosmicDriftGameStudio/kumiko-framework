@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Add CapSpec.showLimit to hide a cap's limit from the dashboard",
+    "detail": "showLimit: false makes caps:usage send limit null so the card shows the counter only; cap-counter enforcement is unchanged."
+  },
+  {
     "version": "0.392.1",
     "type": "fix",
     "title": "Cap cards \"view all\" link uses the primary link style",
