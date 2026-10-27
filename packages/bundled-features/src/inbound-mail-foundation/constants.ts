@@ -1,5 +1,10 @@
-// Feature name
-export const INBOUND_MAIL_FOUNDATION_FEATURE = "inbound-mail-foundation" as const;
+import { INBOUND_MAIL_FOUNDATION_FEATURE } from "./web/constants.ts";
+
+export {
+  INBOUND_MAIL_CONNECT_PATH,
+  INBOUND_MAIL_FOUNDATION_FEATURE,
+  INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
+} from "./web/constants.ts";
 
 // Extension-point name for provider plugins (inbound-provider-imap,
 // inbound-provider-m365-graph, inbound-provider-gmail-rest, ...).
@@ -128,11 +133,6 @@ export const MailAccountReactivationPaths = {
 } as const;
 export type MailAccountReactivationPath =
   (typeof MailAccountReactivationPaths)[keyof typeof MailAccountReactivationPaths];
-
-/** Default mount path of the OAuth connect route; the web client builds the reconnect link from it. */
-export const INBOUND_MAIL_CONNECT_PATH = "/api/inbound-mail/connect";
-/** Client action of the "Reconnect" row action: sends the browser to the OAuth connect route. */
-export const INBOUND_MAIL_RECONNECT_OAUTH_ACTION = `${INBOUND_MAIL_FOUNDATION_FEATURE}:reconnect-oauth`;
 
 // **Multi-provider:** no global `provider` config key
 // (unlike mail-foundation, as with billing-foundation). A tenant can connect

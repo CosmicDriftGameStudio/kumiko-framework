@@ -1,4 +1,4 @@
-// Client feature for inbound-mail-foundation. The mail account screens offer "Reconnect" for an OAuth
+// Client feature for inbound-mail-foundation. The mail account screens offer "Reactivate" for an OAuth
 // mailbox as a clientAction: signing in again is a browser redirect into the same connect route and
 // callback that created the mailbox, which a writeHandler cannot do.
 
@@ -8,7 +8,7 @@ import {
   INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
-} from "../constants.ts";
+} from "./constants.ts";
 
 export type InboundMailFoundationClientOptions = {
   /** Mount path of the connect route, when the app moved it (`connectPath` of
