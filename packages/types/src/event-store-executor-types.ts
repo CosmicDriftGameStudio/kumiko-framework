@@ -16,6 +16,10 @@ export type ParentVisibilityOption = {
   readonly entities: ReadonlyMap<string, EntityDefinition>;
 };
 
+// Writes apply the same parent-ref read-gate as detail, so a join row whose host the
+// caller cannot read is not writable either. Absent → ungated, like detail without it.
+export type ParentVisibilityGateOption = { readonly parentVisibility?: ParentVisibilityOption };
+
 // Runs the caller's preSave hooks against changes not yet persisted, for
 // the executor's create()/update() only — restore/delete/forget have no
 // `changes` to shape. See HandlerContext.runPreSave for how this gets bound
@@ -111,7 +115,8 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     user: SessionUser,
     db: TenantDb,
     options?: StreamTenantOption &
-      LockGuardOption & {
+      LockGuardOption &
+      ParentVisibilityGateOption & {
         skipOptimisticLock?: boolean;
         skipUnchanged?: boolean;
         // Server-code only (never forwarded by the generic update handler): also
@@ -142,7 +147,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & LockGuardOption,
+    options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   // Hard-purge (Art. 17 erasure). Like delete, but emits `<entity>.forgotten`
@@ -153,14 +158,14 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption,
+    options?: StreamTenantOption & ParentVisibilityGateOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption,
+    options?: StreamTenantOption & ParentVisibilityGateOption,
   ) => Promise<WriteResult<SaveContext>>;
 
   list: (

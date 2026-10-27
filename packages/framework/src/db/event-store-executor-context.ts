@@ -1,3 +1,4 @@
+import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { requestContext } from "../api/request-context.ts";
@@ -15,7 +16,7 @@ import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transiti
 import type { ErasedSubjectHandling } from "../crypto/pii-field-encryption.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import type { WhereObject } from "../db/query.ts";
-import { buildOwnershipClause, shiftParams } from "../engine/ownership.ts";
+import { shiftParams } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -45,6 +46,7 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
 import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
+import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
@@ -215,7 +217,12 @@ export type ExecutorContext = {
     streamTenantId: TenantId,
     aggregateId: string,
   ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
-  readonly isRowReadable: (id: EntityId, user: SessionUser, db: TenantDb) => Promise<boolean>;
+  readonly isRowReadable: (
+    id: EntityId,
+    user: SessionUser,
+    db: TenantDb,
+    parentVisibility: ParentVisibilityOption | undefined,
+  ) => Promise<boolean>;
   readonly loadDetailSnapshot: (
     db: TenantDb,
     idWhere: WhereObject,
@@ -596,11 +603,23 @@ export function buildExecutorContext(
     return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
   }
 
-  // Same entity-level access.read predicate detail/list apply, evaluated for one row
-  // (soft-deleted rows included: restore targets them). Writers use it to treat an
-  // unreadable row as nonexistent.
-  async function isRowReadable(id: EntityId, user: SessionUser, db: TenantDb): Promise<boolean> {
-    const ownership = buildOwnershipClause(user, entity.access?.read, table);
+  // Same read predicate detail applies (access.read plus the parent-ref gate), evaluated
+  // for one row; the row itself may be soft-deleted (restore targets it). Writers use it
+  // to treat an unreadable row as nonexistent.
+  async function isRowReadable(
+    id: EntityId,
+    user: SessionUser,
+    db: TenantDb,
+    parentVisibility: ParentVisibilityOption | undefined,
+  ): Promise<boolean> {
+    const ownership = resolveReadOwnership(
+      { entity, table },
+      String(schemaTableName(table)),
+      user,
+      db,
+      parentVisibility,
+      { includeDeleted: false, narrowTypes: undefined },
+    );
     if (ownership.kind === "pass") return true;
     if (ownership.kind === "empty") return false;
     const tableName = String(schemaTableName(table));

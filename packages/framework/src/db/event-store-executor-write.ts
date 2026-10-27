@@ -1,3 +1,4 @@
+import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
@@ -110,8 +111,11 @@ export function createWriteVerbs(
     id: EntityId,
     user: SessionUser,
     db: TenantDb,
+    parentVisibility: ParentVisibilityOption | undefined,
   ): Promise<WriteFailure | undefined> {
-    if (isFrameworkSystemUser(user) || (await isRowReadable(id, user, db))) return undefined;
+    if (isFrameworkSystemUser(user) || (await isRowReadable(id, user, db, parentVisibility))) {
+      return undefined;
+    }
     return writeFailure(new NotFoundError(entityName, id));
   }
 
@@ -774,7 +778,12 @@ export function createWriteVerbs(
         includeDeleted: updateOptions?.includeDeleted === true,
       });
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
-      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      const unreadable = await unreadableRowFailure(
+        payload.id,
+        user,
+        db,
+        updateOptions?.parentVisibility,
+      );
       if (unreadable) return unreadable;
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
@@ -877,7 +886,12 @@ export function createWriteVerbs(
       const runner = tenantDbWriteRunner(db, "ctx.db executor delete");
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
-      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      const unreadable = await unreadableRowFailure(
+        payload.id,
+        user,
+        db,
+        options?.parentVisibility,
+      );
       if (unreadable) return unreadable;
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, existing, streamTenantId);
@@ -987,7 +1001,12 @@ export function createWriteVerbs(
       const runner = tenantDbWriteRunner(db, "ctx.db executor forget");
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
-      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      const unreadable = await unreadableRowFailure(
+        payload.id,
+        user,
+        db,
+        options?.parentVisibility,
+      );
       if (unreadable) return unreadable;
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, raw, streamTenantId);
@@ -1088,7 +1107,12 @@ export function createWriteVerbs(
       const streamTenantId = options?.streamTenantId;
       const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
       if ("failure" in target) return target.failure;
-      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      const unreadable = await unreadableRowFailure(
+        payload.id,
+        user,
+        db,
+        options?.parentVisibility,
+      );
       if (unreadable) return unreadable;
       const data = target.row;
 
