@@ -315,7 +315,7 @@ export async function buildStackServices(
 
   // Wire SSE broker with event collector — built early (not just before
   // buildServer) because extraContext + the job context below both need it.
-  const sseBroker = createSseBroker();
+  const sseBroker = options.sseBroker ?? createSseBroker();
   sseBroker.addClient(
     "tenant:00000000-0000-4000-8000-000000000001",
     (event) => events.sse.push(event),

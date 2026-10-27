@@ -1,4 +1,9 @@
 import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  createDefaultSseBroker,
+  type RedisSseBroker,
+  type SseBroker,
+} from "@cosmicdrift/kumiko-framework/api";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
@@ -21,6 +26,7 @@ export type DevDbMode = {
   readonly devDbName: string | undefined;
   readonly persistentDb: boolean;
   readonly jobQueueNamePrefix: string;
+  readonly sseChannelPrefix: string;
 };
 
 export type DevJobRunners = Awaited<ReturnType<typeof startDevJobRunners>>;
@@ -41,15 +47,20 @@ export function resolveDevDbMode(processEnv: Record<string, string | undefined>)
   const jobQueueNamePrefix = persistentDb
     ? `kumiko-dev-${devDbName}`
     : `kumiko-dev-${crypto.randomUUID()}`;
-  return { devDbName, persistentDb, jobQueueNamePrefix };
+  // Pub/Sub ignores the DB index, so the SSE channels need the same per-boot
+  // isolation as the queues; an explicit env value wins so a worker can be pointed at it.
+  const sseChannelPrefix = processEnv["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim() || jobQueueNamePrefix;
+  return { devDbName, persistentDb, jobQueueNamePrefix, sseChannelPrefix };
 }
 
 function buildDevStackOptions(
   options: CreateKumikoServerOptions,
   dbMode: DevDbMode,
+  sseBroker: SseBroker,
 ): TestStackOptions {
   return {
     features: options.features,
+    sseBroker,
     ...(dbMode.persistentDb && { dbName: dbMode.devDbName, persistentDb: true }),
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
@@ -70,18 +81,36 @@ function buildDevStackOptions(
   };
 }
 
+export type DevStackBoot = {
+  readonly stack: TestStack;
+  readonly ownedRedisSseBroker: RedisSseBroker | undefined;
+};
+
 export async function bootDevStack(
   options: CreateKumikoServerOptions,
   dbMode: DevDbMode,
-): Promise<TestStack> {
+): Promise<DevStackBoot> {
   logInfo(
     `[kumiko-server] booting Kumiko stack${
       dbMode.persistentDb ? ` — persistent DB "${dbMode.devDbName}"` : " — ephemeral test DB"
     }…`,
   );
-  const stack = await setupTestStack(buildDevStackOptions(options, dbMode));
-  await createEventsTable(stack.unscopedDb);
-  await pushEntityProjectionTables(stack, stack.registry);
+  // setupTestStack defaults to an in-memory broker, which would make this
+  // process ignore Redis: live signals published by a separate worker process
+  // would then never reach the browsers connected here.
+  const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker({
+    ...process.env,
+    KUMIKO_REDIS_CHANNEL_PREFIX: dbMode.sseChannelPrefix,
+  });
+  let stack: TestStack;
+  try {
+    stack = await setupTestStack(buildDevStackOptions(options, dbMode, sseBroker));
+    await createEventsTable(stack.unscopedDb);
+    await pushEntityProjectionTables(stack, stack.registry);
+  } catch (err) {
+    await ownedRedisSseBroker?.close();
+    throw err;
+  }
 
   // `extraRoutes` is already mounted by setupTestStack's buildServer();
   // `wire` is for co-running components that need the system-write
@@ -106,7 +135,7 @@ export async function bootDevStack(
   if (options.onAfterSetup !== undefined) {
     await options.onAfterSetup(stack);
   }
-  return stack;
+  return { stack, ownedRedisSseBroker };
 }
 
 // setupTestStack configures but does not start the event dispatcher so
