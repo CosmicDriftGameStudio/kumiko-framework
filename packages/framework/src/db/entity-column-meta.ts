@@ -122,7 +122,8 @@ const COLUMN_META_EMITTERS: { readonly [K in FieldType]: ColumnMetaEmitter<K> } 
   money: moneyColumnMeta,
   embedded: (snake, field) =>
     jsonbColumn(snake, field.multiple === true ? EMPTY_JSONB_ARRAY : EMPTY_JSONB_OBJECT),
-  jsonb: (snake) => jsonbColumn(snake, EMPTY_JSONB_OBJECT),
+  jsonb: (snake, field) =>
+    jsonbColumn(snake, field.emptyValue === "array" ? EMPTY_JSONB_ARRAY : EMPTY_JSONB_OBJECT),
   // Real PG `date` — Temporal.PlainDate, no time-of-day/timezone component.
   date: (snake, field) => requiredColumn(snake, "date", field),
   timestamp: (snake, field) => requiredColumn(snake, "timestamptz", field),

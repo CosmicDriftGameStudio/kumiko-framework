@@ -260,6 +260,10 @@ export type RetentionDef = {
   readonly reference?: string;
 };
 
+/** Where rows without a value sort in a list, in both directions. Without it Postgres decides:
+ *  last ascending, first descending. */
+export type SortNulls = "first" | "last";
+
 export type TextFieldDef = {
   readonly type: "text";
   /** Optional free-text semantics for the AI agent manifest — never rendered;
@@ -275,6 +279,7 @@ export type TextFieldDef = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   /** Allows screen filters on this field.
    *  The boot validator rejects filters with `filterable !== true`.
    *  Default: false, analogous to `sortable`, and therefore opt-in. */
@@ -356,6 +361,7 @@ export type BooleanFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: boolean;
@@ -411,6 +417,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly options: TOptions;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
@@ -503,6 +510,7 @@ export type NumberFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -538,6 +546,7 @@ export type BigIntFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -563,6 +572,7 @@ export type DecimalFieldDef = {
   readonly scale: number;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -591,6 +601,7 @@ export type MoneyFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -640,6 +651,7 @@ export type ReferenceFieldDef = {
    *  boot validator rejects it otherwise, since ordering by a UUID produces a
    *  sequence that looks meaningful to the user but is arbitrary. */
   readonly sortable?: true;
+  readonly sortNulls?: SortNulls;
   /** Fill the picker from this query handler instead of the referenced
    *  entity's own list handler — for targets whose identity is
    *  composed from joined rows, where no single column of the referenced
@@ -795,6 +807,9 @@ export type EmbeddedFieldDef = {
 export type JsonbFieldDef = {
   readonly type: "jsonb";
   readonly description?: string;
+  /** `"array"`: the field holds a JSON array, so a row that never wrote it reads `[]` and writes
+   *  take an array. Default `"object"` (`{}`, writes take a plain object). */
+  readonly emptyValue?: JsonbEmptyValue;
   readonly sensitive?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk
@@ -803,6 +818,8 @@ export type JsonbFieldDef = {
   readonly readAsInstruction?: boolean;
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
+
+export type JsonbEmptyValue = "object" | "array";
 
 // Legacy `date` — a JavaScript Date object with ambiguous semantics
 // (wall-clock time versus instant). For new fields, prefer:
@@ -816,6 +833,7 @@ export type DateFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -845,6 +863,7 @@ export type TimestampFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -901,6 +920,7 @@ export type LocatedTimestampFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;

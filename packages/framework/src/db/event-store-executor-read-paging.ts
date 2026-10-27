@@ -3,7 +3,7 @@ import type { DbRunner } from "./connection.ts";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import type { ListWhere } from "./event-store-executor-read-filter.ts";
-import { type ListSort, renderSortSql } from "./event-store-executor-read-sort.ts";
+import { type ListSort, renderSortSql, sortsNullsFirst } from "./event-store-executor-read-sort.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { physicalColumnName } from "./table-builder.ts";
 
@@ -53,19 +53,19 @@ function toCursorSortText(value: unknown): string | null | undefined {
   return undefined;
 }
 
-// Keyset boundary for `ORDER BY <sort> <dir>, id ASC` under Postgres' DEFAULT
-// null ordering (ASC → NULLS LAST, DESC → NULLS FIRST). An explicit NULLS clause
-// would change the visible order and cost the sort its index.
+// Keyset boundary for `ORDER BY <sort> <dir> [NULLS FIRST|LAST], id ASC`. Without a declared
+// `sortNulls` Postgres' default applies (ASC → NULLS LAST, DESC → NULLS FIRST), which keeps the
+// sort on a plain index; a declared one may need an index with the same NULLS order.
 function keysetBoundarySql(
   sortCol: string,
   idCol: string,
   cursor: { readonly id: string; readonly sortValue: string | null },
-  descending: boolean,
+  order: { readonly descending: boolean; readonly nullsComeFirst: boolean },
   params: unknown[],
 ): string {
   params.push(cursor.id);
   const afterId = `${idCol} > $${params.length}`;
-  const nullsComeFirst = descending;
+  const { descending, nullsComeFirst } = order;
   if (cursor.sortValue === null) {
     return nullsComeFirst
       ? `(${sortCol} IS NOT NULL OR ${afterId})`
@@ -95,7 +95,7 @@ export function appendCursorBoundary(
         renderSortSql(sort, where),
         where.colSql("id"),
         { id: cursor.id, sortValue: cursor.sortValue },
-        sort.descending,
+        { descending: sort.descending, nullsComeFirst: sortsNullsFirst(sort) },
         where.params,
       ),
     );

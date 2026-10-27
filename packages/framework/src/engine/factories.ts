@@ -404,7 +404,7 @@ export function createEmbeddedListField(
 }
 
 // Free-form jsonb column — see the `JsonbFieldDef` documentation. Schema-less,
-// defaults to `{}`, and is NOT NULL. Primarily used by the custom-fields
+// defaults to `{}` (`[]` with `emptyValue: "array"`), and is NOT NULL. Primarily used by the custom-fields
 // bundle for the host entity's `customFields` column; other valid uses include
 // tenant configuration blobs, AI-inferred metadata, and future tag arrays.
 export function createJsonbField(

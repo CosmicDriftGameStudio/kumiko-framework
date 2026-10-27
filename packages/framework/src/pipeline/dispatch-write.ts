@@ -693,6 +693,8 @@ async function guardFieldTransition(
   const currentValue =
     ((row as DbRow)[fieldName] as string | undefined) ??
     ((row as DbRow)[toSnakeCase(fieldName)] as string); // @cast-boundary engine-bridge
+  // skip: an unchanged value is no transition (an edit form resends the current status)
+  if (currentValue === newValue) return;
   guardTransition(
     getTransitions(ctx, { entityName, fieldName, map: transitionMap }),
     currentValue,
