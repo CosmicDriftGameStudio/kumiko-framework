@@ -3,7 +3,6 @@ import { createCipheriv, randomBytes } from "node:crypto";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
-  KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
   subjectIdFromKey,
