@@ -3,7 +3,8 @@
 // quarantined, and the immediate sync after a mailbox is re-activated.
 //
 // Opt-in like imap-foundation.integration.test.ts: skips visibly when greenmail is down. Every test
-// starts from an empty INBOX of the shared test user, so a dirty mailbox cannot hide a mail.
+// starts from an empty INBOX of its own greenmail user (contentuser), so a dirty mailbox cannot hide a mail
+// and no other suite loses mail. Local greenmail needs -Dgreenmail.users=testuser:testpass@example.com,contentuser:testpass@example.com.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -117,7 +118,7 @@ afterAll(async () => {
     process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = originalAllowedPrivateHostsEnv;
   }
   if (!available) return;
-  // The shared test user's INBOX is read by other suites that assume it holds only their own mail.
+  // contentuser belongs to this suite alone, so emptying its inbox cannot touch other suites.
   await purgeInbox();
   await stack.cleanup();
   resetPiiSubjectKmsForTests();
@@ -128,7 +129,7 @@ async function withInbox<T>(work: (client: ImapFlow) => Promise<T>): Promise<T> 
     host: HOST,
     port: IMAP_PORT,
     secure: false,
-    auth: { user: "testuser", pass: "testpass" },
+    auth: { user: "contentuser", pass: "testpass" },
     logger: false,
   });
   await client.connect();
@@ -173,7 +174,7 @@ async function connectImapAccount(admin: Admin, trustedAuthservId?: string): Pro
       provider: "imap",
       authMethod: "password",
       displayName: "Greenmail",
-      address: "testuser@example.com",
+      address: "contentuser@example.com",
       scope: "shared",
     },
     admin,
@@ -197,7 +198,7 @@ async function storeCredential(admin: Admin, accountId: string): Promise<void> {
       host: HOST,
       port: IMAP_PORT,
       secure: false,
-      user: "testuser",
+      user: "contentuser",
       password: "testpass",
     }),
   );
