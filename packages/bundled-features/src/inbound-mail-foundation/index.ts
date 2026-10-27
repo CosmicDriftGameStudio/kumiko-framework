@@ -88,6 +88,7 @@ export {
   type InboundMailRoles,
   readInboundMailRoles,
   resolveInboundMailRoles,
+  roleDedupeOptions,
 } from "./mail-roles.ts";
 export {
   INBOUND_ATTACHMENT_MAX_BYTES,

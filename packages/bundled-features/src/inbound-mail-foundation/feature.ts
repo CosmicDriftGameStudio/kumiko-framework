@@ -1,18 +1,15 @@
 // kumiko-feature-version: 1
-// inbound-mail-foundation — Plugin host for inbound e-mail
-// (inbox federation). Counterpart to mail-foundation (outbound): separate
-// extension points, separate state — architectural model is
-// file-foundation (the foundation owns state), not mail-transport.
+// inbound-mail-foundation: plugin host for inbound e-mail (inbox federation), the counterpart to
+// mail-foundation (outbound) with its own extension points and state. Modelled on file-foundation
+// (the foundation owns state), not on mail-transport.
 //
 // **What this foundation provides:**
-//   1. **Plugin API** for inbound providers via r.extendsRegistrar
-//      ("inboundMailProvider"): verify/fetch/oauth?/watch? (types.ts).
+//   1. **Plugin API** for providers via r.extendsRegistrar: verify/fetch/oauth?/watch? (types.ts).
 //   2. **3 event-sourced streams** — mail-account (lifecycle),
 //      inbound-message (exactly ONE received event per message, deterministic
 //      aggregateId ⇒ exactly-once despite at-least-once ingest),
 //      mail-thread (rollup), fully replayable for later consumers.
-//   3. **Inline projections** into read_mail_accounts /
-//      read_inbound_messages / read_mail_threads (read-your-own-write).
+//   3. **Inline projections** into read_mail_accounts/_inbound_messages/_mail_threads (RYOW).
 //   4. **Write/query handlers**: connect/update/disconnect-account,
 //      ingest-message (programmatic, SystemAdmin), account:list +
 //      message:list (PII-decrypted; personal mail only for its owner).
@@ -20,11 +17,10 @@
 // **Not here:** business semantics (intent, ticket, assignment, read/completed) belong to the
 // app consumer, for example an event job on inbound-message-received with its own projection.
 //
-// **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
-// — encrypted BEFORE every event append (the only write path), event log AND
-// projections carry ciphertext; tenant-destroy shreds the subject key
-// (crypto-shredding, the same pattern as billing-foundation). The destroy
-// hook additionally archives all streams + deletes the rows.
+// **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`, encrypted BEFORE every
+// event append (the only write path), so event log AND projections carry ciphertext; tenant-destroy
+// shreds the subject key (crypto-shredding, as in billing-foundation) and its hook additionally
+// archives all streams and deletes the rows.
 
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
@@ -73,7 +69,11 @@ import { createSetTrustedAuthservIdHandler } from "./handlers/set-trusted-authse
 import { createUpdateAccountHandler } from "./handlers/update-account.write.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "./i18n.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
-import { type InboundMailRoleOptions, resolveInboundMailRoles } from "./mail-roles.ts";
+import {
+  type InboundMailRoleOptions,
+  resolveInboundMailRoles,
+  roleDedupeOptions,
+} from "./mail-roles.ts";
 import { registerMailboxProbe } from "./probe.ts";
 import {
   applyInboundMessageContentFetched,
@@ -294,6 +294,6 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
       registerInboundMailRetentionJob(r);
       return { roles };
     },
-    Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
+    { dedupeOptions: roleDedupeOptions(roles) },
   );
 }

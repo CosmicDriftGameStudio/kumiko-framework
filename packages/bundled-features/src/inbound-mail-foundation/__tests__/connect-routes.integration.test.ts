@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { inboundCredentialSecretKey, mailAccountsProjectionTable } from "../index.ts";
@@ -70,6 +71,24 @@ describe("connect-routes — connect", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("provider_has_no_oauth_flow");
+  });
+
+  test("403 without a mail role, for a personal mailbox too", async () => {
+    const outsider = createTestUser({
+      id: 4305,
+      tenantId: testTenantId(4305),
+      roles: ["Accountant"],
+    });
+    for (const scope of ["user", "shared"]) {
+      const res = await getConnect(
+        `provider=${OAUTH_PROVIDER_KEY}&scope=${scope}&mailbox=me@acme.test`,
+        outsider,
+      );
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("mail_role_required");
+      expect(res.headers.get("location")).toBeNull();
+    }
   });
 
   test("302 redirect to provider authorize URL with signed state", async () => {

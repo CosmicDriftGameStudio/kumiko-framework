@@ -61,6 +61,33 @@ async function reactivateIfReopened(
   return reactivated.isSuccess ? undefined : connectFailureResponse(c, reactivated.error);
 }
 
+// The callback connects as a system user, so connect-account's role rules (mail member at all,
+// admin for a shared mailbox) have to hold here, before the signed state is handed out.
+function connectRoleRefusal(
+  c: Context,
+  deps: UserExtraRouteDeps,
+  scope: "user" | "shared",
+): Response | undefined {
+  const { memberRoles, adminRoles } = readInboundMailRoles(deps.registry);
+  if (!memberRoles.some((role) => deps.user.roles.includes(role))) {
+    return errorJson(
+      c,
+      403,
+      "mail_role_required",
+      `${INBOUND_MAIL_FOUNDATION_FEATURE}: connecting a mailbox needs one of the roles ${memberRoles.join(", ")}`,
+    );
+  }
+  if (scope === "shared" && !isMailAdmin(deps.user, adminRoles)) {
+    return errorJson(
+      c,
+      403,
+      "shared_mailbox_requires_admin",
+      `${INBOUND_MAIL_FOUNDATION_FEATURE}: only ${adminRoles.join(", ")} connect a shared mailbox`,
+    );
+  }
+  return undefined;
+}
+
 export type InboundMailConnectRoutesOptions = {
   /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
    *  secrets don't exist in secrets-v1). */
@@ -110,19 +137,8 @@ export function createInboundMailConnectRoutes(
         );
       }
 
-      // The callback connects as a system user, so connect-account's admin rule for shared mailboxes
-      // has to hold here, before the signed state is handed out.
-      if (
-        scope === "shared" &&
-        !isMailAdmin(deps.user, readInboundMailRoles(deps.registry).adminRoles)
-      ) {
-        return errorJson(
-          c,
-          403,
-          "shared_mailbox_requires_admin",
-          `${INBOUND_MAIL_FOUNDATION_FEATURE}: only TenantAdmin or SystemAdmin connect a shared mailbox`,
-        );
-      }
+      const refused = connectRoleRefusal(c, deps, scope);
+      if (refused) return refused;
 
       let plugin: ReturnType<typeof resolveInboundProviderForKey>;
       try {

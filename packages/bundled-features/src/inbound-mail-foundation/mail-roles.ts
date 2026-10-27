@@ -49,6 +49,14 @@ export function resolveInboundMailRoles(options: InboundMailRoleOptions = {}): I
   return { userRoles, adminRoles, memberRoles: [...new Set([...adminRoles, ...userRoles])] };
 }
 
+// dedupeOptions accept primitives only: equal role sets collapse, differing ones fail at boot.
+export function roleDedupeOptions(roles: InboundMailRoles): Readonly<Record<string, string>> {
+  return {
+    userRoles: [...roles.userRoles].sort().join(","),
+    adminRoles: [...roles.adminRoles].sort().join(","),
+  };
+}
+
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }

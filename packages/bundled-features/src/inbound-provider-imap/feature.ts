@@ -34,6 +34,7 @@ import {
   type MailAccountRecord,
   type RawInboundMessage,
   resolveInboundMailRoles,
+  roleDedupeOptions,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
@@ -292,6 +293,6 @@ export function createInboundProviderImapFeature(options: InboundMailRoleOptions
       r.screen(createMyImapReconnectScreen(roles));
       r.translations({ keys: INBOUND_PROVIDER_IMAP_I18N });
     },
-    Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
+    { dedupeOptions: roleDedupeOptions(roles) },
   );
 }
