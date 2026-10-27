@@ -11,6 +11,7 @@
     "screenshots": "bun x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts",
     "billing-gallery": "bun x playwright test --config=playwright.billing-gallery.config.ts",
     "docs-guides": "bun x playwright test e2e/docs-guides.screenshots.spec.ts --config=playwright.config.ts && bun x playwright test --config=playwright.billing-docs.config.ts",
+    "docs-content-editors": "bun x playwright test e2e/docs-content-editors.screenshots.spec.ts --config=playwright.config.ts",
     "e2e": "bun x playwright test e2e/mfa-login.spec.ts --config=playwright.config.ts",
     "gen:manifest": "bun run scripts/gen-feature-manifest.ts",
     "gen:sample-index": "bun run scripts/gen-sample-index.ts"

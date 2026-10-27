@@ -97,6 +97,7 @@ import {
 } from "@cosmicdrift/kumiko-dev-server/compose-stacks";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
@@ -334,6 +335,25 @@ export const APP_FEATURES = [
         nav: {
           label: "templateResolver:nav.signatures",
           workspaces: ["admin-shell:workspace:platform"],
+          // One signature per user: the "+" opens the editor on a fixed key, and the
+          // first save creates the entry, since the editor starts empty for an unknown key.
+          // client.tsx points every collection tree at the system tenant, so the target
+          // carries the same override; without it the entry lands in the session tenant
+          // and never shows up in the tree.
+          createAction: {
+            icon: "plus",
+            label: "New signature",
+            target: {
+              featureId: "template-resolver",
+              action: "edit",
+              args: {
+                slug: "default",
+                locale: "en",
+                collectionId: "signatures",
+                tenantIdOverride: SYSTEM_TENANT_ID,
+              },
+            },
+          },
         },
         contentFormat: "rich",
       },
@@ -352,12 +372,15 @@ export const APP_FEATURES = [
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
 
-  // managed-pages: requires config (auto-bundled). Smoke resolver never serves
-  // (boot-only). allowCustomCss:true boot-validates the CSS code path + emits
+  // managed-pages: requires config (auto-bundled). Every host resolves to the dev tenant, so the
+  // seeded published page renders under /p/<slug> for the docs. allowCustomCss:true boot-validates the CSS code path + emits
   // the branding-custom-css key into the manifest. The managed-pages-css
   // companion toggle is handler-less, has no subpath export, and is recipe-
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
-  createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
+  createManagedPagesFeature({
+    resolveApexTenant: () => DEV_TENANT_ID as TenantId,
+    allowCustomCss: true,
+  }),
 
   // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages above.
   createDocumentDesignerFeature(),
