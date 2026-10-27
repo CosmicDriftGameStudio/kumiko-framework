@@ -1,5 +1,6 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CSRF_HEADER_NAME, readCsrfToken } from "../../live/index.ts";
+import { isSessionEndedError } from "../../session/session-ended.tsx";
 import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.ts";
 
 export type FileRefTarget = Pick<
@@ -12,9 +13,20 @@ export class FileUploadFailedError extends Error {
   constructor(
     message: string,
     readonly fromServer: boolean,
+    readonly httpStatus?: number,
+    readonly code?: string,
   ) {
     super(message);
   }
+}
+
+export function isSessionEndedUploadError(cause: unknown): boolean {
+  return (
+    cause instanceof FileUploadFailedError &&
+    cause.code !== undefined &&
+    cause.httpStatus !== undefined &&
+    isSessionEndedError({ code: cause.code, httpStatus: cause.httpStatus })
+  );
 }
 
 /** Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id. */
@@ -29,9 +41,15 @@ export async function uploadFileRef(file: Blob, target?: FileRefTarget): Promise
   const id = propertyOf(json, "id");
   if (!res.ok || typeof id !== "string") {
     const message = propertyOf(json, "error");
+    const code = propertyOf(json, "code");
     throw typeof message === "string"
-      ? new FileUploadFailedError(message, true)
-      : new FileUploadFailedError(`upload failed (${res.status})`, false);
+      ? new FileUploadFailedError(
+          message,
+          true,
+          res.status,
+          typeof code === "string" ? code : undefined,
+        )
+      : new FileUploadFailedError(`upload failed (${res.status})`, false, res.status);
   }
   return id;
 }

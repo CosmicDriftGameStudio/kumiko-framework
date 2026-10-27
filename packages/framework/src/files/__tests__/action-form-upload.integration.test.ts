@@ -339,31 +339,52 @@ describe("upload with an actionForm that is open to anonymous callers", () => {
     });
   });
 
-  test("an anonymous visitor gets 403 and nothing is stored", async () => {
-    const openProvider = createInMemoryFileProvider();
-    const openStack = await setupTestStack({
-      features: [createFilesFeature(), openFeature],
-      files: { storageProvider: openProvider },
-      anonymousAccess: { defaultTenantId: testTenantId(1) },
-    });
-    try {
-      const fd = new FormData();
-      fd.append("actionForm", OPEN_FORM);
-      fd.append("fieldName", "docs");
-      fd.append("file", new File([Buffer.from(PDF_BYTES)], "doc.pdf", { type: "application/pdf" }));
-      const { body, contentType } = await buildMultipartBody(fd);
+  const anonymousUploadTargets: Record<string, Record<string, string>> = {
+    "an actionForm": { actionForm: OPEN_FORM, fieldName: "docs" },
+    "no target": {},
+    "an entityId": {
+      entityType: "doc",
+      entityId: "11111111-2222-4333-8444-555555555555",
+      fieldName: "docs",
+    },
+  };
 
-      const res = await openStack.app.request("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": contentType },
-        body,
+  test.each(Object.keys(anonymousUploadTargets))(
+    "an anonymous visitor uploading with %s gets 401 unauthenticated and nothing is stored",
+    async (targetName) => {
+      const openProvider = createInMemoryFileProvider();
+      const openStack = await setupTestStack({
+        features: [createFilesFeature(), openFeature],
+        files: { storageProvider: openProvider },
+        anonymousAccess: { defaultTenantId: testTenantId(1) },
       });
+      try {
+        const fd = new FormData();
+        for (const [key, value] of Object.entries(anonymousUploadTargets[targetName] ?? {})) {
+          fd.append(key, value);
+        }
+        fd.append(
+          "file",
+          new File([Buffer.from(PDF_BYTES)], "doc.pdf", { type: "application/pdf" }),
+        );
+        const { body, contentType } = await buildMultipartBody(fd);
 
-      expect(res.status).toBe(403);
-      expect(await selectMany(openStack.db, fileRefsTable, {})).toEqual([]);
-      expect(openProvider.keys()).toEqual([]);
-    } finally {
-      await openStack.cleanup();
-    }
-  });
+        const res = await openStack.app.request("/api/files", {
+          method: "POST",
+          headers: { "Content-Type": contentType },
+          body,
+        });
+
+        expect(res.status).toBe(401);
+        expect(await res.json()).toEqual({
+          error: "unauthenticated: sign in to upload files",
+          code: "unauthenticated",
+        });
+        expect(await selectMany(openStack.db, fileRefsTable, {})).toEqual([]);
+        expect(openProvider.keys()).toEqual([]);
+      } finally {
+        await openStack.cleanup();
+      }
+    },
+  );
 });

@@ -2,7 +2,7 @@ import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import type { RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-types/write-error-info-types";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getUser } from "../api/auth-middleware.ts";
 import { requestContext } from "../api/request-context.ts";
@@ -126,6 +126,14 @@ export type FileRoutesOptions = {
   // of existing files.
   readonly canWriteRecord?: RecordWriteCheck;
 };
+
+// 401 (not 403) lets the client tell a revoked or expired session from a missing permission.
+function unauthenticatedUploadResponse(c: Context): Response {
+  return c.json(
+    { error: "unauthenticated: sign in to upload files", code: "unauthenticated" },
+    401,
+  );
+}
 
 // 15 minutes — long enough for a download to start, short enough that a
 // leaked URL (e.g. from a browser history screenshot) isn't a long-lived
@@ -278,6 +286,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // POST /files — multipart upload.
   api.post("/files", uploadBodyLimit, async (c) => {
     const user = getUser(c);
+    // Anonymous visitors share one user id and cannot bind pending uploads (bind-pending-file-refs),
+    // so an anonymous upload could never be used; 401 lets the client tell an ended session apart.
+    if (isAnonymousSessionUser(user)) return unauthenticatedUploadResponse(c);
     const body = await c.req.parseBody();
     const file = body["file"];
 
@@ -302,12 +313,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     // Before any bytes are written, like the record check below. An unresolvable screen falls
     // through to storeFileAsFileRef, which answers 400; a known one must be submittable by the
-    // caller. Anonymous callers cannot bind pending uploads, so they get no upload either.
+    // caller.
     if (
       actionForm !== undefined &&
       options.registry !== undefined &&
       options.registry.getScreen(actionForm)?.type === "actionForm" &&
-      (isAnonymousSessionUser(user) || !mayUseActionForm(options.registry, actionForm, user))
+      !mayUseActionForm(options.registry, actionForm, user)
     ) {
       return c.json({ error: "forbidden: no access to this form" }, 403);
     }
