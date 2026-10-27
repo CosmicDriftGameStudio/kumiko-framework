@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.397.0",
+    "type": "fix",
+    "title": "Editors skip the branding query without managed-pages",
+    "detail": "The layout editor and the PDF template editor queried managed-pages:query:branding unconditionally. In an app without managed-pages that query has no handler and answered 404 each time an editor opened. They now check the app schema for managed-pages first and show branding as unavailable without asking."
+  },
+  {
     "version": "0.390.0",
     "type": "improvement",
     "title": "PDF editor actions drop unreachable null checks",

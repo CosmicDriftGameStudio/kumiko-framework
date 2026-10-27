@@ -1,5 +1,64 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.397.0
+
+### Minor Changes
+
+- e771b3d: `scrubEventPayloadFields(db, registry, { eventType, fields, reason, shouldScrub?, dryRun? })` from `@cosmicdrift/kumiko-framework/migrations` replaces chosen payload fields of stored events with `[[erased]]` and rebuilds the projections fed by them, for personal data that crypto-shredding cannot reach.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Scrub primitive for event payload fields
+  detail: Plaintext written before a field was declared personal without a subject to erase, or a ciphertext that no longer decrypts, stayed in `kumiko_events`, and the only way out was a raw `UPDATE` on the event store, which the event-store-writes guard rejects. The scrub walks the events of one type in batches, reaches the `changes` and `previous` sections of entity lifecycle events, lets `shouldScrub(value, candidate)` narrow the values (for example to those that throw `PiiCiphertextCorruptError`), drops the snapshots of touched streams and queues the affected projection and multi-stream projection tables in `kumiko_pending_rebuilds` in the same transaction, then rebuilds them; a failed rebuild stays queued. `reason` is required and placeholders are refused; `dryRun` only counts.
+  -->
+- 390025c: `createJsonbField({ emptyValue: "array" })` declares a jsonb field that holds an array: its column default is `'[]'::jsonb` instead of `'{}'::jsonb`, and writes accept an array instead of a plain object.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: jsonb fields can default to an empty array
+  detail: A jsonb field that stores a list had the fixed column default `{}`, so a row that never wrote it read an object while every other row read an array, and the generated write schema only accepted plain objects. `emptyValue: "array"` switches the column default to `[]` and the write schema to an array; the default stays `"object"`. The schema migration renders `ALTER COLUMN ... SET DEFAULT '[]'::jsonb`; existing rows that never wrote the field get `[]` with the next rebuild of the projection.
+  -->
+- 9be3d0d: `createFilesFeature({ pendingUploadGraceHours })` lets the hourly upload sweep soft-delete uploads for a form field that never got their record within that many hours (abandoned forms); the soft-delete cleanup then removes their bytes. Off by default.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Abandoned form uploads can expire
+  detail: An upload sent with entityType and fieldName but without a record stays pending until a save binds it. When the form was abandoned, the fileRef row and its bytes stayed forever without an owner that deletes them. With `pendingUploadGraceHours` the `files:job:sweep-orphaned-uploads` job soft-deletes such rows through the fileRef executor once they are older than the grace period. Uploads without a target field (inbox, dropzone) and files the system user created are kept. It is opt-in because an app that stores fileRef ids without binding them would lose those files.
+  -->
+- e771b3d: A PII value that does not decrypt under its subject key now rejects with `PiiCiphertextCorruptError` (code `pii_ciphertext_corrupt`, exported from `@cosmicdrift/kumiko-framework/crypto`), so a caller can tell a damaged value apart from a key store outage (`EncryptionUnavailableError`) and from a missing key (`KeyNotFoundError`).
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Corrupt PII ciphertext has its own error type
+  detail: `decryptPiiFieldValues`, `decryptPiiValueForSubject` and every read path built on them threw Node's generic "unable to authenticate data" error for a failed GCM auth tag, the same shape as any other failure. Now a failed auth tag, an AAD mismatch (value copied into another field or subject), a malformed ciphertext and an undecodable jsonb plaintext throw `PiiCiphertextCorruptError` with the field name; it is a KumikoError, so it keeps its code through the dispatcher. An export can blank one such row and still fail loud on an outage, which keeps its own `EncryptionUnavailableError`.
+  -->
+- 390025c: A sortable field takes `sortNulls: "first" | "last"`, which fixes where rows without a value appear in a list in both sort directions, so a `defaultSort` descending on a nullable timestamp no longer puts every row without a date on top.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: sortNulls places rows without a value in list sorting
+  detail: Without the option the list keeps Postgres' order (nulls last ascending, first descending), which a plain index serves. With `sortNulls` the list query adds `NULLS FIRST` or `NULLS LAST` to the order and the keyset cursor follows it, so paging across the rows without a value stays complete. A sort that must stay on an index needs an index with the same NULLS order.
+  -->
+
+### Patch Changes
+
+- 390025c: The auto transition guard lets a write through that resends the unchanged state value, so an edit form that sends every field no longer fails with `Invalid transition: "active" → "active"`, also not from a terminal state.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Transition guard ignores an unchanged state value
+  detail: An update whose `changes` carry the state field with the value the row already has is no transition, so the guard skips it instead of rejecting it as a self-transition that the map does not list. Before, a rename on a `sold` or `finished` row failed as soon as the client sent the current status along.
+  -->
+- Updated dependencies [390025c]
+- Updated dependencies [390025c]
+  - @cosmicdrift/kumiko-types@0.397.0
+
 ## 0.396.0
 
 ### Minor Changes

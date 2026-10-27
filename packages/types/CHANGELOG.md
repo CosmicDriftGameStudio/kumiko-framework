@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-types
 
+## 0.397.0
+
+### Minor Changes
+
+- 390025c: `createJsonbField({ emptyValue: "array" })` declares a jsonb field that holds an array: its column default is `'[]'::jsonb` instead of `'{}'::jsonb`, and writes accept an array instead of a plain object.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: jsonb fields can default to an empty array
+  detail: A jsonb field that stores a list had the fixed column default `{}`, so a row that never wrote it read an object while every other row read an array, and the generated write schema only accepted plain objects. `emptyValue: "array"` switches the column default to `[]` and the write schema to an array; the default stays `"object"`. The schema migration renders `ALTER COLUMN ... SET DEFAULT '[]'::jsonb`; existing rows that never wrote the field get `[]` with the next rebuild of the projection.
+  -->
+- 390025c: A sortable field takes `sortNulls: "first" | "last"`, which fixes where rows without a value appear in a list in both sort directions, so a `defaultSort` descending on a nullable timestamp no longer puts every row without a date on top.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: sortNulls places rows without a value in list sorting
+  detail: Without the option the list keeps Postgres' order (nulls last ascending, first descending), which a plain index serves. With `sortNulls` the list query adds `NULLS FIRST` or `NULLS LAST` to the order and the keyset cursor follows it, so paging across the rows without a value stays complete. A sort that must stay on an index needs an index with the same NULLS order.
+  -->
+
 ## 0.396.0
 
 ### Minor Changes
