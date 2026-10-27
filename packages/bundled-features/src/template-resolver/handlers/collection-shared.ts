@@ -1,3 +1,8 @@
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type {
@@ -41,6 +46,8 @@ export type CollectionStore = {
   scopeOf(user: SessionUser): Readonly<Record<string, unknown>>;
   /** Columns a create needs beyond the editable ones the payload carries. */
   createDefaults(tenantId: TenantId): Readonly<Record<string, unknown>>;
+  /** True when `content` is stored as PII ciphertext and must be decrypted on read. */
+  readonly contentIsPii: boolean;
 };
 
 // `ownership: "user"` means every user keeps their own entries (signatures);
@@ -55,6 +62,7 @@ export function collectionStore(collection: ContentCollectionDefinition): Collec
       executor: userContentExecutor,
       scopeOf: (user) => ({ ownerId: user.id }),
       createDefaults: () => ({}),
+      contentIsPii: true,
     };
   }
   return {
@@ -68,7 +76,24 @@ export function collectionStore(collection: ContentCollectionDefinition): Collec
       parentTemplateId: null,
       status: "active",
     }),
+    contentIsPii: false,
   };
+}
+
+// Raw reads return the stored column, which is ciphertext for a user-owned entry while a KMS
+// is configured; the API's leak guard rejects any response that still carries it.
+export async function readableCollectionEntry(
+  row: CollectionEntryRow,
+  store: CollectionStore,
+  fallbackRequestId: string,
+) {
+  const kms = configuredPiiSubjectKms();
+  if (!store.contentIsPii || !kms || row.content === null) return toCollectionEntry(row);
+  const decrypted = await decryptPiiFieldValues({ content: row.content }, ["content"], kms, {
+    requestId: requestContext.get()?.requestId ?? fallbackRequestId,
+  });
+  const content = decrypted["content"];
+  return toCollectionEntry({ ...row, content: typeof content === "string" ? content : null });
 }
 
 export function toCollectionEntry(row: CollectionEntryRow) {
