@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "kumiko-guards declares its kumiko-types dependency",
+    "detail": "error-reasons, app-dockerfile and check-subpath-exports import @cosmicdrift/kumiko-types at runtime, but the package listed only ts-morph and zod. Installs that get kumiko-types through the framework kept working; an install of kumiko-guards alone failed on that import. The framework stays an optional peer, so run the guards from a project that installs it. Apps that install the framework need no change."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "app-dockerfile and doc-status run as public repo checks",

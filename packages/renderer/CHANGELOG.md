@@ -1,5 +1,127 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.394.0
+
+### Minor Changes
+
+- 0a3288c: Plan cards can show a note under the price
+  
+  `BillingPlanCatalog.priceNoteKey` (an app i18n key) renders a small note under the price of every plan card, e.g. "plus VAT" when catalog prices are net. `PlanCardPrice` gets an optional `note`.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Plan cards can show a note under the price
+  -->
+- a91f814: Dashboards can embed a projectionDetail as a screen panel, list toolbar actions can be gated with `visibleWhen`, a screen `fallback` can pick its screen by failure reason, and the live-signal entity name now comes from one shared `toKebab`. All additions are optional.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A projectionDetail can be a dashboard screen panel
+  detail: A `screen` panel or its `fallback` may point at a projectionDetail. The id comes from the host dashboard's `record` binding and is passed to the embedded screen as its entityId. Boot fails when the host dashboard has no `record`. Header, fields and Detail query render inline in the tile.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Toolbar actions accept visibleWhen
+  detail: Every toolbar action of a projectionList or entityList takes an optional `visibleWhen` ({ query, field, eq }). The button shows only while the live query matches; it stays hidden while the query loads and when it fails. Buttons gating on the same query share one request. Boot checks the query, its output field and that it needs no input. relatedList toolbar actions reject `visibleWhen`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screen fallback can depend on the failure reason
+  detail: A screen-level `fallback` is either a screen id (unchanged) or a map `{ hidden, forbidden, notFound, error }`. `forbidden` is a 403 and `notFound` a 404 on the gate query; `hidden` is an unmet condition; `error` is any other failure. A reason without an entry shows a default notice (new keys kumiko.screen.forbidden and kumiko.screen.notFound) and `error` shows an error banner with retry. Boot rejects an empty map and checks each entry like a string fallback.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Live signals for entity names with uppercase runs reach the client
+  detail: `toKebab` now lives once in `@cosmicdrift/kumiko-types/kebab-case` and is used by the server read-access keys, the qualified-name helpers and the renderer. Before, the renderer and server copies could diverge for names like `aiURLCheck`, so a screen subscribed to a name the server never signalled. Boot now fails when two entities of different features fold to the same key (`billing.period` and `billingPeriod`), instead of merging their read rules.
+  -->
+
+### Patch Changes
+
+- 307f9cb: Content collection trees and the text block editor follow the server's access rules, and an edit screen opened to create names itself accordingly.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: collection trees and Save follow the server's access rules
+  detail: textBlocksClient({ tenantId }) no longer sends tenantIdOverride for `ownership: "user"` collections, and a tenant-wide tree that the server answers with tenant_override_requires_system_admin reloads on the session tenant, so members see and edit their own entries instead of an error. The Save button follows the collection's own access rule (DEFAULT_COLLECTION_ACCESS when none is declared), the same rule the list, item and set handlers check; the public text-block pair keeps TenantAdmin or SystemAdmin. A save reloads the tree of its collection, so a new per-user entry shows without a page reload. The editor sets the page header title to the entry title, so the breadcrumb no longer shows the screen behind it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: edit screens opened without a record use screen:<id>.createTitle
+  detail: When a detail screen is opened without an entity id and the feature translates `screen:<id>.createTitle`, the breadcrumb and page title use it instead of the edit title. managed-pages names its create state "New page".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: compliance profile labels are English
+  detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) were German in the English source; locale packages keep their option translations, and the compliance-profiles catalog now shows those translations instead of the raw source label. Authority names such as the de-hr authority contact stay as the authority calls itself.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: request-helper sessions carry a realistic IP and user agent
+  detail: Sessions the request helper opens record a documentation-range IP and a desktop Chrome user agent instead of "test" and "request-helper", so seeded sample apps show plausible rows on My sessions.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: resizable tables size columns by content until the user resizes one
+  detail: With `table.resizing` on (also through `bundledLists`), columns without a schema `width` no longer start at a flat 160px. The table keeps the auto layout and sizes them by content until the user drags or arrow-keys a column; that first resize stores the displayed widths of the other columns too, so nothing jumps. The first column of a resizable table breaks only when the table runs out of width, and a clickable first cell wraps instead of truncating, and dates and timestamps (also through a `format` renderer) stay on one line. `onWidthChange` gets an optional third argument with those widths. Stored widths from earlier sessions still apply; a browser that saved any view setting before this release still holds the old 160px widths until the view is reset. Apps with `bundledLists.table.resizing` (use-all-bundled, solon) see wider name columns and narrower leftover space on first visit.
+  -->
+- d24b405: Inbound mail with configurable roles and private personal mailboxes
+  
+  `createInboundMailFoundationFeature` and `createInboundProviderImapFeature` take `{ userRoles, adminRoles }` (defaults `User` and `TenantAdmin`/`SystemAdmin`); a boot check rejects deviating options. The mail of a personal mailbox (messages, body, attachments, quarantine) is now readable by its owner only, not by admins; admins still see the account metadata and manage shared mailboxes. The owner reactivates a personal IMAP mailbox in the new "My mailboxes" flow. The content-fetched event is version 3 and carries `accountId` and `ownerUserId` (null for older events). `EntityDefinition.attachedFileAccess: "record-only"` keeps the files privileged roles from reading or deleting attached files, and `createDefaultGuard` takes the matching fourth parameter. `SendMailFromAccountContext.dispatch` is query-only. A live list now resyncs on every stream open and an infinity list adopts a refresh that lands during its first load.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Personal mail is private to its owner, roles are configurable
+  detail: Admins no longer read messages, bodies, attachments or quarantine of a personal mailbox; list-accounts still shows them the account without counts. The screens and the IMAP handlers are factories (createMailAccountListScreen, createImapConnectScreen and others) taking the resolved roles instead of constants. The content-fetched event is version 3 with accountId and ownerUserId. createDefaultGuard has a fourth parameter recordOnlyEntityTypes; for those entity types the files privilegedRoles no longer read or delete attached files (shared mailboxes included), only the uploader and readers of the record do. The OAuth connect route answers 403 mail_role_required to callers without a mail role.
+  migration: |
+    Apps that import mailAccountListScreen, mailAccountEditScreen, mailAccountSenderCheckScreen, myMailAccountListScreen, mailQuarantineScreen, imapConnectScreen or imapReconnectScreen call the matching create*Screen factory with resolveInboundMailRoles(). Apps with their own roles pass { userRoles, adminRoles } to createInboundMailFoundationFeature and the same options to createInboundProviderImapFeature. Callers of createDefaultGuard pass a Set of record-only entity types as fourth argument. Code that read personal mail as an admin must run as the owner; the nullable accountId and ownerUserId on content-fetched events need no action.
+  -->
+- 9c4e277: FloatingPanel keeps at least 16px to every viewport edge, and a panel docked to the right or bottom edge keeps its distance to that edge when the window changes size.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Floating panel keeps its distance to the window edge
+  detail: Moving, resizing and window resizes clamp the panel 16px inside the viewport instead of at the border. On a window resize the panel keeps its gap to the nearer horizontal and vertical edge, so a bottom-right panel no longer sticks to the right border when the window narrows. Stored geometry stays valid and is only clamped again.
+  -->
+- 9c4e277: The renderer imports Radix from the `radix-ui` meta package only, so the renderer resolves a single copy of `react-dismissable-layer` in this repo. Two copies broke outside-click and Escape handling of stacked layers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: One copy of Radix dismissable layers
+  detail: Dialog, Popover, DropdownMenu and Toast now come from the radix-ui package instead of the single @radix-ui/react-* packages, which dropped nine direct dependencies. A root override pins @radix-ui/react-dialog to 1.3.1 because cmdk would otherwise pull an older dialog with its own react-dismissable-layer. Apps that import @radix-ui/react-* themselves, or add cmdk, should align their own lockfile to one react-dialog version.
+  -->
+- Updated dependencies [6effc06]
+- Updated dependencies [307f9cb]
+- Updated dependencies [6831978]
+- Updated dependencies [a91f814]
+- Updated dependencies [9638cd4]
+- Updated dependencies [9c4e277]
+- Updated dependencies [d24b405]
+- Updated dependencies [eecf6fa]
+- Updated dependencies [9638cd4]
+- Updated dependencies [a91f814]
+  - @cosmicdrift/kumiko-framework@0.394.0
+  - @cosmicdrift/kumiko-types@0.394.0
+
 ## 0.393.0
 
 ### Patch Changes

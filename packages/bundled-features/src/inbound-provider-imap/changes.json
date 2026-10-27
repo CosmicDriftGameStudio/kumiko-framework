@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "The IMAP provider reads text, HTML and attachments",
+    "detail": "The provider parses full mails. Inline images are skipped, forwarded message/rfc822 mails are unpacked up to depth 3, and the limits are 25 MB per attachment, 50 MB per mail and 50 attachments; everything skipped is reported in skippedAttachments with its reason. The new plugin method fetchContent reloads the content of a mail by provider id."
+  },
+  {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "IMAP and SMTP hosts given as IP addresses connect over TLS",
+    "detail": "imapflow passes servername false for an IP literal, which Bun's TLS rejects, so such mailboxes could not connect. The IMAP client now sets an undefined servername; nodemailer already omits it for SMTP."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "The IMAP cursor follows UIDs and skips known mails",
+    "detail": "lastUid is derived from the fetched UIDs, so a quarantined or already known mail at the end of a full batch no longer holds the cursor back or gets fetched again; the envelope is read so a mail the parser throws on still gets its header entry. A forwarded mail that cannot be parsed is kept as an attachment instead of failing the whole mail."
+  },
+  {
+    "version": "0.394.0",
+    "type": "improvement",
+    "title": "Members connect a personal IMAP mailbox from \"My mail accounts\"",
+    "detail": "The new write handler inbound-provider-imap:write:connect-my-mailbox (every mail member role, not exposed to the agent, 10 calls per user in 10 minutes) takes the connect-mailbox fields without trustedAuthservId, checks the IMAP and SMTP login first and creates a mailbox owned by the caller. A disconnected personal mailbox of the caller with the same address is reactivated under its old account id; an address that belongs to another user or to a shared mailbox is refused with the usual conflict answer. connect-account stays admin-only; the handler creates the personal account through the system identity with the owner taken from the caller session, never from the payload. The dormant screen my-mail-account-connect-imap (exported as MY_IMAP_CONNECT_SCREEN_ID) is reached from the new \"Connect mailbox\" toolbar action of my-mail-accounts; it has no sender-check field, that policy stays with the admin form. New keys in all locale packages."
+  },
+  {
+    "version": "0.394.0",
+    "type": "fix",
+    "title": "The IMAP watch quarantines an unparseable mail right away",
+    "detail": "A mail the MIME parser cannot handle used to be dropped by the live watch and reached the quarantine only with the next reconciliation poll, up to five minutes later. The provider watch handler now passes such mails to `handlers.onMessages(messages, rejected)` and the supervisor quarantines them through the same ingest path as the poll. `onMessages` takes an optional second argument, so existing providers are unaffected. A failed account health update after a quarantine now logs the error code of the rejected write."
+  },
+  {
     "version": "0.393.0",
     "type": "improvement",
     "title": "IMAP mailboxes with a sign-in error can be reconnected",

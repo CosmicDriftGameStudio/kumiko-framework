@@ -2,13 +2,55 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-25
+verified: 2026-10-27
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.394.0
+
+### inbound-mail-foundation
+
+**Mail account handlers are stricter and the trusted authserv-id has its own handler**
+
+trustedAuthservId is no longer accepted by connect-account, update-account and reactivate-account (strict schemas reject unknown keys); set it with the new set-trusted-authserv-id (SystemAdmin, TenantAdmin, not model-callable). update-account accepts status, lastError, watchState and reason only from the system identity; connect-account is no longer exposed to agents. reactivate-account checks the account owner (unless the OAuth override is set), fails with credential_required when a password account has no stored credential, and reopens an account in place only with that override; disconnect-account deletes the stored secret. Outgoing attachments must pass the file read check of the sender, and SendMailFromAccountContext needs dispatch. New screen "Absenderprüfung" edits the id. The watch supervisor and the IMAP forms use mapWithConcurrency and implicit TLS on port 465 for SMTPS.
+
+**Migration:** Drop trustedAuthservId from connect-account, update-account and reactivate-account payloads and dispatch set-trusted-authserv-id after connecting. Wrapping or agent setups that called connect-account as a model tool need their own exposed handler. Callers of sendMailFromAccount pass a context that includes dispatch. Personal mailboxes are reactivated by their owner only; after disconnect-account a new credential must be stored before reactivate-account.
+
+**The mailbox row action Reconnect is folded into Reactivate**
+
+The row action reconnect of mailAccountListScreen and its i18n key inboundMail.accounts.reconnect are removed. A password IMAP mailbox with a sign-in error now shows Reactivate, which opens the same screen mail-account-reconnect-imap; OAuth mailboxes get the client action reactivate-oauth instead.
+
+**Migration:** Apps that override inboundMail.accounts.reconnect move the text to inboundMail.accounts.reactivate. Apps that reference the row action id reconnect (tests, screen extensions) use reactivate for password IMAP and reactivate-oauth for OAuth mailboxes, and mount inboundMailFoundationClient() from @cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web so the OAuth action runs.
+
+**The OAuth callback only connects a personal mailbox for the account that signed in**
+
+InboundOAuthFlow.exchangeCode returns OAuthCodeExchange, an OAuthTokenSet with the required accountAddress of the signed-in provider account. The callback compares it with the mailbox address, ignoring case, and answers 403 mailbox_address_mismatch with a plain-text message and no account when they differ, so nobody can claim another person's address. This applies to personal mailboxes; a shared mailbox (only admins start that flow) is often opened with the admin's own login through delegated access, as with M365 shared mailboxes, so its address is not compared, and a token without access to it shows auth_error on the first sync.
+
+**Migration:** Inbound providers with an oauth block return accountAddress from exchangeCode, taken from the token's email claim or the provider's profile endpoint (for example the userinfo email). There is no default: a provider that cannot name the signed-in address cannot connect mailboxes.
+
+**inbound-message-received is v3 and inbound-message-content-fetched is v2**
+
+Both events carry contentUnavailableReason (null for older events through upcasters). The read table read_inbound_messages gets content_unavailable_reason, store_mail_quarantine gets retry_requested_at, and store_mail_ingest_failures is new; generate and apply a migration with `kumiko-schema generate`. ingest-message and attach-message-content upload files before their transaction when called at top level, and attach-message-content skips the upload when the mail already shows its content; inside a wrapper handler's transaction they upload in it, as before. RejectedInboundMessage may carry rawMime and headers, and an inbound provider's fetch may take filterUnknownMessageIds to skip mails that are already known.
+
+**Migration:** Run `kumiko-schema generate` and apply the migration; read_inbound_messages is rebuilt from events because attachment_file_ids becomes jsonb. Consumers that read the event payloads type them against the new versions (upcasters fill contentUnavailableReason with null). To get the pre-transaction upload, trigger on inbound-message-received or inbound-message-content-fetched instead of wrapping ingest-message in an own write handler.
+
+**Personal mail is private to its owner, roles are configurable**
+
+Admins no longer read messages, bodies, attachments or quarantine of a personal mailbox; list-accounts still shows them the account without counts. The screens and the IMAP handlers are factories (createMailAccountListScreen, createImapConnectScreen and others) taking the resolved roles instead of constants. The content-fetched event is version 3 with accountId and ownerUserId. createDefaultGuard has a fourth parameter recordOnlyEntityTypes; for those entity types the files privilegedRoles no longer read or delete attached files (shared mailboxes included), only the uploader and readers of the record do. The OAuth connect route answers 403 mail_role_required to callers without a mail role.
+
+**Migration:** Apps that import mailAccountListScreen, mailAccountEditScreen, mailAccountSenderCheckScreen, myMailAccountListScreen, mailQuarantineScreen, imapConnectScreen or imapReconnectScreen call the matching create*Screen factory with resolveInboundMailRoles(). Apps with their own roles pass { userRoles, adminRoles } to createInboundMailFoundationFeature and the same options to createInboundProviderImapFeature. Callers of createDefaultGuard pass a Set of record-only entity types as fourth argument. Code that read personal mail as an admin must run as the owner; the nullable accountId and ownerUserId on content-fetched events need no action.
+
+### subscription-paddle
+
+**Remove subscription-dodo, replaced by subscription-paddle**
+
+Removed exports of @cosmicdrift/kumiko-bundled-features/subscription-dodo: DODO_BASE_URLS, DODO_PROVIDER_NAME, DodoEnvironment, DodoEnvironments, SUBSCRIPTION_DODO_FEATURE, SubscriptionDodoOptions, createSubscriptionDodoFeature, dodoEnvSchema, subscriptionDodoEnvSchema.
+
+**Migration:** Replace createSubscriptionDodoFeature with createSubscriptionPaddleFeature from @cosmicdrift/kumiko-bundled-features/subscription-paddle and dodoEnvSchema with paddleEnvSchema. Map Paddle price ids (pri_...) to tiers in priceToTier, set PADDLE_API_KEY, PADDLE_WEBHOOK_SECRET, PADDLE_TENANT_BINDING_KEY and PADDLE_CLIENT_TOKEN (or the matching config keys) and point the Default Payment Link at /billing/paddle-checkout. Point the Paddle notification destination at /webhooks/subscription/paddle when billing is mounted through the server-runtime boot option (SUBSCRIPTION_WEBHOOK_PATH), or at /api/subscription/webhook/paddle when createSubscriptionWebhookRoute is mounted by hand. In server-runtime boot options, billing.dodo becomes billing.paddle. An app-own credit-pack env such as DODO_PRODUCT_PACKS becomes a list of Paddle pri_ ids; the pack size comes from the price or product custom_data.credits, which surfaces as ProviderPrice.metadata.credits. Existing Dodo subscriptions are not migrated; a subscription stays with the provider stored on it.
 
 ## 0.392.0
 
