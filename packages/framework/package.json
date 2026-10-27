@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-framework",
-  "version": "0.395.0",
+  "version": "0.396.0",
   "description": "Framework core — engine, pipeline, API, DB, and every other bit that makes Kumiko go.",
   "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
