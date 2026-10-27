@@ -7,7 +7,13 @@ export {
   createTenantCapListScreen,
   platformTenantCapsScreen,
 } from "./screens.ts";
-export type { CapSpec, CapUsage, CapUsageTone, CapUsageWithMeta } from "./types.ts";
+export type {
+  CapSpec,
+  CapSpecLimitContext,
+  CapUsage,
+  CapUsageTone,
+  CapUsageWithMeta,
+} from "./types.ts";
 export {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_OVERVIEW_FEATURE,

@@ -9,6 +9,14 @@ export type CapUnit = "count" | "mb" | "tokens";
 // both together when a cap needs a shape not covered here.
 export type CapIconKey = "file" | "hash" | "database" | "users" | "mail" | "gauge";
 
+// What a limit sees besides the tier: the target tenant, the same system-mode db `usage` gets
+// (app-owned rows such as booked add-ons are read from it, scoped by tenantId), and the target
+// tenant's config.
+export type CapSpecLimitContext = CapLimitContext & {
+  readonly tenantId: TenantId;
+  readonly db: TenantDb;
+};
+
 // Consumer-owned cap definition. `usage`/`usageBatch` receive the SAME
 // unfiltered system-mode TenantDb the handler itself reads through — the
 // callback is responsible for scoping its own app-owned tables by tenantId,
@@ -22,7 +30,7 @@ export type CapSpec = {
   // Resolved once per (cap, tier) per request, so a config read here is cheap.
   readonly limit: (
     tier: string,
-    context: CapLimitContext,
+    context: CapSpecLimitContext,
   ) => number | null | Promise<number | null>;
   // `null` means "no measurement exists yet for this cap" (not "0 used") —
   // callers that haven't wired up instrumentation return null instead of a
