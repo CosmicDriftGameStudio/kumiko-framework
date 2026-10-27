@@ -230,7 +230,11 @@ export type InboundMailProviderPlugin = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     handlers: {
-      readonly onMessages: (msgs: readonly RawInboundMessage[]) => Promise<void>;
+      /** `rejected`: mails the provider could not parse, quarantined right away instead of at the next poll. */
+      readonly onMessages: (
+        msgs: readonly RawInboundMessage[],
+        rejected?: readonly RejectedInboundMessage[],
+      ) => Promise<void>;
       readonly onError: (err: unknown) => void;
     },
     /** Same `accessToken` semantics as `fetch` opts; re-minted on every

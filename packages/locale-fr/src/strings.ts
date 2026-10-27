@@ -2118,6 +2118,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Vous êtes redirigé vers la page de connexion du fournisseur. Après la connexion, la boîte mail récupère de nouveau les e-mails et conserve son historique.",
   "inboundMail.accounts.reconnect.invalidRow": "Cette boîte mail ne peut pas être réactivée ici.",
   "screen:mail-account-reconnect-imap.title": "Reconnecter la boîte mail",
+  "screen:my-mail-account-connect-imap.title": "Connecter une boîte mail",
   "screen:my-mail-account-reconnect-imap.title": "Reconnecter la boîte mail",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Boîte mail",
   "inboundMail.imap.reconnect.hint":

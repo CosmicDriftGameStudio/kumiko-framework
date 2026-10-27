@@ -1,7 +1,7 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { FeatureDefinition, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { INBOUND_MAIL_FOUNDATION_FEATURE } from "./constants.ts";
+import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailFoundationHandlers } from "./constants.ts";
 
 export type InboundMailRoleOptions = {
   /** Roles that use their own and the shared mailboxes. Admins are always members too. */
@@ -35,6 +35,26 @@ function validatedRoles(optionName: string, roles: readonly string[]): readonly 
     );
   }
   return [...roles];
+}
+
+// Handlers the supervisor, the account health, the OAuth callback and the refresh job dispatch as the
+// system user (SystemAdmin). Every new system dispatch must target one of these; a test scans the
+// sources for it.
+export const SYSTEM_DISPATCHED_MAIL_HANDLERS: readonly string[] = [
+  InboundMailFoundationHandlers.ingestMessage,
+  InboundMailFoundationHandlers.connectAccount,
+  InboundMailFoundationHandlers.updateAccount,
+  InboundMailFoundationHandlers.reactivateAccount,
+  InboundMailFoundationHandlers.markCredentialStored,
+  InboundMailFoundationHandlers.attachMessageContent,
+];
+
+// An app whose adminRoles/memberRoles leave SystemAdmin out would see every system dispatch refused.
+// Only handler access lists use this; isMailAdmin and screens keep the configured roles.
+export function accessRolesOf(handlerQn: string, roles: readonly string[]): string[] {
+  return SYSTEM_DISPATCHED_MAIL_HANDLERS.includes(handlerQn)
+    ? [...new Set([...roles, ROLES.SystemAdmin])]
+    : [...roles];
 }
 
 export function resolveInboundMailRoles(options: InboundMailRoleOptions = {}): InboundMailRoles {

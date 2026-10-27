@@ -1440,7 +1440,7 @@
     },
     {
       "name": "inbound-provider-imap",
-      "description": "Registers the `\"imap\"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a mailbox through the \"Connect mailbox\" form on the mail accounts list (`connect-mailbox` checks the IMAP login and the SMTP login of the outgoing server first, then creates the account and its credential secret in one transaction; `reconnect-mailbox` does the same check for an existing mailbox with a sign-in error and overwrites its credential secret); programmatic setups store the per-account connection JSON (host/port/secure/user/password, plus smtpHost/smtpPort for sending) in the account credential secret slot before the first sync. Implements the provider `send`: `sendMailFromAccount` sends over the SMTP server of the mailbox itself (implicit TLS, same login) with the mailbox address as From and stores a copy in its sent folder.",
+      "description": "Registers the `\"imap\"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a shared mailbox through the \"Connect mailbox\" form on the mail accounts list and members a personal one through the same form on \"My mail accounts\" (`connect-mailbox` and `connect-my-mailbox` check the IMAP login and the SMTP login of the outgoing server first, then creates the account and its credential secret in one transaction; `reconnect-mailbox` does the same check for an existing mailbox with a sign-in error and overwrites its credential secret); programmatic setups store the per-account connection JSON (host/port/secure/user/password, plus smtpHost/smtpPort for sending) in the account credential secret slot before the first sync. Implements the provider `send`: `sendMailFromAccount` sends over the SMTP server of the mailbox itself (implicit TLS, same login) with the mailbox address as From and stores a copy in its sent folder.",
       "toggleableDefault": null,
       "requires": [
         "inbound-mail-foundation",
@@ -1460,6 +1460,7 @@
       "secrets": [],
       "writeHandlers": [
         "inbound-provider-imap:write:connect-mailbox",
+        "inbound-provider-imap:write:connect-my-mailbox",
         "inbound-provider-imap:write:reconnect-mailbox"
       ],
       "uiHints": {

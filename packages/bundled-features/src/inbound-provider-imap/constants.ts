@@ -3,6 +3,7 @@ export { IMAP_PROVIDER_KEY } from "@cosmicdrift/kumiko-bundled-features/inbound-
 
 export const ImapHandlers = {
   connectMailbox: "inbound-provider-imap:write:connect-mailbox",
+  connectMyMailbox: "inbound-provider-imap:write:connect-my-mailbox",
   reconnectMailbox: "inbound-provider-imap:write:reconnect-mailbox",
 } as const;
 

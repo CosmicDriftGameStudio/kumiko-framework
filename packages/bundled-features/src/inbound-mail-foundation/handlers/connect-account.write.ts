@@ -1,4 +1,4 @@
-// connect-account — A tenant admin connects a mailbox. Creates the
+// connect-account — A tenant admin connects a mailbox (a member's personal one goes through the provider form, which dispatches here as the system user). Creates the
 // mail-account stream (aggregateId = random uuid = accountId =
 // secret-slot key for the IMAP password/OAuth refresh token).
 //
@@ -31,6 +31,7 @@ import {
   InboundMailAccountStatuses,
   InboundMailAuthMethods,
   InboundMailConnectErrors,
+  InboundMailFoundationHandlers,
 } from "../constants.ts";
 import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities.ts";
 import {
@@ -39,7 +40,7 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import type { InboundMailRoles } from "../mail-roles.ts";
+import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
 import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
 
 export const connectAccountSchema = z
@@ -74,7 +75,7 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
   return {
     name: "connect-account",
     schema: connectAccountSchema,
-    access: { roles: [...adminRoles] },
+    access: { roles: accessRolesOf(InboundMailFoundationHandlers.connectAccount, adminRoles) },
     // Connects a mailbox, like disconnect-account (risk high), which the model must not trigger on its own.
     agent: { expose: false },
     description:

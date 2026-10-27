@@ -30,6 +30,7 @@ export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
 // Same reason for the row action "Reactivate" of a password mailbox.
 export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
 export const MY_IMAP_RECONNECT_SCREEN_ID = "my-mail-account-reconnect-imap";
+export const MY_IMAP_CONNECT_SCREEN_ID = "my-mail-account-connect-imap";
 export const MAIL_QUARANTINE_SCREEN_ID = "mail-quarantine";
 
 export const MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX = "inboundMail.accounts.status.";
@@ -195,6 +196,15 @@ export function createMyMailAccountListScreen({
     pageSize: MAX_LIST_LIMIT,
     columns: nameAddressStatusColumns,
     rowActions: [reactivateImapOwnerAction, reactivateOauthAction, quarantineAction],
+    toolbarActions: [
+      {
+        kind: "navigate",
+        id: "connect-imap",
+        label: i18nKey("inboundMail.accounts.connectImap"),
+        screen: MY_IMAP_CONNECT_SCREEN_ID,
+        style: "primary",
+      },
+    ],
     access: { roles: [...memberRoles] },
     dormant: true,
   };

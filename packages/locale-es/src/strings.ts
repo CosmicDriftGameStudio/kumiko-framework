@@ -2089,6 +2089,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Se te redirige a la página de inicio de sesión del proveedor. Tras iniciar sesión, el buzón vuelve a recibir correos y conserva su historial.",
   "inboundMail.accounts.reconnect.invalidRow": "Este buzón no se puede reactivar desde aquí.",
   "screen:mail-account-reconnect-imap.title": "Reconectar buzón",
+  "screen:my-mail-account-connect-imap.title": "Conectar buzón",
   "screen:my-mail-account-reconnect-imap.title": "Reconectar buzón",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Buzón",
   "inboundMail.imap.reconnect.hint":

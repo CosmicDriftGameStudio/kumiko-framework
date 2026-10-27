@@ -233,7 +233,7 @@ if [ "${INPUT_GREENMAIL:-false}" = true ]; then
   # SMTPS is published on the fixed host port 465: the mail client takes implicit TLS from the port number
   # (smtp-client.ts), so a random host port would be sent over STARTTLS and never connect.
   docker run -d --name "$gm_container" "${run_label_args[@]}" -p 3025 -p 3143 -p 3993 -p 465:3465 \
-    -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=testuser:testpass@example.com" \
+    -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=testuser:testpass@example.com,quarantineuser:testpass@example.com,contentuser:testpass@example.com" \
     "$image" >/dev/null
   gm_smtp_port=$(published_port "$gm_container" 3025)
   gm_imap_port=$(published_port "$gm_container" 3143)

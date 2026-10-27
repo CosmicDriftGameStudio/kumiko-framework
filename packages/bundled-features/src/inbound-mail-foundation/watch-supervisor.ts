@@ -357,9 +357,9 @@ export function createInboundMailSupervisor(
         providerCtx,
         account,
         {
-          onMessages: async (msgs) => {
+          onMessages: async (msgs, rejected = []) => {
             try {
-              await ingester.ingestBatch(account, msgs, [], "watch");
+              await ingester.ingestBatch(account, msgs, rejected, "watch");
             } catch (err) {
               // An ingest failure must not kill the watcher: the next poll
               // tick fetches the messages again and dedup keeps it idempotent.
