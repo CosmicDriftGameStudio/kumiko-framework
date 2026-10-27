@@ -98,9 +98,22 @@ export function createWriteVerbs(
     stripSensitive,
     loadById,
     assertStreamWritable,
+    isRowReadable,
     loadExpectSnapshot,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
+
+  // A row the caller cannot read is reported as missing, like detail does, so a write
+  // can neither change it nor echo its content back. Framework system writes skip the
+  // check as they do for forget: their role never appears in a per-role read map.
+  async function unreadableRowFailure(
+    id: EntityId,
+    user: SessionUser,
+    db: TenantDb,
+  ): Promise<WriteFailure | undefined> {
+    if (isFrameworkSystemUser(user) || (await isRowReadable(id, user, db))) return undefined;
+    return writeFailure(new NotFoundError(entityName, id));
+  }
 
   // update and delete funnel through here, so custom handlers and nested writes cannot
   // bypass the lock whatever they return. Setting the lock (unlocked row) passes.
@@ -761,6 +774,8 @@ export function createWriteVerbs(
         includeDeleted: updateOptions?.includeDeleted === true,
       });
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
+      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      if (unreadable) return unreadable;
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
@@ -862,6 +877,8 @@ export function createWriteVerbs(
       const runner = tenantDbWriteRunner(db, "ctx.db executor delete");
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
+      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      if (unreadable) return unreadable;
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, existing, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
@@ -970,6 +987,8 @@ export function createWriteVerbs(
       const runner = tenantDbWriteRunner(db, "ctx.db executor forget");
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
+      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      if (unreadable) return unreadable;
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, raw, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
@@ -1069,6 +1088,8 @@ export function createWriteVerbs(
       const streamTenantId = options?.streamTenantId;
       const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
       if ("failure" in target) return target.failure;
+      const unreadable = await unreadableRowFailure(payload.id, user, db);
+      if (unreadable) return unreadable;
       const data = target.row;
 
       // H.2 — entity-level write-ownership on restore. Same shape as delete:

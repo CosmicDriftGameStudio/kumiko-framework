@@ -15,7 +15,7 @@ import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transiti
 import type { ErasedSubjectHandling } from "../crypto/pii-field-encryption.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import type { WhereObject } from "../db/query.ts";
-import { shiftParams } from "../engine/ownership.ts";
+import { buildOwnershipClause, shiftParams } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -215,6 +215,7 @@ export type ExecutorContext = {
     streamTenantId: TenantId,
     aggregateId: string,
   ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
+  readonly isRowReadable: (id: EntityId, user: SessionUser, db: TenantDb) => Promise<boolean>;
   readonly loadDetailSnapshot: (
     db: TenantDb,
     idWhere: WhereObject,
@@ -595,6 +596,23 @@ export function buildExecutorContext(
     return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
   }
 
+  // Same entity-level access.read predicate detail/list apply, evaluated for one row
+  // (soft-deleted rows included: restore targets them). Writers use it to treat an
+  // unreadable row as nonexistent.
+  async function isRowReadable(id: EntityId, user: SessionUser, db: TenantDb): Promise<boolean> {
+    const ownership = buildOwnershipClause(user, entity.access?.read, table);
+    if (ownership.kind === "pass") return true;
+    if (ownership.kind === "empty") return false;
+    const tableName = String(schemaTableName(table));
+    const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
+      tenantDbRunner(db),
+      `SELECT 1 AS "__readable" FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`,
+      params,
+    );
+    return rows.length > 0;
+  }
+
   // Row and MAX(version) in ONE statement: two reads can pair a post-write
   // version with a pre-write row, and update({version: detail.version}) would
   // then pass the optimistic lock and overwrite the newer write (lost update).
@@ -703,6 +721,7 @@ export function buildExecutorContext(
     loadById,
     assertStreamWritable,
     probeOwnershipWithStreamVersion,
+    isRowReadable,
     loadDetailSnapshot,
     loadExpectSnapshot,
     encryptForStorage,
