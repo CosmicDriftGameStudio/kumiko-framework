@@ -29,7 +29,7 @@ detail: When a detail screen is opened without an entity id and the feature tran
 feature: framework
 type: fix
 title: compliance profile labels and contacts are English
-detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) and the de-hr authority contact were German in the English source; locale packages keep their option translations.
+detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) and the de-hr authority contact were German in the English source; locale packages keep their option translations, and the compliance-profiles catalog now shows those translations instead of the raw source label.
 -->
 
 <!-- kumiko-changes
