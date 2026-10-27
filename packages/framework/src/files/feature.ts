@@ -7,6 +7,7 @@ import {
   MIN_UPLOAD_SWEEP_GRACE_HOURS,
   sweepOrphanedUploads,
 } from "./sweep-orphaned-uploads.ts";
+import { sweepStalePendingFileRefs } from "./sweep-stale-pending-file-refs.ts";
 import { fileUploadLedgerTable } from "./upload-ledger.ts";
 
 export { fileRefEntity } from "./file-ref-entity.ts";
@@ -30,6 +31,10 @@ export type FilesFeatureOptions = {
   // Hours an upload may wait for its fileRef row before the hourly sweep deletes its bytes.
   // Whole hours, at least 1; default 24.
   readonly uploadSweepGraceHours?: number;
+  // Hours an upload for a form field may stay unbound to a record before the hourly sweep
+  // soft-deletes it (abandoned forms). Off by default: an app that keeps fileRef ids without
+  // binding them would lose those files. Whole hours, at least 1.
+  readonly pendingUploadGraceHours?: number;
 };
 
 // `fileRef` is a regular ES entity. Uploads and deletes go through the standard
@@ -44,17 +49,21 @@ export type FilesFeatureOptions = {
 // fileRefsTable; bundled-features/files only re-exports it.
 export const FILES_FEATURE = "files" as const;
 
-function assertValidSweepGraceHours(hours: number): void {
+function assertValidSweepGraceHours(option: string, hours: number): void {
   if (!Number.isInteger(hours) || hours < MIN_UPLOAD_SWEEP_GRACE_HOURS) {
     throw new Error(
-      `createFilesFeature: uploadSweepGraceHours must be a whole number of hours >= ${MIN_UPLOAD_SWEEP_GRACE_HOURS}, got ${String(hours)}`,
+      `createFilesFeature: ${option} must be a whole number of hours >= ${MIN_UPLOAD_SWEEP_GRACE_HOURS}, got ${String(hours)}`,
     );
   }
 }
 
 export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDefinition {
   const uploadSweepGraceHours = options.uploadSweepGraceHours ?? DEFAULT_UPLOAD_SWEEP_GRACE_HOURS;
-  assertValidSweepGraceHours(uploadSweepGraceHours);
+  assertValidSweepGraceHours("uploadSweepGraceHours", uploadSweepGraceHours);
+  const { pendingUploadGraceHours } = options;
+  if (pendingUploadGraceHours !== undefined) {
+    assertValidSweepGraceHours("pendingUploadGraceHours", pendingUploadGraceHours);
+  }
   return defineFeature(FILES_FEATURE, (r) => {
     r.describe(
       "Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy. Upload/download routes are registered by the server bootstrap when a `file-provider-*` feature is mounted; this feature carries their access/size policy via `createFilesFeature(opts?)`.",
@@ -80,6 +89,14 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
           graceHours: uploadSweepGraceHours,
           log: ctx.obs.log,
         });
+        if (pendingUploadGraceHours !== undefined) {
+          await sweepStalePendingFileRefs({
+            db: ctx.db,
+            now: ctx.tz.now(),
+            graceHours: pendingUploadGraceHours,
+            log: ctx.obs.log,
+          });
+        }
       },
     });
     return { routeOptions: options };

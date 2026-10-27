@@ -4,6 +4,7 @@ import {
   InMemoryKmsAdapter,
   type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemUser,
@@ -30,7 +31,7 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
-import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
@@ -40,7 +41,7 @@ import {
 } from "../../tier-engine/index.ts";
 import { createCapOverviewFeature } from "../feature.ts";
 import type { CapSpec } from "../types.ts";
-import { CapOverviewQueries } from "../web/constants.ts";
+import { CapOverviewQueries, capFieldName } from "../web/constants.ts";
 
 const SEATS_KEY = "cap-seats-probe:config:seats";
 const SEATS_DEFAULT = 10;
@@ -93,6 +94,19 @@ const seatsCap: CapSpec = {
   usage: async () => 4,
 };
 
+// Stands in for an app-owned add-on booking: the limit reads the target tenant's own row through
+// the db it is handed.
+const extraAppsTenantKey = (tenantId: string): string => `cap-seats-${tenantId}`;
+const appsCap: CapSpec = {
+  id: "apps",
+  label: "test.cap.apps",
+  limit: async (_tier, { db, tenantId }) => {
+    const rows = await selectMany<{ key: string }>(db, tenantTable, { id: tenantId });
+    return rows[0]?.key === extraAppsTenantKey(TENANT_B) ? 10 : 1;
+  },
+  usage: async () => 3,
+};
+
 let stack: TestStack;
 
 const adminA = createTestUser({
@@ -116,7 +130,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createBillingFoundationFeature(),
       createTierEngineFeature(),
-      createCapOverviewFeature({ caps: [seatsCap] }),
+      createCapOverviewFeature({ caps: [seatsCap, appsCap] }),
     ],
     extraContext: ({ registry }) => {
       const resolver = createConfigResolver();
@@ -205,6 +219,34 @@ describe("cross-tenant cap limits read the target tenant's config", () => {
     expect(limitOf(TENANT_A)).toBe(111);
     expect(limitOf(TENANT_B)).toBe(222);
     expect(limitOf(TENANT_C)).toBe(SEATS_DEFAULT);
+  });
+});
+
+describe("cap limits see the target tenant and a db to read its rows", () => {
+  test("caps:usage resolves the limit for the overridden tenant", async () => {
+    const own = await stack.http.queryOk<CapsUsageResult>(CapOverviewQueries.capsUsage, {}, adminA);
+    const target = await stack.http.queryOk<CapsUsageResult>(
+      CapOverviewQueries.capsUsage,
+      { tenantId: TENANT_B },
+      adminA,
+    );
+    expect(own.rows.find((row) => row.id === "apps")?.limit).toBe(1);
+    expect(target.rows.find((row) => row.id === "apps")?.limit).toBe(10);
+  });
+
+  test("tenant-caps:list resolves the limit per listed tenant", async () => {
+    const list = await stack.http.queryOk<TenantCapsListResult>(
+      CapOverviewQueries.tenantCapsList,
+      { limit: 50 },
+      adminA,
+    );
+    const appsLimitOf = (tenantId: string): unknown => {
+      const row = list.rows.find((candidate) => candidate.tenantId === tenantId);
+      const cell = row?.[capFieldName("apps")];
+      return typeof cell === "object" && cell !== null ? Reflect.get(cell, "limit") : undefined;
+    };
+    expect(appsLimitOf(TENANT_A)).toBe(1);
+    expect(appsLimitOf(TENANT_B)).toBe(10);
   });
 });
 

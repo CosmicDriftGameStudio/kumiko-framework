@@ -81,7 +81,10 @@ export function createCapsUsageQuery(
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {
           const used = await cap.usage(db, targetTenantId);
-          const limit = cap.showLimit === false ? null : await cap.limit(tier, { config });
+          const limit =
+            cap.showLimit === false
+              ? null
+              : await cap.limit(tier, { config, tenantId: targetTenantId, db });
           const base = {
             id: cap.id,
             label: cap.label,
