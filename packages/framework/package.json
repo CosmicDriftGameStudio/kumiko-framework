@@ -205,7 +205,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-types": "workspace:*",
     "bullmq": "^5.76.7",
-    "hono": "^4.13.1",
+    "hono": "^4.13.14",
     "i18next": "^26.1.0",
     "ioredis": "^5.10.1",
     "jose": "^6.2.3",
