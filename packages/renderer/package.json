@@ -67,8 +67,8 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "@tailwindcss/cli": "^4.3.0",
-    "tailwindcss": "^4.3.0"
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
   },
   "peerDependenciesMeta": {
     "@tailwindcss/cli": {
@@ -81,13 +81,13 @@
   "devDependencies": {
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
-    "@tailwindcss/cli": "^4.3.0",
+    "@tailwindcss/cli": "^4.3.3",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^29.1.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.3"
   },
   "repository": {
     "type": "git",
