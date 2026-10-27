@@ -545,6 +545,11 @@ describe("kumiko-pre-push", () => {
       expect(output).not.toContain("MAIN_CHECK_RAN");
     });
 
+    // Guard steps run in parallel lanes, so their log order is not fixed.
+    function logLines(path: string): string[] {
+      return readFileSync(path, "utf-8").trim().split("\n").sort();
+    }
+
     function writeFakeGuardBin(worktreeDir: string, name: string, exitCode: number): string {
       const logName = `${name}.log`;
       writeUntrackedExecutable(
@@ -562,11 +567,28 @@ describe("kumiko-pre-push", () => {
       const { exitCode } = runHook(worktreeDir, tmp);
 
       expect(exitCode).toBe(0);
-      expect(readFileSync(guardsLog, "utf-8").trim().split("\n")).toEqual([
-        "guards",
+      expect(logLines(guardsLog)).toEqual([
         "checks",
         "comment-lang --touched --base=origin/main",
+        "guards",
         "public-exports-changelog --base=origin/main",
+      ]);
+    });
+
+    test("test:dom runs after test in one lane, the other steps run beside it", () => {
+      const worktreeDir = setupWorktree({
+        typecheck: `echo typecheck >> ${HOOK_LOG_NAME}`,
+        test: `sleep 1 && echo test >> ${HOOK_LOG_NAME}`,
+        "test:dom": `echo test:dom >> ${HOOK_LOG_NAME}`,
+      });
+
+      const { exitCode } = runHook(worktreeDir, tmp, { KUMIKO_PRE_PUSH_POOL: "4" });
+
+      expect(exitCode).toBe(0);
+      expect(readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").trim().split("\n")).toEqual([
+        "typecheck",
+        "test",
+        "test:dom",
       ]);
     });
 
@@ -578,12 +600,12 @@ describe("kumiko-pre-push", () => {
       const { exitCode } = runHook(worktreeDir, tmp);
 
       expect(exitCode).toBe(0);
-      expect(readFileSync(guardsLog, "utf-8").trim().split("\n")).toEqual([
-        "guards",
-        "ui",
+      expect(logLines(guardsLog)).toEqual([
         "checks",
         "comment-lang --touched --base=origin/main",
+        "guards",
         "public-exports-changelog --base=origin/main",
+        "ui",
       ]);
     });
 
@@ -614,12 +636,10 @@ describe("kumiko-pre-push", () => {
       const { exitCode } = runHook(worktreeDir, tmp);
 
       expect(exitCode).toBe(0);
-      expect(
-        readFileSync(join(worktreeDir, "in-repo-cli.log"), "utf-8").trim().split("\n"),
-      ).toEqual([
-        "guards",
+      expect(logLines(join(worktreeDir, "in-repo-cli.log"))).toEqual([
         "checks",
         "comment-lang --touched --base=origin/main",
+        "guards",
         "public-exports-changelog --base=origin/main",
       ]);
       expect(existsSync(binLog)).toBe(false);

@@ -7,7 +7,8 @@
 #   2. Else if running inside a worktree under the parent workspace (no
 #      check-wt.sh), run this worktree's own package.json scripts
 #      (typecheck, lint, test, test:dom) plus the consumer-CI guards
-#      (kumiko-guards guards/ui/checks/comment-lang) directly —
+#      (kumiko-guards guards/ui/checks/comment-lang) directly, in parallel
+#      lanes via run-steps-parallel.ts —
 #      the parent's `bun check` would otherwise check the main checkout
 #      instead of the worktree.
 #   3. Else if running inside the cosmicdriftgamestudio Parent-Workspace,
@@ -203,27 +204,33 @@ is_kumiko_guards_repo() {
 
 # Runs a guard bin from the worktree's or the parent's node_modules/.bin
 # (same guards consumer CI runs); an unresolvable bin is skipped, not fatal.
-run_guard_bin() {
+add_guard_step() {
   GUARD_LABEL="$1"
   GUARD_BIN="$2"
-  shift 2
+  GUARD_ARGS="$3"
   if [ "$GUARD_BIN" = "kumiko-guards" ] && is_kumiko_guards_repo; then
-    echo "[pre-push] packages/guards/src/cli.ts $*"
-    if ! bun "$REPO_ROOT/packages/guards/src/cli.ts" "$@"; then
-      FAILED="$FAILED $GUARD_LABEL"
-    fi
+    add_step --step "$GUARD_LABEL" "bun $(shell_quote "$REPO_ROOT/packages/guards/src/cli.ts") $GUARD_ARGS"
     return 0
   fi
   for GUARD_CANDIDATE in "$REPO_ROOT/node_modules/.bin/$GUARD_BIN" "$PARENT_DIR/node_modules/.bin/$GUARD_BIN"; do
     if [ -x "$GUARD_CANDIDATE" ]; then
-      echo "[pre-push] $GUARD_BIN $*"
-      if ! "$GUARD_CANDIDATE" "$@"; then
-        FAILED="$FAILED $GUARD_LABEL"
-      fi
+      add_step --step "$GUARD_LABEL" "$(shell_quote "$GUARD_CANDIDATE") $GUARD_ARGS"
       return 0
     fi
   done
   echo "[pre-push] $GUARD_BIN: not resolvable in worktree/parent, skipped"
+}
+
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# POSIX sh has no arrays: the runner's argv is collected as one quoted string.
+STEP_ARGS=""
+add_step() {
+  for STEP_ARG in "$@"; do
+    STEP_ARGS="$STEP_ARGS $(shell_quote "$STEP_ARG")"
+  done
 }
 
 # infra#899: no tracked scripts/check-wt.sh — the parent-scoped `bun check`
@@ -240,31 +247,33 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
     echo "Add a \"test\" script to package.json." >&2
     exit 1
   fi
-  FAILED=""
+  RUNNER="$(resolve_script_dir "$0")/run-steps-parallel.ts"
+  if [ ! -f "$RUNNER" ]; then
+    echo "[pre-push] FATAL: run-steps-parallel.ts not found next to the resolved hook — refusing push" >&2
+    exit 1
+  fi
+  # test:dom stays behind test (always declared, see above) in one lane: both are
+  # bun test runs over the same repo and have always run one after the other.
   for SCRIPT_NAME in typecheck lint test test:dom; do
+    STEP_FLAG="--step"
+    [ "$SCRIPT_NAME" = "test:dom" ] && STEP_FLAG="--then"
     if has_package_script "$SCRIPT_NAME"; then
-      echo "[pre-push] bun run $SCRIPT_NAME"
-      if ! bun run "$SCRIPT_NAME"; then
-        FAILED="$FAILED $SCRIPT_NAME"
-      fi
+      add_step "$STEP_FLAG" "$SCRIPT_NAME" "bun run $SCRIPT_NAME"
     else
       echo "[pre-push] $SCRIPT_NAME: no script, skipped"
     fi
   done
-  run_guard_bin guards kumiko-guards guards
+  add_guard_step guards kumiko-guards "guards"
   if has_ui_roots; then
-    run_guard_bin ui kumiko-guards ui
+    add_guard_step ui kumiko-guards "ui"
   else
     echo "[pre-push] ui: no uiRoots in kumiko.json, skipped"
   fi
-  run_guard_bin checks kumiko-guards checks
-  run_guard_bin comment-lang kumiko-guards comment-lang --touched --base=origin/main
-  run_guard_bin public-exports-changelog kumiko-guards public-exports-changelog --base=origin/main
-  if [ -n "$FAILED" ]; then
-    echo "[pre-push] worktree check failed:$FAILED" >&2
-    exit 1
-  fi
-  exit 0
+  add_guard_step checks kumiko-guards "checks"
+  add_guard_step comment-lang kumiko-guards "comment-lang --touched --base=origin/main"
+  add_guard_step public-exports-changelog kumiko-guards "public-exports-changelog --base=origin/main"
+  eval "set -- $STEP_ARGS"
+  exec bun "$RUNNER" --fail-prefix "[pre-push] worktree check failed:" "$@"
 fi
 
 if [ -n "$PARENT_DIR" ]; then
