@@ -428,11 +428,11 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "cap-overview.unlimited": "{used} · unlimited",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Compliance profile",
   "compliance-profiles:entity:__action-form__:field:profileKey:option:de-hr-dsgvo-hgb":
-    "Deutschland HR — DSGVO + HGB + Personalakten",
+    "Germany HR — GDPR + HGB + personnel files",
   "compliance-profiles:entity:__action-form__:field:profileKey:option:eu-dsgvo":
-    "EU — DSGVO Standard",
+    "EU — GDPR standard",
   "compliance-profiles:entity:__action-form__:field:profileKey:option:swiss-dsg":
-    "Schweiz — Bundesgesetz über den Datenschutz (rev. 2023)",
+    "Switzerland — Federal Act on Data Protection (rev. 2023)",
   "compliance-profiles:nav.profilePicker": "Compliance",
   "compliance-profiles:profile.actions.save": "Save profile",
   "compliance-profiles:profile.catalog.title": "Available profiles",
@@ -1118,6 +1118,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "screen:members.title": "Team",
   "screen:my-caps.title": "My usage",
   "screen:my-sessions.title": "Your sessions",
+  "screen:page-edit.createTitle": "New page",
   "screen:page-edit.title": "Edit page",
   "screen:page-list.title": "Pages",
   "screen:platform-overview.title": "Overview",
@@ -1274,8 +1275,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.editor.loadFailed": "Could not load block",
   "template-resolver.editor.loading": "Loading current version…",
   "template-resolver.editor.networkError": "Network error while saving.",
-  "template-resolver.editor.readOnly":
-    "Read-only — TenantAdmin or SystemAdmin role required to make changes.",
+  "template-resolver.editor.readOnly": "Read-only. Your role does not allow changes here.",
   "template-resolver.editor.save": "Save",
   "template-resolver.editor.saveFailed": "Save failed.",
   "template-resolver.editor.saved": "Saved.",

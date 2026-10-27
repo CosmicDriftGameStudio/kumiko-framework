@@ -1162,6 +1162,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "screen:members.title": "Équipe",
   "screen:my-caps.title": "Mon utilisation",
   "screen:my-sessions.title": "Vos sessions",
+  "screen:page-edit.createTitle": "Nouvelle page",
   "screen:page-edit.title": "Modifier la page",
   "screen:page-list.title": "Pages",
   "screen:platform-overview.title": "Aperçu",
@@ -1322,7 +1323,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.loading": "Chargement de la version actuelle…",
   "template-resolver.editor.networkError": "Erreur réseau lors de l'enregistrement.",
   "template-resolver.editor.readOnly":
-    "Lecture seule — le rôle TenantAdmin ou SystemAdmin est requis pour modifier.",
+    "Lecture seule. Votre rôle ne permet pas de modifications ici.",
   "template-resolver.editor.save": "Enregistrer",
   "template-resolver.editor.saveFailed": "Échec de l'enregistrement.",
   "template-resolver.editor.saved": "Enregistré.",

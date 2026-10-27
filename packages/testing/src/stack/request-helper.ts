@@ -113,6 +113,10 @@ export type RequestHelperOptions = {
   readonly sessionCreator?: SessionCreator;
 };
 
+const SEEDED_SESSION_IP = "198.51.100.23";
+const SEEDED_SESSION_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
 export function createRequestHelper(
   app: Hono,
   jwt: JwtHelper,
@@ -142,7 +146,12 @@ export function createRequestHelper(
       const key = `${user.id}:${user.tenantId}`;
       let sidPromise = sidByUserKey.get(key);
       if (sidPromise === undefined) {
-        sidPromise = options.sessionCreator(user, { ip: "test", userAgent: "request-helper" });
+        // Sample apps seed through this helper and show the rows on "My sessions",
+        // so the values read like a real desktop login (IP from TEST-NET-2).
+        sidPromise = options.sessionCreator(user, {
+          ip: SEEDED_SESSION_IP,
+          userAgent: SEEDED_SESSION_USER_AGENT,
+        });
         sidByUserKey.set(key, sidPromise);
       }
       const sid = await sidPromise;

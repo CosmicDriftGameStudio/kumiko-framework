@@ -186,7 +186,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.networkError": "Network error while saving.",
     "template-resolver.editor.loading": "Loading current version…",
     "template-resolver.editor.loadFailed": "Could not load block",
-    "template-resolver.editor.readOnly":
-      "Read-only — TenantAdmin or SystemAdmin role required to make changes.",
+    "template-resolver.editor.readOnly": "Read-only. Your role does not allow changes here.",
   },
 };

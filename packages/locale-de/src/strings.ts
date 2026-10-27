@@ -1154,6 +1154,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:members.title": "Team",
   "screen:my-caps.title": "Meine Nutzung",
   "screen:my-sessions.title": "Deine Sitzungen",
+  "screen:page-edit.createTitle": "Neue Seite",
   "screen:page-edit.title": "Seite bearbeiten",
   "screen:page-list.title": "Seiten",
   "screen:platform-overview.title": "Übersicht",
@@ -1313,8 +1314,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.loadFailed": "Konnte Block nicht laden",
   "template-resolver.editor.loading": "Lädt aktuellen Stand…",
   "template-resolver.editor.networkError": "Netzwerkfehler beim Speichern.",
-  "template-resolver.editor.readOnly":
-    "Nur lesbar. Änderungen erfordern die Rolle TenantAdmin oder SystemAdmin.",
+  "template-resolver.editor.readOnly": "Nur lesbar. Ihre Rolle erlaubt hier keine Änderungen.",
   "template-resolver.editor.save": "Speichern",
   "template-resolver.editor.saveFailed": "Speichern fehlgeschlagen.",
   "template-resolver.editor.saved": "Gespeichert.",

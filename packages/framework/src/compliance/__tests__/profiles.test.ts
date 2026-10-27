@@ -238,7 +238,7 @@ describe("Profile definition snapshots — catches drift", () => {
           "enabled": false,
         },
         "key": "eu-dsgvo",
-        "label": "EU — DSGVO Standard",
+        "label": "EU — GDPR standard",
         "notifications": {
           "languages": [
             "de",
