@@ -14,6 +14,10 @@ function euro(value: number): string {
 }
 
 async function boot(page: Page): Promise<void> {
+  // Every stream open resyncs the live lists, which refetches them. These specs count queries per
+  // user action, so the stream is held in CONNECTING (never answered): no open, no resync landing
+  // inside a counted window whenever the open happens to arrive late.
+  await page.route("**/api/sse", () => {});
   await page.addInitScript(
     ({ seed, who }) => {
       const target: Window & { __E2E_SEED__?: unknown; __E2E_IDENTITY__?: unknown } = window;

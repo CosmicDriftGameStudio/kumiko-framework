@@ -4,10 +4,13 @@
 // E2E boot: the dev app plus the seedTenant() routes, so specs like
 // mfa-login.spec.ts get their own tenant/user instead of the shared admin.
 // The inbound-mail route lets a spec put the in-memory mail provider into a failing state
-// (the Node-side spec cannot reach the provider's module state) and run the real supervisor poll.
+// (the Node-side spec cannot reach the provider's module state), run the real supervisor poll, or
+// set a supervisor-owned account status through the real handler as the system identity.
 import {
   createInboundMailSupervisor,
   InboundAuthError,
+  InboundMailAccountStatuses,
+  InboundMailFoundationHandlers,
   type InboundMailSupervisor,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import {
@@ -34,9 +37,18 @@ const inboundMailScriptRoute = signatureRoute<z.infer<typeof inboundMailScriptSc
     if (!parsed.success) throw new ExtraRouteRejection(400, { error: parsed.error.message });
     return parsed.data;
   },
-  handler: async (c, script) => {
+  handler: async (c, script, deps) => {
     if (script.kind === "auth-failure-on-next-probe") {
       failNextVerifyWith(script.accountId, new InboundAuthError("e2e: login rejected"));
+    } else if (script.kind === "mark-auth-error") {
+      // The status is a supervisor signal that only the system identity may set; the IMAP mailbox
+      // has no reachable server here to fail a real login against.
+      const marked = await deps.dispatchSystemWrite({
+        handlerQn: InboundMailFoundationHandlers.updateAccount,
+        tenantId: script.tenantId,
+        payload: { accountId: script.accountId, status: InboundMailAccountStatuses.authError },
+      });
+      if (!marked.isSuccess) return c.json({ ok: false, error: marked.error }, 500);
     } else {
       seedRejectedInboundMessage(script.accountId, script.providerMessageId);
       await supervisor?.pollOnce();

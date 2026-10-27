@@ -14,6 +14,7 @@ import {
   boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
+import { DEV_TENANT_ID } from "../src/app/auth-constants";
 import { INBOUND_MAIL_E2E_ROUTE, type InboundMailScript } from "./_helpers/inbound-mail-script";
 import { loginAsAdmin } from "./_helpers/login";
 
@@ -79,9 +80,10 @@ test("mailboxes are connected in the states the docs describe", async ({ page })
     });
   }
   ordersAccountId = await connectMailbox(page, ORDERS_MAILBOX, "imap");
-  await writeHandler(page, "inbound-mail-foundation:write:update-account", {
+  await scriptMailProvider(page, {
+    kind: "mark-auth-error",
     accountId: ordersAccountId,
-    status: "auth_error",
+    tenantId: DEV_TENANT_ID,
   });
 
   await page.goto("/tenant-admin");
@@ -108,7 +110,7 @@ test("mailboxes are connected in the states the docs describe", async ({ page })
     .getByRole("row", { name: /Orders/ })
     .getByRole("button", { name: /actions/i })
     .click();
-  await expect(page.getByRole("menuitem", { name: "Reconnect" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Reactivate" })).toBeVisible();
   await captureScreenshot(page, "inbound-mail/accounts-reconnect-menu", { fit: "content" });
 });
 
@@ -162,7 +164,7 @@ test("reconnect form opens from the row menu of a mailbox with a sign-in error",
     .getByRole("row", { name: /Orders/ })
     .getByRole("button", { name: /actions/i })
     .click();
-  await page.getByRole("menuitem", { name: "Reconnect" }).click();
+  await page.getByRole("menuitem", { name: "Reactivate" }).click();
   await expect(page.getByRole("button", { name: "Check and reconnect" })).toBeVisible();
   await captureScreenshot(page, "inbound-mail/reconnect-imap", { fit: "content" });
 });
