@@ -93,7 +93,7 @@
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",
     "typescript": "^7.0.2",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.1"
   },
   "resolutions": {
     "react": "19.2.6",
