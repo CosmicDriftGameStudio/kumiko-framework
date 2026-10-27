@@ -194,7 +194,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     },
     breach: {
       authorityNotificationDeadline: { hours: 72 },
-      authorityContact: "State data protection authority",
+      authorityContact: "Landes-Datenschutzbehörde",
       userNotificationRequired: "if-high-risk",
       worksCouncilNotificationRequired: true,
     },

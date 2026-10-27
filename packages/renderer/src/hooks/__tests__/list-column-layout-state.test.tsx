@@ -22,7 +22,8 @@ describe("useListViewState pinning and resizing", () => {
   test("a schema pin and the schema widths are the defaults, clamped to the minimum", () => {
     const { result } = render();
     expect(result.current.pins).toEqual({ name: "left" });
-    expect(result.current.widths).toEqual({ name: 240, city: 160, age: 64 });
+    // city has no schema width: it is sized by its content until the user resizes.
+    expect(result.current.widths).toEqual({ name: 240, age: 64 });
     expect(result.current.minWidths).toEqual({ name: 120, city: 64, age: 64 });
     expect(result.current.viewIsDefault).toBe(true);
   });
@@ -64,6 +65,14 @@ describe("useListViewState pinning and resizing", () => {
     expect(second.result.current.widths).toEqual({ name: 120, city: 212, age: 64 });
   });
 
+  test("the first resize keeps the displayed widths of the unsized columns, chosen widths win", () => {
+    const first = render();
+    act(() => first.result.current.setWidth("age", 90, { city: 333.4, name: 500, gone: 70 }));
+    expect(first.result.current.widths).toEqual({ name: 240, city: 333, age: 90 });
+    first.unmount();
+    expect(render(first.store).result.current.widths).toEqual({ name: 240, city: 333, age: 90 });
+  });
+
   test("setWidth and a stored width stop at the maximum", () => {
     const first = render();
     act(() => first.result.current.setWidth("city", 50_000));
@@ -93,7 +102,7 @@ describe("useListViewState pinning and resizing", () => {
     expect(result.current.viewIsDefault).toBe(false);
     act(() => result.current.resetView());
     expect(result.current.pins).toEqual({ name: "left" });
-    expect(result.current.widths?.["city"]).toBe(160);
+    expect(result.current.widths?.["city"]).toBeUndefined();
     expect(result.current.viewIsDefault).toBe(true);
     expect(store.read("orders")?.view).toBeUndefined();
   });

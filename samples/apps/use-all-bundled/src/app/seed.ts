@@ -468,10 +468,13 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   // carry whatever the handler derives instead of a hand-built projection.
   // SYSTEM_TENANT, not the dev tenant: the screenshot admin reads the system
   // tenant — the same reason the text-block tree above seeds there.
+  // The real admin, not TestUsers.systemAdmin's id: the seed signs in with a live session row,
+  // and the session list shows that row's user. The sessionChecker re-derives roles from the
+  // admin's global SystemAdmin role, which the collection's access accepts.
   const snippetAuthor: SessionUser = {
     ...TestUsers.systemAdmin,
     tenantId: SYSTEM_TENANT_ID,
-    roles: ["TenantAdmin"],
+    id: devAdminId,
   };
   for (const snippet of [
     {

@@ -28,8 +28,8 @@ detail: When a detail screen is opened without an entity id and the feature tran
 <!-- kumiko-changes
 feature: framework
 type: fix
-title: compliance profile labels and contacts are English
-detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) and the de-hr authority contact were German in the English source; locale packages keep their option translations, and the compliance-profiles catalog now shows those translations instead of the raw source label.
+title: compliance profile labels are English
+detail: The labels of the built-in compliance profiles (eu-dsgvo, swiss-dsg, de-hr-dsgvo-hgb, minimal) were German in the English source; locale packages keep their option translations, and the compliance-profiles catalog now shows those translations instead of the raw source label. Authority names such as the de-hr authority contact stay as the authority calls itself.
 -->
 
 <!-- kumiko-changes
@@ -37,4 +37,11 @@ feature: testing
 type: improvement
 title: request-helper sessions carry a realistic IP and user agent
 detail: Sessions the request helper opens record a documentation-range IP and a desktop Chrome user agent instead of "test" and "request-helper", so seeded sample apps show plausible rows on My sessions.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: resizable tables size columns by content until the user resizes one
+detail: With `table.resizing` on (also through `bundledLists`), columns without a schema `width` no longer start at a flat 160px. The table keeps the auto layout and sizes them by content until the user drags or arrow-keys a column; that first resize stores the displayed widths of the other columns too, so nothing jumps. The first column of a resizable table breaks only when the table runs out of width, and a clickable first cell wraps instead of truncating. `onWidthChange` gets an optional third argument with those widths. Stored widths from earlier sessions still apply. Apps with `bundledLists.table.resizing` (use-all-bundled, solon) see wider name columns and narrower leftover space on first visit.
 -->

@@ -10,7 +10,7 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 
 function renderColumnWidths(m: DataTableModel): ReactNode {
   const { sizing } = m;
-  if (sizing === undefined) return null;
+  if (sizing === undefined || !sizing.fixed) return null;
   return (
     <ColumnWidthGroup
       fields={m.columns.map((col) => col.field)}
@@ -59,7 +59,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
       <TableRoot
         data-testid={testId}
         className={fillsHeight ? FILL_TABLE_CLASS : undefined}
-        {...(sizing !== undefined && { style: sizing.tableStyle })}
+        {...(sizing?.tableStyle !== undefined && { style: sizing.tableStyle })}
       >
         {renderColumnWidths(m)}
         {renderTableHeader(m)}

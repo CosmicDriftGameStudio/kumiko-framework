@@ -14,7 +14,7 @@
 //   - Grace-Period: 30d (geerbt)
 //
 // Tenant C (DACH-HR) → de-hr-dsgvo-hgb (extends eu-dsgvo, HR-Override):
-//   - Aufsicht: State data protection authority
+//   - Aufsicht: Landes-Datenschutzbehörde
 //   - Sprachen: de
 //   - Tenant-Destroy-Grace: 60d (HR-Override)
 //   - Audit-Retention: 10y (HGB-Override)
@@ -116,7 +116,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     }>(FOR_TENANT, {}, tenantCHrAdmin);
 
     expect(result.profile.key).toBe("de-hr-dsgvo-hgb");
-    expect(result.profile.breach.authorityContact).toBe("State data protection authority");
+    expect(result.profile.breach.authorityContact).toBe("Landes-Datenschutzbehörde");
     expect(result.profile.breach.worksCouncilNotificationRequired).toBe(true);
     expect(result.profile.notifications.languages).toEqual(["de"]);
     expect(result.profile.tenantDestroyGracePeriod).toEqual({ days: 60 });
