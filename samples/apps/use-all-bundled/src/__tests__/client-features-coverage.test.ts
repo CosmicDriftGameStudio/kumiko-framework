@@ -31,15 +31,11 @@ const CLIENT_TSX_PATH = join(HERE, "../app/client.tsx");
 // app passes a `navId` — use-all-bundled never registers that provider
 // node, so calling it would be a no-op; its /legal/* routes are server-
 // rendered, not React screens.
-// managed-pages: page-list/page-edit/branding-settings are schema-driven
-// (entityList/entityEdit/configEdit) with no custom component — the app
-// already declares their field/action labels directly in APP_TRANSLATIONS
-// (see client.tsx's top comment), same as tenant/user.
 // notes-history: NOTES_SECTION_EXTENSION_NAME is never referenced by any
 // entity screen this app registers (the dev-only "notes-demo" host wires
 // tags/custom-fields/folders, not notes-history) — its component is never
 // asked to render.
-const EXEMPT: ReadonlySet<string> = new Set(["legal-pages", "managed-pages", "notes-history"]);
+const EXEMPT: ReadonlySet<string> = new Set(["legal-pages", "notes-history"]);
 
 async function featuresWithClientFactory(): Promise<ReadonlyMap<string, readonly string[]>> {
   const out = new Map<string, readonly string[]>();

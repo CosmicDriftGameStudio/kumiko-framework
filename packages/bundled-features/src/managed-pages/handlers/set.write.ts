@@ -1,8 +1,11 @@
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
+import { BODY_FORMATS, DEFAULT_BODY_FORMAT } from "../constants.ts";
 import { type PageRow, pageEntity, pagesTable } from "../table.ts";
+import { pageBodyIssues } from "./page-body-issues.ts";
 
 const slugSchema = z
   .string()
@@ -21,7 +24,8 @@ const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: 
 // Upserts one page per (tenantId, slug, lang). The tenant scope defaults to event.user;
 // SystemAdmin can write to another tenant via `tenantIdOverride` (typically SYSTEM_TENANT_ID
 // for app-wide pages). On update, omitted published/description/ogImage values are preserved
-// so a publish toggle does not overwrite the body, and vice versa.
+// so a publish toggle does not overwrite the body, and vice versa. bodyFormat is the
+// exception: omitted means markdown, so provisioning callers that only know markdown stay valid.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
@@ -29,6 +33,7 @@ export const setWrite = defineWriteHandler({
     lang: langSchema,
     title: z.string().min(1).max(200),
     body: z.string().max(100_000).nullable(),
+    bodyFormat: z.enum(BODY_FORMATS).optional(),
     description: z.string().max(500).nullable().optional(),
     ogImage: z.string().max(2000).nullable().optional(),
     published: z.boolean().optional(),
@@ -37,10 +42,13 @@ export const setWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
+    "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them and resetting bodyFormat to markdown (the default) when it is omitted; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
   handler: async (event, ctx) => {
     const override = event.payload.tenantIdOverride;
     const tenantId = (override ?? event.user.tenantId) as TenantId; // @cast-boundary engine-bridge
+    const bodyFormat = event.payload.bodyFormat ?? DEFAULT_BODY_FORMAT;
+    const bodyIssues = pageBodyIssues(event.payload.body, bodyFormat);
+    if (bodyIssues.length > 0) return writeFailure(new ValidationError({ fields: bodyIssues }));
     // ctx.db is scoped to the executing user's tenant, wrong for a cross-tenant override
     // on both the existing-check and the executor's stream reads; re-scope to the target.
     const { db: scopedDb, streamTenantId } = requireForTenant(ctx, tenantId);
@@ -58,6 +66,7 @@ export const setWrite = defineWriteHandler({
           changes: {
             title: event.payload.title,
             body: event.payload.body,
+            bodyFormat,
             description:
               event.payload.description !== undefined
                 ? event.payload.description
@@ -84,6 +93,7 @@ export const setWrite = defineWriteHandler({
         lang: event.payload.lang,
         title: event.payload.title,
         body: event.payload.body,
+        bodyFormat,
         description: event.payload.description ?? null,
         ogImage: event.payload.ogImage ?? null,
         published: event.payload.published ?? false,

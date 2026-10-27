@@ -1017,6 +1017,15 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Changer d'espace de travail",
   "managed-pages:actions.delete": "Supprimer",
   "managed-pages:actions.edit": "Modifier",
+  "managed-pages.errors.document.rejected":
+    "Le contenu comporte des éléments non autorisés : {detail}",
+  "managed-pages:body.lossy.warning":
+    "Cette page a été rédigée en Markdown. La conversion vers l'éditeur supprime : {features}. Vérifiez le résultat avant d'enregistrer.",
+  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.blockquote": "citations",
+  "managed-pages:body.lossy.code": "code",
+  "managed-pages:body.lossy.deepHeading": "titres au-delà du niveau 3",
+  "managed-pages:body.lossy.relativeLink": "liens relatifs",
   "managed-pages:branding.section.custom-css": "CSS personnalisé",
   "managed-pages:branding.section.identity": "Identité",
   "managed-pages:confirms.page-delete": "Supprimer cette page ?",

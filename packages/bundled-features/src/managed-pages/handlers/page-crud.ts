@@ -6,6 +6,7 @@ import {
   defineEntityUpdateHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { pageEntity } from "../table.ts";
+import { withBodyValidation } from "./page-body-guard.ts";
 
 // Admin authoring runs as TenantAdmin (self-service) or SystemAdmin (app-wide
 // pages). Mirrors set.write's ACL — an app with its own role alias
@@ -17,16 +18,22 @@ const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 // `managed-pages:query:page:{list,detail}` by convention. The `set` write
 // handler in feature.ts is NOT used by them and stays the provisioning API.
 export const pageCrudWrites = [
-  defineEntityCreateHandler("page", pageEntity, {
-    access: ADMIN_ACCESS,
-    description:
-      "Creates a managed page from the admin form's field values, failing if that slug and language already exist; use it from the page catalog screen, whereas managed-pages:write:set upserts a page addressed by slug and language.",
-  }),
-  defineEntityUpdateHandler("page", pageEntity, {
-    access: ADMIN_ACCESS,
-    description:
-      "Updates one managed page addressed by row id from the admin form's `{ id, version, changes }` envelope; use it from the page edit screen, whereas managed-pages:write:set addresses a page by slug and language instead.",
-  }),
+  withBodyValidation(
+    defineEntityCreateHandler("page", pageEntity, {
+      access: ADMIN_ACCESS,
+      description:
+        "Creates a managed page from the admin form's field values, failing if that slug and language already exist; use it from the page catalog screen, whereas managed-pages:write:set upserts a page addressed by slug and language.",
+    }),
+    "create",
+  ),
+  withBodyValidation(
+    defineEntityUpdateHandler("page", pageEntity, {
+      access: ADMIN_ACCESS,
+      description:
+        "Updates one managed page addressed by row id from the admin form's `{ id, version, changes }` envelope; use it from the page edit screen, whereas managed-pages:write:set addresses a page by slug and language instead.",
+    }),
+    "update",
+  ),
   defineEntityDeleteHandler("page", pageEntity, {
     access: ADMIN_ACCESS,
     description:

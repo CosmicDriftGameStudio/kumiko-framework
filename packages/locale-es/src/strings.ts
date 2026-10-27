@@ -1002,6 +1002,15 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Cambiar de espacio de trabajo",
   "managed-pages:actions.delete": "Eliminar",
   "managed-pages:actions.edit": "Editar",
+  "managed-pages.errors.document.rejected":
+    "El contenido incluye elementos no permitidos: {detail}",
+  "managed-pages:body.lossy.warning":
+    "Esta página se escribió en Markdown. Al convertirla al editor se pierden: {features}. Revisa el resultado antes de guardar.",
+  "managed-pages:body.lossy.image": "imágenes",
+  "managed-pages:body.lossy.blockquote": "citas",
+  "managed-pages:body.lossy.code": "código",
+  "managed-pages:body.lossy.deepHeading": "títulos por debajo del nivel 3",
+  "managed-pages:body.lossy.relativeLink": "enlaces relativos",
   "managed-pages:branding.section.custom-css": "CSS personalizado",
   "managed-pages:branding.section.identity": "Identidad",
   "managed-pages:confirms.page-delete": "¿Seguro que quieres eliminar esta página?",

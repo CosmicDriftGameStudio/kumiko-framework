@@ -28,6 +28,7 @@ import { featureTogglesClient } from "@cosmicdrift/kumiko-bundled-features/featu
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { inboundMailFoundationClient } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
+import { managedPagesClient } from "@cosmicdrift/kumiko-bundled-features/managed-pages/web";
 import { sessionsClient } from "@cosmicdrift/kumiko-bundled-features/sessions/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
@@ -124,6 +125,8 @@ createKumikoApp({
     // tag-list management screen (TagManager) + TagSection/TagFilter extension
     // slots + tag i18n. Required for the dev-only notesFeature host to render.
     tagsClient(),
+    // Document editor of the page-edit body section.
+    managedPagesClient(),
     // template-resolver text-block tree + editor under the app-owned "content"
     // nav node. Points at SYSTEM_TENANT because that is where the legal and
     // marketing copy is seeded.

@@ -977,6 +977,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.workspace.switch": "Switch workspace",
   "managed-pages:actions.delete": "Delete",
   "managed-pages:actions.edit": "Edit",
+  "managed-pages.errors.document.rejected":
+    "The content contains elements that are not allowed: {detail}",
+  "managed-pages:body.lossy.warning":
+    "This page was written in Markdown. Converting it to the editor drops: {features}. Check the result before saving.",
+  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.blockquote": "block quotes",
+  "managed-pages:body.lossy.code": "code",
+  "managed-pages:body.lossy.deepHeading": "headings below level 3",
+  "managed-pages:body.lossy.relativeLink": "relative links",
   "managed-pages:branding.section.custom-css": "Custom CSS",
   "managed-pages:branding.section.identity": "Identity",
   "managed-pages:confirms.page-delete": "Delete this page?",

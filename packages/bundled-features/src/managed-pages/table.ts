@@ -2,12 +2,14 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
+  createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { BODY_FORMATS, type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.ts";
 
 // Page — a tenant-editable, server-rendered public page (landing,
 // about, custom). Exactly one row per (tenantId, slug, lang). The body is
-// Markdown, rendered securely on the server via page-render. `published`
+// Markdown or an editor document (bodyFormat), rendered securely on the server. `published`
 // gates delivery to anonymous visitors: drafts return 404. description and
 // ogImage support SEO and social previews. SYSTEM_TENANT_ID is used for
 // app-wide pages; otherwise the page belongs to the tenant resolved from the
@@ -15,7 +17,7 @@ import {
 export const pageEntity = createEntity({
   table: "read_pages",
   description:
-    "One tenant-editable public web page, unique per slug and language, holding a markdown body plus the title, SEO description and OG image, with a published flag that decides whether anonymous visitors are served it or get a 404.",
+    "One tenant-editable public web page, unique per slug and language, holding a markdown or document (HTML) body plus the title, SEO description and OG image, with a published flag that decides whether anonymous visitors are served it or get a 404.",
   fields: {
     slug: createTextField({
       required: true,
@@ -51,6 +53,7 @@ export const pageEntity = createEntity({
       personal: false,
       reason: "is_business_data",
     }),
+    bodyFormat: createSelectField({ options: BODY_FORMATS, default: DEFAULT_BODY_FORMAT }),
     description: createTextField({ maxLength: 500, personal: false, reason: "is_business_data" }),
     ogImage: createTextField({ maxLength: 2000, personal: false, reason: "is_business_data" }),
     published: createBooleanField({ default: false }),
@@ -71,6 +74,7 @@ export type PageRow = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly bodyFormat: BodyFormat | null;
   readonly description: string | null;
   readonly ogImage: string | null;
   readonly published: boolean;
