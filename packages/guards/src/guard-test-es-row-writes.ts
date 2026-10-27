@@ -127,10 +127,13 @@ function collect(sourceFile: SourceFile, roots: readonly RepoRoot[]): GuardViola
   if (ALLOWLIST.some((re) => re.test(file))) return [];
   const bypass = helperBindings(sourceFile, BYPASS_NAMES);
   const seedRow = helperBindings(sourceFile, SEED_ROW_NAMES);
-  const bypassCalls = sourceFile
-    .getDescendantsOfKind(SyntaxKind.CallExpression)
-    .filter((call) => isHelperCallee(call.getExpression(), bypass))
-    .map((call) => ({ line: call.getStartLineNumber(), message: MESSAGE }));
+  const importsBypass = bypass.names.size > 0 || bypass.namespaces.size > 0;
+  const bypassCalls = importsBypass
+    ? sourceFile
+        .getDescendantsOfKind(SyntaxKind.CallExpression)
+        .filter((call) => isHelperCallee(call.getExpression(), bypass))
+        .map((call) => ({ line: call.getStartLineNumber(), message: MESSAGE }))
+    : [];
   return [
     ...bypassCalls,
     ...findSeedRowOnEntityTables(sourceFile, (callee) => isHelperCallee(callee, seedRow)),

@@ -59,6 +59,8 @@ function violationMessage(text: string): string | undefined {
 function collect(sourceFile: SourceFile, roots: readonly RepoRoot[]): GuardViolation[] {
   const file = relFromRepoRoot(sourceFile.getFilePath(), roots);
   if (ALLOWLIST.some((re) => re.test(file))) return [];
+  // Both rules need one of these table names in a literal, which is part of the file's text.
+  if (!/kumiko_events|read_tenant_memberships/i.test(sourceFile.getFullText())) return [];
   const violations: GuardViolation[] = [];
   for (const kind of LITERAL_KINDS) {
     for (const node of sourceFile.getDescendantsOfKind(kind)) {
