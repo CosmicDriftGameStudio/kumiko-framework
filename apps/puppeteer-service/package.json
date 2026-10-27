@@ -11,7 +11,7 @@
     "runtime": "runtime"
   },
   "dependencies": {
-    "hono": "4.13.13",
+    "hono": "4.13.14",
     "puppeteer": "25.14.0",
     "zod": "4.6.7"
   },

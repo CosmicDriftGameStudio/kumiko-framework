@@ -124,7 +124,7 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-cli": "workspace:*",
-    "hono": "^4.13.5",
+    "hono": "^4.13.14",
     "ink": "^7.1.1",
     "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
