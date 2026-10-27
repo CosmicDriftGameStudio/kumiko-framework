@@ -100,6 +100,9 @@ createKumikoApp({
   shell: AppShell,
   clientFeatures: [
     localeDeClient(),
+    userDataRightsClient({
+      publicDeletion: { requestPath: "/account/delete", confirmPath: "/account/delete/confirm" },
+    }),
     emailPasswordClient({ mfaVerifyScreen: MfaVerifyScreen }),
     authMfaClient(),
     adminShellClient(),
@@ -113,7 +116,6 @@ createKumikoApp({
     tierEngineClient(),
     capOverviewClient(),
     userProfileClient(),
-    userDataRightsClient(),
     customFieldsClient(),
     foldersClient(),
     inboundMailFoundationClient(),

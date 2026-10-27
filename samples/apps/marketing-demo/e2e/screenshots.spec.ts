@@ -1,10 +1,14 @@
 // @runtime test
 // Marketing-Screenshot-Generator.
 //
-// Liest Szenarien aus ./scenarios.ts → schreibt PNGs nach $SCREENSHOT_DIR
-// (Pflicht, kein Default).
+// Reads scenarios from ./scenarios.ts, writes PNGs to
+// $SCREENSHOT_DIR/<name>/<locale>/<theme>/<viewport>.png (required, no default).
 
-import { runScreenshots } from "@cosmicdrift/kumiko-testing/e2e";
+import { applyDefaultTheme, DEFAULT_THEMES, runMatrix } from "@cosmicdrift/kumiko-testing/e2e";
 import { SCENARIOS } from "./scenarios";
 
-runScreenshots(SCENARIOS, { pinLocale: true });
+runMatrix(SCENARIOS, {
+  themes: DEFAULT_THEMES,
+  applyTheme: applyDefaultTheme,
+  locales: ["en"],
+});

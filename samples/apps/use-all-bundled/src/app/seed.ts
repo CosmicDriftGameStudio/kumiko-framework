@@ -335,7 +335,19 @@ export const seedScreenshotData: SeedFn = async (stack) => {
     slug: "about",
     lang: "en",
     title: "About Acme",
-    body: "# About Acme\n\nWe build calm software.",
+    body: [
+      "# About Acme",
+      "",
+      "We build calm software for small teams. Acme was founded in 2019 in Hamburg and now supports more than 400 companies across Europe.",
+      "",
+      "## What we stand for",
+      "",
+      "- Software that stays out of your way",
+      "- Fair, per-seat pricing without surprises",
+      "- Your data stays in the EU",
+      "",
+      "Read more about how we handle data in our [privacy policy](/legal/privacy).",
+    ].join("\n"),
     published: true,
   });
   await seedPage(stack.db, {

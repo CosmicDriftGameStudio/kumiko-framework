@@ -160,6 +160,16 @@ const collectionEditor = () => async (page: Page) => {
   await page.getByTestId("text-block-editor").waitFor();
 };
 
+// managed-pages edit — the seeded "About Acme" page (Markdown body with
+// heading, paragraph, list and link) opened from the page list.
+const managedPageEditFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/tenant-admin/page-list");
+  await page.getByRole("row").filter({ hasText: "About Acme" }).click();
+  await page.waitForURL(/\/page-edit/);
+  await page.getByTestId("render-edit-form").waitFor();
+};
+
 // export-job-list — a read-only SystemAdmin inspector over rows the GDPR
 // export worker produces; nothing seeds one. request-export (user-data-
 // rights, openToAll) is the same self-service write a logged-in user's
@@ -274,8 +284,16 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "user-profile", flow: admin("/tenant-admin/profile") },
   // user-data-rights — Privacy-Center (GDPR self-service, openToAll).
   { name: "user-data-rights", flow: admin("/tenant-admin/privacy-center") },
+  // user-data-rights — anonymous Art. 17 deletion request (email form, login-free gate).
+  {
+    name: "user-data-rights-deletion",
+    url: "/account/delete",
+    waitFor: "form",
+  },
   // managed-pages — TenantAdmin entity-list (about + pricing seeded).
   { name: "managed-pages", flow: admin("/tenant-admin/page-list") },
+  // managed-pages — edit screen of the seeded "About Acme" page (Markdown body).
+  { name: "managed-pages-edit", flow: managedPageEditFlow() },
   // tags — GitLab-style label management screen (catalog, colors, usage counts).
   { name: "tags", flow: admin("/tenant-admin/tag-list") },
   // tags — a host list (notes) with the drop-in TagFilter in its toolbar header.
@@ -297,6 +315,12 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "template-resolver", flow: collectionEditor() },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens") },
+  // secrets — mask-derived secretsEdit under the tenant-admin workspace nav.
+  {
+    name: "secrets-edit",
+    flow: admin("/tenant-admin/secrets"),
+    waitFor: '[data-testid="secrets-edit-form"]',
+  },
   // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.
   {
     name: "config-settings-hub",
