@@ -12,10 +12,12 @@
 // or silently be served to every agent.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -277,6 +279,18 @@ describe("system level :: cross-tenant override", () => {
     );
     expect(error.code).toBe("access_denied");
   });
+
+  // The web content tree retries without the override on exactly this answer,
+  // so a member opening an app wired with `tenantId` still sees their entries.
+  test("a non-SystemAdmin listing with an override gets a 403 naming the reason", async () => {
+    const error = await stack.http.queryErr(
+      SIGNATURES_LIST,
+      { tenantIdOverride: otherTenantId },
+      agentA,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(JSON.stringify(error)).toContain("tenant_override_requires_system_admin");
+  });
 });
 
 describe("custom roles :: access gates ownership, not the other way round", () => {
@@ -330,5 +344,50 @@ describe("GDPR :: the owner column is what makes erasure possible", () => {
       expect(typeof row.ownerId).toBe("string");
       expect(row.ownerId.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("with a PII key service :: the owner reads their entry back as plaintext", () => {
+  const encryptedSignature = {
+    slug: "encrypted",
+    locale: "de",
+    title: "Verschlüsselt",
+    content: "<p>Viele Grüße, A</p>",
+    contentFormat: "html" as const,
+  };
+
+  beforeAll(async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    await stack.http.writeOk(SIGNATURES_SET, encryptedSignature, agentA);
+  });
+
+  afterAll(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("the stored column holds ciphertext", async () => {
+    const rows = await selectMany<UserContentEntryRow>(db, userContentEntriesTable, {
+      ownerId: agentA.id,
+      slug: "encrypted",
+    });
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.content).not.toBe(encryptedSignature.content);
+  });
+
+  test("list and item return the decrypted content", async () => {
+    const list = await stack.http.queryOk<{ blocks: readonly { slug: string; content: string }[] }>(
+      SIGNATURES_LIST,
+      {},
+      agentA,
+    );
+    expect(list.blocks.find((b) => b.slug === "encrypted")?.content).toBe(
+      encryptedSignature.content,
+    );
+    const item = await stack.http.queryOk<{ content: string }>(
+      SIGNATURES_ITEM,
+      { slug: "encrypted", locale: "de" },
+      agentA,
+    );
+    expect(item.content).toBe(encryptedSignature.content);
   });
 });

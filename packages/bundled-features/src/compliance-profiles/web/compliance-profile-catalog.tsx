@@ -22,6 +22,14 @@ type ListProfilesResponse = {
   readonly profiles: readonly ProfileSummary[];
 };
 
+// The select options above carry locale translations; the catalog reuses them so both
+// name a profile alike. A profile without an option key keeps its source label.
+function profileLabel(profile: ProfileSummary, t: (key: string) => string): string {
+  const optionKey = `compliance-profiles:entity:__action-form__:field:profileKey:option:${profile.key}`;
+  const translated = t(optionKey);
+  return translated === optionKey ? profile.label : translated;
+}
+
 export function ComplianceProfileCatalog(_props: ExtensionSectionProps): ReactNode {
   const { Banner, Text } = usePrimitives();
   const t = useTranslation();
@@ -46,7 +54,8 @@ export function ComplianceProfileCatalog(_props: ExtensionSectionProps): ReactNo
     <ul className="flex flex-col gap-2 text-sm" data-testid="compliance-profile-catalog">
       {(query.data?.profiles ?? []).map((profile) => (
         <li key={profile.key} data-profile-key={profile.key}>
-          <strong>{profile.label}</strong> — {profile.region} — {profile.authorityContact}
+          <strong>{profileLabel(profile, t)}</strong> — {profile.region} —{" "}
+          {profile.authorityContact}
         </li>
       ))}
     </ul>

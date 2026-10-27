@@ -197,6 +197,81 @@ describe("DataTable column resizing", () => {
     expect(screen.getByTestId("t").style.tableLayout).toBe("");
   });
 
+  test("without a chosen width the table stays auto and sizes by content, the first column unbounded", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        testId="t"
+        onRowClick={() => {}}
+        view={view({ widths: {}, minWidths: sizing.minWidths, onWidthChange: () => {} })}
+      />,
+    );
+    const table = screen.getByTestId("t");
+    expect(table.style.tableLayout).toBe("");
+    expect(table.querySelector("colgroup")).toBeNull();
+    expect(screen.getByTestId("column-resize-name")).toBeTruthy();
+    const firstCell = screen.getByTestId("cell-r1-name").className.split(/\s+/);
+    expect(firstCell).toContain("[overflow-wrap:anywhere]");
+    expect(firstCell).not.toContain("max-w-xs");
+    expect(screen.getByTestId("cell-r1-city").className.split(/\s+/)).toContain("max-w-xs");
+    expect(screen.getByRole("button", { name: "Ada" }).className).not.toContain("truncate");
+  });
+
+  test("dates in a resizable table keep one line, without resizing they wrap as before", () => {
+    const datedColumns = [
+      ...columns,
+      { field: "expiresAt", label: "Expires", type: "timestamp" as const, sortable: false },
+      {
+        field: "createdAt",
+        label: "Created",
+        type: "text" as const,
+        sortable: false,
+        renderer: { format: "timestamp" as const },
+      },
+    ];
+    const datedRows = [
+      { id: "r1", values: { ...rows[0]?.values, expiresAt: "2026-11-26T10:26:00Z" } },
+    ];
+    const { unmount } = render(
+      <DataTable
+        columns={datedColumns}
+        rows={datedRows}
+        testId="t"
+        view={view({ widths: {}, minWidths: sizing.minWidths, onWidthChange: () => {} })}
+      />,
+    );
+    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).toContain(
+      "whitespace-nowrap",
+    );
+    expect(screen.getByTestId("cell-r1-createdAt").className.split(/\s+/)).toContain(
+      "whitespace-nowrap",
+    );
+    unmount();
+    render(<DataTable columns={datedColumns} rows={datedRows} testId="t" view={view()} />);
+    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).not.toContain(
+      "whitespace-nowrap",
+    );
+  });
+
+  test("the first resize hands over the displayed widths of the other columns", () => {
+    const onWidthChange = mock(
+      (_field: string, _width: number, _others?: Readonly<Record<string, number>>) => {},
+    );
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        testId="t"
+        view={view({ widths: { age: 100 }, minWidths: sizing.minWidths, onWidthChange })}
+      />,
+    );
+    // happy-dom lays nothing out, so the displayed width falls back to the default start width.
+    expect(screen.getByTestId("t").style.tableLayout).toBe("fixed");
+    fireEvent.keyDown(screen.getByTestId("column-resize-name"), { key: "ArrowRight" });
+    expect(onWidthChange).toHaveBeenLastCalledWith("name", 176, { city: 160 });
+  });
+
   test("arrow keys on the handle resize by 16px and clamp at the minimum width", () => {
     const onWidthChange = mock((_field: string, _width: number) => {});
     render(
@@ -209,11 +284,11 @@ describe("DataTable column resizing", () => {
     );
     const handle = screen.getByTestId("column-resize-name");
     fireEvent.keyDown(handle, { key: "ArrowRight" });
-    expect(onWidthChange).toHaveBeenLastCalledWith("name", 216);
+    expect(onWidthChange).toHaveBeenLastCalledWith("name", 216, {});
     const narrow = screen.getByTestId("column-resize-age");
     fireEvent.keyDown(narrow, { key: "ArrowLeft" });
     fireEvent.keyDown(narrow, { key: "ArrowLeft", shiftKey: true });
-    expect(onWidthChange).toHaveBeenLastCalledWith("age", 80);
+    expect(onWidthChange).toHaveBeenLastCalledWith("age", 80, {});
   });
 
   test("the handle is a focusable separator with a value range and sits beside the sort button", () => {
@@ -250,7 +325,7 @@ describe("DataTable column resizing", () => {
       />,
     );
     fireEvent.keyDown(screen.getByTestId("column-resize-name"), { key: "ArrowRight" });
-    expect(onWidthChange).toHaveBeenLastCalledWith("name", 2000);
+    expect(onWidthChange).toHaveBeenLastCalledWith("name", 2000, {});
   });
 
   test("clicking the handle does not sort", () => {

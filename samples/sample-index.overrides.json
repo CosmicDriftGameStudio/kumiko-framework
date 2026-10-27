@@ -3,7 +3,7 @@
     "primarySample": "recipes-auth-mfa",
     "whenToUse": "Signed-in users manage MFA and their own sessions on one screen — mount next to auth-mfa and sessions, no composeAuthStack needed.",
     "sampleBlurb": "The auth-mfa recipe mounts the composed screen next to auth-mfa and sessions and boot-validates it with a sidebar entry.",
-    "screenshot": null
+    "screenshot": "/screenshots/features/my-sessions.png"
   },
   "auth-email-password": {
     "primarySample": "recipes-apex-surface-auth",
@@ -39,7 +39,7 @@
     "primarySample": "recipes-compliance-profiles-demo",
     "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
     "sampleBlurb": "Tenant picks EU, CH, or HR profile — retention rules and audit obligations follow the profile without branching your app code.",
-    "screenshot": null
+    "screenshot": "/screenshots/features/profile-picker.png"
   },
   "config": {
     "primarySample": "recipes-encrypted-tenant-config",
@@ -57,7 +57,7 @@
     "primarySample": "recipes-delivery-notifications",
     "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
     "sampleBlurb": "Declarative r.notification() after CRUD — fans out to InApp, email, and push with per-channel templates and delivery-log assertions.",
-    "screenshot": null
+    "screenshot": "/screenshots/features/delivery-log.png"
   },
   "file-foundation": {
     "primarySample": "apps-user-data-rights-demo",
@@ -141,7 +141,7 @@
     "primarySample": "recipes-session-revocation",
     "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
     "sampleBlurb": "Production wiring with createSessionCallbacks() and buildServer auth — login persists sid, logout rejects the JWT before expiry.",
-    "screenshot": null
+    "screenshot": "/screenshots/features/session-list.png"
   },
   "tags": {
     "primarySample": "recipes-tags-basic",
@@ -189,5 +189,35 @@
     "whenToUse": "Logged-in users change password, email, or schedule account deletion from a bundled self-service profile screen.",
     "sampleBlurb": "Self-service password, email change, and account deletion screen — bundled client route you mount in the admin app.",
     "screenshot": "/screenshots/features/user-profile.png"
+  },
+  "admin-shell": {
+    "primarySample": "apps-admin-console",
+    "whenToUse": "Your app needs an admin area with a tenant workspace and a platform workspace built from the screens the features already ship, with role gating that decides who sees which workspace.",
+    "sampleBlurb": "One instance with a tenant-admin and a platform workspace, three seeded users with different roles, and the overview pages each workspace lands on.",
+    "screenshot": "/screenshots/features/platform-overview.png"
+  },
+  "audit": {
+    "primarySample": "apps-admin-console",
+    "whenToUse": "Admins need to see who changed what and when, read straight from the event store, without building a separate audit table.",
+    "sampleBlurb": "The admin console mounts the audit log in the tenant workspace: a paginated, filterable history with a detail view per event.",
+    "screenshot": "/screenshots/features/audit-log.png"
+  },
+  "jobs": {
+    "primarySample": "apps-admin-console",
+    "whenToUse": "Operators need to see background job runs, start a job by hand and get stuck event consumers moving again without a shell on the server.",
+    "sampleBlurb": "The admin console mounts the job runs list, the run-a-job drawer and the event consumer screens in the platform workspace.",
+    "screenshot": "/screenshots/features/job-trigger.png"
+  },
+  "cap-overview": {
+    "primarySample": "apps-use-all-bundled",
+    "whenToUse": "Tenants should see their plan limits and current usage on one screen, with a warning before a cap is reached.",
+    "sampleBlurb": "use-all-bundled mounts the Plans & Caps screen with quota cards for notes, tags and seats plus counters without a limit.",
+    "screenshot": "/screenshots/features/cap-overview.png"
+  },
+  "tenant-settings": {
+    "primarySample": "recipes-tenant-settings",
+    "whenToUse": "Each tenant needs its own default currency and locale for money and locale fields instead of a hard-coded value.",
+    "sampleBlurb": "A per-tenant currency and locale default fills money and locale fields on create, without a hard-coded literal in the field.",
+    "screenshot": "/screenshots/features/tenant-settings-tenant.png"
   }
 }

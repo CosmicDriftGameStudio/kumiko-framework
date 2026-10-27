@@ -56,7 +56,7 @@ export function renderTableHeader(m: DataTableModel): ReactNode {
           <ActionsHeaderCell
             label={m.tableTranslate?.("kumiko.list.actions") ?? "Actions"}
             style={m.pins.actionsHeaderStyle}
-            absorbsLeftover={m.sizing !== undefined}
+            absorbsLeftover={m.sizing?.fixed === true}
           />
         )}
       </TableRow>

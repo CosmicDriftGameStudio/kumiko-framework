@@ -8,7 +8,7 @@ import { DEFAULT_COLLECTION_ACCESS } from "../web/constants.ts";
 import {
   type CollectionEntryRow,
   collectionStore,
-  toCollectionEntry,
+  readableCollectionEntry,
 } from "./collection-shared.ts";
 
 // Single entry of one collection, for the editor behind a tree node. Same
@@ -40,7 +40,7 @@ export function makeCollectionItemQuery(collection: ContentCollectionDefinition)
       });
 
       if (!row) return null;
-      return toCollectionEntry(row);
+      return readableCollectionEntry(row, store, `${collection.id}-item`);
     },
   });
 }

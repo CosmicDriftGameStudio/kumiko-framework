@@ -20,6 +20,37 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 // last column slid under the sticky actions column with
 // nothing visibly cut off. max-w-xs bounds a single column;
 // badges and dates stay nowrap by their own classes.
+// A resizable table sizes by content until the user drags a column. Its
+// first column names the row and gets the room it needs: it breaks anywhere
+// only when the table runs out of width, so a long identifier stays on one
+// line on a wide screen instead of wrapping at 20rem. Dates and timestamps
+// keep one line there too; a narrow screen scrolls the table sideways.
+const ONE_LINE_COLUMN_TYPES: ReadonlySet<string> = new Set(["timestamp", "date"]);
+
+// Projection lists synthesize every column as type "text"; their dates carry a format spec.
+function isDateColumn(col: ListColumnViewModel): boolean {
+  if (ONE_LINE_COLUMN_TYPES.has(col.type)) return true;
+  const renderer: unknown = col.renderer;
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    typeof renderer.format === "string" &&
+    ONE_LINE_COLUMN_TYPES.has(renderer.format)
+  );
+}
+
+function autoLayoutCellClassName(
+  m: DataTableModel,
+  col: ListColumnViewModel,
+  colIndex: number,
+): string {
+  if (m.sizing !== undefined && isDateColumn(col)) return "whitespace-nowrap";
+  return colIndex === 0 && m.sizing !== undefined
+    ? "whitespace-normal [overflow-wrap:anywhere]"
+    : "max-w-xs whitespace-normal break-words";
+}
+
 function dataCellClassName(
   m: DataTableModel,
   col: ListColumnViewModel,
@@ -28,7 +59,9 @@ function dataCellClassName(
 ): string {
   return cn(
     col.fileDisplay === undefined
-      ? cn(m.sizing ? "overflow-hidden" : "max-w-xs", "whitespace-normal break-words")
+      ? m.sizing?.fixed === true
+        ? "overflow-hidden whitespace-normal break-words"
+        : autoLayoutCellClassName(m, col, colIndex)
       : FIT_CONTENT_CELL_CLASS,
     colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
     NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",

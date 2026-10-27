@@ -17,6 +17,8 @@ None of them deletes an event; the log stays intact.
 
 ## 1. Dead consumer
 
+The same restart, skip and pause actions exist as a screen on the platform workspace, see [operator screens](../guides/operator-screens.md#event-consumers).
+
 The dispatcher delivers events in id order. A handler that throws stops the pass at that event,
 the cursor stays on the last good event and `attempts` climbs. At `maxAttempts` (default 10) the
 consumer is marked `dead` and parked. A dead consumer is revived automatically after a cooldown

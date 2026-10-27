@@ -34,33 +34,52 @@ export function clampWidth(width: number, min: number): number {
   return Math.min(MAX_COLUMN_WIDTH_PX, Math.max(min, Math.round(width)));
 }
 
+/** Only columns with a schema `width`: the others are sized by their content until the user resizes. */
 export function defaultWidths(
   schema: readonly LayoutSchemaColumn[],
   minWidths: DataTableColumnWidths,
 ): DataTableColumnWidths {
   return Object.fromEntries(
-    schema.map((column) => [
-      column.field,
-      clampWidth(
-        column.width ?? DEFAULT_COLUMN_WIDTH_PX,
-        minWidths[column.field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX,
-      ),
-    ]),
+    schema.flatMap((column) =>
+      column.width === undefined
+        ? []
+        : [
+            [
+              column.field,
+              clampWidth(column.width, minWidths[column.field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX),
+            ],
+          ],
+    ),
   );
 }
 
-/** A saved width wins per field; a column the saved view has never seen keeps its default. */
+/** A saved width wins per field; fields the schema no longer has are dropped. */
 export function mergeSavedWidths(
   defaults: DataTableColumnWidths,
   saved: Readonly<Record<string, number>>,
   minWidths: DataTableColumnWidths,
 ): DataTableColumnWidths {
   return Object.fromEntries(
-    Object.entries(defaults).map(([field, fallback]) => {
+    Object.keys(minWidths).flatMap((field) => {
       const savedWidth = saved[field];
       const min = minWidths[field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX;
-      return [field, savedWidth === undefined ? fallback : clampWidth(savedWidth, min)];
+      if (savedWidth !== undefined) return [[field, clampWidth(savedWidth, min)]];
+      const fallback = defaults[field];
+      return fallback === undefined ? [] : [[field, fallback]];
     }),
+  );
+}
+
+export function clampWidths(
+  widths: DataTableColumnWidths,
+  minWidths: DataTableColumnWidths,
+): DataTableColumnWidths {
+  return Object.fromEntries(
+    Object.entries(widths).flatMap(([field, width]) =>
+      field in minWidths
+        ? [[field, clampWidth(width, minWidths[field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX)]]
+        : [],
+    ),
   );
 }
 

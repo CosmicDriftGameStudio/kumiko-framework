@@ -30,11 +30,13 @@ export type DataTableViewOptions = {
   /** Present: pinning is on and the view menu has a pin section. Unpinned columns have no entry. */
   readonly pins?: DataTableColumnPins;
   readonly onPinsChange?: (next: DataTableColumnPins) => void;
-  /** Present: resizing is on; the table switches to table-layout fixed. Every column has an entry (px). */
+  /** Present: resizing is on. Only columns with a start width or a user-chosen width have an entry (px);
+   *  while none of the visible columns has one, the table keeps the auto layout and sizes by content. */
   readonly widths?: DataTableColumnWidths;
   /** Present together with `widths`; every column has an entry (px). */
   readonly minWidths?: DataTableColumnWidths;
-  readonly onWidthChange?: (field: string, width: number) => void;
+  /** `others` holds the displayed widths of the columns that had no entry yet, so they keep their size once the layout turns fixed. */
+  readonly onWidthChange?: (field: string, width: number, others?: DataTableColumnWidths) => void;
   readonly keyboardNavigation?: boolean;
   /** Present: the view menu has a "group by" section. */
   readonly groupBy?: DataTableGroupByChoice;

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 // mock.module still see the mocked version because Bun intercepts at the
 // loader level (same pattern as editor-read-only.test.tsx).
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorComponent,
@@ -16,9 +16,9 @@ import {
 import { defaultPrimitives, PlainContentEditor } from "@cosmicdrift/kumiko-renderer/web";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { textBlocksClient } from "../client-plugin.tsx";
+import { canWriteContent, textBlocksClient } from "../client-plugin.tsx";
 import { defaultTranslations } from "../i18n.ts";
 
 mockModuleForFile(
@@ -68,6 +68,15 @@ mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kum
           contentFormat: "document",
           variableSchema: {},
           nav: { label: "mail:nav.mailDocs" },
+        },
+        {
+          id: "signatures",
+          kind: "text-block",
+          contentFormat: "plain",
+          ownership: "user",
+          access: { roles: ["User"] },
+          variableSchema: {},
+          nav: { label: "mail:nav.signatures" },
         },
         {
           id: "richDocs",
@@ -275,6 +284,253 @@ describe("textBlocksClient — content collections", () => {
     await waitFor(() => sentType !== "");
 
     expect(sentType).toBe("template-resolver:query:by-tenant");
+  });
+});
+
+describe("textBlocksClient — tenant override only where the server allows it", () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const block = {
+    slug: "default",
+    locale: "en",
+    title: "Default",
+    content: "x",
+    folder: null,
+    modifiedAt: null,
+  };
+  const okResponse = (): Response =>
+    new Response(JSON.stringify({ data: { blocks: [block] } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+  function recordPayloads(respond: (payload: Record<string, unknown>) => Response): {
+    readonly payloads: Record<string, unknown>[];
+  } {
+    const payloads: Record<string, unknown>[] = [];
+    globalThis.fetch = mock(async (_url: string, init?: RequestInit) => {
+      const payload = (JSON.parse(String(init?.body)) as { payload: Record<string, unknown> })
+        .payload;
+      payloads.push(payload);
+      return respond(payload);
+    }) as unknown as typeof fetch;
+    return { payloads };
+  }
+
+  async function firstEmit(
+    provider: TreeChildrenSubscribe | undefined,
+  ): Promise<readonly TreeNode[]> {
+    if (provider === undefined) throw new Error("provider missing");
+    let emitted: readonly TreeNode[] | undefined;
+    let failed: Error | undefined;
+    const unsubscribe = provider()(
+      (nodes) => {
+        emitted = nodes;
+      },
+      (e) => {
+        failed = e;
+      },
+    );
+    try {
+      await waitFor(() => emitted !== undefined || failed !== undefined);
+    } finally {
+      // A leftover subscription would also answer later save refreshes.
+      unsubscribe?.();
+    }
+    if (failed !== undefined) throw failed;
+    return emitted ?? [];
+  }
+
+  test("a per-user collection never sends the override, so its author sees their own entries", async () => {
+    const { payloads } = recordPayloads(okResponse);
+    const derived = textBlocksClient({ tenantId: "system" }).navProvidersFromCollections?.([
+      {
+        id: "signatures",
+        kind: "text-block",
+        ownership: "user",
+        nav: { label: "mail:nav.signatures" },
+        navQn: "mail:nav:signatures",
+      },
+    ]);
+
+    const nodes = await firstEmit(derived?.providers["mail:nav:signatures"]);
+
+    expect(payloads).toEqual([{}]);
+    expect(nodes[0]?.target?.args).not.toHaveProperty("tenantIdOverride");
+  });
+
+  test("a non-SystemAdmin denied the override reads the session tenant and edits there", async () => {
+    const { payloads } = recordPayloads((payload) =>
+      payload["tenantIdOverride"] !== undefined
+        ? new Response(
+            JSON.stringify({
+              error: { details: { reason: "tenant_override_requires_system_admin" } },
+            }),
+            { status: 403 },
+          )
+        : okResponse(),
+    );
+    const navId = "x:nav:content";
+
+    const nodes = await firstEmit(
+      textBlocksClient({ navId, tenantId: "system" }).navProviders?.[navId],
+    );
+
+    expect(payloads).toEqual([{ tenantIdOverride: "system" }, {}]);
+    expect(nodes[0]?.target?.args).not.toHaveProperty("tenantIdOverride");
+  });
+
+  test("a SystemAdmin keeps the override on the tree and on the edit target", async () => {
+    const { payloads } = recordPayloads(okResponse);
+    const navId = "x:nav:content";
+
+    const nodes = await firstEmit(
+      textBlocksClient({ navId, tenantId: "system" }).navProviders?.[navId],
+    );
+
+    expect(payloads).toEqual([{ tenantIdOverride: "system" }]);
+    expect(nodes[0]?.target?.args).toMatchObject({ tenantIdOverride: "system" });
+  });
+
+  test("any other 403 stays an error instead of silently switching tenants", async () => {
+    recordPayloads(() => new Response("csrf mismatch", { status: 403 }));
+    const navId = "x:nav:content";
+
+    await expect(
+      firstEmit(textBlocksClient({ navId, tenantId: "system" }).navProviders?.[navId]),
+    ).rejects.toThrow("403");
+  });
+});
+
+describe("canWriteContent — Save follows the server's access rule", () => {
+  test("a collection's own access decides, so a member may save their signature", () => {
+    expect(canWriteContent({ access: { roles: ["User"] } }, ["User"])).toBe(true);
+  });
+
+  test("a collection without access falls back to the server default, SystemAdmin only", () => {
+    expect(canWriteContent({}, ["TenantAdmin"])).toBe(false);
+    expect(canWriteContent({}, ["SystemAdmin"])).toBe(true);
+  });
+
+  test("the public text-block pair stays TenantAdmin or SystemAdmin", () => {
+    expect(canWriteContent(undefined, ["TenantAdmin"])).toBe(true);
+    expect(canWriteContent(undefined, ["User"])).toBe(false);
+  });
+});
+
+describe("textBlocksClient — a save refreshes the collection tree", () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  test("a new per-user entry shows in the tree without a reload", async () => {
+    let listCalls = 0;
+    let saved = false;
+    const savedEntry = {
+      slug: "reminder",
+      locale: "de",
+      title: "My signature",
+      content: "x",
+      folder: null,
+      modifiedAt: null,
+    };
+    globalThis.fetch = mock(async () => {
+      listCalls += 1;
+      return new Response(JSON.stringify({ data: { blocks: saved ? [savedEntry] : [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const { useDispatcher } = await import("@cosmicdrift/kumiko-renderer");
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useDispatcher as any).mockReturnValue({
+      write: mock(async () => {
+        saved = true;
+        return { isSuccess: true, data: { isNew: true } };
+      }),
+      query: mock(),
+    });
+    // Bun shares module mocks across test files in one run, so useAppFeatures
+    // may not know this collection here; both roles keep Save visible either way.
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["User", "TenantAdmin"] });
+
+    const client = textBlocksClient();
+    const derived = client.navProvidersFromCollections?.([
+      {
+        id: "signatures",
+        kind: "text-block",
+        ownership: "user",
+        access: { roles: ["User"] },
+        nav: { label: "mail:nav.signatures" },
+        navQn: "mail:nav:signatures",
+      },
+    ]);
+    let treeLabels: readonly string[] = [];
+    const unsubscribe = derived?.providers["mail:nav:signatures"]?.()((nodes) => {
+      treeLabels = nodes.map((node) => node.label);
+    });
+    await waitFor(() => listCalls === 1);
+
+    const Editor = client.resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de", collectionId: "signatures" },
+    } as const;
+    render(<Editor target={target} onClose={() => {}} />, {
+      wrapper: ({ children }) => (
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "en" })}
+          fallbackBundles={[defaultTranslations]}
+        >
+          <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+        </LocaleProvider>
+      ),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => treeLabels.length > 0);
+    unsubscribe?.();
+    expect(treeLabels).toEqual(["My signature"]);
+  });
+});
+
+describe("textBlocksClient — the editor names the page after its entry", () => {
+  test("the page header shows the entry title instead of the screen behind the editor", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+    const primitivesWithHeaderProbe = {
+      ...defaultPrimitives,
+      PageHeader: ({ title }: { readonly title?: string }) => (
+        <div data-testid="page-header-title">{title}</div>
+      ),
+    };
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de" },
+    } as const;
+
+    render(<Editor target={target} onClose={() => {}} />, {
+      wrapper: ({ children }) => (
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "en" })}
+          fallbackBundles={[defaultTranslations]}
+        >
+          <PrimitivesProvider value={primitivesWithHeaderProbe}>{children}</PrimitivesProvider>
+        </LocaleProvider>
+      ),
+    });
+
+    expect(screen.getByTestId("page-header-title").textContent).toBe("Reminder");
   });
 });
 

@@ -14,6 +14,7 @@ import type {
 } from "../data-table-view-types.ts";
 import {
   clampWidth,
+  clampWidths,
   DEFAULT_MIN_COLUMN_WIDTH_PX,
   defaultPins,
   defaultWidths,
@@ -53,7 +54,7 @@ export type ListViewState = {
   /** Undefined unless `table.resizing` is on. */
   readonly widths: DataTableColumnWidths | undefined;
   readonly minWidths: DataTableColumnWidths | undefined;
-  readonly setWidth: (field: string, width: number) => void;
+  readonly setWidth: (field: string, width: number, others?: DataTableColumnWidths) => void;
   /** Active group field, "" = not grouped. */
   readonly groupBy: string;
   /** Undefined unless `table.grouping.userChoice` is on. */
@@ -226,10 +227,11 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
     [commit, view],
   );
   const setWidth = useCallback(
-    (field: string, width: number) =>
+    (field: string, width: number, others: DataTableColumnWidths = {}) =>
       commit({
         ...view,
         widths: {
+          ...clampWidths(others, minWidths),
           ...view.widths,
           [field]: clampWidth(width, minWidths[field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX),
         },
