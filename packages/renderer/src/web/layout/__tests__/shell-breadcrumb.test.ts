@@ -4,6 +4,44 @@ import { resolveDetailBreadcrumb } from "../shell-breadcrumb.ts";
 
 const t = (key: string): string => key;
 
+describe("resolveDetailBreadcrumb — create mode", () => {
+  const screens: ScreenDefinition[] = [
+    { id: "page-list", type: "entityList", entity: "page", columns: ["slug"], rowActions: [] },
+    {
+      id: "page-edit",
+      type: "entityEdit",
+      entity: "page",
+      layout: { sections: [{ fields: ["slug"] }] },
+    },
+  ];
+  const translated: Record<string, string> = {
+    "screen:page-list.title": "Pages",
+    "screen:page-edit.title": "Edit page",
+    "screen:page-edit.createTitle": "New page",
+  };
+  const tWithCreate = (key: string): string => translated[key] ?? key;
+
+  test("creating names the screen by its createTitle", () => {
+    expect(resolveDetailBreadcrumb(screens, "page-edit", tWithCreate, { creating: true })).toEqual([
+      { label: "Pages", screenId: "page-list" },
+      { label: "New page" },
+    ]);
+  });
+
+  test("without a translated createTitle the screen title stays", () => {
+    expect(resolveDetailBreadcrumb(screens, "page-edit", t, { creating: true })).toEqual([
+      { label: "screen:page-list.title", screenId: "page-list" },
+      { label: "screen:page-edit.title" },
+    ]);
+  });
+
+  test("an existing record keeps the edit title", () => {
+    expect(resolveDetailBreadcrumb(screens, "page-edit", tWithCreate)?.at(-1)).toEqual({
+      label: "Edit page",
+    });
+  });
+});
+
 describe("resolveDetailBreadcrumb", () => {
   test("entityEdit pairs with entityList on same entity", () => {
     const screens: ScreenDefinition[] = [

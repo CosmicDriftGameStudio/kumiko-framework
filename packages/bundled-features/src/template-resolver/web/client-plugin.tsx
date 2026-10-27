@@ -16,6 +16,7 @@ import type {
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   ContentPreview,
   type FeatureSchema,
@@ -34,6 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { DEFAULT_COLLECTION_ACCESS } from "./constants.ts";
 import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.tsx";
 import { documentBlocksForKind } from "./document-toolbar-blocks.ts";
 import { defaultTranslations } from "./i18n.ts";
@@ -155,57 +157,134 @@ export function groupBlocksByFolder(
   ];
 }
 
+// A save in the editor re-fires the tree of the collection it wrote to. The
+// SSE refresh does not cover every collection: per-user entries carry no
+// entity signal, because naming their ids to every collection reader would
+// reveal when colleagues change their own entries.
+const TEXT_BLOCK_TREE_KEY = "";
+const treeRefreshListeners = new Map<string, Set<() => void>>();
+
+function onTreeRefresh(treeKey: string, listener: () => void): () => void {
+  const listeners = treeRefreshListeners.get(treeKey) ?? new Set();
+  listeners.add(listener);
+  treeRefreshListeners.set(treeKey, listeners);
+  return () => listeners.delete(listener);
+}
+
+function refreshTree(treeKey: string): void {
+  for (const listener of treeRefreshListeners.get(treeKey) ?? []) listener();
+}
+
+type BlockListResult =
+  | { readonly ok: true; readonly blocks: readonly BlockSummary[] }
+  | { readonly ok: false; readonly status: number; readonly body: string };
+
+async function postBlockList(
+  queryType: string,
+  tenantIdOverride: string | undefined,
+): Promise<BlockListResult> {
+  // CSRF header is mandatory on authenticated requests (auth-middleware
+  // double-submit pattern). Anonymous/pre-login has no token → header
+  // omitted → the server takes the anonymous path.
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const csrf = readCsrfToken();
+  if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+  const response = await fetch("/api/query", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      type: queryType,
+      payload: tenantIdOverride !== undefined ? { tenantIdOverride } : {},
+    }),
+  });
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      body: await response.text().catch(() => response.statusText),
+    };
+  }
+  const data: ByTenantResponse = await response.json();
+  return { ok: true, blocks: data.data.blocks };
+}
+
+const TENANT_OVERRIDE_DENIED_REASON = "tenant_override_requires_system_admin";
+
+// The dispatcher accepts tenantIdOverride from a SystemAdmin only, and the
+// provider cannot see the session roles. Everyone else gets this exact denial
+// and reads their session tenant instead, which is the only tenant they may
+// edit anyway.
+function isTenantOverrideDenied(result: BlockListResult): boolean {
+  return !result.ok && result.status === 403 && result.body.includes(TENANT_OVERRIDE_DENIED_REASON);
+}
+
+async function loadBlocks(
+  queryType: string,
+  tenantIdOverride: string | undefined,
+): Promise<{ readonly blocks: readonly BlockSummary[]; readonly tenantIdOverride?: string }> {
+  let result = await postBlockList(queryType, tenantIdOverride);
+  let effectiveOverride = tenantIdOverride;
+  if (tenantIdOverride !== undefined && isTenantOverrideDenied(result)) {
+    result = await postBlockList(queryType, undefined);
+    effectiveOverride = undefined;
+  }
+  if (!result.ok) {
+    // 403 (CSRF/auth) or 5xx — explicit error instead of silent empty.
+    throw new Error(`text-block load failed: ${result.status} ${result.body}`);
+  }
+  return {
+    blocks: result.blocks,
+    ...(effectiveOverride !== undefined && { tenantIdOverride: effectiveOverride }),
+  };
+}
+
 // tenantIdOverride (SystemAdmin-only) lets an app point the content tree at a
 // tenant other than the session's — publicstatus seeds marketing/legal blocks
 // on SYSTEM_TENANT_ID, so its SystemAdmin must read that tenant, not their own.
-// Without a collection id: the anonymous-capable by-tenant query, so a public
+// Without a collection: the anonymous-capable by-tenant query, so a public
 // page keeps its content sidebar without a session. With one: that
 // collection's own list handler, which carries the collection's access rule.
-function makeTreeProvider(tenantIdOverride?: string, collectionId?: string): TreeChildrenSubscribe {
+function makeTreeProvider(
+  tenantIdOverride?: string,
+  collection?: Pick<ContentCollectionSchema, "id" | "ownership">,
+): TreeChildrenSubscribe {
+  const collectionId = collection?.id;
   const queryType =
     collectionId === undefined
       ? TemplateResolverQueries.byTenant
       : collectionQueryName(collectionId, "list");
+  // A per-user entry belongs to its author in the session tenant; pointing the
+  // tree at another tenant would only hide the author's own entries.
+  const requestedOverride = collection?.ownership === "user" ? undefined : tenantIdOverride;
   return () => (emit, emitError) => {
-    // CSRF header is mandatory on authenticated requests (auth-middleware
-    // double-submit pattern). Anonymous/pre-login has no token → header
-    // omitted → the server takes the anonymous path.
-    const headers: Record<string, string> = { "content-type": "application/json" };
-    const csrf = readCsrfToken();
-    if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-    fetch("/api/query", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        type: queryType,
-        payload: tenantIdOverride !== undefined ? { tenantIdOverride } : {},
-      }),
-    })
-      .then(async (r) => {
-        if (!r.ok) {
-          // 403 (CSRF/auth) or 5xx — explicit error instead of silent empty.
-          const text = await r.text().catch(() => r.statusText);
-          throw new Error(`text-block load failed: ${r.status} ${text}`);
-        }
-        return r.json();
-      })
-      .then((data: ByTenantResponse) => {
-        // The app-side r.nav node IS the "Content" container → the provider's
-        // children are the folders/leaves below it, not the wrapper.
-        const content = groupBlocksByFolder(data.data.blocks, tenantIdOverride, collectionId)[0];
-        emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
-      })
-      .catch((e) => {
-        // Explicit error signal via emitError; ProviderBranch shows a banner
-        // plus retry. Falls back to emit([]) for consumers without emitError.
-        if (emitError) {
-          emitError(e instanceof Error ? e : new Error(String(e)));
-        } else {
-          emit([]);
-        }
-      });
-    return () => {};
+    let active = true;
+    const load = (): void => {
+      loadBlocks(queryType, requestedOverride)
+        .then(({ blocks, tenantIdOverride: effectiveOverride }) => {
+          if (!active) return;
+          // The app-side r.nav node IS the "Content" container → the provider's
+          // children are the folders/leaves below it, not the wrapper.
+          const content = groupBlocksByFolder(blocks, effectiveOverride, collectionId)[0];
+          emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
+        })
+        .catch((e) => {
+          if (!active) return;
+          // Explicit error signal via emitError; ProviderBranch shows a banner
+          // plus retry. Falls back to emit([]) for consumers without emitError.
+          if (emitError) {
+            emitError(e instanceof Error ? e : new Error(String(e)));
+          } else {
+            emit([]);
+          }
+        });
+    };
+    load();
+    const unsubscribe = onTreeRefresh(collectionId ?? TEXT_BLOCK_TREE_KEY, load);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   };
 }
 
@@ -243,10 +322,19 @@ function findVariableExamples(
   return findCollection(features, collectionId)?.variableSchema ?? {};
 }
 
-// Edit form: loads the current values via by-slug, lets TenantAdmin and
-// SystemAdmin edit title + content, dispatches set on submit. Other users see
-// the form read-only with a hint banner — write permission stays opinionated
-// TenantAdmin-only, apps widen it via dual-role mapping if they want to.
+// Edit form: loads the current values, dispatches set on submit. Who may save
+// follows the server: a collection's set handler carries the collection's own
+// access rule (one rule for list, item and set), the public text-block pair
+// stays TenantAdmin/SystemAdmin. Other users see the form read-only.
+export function canWriteContent(
+  collection: Pick<ContentCollectionSchema, "access"> | undefined,
+  roles: readonly string[] | undefined,
+): boolean {
+  if (collection !== undefined) {
+    return isUiAccessGranted(collection.access ?? DEFAULT_COLLECTION_ACCESS, roles);
+  }
+  return roles?.includes("TenantAdmin") === true || roles?.includes("SystemAdmin") === true;
+}
 
 type TextBlock = {
   readonly slug: string;
@@ -303,7 +391,7 @@ function TextBlockEditor({
   // which is what the hand-wired content tree uses.
   const collectionId = args?.collectionId;
 
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, PageHeader } = usePrimitives();
   const dispatcher = useDispatcher();
   const user = useShellUser();
   const t = useTranslation();
@@ -312,10 +400,10 @@ function TextBlockEditor({
   const contentFormat = findContentFormat(features, collectionId);
   const variableExamples = findVariableExamples(features, collectionId);
   const variables = Object.keys(variableExamples);
-  const documentBlocks = documentBlocksForKind(findCollection(features, collectionId)?.kind);
+  const collection = findCollection(features, collectionId);
+  const documentBlocks = documentBlocksForKind(collection?.kind);
   const ContentEditor = useContentEditor(contentFormat);
-  const canWrite =
-    user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
+  const canWrite = canWriteContent(collection, user?.roles);
 
   // Same split as the tree provider: a node without a collection reads through
   // the public by-slug, a collection node through that collection's handlers.
@@ -369,6 +457,7 @@ function TextBlockEditor({
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {
+        refreshTree(collectionId ?? TEXT_BLOCK_TREE_KEY);
         setSavedMsg(
           result.data.isNew
             ? t("template-resolver.editor.created")
@@ -394,76 +483,83 @@ function TextBlockEditor({
   };
 
   const disabled = submitting || loading || !canWrite;
+  const headerTitle = title || slug || undefined;
 
   return (
-    <Form
-      onSubmit={onSubmit}
-      testId="text-block-editor"
-      title={title || slug || EMPTY_VALUE_PLACEHOLDER}
-      subtitle={locale !== "" ? `${slug} · (${locale})` : slug}
-      actions={
-        canWrite ? (
-          <Button type="submit" loading={submitting} disabled={disabled}>
-            {submitting ? t("template-resolver.editor.saving") : t("template-resolver.editor.save")}
-          </Button>
-        ) : undefined
-      }
-    >
-      {loading && <Banner variant="loading">{t("template-resolver.editor.loading")}</Banner>}
-      {loadError !== null && (
-        <Banner variant="error">
-          {t("template-resolver.editor.loadFailed")}: {loadError.code}
-        </Banner>
-      )}
-      {!canWrite && !loading && (
-        <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
-      )}
-      <Field id="text-block-title" label={t("template-resolver.editor.titleLabel")} required>
-        <Input
-          kind="text"
-          id="text-block-title"
-          name="text-block-title"
-          value={title}
-          onChange={setTitle}
-          disabled={disabled}
-          required
-        />
-      </Field>
-      <Field
-        id={contentEditorId}
-        label={t("template-resolver.editor.contentLabel")}
-        labelAppendix={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setPreviewing((p) => !p)}
-          >
-            {previewing ? t("kumiko.contentEditor.editMode") : t("kumiko.contentEditor.preview")}
-          </Button>
+    <>
+      {/* The editor opens beside the routed screen, so without this the shell header keeps that screen's title. */}
+      {PageHeader !== undefined && headerTitle !== undefined && <PageHeader title={headerTitle} />}
+      <Form
+        onSubmit={onSubmit}
+        testId="text-block-editor"
+        title={title || slug || EMPTY_VALUE_PLACEHOLDER}
+        subtitle={locale !== "" ? `${slug} · (${locale})` : slug}
+        actions={
+          canWrite ? (
+            <Button type="submit" loading={submitting} disabled={disabled}>
+              {submitting
+                ? t("template-resolver.editor.saving")
+                : t("template-resolver.editor.save")}
+            </Button>
+          ) : undefined
         }
       >
-        {previewing ? (
-          <ContentPreview
-            content={content}
-            variables={variableExamples}
-            contentFormat={contentFormat}
-          />
-        ) : (
-          <DocumentBlocksContext.Provider value={documentBlocks}>
-            <ContentEditor
-              id={contentEditorId}
-              value={content}
-              onChange={setContent}
-              variables={variables}
-              readOnly={disabled}
-            />
-          </DocumentBlocksContext.Provider>
+        {loading && <Banner variant="loading">{t("template-resolver.editor.loading")}</Banner>}
+        {loadError !== null && (
+          <Banner variant="error">
+            {t("template-resolver.editor.loadFailed")}: {loadError.code}
+          </Banner>
         )}
-      </Field>
-      {saveError !== null && <Banner variant="error">{saveError}</Banner>}
-      {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
-    </Form>
+        {!canWrite && !loading && (
+          <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
+        )}
+        <Field id="text-block-title" label={t("template-resolver.editor.titleLabel")} required>
+          <Input
+            kind="text"
+            id="text-block-title"
+            name="text-block-title"
+            value={title}
+            onChange={setTitle}
+            disabled={disabled}
+            required
+          />
+        </Field>
+        <Field
+          id={contentEditorId}
+          label={t("template-resolver.editor.contentLabel")}
+          labelAppendix={
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setPreviewing((p) => !p)}
+            >
+              {previewing ? t("kumiko.contentEditor.editMode") : t("kumiko.contentEditor.preview")}
+            </Button>
+          }
+        >
+          {previewing ? (
+            <ContentPreview
+              content={content}
+              variables={variableExamples}
+              contentFormat={contentFormat}
+            />
+          ) : (
+            <DocumentBlocksContext.Provider value={documentBlocks}>
+              <ContentEditor
+                id={contentEditorId}
+                value={content}
+                onChange={setContent}
+                variables={variables}
+                readOnly={disabled}
+              />
+            </DocumentBlocksContext.Provider>
+          )}
+        </Field>
+        {saveError !== null && <Banner variant="error">{saveError}</Banner>}
+        {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
+      </Form>
+    </>
   );
 }
 
@@ -472,9 +568,10 @@ function TextBlockEditor({
 // label/icon/access, the feature only supplies children plus the editor.
 // Without navId: resolver only, no sidebar node (server-only consumers such as
 // money-horse leak nothing).
-// `tenantId` (SystemAdmin-only): which tenant the tree and editor serve —
-// SYSTEM_TENANT_ID for apps that seed marketing/legal there. Omit for the
-// session tenant (default, no cross-tenant access).
+// `tenantId`: which tenant a SystemAdmin's trees and editor serve —
+// SYSTEM_TENANT_ID for apps that seed marketing/legal there. Other users and
+// per-user collections always stay on the session tenant. Omit for the
+// session tenant everywhere.
 //
 // Beyond that single tree, this client also serves every content collection
 // the app declares via r.contentCollection() — one provider per collection,
@@ -498,7 +595,7 @@ export function textBlocksClient(opts?: {
     // this — an app can have both a hand-wired content tree and collections.
     navProvidersFromCollections: (collections) => ({
       providers: Object.fromEntries(
-        collections.map((c) => [c.navQn, makeTreeProvider(tenantId, c.id)]),
+        collections.map((c) => [c.navQn, makeTreeProvider(tenantId, c)]),
       ),
       entities: Object.fromEntries(collections.map((c) => [c.navQn, ["template-resource"]])),
     }),

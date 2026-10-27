@@ -99,8 +99,10 @@ export function ShellHeader({
       (allowedTree !== undefined ? activeNavLabel(allowedTree, screenId, t) : undefined) ??
       activeNavLabel(tree, screenId, t);
     if (navLabel !== undefined) return [{ label: navLabel }];
-    return resolveDetailBreadcrumb(allScreens, screenId, t);
-  }, [allScreens, screenId, entityId, t, tree, allowedTree]);
+    return resolveDetailBreadcrumb(allScreens, screenId, t, {
+      creating: standInScreenId === undefined && entityId === undefined,
+    });
+  }, [allScreens, screenId, standInScreenId, entityId, t, tree, allowedTree]);
 
   const setStatusElement = slot?.setStatusElement;
   const setActionsElement = slot?.setActionsElement;

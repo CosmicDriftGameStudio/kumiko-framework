@@ -1145,6 +1145,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:members.title": "Equipo",
   "screen:my-caps.title": "Mi uso",
   "screen:my-sessions.title": "Tus sesiones",
+  "screen:page-edit.createTitle": "Nueva página",
   "screen:page-edit.title": "Editar página",
   "screen:page-list.title": "Páginas",
   "screen:platform-overview.title": "Resumen",
@@ -1305,8 +1306,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.loadFailed": "No se pudo cargar el bloque",
   "template-resolver.editor.loading": "Cargando versión actual…",
   "template-resolver.editor.networkError": "Error de red al guardar.",
-  "template-resolver.editor.readOnly":
-    "Solo lectura — se requiere el rol TenantAdmin o SystemAdmin para hacer cambios.",
+  "template-resolver.editor.readOnly": "Solo lectura. Tu rol no permite cambios aquí.",
   "template-resolver.editor.save": "Guardar",
   "template-resolver.editor.saveFailed": "Error al guardar.",
   "template-resolver.editor.saved": "Guardado.",

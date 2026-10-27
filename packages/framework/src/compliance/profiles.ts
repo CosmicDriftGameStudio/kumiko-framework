@@ -124,7 +124,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
   "eu-dsgvo": {
     key: "eu-dsgvo",
     region: "EU",
-    label: "EU — DSGVO Standard",
+    label: "EU — GDPR standard",
     userRights: {
       gracePeriod: { days: 30 },
       restrictionAllowed: true,
@@ -159,7 +159,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
   "swiss-dsg": {
     key: "swiss-dsg",
     region: "CH",
-    label: "Schweiz — Bundesgesetz über den Datenschutz (rev. 2023)",
+    label: "Switzerland — Federal Act on Data Protection (rev. 2023)",
     extends: "eu-dsgvo",
     notifications: {
       languages: ["de", "fr", "it", "en"],
@@ -175,7 +175,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
   "de-hr-dsgvo-hgb": {
     key: "de-hr-dsgvo-hgb",
     region: "DE",
-    label: "Deutschland HR — DSGVO + HGB + Personalakten",
+    label: "Germany HR — GDPR + HGB + personnel files",
     extends: "eu-dsgvo",
     userRights: {
       gracePeriod: { days: 30 },
@@ -194,7 +194,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     },
     breach: {
       authorityNotificationDeadline: { hours: 72 },
-      authorityContact: "Landes-Datenschutzbehörde",
+      authorityContact: "State data protection authority",
       userNotificationRequired: "if-high-risk",
       worksCouncilNotificationRequired: true,
     },
@@ -213,7 +213,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
   "minimal-no-region": {
     key: "minimal-no-region",
     region: "—",
-    label: "Minimal — kein Compliance-Profile (NICHT für Production)",
+    label: "Minimal — no compliance profile (NOT for production)",
     userRights: {
       gracePeriod: { days: 30 },
       restrictionAllowed: false,

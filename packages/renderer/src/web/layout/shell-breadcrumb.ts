@@ -12,6 +12,21 @@ export function screenTitleKey(screenShortId: string): string {
   return `screen:${screenShortId}.title`;
 }
 
+export function screenCreateTitleKey(screenShortId: string): string {
+  return `screen:${screenShortId}.createTitle`;
+}
+
+// An edit screen opened without a record creates one; a feature names that state with
+// `createTitle`, and without it the screen title stays (t returns the key when untranslated).
+function detailTitle(screenShortId: string, creating: boolean, t: (key: string) => string): string {
+  if (creating) {
+    const createKey = screenCreateTitleKey(screenShortId);
+    const createTitle = t(createKey);
+    if (createTitle !== createKey) return createTitle;
+  }
+  return t(screenTitleKey(screenShortId));
+}
+
 // Delegates to resolveNavParentScreen, supplying the feature-qualified-id
 // normalization the client-side schema needs.
 function resolveParentScreen(
@@ -38,19 +53,21 @@ export function resolveDetailBreadcrumb(
   screens: readonly ScreenDefinition[],
   detailScreenId: string,
   t: (key: string) => string,
+  options: { readonly creating?: boolean } = {},
 ): readonly BreadcrumbCrumb[] | undefined {
+  const creating = options.creating === true;
   const detail = screens.find((s) => lastSegment(s.id) === detailScreenId);
   if (detail === undefined) return undefined;
 
   const list = resolveParentScreen(screens, detail);
   if (list === undefined) {
-    return [{ label: t(screenTitleKey(detailScreenId)) }];
+    return [{ label: detailTitle(detailScreenId, creating, t) }];
   }
 
   const listId = lastSegment(list.id);
   return [
     { label: t(screenTitleKey(listId)), screenId: listId },
-    { label: t(screenTitleKey(detailScreenId)) },
+    { label: detailTitle(detailScreenId, creating, t) },
   ];
 }
 

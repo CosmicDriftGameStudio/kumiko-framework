@@ -1148,6 +1148,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "screen:members.title": "Team",
   "screen:my-caps.title": "Il mio utilizzo",
   "screen:my-sessions.title": "Le tue sessioni",
+  "screen:page-edit.createTitle": "Nuova pagina",
   "screen:page-edit.title": "Modifica la pagina",
   "screen:page-list.title": "Pagine",
   "screen:platform-overview.title": "Panoramica",
@@ -1308,8 +1309,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.loadFailed": "Impossibile caricare il blocco",
   "template-resolver.editor.loading": "Caricamento della versione attuale…",
   "template-resolver.editor.networkError": "Errore di rete durante il salvataggio.",
-  "template-resolver.editor.readOnly":
-    "Sola lettura: per apportare modifiche serve il ruolo TenantAdmin o SystemAdmin.",
+  "template-resolver.editor.readOnly": "Sola lettura. Il tuo ruolo non consente modifiche qui.",
   "template-resolver.editor.save": "Salva",
   "template-resolver.editor.saveFailed": "Salvataggio non riuscito.",
   "template-resolver.editor.saved": "Salvato.",

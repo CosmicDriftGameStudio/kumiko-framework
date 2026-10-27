@@ -16,6 +16,7 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
   // Screen titles (global/unprefixed, screenTitleKey = screen:<id>.title)
   "screen:page-list.title": { en: "Pages" },
   "screen:page-edit.title": { en: "Edit page" },
+  "screen:page-edit.createTitle": { en: "New page" },
   "screen:branding-settings.title": { en: "Branding" },
 
   // Page-Entity Feld-Labels (managed-pages:entity:page:field:*)

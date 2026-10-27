@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
+  CLIENT_IP_HEADER,
   CSRF_COOKIE_NAME,
   clearSession,
   runMatrix,
@@ -70,9 +71,19 @@ const eventConsumerMenuFlow = () => async (page: Page) => {
 // Real devices sign in with their own user agent; the screenshot session itself keeps the
 // Playwright desktop Chromium agent. Logins go through a separate request context so the
 // cookie jar of the page stays on the admin session.
-const SESSION_DEVICE_USER_AGENTS = [
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+// The login route reads the client address from x-forwarded-for in e2e runs, so each device gets
+// a public documentation address (TEST-NET-3) instead of the loopback every request shares.
+const SESSION_DEVICES = [
+  {
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    clientIp: "203.0.113.41",
+  },
+  {
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+    clientIp: "203.0.113.87",
+  },
 ] as const;
 
 // The login route allows 20 requests per minute and IP, and every Playwright worker is its own process:
@@ -85,10 +96,11 @@ const signInFromOtherDevices = async (): Promise<void> => {
     await expect.poll(() => readFileSync(DEVICES_MARKER, "utf-8")).toBe("done");
     return;
   }
-  for (const userAgent of SESSION_DEVICE_USER_AGENTS) {
+  for (const { userAgent, clientIp } of SESSION_DEVICES) {
     const device = await request.newContext({
       baseURL: `http://127.0.0.1:${E2E_PORTS["framework/use-all-bundled"]}`,
       userAgent,
+      extraHTTPHeaders: { [CLIENT_IP_HEADER]: clientIp },
     });
     const res = await device.post("/api/auth/login", {
       data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },

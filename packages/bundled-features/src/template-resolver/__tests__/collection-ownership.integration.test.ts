@@ -279,6 +279,18 @@ describe("system level :: cross-tenant override", () => {
     );
     expect(error.code).toBe("access_denied");
   });
+
+  // The web content tree retries without the override on exactly this answer,
+  // so a member opening an app wired with `tenantId` still sees their entries.
+  test("a non-SystemAdmin listing with an override gets a 403 naming the reason", async () => {
+    const error = await stack.http.queryErr(
+      SIGNATURES_LIST,
+      { tenantIdOverride: otherTenantId },
+      agentA,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(JSON.stringify(error)).toContain("tenant_override_requires_system_admin");
+  });
 });
 
 describe("custom roles :: access gates ownership, not the other way round", () => {
