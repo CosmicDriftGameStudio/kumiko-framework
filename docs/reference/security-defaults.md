@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-23
-evidence: "packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
+verified: 2026-10-26
+evidence: "packages/framework/src/db/cross-tenant-reads.ts, packages/types/src/handlers.ts, packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
 ---
 
 # Security defaults: CSP, rate limits and row level security
@@ -70,7 +70,91 @@ The tenant filter of TenantDb is the first isolation layer. Row level security i
 
 `setupTestStack` and the dev server connect as the role `kumiko_app` (NOSUPERUSER NOBYPASSRLS), which owns the database. `"off"` in their options restores the superuser setup without policies.
 
-With `"on"`, a statement that runs without a scope sees no tenant rows, and an insert for another tenant fails with SQLSTATE 42501. Rows of the system tenant stay readable from every tenant scope. Requests, TenantDb, jobs, the event dispatcher, migrations, seeds and projection rebuilds set the scope themselves; app code that reads tenant tables outside these paths works through a TenantDb, a job, a system-scoped handler or a granted `unsafeRaw`. A projection write keeps the tenant scope of the command, so a row for another tenant needs `ctx.systemDb` in an `r.systemScope()` feature. A system scope always names a reason (`runInSystemRowLevelSecurityScope(reason, fn)`, `systemScopedRunner(runner, reason)`); an empty reason throws. The functions that set a scope are not on the public `db` subpath: framework packages import them from `@cosmicdrift/kumiko-framework/internal/row-level-security`, and tests get them from `@cosmicdrift/kumiko-testing/helpers`. The guard `internal-subpath-imports` rejects `internal/*` imports outside the framework repo, the scope setters from `testing/helpers` outside test files and a system scope without a literal reason.
+### Scope per transaction
+
+The policies compare `tenant_id` with the transaction-local setting `kumiko.tenant_id`, or let everything through when `kumiko.scope` is `'system'`. The framework keeps the active scope in the async context of the call and opens each pooled statement as a short transaction that sets the scope first:
+
+```mermaid
+sequenceDiagram
+  participant H as Handler (tenant A)
+  participant F as Framework pool
+  participant P as Postgres
+  H->>F: ctx.db.selectMany(invoices)
+  F->>P: BEGIN
+  F->>P: set_config('kumiko.tenant_id', 'A', true)
+  F->>P: SELECT ... FROM invoices WHERE tenant_id = 'A'
+  P-->>F: rows where policy matches tenant A
+  F->>P: COMMIT (setting is gone)
+  Note over F,P: no scope: the statement runs unscoped and sees 0 tenant rows
+```
+
+The setting is transaction-local, so a pooled connection never carries tenant A into the next request. A savepoint that rolls back also rolls back the settings made inside it.
+
+### What a statement sees
+
+- A statement without a scope sees no tenant rows. Nothing fails; the result is empty.
+- An insert or update for another tenant fails with SQLSTATE 42501 (`new row violates row-level security policy`).
+- Rows of the system tenant stay readable from every tenant scope.
+- A system scope sees and writes every row.
+
+### Who sets the scope
+
+Requests, TenantDb, jobs, the event dispatcher, migrations, seeds and projection rebuilds set the scope themselves. App code that reads tenant tables outside these paths goes through one of them: a TenantDb, a job, a system-scoped handler or a granted `unsafeRaw`. A projection write keeps the tenant scope of the command, so a row for another tenant needs `ctx.systemDb` in an `r.systemScope()` feature.
+
+A raw statement on the pool handle has no scope. In a script or a tool, wrap the connection in a TenantDb for the tenant you mean:
+
+```ts illustration
+const { db } = createDbConnection({ url: databaseUrl });
+
+// no scope: runs, but returns 0 tenant rows
+await db.unsafe("SELECT id FROM invoices WHERE status = 'open'");
+
+// scope tenant A: the TenantDb filter and the policy agree
+const tenantDb = createTenantDb({ db, tenantId });
+const openInvoices = await tenantDb.selectMany(invoiceTable, { status: "open" });
+```
+
+### Escape hatches
+
+Each declared escape hatch also decides the Postgres scope:
+
+| Declaration | Scope in Postgres | Reads | Writes |
+|---|---|---|---|
+| none (`ctx.db`) | tenant of the call | own tenant plus system tenant | own tenant only |
+| `escapeHatch: { reason, grants: ["crossTenantReads"] }` → `ctx.crossTenantReads` | system, with the reason | every tenant, through `selectMany`, `fetchOne` and `count` | none |
+| `escapeHatch: { reason, grants: ["unsafeRaw"] }` → `ctx.db.unsafeRaw()` | system, with the reason | every tenant | every tenant |
+| `r.systemScope()` → `ctx.systemDb` | system | every tenant | every tenant |
+
+`ctx.crossTenantReads` is the narrow choice for a handler or job that only has to look at other tenants, for example a cron that asks "does any tenant have open work?":
+
+```ts illustration
+r.job({
+  name: "reminders:scan",
+  trigger: { cron: "0 7 * * *" },
+  escapeHatch: {
+    reason: "daily scan for overdue reminders across all tenants",
+    grants: ["crossTenantReads"],
+  },
+  handler: async (_payload, ctx) => {
+    const overdue = await ctx.crossTenantReads?.count(reminderTable, { status: "overdue" });
+    ctx.obs.log.info("overdue reminders", { overdue });
+  },
+});
+```
+
+Pitfalls:
+
+- `ctx.crossTenantReads` is `undefined` without the grant. It is also `undefined` during member resolution and inside an agent tool call, including nested dispatches, so a tool call never reads across tenants.
+- `grants: ["crossTenantReads"]` does not unlock `ctx.db.unsafeRaw()`. The reverse holds: an `unsafeRaw` grant implies `crossTenantReads`, because the raw runner reads everything anyway.
+- Every call is reported as `cross-tenant-read`. The audit log keeps one entry per report window and handler; the metric counts each call.
+- An `escapeHatch` without `grants` unlocks every grant. Name the grants you need.
+- `RawDbClient` is typed: `unsafe(sql, params?)` returns `readonly unknown[]` and `begin(fn)` passes a `DbTx`. Validate the rows before you use them.
+
+### Reasons and the guard
+
+A system scope always names a reason (`runInSystemRowLevelSecurityScope(reason, fn)`, `systemScopedRunner(runner, reason)`); an empty reason throws. The functions that set a scope are not on the public `db` subpath: framework packages import them from `@cosmicdrift/kumiko-framework/internal/row-level-security`, and tests get them from `@cosmicdrift/kumiko-testing/helpers`. The guard `internal-subpath-imports` rejects `internal/*` imports outside the framework repo, the scope setters from `testing/helpers` outside test files and a system scope without a literal reason.
+
+### Schema and boot checks
 
 `kumiko-schema generate`, `validate` and `apply` read the value through the managed `kumiko/schema.ts`; pass `appConfig.rowLevelSecurity` to `runProdApp` (the scaffolded server entry does). The schema apply, in production the migrate init container, creates the policies; there is no manual step. To go back, set `"off"` and run `kumiko-schema generate`: the migration disables row level security and drops the policies. With `"on"`, boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a tenant table lacks ENABLE, FORCE or one of the two policies. The framework does not change owners or grants in production: create the app role with NOSUPERUSER NOBYPASSRLS as part of the database setup. FORCE makes the policies apply to the table owner as well.
 

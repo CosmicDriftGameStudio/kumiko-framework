@@ -20,6 +20,7 @@ import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  GALLERY_DOCS_VARIANT_ENV,
   GALLERY_MOR_PRICE_IDS,
   GALLERY_MOR_PROVIDER,
   GALLERY_OPERATOR_EMAIL,
@@ -28,6 +29,8 @@ import {
   GALLERY_PROVIDER,
   GALLERY_TERMS_SLUG,
 } from "./gallery-constants";
+
+const isDocsVariant = process.env[GALLERY_DOCS_VARIANT_ENV] === "1";
 
 export const galleryMailTransport = createInMemoryTransport();
 
@@ -93,6 +96,7 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
       tierLabelKey: (tier) => `gallery-screens:plan.${tier}.label`,
       benefits: (tier) => [{ labelKey: `gallery-screens:plan.${tier}.benefit` }],
       resolveCurrentTier,
+      ...(isDocsVariant && { priceNoteKey: "gallery-screens:plan.price-note" }),
       viewRoles: ["TenantAdmin", "SystemAdmin"],
       successPath: GALLERY_PLAN_PATH,
       cancelPath: GALLERY_PLAN_PATH,
@@ -184,6 +188,7 @@ const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
     tax: 106,
     currency: "eur",
     credit: 333,
+    ...(isDocsVariant && { recurringAmount: 2368, recurringTax: 378 }),
     effectiveAt: "2027-01-15T00:00:00Z",
   }),
   applyPlanSwitch: async (_ctx, options) => {
@@ -218,6 +223,7 @@ export const galleryScreensFeature: FeatureDefinition = defineFeature("gallery-s
   r.translations({
     keys: {
       "gallery:nav.billing": { de: "Abrechnung", en: "Billing" },
+      "gallery-screens:plan.price-note": { de: "zzgl. USt.", en: "plus VAT" },
       "gallery-screens:plan.free.label": { de: "Free", en: "Free" },
       "gallery-screens:plan.starter.label": { de: "Starter", en: "Starter" },
       "gallery-screens:plan.pro.label": { de: "Pro", en: "Pro" },

@@ -48,6 +48,31 @@ test.describe("desktop", () => {
   });
 });
 
+test.describe("docs images", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  // Bulk actions are configured on the task board, export on the task list.
+  test("bulk actions bar", async ({ page }) => {
+    await page.goto("/task-board");
+    await expect(page.getByText("Quarterly VAT filing")).toBeVisible();
+    // The estimate column does not fit next to the others at docs width.
+    await page.getByRole("button", { name: "View", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Estimate (h)" }).uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("columnheader", { name: "Estimate (h)" })).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "Select Quarterly VAT filing" }).check();
+    await page.getByRole("checkbox", { name: "Select Renew office lease" }).check();
+    await expect(page.getByText("2 selected")).toBeVisible();
+    await captureScreenshot(page, "tables/bulk-actions");
+  });
+
+  test("export menu", async ({ page }) => {
+    await openTaskList(page);
+    await page.getByRole("button", { name: "Export" }).click();
+    await captureScreenshot(page, "tables/export");
+  });
+});
+
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

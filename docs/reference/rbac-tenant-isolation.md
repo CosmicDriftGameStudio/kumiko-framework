@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-14
+verified: 2026-10-26
 ---
 
 # RBAC & Tenant-Isolation: role origins and the membership-role invariant
@@ -167,7 +167,17 @@ must be replaced with the real operator use case; a reason that still carries it
 
 ## Postgres RLS
 
-Decision: no row-level security policy today — the TypeScript boundary (`TenantDb` without `raw`, the declared escape hatches in Decision 5, the boot-time guards, and the audit trail) is the primary isolation line. A GUC-based policy (`app.tenant_id` via `set_config`) only catches a forgotten application-level filter; any code that can already run raw SQL can set that same GUC or a bypass role itself, so it does not stop the actual bypass class this document defends against. It also has real costs: projection rebuild's safety checks would silently lose effect without a dedicated bypass connection, and pool-safe request handling would need a transaction (not just a pooled connection) scoped per query and per event-stream operation to keep the GUC accurate. Revisit this decision if a compliance requirement mandates database-level isolation, if a real cross-tenant incident occurs despite the TypeScript boundary, or if a consumer needs direct SQL access (a BI/reporting role) — in that last case RLS would apply to that separate, narrowly-scoped read role rather than to the application's own connection pool. See the internal RLS evaluation (kumiko-platform#641, not public) for the full analysis.
+Since 0.390.0, row level security is on by default as a second layer under the TypeScript boundary above. The earlier decision against it is superseded by the decision of 2026-10-23 in [decisions](decisions.md). Each declaration in Decision 5 maps to a Postgres scope: `ctx.db` runs in the tenant scope of the call, and `ctx.crossTenantReads`, a granted `unsafeRaw` and `ctx.systemDb` run in the system scope with their reason. Scope per transaction, the 42501 error and the boot checks are described in [security defaults](security-defaults.md#row-level-security).
+
+## Job status for app roles
+
+The jobs feature answers `jobs:query:failures` and `jobs:query:tenant-runs` for `User`, `Editor` and the admin roles. An app whose members carry their own roles, for example a property manager who should see why the nightly import failed, adds them with `readRoles`:
+
+```ts illustration
+createJobsFeature({ readRoles: ["PropertyManager"] });
+```
+
+Both queries stay limited to the caller's own tenant. `readRoles` must not contain `"anonymous"`; the feature throws at definition time, because job failures can carry tenant data.
 
 ## Enforcement
 

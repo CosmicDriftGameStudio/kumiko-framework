@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-12
+verified: 2026-10-26
 evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
@@ -261,3 +261,59 @@ Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/selec
 ## Projection detail header on phones
 
 On a narrow viewport the status badge of a projectionDetail header moves from the title row into the page body, so a long status stays fully readable, and the header keeps the edit pencil as an icon.
+
+## Primary list actions in the page header
+
+Every toolbar action with `style: "primary"` and no confirm dialog renders in the page header, left of the create button, in declaration order. The create button stays rightmost. Promoted actions no longer appear in the list toolbar. On phones they become entries of the "…" menu when the list has a create button, so the create button keeps its icon slot.
+
+```ts illustration
+export const leaseListScreen: EntityListScreenDefinition = {
+  // ...
+  createLabel: "rental.action.createLease",
+  toolbarActions: [
+    { kind: "navigate", id: "show-terminated", label: "rental.action.showTerminated", style: "primary", screen: "lease-list-terminated" },
+  ],
+};
+```
+
+A primary action with `confirm` stays in the toolbar, so the dialog opens next to the list it acts on.
+
+## Gates, fallbacks and parent values
+
+These options let a declarative screen cover cases that used to need a custom screen.
+
+**Toolbar `visibleWhen`.** A toolbar action of an entityList or projectionList shows only while a query matches. The button stays hidden while the query loads and when it fails. Buttons that gate on the same query share one request. Boot checks the query, its output field and that it needs no input; relatedList toolbar actions reject `visibleWhen`.
+
+```ts illustration
+toolbarActions: [
+  {
+    kind: "navigate", id: "new-app", label: "apps.action.create", style: "primary", screen: "app-create",
+    visibleWhen: { query: "billing:query:plan-limits", field: "canCreateApp", eq: true },
+  },
+],
+```
+
+**Screen `visibleWhen` with the route id.** On a projectionDetail, `visibleWhen.idParam` passes the route id to the gate query under that key, so the query can check the record itself. A 403 from the gate, for example after a downgrade, shows the fallback instead of the screen.
+
+**Fallback by reason.** A screen-level `fallback` is a screen id or a map. `forbidden` is a 403 and `notFound` a 404 from the gate query, `hidden` an unmet condition and `error` any other failure. A reason without an entry shows a default notice; `error` shows a banner with a retry button.
+
+```ts illustration
+visibleWhen: { query: "apps:query:app-access", field: "allowed", eq: true, idParam: "appId" },
+fallback: { forbidden: "upgrade-plan", notFound: "app-list" },
+```
+
+**projectionDetail as a dashboard panel.** A `screen` panel, or its `fallback`, may point at a projectionDetail. The host dashboard needs a `record` binding; its id becomes the entityId of the embedded screen. Header, fields and the detail query render inline in the tile.
+
+**Custom panel `params`.** A `custom` panel takes static `params`, laid over the screen's filter params (the panel wins on a name clash). The cap-overview `CapCardsPanel` reads `params.capKeys` to show only some caps, with a "left" line per card and a link to the full usage screen:
+
+```ts illustration
+{ kind: "custom", id: "app-limits", component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } }, params: { capKeys: ["apps", "seats"] } }
+```
+
+**Parent values in relatedList toolbar actions.** `drawer` and `writeHandler` toolbar actions of a relatedList take `params` as `{ pick: [...] }` or `{ map: { target: source } }`, read from the parent record. A drawer gets them as prefill; a writeHandler merges them over its static `payload`, and the extracted values win. Without a parent record the action stays hidden.
+
+**Drawer redirect.** A drawer-hosted actionForm follows its `redirect` after a successful submit: the drawer closes, the host refetches, then the app navigates. A redirect to the screen the drawer sits on does not navigate, so filters and scroll position stay.
+
+**Live queries.** `useQuery({ live: true })` and InfinityList also refetch on signals for every entity the query handler lists in `liveEntities`, so a query that reads a second entity stays live without a name under that entity.
+
+**Option tones.** `critical` and `accent` join `ok`, `warn`, `bad` and `neutral` for `optionTones`, enumOption tones, `rowTone` and `header.statusTones`. Use `accent` for an informative state such as "Ready".

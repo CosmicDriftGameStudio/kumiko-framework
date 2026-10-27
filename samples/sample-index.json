@@ -70,7 +70,7 @@
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
       "primarySample": "apps-cap-billing-demo",
-      "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
+      "whenToUse": "Subscriptions run through Stripe, Mollie or Paddle — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
       "sampleBlurb": "Stripe webhook handling and tier upgrades in cap-billing-demo — shows how provider events normalize into tier-engine state your handlers read.",
       "screenshot": null
     },

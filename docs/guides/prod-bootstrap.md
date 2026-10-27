@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-03
+verified: 2026-10-26
 ---
 
 # Passwordless first-run bootstrap in prod
@@ -88,7 +88,46 @@ a value you edited in the plan. Keys that only the system may write (for example
 and PII-encrypted keys are compared by their decrypted value, so an unchanged
 value is not rewritten.
 
+`auth-mfa:config:required` takes one of four policies. Users it covers must set
+up a second factor at their next login:
+
+| Policy | Who must use MFA |
+|---|---|
+| `"optional"` (default) | nobody |
+| `"systemAdmins"` | users with the global `SystemAdmin` role |
+| `"admins"` | `SystemAdmin`, `TenantAdmin` and `Admin` |
+| `"all"` | every user of the tenant |
+
+`"systemAdmins"` fits an operator tenant whose staff runs the platform while the
+customers in the other tenants keep MFA optional.
+
+Users set up their second factor on the account security page. Without a
+`nav` option that page stays out of the sidebar and the app links to it from
+its user menu. With `nav` it gets a sidebar entry with the `user` icon;
+`nav.icon` takes any nav icon key:
+
+```ts illustration
+createAccountSecurityFeature({ nav: { icon: "shield-check", order: 90 } });
+```
+
 A seed that fails after the tenant was created is not retried by a second run.
 Fix the data through the app or a migration instead.
 
 To add a tenant or a person later, extend the plan and run the job again.
+
+## Required env vars in your own scripts
+
+A bootstrap script or a remote probe often reads env vars the framework does
+not know about. `requiredEnvFor` from `@cosmicdrift/kumiko-framework/env`
+returns a reader that fails with a message naming the script and the variable:
+
+```ts illustration
+import { requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
+
+const requireEnv = requiredEnvFor("bootstrap", process.env);
+const operatorEmail = requireEnv("BOOTSTRAP_OPERATOR_EMAIL");
+// missing: Error "[bootstrap] required env var BOOTSTRAP_OPERATOR_EMAIL is missing or empty"
+```
+
+An empty string counts as missing, so `FOO=` in a manifest fails as early as
+an unset variable. The error names the variable, never its value.

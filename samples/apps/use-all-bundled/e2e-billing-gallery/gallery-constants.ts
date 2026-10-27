@@ -19,3 +19,7 @@ export const GALLERY_MOR_PRICE_IDS = {
   starter: "price_gallery_mor_starter",
   pro: "price_gallery_mor_pro",
 };
+
+// Set by the docs gallery config: net catalog prices with a "plus VAT" note and a gross recurring
+// price in the plan-switch preview. The German review gallery runs without it and stays unchanged.
+export const GALLERY_DOCS_VARIANT_ENV = "GALLERY_DOCS_VARIANT";

@@ -1,6 +1,7 @@
 ---
 status: reference
-verified: 2026-10-17
+verified: 2026-10-26
+evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/feature-ast/src/scripts/codemod/ctx-namespaces-mapping.ts"
 ---
 
 # Handler context and embedded fields
@@ -9,6 +10,61 @@ A write handler has two boundaries to keep explicit: what belongs to the
 handler's transaction, and what belongs to shared infrastructure. Embedded
 fields add a third boundary in the UI: structured values must never be
 silently coerced into text.
+
+## What `ctx` carries
+
+Since 0.390.0 the handler context groups its members by purpose. Data access
+and the caller sit at the top level; everything else lives in a namespace:
+
+```mermaid
+flowchart LR
+  ctx((ctx))
+  ctx --> data["db · systemDb · crossTenantReads"]
+  ctx --> who["user · locale · tz · hasFeature"]
+  ctx --> events["events"]
+  ctx --> dispatch["dispatch"]
+  ctx --> lifecycle["lifecycle"]
+  ctx --> obs["obs"]
+  ctx --> services["services"]
+  ctx --> tenants["tenants"]
+  ctx --> auth["auth"]
+```
+
+| Namespace | Members | Use it for |
+|---|---|---|
+| `ctx.db` | TenantDb methods, `outsideTransaction` | rows of the caller's tenant, inside or outside the handler transaction |
+| `ctx.systemDb` | `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
+| `ctx.crossTenantReads` | `selectMany`, `fetchOne`, `count` | read-only access to other tenants, only with an `escapeHatch` grant |
+| `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived` | event streams of the feature |
+| `ctx.dispatch` | `query`, `write`, `queryAs`, `writeAs`, `queryAsMember`, `queryProjection` | calling other handlers |
+| `ctx.lifecycle` | `afterCommit`, `afterRollback`, `signal`, `runPreSave` | work after commit or rollback, cancellation |
+| `ctx.obs` | `log`, `tracer`, `metrics`, `metricsFor`, `meter` | logging, traces and metrics |
+| `ctx.services` | `redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `entityCache`, `secrets`, `kms`, `files`, `derivatives`, `configResolver`, `configEncryption`, `rateLimit`, `effectiveFeatures`, `masterKeyProvider`, `extensions` | injected infrastructure; unknown `extraContext` keys of the app land in `extensions` |
+| `ctx.tenants` | `config(tenantId)`, `writeTarget(tenantId)` | config of a tenant, writes into another tenant's stream |
+| `ctx.auth` | `resolveClaims`, `resolveActiveMembership` | auth features |
+
+A job context carries subsets: `events.append`, `dispatch.write`, `writeAs`,
+`queryAs` and `queryAsMember`, `obs.log`, `metricsFor` and `meter`,
+`lifecycle.signal` and the same `services`. The flat names (`ctx.appendEvent`,
+`ctx.write`, `ctx.log`, `ctx.scheduleAfterCommit`, `ctx.configFor`, …) are gone
+without aliases; `kumiko-upgrade --apply` rewrites them, see
+[Upgrading to 0.392](upgrading-to-0-392.md).
+
+```ts illustration
+handler: async (event, ctx) => {
+  const invoice = await ctx.db.fetchOne(invoiceTable, { id: event.payload.id });
+  if (!invoice) throw new NotFoundError("invoice");
+  await ctx.events.append({ type: "invoice:sent", aggregateId: invoice.id, aggregateType: "invoice", payload: {} });
+  ctx.lifecycle.afterCommit?.(() => ctx.obs.log.info("invoice sent", { id: invoice.id }));
+  return { isSuccess: true, data: { id: invoice.id } };
+},
+```
+
+Helpers that need part of the context take that part, not the whole context.
+Framework subpaths export only names that some consumer imports (since
+0.390.0); a helper type you used to import may now be internal. Name the
+members your helper reads with `Pick<HandlerContext, "db" | "obs">` instead of
+importing an internal type.
 
 ## Start with the owning feature
 
