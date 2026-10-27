@@ -2,9 +2,7 @@ import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/te
 import { useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BRANDING_QUERY_QN } from "./constants.ts";
 import type { EditorMode } from "./editor-header.tsx";
-import type { BrandingView } from "./layout-types.ts";
 import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import {
   draftFromDetail,
@@ -29,6 +27,7 @@ import {
   type TenantOverrides,
   type ValidationResult,
 } from "./types.ts";
+import { useBranding } from "./use-branding.ts";
 import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
@@ -159,7 +158,7 @@ function usePdfServerQueries(input: {
 
   const layouts = useOverviewRows(PDF_LAYOUT_KIND);
   // The built-in "logo" resource of a layout is the tenant's branding logo.
-  const branding = useQuery<BrandingView>(BRANDING_QUERY_QN, {});
+  const branding = useBranding();
   const brandingLogoFile = branding.data?.logoFile ?? "";
 
   const statusQuery = useQuery<PuppeteerStatus>(RendererPuppeteerClientQueries.status, {});

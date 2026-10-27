@@ -4,7 +4,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useMutation, useQuery } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
-import { BRANDING_QUERY_QN } from "./constants.ts";
 import {
   accentLineShown,
   appearanceFlags,
@@ -23,7 +22,6 @@ import {
 } from "./layout-editor-logic.ts";
 import { appearanceOf } from "./layout-meta.ts";
 import type {
-  BrandingView,
   LayoutKind,
   LayoutSourceView,
   LayoutValidation,
@@ -32,6 +30,7 @@ import type {
 } from "./layout-types.ts";
 import { systemLabelMap } from "./mail-draft.ts";
 import type { OverviewRowView } from "./overview-row.ts";
+import { useBranding } from "./use-branding.ts";
 import { useDebouncedValue } from "./use-debounced-value.ts";
 
 // Server-side validation compiles the whole layout (mjml), so wait for a pause in typing.
@@ -69,7 +68,7 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
   const upsertTenant = useMutation<UpsertResponse>(TemplateResolverHandlers.upsertTenant);
   const upsertSystem = useMutation<UpsertResponse>(TemplateResolverHandlers.upsertSystem);
   const publishSystem = useMutation(TemplateResolverHandlers.publishSystem);
-  const branding = useQuery<BrandingView>(BRANDING_QUERY_QN, {});
+  const branding = useBranding();
 
   const mjmlMode = tab === "mjml";
   const { appearanceFromMjml, appearanceEditable, appearanceValid } = appearanceFlags({

@@ -11,6 +11,7 @@ export const MAIL_EDITOR_SCREEN_ID = "mail-editor" as const;
 export const TEMPLATES_NAV_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
 
+export const MANAGED_PAGES_FEATURE_NAME = "managed-pages" as const;
 export const BRANDING_SCREEN_QN = "managed-pages:screen:branding-settings" as const;
 export const BRANDING_QUERY_QN = "managed-pages:query:branding" as const;
 

@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
+  AppFeaturesProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
+  type FeatureSchema,
   kumikoDefaultTranslations,
   LocaleProvider,
   mergeTranslations,
@@ -105,6 +107,11 @@ const nav: NavApi = {
   setSearchParams: () => {},
 };
 
+const MANAGED_PAGES_FEATURE = {
+  featureName: "managed-pages",
+  screens: [],
+} as unknown as FeatureSchema;
+
 const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),
   documentDesignerClient().translations ?? {},
@@ -116,22 +123,25 @@ function renderEditor(
   calls: Call[],
   searchParams: Readonly<Record<string, string>> = nav.searchParams,
   scope: "tenant" | "system" = "tenant",
+  features: readonly FeatureSchema[] = [MANAGED_PAGES_FEATURE],
 ): void {
   render(
-    <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "en" })}
-      fallbackBundles={[translations]}
-    >
-      <DispatcherProvider dispatcher={fakeDispatcher(source, calls)}>
-        <UserRolesProvider roles={roles}>
-          <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={{ ...nav, searchParams }}>
-              <LayoutEditor scope={scope} />
-            </NavProvider>
-          </PrimitivesProvider>
-        </UserRolesProvider>
-      </DispatcherProvider>
-    </LocaleProvider>,
+    <AppFeaturesProvider features={features}>
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[translations]}
+      >
+        <DispatcherProvider dispatcher={fakeDispatcher(source, calls)}>
+          <UserRolesProvider roles={roles}>
+            <PrimitivesProvider value={defaultPrimitives}>
+              <NavProvider value={{ ...nav, searchParams }}>
+                <LayoutEditor scope={scope} />
+              </NavProvider>
+            </PrimitivesProvider>
+          </UserRolesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>
+    </AppFeaturesProvider>,
   );
 }
 
@@ -348,6 +358,16 @@ describe("LayoutEditor", () => {
     } finally {
       brandingLogoFile = "";
     }
+  });
+
+  test("without managed-pages the editor never asks for branding", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls, nav.searchParams, "tenant", []);
+    await screen.findByTestId("document-designer-region-header");
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:query:validate")).toBe(true),
+    );
+    expect(calls.some((call) => call.type === "managed-pages:query:branding")).toBe(false);
   });
 
   test("appearance edits are saved as layout meta, keeping only non-default values", async () => {
