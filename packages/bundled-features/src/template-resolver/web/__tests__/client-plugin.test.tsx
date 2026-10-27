@@ -501,6 +501,39 @@ describe("textBlocksClient — a save refreshes the collection tree", () => {
   });
 });
 
+describe("textBlocksClient — the editor names the page after its entry", () => {
+  test("the page header shows the entry title instead of the screen behind the editor", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+    const primitivesWithHeaderProbe = {
+      ...defaultPrimitives,
+      PageHeader: ({ title }: { readonly title?: string }) => (
+        <div data-testid="page-header-title">{title}</div>
+      ),
+    };
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de" },
+    } as const;
+
+    render(<Editor target={target} onClose={() => {}} />, {
+      wrapper: ({ children }) => (
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "en" })}
+          fallbackBundles={[defaultTranslations]}
+        >
+          <PrimitivesProvider value={primitivesWithHeaderProbe}>{children}</PrimitivesProvider>
+        </LocaleProvider>
+      ),
+    });
+
+    expect(screen.getByTestId("page-header-title").textContent).toBe("Reminder");
+  });
+});
+
 describe("textBlocksClient — plain contentFormat editor wiring", () => {
   const localeResolver = createStaticLocaleResolver({ locale: "en" });
 

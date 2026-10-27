@@ -259,10 +259,14 @@ function makeTreeProvider(
   const requestedOverride = collection?.ownership === "user" ? undefined : tenantIdOverride;
   return () => (emit, emitError) => {
     let active = true;
+    // Each denial logs a client-fault warning on the server, so a reload after a
+    // save does not ask again once this subscription learned the answer.
+    let override = requestedOverride;
     const load = (): void => {
-      loadBlocks(queryType, requestedOverride)
+      loadBlocks(queryType, override)
         .then(({ blocks, tenantIdOverride: effectiveOverride }) => {
           if (!active) return;
+          override = effectiveOverride;
           // The app-side r.nav node IS the "Content" container → the provider's
           // children are the folders/leaves below it, not the wrapper.
           const content = groupBlocksByFolder(blocks, effectiveOverride, collectionId)[0];

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "../../../index.ts";
-import { NavProvider, PageHeaderCompactProvider } from "../../../index.ts";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  NavProvider,
+  PageHeaderCompactProvider,
+} from "../../../index.ts";
 import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
@@ -86,6 +91,52 @@ describe("ShellHeader", () => {
       const labels = crumbLabels("item-1");
       expect(labels).toHaveLength(2);
       expect(labels[0]).toContain("item-list");
+    });
+  });
+
+  describe("edit screen reached from its list only", () => {
+    const pageSchema = {
+      featureName: "pages",
+      entities: {},
+      screens: [
+        { id: "page-list", type: "entityList", entity: "page", columns: [] },
+        { id: "page-edit", type: "entityEdit", entity: "page", listScreenId: "page-list" },
+      ],
+      navs: [{ id: "page-list", label: "Pages", screen: "page-list", order: 10 }],
+    } as unknown as FeatureSchema;
+    const pageTranslations = {
+      en: {
+        "screen:page-list.title": "Pages",
+        "screen:page-edit.title": "Edit page",
+        "screen:page-edit.createTitle": "New page",
+      },
+    };
+
+    function headingFor(entityId: string | undefined): string | null {
+      renderWithSidebar(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "en" })}
+          fallbackBundles={[pageTranslations]}
+        >
+          <NavProvider
+            value={{
+              ...routedNav,
+              route: { screenId: "page-edit", ...(entityId !== undefined && { entityId }) },
+            }}
+          >
+            <ShellHeader schema={pageSchema} />
+          </NavProvider>
+        </LocaleProvider>,
+      );
+      return screen.getByRole("heading", { level: 1 }).textContent;
+    }
+
+    test("opened without a record it reads as the create title", () => {
+      expect(headingFor(undefined)).toBe("New page");
+    });
+
+    test("an existing record keeps the edit title", () => {
+      expect(headingFor("page-1")).toBe("Edit page");
     });
   });
 
