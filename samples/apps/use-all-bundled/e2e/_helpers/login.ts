@@ -38,7 +38,7 @@ function readSharedCookies(): readonly Cookie[] | undefined {
 
 async function signInOnce(page: Page): Promise<readonly Cookie[]> {
   try {
-    writeFileSync(SHARED_SESSION_FILE, "", { flag: "wx" });
+    writeFileSync(SHARED_SESSION_FILE, "", { flag: "wx", mode: 0o600 });
   } catch {
     let shared: readonly Cookie[] | undefined;
     await expect

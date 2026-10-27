@@ -218,6 +218,42 @@ describe("DataTable column resizing", () => {
     expect(screen.getByRole("button", { name: "Ada" }).className).not.toContain("truncate");
   });
 
+  test("dates in a resizable table keep one line, without resizing they wrap as before", () => {
+    const datedColumns = [
+      ...columns,
+      { field: "expiresAt", label: "Expires", type: "timestamp" as const, sortable: false },
+      {
+        field: "createdAt",
+        label: "Created",
+        type: "text" as const,
+        sortable: false,
+        renderer: { format: "timestamp" as const },
+      },
+    ];
+    const datedRows = [
+      { id: "r1", values: { ...rows[0]?.values, expiresAt: "2026-11-26T10:26:00Z" } },
+    ];
+    const { unmount } = render(
+      <DataTable
+        columns={datedColumns}
+        rows={datedRows}
+        testId="t"
+        view={view({ widths: {}, minWidths: sizing.minWidths, onWidthChange: () => {} })}
+      />,
+    );
+    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).toContain(
+      "whitespace-nowrap",
+    );
+    expect(screen.getByTestId("cell-r1-createdAt").className.split(/\s+/)).toContain(
+      "whitespace-nowrap",
+    );
+    unmount();
+    render(<DataTable columns={datedColumns} rows={datedRows} testId="t" view={view()} />);
+    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).not.toContain(
+      "whitespace-nowrap",
+    );
+  });
+
   test("the first resize hands over the displayed widths of the other columns", () => {
     const onWidthChange = mock(
       (_field: string, _width: number, _others?: Readonly<Record<string, number>>) => {},
