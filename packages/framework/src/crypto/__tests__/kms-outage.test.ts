@@ -7,9 +7,12 @@ import {
   subjectIdFromKey,
 } from "../kms-adapter.ts";
 import { ENCRYPTION_UNAVAILABLE_CODE, EncryptionUnavailableError } from "../kms-outage.ts";
+import { PiiCiphertextCorruptError } from "../pii-ciphertext-corrupt.ts";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  encryptPiiValueForSubject,
   resetPiiSubjectKmsForTests,
 } from "../pii-field-encryption.ts";
 
@@ -66,5 +69,26 @@ describe("KMS outage classification", () => {
     await kms.createKey(SUBJECT, KMS_CTX);
 
     expect(await kms.getKey(SUBJECT, KMS_CTX)).toBeDefined();
+  });
+
+  test("decrypting through a failing key store rejects as an outage, never as a corrupt value", async () => {
+    const stored = await encryptPiiValueForSubject(
+      new InMemoryKmsAdapter(),
+      SUBJECT,
+      "secret@example.com",
+      KMS_CTX,
+      "email",
+    );
+    configurePiiSubjectKms(failingKms(new Error("connection refused")));
+
+    const error = await decryptPiiFieldValues(
+      { email: stored },
+      ["email"],
+      configuredKms(),
+      KMS_CTX,
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(EncryptionUnavailableError);
+    expect(error).not.toBeInstanceOf(PiiCiphertextCorruptError);
   });
 });

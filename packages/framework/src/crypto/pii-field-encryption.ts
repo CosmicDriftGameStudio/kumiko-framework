@@ -34,6 +34,7 @@ import {
   subjectIdToKey,
 } from "./kms-adapter.ts";
 import { classifyKmsOutage } from "./kms-outage.ts";
+import { PiiCiphertextCorruptError } from "./pii-ciphertext-corrupt.ts";
 import {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
@@ -104,13 +105,33 @@ function decryptValue(
   hasAad: boolean,
   isJson: boolean,
 ): string {
-  const iv = blob.subarray(0, IV_LENGTH);
-  const tag = blob.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-  const ciphertext = blob.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
-  const decipher = createDecipheriv("aes-256-gcm", dek, iv);
-  if (hasAad) decipher.setAAD(buildAad(subject, field, isJson));
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  try {
+    const iv = blob.subarray(0, IV_LENGTH);
+    const tag = blob.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+    const ciphertext = blob.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+    const decipher = createDecipheriv("aes-256-gcm", dek, iv);
+    if (hasAad) decipher.setAAD(buildAad(subject, field, isJson));
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  } catch (e) {
+    throw new PiiCiphertextCorruptError(field, e instanceof Error ? e : undefined);
+  }
+}
+
+function parseCiphertextOf(value: string, field: string): ParsedCiphertext {
+  try {
+    return parseCiphertext(value);
+  } catch (e) {
+    throw new PiiCiphertextCorruptError(field, e instanceof Error ? e : undefined);
+  }
+}
+
+function parseDecryptedJson(plain: string, field: string): unknown {
+  try {
+    return JSON.parse(plain);
+  } catch (e) {
+    throw new PiiCiphertextCorruptError(field, e instanceof Error ? e : undefined);
+  }
 }
 
 // First write to a PII field of a new subject creates the key implicitly
@@ -183,7 +204,7 @@ export async function decryptPiiValueForSubject(
   field: string,
 ): Promise<string> {
   if (!isPiiCiphertext(value)) return value;
-  const { subject, blob, hasAad, isJson } = parseCiphertext(value);
+  const { subject, blob, hasAad, isJson } = parseCiphertextOf(value, field);
   if (isJson) {
     throw new Error(
       `PII field "${field}" holds a jsonb ciphertext — decrypt it via decryptPiiFieldValues`,
@@ -299,11 +320,11 @@ export async function decryptPiiFieldValues(
     // Pre-engine plaintext rows pass through unchanged (mixed-state reads
     // work during rollout).
     if (!isPiiCiphertext(value)) continue;
-    const { subject, blob, hasAad, isJson } = parseCiphertext(value);
+    const { subject, blob, hasAad, isJson } = parseCiphertextOf(value, name);
     try {
       const key = await kms.getKey(subject, kmsCtx);
       const plain = decryptValue(key, blob, subject, name, hasAad, isJson);
-      const decoded: unknown = isJson ? JSON.parse(plain) : plain;
+      const decoded: unknown = isJson ? parseDecryptedJson(plain, name) : plain;
       out[name] = decoded;
     } catch (e) {
       // KeyNotFound deliberately propagates: ciphertext without a key row
