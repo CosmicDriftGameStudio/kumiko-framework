@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 45,
+  "featureCount": 46,
   "features": {
     "account-security": {
       "samples": [
@@ -11,14 +11,18 @@
       "primarySample": "recipes-auth-mfa",
       "whenToUse": "Signed-in users manage MFA and their own sessions on one screen — mount next to auth-mfa and sessions, no composeAuthStack needed.",
       "sampleBlurb": "The auth-mfa recipe mounts the composed screen next to auth-mfa and sessions and boot-validates it with a sidebar entry.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/my-sessions.png"
     },
     "admin-shell": {
       "samples": [
         "apps-admin-console"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees.",
+      "primarySample": "apps-admin-console",
+      "whenToUse": "Your app needs an admin area with a tenant workspace and a platform workspace built from the screens the features already ship, with role gating that decides who sees which workspace.",
+      "sampleBlurb": "One instance with a tenant-admin and a platform workspace, three seeded users with different roles, and the overview pages each workspace lands on.",
+      "screenshot": "/screenshots/features/platform-overview.png"
     },
     "audit": {
       "samples": [
@@ -26,7 +30,11 @@
         "apps-ui-walkthrough"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees.",
+      "primarySample": "apps-admin-console",
+      "whenToUse": "Admins need to see who changed what and when, read straight from the event store, without building a separate audit table.",
+      "sampleBlurb": "The admin console mounts the audit log in the tenant workspace: a paginated, filterable history with a detail view per event.",
+      "screenshot": "/screenshots/features/audit-log.png"
     },
     "auth-email-password": {
       "samples": [
@@ -85,6 +93,17 @@
       "sampleBlurb": "Integration test runs withCapEnforcement — soft warnings near the limit and hard blocks when a tenant exceeds plan caps.",
       "screenshot": null
     },
+    "cap-overview": {
+      "samples": [
+        "apps-use-all-bundled"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Canonical smoke-sample. Mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) silently miss.",
+      "primarySample": "apps-use-all-bundled",
+      "whenToUse": "Tenants should see their plan limits and current usage on one screen, with a warning before a cap is reached.",
+      "sampleBlurb": "use-all-bundled mounts the Plans & Caps screen with quota cards for notes, tags and seats plus counters without a limit.",
+      "screenshot": "/screenshots/features/cap-overview.png"
+    },
     "channel-email": {
       "samples": [
         "apps-cap-billing-demo",
@@ -111,7 +130,7 @@
       "primarySample": "recipes-compliance-profiles-demo",
       "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
       "sampleBlurb": "Tenant picks EU, CH, or HR profile — retention rules and audit obligations follow the profile without branching your app code.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/profile-picker.png"
     },
     "config": {
       "samples": [
@@ -164,7 +183,7 @@
       "primarySample": "recipes-delivery-notifications",
       "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
       "sampleBlurb": "Declarative r.notification() after CRUD — fans out to InApp, email, and push with per-channel templates and delivery-log assertions.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/delivery-log.png"
     },
     "file-derivatives": {
       "samples": [
@@ -242,7 +261,11 @@
         "apps-admin-console"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees.",
+      "primarySample": "apps-admin-console",
+      "whenToUse": "Operators need to see background job runs, start a job by hand and get stuck event consumers moving again without a shell on the server.",
+      "sampleBlurb": "The admin console mounts the job runs list, the run-a-job drawer and the event consumer screens in the platform workspace.",
+      "screenshot": "/screenshots/features/job-trigger.png"
     },
     "ledger": {
       "samples": [
@@ -378,7 +401,7 @@
       "primarySample": "recipes-session-revocation",
       "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
       "sampleBlurb": "Production wiring with createSessionCallbacks() and buildServer auth — login persists sid, logout rejects the JWT before expiry.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/session-list.png"
     },
     "tags": {
       "samples": [
@@ -428,7 +451,11 @@
         "recipes-tenant-settings"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "**What this shows:** how a per-tenant Currency + Locale default fills a money/locale field on create — without hard-coding `\"EUR\"`/`\"de\"` as a field literal, the mistake that cost a sibling project (phronexsis) a retrofit once a second tenant needed a different default."
+      "readmeSummary": "**What this shows:** how a per-tenant Currency + Locale default fills a money/locale field on create — without hard-coding `\"EUR\"`/`\"de\"` as a field literal, the mistake that cost a sibling project (phronexsis) a retrofit once a second tenant needed a different default.",
+      "primarySample": "recipes-tenant-settings",
+      "whenToUse": "Each tenant needs its own default currency and locale for money and locale fields instead of a hard-coded value.",
+      "sampleBlurb": "A per-tenant currency and locale default fills money and locale fields on create, without a hard-coded literal in the field.",
+      "screenshot": "/screenshots/features/tenant-settings-tenant.png"
     },
     "tier-engine": {
       "samples": [

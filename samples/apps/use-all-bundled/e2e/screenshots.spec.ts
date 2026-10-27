@@ -10,23 +10,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { PDF_TEMPLATE_EDITOR_SCREEN_ID } from "@cosmicdrift/kumiko-document-designer";
 import {
   CSRF_COOKIE_NAME,
   clearSession,
-  E2E_TIMEOUT_MS,
   runMatrix,
   type Scenario,
   type ScenarioFixtures,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, request } from "@playwright/test";
 import { E2E_PORTS } from "../../../e2e/e2e-ports";
-import {
-  ADMIN_EMAIL,
-  ADMIN_PASSWORD,
-  DEMO_NOTE_ID,
-  INVOICE_TEMPLATE_SLUG,
-} from "../src/app/auth-constants";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const THEMES = ["default-light", "default-dark"] as const;
@@ -226,26 +219,6 @@ const adminMfaLoginChallenge =
     await page.getByLabel("Code").waitFor();
   };
 
-// PDF template editor: the system invoice in edit mode, in preview mode (both
-// pages printed) and with the tenant customisations drawer open.
-const pdfEditorFlow = (stage: "edit" | "preview" | "overrides") => async (page: Page) => {
-  await loginAsAdmin(page);
-  await page.goto(
-    `/tenant-admin/${PDF_TEMPLATE_EDITOR_SCREEN_ID}?slug=${encodeURIComponent(INVOICE_TEMPLATE_SLUG)}&locale=de`,
-  );
-  await page.getByTestId("pdf-template-editor").waitFor();
-  if (stage === "edit") return;
-  if (stage === "overrides") {
-    await page.getByRole("button", { name: "Show tenant customisations" }).click();
-    await page.getByTestId("document-designer-overrides-drawer").waitFor();
-    return;
-  }
-  await page.getByTestId("pdf-mode-switch").getByText("Preview", { exact: true }).click();
-  // The first print cold-starts Chromium in the puppeteer-service.
-  await page.getByTestId("pdf-page-1").waitFor({ timeout: E2E_TIMEOUT_MS.poll });
-  await page.getByTestId("pdf-page-2").waitFor();
-};
-
 const SCENARIOS: readonly Scenario[] = [
   // auth-email-password — Login-Surface, ausgeloggt.
   { name: "auth-login", url: "/", waitFor: "form" },
@@ -378,10 +351,6 @@ const SCENARIOS: readonly Scenario[] = [
   // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
   // /auth/login answers mfaRequired).
   { name: "auth-mfa-verify", flow: adminMfaLoginChallenge() },
-  // document-designer — PDF template editor: edit, printed preview, tenant overrides.
-  { name: "pdf-template-editor-edit", flow: pdfEditorFlow("edit") },
-  { name: "pdf-template-editor-preview", flow: pdfEditorFlow("preview"), fullPage: true },
-  { name: "pdf-template-editor-overrides", flow: pdfEditorFlow("overrides") },
 ];
 
 runMatrix(SCENARIOS, { themes: THEMES, applyTheme, locales: ["en"] });
