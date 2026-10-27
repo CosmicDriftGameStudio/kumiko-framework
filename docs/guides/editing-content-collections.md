@@ -27,7 +27,7 @@ With `contentFormat: "rich"` the editor is a WYSIWYG field with a toolbar for bo
 
 ![The same snippet in preview: Hi Max Mustermann, refund for A-1042, signed Alex Bruns](/screenshots/content-collections/snippet-preview.png)
 
-**Save** writes the entry. For a tenant-wide collection the change is visible to every colleague who opens the collection; the sidebar refreshes on its own.
+**Save** writes the entry. For a tenant-wide collection the change is visible to every colleague who opens the collection.
 
 ## Create your own entry in a per-user collection
 
@@ -52,7 +52,7 @@ Fill in the title, write the text and format it with the toolbar:
 
 ![Empty signature editor after clicking the plus: title My signature, three lines with the name in bold](/screenshots/content-collections/signature-new.png)
 
-After **Save** the entry appears under **Signatures**. Another user opening the same collection sees only their own signature, never this one:
+After **Save** and one reload the entry appears under **Signatures**. Another user opening the same collection sees only their own signature, never this one:
 
 ![Signatures group in the sidebar now lists My signature; the editor shows the saved text with the bold name](/screenshots/content-collections/signature-saved.png)
 
@@ -65,7 +65,7 @@ The text of a user-owned entry is personal data of its owner. With a PII key ser
 | Only `TenantAdmin` and `SystemAdmin` get the **Save** button | a `TenantMember` who may open a collection sees it read-only, even their own signatures | grant the editing users `TenantAdmin` |
 | A per-user collection gets no live refresh | after the first save of a new entry the sidebar shows it only after a reload | reload the page once |
 | No built-in create form | new entries need a `createAction` with a fixed key, or a seed | declare one key per expected entry |
-| `createAction` targets are static | when the client points collection trees at another tenant (`textBlocksClient({ tenantId })`), the target must pass the same `tenantIdOverride`, or the entry is written to the session tenant and never shows up in the tree | add `tenantIdOverride` to the target args, as the sample does |
+| `textBlocksClient({ tenantId })` points every collection tree at that tenant | the tree sends `tenantIdOverride`, which only a `SystemAdmin` may send, so other users cannot load the trees; a `createAction` without the same override writes into the session tenant and the entry never shows up | in apps where editors are not `SystemAdmin`, leave `tenantId` unset; with it set, add `tenantIdOverride` to the target args, as the sample does |
 
 ## Run the screenshots yourself
 

@@ -36,7 +36,7 @@ Restart and Skip event show up only while the consumer is stopped by an error, a
 
 `audit` reads the event store as an audit log in the tenant workspace. Each row opens the event with its actor, time, stored payload and metadata:
 
-![Audit event detail: Template created, actor Admin, aggregate ID, event payload and metadata as JSON](/screenshots/features/audit-log-detail/en/default-light/desktop.png)
+![Audit event detail: event name, time, aggregate, actor, event ID, then the event payload and metadata as JSON](/screenshots/features/audit-log-detail/en/default-light/desktop.png)
 
 ## GDPR exports
 
