@@ -33,6 +33,7 @@ import {
   type InboundMailRoleOptions,
   type MailAccountRecord,
   type RawInboundMessage,
+  type RejectedInboundMessage,
   resolveInboundMailRoles,
   roleDedupeOptions,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
@@ -41,6 +42,7 @@ import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ImapFlow, MailboxObject } from "imapflow";
 import { createConnectMailboxHandler } from "./connect-mailbox.ts";
+import { createConnectMyMailboxHandler } from "./connect-my-mailbox.ts";
 import { FEATURE_NAME, IMAP_PROVIDER_KEY } from "./constants.ts";
 import { readCredentialDocument } from "./credential-document.ts";
 import { downloadBatch } from "./download-batch.ts";
@@ -59,11 +61,7 @@ import {
 import { buildProviderMessageId, coerceDate, parseOrReject } from "./parse-message.ts";
 import { createReconnectMailboxHandler } from "./reconnect-mailbox.ts";
 import { createReconnectPrefillQuery } from "./reconnect-prefill.query.ts";
-import {
-  createImapConnectScreen,
-  createImapReconnectScreen,
-  createMyImapReconnectScreen,
-} from "./screens.ts";
+import { createImapScreens } from "./screens.ts";
 import { sendFromImapAccount } from "./send-mail.ts";
 
 export { IMAP_PROVIDER_KEY } from "./constants.ts";
@@ -162,7 +160,10 @@ async function watchMailbox(
   ctx: InboundMailContext,
   account: MailAccountRecord,
   handlers: {
-    readonly onMessages: (msgs: readonly RawInboundMessage[]) => Promise<void>;
+    readonly onMessages: (
+      msgs: readonly RawInboundMessage[],
+      rejected?: readonly RejectedInboundMessage[],
+    ) => Promise<void>;
     readonly onError: (err: unknown) => void;
   },
 ): Promise<() => Promise<void>> {
@@ -180,8 +181,8 @@ async function watchMailbox(
 
     const drainNew = async () => {
       const messages: RawInboundMessage[] = [];
+      const rejected: RejectedInboundMessage[] = [];
       let maxSeen = nextUid - 1;
-      // An unparseable mail is dropped here; the reconciliation poll reports and quarantines it.
       for await (const msg of client.fetch(
         `${nextUid}:*`,
         { uid: true, internalDate: true, source: true },
@@ -197,10 +198,11 @@ async function watchMailbox(
           trustedAuthservId: account.trustedAuthservId ?? null,
         });
         if ("message" in parsed) messages.push(parsed.message);
+        else rejected.push(parsed.rejected);
         if (msg.uid > maxSeen) maxSeen = msg.uid;
       }
       nextUid = maxSeen + 1;
-      if (messages.length > 0) await handlers.onMessages(messages);
+      if (messages.length > 0 || rejected.length > 0) await handlers.onMessages(messages, rejected);
     };
 
     client.on("exists", () => {
@@ -273,7 +275,7 @@ export function createInboundProviderImapFeature(options: InboundMailRoleOptions
     FEATURE_NAME,
     (r) => {
       r.describe(
-        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a mailbox through the "Connect mailbox" form on the mail accounts list (`connect-mailbox` checks the IMAP login and the SMTP login of the outgoing server first, then creates the account and its credential secret in one transaction; `reconnect-mailbox` does the same check for an existing mailbox with a sign-in error and overwrites its credential secret); programmatic setups store the per-account connection JSON (host/port/secure/user/password, plus smtpHost/smtpPort for sending) in the account credential secret slot before the first sync. Implements the provider `send`: `sendMailFromAccount` sends over the SMTP server of the mailbox itself (implicit TLS, same login) with the mailbox address as From and stores a copy in its sent folder.',
+        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Tenant admins connect a shared mailbox through the "Connect mailbox" form on the mail accounts list and members a personal one through the same form on "My mail accounts" (`connect-mailbox` and `connect-my-mailbox` check the IMAP login and the SMTP login of the outgoing server first, then creates the account and its credential secret in one transaction; `reconnect-mailbox` does the same check for an existing mailbox with a sign-in error and overwrites its credential secret); programmatic setups store the per-account connection JSON (host/port/secure/user/password, plus smtpHost/smtpPort for sending) in the account credential secret slot before the first sync. Implements the provider `send`: `sendMailFromAccount` sends over the SMTP server of the mailbox itself (implicit TLS, same login) with the mailbox address as From and stores a copy in its sent folder.',
       );
       r.uiHints({
         displayLabel: "Inbound Mail · IMAP",
@@ -286,11 +288,10 @@ export function createInboundProviderImapFeature(options: InboundMailRoleOptions
       r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
       r.bootCheck(({ features }) => assertRolesMatchFoundation(FEATURE_NAME, roles, features));
       r.writeHandler(createConnectMailboxHandler(roles));
+      r.writeHandler(createConnectMyMailboxHandler(roles));
       r.writeHandler(createReconnectMailboxHandler(roles));
       r.queryHandler(createReconnectPrefillQuery(roles));
-      r.screen(createImapConnectScreen(roles));
-      r.screen(createImapReconnectScreen(roles));
-      r.screen(createMyImapReconnectScreen(roles));
+      for (const screen of createImapScreens(roles)) r.screen(screen);
       r.translations({ keys: INBOUND_PROVIDER_IMAP_I18N });
     },
     { dedupeOptions: roleDedupeOptions(roles) },

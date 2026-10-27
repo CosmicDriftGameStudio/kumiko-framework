@@ -76,7 +76,9 @@ export function createAccountHealth(deps: {
       payload: { accountId: account.id, status, lastError, reason: SUPERVISOR_AUDIT_REASON },
     });
     if (!result.isSuccess) {
-      deps.log(`inbound-mail: account ${account.id} health update was rejected`);
+      deps.log(
+        `inbound-mail: account ${account.id} health update was rejected (${rejectionCode(result.error)})`,
+      );
       // skip: not recorded as applied, so the next tick retries the update.
       return;
     }
@@ -136,4 +138,9 @@ export function createAccountHealth(deps: {
       );
     },
   };
+}
+
+function rejectionCode(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) return String(error.code);
+  return "unknown";
 }

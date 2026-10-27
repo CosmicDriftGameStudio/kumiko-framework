@@ -1,4 +1,4 @@
-// connect-account — A tenant admin connects a mailbox. Creates the
+// connect-account — A tenant member connects a mailbox (a shared one only admins). Creates the
 // mail-account stream (aggregateId = random uuid = accountId =
 // secret-slot key for the IMAP password/OAuth refresh token).
 //
@@ -20,8 +20,9 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_USER_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  AccessDeniedError,
   failUnprocessable,
   UnprocessableError,
   writeFailure,
@@ -31,6 +32,7 @@ import {
   InboundMailAccountStatuses,
   InboundMailAuthMethods,
   InboundMailConnectErrors,
+  InboundMailFoundationHandlers,
 } from "../constants.ts";
 import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities.ts";
 import {
@@ -39,8 +41,9 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import type { InboundMailRoles } from "../mail-roles.ts";
+import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
 import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
+import { isMailAdmin } from "./scope-visibility.ts";
 
 export const connectAccountSchema = z
   .object({
@@ -70,11 +73,30 @@ export const connectAccountSchema = z
   .strict();
 type ConnectAccountPayload = z.infer<typeof connectAccountSchema>;
 
-export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
+// The OAuth callback (SystemUser, owner override from the verified state) is gated by its route;
+// the system user connects shared mailboxes there whatever adminRoles the app configured.
+function isSharedConnectDenied(
+  payload: ConnectAccountPayload,
+  user: { readonly id: string; readonly roles: readonly string[] },
+  adminRoles: readonly string[],
+): boolean {
+  return (
+    payload.scope === "shared" &&
+    payload.ownerUserIdOverride === undefined &&
+    user.id !== SYSTEM_USER_ID &&
+    !isMailAdmin(user, adminRoles)
+  );
+}
+
+export function createConnectAccountHandler({
+  adminRoles,
+  memberRoles,
+}: InboundMailRoles): WriteHandlerDef {
   return {
     name: "connect-account",
     schema: connectAccountSchema,
-    access: { roles: [...adminRoles] },
+    // Members connect their own mailbox; a shared one is the tenant's, so the handler keeps it to admins.
+    access: { roles: accessRolesOf(InboundMailFoundationHandlers.connectAccount, memberRoles) },
     // Connects a mailbox, like disconnect-account (risk high), which the model must not trigger on its own.
     agent: { expose: false },
     description:
@@ -85,6 +107,14 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
       const tenantId = event.user.tenantId;
       const accountId = crypto.randomUUID();
 
+      if (isSharedConnectDenied(payload, event.user, adminRoles)) {
+        return writeFailure(
+          new AccessDeniedError({
+            message: "only mail admins connect a shared mailbox",
+            details: { reason: "shared_mailbox_requires_admin" },
+          }),
+        );
+      }
       if (payload.ownerUserIdOverride !== undefined && !event.user.roles.includes("SystemAdmin")) {
         return failUnprocessable("owner_override_requires_system_admin");
       }

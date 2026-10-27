@@ -20,6 +20,7 @@ import * as z from "zod";
 import {
   InboundMailAccountStatuses,
   InboundMailConnectErrors,
+  InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "../constants.ts";
 import {
@@ -28,7 +29,7 @@ import {
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import type { InboundMailRoles } from "../mail-roles.ts";
+import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 import { mayReactivateMailbox } from "./scope-visibility.ts";
 
@@ -89,7 +90,7 @@ export function createReactivateAccountHandler({
     name: "reactivate-account",
     schema: reactivateAccountSchema,
     // Members: the owner re-arms a personal mailbox; mayReactivateMailbox keeps shared ones to admins.
-    access: { roles: [...memberRoles] },
+    access: { roles: accessRolesOf(InboundMailFoundationHandlers.reactivateAccount, memberRoles) },
     agent: { expose: false },
     escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_PRESENCE_REASON },
     description:

@@ -11,14 +11,18 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { InboundMailAccountStatuses, InboundMailLastErrors } from "../constants.ts";
+import {
+  InboundMailAccountStatuses,
+  InboundMailFoundationHandlers,
+  InboundMailLastErrors,
+} from "../constants.ts";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
 } from "../events.ts";
-import type { InboundMailRoles } from "../mail-roles.ts";
+import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
 import { loadCurrentMailAccountPayload } from "./account-state.ts";
 
 export const updateAccountSchema = z
@@ -54,7 +58,7 @@ export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): Wr
   return {
     name: "update-account",
     schema: updateAccountSchema,
-    access: { roles: [...adminRoles] },
+    access: { roles: accessRolesOf(InboundMailFoundationHandlers.updateAccount, adminRoles) },
     description:
       "Renames a connected mailbox (display name) as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; status, error and watch state are reserved for the system identity.",
     handler: async (event, ctx) => {

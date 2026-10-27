@@ -2097,6 +2097,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.reconnect.invalidRow":
     "Questa casella di posta non può essere riattivata da qui.",
   "screen:mail-account-reconnect-imap.title": "Ricollega casella",
+  "screen:my-mail-account-connect-imap.title": "Collega casella",
   "screen:my-mail-account-reconnect-imap.title": "Ricollega casella",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Casella",
   "inboundMail.imap.reconnect.hint":

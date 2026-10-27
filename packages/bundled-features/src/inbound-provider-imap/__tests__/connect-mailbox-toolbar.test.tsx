@@ -36,6 +36,7 @@ import {
   createInboundMailFoundationFeature,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_QN,
 } from "../../inbound-mail-foundation/index.ts";
 import { createSecretsFeature } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -83,7 +84,7 @@ function appSchema(withImap: boolean) {
   return buildAppSchema(createRegistry(features)).features;
 }
 
-function renderList(withImap: boolean) {
+function renderList(withImap: boolean, qn = MAIL_ACCOUNT_LIST_SCREEN_QN, roles = ["TenantAdmin"]) {
   const features = appSchema(withImap);
   const foundation = features.find((f) => f.featureName === INBOUND_MAIL_FOUNDATION_FEATURE);
   if (foundation === undefined) throw new Error("expected the inbound-mail-foundation schema");
@@ -98,7 +99,7 @@ function renderList(withImap: boolean) {
             <DispatcherProvider dispatcher={emptyListDispatcher}>
               <NavProvider
                 value={{
-                  route: { screenId: MAIL_ACCOUNT_LIST_SCREEN_QN },
+                  route: { screenId: qn },
                   navigate: () => {},
                   replace: () => {},
                   hrefFor: () => "#",
@@ -107,8 +108,8 @@ function renderList(withImap: boolean) {
                 }}
               >
                 <AppFeaturesProvider features={features}>
-                  <UserRolesProvider roles={["TenantAdmin"]}>
-                    <KumikoScreen schema={foundation} qn={MAIL_ACCOUNT_LIST_SCREEN_QN} />
+                  <UserRolesProvider roles={roles}>
+                    <KumikoScreen schema={foundation} qn={qn} />
                   </UserRolesProvider>
                 </AppFeaturesProvider>
               </NavProvider>
@@ -128,6 +129,19 @@ describe("connect mailbox toolbar button", () => {
 
   test("is absent without the IMAP provider", async () => {
     renderList(false);
+    await screen.findByTestId("render-list-table-empty");
+    expect(screen.queryByTestId(CONNECT_BUTTON)).toBeNull();
+  });
+});
+
+describe("connect mailbox toolbar button on My mail accounts", () => {
+  test("shows for a plain member when the IMAP provider is mounted", async () => {
+    renderList(true, MY_MAIL_ACCOUNT_LIST_SCREEN_QN, ["User"]);
+    expect(await screen.findByTestId(CONNECT_BUTTON)).toBeDefined();
+  });
+
+  test("is absent without the IMAP provider", async () => {
+    renderList(false, MY_MAIL_ACCOUNT_LIST_SCREEN_QN, ["User"]);
     await screen.findByTestId("render-list-table-empty");
     expect(screen.queryByTestId(CONNECT_BUTTON)).toBeNull();
   });
