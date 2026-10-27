@@ -248,7 +248,7 @@ export function createInboundMailSupervisor(
   }
 
   async function pollOnce(): Promise<void> {
-    const accounts = await listSyncableAccounts(systemDb, log);
+    const accounts = await listSyncableAccounts(systemDb, log, { health });
     // One account failing must not abort the others, and mapWithConcurrency would reject on the first error.
     await mapWithConcurrency(accounts, Math.max(1, pollConcurrency), async (account) => {
       try {
@@ -274,7 +274,8 @@ export function createInboundMailSupervisor(
 
   const syncAccountNow = createSyncAccountNow({
     inFlight: inFlightSyncs,
-    loadAccount: async (accountId) => (await listSyncableAccounts(systemDb, log, accountId))[0],
+    loadAccount: async (onlyAccountId) =>
+      (await listSyncableAccounts(systemDb, log, { onlyAccountId }))[0],
     resolvePlugin: resolvePluginOrLog,
     pollAccount: pollAccountWithDeadline,
     ensureWatcher,

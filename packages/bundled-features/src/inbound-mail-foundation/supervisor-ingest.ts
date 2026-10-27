@@ -122,6 +122,12 @@ function blockedReasonOf(failures: readonly FailureClass[]): IngestBlockedReason
   return "ingest_unavailable";
 }
 
+// The original is what failed to store; writing it again would fail the header import too.
+function quarantineHeadersOf(msg: RawInboundMessage, failure: FailureClass): RawInboundMessage {
+  const headerOnly = headerOnlyOf(msg);
+  return failure === "storage" ? { ...headerOnly, rawMime: null } : headerOnly;
+}
+
 export function createMessageIngester(deps: IngesterDeps): MessageIngester {
   async function quarantine(
     account: MailAccountRecord,
@@ -213,7 +219,7 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
       }
       const count = bucket === undefined ? null : await countIngestFailure(deps.db, target, bucket);
       if (count !== null && count >= MAX_COUNTED_INGEST_FAILURES) {
-        const headerOnly = headerOnlyOf(msg);
+        const headerOnly = quarantineHeadersOf(msg, failure);
         if (await quarantine(account, msg.providerMessageId, "ingest_failed", headerOnly)) {
           quarantinedNew += 1;
         }

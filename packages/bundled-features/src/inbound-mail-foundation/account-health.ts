@@ -17,7 +17,7 @@ import type {
   IngestBatchOutcome,
   IngestBlockedReason,
 } from "./supervisor-ingest.ts";
-import type { SyncableAccount } from "./syncable-accounts.ts";
+import type { AccountHealthRef, SyncableAccount } from "./syncable-accounts.ts";
 
 const FAILURES_BEFORE_DEGRADED = 3;
 const SUPERVISOR_AUDIT_REASON = "watch_supervisor";
@@ -40,6 +40,8 @@ export type AccountHealth = {
     account: SyncableAccount,
     blocked: IngestBlockedReason,
   ) => Promise<void>;
+  /** The address did not decrypt because the key store is down, so the account could not be polled. */
+  readonly onKeyStoreUnavailable: (account: AccountHealthRef) => Promise<void>;
 };
 
 export function createAccountHealth(deps: {
@@ -53,7 +55,7 @@ export function createAccountHealth(deps: {
   // Per process: a drift between workers costs at most one redundant update-account.
   const applied = new Map<string, AppliedHealth>();
 
-  async function apply(account: SyncableAccount, lastError: InboundMailLastError | null) {
+  async function apply(account: AccountHealthRef, lastError: InboundMailLastError | null) {
     const known = applied.get(account.id) ?? {
       status: account.status,
       lastError: account.lastError,
@@ -104,6 +106,10 @@ export function createAccountHealth(deps: {
       }
       storageUnavailable.add(account.id);
       return apply(account, InboundMailLastErrors.fileStorageUnavailable);
+    },
+    async onKeyStoreUnavailable(account) {
+      consecutiveFailures.delete(account.id);
+      return apply(account, InboundMailLastErrors.encryptionUnavailable);
     },
     async onPollFailure(account, kind) {
       const count = (consecutiveFailures.get(account.id) ?? 0) + 1;

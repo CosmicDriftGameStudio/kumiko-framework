@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   configurePiiSubjectKms,
+  ENCRYPTION_UNAVAILABLE_CODE,
   InMemoryKmsAdapter,
   type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
@@ -77,7 +78,8 @@ describe("waitlist purge when a key shred fails midway", () => {
       { confirmCount: 3 },
       SYSTEM_ADMIN,
     );
-    expect(failure.httpStatus).toBe(500);
+    expect(failure.httpStatus).toBe(503);
+    expect(failure.code).toBe(ENCRYPTION_UNAVAILABLE_CODE);
     expect(kms.erased).toBe(1);
     expect(await selectMany(stack.db, waitlistEntryTable, {})).toHaveLength(3);
     expect(await purgeAudits(stack)).toBe(auditsBefore);
