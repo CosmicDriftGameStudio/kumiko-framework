@@ -72,6 +72,13 @@ const FORWARDED_TENANT_DB_REASON_ALLOWLIST = [
 
 type Finding = { line: number; message: string };
 
+// Skips a full-tree walk when no name it looks for appears in the file. A unicode
+// escape could spell a name without its plain text, so any `\u` keeps the walk.
+function mayMention(sf: SourceFile, names: readonly string[]): boolean {
+  const text = sf.getFullText();
+  return text.includes("\\u") || names.some((name) => text.includes(name));
+}
+
 function isTestFile(rel: string): boolean {
   return rel.split("/").includes("__tests__") || TEST_FILE_RE.test(rel);
 }
@@ -196,6 +203,7 @@ function reasonSymbolOf(callee: Node, locals: ReadonlyMap<string, string>): stri
 
 function findReasonViolations(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
+  if (!mayMention(sf, Object.keys(REASON_ARG_INDEX))) return findings;
   const locals = localNamesOf(sf, new Set(Object.keys(REASON_ARG_INDEX)));
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
@@ -219,6 +227,7 @@ function isSystemModeProperty(prop: Node): boolean {
 
 function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
+  if (!mayMention(sf, ["createTenantDb"])) return findings;
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
     const calleeName =
@@ -241,6 +250,7 @@ function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
 }
 
 function findFixedScopeUses(sf: SourceFile): Finding[] {
+  if (!sf.getFullText().includes(FIXED_SCOPE_SYMBOL)) return [];
   return sf
     .getDescendantsOfKind(SyntaxKind.Identifier)
     .filter((id) => id.getText() === FIXED_SCOPE_SYMBOL)

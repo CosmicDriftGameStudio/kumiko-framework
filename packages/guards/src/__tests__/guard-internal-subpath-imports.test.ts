@@ -169,6 +169,17 @@ describe("Internal-Subpath-Imports Guard: bypass forms", () => {
     ]);
   });
 
+  test("a unicode-escaped method name does not slip past the text prefilter", () => {
+    const violations = run({
+      "/fx/fw/packages/x/src/a.ts":
+        'import * as k from "x";\nk.\\u0063reateTenantDb({ db, mode: "system" });\nk.\\u0073ystemScopedRunner({}, why);',
+    });
+    expect(violations.map((v) => v.message.slice(0, 20)).sort()).toEqual([
+      "[system-scope-reason",
+      "[tenant-db-system-re",
+    ]);
+  });
+
   test("allows a property-access call with a literal reason", () => {
     const violations = run({
       "/fx/fw/packages/x/src/a.ts": `import * as k from "${INTERNAL}";\nk.runInSystemRowLevelSecurityScope("seed all tenants", () => 1);`,

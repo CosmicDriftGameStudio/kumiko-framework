@@ -21,8 +21,13 @@ const LITERAL_WRITE_RE =
   /\b(?:DELETE\s+FROM\s+"?(?:read_\w+|kumiko_events)|UPDATE\s+"?read_\w+)\b/i;
 const TEMPLATE_WRITE_RE = /\b(?:DELETE\s+FROM|UPDATE)\s+"?\$\{\s*(\w+)(?:\.tableName)?\s*\}/gi;
 
+// Both write patterns start like this; a literal's text is part of the file's, so a
+// file without it has nothing to report.
+const SQL_WRITE_START_RE = /\b(?:DELETE\s+FROM|UPDATE)\s/i;
+
 function entityTableBindings(sourceFile: SourceFile): Set<string> {
   const names = new Set<string>();
+  if (!sourceFile.getFullText().includes("buildEntityTable")) return names;
   for (const decl of sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
     const init = decl.getInitializer();
     if (
@@ -51,8 +56,9 @@ function writesEventSourcedTable(node: Node, entityTables: ReadonlySet<string>):
 }
 
 export function findRawSqlWrites(sourceFile: SourceFile): RawWriteFinding[] {
-  const entityTables = entityTableBindings(sourceFile);
   const findings: RawWriteFinding[] = [];
+  if (!SQL_WRITE_START_RE.test(sourceFile.getFullText())) return findings;
+  const entityTables = entityTableBindings(sourceFile);
   for (const kind of [
     SyntaxKind.StringLiteral,
     SyntaxKind.NoSubstitutionTemplateLiteral,

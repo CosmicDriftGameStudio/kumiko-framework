@@ -140,8 +140,12 @@ function isStringLike(node: Node): boolean {
   );
 }
 
+// Every rule needs "kumiko." or "set_config" in a literal, and a literal's text is part of the file's.
+const MENTIONS_RLS_SETTING_RE = /kumiko\.|set_config/i;
+
 function findSessionSettings(sf: SourceFile, rel: string) {
   const found: Array<{ line: number; message: string }> = [];
+  if (!MENTIONS_RLS_SETTING_RE.test(sf.getFullText())) return found;
   for (const node of sf.getDescendants()) {
     if (!isStringLike(node)) continue;
     // A template's own spans are visited as separate nodes; its full text is checked once here.

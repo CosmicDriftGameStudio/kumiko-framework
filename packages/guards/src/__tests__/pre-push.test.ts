@@ -428,6 +428,64 @@ describe("kumiko-pre-push", () => {
       });
     }
 
+    describe("pre-flight steps run once per push", () => {
+      function setupWorktreeWithPreflight(): { worktreeDir: string; stubPath: string } {
+        const worktreeDir = setupWorktree(wrappingCheckWt(false));
+        writeTracked(worktreeDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
+        runGit(["update-ref", "refs/remotes/origin/main", "HEAD"], worktreeDir, tmp);
+        const stubDir = join(tmp, "stub-bin");
+        mkdirSync(stubDir);
+        writeExecutable(
+          join(stubDir, "gitleaks"),
+          '#!/usr/bin/env sh\necho "$*" >> "$PWD/gitleaks.log"\nexit 0\n',
+        );
+        return { worktreeDir, stubPath: `${stubDir}:${process.env["PATH"] ?? ""}` };
+      }
+
+      test("a push through the wrapping check-wt.sh runs extra and the secret scan once, on the pushed sha", () => {
+        const { worktreeDir, stubPath } = setupWorktreeWithPreflight();
+        const sha = "a".repeat(40);
+
+        const { output, exitCode } = runHook(
+          worktreeDir,
+          tmp,
+          { PATH: stubPath },
+          `refs/heads/x ${sha} refs/heads/x ${"0".repeat(40)}\n`,
+        );
+
+        expect(exitCode).toBe(0);
+        expect(output).toContain("re-entered from scripts/check-wt.sh");
+        const log = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8");
+        expect(log.match(/EXTRA_RAN/g)).toHaveLength(1);
+        expect(log.match(/CHECKWT_RAN/g)).toHaveLength(1);
+        expect(readFileSync(join(worktreeDir, "gitleaks.log"), "utf-8").trim().split("\n")).toEqual(
+          [`git --no-banner --redact --log-opts=origin/main..${sha} .`],
+        );
+        expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain(
+          "MARKER_TEST",
+        );
+      });
+
+      test("check-wt.sh run by hand still runs extra and the secret scan once", () => {
+        const { worktreeDir, stubPath } = setupWorktreeWithPreflight();
+
+        const result = Bun.spawnSync([join(worktreeDir, "scripts", "check-wt.sh")], {
+          cwd: worktreeDir,
+          env: { ...fixtureEnv(tmp), PATH: stubPath },
+        });
+
+        expect(result.exitCode).toBe(0);
+        const log = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8");
+        expect(log.match(/EXTRA_RAN/g)).toHaveLength(1);
+        expect(readFileSync(join(worktreeDir, "gitleaks.log"), "utf-8").trim().split("\n")).toEqual(
+          ["git --no-banner --redact --log-opts=origin/main..HEAD ."],
+        );
+        expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain(
+          "MARKER_TEST",
+        );
+      });
+    });
+
     test("a freely exported KUMIKO_CHECK_WT does not skip the tracked check-wt.sh", () => {
       const worktreeDir = setupWorktree(checkWtScript());
 
@@ -487,6 +545,11 @@ describe("kumiko-pre-push", () => {
       expect(output).not.toContain("MAIN_CHECK_RAN");
     });
 
+    // Guard steps run in parallel lanes, so their log order is not fixed.
+    function logLines(path: string): string[] {
+      return readFileSync(path, "utf-8").trim().split("\n").sort();
+    }
+
     function writeFakeGuardBin(worktreeDir: string, name: string, exitCode: number): string {
       const logName = `${name}.log`;
       writeUntrackedExecutable(
@@ -504,12 +567,82 @@ describe("kumiko-pre-push", () => {
       const { exitCode } = runHook(worktreeDir, tmp);
 
       expect(exitCode).toBe(0);
-      expect(readFileSync(guardsLog, "utf-8").trim().split("\n")).toEqual([
-        "guards",
+      expect(logLines(guardsLog)).toEqual([
         "checks",
         "comment-lang --touched --base=origin/main",
+        "guards",
         "public-exports-changelog --base=origin/main",
       ]);
+    });
+
+    test("test:dom runs after test in one lane, the other steps run beside it", () => {
+      const worktreeDir = setupWorktree({
+        typecheck: `echo typecheck >> ${HOOK_LOG_NAME}`,
+        test: `sleep 1 && echo test >> ${HOOK_LOG_NAME}`,
+        "test:dom": `echo test:dom >> ${HOOK_LOG_NAME}`,
+      });
+
+      const { exitCode } = runHook(worktreeDir, tmp, { KUMIKO_PRE_PUSH_POOL: "4" });
+
+      expect(exitCode).toBe(0);
+      expect(readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").trim().split("\n")).toEqual([
+        "typecheck",
+        "test",
+        "test:dom",
+      ]);
+    });
+
+    test("declared uiRoots add the UI guards, as in kumiko check", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+      writeFileSync(join(worktreeDir, "kumiko.json"), JSON.stringify({ uiRoots: ["src/web"] }));
+      const guardsLog = writeFakeGuardBin(worktreeDir, "kumiko-guards", 0);
+
+      const { exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(0);
+      expect(logLines(guardsLog)).toEqual([
+        "checks",
+        "comment-lang --touched --base=origin/main",
+        "guards",
+        "public-exports-changelog --base=origin/main",
+        "ui",
+      ]);
+    });
+
+    test("empty uiRoots skip the UI guards", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+      writeFileSync(join(worktreeDir, "kumiko.json"), JSON.stringify({ uiRoots: [] }));
+      const guardsLog = writeFakeGuardBin(worktreeDir, "kumiko-guards", 0);
+
+      const { output } = runHook(worktreeDir, tmp);
+
+      expect(output).toContain("ui: no uiRoots in kumiko.json, skipped");
+      expect(readFileSync(guardsLog, "utf-8")).not.toContain("ui");
+    });
+
+    test("the kumiko-guards repo runs its checked-out cli.ts instead of a node_modules bin", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+      const binLog = writeFakeGuardBin(worktreeDir, "kumiko-guards", 0);
+      mkdirSync(join(worktreeDir, "packages", "guards", "src"), { recursive: true });
+      writeFileSync(
+        join(worktreeDir, "packages", "guards", "package.json"),
+        JSON.stringify({ name: "@cosmicdrift/kumiko-guards" }),
+      );
+      writeFileSync(
+        join(worktreeDir, "packages", "guards", "src", "cli.ts"),
+        'import { appendFileSync } from "node:fs";\nappendFileSync("in-repo-cli.log", process.argv.slice(2).join(" ") + "\\n");\n',
+      );
+
+      const { exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(0);
+      expect(logLines(join(worktreeDir, "in-repo-cli.log"))).toEqual([
+        "checks",
+        "comment-lang --touched --base=origin/main",
+        "guards",
+        "public-exports-changelog --base=origin/main",
+      ]);
+      expect(existsSync(binLog)).toBe(false);
     });
 
     test("a failing guard bin refuses the push and is named in the failure line", () => {
