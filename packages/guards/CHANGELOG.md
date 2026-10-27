@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.396.0
+
+### Patch Changes
+
+- 5b24900: Four AST guards skip the syntax-tree walk for files that cannot contain what they look for, which cuts the guard suite run roughly in half without changing a finding.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Faster guard suite through text prefilters
+  detail: RLS-Session-Settings, Internal-Subpath-Imports, Test-ES-Fixtures and Test-ES-Row-Writes walked every node of every scanned file. Each now first checks the file text for the tokens its rules need (for example kumiko. or set_config, createTenantDb, kumiko_events, DELETE FROM or UPDATE) and skips the walk when none appears; Internal-Subpath-Imports keeps walking any file with a unicode escape, which could spell a name without its plain text. Findings are unchanged: the suites report the same results on kumiko-framework, kumiko-enterprise and publicstatus before and after.
+  -->
+- 5b24900: The pre-push worktree branch runs its steps in parallel lanes instead of one after another, so a push waits for the slowest step instead of the sum of all.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: pre-push runs its worktree steps in parallel
+  detail: The worktree branch without check-wt.sh now hands typecheck, lint, test, the guard suites, comment-lang and public-exports-changelog to the new run-steps-parallel.ts next to the hook. test:dom stays behind test in the same lane, every step still runs after a failure, and each step's output is printed as one block when it finishes. The failure line keeps its form (worktree check failed: <steps>). The pool follows the free CPU capacity with a floor of four lanes; KUMIKO_PRE_PUSH_POOL overrides it.
+  -->
+- 5b24900: A push from a worktree with a wrapping `scripts/check-wt.sh` runs `pre-push-extra.sh`, the upgrade-state guard and the gitleaks scan once instead of twice. The worktree branch also runs the UI guards when `kumiko.json` declares `uiRoots`, as `kumiko check` does.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: pre-push runs its pre-flight steps once per push
+  detail: When the hook delegated to a tracked scripts/check-wt.sh that wraps the hook again, the inner run repeated pre-push-extra.sh, the upgrade-state guard and the gitleaks scan, and that second scan only covered HEAD because git's stdin was already read. A re-entry recognised by process ancestry now skips these steps; a check-wt.sh run by hand still runs them once. The worktree branch without check-wt.sh adds kumiko-guards ui when kumiko.json declares non-empty uiRoots, and in the repo that ships kumiko-guards it runs the checked-out packages/guards/src/cli.ts instead of a node_modules bin.
+  -->
+- Updated dependencies [dd12c0d]
+  - @cosmicdrift/kumiko-framework@0.396.0
+  - @cosmicdrift/kumiko-types@0.396.0
+
 ## 0.395.0
 
 ### Patch Changes
