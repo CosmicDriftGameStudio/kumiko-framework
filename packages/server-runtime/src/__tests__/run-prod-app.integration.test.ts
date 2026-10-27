@@ -1610,6 +1610,33 @@ describe("runProdApp — /metrics endpoint", () => {
     expect(body).toMatch(/# EOF\n$/);
   });
 
+  test("hostDispatch + staticDir: GET /metrics on the apex and a tenant host answers the metrics, not the SPA html", async () => {
+    const meter = createPrometheusMeter();
+    meter.registerMetric({ name: "kumiko_probe_total", type: "counter" });
+    meter.counter("kumiko_probe_total").inc(1);
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html><body>SPA</body><script src=/client.js></script></html>",
+    });
+
+    const handle = await boot(undefined, {
+      observability: { ...createNoopProvider(), meter },
+      metrics: { token: "t" },
+      staticDir: tmpStaticDir,
+      hostDispatch: () => ({ kind: "html", file: "index.html" }),
+    });
+
+    for (const host of ["example.test", "acme.example.test"]) {
+      const res = await handle.fetch(
+        new Request(`http://${host}/metrics`, { headers: { host, Authorization: "Bearer t" } }),
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toMatch(/openmetrics-text/);
+      const body = await res.text();
+      expect(body).toContain("kumiko_probe_total 1");
+      expect(body).not.toContain("SPA");
+    }
+  });
+
   test("without observability and without metrics option → /metrics is not a route (404)", async () => {
     const handle = await boot();
 

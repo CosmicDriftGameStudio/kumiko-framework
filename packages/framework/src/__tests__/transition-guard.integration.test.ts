@@ -26,13 +26,17 @@ const invoiceEntity = createEntity({
   table: "tg_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    status: createSelectField({ options: ["draft", "sent", "paid"] as const, default: "draft" }),
+    status: createSelectField({
+      options: ["draft", "sent", "paid", "void"] as const,
+      default: "draft",
+    }),
   },
   transitions: {
     status: {
-      draft: ["sent"],
+      draft: ["sent", "void"],
       sent: ["paid"],
       paid: [],
+      void: [],
     },
   },
 });
@@ -244,6 +248,37 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     expectErrorIncludes(err, "paid");
   });
 
+  test("resending the unchanged status with other changes is no transition, also from a terminal state", async () => {
+    const invoice = await stack.http.writeOk<{ id: string }>(
+      "txguard:write:invoice:create",
+      { title: "Inv-same" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "txguard:write:invoice:update",
+      { id: invoice["id"], changes: { title: "Inv-same 2", status: "draft" }, version: 1 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "txguard:write:invoice:update",
+      { id: invoice["id"], changes: { status: "sent" }, version: 2 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "txguard:write:invoice:update",
+      { id: invoice["id"], changes: { status: "paid" }, version: 3 },
+      admin,
+    );
+
+    const renamed = await stack.http.writeOk<{ data: { title: string; status: string } }>(
+      "txguard:write:invoice:update",
+      { id: invoice["id"], changes: { title: "Inv-same paid", status: "paid" }, version: 4 },
+      admin,
+    );
+    expect(renamed.data.title).toBe("Inv-same paid");
+    expect(renamed.data.status).toBe("paid");
+  });
+
   test("invalid transition uses entity B's own map, not a leaked one", async () => {
     const order = await stack.http.writeOk<{ id: number }>(
       "txguard:write:order:create",
@@ -295,15 +330,12 @@ describe("auto transition guard: per-entity transition map (cache key includes e
   });
 
   test("concurrent writes on the same row serialize via SELECT FOR UPDATE", async () => {
-    // Two parallel requests both trying to move the SAME invoice from draft.
-    // One legal: draft → sent. One deliberately stale (would also be legal
-    // draft → sent, but since we hold the row lock, the second caller sees
-    // the updated state `sent` when its turn comes and must fail — either
-    // via the transition guard (sent → sent is not defined) or version
-    // conflict. Without the FOR UPDATE both could snapshot `draft` under
-    // READ COMMITTED and race past the guard; the second UPDATE would then
-    // fail only via the optimistic lock, losing the specific error signal.
-    const invoice = await stack.http.writeOk<{ id: number }>(
+    // Two parallel requests move the SAME invoice out of draft to two different
+    // targets. The transition guard runs before the optimistic lock: with the
+    // FOR UPDATE the second caller reads the winner's state and its target is no
+    // transition from there; without it both could snapshot `draft` under READ
+    // COMMITTED and both writes would pass the guard.
+    const invoice = await stack.http.writeOk<{ id: string }>(
       "txguard:write:invoice:create",
       { title: "Concurrent-1" },
       admin,
@@ -317,7 +349,7 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       ),
       stack.http.write(
         "txguard:write:invoice:update",
-        { id: invoice["id"], changes: { status: "sent" }, version: 1 },
+        { id: invoice["id"], changes: { status: "void" }, version: 1 },
         admin,
       ),
     ]);
@@ -325,21 +357,15 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     const body1 = (await res1.json()) as { isSuccess: boolean; error?: unknown };
     const body2 = (await res2.json()) as { isSuccess: boolean; error?: unknown };
 
-    // Exactly one of the two must win. If both succeeded, the row lock
-    // didn't serialize — both wrote draft→sent using a stale snapshot.
     const successes = [body1, body2].filter((b) => b.isSuccess);
     const failures = [body1, body2].filter((b) => !b.isSuccess);
     expect(successes).toHaveLength(1);
     expect(failures).toHaveLength(1);
 
-    // The loser saw state `sent` on its (now serialized) guard read and
-    // rejected the transition — NOT a version_conflict, which would be the
-    // optimistic-lock fallback if the guard had race-passed.
-    // The loser's UnprocessableError carries reason "invalid_transition" plus
-    // the from/to states for debugging.
+    const winnerStatus = body1.isSuccess ? "sent" : "void";
     const loser = failures[0]?.error as { code: string; details: { reason: string; from: string } };
     expect(loser.code).toBe("unprocessable");
     expect(loser.details.reason).toBe("invalid_transition");
-    expect(loser.details.from).toBe("sent");
+    expect(loser.details.from).toBe(winnerStatus);
   });
 });

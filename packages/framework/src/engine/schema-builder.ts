@@ -339,8 +339,10 @@ export function fieldToZod(
       return embeddedFieldToZod(field);
     case "jsonb":
       // Free-form jsonb — keys are tenant-/runtime-defined. Validation
-      // passes through any plain object.
-      return z.record(z.string(), z.unknown());
+      // passes through any plain object, or any array for emptyValue "array".
+      return field.emptyValue === "array"
+        ? z.array(z.unknown())
+        : z.record(z.string(), z.unknown());
     case "date":
       return withDateBounds(z.string().date(), field.min, field.max);
     case "timestamp":

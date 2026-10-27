@@ -2,6 +2,7 @@
 // --- Field Types ---
 
 import type { VariantSpec } from "./derivatives-types.ts";
+import type { DerivedFieldsMap } from "./fields-derived.ts";
 import type { EventUpcastCtx } from "./handlers.ts";
 
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
@@ -11,6 +12,14 @@ import type { EventUpcastCtx } from "./handlers.ts";
 // Long-term: string[] disappears.
 import type { OwnershipMap } from "./ownership.ts";
 import type { EntityTenancy } from "./tenancy-brand.ts";
+
+export type {
+  ClientDerivedFieldDef,
+  DeriveContext,
+  DerivedFieldDef,
+  DerivedFieldsMap,
+  DerivedValueType,
+} from "./fields-derived.ts";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];
@@ -260,6 +269,10 @@ export type RetentionDef = {
   readonly reference?: string;
 };
 
+/** Where rows without a value sort in a list, in both directions. Without it Postgres decides:
+ *  last ascending, first descending. */
+export type SortNulls = "first" | "last";
+
 export type TextFieldDef = {
   readonly type: "text";
   /** Optional free-text semantics for the AI agent manifest — never rendered;
@@ -275,6 +288,7 @@ export type TextFieldDef = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   /** Allows screen filters on this field.
    *  The boot validator rejects filters with `filterable !== true`.
    *  Default: false, analogous to `sortable`, and therefore opt-in. */
@@ -356,6 +370,7 @@ export type BooleanFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: boolean;
@@ -411,6 +426,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly options: TOptions;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
@@ -503,6 +519,7 @@ export type NumberFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -538,6 +555,7 @@ export type BigIntFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -563,6 +581,7 @@ export type DecimalFieldDef = {
   readonly scale: number;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
@@ -591,6 +610,7 @@ export type MoneyFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -640,6 +660,7 @@ export type ReferenceFieldDef = {
    *  boot validator rejects it otherwise, since ordering by a UUID produces a
    *  sequence that looks meaningful to the user but is arbitrary. */
   readonly sortable?: true;
+  readonly sortNulls?: SortNulls;
   /** Fill the picker from this query handler instead of the referenced
    *  entity's own list handler — for targets whose identity is
    *  composed from joined rows, where no single column of the referenced
@@ -795,6 +816,9 @@ export type EmbeddedFieldDef = {
 export type JsonbFieldDef = {
   readonly type: "jsonb";
   readonly description?: string;
+  /** `"array"`: the field holds a JSON array, so a row that never wrote it reads `[]` and writes
+   *  take an array. Default `"object"` (`{}`, writes take a plain object). */
+  readonly emptyValue?: JsonbEmptyValue;
   readonly sensitive?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk
@@ -803,6 +827,8 @@ export type JsonbFieldDef = {
   readonly readAsInstruction?: boolean;
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
+
+export type JsonbEmptyValue = "object" | "array";
 
 // Legacy `date` — a JavaScript Date object with ambiguous semantics
 // (wall-clock time versus instant). For new fields, prefer:
@@ -816,6 +842,7 @@ export type DateFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -845,6 +872,7 @@ export type TimestampFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -901,6 +929,7 @@ export type LocatedTimestampFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly sortNulls?: SortNulls;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -1051,56 +1080,6 @@ export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | Ima
 // identity (guard-types-class-free.test.ts) since a consumer may resolve two
 // copies of this package.
 export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = ["jsonb", "embedded"];
-
-// --- Derived (computed) fields ---
-//
-// A derived field is read-time only: its value is computed from the stored row
-// (and the clock) when an entityList query runs (676/2 — NOT detail; only the
-// "list" case in entity-handlers.ts calls augmentDerivedFields), never
-// persisted. It lives in
-// `EntityDefinition.derivedFields` — deliberately NOT in `fields`, so it
-// produces no DB column, never enters a write schema, and can't be the target
-// of an entityEdit. A declarative `entityList` can name it like any column and
-// the view-model renders the appended value.
-//
-// LIMIT: derived columns are DISPLAY ONLY. A declarative `entityList` loads its
-// rows server-side and a column-header sort round-trips to the server, where
-// `executor.list` sorts/filters/searches over real SQL columns — so a derived
-// field (no column) silently no-ops. There is no client-side sort path. Need a
-// derived value sortable/searchable? Materialize it as a stored field; it then
-// rides the existing `searchable`/`sortable` machinery. Time-dependent values
-// (as-of-today) can't be materialized without a daily re-index anyway.
-
-/** Display type a derived value formats as — drives the column's renderer
- *  choice in the view-model, parallel to FieldDefinition["type"]. Single-column
- *  types only: `money` is excluded because it needs a `<name>Currency`
- *  companion column a derived field has no place to put — use `number`/
- *  `decimal` plus a `{ format: "currency" }` column renderer instead. */
-export type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp";
-
-/** Clock injected into `derive` — never read `Temporal.Now`/`Date` inside a
- *  derive body (no-date-api guard + testability). The list-query handler passes
- *  the read-time instant; unit tests pass a fixed one. */
-export type DeriveContext = {
-  readonly asOf: Temporal.Instant;
-};
-
-export type DerivedFieldDef = {
-  readonly valueType: DerivedValueType;
-  /** Pure function of the stored row + clock. Returns the JSON-safe display
-   *  value (e.g. integer minor units for a currency column, ISO string for a
-   *  `date`). */
-  readonly derive: (row: Readonly<Record<string, unknown>>, ctx: DeriveContext) => unknown;
-};
-
-export type DerivedFieldsMap = Readonly<Record<string, DerivedFieldDef>>;
-
-/** Client-facing projection of DerivedFieldDef — `derive` is server-only and
- *  not JSON-safe (would trip the output-walk guard), so the browser schema
- *  only ever carries `valueType`. A real `Pick`, not a same-shape cast: TS
- *  itself proves `derive` isn't there instead of a `{ valueType } as
- *  DerivedFieldDef` cast lying about a field that's actually missing. */
-export type ClientDerivedFieldDef = Pick<DerivedFieldDef, "valueType">;
 
 // --- Entity ---
 

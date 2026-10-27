@@ -1,4 +1,4 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition, SortNulls } from "@cosmicdrift/kumiko-types/fields";
 import {
   buildOwnershipClause,
   normalizeAccessEntry,
@@ -26,15 +26,36 @@ type ReferenceSortOption = NonNullable<Parameters<EventStoreExecutor["list"]>[3]
 
 export type ListSort =
   | { readonly kind: "unsorted" }
-  | { readonly kind: "column"; readonly field: string; readonly descending: boolean }
+  | {
+      readonly kind: "column";
+      readonly field: string;
+      readonly descending: boolean;
+      readonly nulls: SortNulls | undefined;
+    }
   | {
       readonly kind: "referenceLabel";
       readonly field: string;
       readonly descending: boolean;
+      readonly nulls: SortNulls | undefined;
       readonly labelSql: (params: unknown[]) => string;
     };
 
 export type SortedListSort = Exclude<ListSort, { readonly kind: "unsorted" }>;
+
+function declaredSortNulls(entity: EntityDefinition, field: string): SortNulls | undefined {
+  const def = entity.fields[field];
+  return def !== undefined && "sortNulls" in def ? def.sortNulls : undefined;
+}
+
+// Postgres' own null order without an explicit NULLS clause: last ascending, first descending.
+export function sortsNullsFirst(sort: SortedListSort): boolean {
+  return sort.nulls === undefined ? sort.descending : sort.nulls === "first";
+}
+
+function nullsClause(sort: SortedListSort): string {
+  if (sort.nulls === undefined) return "";
+  return sort.nulls === "first" ? " NULLS FIRST" : " NULLS LAST";
+}
 
 // Resolve a `sortable: true` reference field's label inline for
 // ORDER BY. A correlated scalar subquery, not a join: the result set keeps one
@@ -135,7 +156,10 @@ export function resolveListSort(request: {
       : undefined;
   if (field === undefined) return { kind: "unsorted" };
   const descending = payload.sortDirection === "desc";
-  if (entity.fields[field]?.type !== "reference") return { kind: "column", field, descending };
+  const nulls = declaredSortNulls(entity, field);
+  if (entity.fields[field]?.type !== "reference") {
+    return { kind: "column", field, descending, nulls };
+  }
 
   // A reference column stores a UUID, so it is never sorted by
   // directly: either the field opted into `sortable` and we order by the
@@ -154,7 +178,7 @@ export function resolveListSort(request: {
       : undefined;
   return labelSql === undefined
     ? { kind: "unsorted" }
-    : { kind: "referenceLabel", field, descending, labelSql };
+    : { kind: "referenceLabel", field, descending, nulls, labelSql };
 }
 
 export function renderSortSql(sort: SortedListSort, where: ListWhere): string {
@@ -170,7 +194,7 @@ export function renderListOrderBy(
     return { orderByClause: ` ORDER BY ${idAscending}`, sortLabelProjection: "" };
   }
   const sortSql = renderSortSql(sort, where);
-  const direction = sort.descending ? "DESC" : "ASC";
+  const direction = `${sort.descending ? "DESC" : "ASC"}${nullsClause(sort)}`;
   if (sort.kind === "column") {
     return {
       orderByClause: ` ORDER BY ${sortSql} ${direction}, ${idAscending}`,
