@@ -7,7 +7,7 @@
 #   2. Else if running inside a worktree under the parent workspace (no
 #      check-wt.sh), run this worktree's own package.json scripts
 #      (typecheck, lint, test, test:dom) plus the consumer-CI guards
-#      (kumiko-guards guards/checks/comment-lang) directly —
+#      (kumiko-guards guards/ui/checks/comment-lang) directly —
 #      the parent's `bun check` would otherwise check the main checkout
 #      instead of the worktree.
 #   3. Else if running inside the cosmicdriftgamestudio Parent-Workspace,
@@ -24,6 +24,10 @@
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
 # and KUMIKO_PUSH_PARENT_DIR available inline (never exported).
+#
+# The pre-flight steps (pre-push-extra.sh, upgrade-state guard, gitleaks) run
+# once per push: a re-entry from the wrapping check-wt.sh skips them, because
+# the outer run already did them before delegating.
 
 # Git exports GIT_DIR & co. to hooks; nothing this hook starts may inherit them,
 # or a test's fixture git calls write into this repo.
@@ -77,7 +81,36 @@ has_package_script() {
   ' "$REPO_ROOT/package.json" "$1") >/dev/null 2>&1
 }
 
-if git -C "$REPO_ROOT" ls-files --error-unmatch scripts/pre-push-extra.sh >/dev/null 2>&1 \
+# Same rule as `kumiko check`: the UI guards run only for declared, non-empty uiRoots.
+has_ui_roots() {
+  (cd / && bun -e '
+    const manifest = await Bun.file(process.argv[1]).json().catch(() => null);
+    process.exit(Array.isArray(manifest?.uiRoots) && manifest.uiRoots.length > 0 ? 0 : 1);
+  ' "$REPO_ROOT/kumiko.json") >/dev/null 2>&1
+}
+
+# Re-entry from the wrapping check-wt.sh is detected by process ancestry: the
+# hook records its own PID in KUMIKO_CHECK_WT_OWNER before delegating, so a
+# freely exported variable can neither skip the tracked check-wt.sh nor the
+# pre-flight steps below.
+is_reentry_from_check_wt() {
+  reentry_pid=$$
+  case "${KUMIKO_CHECK_WT_OWNER:-}" in '' | *[!0-9]*) return 1 ;; esac
+  while [ -n "$reentry_pid" ] && [ "$reentry_pid" -gt 1 ]; do
+    [ "$reentry_pid" = "$KUMIKO_CHECK_WT_OWNER" ] && return 0
+    reentry_pid=$(ps -o ppid= -p "$reentry_pid" 2>/dev/null | tr -d ' ')
+  done
+  return 1
+}
+
+CHECK_WT_REENTRY=0
+if is_reentry_from_check_wt; then
+  CHECK_WT_REENTRY=1
+  echo "[pre-push] re-entered from scripts/check-wt.sh — pre-push-extra.sh, upgrade-state guard and secret scan already ran in the outer hook"
+fi
+
+if [ "$CHECK_WT_REENTRY" = 0 ] \
+   && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/pre-push-extra.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/pre-push-extra.sh" ]; then
   echo "[pre-push] running scripts/pre-push-extra.sh…"
   (cd "$REPO_ROOT" && KUMIKO_PUSH_REPO_ROOT="$REPO_ROOT" KUMIKO_PUSH_PARENT_DIR="$PARENT_DIR" "$REPO_ROOT/scripts/pre-push-extra.sh" "$@") || exit 1
@@ -100,7 +133,7 @@ resolve_script_dir() {
   cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd
 }
 
-if [ -f "$REPO_ROOT/.kumiko/upgrade-state.json" ]; then
+if [ "$CHECK_WT_REENTRY" = 0 ] && [ -f "$REPO_ROOT/.kumiko/upgrade-state.json" ]; then
   SCRIPT_DIR="$(resolve_script_dir "$0")"
   GUARD_UPGRADE_STATE="$SCRIPT_DIR/guard-upgrade-state.ts"
   if [ ! -f "$GUARD_UPGRADE_STATE" ]; then
@@ -118,7 +151,9 @@ fi
 # caught in seconds, not after the long checks. A missing binary or a missing
 # origin/main only warns, so a machine without gitleaks is not locked out.
 # No --config: gitleaks reads a .gitleaks.toml in the repo root itself.
-if ! command -v gitleaks >/dev/null 2>&1; then
+if [ "$CHECK_WT_REENTRY" = 1 ]; then
+  : # the outer hook scanned the pushed refs from git's stdin
+elif ! command -v gitleaks >/dev/null 2>&1; then
   echo "[pre-push] gitleaks not installed — secret scan skipped. Install: brew install gitleaks" >&2
 elif ! git -C "$REPO_ROOT" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
   echo "[pre-push] origin/main not found — secret scan skipped" >&2
@@ -151,20 +186,7 @@ fi
 # canonical sibling path instead of this worktree — checking the wrong
 # code. Run the worktree-local check only when scripts/check-wt.sh is
 # tracked and executable (untracked/symlink stubs must not hijack push).
-# Re-entry from the wrapping check-wt.sh is detected by process ancestry: the
-# hook records its own PID in KUMIKO_CHECK_WT_OWNER before delegating, so a
-# freely exported variable cannot skip the tracked check-wt.sh.
-is_reentry_from_check_wt() {
-  reentry_pid=$$
-  case "${KUMIKO_CHECK_WT_OWNER:-}" in '' | *[!0-9]*) return 1 ;; esac
-  while [ -n "$reentry_pid" ] && [ "$reentry_pid" -gt 1 ]; do
-    [ "$reentry_pid" = "$KUMIKO_CHECK_WT_OWNER" ] && return 0
-    reentry_pid=$(ps -o ppid= -p "$reentry_pid" 2>/dev/null | tr -d ' ')
-  done
-  return 1
-}
-
-if ! is_reentry_from_check_wt \
+if [ "$CHECK_WT_REENTRY" = 0 ] \
    && [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/check-wt.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/check-wt.sh" ]; then
@@ -172,12 +194,26 @@ if ! is_reentry_from_check_wt \
   cd "$REPO_ROOT" && KUMIKO_CHECK_WT_OWNER=$$ exec "$REPO_ROOT/scripts/check-wt.sh"
 fi
 
+# The repo that ships kumiko-guards runs its checked-out cli.ts, so a push checks
+# the branch's own guards even when node_modules/.bin resolves to another checkout.
+is_kumiko_guards_repo() {
+  [ -f "$REPO_ROOT/packages/guards/src/cli.ts" ] \
+    && grep -q '"name": *"@cosmicdrift/kumiko-guards"' "$REPO_ROOT/packages/guards/package.json" 2>/dev/null
+}
+
 # Runs a guard bin from the worktree's or the parent's node_modules/.bin
 # (same guards consumer CI runs); an unresolvable bin is skipped, not fatal.
 run_guard_bin() {
   GUARD_LABEL="$1"
   GUARD_BIN="$2"
   shift 2
+  if [ "$GUARD_BIN" = "kumiko-guards" ] && is_kumiko_guards_repo; then
+    echo "[pre-push] packages/guards/src/cli.ts $*"
+    if ! bun "$REPO_ROOT/packages/guards/src/cli.ts" "$@"; then
+      FAILED="$FAILED $GUARD_LABEL"
+    fi
+    return 0
+  fi
   for GUARD_CANDIDATE in "$REPO_ROOT/node_modules/.bin/$GUARD_BIN" "$PARENT_DIR/node_modules/.bin/$GUARD_BIN"; do
     if [ -x "$GUARD_CANDIDATE" ]; then
       echo "[pre-push] $GUARD_BIN $*"
@@ -198,7 +234,7 @@ run_guard_bin() {
 if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && [ -n "$PARENT_DIR" ]; then
   cd "$REPO_ROOT"
-  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, checks, comment-lang)…"
+  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, ui, checks, comment-lang, public-exports-changelog)…"
   if ! has_package_script test; then
     echo "[pre-push] FATAL: worktree without a package.json \"test\" script — nothing to run, refusing push." >&2
     echo "Add a \"test\" script to package.json." >&2
@@ -216,6 +252,11 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
     fi
   done
   run_guard_bin guards kumiko-guards guards
+  if has_ui_roots; then
+    run_guard_bin ui kumiko-guards ui
+  else
+    echo "[pre-push] ui: no uiRoots in kumiko.json, skipped"
+  fi
   run_guard_bin checks kumiko-guards checks
   run_guard_bin comment-lang kumiko-guards comment-lang --touched --base=origin/main
   run_guard_bin public-exports-changelog kumiko-guards public-exports-changelog --base=origin/main

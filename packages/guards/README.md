@@ -76,10 +76,15 @@ the pushing repo only; in a standalone clone it runs the repo's own
 workspace it runs a tracked `scripts/check-wt.sh` if present, otherwise the
 worktree's own `package.json` scripts `typecheck`, `lint`, `test`, and
 `test:dom` (whichever are declared), directly in the worktree — the parent's
-`bun check` would otherwise check the main checkout instead. There is no
-bypass switch. A `check-wt.sh` that wraps this hook (via `exec` or as a child
-process) is recognised by process ancestry, so the hook does not call it
-again; an exported variable cannot skip it.
+`bun check` would otherwise check the main checkout instead — followed by
+`kumiko-guards guards`, `ui` (only with non-empty `uiRoots` in `kumiko.json`,
+as in `kumiko check`), `checks`, `comment-lang` and `public-exports-changelog`.
+The repo that ships this package runs its checked-out `packages/guards/src/cli.ts`
+for these. There is no bypass switch. A `check-wt.sh` that wraps this hook (via
+`exec` or as a child process) is recognised by process ancestry, so the hook
+does not call it again and skips the pre-flight steps (`pre-push-extra.sh`,
+upgrade-state guard, gitleaks) the outer run already did; an exported variable
+cannot skip either.
 
 Extension point: a tracked, executable `scripts/pre-push-extra.sh` runs
 before the main check in every branch (worktree, parent-scoped, and

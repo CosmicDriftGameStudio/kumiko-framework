@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Framework-only checks that run before the generic pre-push checks
-# (typecheck, tests, comment-lang, public-exports-changelog).
+# (typecheck, tests, guards/ui/checks, comment-lang, public-exports-changelog).
 # Runs through packages/guards/src/pre-push.sh; `scripts/check-wt.sh` runs the same hook.
+# Inside the parent workspace the AST guards and the runtime-isolation check are
+# not repeated here: the worktree branch runs them via packages/guards/src/cli.ts
+# (guards, checks), the parent-scoped branch via the `kumiko check` step. A
+# standalone clone only gets the hook's `bun run test`, so it runs them below.
 set -uo pipefail
 
 fail=0
@@ -18,11 +22,13 @@ bun scripts/check-app-tsc.ts || fail=1
 echo "→ biome check"
 bunx biome check . || fail=1
 
-echo "→ AST guards (bun packages/guards/src/run-guards.ts — CI entry runGuardsCli)"
-bun packages/guards/src/run-guards.ts || fail=1
+if [ -z "${KUMIKO_PUSH_PARENT_DIR:-}" ]; then
+  echo "→ AST guards (bun packages/guards/src/run-guards.ts — standalone clone)"
+  bun packages/guards/src/run-guards.ts || fail=1
 
-echo "→ Runtime isolation (bun packages/guards/src/check-runtime-isolation.ts)"
-bun packages/guards/src/check-runtime-isolation.ts || fail=1
+  echo "→ Runtime isolation (bun packages/guards/src/check-runtime-isolation.ts — standalone clone)"
+  bun packages/guards/src/check-runtime-isolation.ts || fail=1
+fi
 
 echo "→ Package cycles (bun scripts/check-package-cycles.ts)"
 bun scripts/check-package-cycles.ts || fail=1
