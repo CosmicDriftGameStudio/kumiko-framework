@@ -337,6 +337,7 @@ export function createTierEngineFeature<
       // reload result is applied only while its ticket is still the tenant's latest.
       let ticketCounter = 0;
       const latestTicket = new Map<TenantId, number>();
+      let isBuilt = false;
       const takeTicket = (tenantId: TenantId): number => {
         ticketCounter += 1;
         latestTicket.set(tenantId, ticketCounter);
@@ -370,7 +371,9 @@ export function createTierEngineFeature<
       // bus and re-read the row.
       const applyAssignment = (tenantId: TenantId, tier: string): void => {
         takeTicket(tenantId);
-        cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
+        // Before build() the always-on set is empty; a cached entry would outlive into the next build.
+        if (isBuilt)
+          cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
         publishAssignmentChange(tenantId);
       };
       onTierAssigned.fn = applyAssignment;
@@ -516,6 +519,11 @@ export function createTierEngineFeature<
             if (feature.toggleableDefault === undefined) computedAlwaysOn.add(feature.name);
           }
           alwaysOnHolder.set = computedAlwaysOn;
+          // One feature instance can serve several stacks in a process; rebuild state from this DB only.
+          // Safe vs. "never clear-then-refill": no request reaches this resolver before build() returns.
+          cache.clear();
+          latestTicket.clear();
+          isBuilt = true;
 
           // Pre-load all existing assignments into the cache. SaaS apps typically
           // have <100k tenants, so a single-pass scan is acceptable. The scaling
