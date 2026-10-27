@@ -604,7 +604,8 @@ export function buildExecutorContext(
   }
 
   // Same read predicate detail applies (access.read plus the parent-ref gate), evaluated
-  // for one row; the row itself may be soft-deleted (restore targets it). Writers use it
+  // for one row. The row's own isDeleted is not filtered because restore targets a
+  // soft-deleted row; includeDeleted below only concerns the parent host. Writers use it
   // to treat an unreadable row as nonexistent.
   async function isRowReadable(
     id: EntityId,

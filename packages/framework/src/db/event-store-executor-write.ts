@@ -1105,8 +1105,8 @@ export function createWriteVerbs(
       }
       const runner = tenantDbWriteRunner(db, "ctx.db executor restore");
       const streamTenantId = options?.streamTenantId;
-      const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
-      if ("failure" in target) return target.failure;
+      // Before loadSoftDeletedRow: its not_deleted answer would confirm that an unreadable
+      // live row exists.
       const unreadable = await unreadableRowFailure(
         payload.id,
         user,
@@ -1114,6 +1114,8 @@ export function createWriteVerbs(
         options?.parentVisibility,
       );
       if (unreadable) return unreadable;
+      const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
+      if ("failure" in target) return target.failure;
       const data = target.row;
 
       // H.2 — entity-level write-ownership on restore. Same shape as delete:

@@ -120,6 +120,17 @@ describe("access.read is enforced on update, delete and restore", () => {
     expect(await titleSeenByA(note.id)).toBeUndefined();
   });
 
+  test("restore on a live row the caller cannot read answers not_found, not not_deleted", async () => {
+    const note = await createNoteOfA();
+    const err = await stack.http.writeErr(
+      "readrulenotes:write:note:restore",
+      { id: note.id },
+      userB,
+    );
+    expectErrorIncludes(err, "not_found");
+    expect(JSON.stringify(err)).not.toContain("not_deleted");
+  });
+
   test("the owner can still update, delete and restore", async () => {
     const note = await createNoteOfA();
     await stack.http.writeOk(
