@@ -14,8 +14,10 @@ import {
   inboundCredentialSecretKey,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   type BeforeTransactionResult,
+  createSystemUser,
   defineWriteHandler,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -162,13 +164,23 @@ export async function connectPasswordMailbox(
   if (reopened) {
     accountId = existing.id;
   } else {
-    const connected = await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, {
+    const accountFields = {
       provider: IMAP_PROVIDER_KEY,
       authMethod: InboundMailAuthMethods.password,
       displayName,
       address,
       scope,
-    });
+    };
+    // connect-account is admin-only, so a member's personal mailbox goes through the system identity
+    // with the owner taken from this session, like the OAuth callback does.
+    const connected =
+      scope === "user"
+        ? await ctx.dispatch.writeAs(
+            createSystemUser(ctx.user.tenantId, [ROLES.SystemAdmin]),
+            InboundMailFoundationHandlers.connectAccount,
+            { ...accountFields, ownerUserIdOverride: event.user.id },
+          )
+        : await ctx.dispatch.write(InboundMailFoundationHandlers.connectAccount, accountFields);
     if (!connected.isSuccess) return connected;
     accountId = connectedAccountSchema.parse(connected.data).accountId;
   }

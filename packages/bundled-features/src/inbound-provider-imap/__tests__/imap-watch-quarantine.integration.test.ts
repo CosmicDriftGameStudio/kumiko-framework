@@ -2,7 +2,7 @@
 // at the next reconciliation poll (the poll interval here is an hour, so only the watch can do it).
 // Skips visibly when greenmail is down.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -111,7 +111,6 @@ afterAll(async () => {
     process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = originalAllowedPrivateHostsEnv;
   }
   if (!available) return;
-  await purgeInbox();
   await stack.cleanup();
   resetPiiSubjectKmsForTests();
 });
@@ -121,7 +120,7 @@ async function withInbox<T>(work: (client: ImapFlow) => Promise<T>): Promise<T> 
     host: HOST,
     port: IMAP_PORT,
     secure: false,
-    auth: { user: "testuser", pass: "testpass" },
+    auth: { user: "quarantineuser", pass: "testpass" },
     logger: false,
   });
   await client.connect();
@@ -132,16 +131,6 @@ async function withInbox<T>(work: (client: ImapFlow) => Promise<T>): Promise<T> 
     await client.logout();
   }
 }
-
-async function purgeInbox(): Promise<void> {
-  await withInbox(async (client) => {
-    if (client.mailbox && client.mailbox.exists > 0) await client.messageDelete("1:*");
-  });
-}
-
-beforeEach(async () => {
-  if (available) await purgeInbox();
-});
 
 async function connectedAccount() {
   nextTenant += 1;
@@ -156,7 +145,7 @@ async function connectedAccount() {
       provider: "imap",
       authMethod: "password",
       displayName: "Greenmail",
-      address: "testuser@example.com",
+      address: "quarantineuser@example.com",
       scope: "shared",
     },
     admin,
@@ -168,7 +157,7 @@ async function connectedAccount() {
       host: HOST,
       port: IMAP_PORT,
       secure: false,
-      user: "testuser",
+      user: "quarantineuser",
       password: "testpass",
     }),
   );
@@ -190,10 +179,21 @@ function createSupervisor(log: string[]) {
   });
 }
 
-const appendPoisonMail = () =>
-  withInbox((client) =>
+// Own greenmail user (quarantineuser, see .github/actions/kumiko-services/start.sh): a poison mail in the
+// shared testuser inbox would reach the accounts of the other IMAP suites running in parallel.
+// Local greenmail needs -Dgreenmail.users=testuser:testpass@example.com,quarantineuser:testpass@example.com.
+async function withPoisonMail(work: () => Promise<void>): Promise<void> {
+  const appended = await withInbox((client) =>
     client.append("INBOX", Buffer.from(buildMailWithTooManyParts(MAILPARSER_MAX_MIME_NODES))),
   );
+  try {
+    await work();
+  } finally {
+    if (appended) {
+      await withInbox((client) => client.messageDelete(String(appended.uid), { uid: true }));
+    }
+  }
+}
 
 describe("unparseable mail through greenmail", () => {
   liveTest(
@@ -209,11 +209,16 @@ describe("unparseable mail through greenmail", () => {
           expect(row?.["watchState"]).toBe("watching");
         });
 
-        await appendPoisonMail();
+        // Mails of other suites in the shared inbox are quarantined by the first poll already, so
+        // only a count above this baseline comes from the watch.
+        const baseline = (await selectMany(stack.db, quarantineTable, { accountId })).length;
 
-        await waitFor(async () => {
-          expect(await selectMany(stack.db, quarantineTable, { accountId })).toHaveLength(1);
-        });
+        await withPoisonMail(() =>
+          waitFor(async () => {
+            const quarantined = await selectMany(stack.db, quarantineTable, { accountId });
+            expect(quarantined.length).toBeGreaterThan(baseline);
+          }),
+        );
       } finally {
         await supervisor.stop();
       }
@@ -225,10 +230,11 @@ describe("unparseable mail through greenmail", () => {
     "the health update after a quarantine is accepted: degraded with messageQuarantined",
     async () => {
       const accountId = await connectedAccount();
-      await appendPoisonMail();
       const log: string[] = [];
 
-      await createSupervisor(log).pollOnce();
+      await withPoisonMail(async () => {
+        await createSupervisor(log).pollOnce();
+      });
 
       expect(log.filter((line) => line.includes(HEALTH_REJECTED))).toEqual([]);
       const [row] = await selectMany(stack.db, mailAccountsProjectionTable, { id: accountId });

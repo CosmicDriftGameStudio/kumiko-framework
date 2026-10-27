@@ -6,8 +6,10 @@
 // connect-mailbox.integration.test.ts and skip visibly without it; the role cases run everywhere.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -213,11 +215,13 @@ describe("connect-my-mailbox", () => {
     "an address of another member is refused, also after a disconnect, no second account",
     async () => {
       const tenant = freshTenant();
-      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      // The OAuth callback's path: the system user connects on behalf of the owner.
+      const connected = await stack.dispatcher.write(
         InboundMailFoundationHandlers.connectAccount,
-        connectAccountPayload("user"),
-        tenant.otherMember,
+        { ...connectAccountPayload("user"), ownerUserIdOverride: tenant.otherMember.id },
+        createSystemUser(tenant.tenantId, [ROLES.SystemAdmin]),
       );
+      const { accountId } = (connected as { data: { accountId: string } }).data;
 
       const live = await stack.http.writeErr(
         ImapHandlers.connectMyMailbox,
@@ -303,37 +307,30 @@ describe("connect-my-mailbox", () => {
   });
 });
 
-describe("connect-account scope", () => {
-  test("a member connects a personal mailbox", async () => {
+describe("connect-account is admin-only", () => {
+  test("a member gets 403 for both scopes and claims no address", async () => {
     const tenant = freshTenant();
 
-    await stack.http.writeOk(
-      InboundMailFoundationHandlers.connectAccount,
-      connectAccountPayload("user"),
-      tenant.member,
-    );
-
-    expect(await accountsOf(tenant, tenant.member)).toEqual([
-      expect.objectContaining({ ownerUserId: tenant.member.id }),
-    ]);
+    for (const scope of ["user", "shared"] as const) {
+      const error = await stack.http.writeErr(
+        InboundMailFoundationHandlers.connectAccount,
+        connectAccountPayload(scope),
+        tenant.member,
+      );
+      expect(error.httpStatus).toBe(403);
+    }
+    expect(await accountsOf(tenant)).toEqual([]);
   });
 
-  test("a member cannot connect a shared mailbox, an admin can", async () => {
+  test("an admin connects a shared mailbox", async () => {
     const tenant = freshTenant();
-
-    const error = await stack.http.writeErr(
-      InboundMailFoundationHandlers.connectAccount,
-      connectAccountPayload("shared"),
-      tenant.member,
-    );
-    expect(error.httpStatus).toBe(403);
-    expect(await accountsOf(tenant)).toEqual([]);
 
     await stack.http.writeOk(
       InboundMailFoundationHandlers.connectAccount,
       connectAccountPayload("shared"),
       tenant.admin,
     );
+
     expect(await accountsOf(tenant)).toEqual([expect.objectContaining({ ownerUserId: null })]);
   });
 

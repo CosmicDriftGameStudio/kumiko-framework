@@ -14,6 +14,8 @@ import {
 
 const connectMyMailboxSchema = connectMailboxSchema.omit({ trustedAuthservId: true });
 
+const MY_MAILBOX_ESCAPE_REASON = `${SECRET_TRANSACTION_REASON}; the account is created with writeAs(system) on connect-account, which is admin-only, and the owner comes from the caller's session`;
+
 export const createConnectMyMailboxHandler = ({ memberRoles }: InboundMailRoles) =>
   defineWriteHandler({
     name: "connect-my-mailbox",
@@ -25,7 +27,9 @@ export const createConnectMyMailboxHandler = ({ memberRoles }: InboundMailRoles)
     access: { roles: [...memberRoles] },
     // Each call opens a connection to a host the caller picks; per user, because any member may call it.
     rateLimit: { per: "user", limit: 10, windowSeconds: 600 },
-    escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
+    // connect-account is admin-only; the personal mailbox is created through the system identity. The owner
+    // is always event.user.id from the session, never a payload field.
+    escapeHatch: { grants: ["unsafeRaw", "systemIdentity"], reason: MY_MAILBOX_ESCAPE_REASON },
     beforeTransaction: (event, ctx) =>
       checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
     handler: async (event, ctx) => {

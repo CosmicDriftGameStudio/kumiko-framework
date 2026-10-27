@@ -14,7 +14,7 @@ Composite action that starts the Kumiko CI services (Postgres, Redis, Meilisearc
 | Input | Default | Meaning |
 | --- | --- | --- |
 | `postgres` | `true` | start Postgres (`kumiko_dev`, `kumiko_test`) |
-| `redis`, `meilisearch`, `object-storage`, `greenmail` | `false` | start the service (Greenmail: user `testuser` / `testpass`, address `testuser@example.com`; TLS is self-signed) |
+| `redis`, `meilisearch`, `object-storage`, `greenmail` | `false` | start the service (Greenmail: user `testuser` / `testpass`, address `testuser@example.com`, plus `quarantineuser` / `testpass` with its own inbox for the watch-quarantine suite; TLS is self-signed) |
 | `<service>-port` | empty | fixed host port; empty = random |
 
 Outputs: `postgres-port`, `redis-port`, `meilisearch-port`, `object-storage-port`, `greenmail-imap-port`, `greenmail-imaps-port`, `greenmail-smtp-port`, `greenmail-smtps-port` (fixed 465), `database-url`, `test-database-url`, `redis-url`, `meili-url`, `object-storage-endpoint` (empty for services not started).
