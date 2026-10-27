@@ -47,7 +47,7 @@ mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kum
           contentFormat: "plain",
           access: { roles: ["Agent"] },
           variableSchema: {},
-          nav: { label: "mail:nav.signatures" },
+          nav: { label: "mail:nav.signatures", entryLabel: "mail:nav.signature" },
         },
       ],
     },
@@ -62,13 +62,18 @@ const TARGET = {
   args: { collectionId: "prompts" },
 } as const;
 
+const primitivesWithVisibleHeader = {
+  ...defaultPrimitives,
+  PageHeader: ({ title }: { readonly title?: string }) => <h1 data-testid="header">{title}</h1>,
+};
+
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
-      fallbackBundles={[defaultTranslations]}
+      fallbackBundles={[defaultTranslations, { en: { "mail:nav.signature": "Signature" } }]}
     >
-      <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+      <PrimitivesProvider value={primitivesWithVisibleHeader}>{children}</PrimitivesProvider>
     </LocaleProvider>
   );
 }
@@ -97,6 +102,22 @@ function fill(label: RegExp, value: string): void {
 describe("collection entry create form", () => {
   test("the resolver is registered", () => {
     expect(textBlocksClient().resolvers?.["template-resolver:create"]).toBeDefined();
+  });
+
+  test("the title names the entry with the singular label of the collection", () => {
+    renderForm(mock(), { collectionId: "signatures" });
+    expect(screen.getByTestId("header").textContent).toBe("New Signature");
+  });
+
+  test("a collection without a singular label gets the neutral title", () => {
+    renderForm(mock());
+    expect(screen.getByTestId("header").textContent).toBe("New entry");
+  });
+
+  test("the save footer is pinned below the scroll surface", () => {
+    renderForm(mock());
+    const scroll = screen.getByTestId("collection-entry-create-scroll");
+    expect(scroll.contains(screen.getByTestId("collection-entry-create-actions"))).toBe(false);
   });
 
   test("an invalid slug blocks submit and shows the slug message", () => {

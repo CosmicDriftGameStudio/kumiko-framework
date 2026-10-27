@@ -101,7 +101,7 @@ function scanAnchor(element: ScanElement, out: DocumentViolation[]): void {
       violation(
         "disallowed_link_href",
         href,
-        `Link target "${href}" is not allowed; use https, http, mailto, tel or a {{placeholder}}`,
+        `Link target "${href}" is not allowed; use https, http, mailto, tel, a relative path or a {{placeholder}}`,
       ),
     );
   }
@@ -202,7 +202,7 @@ function scanUrlAttributes(tag: string, element: ScanElement, out: DocumentViola
         violation(
           "disallowed_link_href",
           value,
-          `Link target "${value}" is not allowed; use https, http, mailto, tel or a {{placeholder}}`,
+          `Link target "${value}" is not allowed; use https, http, mailto, tel, a relative path or a {{placeholder}}`,
         ),
       );
     }

@@ -57,11 +57,10 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
   "managed-pages:body.lossy.warning": {
     en: "This page was written in Markdown. Converting it to the editor drops: {features}. Check the result before saving.",
   },
-  "managed-pages:body.lossy.image": { en: "images" },
+  "managed-pages:body.lossy.image": { en: "external images" },
   "managed-pages:body.lossy.blockquote": { en: "block quotes" },
   "managed-pages:body.lossy.code": { en: "code" },
   "managed-pages:body.lossy.deepHeading": { en: "headings below level 3" },
-  "managed-pages:body.lossy.relativeLink": { en: "relative links" },
 
   // Row-Actions + Confirm (pageListScreen)
   "managed-pages:actions.edit": { en: "Edit" },

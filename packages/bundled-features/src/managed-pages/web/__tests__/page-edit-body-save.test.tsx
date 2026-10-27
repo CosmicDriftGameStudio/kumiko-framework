@@ -141,13 +141,13 @@ async function editBodyAndSave(): Promise<void> {
 afterEach(cleanup);
 
 describe("page-edit body save", () => {
-  test("a Markdown page with a relative link and an external image saves as a document", async () => {
+  test("a Markdown page keeps its relative link and drops an external image on save", async () => {
     mountEdit(gatedDispatcher(MARKDOWN_RECORD));
     await editBodyAndSave();
     const [changes] = writes;
     expect(changes?.bodyFormat).toBe("document");
     expect(changes?.body).toContain("Contact");
-    expect(changes?.body).not.toContain("/contact");
+    expect(changes?.body).toContain(`href="/contact"`);
     expect(changes?.body).not.toContain("<img");
     await waitFor(() => expect(screen.queryByTestId("render-edit-form-error")).toBeNull());
   });

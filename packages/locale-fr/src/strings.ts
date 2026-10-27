@@ -1033,11 +1033,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le contenu comporte des éléments non autorisés : {detail}",
   "managed-pages:body.lossy.warning":
     "Cette page a été rédigée en Markdown. La conversion vers l'éditeur supprime : {features}. Vérifiez le résultat avant d'enregistrer.",
-  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.image": "images externes",
   "managed-pages:body.lossy.blockquote": "citations",
   "managed-pages:body.lossy.code": "code",
   "managed-pages:body.lossy.deepHeading": "titres au-delà du niveau 3",
-  "managed-pages:body.lossy.relativeLink": "liens relatifs",
   "managed-pages:branding.section.custom-css": "CSS personnalisé",
   "managed-pages:branding.section.identity": "Identité",
   "managed-pages:confirms.page-delete": "Supprimer cette page ?",
@@ -1306,7 +1305,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.invalidImageAlt":
     "Le texte alternatif ne doit pas contenir < ni >.",
   "template-resolver.documentEditor.invalidLink":
-    "Cette cible de lien n'est pas autorisée. Utilisez https, http, mailto, tel ou un espace réservé.",
+    "Cette cible de lien n'est pas autorisée. Utilisez https, http, mailto, tel, un chemin relatif ou un espace réservé.",
   "template-resolver.documentEditor.invalidResourceKey": "Cette clé de ressource n'est pas valide.",
   "template-resolver.documentEditor.link": "Lien",
   "template-resolver.documentEditor.linkHref": "Cible du lien",
@@ -1361,7 +1360,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":
-    "La cible de lien « {detail} » n'est pas autorisée ; utilisez https, http, mailto, tel ou un espace réservé.",
+    "La cible de lien « {detail} » n'est pas autorisée ; utilisez https, http, mailto, tel, un chemin relatif ou un espace réservé.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Ce type de modèle exige le format html, mais « {detail} » a été fourni.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

@@ -1025,11 +1025,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "managed-pages.errors.document.rejected": "Der Inhalt enthält nicht erlaubte Elemente: {detail}",
   "managed-pages:body.lossy.warning":
     "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
-  "managed-pages:body.lossy.image": "Bilder",
+  "managed-pages:body.lossy.image": "externe Bilder",
   "managed-pages:body.lossy.blockquote": "Zitate",
   "managed-pages:body.lossy.code": "Code",
   "managed-pages:body.lossy.deepHeading": "Überschriften unterhalb von Ebene 3",
-  "managed-pages:body.lossy.relativeLink": "relative Links",
   "managed-pages:branding.section.custom-css": "Eigenes CSS",
   "managed-pages:branding.section.identity": "Identität",
   "managed-pages:confirms.page-delete": "Diese Seite wirklich löschen?",
@@ -1298,7 +1297,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.invalidImageAlt":
     "Der Alternativtext darf kein < oder > enthalten.",
   "template-resolver.documentEditor.invalidLink":
-    "Dieses Linkziel ist nicht erlaubt. Erlaubt sind https, http, mailto, tel oder ein Platzhalter.",
+    "Dieses Linkziel ist nicht erlaubt. Erlaubt sind https, http, mailto, tel, ein relativer Pfad oder ein Platzhalter.",
   "template-resolver.documentEditor.invalidResourceKey": "Dieser Ressourcenschlüssel ist ungültig.",
   "template-resolver.documentEditor.link": "Link",
   "template-resolver.documentEditor.linkHref": "Linkziel",
@@ -1351,7 +1350,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":
-    "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel oder einen Platzhalter.",
+    "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel, einen relativen Pfad oder einen Platzhalter.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

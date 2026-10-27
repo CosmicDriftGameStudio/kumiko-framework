@@ -36,9 +36,11 @@ export function useCollectionEntryCreate(target: TargetRef, tenantId: string | u
 
   const slugValid = slug.length <= SLUG_MAX_LENGTH && SLUG_PATTERN.test(slug);
   const disabled = submitting || !canWrite || collectionId === undefined;
-  const headerTitle = t("template-resolver.editor.newEntryTitle", {
-    label: collection !== undefined ? t(collection.nav.label) : "",
-  });
+  const entryLabel = collection?.nav.entryLabel;
+  const headerTitle =
+    entryLabel !== undefined
+      ? t("template-resolver.editor.newEntryTitle", { label: t(entryLabel) })
+      : t("template-resolver.editor.newEntry");
 
   const create = async (): Promise<void> => {
     // skip: nothing to write to, or the slug is invalid (the field already shows the issue)

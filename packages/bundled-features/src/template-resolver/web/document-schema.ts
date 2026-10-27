@@ -45,13 +45,24 @@ function hasAllowedLinkScheme(href: string): boolean {
   return ALLOWED_LINK_SCHEMES.some((scheme) => href.startsWith(scheme));
 }
 
+// Relative references are matched by their literal leading character so a
+// scheme can never hide in them: a value starting with a letter ("x:y",
+// "javascript:") is not relative. Protocol-relative "//host" and any backslash
+// (browsers read "/\\host" as "//host") would leave the site.
+const RELATIVE_HREF_PREFIXES = ["/", "./", "../", "#", "?"] as const;
+
+function isRelativeHref(href: string): boolean {
+  if (href.includes("\\") || href.startsWith("//")) return false;
+  return RELATIVE_HREF_PREFIXES.some((prefix) => href.startsWith(prefix));
+}
+
 // Exact lowercase prefix on the unchanged value: no trim, no case folding, so
 // "JaVaScRiPt:", "HTTPS://" or a leading tab can never slip through as a
 // scheme variant. Markup and control characters are refused outright because
 // downstream parsers (MJML, PDF renderer) re-read the serialized attribute.
 export function isAllowedDocumentLinkHref(href: string): boolean {
   if (hasUnsafeUrlCharacter(href)) return false;
-  return hasAllowedLinkScheme(href) || isDocumentPlaceholderHref(href);
+  return hasAllowedLinkScheme(href) || isRelativeHref(href) || isDocumentPlaceholderHref(href);
 }
 
 export function isDocumentResourceKey(value: string): boolean {

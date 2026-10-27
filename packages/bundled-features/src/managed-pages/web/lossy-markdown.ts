@@ -1,18 +1,9 @@
-import { isAllowedDocumentLinkHref } from "@cosmicdrift/kumiko-bundled-features/template-resolver/document-schema";
 import { Lexer, type Token } from "marked";
 
-export const LOSSY_MARKDOWN_FEATURES = [
-  "image",
-  "blockquote",
-  "code",
-  "deepHeading",
-  "relativeLink",
-] as const;
+export const LOSSY_MARKDOWN_FEATURES = ["image", "blockquote", "code", "deepHeading"] as const;
 export type LossyMarkdownFeature = (typeof LOSSY_MARKDOWN_FEATURES)[number];
 
-// The document editor has no image, quote or code nodes, only three heading
-// levels, and links must pass the document link policy (absolute http(s),
-// mailto, tel, placeholders).
+// The document editor has no image, quote or code nodes and only three heading levels.
 const MAX_DOCUMENT_HEADING_DEPTH = 3;
 
 function tokenList(value: unknown): readonly Token[] {
@@ -31,12 +22,6 @@ function isDeepHeading(token: Token): boolean {
   );
 }
 
-function isRelativeLink(token: Token): boolean {
-  return (
-    "href" in token && typeof token.href === "string" && !isAllowedDocumentLinkHref(token.href)
-  );
-}
-
 function featuresOf(token: Token): readonly LossyMarkdownFeature[] {
   switch (token.type) {
     case "image":
@@ -48,8 +33,6 @@ function featuresOf(token: Token): readonly LossyMarkdownFeature[] {
       return ["code"];
     case "heading":
       return isDeepHeading(token) ? ["deepHeading"] : [];
-    case "link":
-      return isRelativeLink(token) ? ["relativeLink"] : [];
     default:
       return [];
   }

@@ -993,11 +993,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The content contains elements that are not allowed: {detail}",
   "managed-pages:body.lossy.warning":
     "This page was written in Markdown. Converting it to the editor drops: {features}. Check the result before saving.",
-  "managed-pages:body.lossy.image": "images",
+  "managed-pages:body.lossy.image": "external images",
   "managed-pages:body.lossy.blockquote": "block quotes",
   "managed-pages:body.lossy.code": "code",
   "managed-pages:body.lossy.deepHeading": "headings below level 3",
-  "managed-pages:body.lossy.relativeLink": "relative links",
   "managed-pages:branding.section.custom-css": "Custom CSS",
   "managed-pages:branding.section.identity": "Identity",
   "managed-pages:confirms.page-delete": "Delete this page?",
@@ -1260,7 +1259,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.insertPlaceholder": "Placeholder",
   "template-resolver.documentEditor.invalidImageAlt": "The alt text must not contain < or >.",
   "template-resolver.documentEditor.invalidLink":
-    "This link target is not allowed. Use https, http, mailto, tel or a placeholder.",
+    "This link target is not allowed. Use https, http, mailto, tel, a relative path or a placeholder.",
   "template-resolver.documentEditor.invalidResourceKey": "This resource key is not valid.",
   "template-resolver.documentEditor.link": "Link",
   "template-resolver.documentEditor.linkHref": "Link target",
@@ -1313,7 +1312,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "The button target “{detail}” must be a placeholder.",
   "templateResolver.errors.document.disallowedLinkHref":
-    "Link target “{detail}” is not allowed; use https, http, mailto, tel or a placeholder.",
+    "Link target “{detail}” is not allowed; use https, http, mailto, tel, a relative path or a placeholder.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "This template kind requires the html format, got “{detail}”.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

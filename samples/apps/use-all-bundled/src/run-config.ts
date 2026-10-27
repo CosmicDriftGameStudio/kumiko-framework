@@ -315,6 +315,7 @@ export const APP_FEATURES = [
         // shells and the collection is unreachable in the UI.
         nav: {
           label: "templateResolver:nav.snippets",
+          entryLabel: "templateResolver:nav.snippet",
           workspaces: ["admin-shell:workspace:platform"],
         },
         // document + variableSchema so the smoke app renders the WYSIWYG with
@@ -334,6 +335,7 @@ export const APP_FEATURES = [
         access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
         nav: {
           label: "templateResolver:nav.signatures",
+          entryLabel: "templateResolver:nav.signature",
           workspaces: ["admin-shell:workspace:platform"],
         },
         contentFormat: "document",
