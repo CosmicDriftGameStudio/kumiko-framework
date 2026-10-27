@@ -1980,6 +1980,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "The address mails are sent from, for example status@example.com. Your provider must allow it.",
   "screen:mail-accounts.title": "Mailboxes",
+  "screen:my-mail-accounts.title": "Your mailboxes",
   "screen:mail-account-edit.title": "Edit mailbox",
   "screen:mail-account-sender-check.title": "Sender check",
   "inboundMail.accounts.col.name": "Name",
@@ -1997,6 +1998,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "A mail could not be imported and was set aside. Confirm the quarantine once you have looked into it.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "File storage is not available, so attachments and originals are not saved.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "The key store is unavailable. New mails are fetched again in the next interval.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Mails cannot be imported right now. The next interval tries again.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
   "inboundMail.accounts.errors.addressDisconnected":
     "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
@@ -2034,7 +2039,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Connect mailbox",
   "screen:mail-account-connect-imap.title": "Connect mailbox",
-  "inboundMail.accounts.reconnect": "Reconnect",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "You are taken to the provider's sign-in page. After signing in, the mailbox fetches mail again and keeps its history.",
+  "inboundMail.accounts.reconnect.invalidRow": "This mailbox cannot be reactivated from here.",
   "screen:mail-account-reconnect-imap.title": "Reconnect mailbox",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Mailbox",
   "inboundMail.imap.reconnect.hint":

@@ -18,7 +18,7 @@ export function connectFailureResponse(c: Context, error: unknown) {
 
 export function errorJson(
   c: Context,
-  status: 400 | 401 | 404 | 409 | 500 | 502,
+  status: 400 | 401 | 403 | 404 | 409 | 500 | 502,
   code: string,
   message: string,
 ) {

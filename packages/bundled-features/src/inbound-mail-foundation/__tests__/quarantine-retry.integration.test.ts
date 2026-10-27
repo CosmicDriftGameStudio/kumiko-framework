@@ -16,7 +16,9 @@ import {
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
   InboundMailFoundationHandlers,
+  InboundMailLastErrors,
   inboundMessagesProjectionTable,
+  mailAccountsProjectionTable,
   quarantineTable,
 } from "../index.ts";
 import type { DispatchWrite } from "../supervisor-ingest.ts";
@@ -27,6 +29,7 @@ import {
   type MailTestStack,
   rawMsg,
   setupMailStack,
+  tickClock,
 } from "./mail-test-support.ts";
 
 const POLL_INTERVAL_MS = 600_000;
@@ -84,8 +87,13 @@ function quarantinedRows(accountId: string) {
   return selectMany(env.stack.db, quarantineTable, { accountId });
 }
 
-// Quarantines "poison" after three counted ticks; the clock moves one poll interval per tick.
+// Quarantines "poison" after three counted ticks; the clock moves one poll interval per tick. A good
+// mail next to it proves the ingest works, otherwise the failure is an outage and never counted.
 async function quarantinePoison(accountId: string, poisonId: string) {
+  await seedInboundMessage(
+    accountId,
+    rawMsg({ providerMessageId: `${poisonId}-sibling`, text: "ok" }),
+  );
   let tick = 1;
   const supervisor = createMailSupervisor(env.stack, {
     wrapWrite: failIngestOf(poisonId),
@@ -217,5 +225,36 @@ describe("the next sync reloads the mail", () => {
     const [row] = await quarantinedRows(accountId);
     expect(row?.["providerMessageId"]).toBe("k-1");
     expect(row?.["retryRequestedAt"] ?? null).toBeNull();
+  });
+
+  test("a requested retry runs although a stuck mail holds the cursor", async () => {
+    const admin = adminFor(6625);
+    const accountId = await connectAccount(admin, "shared", "held@tenant.example");
+    seedRejectedInboundMessage(accountId, "q-1");
+    const clock = tickClock();
+    const supervisor = createMailSupervisor(env.stack, {
+      wrapWrite: failIngestOf("q-stuck"),
+      now: clock.now,
+    });
+    await supervisor.pollOnce();
+    expect(await quarantinedRows(accountId)).toHaveLength(1);
+
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "q-stuck", text: "stuck" }));
+    setInboundFullContent(accountId, rawMsg({ providerMessageId: "q-1", text: "readable now" }));
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.retryQuarantinedMessage,
+      { accountId, providerMessageId: "q-1" },
+      admin,
+    );
+    clock.nextInterval();
+    await supervisor.pollOnce();
+
+    const [account] = await selectMany(env.stack.db, mailAccountsProjectionTable, {
+      id: accountId,
+    });
+    expect(account?.["lastError"]).toBe(InboundMailLastErrors.ingestUnavailable);
+    expect(await quarantinedRows(accountId)).toEqual([]);
+    const imported = await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId });
+    expect(imported.map((row) => row["id"])).toEqual([inboundMessageAggregateId(accountId, "q-1")]);
   });
 });

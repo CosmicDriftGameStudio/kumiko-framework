@@ -1,6 +1,6 @@
 // Full text, original and attachments of an imported mail: stored by default, readable through
 // message:content, absent from message:list, encrypted at rest, and removed with the mail by the
-// retention sweep. Also the reload of snippet-only mails and the v1 event upcast.
+// retention sweep. Also the v1 event upcast; the reload of snippet-only mails is in content-refetch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -10,12 +10,7 @@ import { deleteFileRefsBoundToRecord, fileRefsTable } from "@cosmicdrift/kumiko-
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import {
-  contentFetchesOf,
-  resetInboundInMemory,
-  seedInboundMessage,
-  setInboundFullContent,
-} from "../../inbound-provider-inmemory/index.ts";
+import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
@@ -23,7 +18,6 @@ import {
 } from "../events.ts";
 import {
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
-  InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   type InboundMessageContent,
   inboundMessagesProjectionTable,
@@ -251,94 +245,6 @@ describe("retention removes the attachments of a purged mail", () => {
     );
     const [afterSweep] = await selectMany(env.stack.db, fileRefsTable, { id: fileId });
     expect(afterSweep?.["isDeleted"]).toBe(true);
-  });
-});
-
-describe("snippet-only mails are reloaded", () => {
-  async function ingestSnippetOnly(
-    admin: ReturnType<typeof adminFor>,
-    accountId: string,
-    providerMessageId: string,
-  ) {
-    await env.stack.http.writeOk(
-      InboundMailFoundationHandlers.ingestMessage,
-      {
-        accountId,
-        ownerUserId: null,
-        providerName: "inmemory",
-        providerMessageId,
-        messageIdHeader: `${providerMessageId}@example.com`,
-        providerThreadId: null,
-        references: [],
-        from: "sender@example.com",
-        to: ["inbox@tenant.example"],
-        cc: [],
-        subject: "Old import",
-        snippet: "only the snippet",
-        receivedAtIso: Temporal.Now.instant().toString(),
-        bodyRef: "",
-        scope: "inbox",
-        providerCursor: '{"offset":0}',
-      },
-      admin,
-    );
-  }
-
-  test("the full content is attached once, a second poll fetches nothing", async () => {
-    const admin = adminFor(6120);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "snip-1");
-    expect((await contentOf(admin, accountId, "snip-1"))?.contentState).toBe("snippet");
-    setInboundFullContent(
-      accountId,
-      rawMsg({
-        providerMessageId: "snip-1",
-        text: "the complete text",
-        rawMime: EML_BYTES,
-        attachments: [{ fileName: "late.pdf", mimeType: "application/pdf", data: PDF_BYTES }],
-      }),
-    );
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-
-    const content = await contentOf(admin, accountId, "snip-1");
-    expect(content?.bodyText).toBe("the complete text");
-    expect(content?.contentState).toBe("complete");
-    expect(content?.attachmentFileIds).toHaveLength(1);
-    expect(contentFetchesOf(accountId)).toEqual([["snip-1"]]);
-
-    await supervisor.pollOnce();
-
-    expect(contentFetchesOf(accountId)).toEqual([["snip-1"]]);
-    expect((await contentOf(admin, accountId, "snip-1"))?.attachmentFileIds).toHaveLength(1);
-  });
-
-  test("a fetch that returns neither text nor original ends as unavailable, not asked again", async () => {
-    const admin = adminFor(6122);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "empty-1");
-    setInboundFullContent(accountId, rawMsg({ providerMessageId: "empty-1", rawMime: null }));
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-    await supervisor.pollOnce();
-
-    expect((await contentOf(admin, accountId, "empty-1"))?.contentState).toBe("unavailable");
-    expect(contentFetchesOf(accountId)).toEqual([["empty-1"]]);
-  });
-
-  test("a mail that is gone from the server becomes unavailable and is not asked for again", async () => {
-    const admin = adminFor(6121);
-    const accountId = await connectInMemoryAccount(env.stack, admin);
-    await ingestSnippetOnly(admin, accountId, "gone-1");
-    const supervisor = createMailSupervisor(env.stack);
-
-    await supervisor.pollOnce();
-    await supervisor.pollOnce();
-
-    expect((await contentOf(admin, accountId, "gone-1"))?.contentState).toBe("unavailable");
-    expect(contentFetchesOf(accountId)).toEqual([["gone-1"]]);
   });
 });
 

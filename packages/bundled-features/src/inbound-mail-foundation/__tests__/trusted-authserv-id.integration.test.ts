@@ -3,6 +3,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { InboundMailFoundationHandlers, mailAccountsProjectionTable } from "../index.ts";
 import {
@@ -99,5 +100,60 @@ describe("trustedAuthservId only through its own handler", () => {
     );
 
     expect(JSON.stringify(error)).toContain("account_disconnected");
+  });
+
+  test("only admins change it, on a personal mailbox too; the owner with role User gets 403", async () => {
+    const admin = adminFor(6604);
+    const tenantAdmin = createTestUser({
+      id: 6605,
+      tenantId: admin.tenantId,
+      roles: ["TenantAdmin"],
+    });
+    const owner = createTestUser({ id: 6606, tenantId: admin.tenantId, roles: ["User"] });
+    const { accountId } = await env.stack.http.writeOk<{ accountId: string }>(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "inmemory",
+        authMethod: "password",
+        displayName: "Mine",
+        address: "personal@tenant.example",
+        scope: "user",
+        ownerUserIdOverride: owner.id,
+      },
+      admin,
+    );
+
+    const denied = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.setTrustedAuthservId,
+      { accountId, trustedAuthservId: "mx.attacker.example" },
+      owner,
+    );
+    expect(denied.httpStatus).toBe(403);
+    expect(await storedTrustedId(accountId)).toBeNull();
+
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.setTrustedAuthservId,
+      { accountId, trustedAuthservId: "mx.tenant.example" },
+      tenantAdmin,
+    );
+    expect(await storedTrustedId(accountId)).toBe("mx.tenant.example");
+  });
+
+  test("an admin of another tenant cannot change it", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6607));
+    const foreignAdmin = createTestUser({
+      id: 6609,
+      tenantId: testTenantId(6608),
+      roles: ["TenantAdmin"],
+    });
+
+    const error = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.setTrustedAuthservId,
+      { accountId, trustedAuthservId: "mx.attacker.example" },
+      foreignAdmin,
+    );
+
+    expect(error.httpStatus).toBe(404);
+    expect(await storedTrustedId(accountId)).toBeNull();
   });
 });

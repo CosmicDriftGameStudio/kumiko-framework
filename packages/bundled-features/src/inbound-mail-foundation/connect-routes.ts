@@ -21,11 +21,13 @@ import type { Context } from "hono";
 import { type VerifiedCallback, verifyCallbackRequest } from "./connect-callback-verify.ts";
 import { connectFailureResponse, errorJson } from "./connect-route-responses.ts";
 import {
+  INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAuthMethods,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants.ts";
+import { isMailAdmin } from "./handlers/scope-visibility.ts";
 import {
   inboundRefreshTokenSecretOptions,
   type OAuthAccessTokenManager,
@@ -35,7 +37,6 @@ import { resolveInboundProviderForKey } from "./provider-factory.ts";
 import type { InboundMailContext } from "./types.ts";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
-const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";
 const DEFAULT_CALLBACK_PATH = "/inbound-mail/oauth/callback";
 
 export type InboundMailConnectRoutesOptions = {
@@ -72,7 +73,7 @@ export function createInboundMailConnectRoutes(
 
   const connectRoute: ExtraRouteDefinition = {
     method: "GET",
-    path: options.connectPath ?? DEFAULT_CONNECT_PATH,
+    path: options.connectPath ?? INBOUND_MAIL_CONNECT_PATH,
     entry: "user",
     handler: async (c: Context, deps: UserExtraRouteDeps): Promise<Response> => {
       const providerKey = c.req.query("provider") ?? "";
@@ -84,6 +85,17 @@ export function createInboundMailConnectRoutes(
           400,
           "invalid_connect_request",
           `${INBOUND_MAIL_FOUNDATION_FEATURE}: expected ?provider=<key>&scope=user|shared&mailbox=<address>`,
+        );
+      }
+
+      // The callback connects as a system user, so connect-account's admin rule for shared mailboxes
+      // has to hold here, before the signed state is handed out.
+      if (scope === "shared" && !isMailAdmin(deps.user)) {
+        return errorJson(
+          c,
+          403,
+          "shared_mailbox_requires_admin",
+          `${INBOUND_MAIL_FOUNDATION_FEATURE}: only TenantAdmin or SystemAdmin connect a shared mailbox`,
         );
       }
 

@@ -53,7 +53,7 @@ export const InboundMailAccountStatuses = {
   active: "active",
   /** Credentials or token are invalid; the tenant admin must reconnect. */
   authError: "auth_error",
-  /** Interrupted: transient failure, quarantined mail or missing file storage; see lastError. */
+  /** Interrupted: transient failure, quarantined mail, missing file storage or KMS; see lastError. */
   degraded: "degraded",
   /** Disconnected by the tenant admin; no further syncs run. */
   disconnected: "disconnected",
@@ -67,6 +67,8 @@ export const InboundMailLastErrors = {
   rateLimited: "rate_limited",
   messageQuarantined: "message_quarantined",
   fileStorageUnavailable: "file_storage_unavailable",
+  encryptionUnavailable: "encryption_unavailable",
+  ingestUnavailable: "ingest_unavailable",
 } as const;
 export type InboundMailLastError =
   (typeof InboundMailLastErrors)[keyof typeof InboundMailLastErrors];
@@ -112,6 +114,25 @@ export const InboundMailAuthMethods = {
 } as const;
 export type InboundMailAuthMethod =
   (typeof InboundMailAuthMethods)[keyof typeof InboundMailAuthMethods];
+
+/** Provider key of inbound-provider-imap: only its password mailboxes have a credential form. */
+export const IMAP_PROVIDER_KEY = "imap";
+
+// How a mailbox the caller may re-arm gets its credential back, computed by account:list because a
+// screen row condition cannot combine provider, auth method, status and owner.
+export const MailAccountReactivationPaths = {
+  /** The IMAP form of inbound-provider-imap (reconnect-mailbox). */
+  passwordForm: "password_form",
+  /** The provider's OAuth sign-in through the connect route; its callback reopens the account. */
+  oauthFlow: "oauth_flow",
+} as const;
+export type MailAccountReactivationPath =
+  (typeof MailAccountReactivationPaths)[keyof typeof MailAccountReactivationPaths];
+
+/** Default mount path of the OAuth connect route; the web client builds the reconnect link from it. */
+export const INBOUND_MAIL_CONNECT_PATH = "/api/inbound-mail/connect";
+/** Client action of the "Reconnect" row action: sends the browser to the OAuth connect route. */
+export const INBOUND_MAIL_RECONNECT_OAUTH_ACTION = `${INBOUND_MAIL_FOUNDATION_FEATURE}:reconnect-oauth`;
 
 // **Multi-provider:** no global `provider` config key
 // (unlike mail-foundation, as with billing-foundation). A tenant can connect

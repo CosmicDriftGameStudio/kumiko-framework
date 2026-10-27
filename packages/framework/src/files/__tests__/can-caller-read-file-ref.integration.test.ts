@@ -66,10 +66,11 @@ const feature = defineFeature("can-read", (r) => {
     schema: z.object({ fileRefId: z.string() }),
     access: { roles: ["Admin", "User", "Clerk"] },
     handler: async (event, ctx) => {
-      const [row] = await selectMany(ctx.db, fileRefsTable, { id: event.payload.fileRefId });
+      const [row] = await selectMany<FileRef>(ctx.db, fileRefsTable, {
+        id: event.payload.fileRefId,
+      });
       if (row === undefined) return false;
-      // @cast-boundary db-row — the file_refs row has exactly the FileRef columns
-      return canCallerReadFileRef(ctx, row as unknown as FileRef);
+      return canCallerReadFileRef(ctx, row);
     },
   });
 });

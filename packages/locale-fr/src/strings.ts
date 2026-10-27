@@ -2052,6 +2052,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "L'adresse depuis laquelle les e-mails sont envoyés, par exemple status@example.com. Votre fournisseur doit l'autoriser.",
   "screen:mail-accounts.title": "Boîtes mail",
+  "screen:my-mail-accounts.title": "Vos boîtes mail",
   "screen:mail-account-edit.title": "Modifier la boîte mail",
   "screen:mail-account-sender-check.title": "Vérification de l'expéditeur",
   "inboundMail.accounts.col.name": "Nom",
@@ -2069,6 +2070,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Un e-mail n'a pas pu être importé et a été mis de côté. Confirmez la quarantaine une fois l'e-mail examiné.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "Le stockage de fichiers n'est pas disponible, les pièces jointes et les originaux ne sont donc pas enregistrés.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "Le magasin de clés est indisponible. Les nouveaux e-mails seront récupérés à l'intervalle suivant.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Les e-mails ne peuvent pas être importés pour le moment. Une nouvelle tentative a lieu à l'intervalle suivant.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Cette boîte est déjà connectée.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Cette boîte a été déconnectée auparavant. Utilisez « Réactiver » dans la liste des boîtes pour conserver son historique.",
@@ -2108,7 +2113,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
   "inboundMail.accounts.connectImap": "Connecter une boîte mail",
   "screen:mail-account-connect-imap.title": "Connecter une boîte mail",
-  "inboundMail.accounts.reconnect": "Reconnecter",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Vous êtes redirigé vers la page de connexion du fournisseur. Après la connexion, la boîte mail récupère de nouveau les e-mails et conserve son historique.",
+  "inboundMail.accounts.reconnect.invalidRow": "Cette boîte mail ne peut pas être réactivée ici.",
   "screen:mail-account-reconnect-imap.title": "Reconnecter la boîte mail",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Boîte mail",
   "inboundMail.imap.reconnect.hint":

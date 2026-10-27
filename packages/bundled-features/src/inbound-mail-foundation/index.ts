@@ -14,8 +14,11 @@ export {
   type InboundMailConnectRoutesOptions,
 } from "./connect-routes.ts";
 export {
+  IMAP_PROVIDER_KEY,
+  INBOUND_MAIL_CONNECT_PATH,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
+  INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
   type InboundMailAccountStatus,
   InboundMailAccountStatuses,
   type InboundMailAuthMethod,
@@ -26,6 +29,8 @@ export {
   type InboundMailLastError,
   InboundMailLastErrors,
   inboundCredentialSecretKey,
+  type MailAccountReactivationPath,
+  MailAccountReactivationPaths,
 } from "./constants.ts";
 export {
   INBOUND_MESSAGE_PII_FIELDS,
@@ -145,6 +150,7 @@ export {
   MAIL_ACCOUNT_LIST_SCREEN_ID,
   MAIL_ACCOUNT_LIST_SCREEN_QN,
   MAIL_QUARANTINE_SCREEN_ID,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
 } from "./screens.ts";
 export {
   MAIL_SEND_ERRORS,

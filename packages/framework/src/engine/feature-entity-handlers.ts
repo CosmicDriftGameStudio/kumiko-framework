@@ -3,8 +3,6 @@ import type { EntityObjectDefinition } from "@cosmicdrift/kumiko-types/feature-r
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
   AccessRule,
-  AgentHandlerHints,
-  BeforeTransactionPhase,
   BeforeTransactionWhenNested,
   EntityRef,
   EscapeHatchDeclaration,
@@ -34,6 +32,7 @@ import {
   registerCrudHandlers,
 } from "./entity-handlers.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 
@@ -91,40 +90,6 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
       state.handlerEntityMappings[handlerName] = onlyEntityName;
     }
   }
-}
-
-function agentSlots(source: {
-  readonly description?: string;
-  readonly agent?: AgentHandlerHints;
-}): { description?: string; agent?: AgentHandlerHints } {
-  return {
-    ...(source.description !== undefined && { description: source.description }),
-    ...(source.agent && { agent: source.agent }),
-  };
-}
-
-function transactionPhaseSlots<
-  TSchema extends ZodType,
-  TPrepared,
-  TWhenNested extends BeforeTransactionWhenNested | undefined,
->(
-  def: Pick<
-    WriteHandlerDefinition<string, TSchema, unknown, KumikoEventTypeMap, TPrepared, TWhenNested>,
-    "reserveBeforeTransaction" | "beforeTransaction" | "beforeTransactionWhenNested" | "transaction"
-  >,
-) {
-  return {
-    ...(def.reserveBeforeTransaction && {
-      reserveBeforeTransaction: def.reserveBeforeTransaction,
-    }),
-    ...(def.beforeTransaction && {
-      beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
-    }),
-    ...(def.beforeTransactionWhenNested && {
-      beforeTransactionWhenNested: def.beforeTransactionWhenNested,
-    }),
-    ...(def.transaction && { transaction: def.transaction }),
-  };
 }
 
 // Typed callers cannot omit `access`; untyped ones (JS, designer output) must not get a

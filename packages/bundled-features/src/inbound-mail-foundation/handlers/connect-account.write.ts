@@ -12,8 +12,8 @@
 //     stays fast and offline-capable (the test result arrives asynchronously
 //     as a status transition).
 //   - No second account for one address: a live or disconnected address is
-//     refused (409 reasons in InboundMailConnectErrors); only a disconnected
-//     OAuth mailbox is reopened in place, keeping its account id and cursor.
+//     refused (409 reasons in InboundMailConnectErrors); only a disconnected or
+//     sign-in-failed OAuth mailbox is reopened in place, keeping its account id and cursor.
 
 import {
   configuredPiiSubjectKms,
@@ -106,7 +106,9 @@ export const connectAccountHandler: WriteHandlerDef = {
       // ownerUserIdOverride) writes a fresh token right after, so everyone else gets the plain conflict.
       const conflict =
         matched === "reopen_in_place" && payload.ownerUserIdOverride === undefined
-          ? "address_disconnected"
+          ? existing.status === InboundMailAccountStatuses.disconnected
+            ? "address_disconnected"
+            : "already_connected"
           : matched;
       if (conflict === "reopen_in_place") {
         const current = await loadCurrentMailAccountPayload(ctx, existing.id);

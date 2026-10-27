@@ -2025,6 +2025,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "La dirección desde la que se envían los correos, por ejemplo status@example.com. Tu proveedor debe permitirla.",
   "screen:mail-accounts.title": "Buzones",
+  "screen:my-mail-accounts.title": "Tus buzones",
   "screen:mail-account-edit.title": "Editar buzón",
   "screen:mail-account-sender-check.title": "Verificación del remitente",
   "inboundMail.accounts.col.name": "Nombre",
@@ -2042,6 +2043,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "No se pudo importar un correo y se apartó. Confirma la cuarentena cuando lo hayas revisado.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "El almacenamiento de archivos no está disponible, por lo que no se guardan adjuntos ni originales.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "El almacén de claves no está disponible. Los correos nuevos se vuelven a recoger en el siguiente intervalo.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Ahora mismo no se pueden importar los correos. Se vuelve a intentar en el siguiente intervalo.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Este buzón ya está conectado.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Este buzón se desconectó antes. Usa «Reactivar» en la lista de buzones para conservar su historial.",
@@ -2080,7 +2085,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
   "inboundMail.accounts.connectImap": "Conectar buzón",
   "screen:mail-account-connect-imap.title": "Conectar buzón",
-  "inboundMail.accounts.reconnect": "Reconectar",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Se te redirige a la página de inicio de sesión del proveedor. Tras iniciar sesión, el buzón vuelve a recibir correos y conserva su historial.",
+  "inboundMail.accounts.reconnect.invalidRow": "Este buzón no se puede reactivar desde aquí.",
   "screen:mail-account-reconnect-imap.title": "Reconectar buzón",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Buzón",
   "inboundMail.imap.reconnect.hint":

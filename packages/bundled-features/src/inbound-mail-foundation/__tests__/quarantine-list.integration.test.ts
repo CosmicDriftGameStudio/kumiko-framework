@@ -83,9 +83,11 @@ async function connect(admin: MailTestAdmin, scope: "shared" | "user", address: 
   return result.accountId;
 }
 
-// One mail quarantined as poison (header-only import follows) and one the provider rejected without headers.
+// One mail quarantined as poison (header-only import follows) and one the provider rejected without
+// headers. The good mail next to the poison one proves the ingest works, so its failure is counted.
 async function quarantineTwo(accountId: string) {
   await seedInboundMessage(accountId, rawMsg({ providerMessageId: "p-1", text: "bad" }));
+  await seedInboundMessage(accountId, rawMsg({ providerMessageId: "p-2", text: "good" }));
   let tick = 1;
   const supervisor = createMailSupervisor(env.stack, {
     wrapWrite: failIngestOf("p-1"),

@@ -15,6 +15,7 @@ import {
   MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID,
   MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX,
   MAIL_QUARANTINE_SCREEN_ID,
+  MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
 } from "./screens.ts";
 import { MAIL_SEND_ERRORS } from "./send-from-account.ts";
 
@@ -24,6 +25,7 @@ const formFieldKey = (field: string): string =>
 export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en: string }>> = {
   ...INBOUND_PROBE_I18N,
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
+  [`screen:${MY_MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Your mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
   [`screen:${MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID}.title`]: { en: "Sender check" },
   [`screen:${MAIL_QUARANTINE_SCREEN_ID}.title`]: { en: "Quarantined mails" },
@@ -46,6 +48,12 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.fileStorageUnavailable}`]: {
     en: "File storage is not available, so attachments and originals are not saved.",
   },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.encryptionUnavailable}`]: {
+    en: "The key store is unavailable. New mails are fetched again in the next interval.",
+  },
+  [`${MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX}${InboundMailLastErrors.ingestUnavailable}`]: {
+    en: "Mails cannot be imported right now. The next interval tries again.",
+  },
   [InboundMailConnectErrors.addressAlreadyConnected.i18nKey]: {
     en: "This mailbox is already connected.",
   },
@@ -66,7 +74,12 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
     en: "Disconnected",
   },
   "inboundMail.accounts.connectImap": { en: "Connect mailbox" },
-  "inboundMail.accounts.reconnect": { en: "Reconnect" },
+  "inboundMail.accounts.reactivateOauth.confirm": {
+    en: "You are taken to the provider's sign-in page. After signing in, the mailbox fetches mail again and keeps its history.",
+  },
+  "inboundMail.accounts.reconnect.invalidRow": {
+    en: "This mailbox cannot be reactivated from here.",
+  },
   "inboundMail.accounts.reactivate": { en: "Reactivate" },
   "inboundMail.accounts.quarantine": { en: "Quarantine" },
   [InboundMailConnectErrors.credentialRequired.i18nKey]: {

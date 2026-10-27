@@ -1,5 +1,5 @@
 // Account health: maps what the supervisor observes (repeated poll failures, quarantined mails, file
-// storage outage) onto the account status "degraded" plus a lastError code, and back to "active" once
+// storage, KMS or ingest outage) onto the account status "degraded" plus a lastError code, and back to "active" once
 // nothing is wrong any more. Auth errors and disconnects are never touched here. An update is
 // dispatched only when status or lastError really changes, so a healthy mailbox causes no events.
 
@@ -35,7 +35,7 @@ export type AccountHealth = {
     outcome: Pick<IngestBatchOutcome, "storageUnavailable" | "storageHealthy">,
   ) => Promise<void>;
   readonly onPollFailure: (account: SyncableAccount, kind: PollFailureKind) => Promise<void>;
-  /** The batch stopped before the cursor moved: the mailbox is not failing, a mail or the storage is. */
+  /** The cursor stayed before a failing mail: either the mail waits for its count or the ingest is down. */
   readonly onIngestBlocked: (
     account: SyncableAccount,
     blocked: IngestBlockedReason,
@@ -94,6 +94,13 @@ export function createAccountHealth(deps: {
         deps.log(`inbound-mail: account ${account.id} waits for a failing message to be counted`);
         // skip: counted, not failed; the status stays as it is
         return;
+      }
+      // KMS and ingest outages need no memory like storage: the next unblocked poll proves they are over.
+      if (blocked === "encryption_unavailable") {
+        return apply(account, InboundMailLastErrors.encryptionUnavailable);
+      }
+      if (blocked === "ingest_unavailable") {
+        return apply(account, InboundMailLastErrors.ingestUnavailable);
       }
       storageUnavailable.add(account.id);
       return apply(account, InboundMailLastErrors.fileStorageUnavailable);

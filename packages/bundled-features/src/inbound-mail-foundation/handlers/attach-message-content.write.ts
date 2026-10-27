@@ -5,7 +5,11 @@
 
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, failNotFound, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { BeforeTransactionResult, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  BeforeTransactionContext,
+  BeforeTransactionResult,
+  WriteResult,
+} from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
@@ -14,6 +18,7 @@ import {
   type InboundContentState,
   type InboundMessageContentFetchedEventPayload,
 } from "../events.ts";
+import { inboundMessagesProjectionTable } from "../projection.ts";
 import {
   finalizePreparedContent,
   type PreparedInboundContent,
@@ -45,6 +50,23 @@ function hasContentAlready(events: readonly { type: string; payload: unknown }[]
     const state = z.object({ contentState: z.string() }).safeParse(e.payload);
     return state.success && state.data.contentState === COMPLETE;
   });
+}
+
+// Read before the transaction, so it can only skip work: a row that already shows attached content
+// spares parallel refetches the upload. The event check under the message lock stays authoritative.
+async function showsAttachedContent(
+  db: BeforeTransactionContext["db"],
+  messageAggId: string,
+): Promise<boolean> {
+  const [row] = await db.selectMany(
+    inboundMessagesProjectionTable,
+    { id: messageAggId },
+    { fields: ["contentState", "contentUnavailableReason"] },
+  );
+  if (row === undefined) return false;
+  if (row["contentState"] === COMPLETE) return true;
+  // "quarantined" is the header-only import still waiting for its content.
+  return row["contentState"] === "unavailable" && row["contentUnavailableReason"] !== "quarantined";
 }
 
 function contentInputOf(payload: AttachMessageContentPayload, messageAggId: string) {
@@ -102,6 +124,8 @@ export const attachMessageContentHandler = defineWriteHandler({
     const { payload } = event;
     if (payload.outcome !== "fetched") return { isSuccess: true, data: undefined };
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
+    if (await showsAttachedContent(ctx.db, messageAggId))
+      return { isSuccess: true, data: undefined };
     return prepareInboundContent(ctx, contentInputOf(payload, messageAggId));
   },
   handler: async (event, ctx): Promise<WriteResult<{ readonly duplicate: boolean }>> => {

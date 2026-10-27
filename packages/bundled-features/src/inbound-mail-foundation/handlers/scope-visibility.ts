@@ -12,11 +12,19 @@ export function isVisibleToCaller(
   return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
 }
 
-// A personal mailbox is re-armed by its owner only: a reconnect re-reads the owner's mail with
-// whatever credential the caller supplies, so an admin must not do it. Shared mailboxes: any admin.
-// The admin role itself is enforced by the handler and screen access.
-export function mayReactivateMailbox(ownerUserId: unknown, callerId: string): boolean {
-  return ownerUserId == null || ownerUserId === "" || ownerUserId === callerId;
+export function isMailAdmin(user: { readonly roles: readonly string[] }): boolean {
+  return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
+}
+
+// A personal mailbox is re-armed (and its sender check changed) by its owner only: a reconnect
+// re-reads the owner's mail with whatever credential the caller supplies, so an admin must not do
+// it. A shared mailbox belongs to the tenant: admins only.
+export function mayReactivateMailbox(
+  ownerUserId: unknown,
+  user: { readonly id: string; readonly roles: readonly string[] },
+): boolean {
+  if (ownerUserId == null || ownerUserId === "") return isMailAdmin(user);
+  return ownerUserId === user.id;
 }
 
 // Quarantine entries of a shared mailbox are administered by admins; those of a personal mailbox by
@@ -25,6 +33,5 @@ export function mayManageQuarantine(
   ownerUserId: string | null,
   user: { readonly id: string; readonly roles: readonly string[] },
 ): boolean {
-  const isAdmin = user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");
-  return ownerUserId === null ? isAdmin : isVisibleToCaller({ ownerUserId }, user);
+  return ownerUserId === null ? isMailAdmin(user) : isVisibleToCaller({ ownerUserId }, user);
 }

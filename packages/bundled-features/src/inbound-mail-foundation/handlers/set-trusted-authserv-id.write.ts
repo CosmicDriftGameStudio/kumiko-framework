@@ -28,6 +28,8 @@ export const setTrustedAuthservIdSchema = z
 export const setTrustedAuthservIdHandler = defineWriteHandler({
   name: "set-trusted-authserv-id",
   schema: setTrustedAuthservIdSchema,
+  // A tenant security policy, personal mailboxes included: a trusted authserv-id makes forged senders
+  // count as authenticated for the whole tenant (contact matching, auto replies), so owners never set it.
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   agent: { expose: false },
   description:

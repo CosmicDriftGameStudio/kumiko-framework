@@ -153,12 +153,13 @@ export function createAccountPoller(deps: AccountPollerDeps): {
   ): Promise<{
     storageUnavailable: boolean;
     storageHealthy: boolean;
+    ingested: boolean;
     blocked?: IngestBlockedReason;
   }> {
     const { signal } = options;
     let cursor = await cursors.load(account.id);
     let budget = maxMessagesPerPoll;
-    const totals = { storageUnavailable: false, storageHealthy: false };
+    const totals = { storageUnavailable: false, storageHealthy: false, ingested: false };
     for (;;) {
       const accessToken = await resolveAccessToken(account, plugin);
       const result = await plugin.fetch(providerCtx, account, cursor, {
@@ -178,10 +179,12 @@ export function createAccountPoller(deps: AccountPollerDeps): {
         {
           ...(options.countBucket !== undefined && { countBucket: options.countBucket }),
           ...(signal && { signal }),
+          proof: { ingested: totals.ingested, storageHealthy: totals.storageHealthy },
         },
       );
       totals.storageUnavailable ||= outcome.storageUnavailable;
       totals.storageHealthy ||= outcome.storageHealthy;
+      totals.ingested ||= outcome.ingested;
       // Blocked: the cursor stays before the stuck mail, the next tick fetches it again.
       if (outcome.blocked) return { ...totals, blocked: outcome.blocked };
       // A newer poll may already own the account; an abandoned one must not move its cursor back.
@@ -218,6 +221,8 @@ export function createAccountPoller(deps: AccountPollerDeps): {
     if (options.signal?.aborted) return "done";
     if (totals.blocked) {
       await health.onIngestBlocked(account, totals.blocked);
+      // A retry asked for by an admin does not depend on the cursor, so a stuck mail must not hold it.
+      await retryQuarantineSafely(account, plugin, options.signal);
       return "done";
     }
     await health.onPollSuccess(account, totals);

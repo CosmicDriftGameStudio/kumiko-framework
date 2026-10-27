@@ -2032,6 +2032,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
   "screen:mail-accounts.title": "Postfächer",
+  "screen:my-mail-accounts.title": "Ihre Postfächer",
   "screen:mail-account-edit.title": "Postfach bearbeiten",
   "screen:mail-account-sender-check.title": "Absenderprüfung",
   "inboundMail.accounts.col.name": "Name",
@@ -2049,6 +2050,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Eine Mail konnte nicht importiert werden und wurde beiseitegelegt. Die Quarantäne nach der Prüfung bestätigen.",
   "inboundMail.accounts.lastError.file_storage_unavailable":
     "Der Dateispeicher ist nicht verfügbar, deshalb werden Anhänge und Originale nicht gespeichert.",
+  "inboundMail.accounts.lastError.encryption_unavailable":
+    "Der Schlüsselspeicher ist nicht erreichbar. Neue Mails werden im nächsten Intervall erneut abgeholt.",
+  "inboundMail.accounts.lastError.ingest_unavailable":
+    "Mails lassen sich gerade nicht importieren. Im nächsten Intervall wird es erneut versucht.",
   "inboundMail.accounts.errors.addressAlreadyConnected": "Dieses Postfach ist bereits verbunden.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Dieses Postfach wurde früher getrennt. In der Postfachliste „Reaktivieren“ wählen, damit der Verlauf erhalten bleibt.",
@@ -2087,7 +2092,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
   "inboundMail.accounts.connectImap": "Postfach verbinden",
   "screen:mail-account-connect-imap.title": "Postfach verbinden",
-  "inboundMail.accounts.reconnect": "Neu verbinden",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Sie werden zur Anmeldeseite des Anbieters weitergeleitet. Nach der Anmeldung ruft das Postfach wieder Mails ab und behält seinen Verlauf.",
+  "inboundMail.accounts.reconnect.invalidRow":
+    "Dieses Postfach lässt sich hier nicht reaktivieren.",
   "screen:mail-account-reconnect-imap.title": "Postfach neu verbinden",
   "inbound-provider-imap:entity:__action-form__:field:accountId": "Postfach",
   "inboundMail.imap.reconnect.hint":

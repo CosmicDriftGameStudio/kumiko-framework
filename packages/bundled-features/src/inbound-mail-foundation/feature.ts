@@ -90,11 +90,7 @@ import {
 import { quarantineTable } from "./quarantine-entities.ts";
 import { mailQuarantineScreen } from "./quarantine-screens.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
-import {
-  mailAccountEditScreen,
-  mailAccountListScreen,
-  mailAccountSenderCheckScreen,
-} from "./screens.ts";
+import { MAIL_ACCOUNT_SCREENS } from "./screens.ts";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
@@ -269,11 +265,8 @@ export function createInboundMailFoundationFeature() {
       r.queryHandler(messageContentQuery);
       r.queryHandler(messageDetailQuery);
 
-      // The app places `mailAccountListScreen` via r.nav in its settings area.
-      r.screen(mailAccountListScreen);
-      r.screen(mailAccountEditScreen);
-      r.screen(mailAccountSenderCheckScreen);
-      r.screen(mailQuarantineScreen);
+      // The app places the mailbox lists via r.nav (admins in settings, users next to their connect flow).
+      for (const screen of [...MAIL_ACCOUNT_SCREENS, mailQuarantineScreen]) r.screen(screen);
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
       registerMailboxProbe(r);
 

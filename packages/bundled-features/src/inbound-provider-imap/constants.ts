@@ -1,5 +1,5 @@
 export const FEATURE_NAME = "inbound-provider-imap";
-export const IMAP_PROVIDER_KEY = "imap";
+export { IMAP_PROVIDER_KEY } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 
 export const ImapHandlers = {
   connectMailbox: "inbound-provider-imap:write:connect-mailbox",

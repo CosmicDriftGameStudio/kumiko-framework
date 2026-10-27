@@ -1,12 +1,11 @@
-// A failing ingest must never push good mail into quarantine and a poison mail must never block its
-// mailbox for good. The failure count is persisted and counted once per poll interval (injected
-// clock), so replicas and restarts see the same count: a poison mail is quarantined after three
-// counted ticks and the cursor moves on, a file storage outage counts nothing at all.
+// A poison mail must never block its mailbox for good. Its failure counts only while other mails of
+// the account go through; the count is persisted and taken once per poll interval (injected clock),
+// so replicas and restarts see the same count: a poison mail is quarantined after three counted ticks
+// and the cursor moves on. Outages, where nothing goes through, are in supervisor-outage.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
@@ -27,9 +26,8 @@ import {
   type MailTestStack,
   rawMsg,
   setupMailStack,
+  tickClock,
 } from "./mail-test-support.ts";
-
-const POLL_INTERVAL_MS = 600_000;
 
 let env: MailTestStack;
 
@@ -69,16 +67,6 @@ function failIngestWhen(shouldFail: (providerMessageId: string) => boolean) {
     };
 }
 
-function tickClock() {
-  let tick = 1;
-  return {
-    now: () => Temporal.Instant.fromEpochMilliseconds(tick * POLL_INTERVAL_MS + 1),
-    nextInterval: () => {
-      tick += 1;
-    },
-  };
-}
-
 async function accountRow(accountId: string) {
   const [row] = await selectMany(env.stack.db, mailAccountsProjectionTable, { id: accountId });
   return row;
@@ -89,33 +77,6 @@ async function importedRows(accountId: string) {
 }
 
 describe("ingest failures", () => {
-  test("when every ingest fails, one mail per counted tick moves towards quarantine, never the whole batch", async () => {
-    const accountId = await connectInMemoryAccount(env.stack, adminFor(6601));
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "a-1", text: "one" }));
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "a-2", text: "two" }));
-    const clock = tickClock();
-    const supervisor = createMailSupervisor(env.stack, {
-      wrapWrite: failIngestWhen(() => true),
-      now: clock.now,
-    });
-
-    for (let tick = 1; tick <= 2; tick++) {
-      await supervisor.pollOnce();
-      clock.nextInterval();
-    }
-    expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
-    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
-
-    await supervisor.pollOnce();
-
-    expect(
-      (await selectMany(env.stack.db, quarantineTable, { accountId })).map(
-        (row) => row["providerMessageId"],
-      ),
-    ).toEqual(["a-1"]);
-    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
-  });
-
   test("a poison mail as the newest mail is quarantined after three ticks and stays visible", async () => {
     const accountId = await connectInMemoryAccount(env.stack, adminFor(6602));
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "b-1", text: "good" }));
@@ -188,10 +149,11 @@ describe("ingest failures", () => {
 
   test("two polls in the same interval count a failure once", async () => {
     const accountId = await connectInMemoryAccount(env.stack, adminFor(6604));
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "d-1", text: "good" }));
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "d-poison", text: "bad" }));
     const clock = tickClock();
     const supervisor = createMailSupervisor(env.stack, {
-      wrapWrite: failIngestWhen(() => true),
+      wrapWrite: failIngestWhen((id) => id === "d-poison"),
       now: clock.now,
     });
 
@@ -226,45 +188,6 @@ describe("ingest failures", () => {
     } finally {
       await supervisor.stop();
     }
-  });
-});
-
-describe("file storage outage", () => {
-  test("keeps the cursor, never quarantines, and the mails come in once storage is back", async () => {
-    const accountId = await connectInMemoryAccount(env.stack, adminFor(6606));
-    const original = new TextEncoder().encode("From: a@example.com\r\n\r\nbody");
-    await seedInboundMessage(
-      accountId,
-      rawMsg({ providerMessageId: "f-1", text: "one", rawMime: original }),
-    );
-    await seedInboundMessage(
-      accountId,
-      rawMsg({ providerMessageId: "f-2", text: "two", rawMime: original }),
-    );
-    const clock = tickClock();
-    const supervisor = createMailSupervisor(env.stack, { now: clock.now });
-    env.setFileStorageDown(true);
-
-    for (let tick = 0; tick < 5; tick++) {
-      await supervisor.pollOnce();
-      clock.nextInterval();
-    }
-
-    expect(await selectMany(env.stack.db, quarantineTable, { accountId })).toEqual([]);
-    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toEqual([]);
-    expect(await selectMany(env.stack.db, ingestFailureTable, { accountId })).toEqual([]);
-    expect(await importedRows(accountId)).toEqual([]);
-    const outage = await accountRow(accountId);
-    expect(outage?.["lastError"]).toBe(InboundMailLastErrors.fileStorageUnavailable);
-
-    env.setFileStorageDown(false);
-    await supervisor.pollOnce();
-
-    expect(await importedRows(accountId)).toHaveLength(2);
-    expect(await selectMany(env.stack.db, syncCursorTable, { accountId })).toHaveLength(1);
-    const recovered = await accountRow(accountId);
-    expect(recovered?.["status"]).toBe(InboundMailAccountStatuses.active);
-    expect(recovered?.["lastError"] ?? null).toBeNull();
   });
 });
 

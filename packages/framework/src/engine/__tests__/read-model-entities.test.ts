@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import * as z from "zod";
 import { integer, type SchemaTable, table, uuid } from "../../db/dialect.ts";
-import { resolveAttachedField } from "../../files/create-file-ref.ts";
+import { resolveAttachedField } from "../../files/upload-field-resolution.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createFilesField, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";

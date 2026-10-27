@@ -1,22 +1,30 @@
 // Per-message ingest for the sync supervisor. Every message is isolated: a poison mail must not
-// block the cursor of its mailbox, but a systemic outage (database, KMS, file storage) must not
-// quarantine good mail either.
+// block the cursor of its mailbox, but a systemic outage (database, projection, KMS, file storage,
+// the app's storeBody hook) must not quarantine good mail either.
 //
 //   - permanent rejection (validation/unprocessable) -> quarantine immediately, continue
-//   - file storage write failure -> stop the batch, never counted: the outage says nothing about the mail
-//   - anything else -> counted once per poll interval (persisted); the third counted failure
-//     quarantines the mail as "ingest_failed", below that the batch stops before the cursor moves
 //   - provider-side parse failures (`rejected`) -> quarantine "unparseable"
+//   - any other failure -> the batch goes on, then the failure is settled:
+//     - proven (another mail of the account went through in the same poll, for a storage failure
+//       another storage write) -> counted once per poll interval (persisted); the third counted
+//       failure quarantines the mail as "ingest_failed", below that the cursor stays before it
+//     - a mail that was counted before and is the only failure of this poll keeps being counted:
+//       the counter row exists only because the mail failed while others went through. A KMS
+//       failure is the exception, it is never the mail's
+//     - unproven -> nothing is counted, the account is disrupted (degraded with the class of the
+//       failure) and the next interval retries from the same cursor
 //
 // Every quarantine also imports the headers, so the mail stays visible in the inbox.
 
+import { ENCRYPTION_UNAVAILABLE_CODE } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { errorCodeOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailFoundationHandlers } from "./constants.ts";
-import { isFileStorageWriteFailure } from "./file-storage-failure.ts";
+import { FileStorageWriteFailedError, isFileStorageWriteFailure } from "./file-storage-failure.ts";
 import {
   clearIngestFailures,
   countIngestFailure,
+  hasCountedIngestFailure,
   MAX_COUNTED_INGEST_FAILURES,
 } from "./ingest-failures.ts";
 import { ingestPayloadOf } from "./ingest-payload.ts";
@@ -38,15 +46,25 @@ export type DispatchWrite = (args: {
   readonly tenantId: string;
 }) => Promise<{ readonly isSuccess: boolean; readonly data?: unknown; readonly error?: unknown }>;
 
-export type IngestBlockedReason = "file_storage_unavailable" | "message_failing";
+export type IngestBlockedReason =
+  | "file_storage_unavailable"
+  | "encryption_unavailable"
+  | "ingest_unavailable"
+  | "message_failing";
 
-export type IngestBatchOutcome = {
+/** What earlier batches of the same poll proved to work. */
+export type IngestProof = {
+  /** A mail was newly ingested (a duplicate proves nothing: it returns before any write). */
+  readonly ingested: boolean;
+  /** A content write to file storage or through the storeBody hook went through. */
+  readonly storageHealthy: boolean;
+};
+
+export type IngestBatchOutcome = IngestProof & {
   readonly quarantinedNew: number;
   /** True when a message needed file storage and none was available. */
   readonly storageUnavailable: boolean;
-  /** True when at least one message with stored content went through. */
-  readonly storageHealthy: boolean;
-  /** Set when the batch stopped early: the cursor must not move past it. */
+  /** Set when the batch has an unresolved failure: the cursor must not move past it. */
   readonly blocked?: IngestBlockedReason;
 };
 
@@ -54,6 +72,7 @@ export type IngestBatchOptions = {
   /** Poll-interval bucket of a regular tick; absent (wake, manual sync) means failures are not counted. */
   readonly countBucket?: number;
   readonly signal?: AbortSignal;
+  readonly proof?: IngestProof;
 };
 
 export type MessageIngester = {
@@ -73,18 +92,34 @@ type IngesterDeps = {
   readonly log: (line: string) => void;
 };
 
+type FailureClass = "storage" | "encryption" | "ingest";
+
 type Attempt =
-  | { readonly kind: "ingested"; readonly storage: unknown }
+  | {
+      readonly kind: "ingested";
+      readonly duplicate: boolean;
+      readonly storage: unknown;
+      readonly storedBody: boolean;
+    }
   | { readonly kind: "permanent" }
-  | { readonly kind: "storage_failed" }
-  | { readonly kind: "failed" };
+  | { readonly kind: "failed"; readonly failure: FailureClass };
+
+type Failure = { readonly msg: RawInboundMessage; readonly failure: FailureClass };
 
 function attemptOfFailure(failure: unknown): Attempt {
-  if (isFileStorageWriteFailure(failure)) return { kind: "storage_failed" };
+  if (isFileStorageWriteFailure(failure)) return { kind: "failed", failure: "storage" };
   const code = errorCodeOf(failure);
+  if (code === ENCRYPTION_UNAVAILABLE_CODE) return { kind: "failed", failure: "encryption" };
   return code !== undefined && PERMANENT_ERROR_CODES.has(code)
     ? { kind: "permanent" }
-    : { kind: "failed" };
+    : { kind: "failed", failure: "ingest" };
+}
+
+// The most specific class names the outage: a KMS or storage failure explains the generic ones.
+function blockedReasonOf(failures: readonly FailureClass[]): IngestBlockedReason {
+  if (failures.includes("encryption")) return "encryption_unavailable";
+  if (failures.includes("storage")) return "file_storage_unavailable";
+  return "ingest_unavailable";
 }
 
 export function createMessageIngester(deps: IngesterDeps): MessageIngester {
@@ -106,6 +141,16 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     return created;
   }
 
+  async function storeBodyOf(account: MailAccountRecord, raw: RawInboundMessage): Promise<string> {
+    if (!deps.storeBody || !raw.rawMime) return "";
+    try {
+      return await deps.storeBody(account, raw);
+    } catch (err) {
+      // The app hook writes to the app's storage: its failure is a storage failure, not the mail's.
+      throw new FileStorageWriteFailedError(err instanceof Error ? err : undefined);
+    }
+  }
+
   async function attempt(
     account: MailAccountRecord,
     raw: RawInboundMessage,
@@ -113,14 +158,19 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
   ): Promise<Attempt> {
     try {
       const msg = normalizeRawInboundMessage(raw);
-      const bodyRef = deps.storeBody && raw.rawMime ? await deps.storeBody(account, raw) : "";
+      const bodyRef = await storeBodyOf(account, raw);
       const result = await deps.dispatchWrite({
         handlerQn: InboundMailFoundationHandlers.ingestMessage,
         tenantId: account.tenantId,
         payload: ingestPayloadOf(account, msg, { providerCursor: cursorSnapshot, bodyRef }),
       });
       if (result.isSuccess) {
-        return { kind: "ingested", storage: propertyOf(result.data, "contentStorage") };
+        return {
+          kind: "ingested",
+          duplicate: propertyOf(result.data, "duplicate") === true,
+          storage: propertyOf(result.data, "contentStorage"),
+          storedBody: bodyRef !== "",
+        };
       }
       return attemptOfFailure(result.error ?? {});
     } catch (err) {
@@ -128,33 +178,60 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     }
   }
 
-  // "new"/"known": the mail was quarantined (newly or before) and the batch goes on; a blocked
-  // reason stops the batch before the cursor moves.
-  async function settleFailure(
+  // Returns the failures left unresolved: "proven" ones wait for their count, the others are the
+  // account's outage.
+  async function settleFailures(
     account: MailAccountRecord,
-    msg: RawInboundMessage,
-    kind: "permanent" | "storage_failed" | "failed",
+    failures: readonly Failure[],
+    proof: IngestProof,
     options: IngestBatchOptions,
-  ): Promise<"new" | "known" | IngestBlockedReason> {
-    const quarantined = async (reason: QuarantineReasonCode) =>
-      (await quarantine(account, msg.providerMessageId, reason, headerOnlyOf(msg)))
-        ? "new"
-        : "known";
-    if (kind === "permanent") return quarantined("invalid_message");
-    if (kind === "storage_failed") return "file_storage_unavailable";
+  ): Promise<{ quarantinedNew: number; blocked?: IngestBlockedReason }> {
+    let quarantinedNew = 0;
+    const unproven: FailureClass[] = [];
+    let waiting = false;
     // An abandoned sync (deadline) must not count; its failures are the deadline's.
-    if (options.signal?.aborted || options.countBucket === undefined) return "message_failing";
-    const count = await countIngestFailure(
-      deps.db,
-      {
+    const bucket = options.signal?.aborted ? undefined : options.countBucket;
+    for (const { msg, failure } of failures) {
+      const target = {
         tenantId: account.tenantId,
         accountId: account.id,
         providerMessageId: msg.providerMessageId,
-      },
-      options.countBucket,
-    );
-    if (count !== null && count >= MAX_COUNTED_INGEST_FAILURES) return quarantined("ingest_failed");
-    return "message_failing";
+      };
+      // A KMS failure is the key store's, so an earlier count of the mail never carries it.
+      const proven =
+        (failure === "storage" ? proof.storageHealthy : proof.ingested) ||
+        (failure !== "encryption" &&
+          failures.length === 1 &&
+          (await hasCountedIngestFailure(deps.db, target)));
+      if (!proven) {
+        unproven.push(failure);
+        continue;
+      }
+      const count = bucket === undefined ? null : await countIngestFailure(deps.db, target, bucket);
+      if (count !== null && count >= MAX_COUNTED_INGEST_FAILURES) {
+        const headerOnly = headerOnlyOf(msg);
+        if (await quarantine(account, msg.providerMessageId, "ingest_failed", headerOnly)) {
+          quarantinedNew += 1;
+        }
+        continue;
+      }
+      waiting = true;
+    }
+    if (unproven.length > 0) return { quarantinedNew, blocked: blockedReasonOf(unproven) };
+    return { quarantinedNew, ...(waiting && { blocked: "message_failing" as const }) };
+  }
+
+  async function quarantineRejected(
+    account: MailAccountRecord,
+    rejected: readonly RejectedInboundMessage[],
+  ): Promise<number> {
+    let created = 0;
+    for (const entry of rejected) {
+      const headerOnly = headerOnlyOfRejected(entry);
+      if (await quarantine(account, entry.providerMessageId, "unparseable", headerOnly))
+        created += 1;
+    }
+    return created;
   }
 
   async function ingestBatch(
@@ -164,40 +241,44 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     cursorSnapshot: string,
     options: IngestBatchOptions = {},
   ): Promise<IngestBatchOutcome> {
-    let quarantinedNew = 0;
+    let quarantinedNew = await quarantineRejected(account, rejected);
     let storageUnavailable = false;
-    let storageHealthy = false;
-    const outcome = (blocked?: IngestBlockedReason): IngestBatchOutcome => ({
-      quarantinedNew,
-      storageUnavailable,
-      storageHealthy,
-      ...(blocked && { blocked }),
-    });
-    for (const entry of rejected) {
-      if (
-        await quarantine(
-          account,
-          entry.providerMessageId,
-          "unparseable",
-          headerOnlyOfRejected(entry),
-        )
-      ) {
-        quarantinedNew += 1;
-      }
-    }
+    let ingested = options.proof?.ingested ?? false;
+    let storageHealthy = options.proof?.storageHealthy ?? false;
+    const failures: Failure[] = [];
     for (const msg of msgs) {
       const result = await attempt(account, msg, cursorSnapshot);
-      if (result.kind === "ingested") {
-        await clearIngestFailures(deps.db, account.id, [msg.providerMessageId]);
-        if (result.storage === "unavailable") storageUnavailable = true;
-        if (result.storage === "stored") storageHealthy = true;
+      if (result.kind === "permanent") {
+        const headerOnly = headerOnlyOf(msg);
+        const created = await quarantine(
+          account,
+          msg.providerMessageId,
+          "invalid_message",
+          headerOnly,
+        );
+        if (created) quarantinedNew += 1;
         continue;
       }
-      const settled = await settleFailure(account, msg, result.kind, options);
-      if (settled === "new") quarantinedNew += 1;
-      else if (settled !== "known") return outcome(settled);
+      if (result.kind === "failed") {
+        failures.push({ msg, failure: result.failure });
+        continue;
+      }
+      await clearIngestFailures(deps.db, account.id, [msg.providerMessageId]);
+      if (result.storage === "unavailable") storageUnavailable = true;
+      if (result.storage === "stored" || result.storedBody) storageHealthy = true;
+      if (!result.duplicate) ingested = true;
     }
-    return outcome();
+    const settled =
+      failures.length > 0
+        ? await settleFailures(account, failures, { ingested, storageHealthy }, options)
+        : { quarantinedNew: 0 };
+    return {
+      quarantinedNew: quarantinedNew + settled.quarantinedNew,
+      storageUnavailable,
+      storageHealthy,
+      ingested,
+      ...(settled.blocked && { blocked: settled.blocked }),
+    };
   }
 
   return { ingestBatch };

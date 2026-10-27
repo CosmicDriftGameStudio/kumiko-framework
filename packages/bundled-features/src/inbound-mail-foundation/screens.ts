@@ -3,22 +3,29 @@ import {
   MAX_LIST_LIMIT,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ActionFormScreenDefinition,
+  RowActionClientAction,
+  RowActionNavigate,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  MailAccountReactivationPaths,
 } from "./constants.ts";
 
 export const MAIL_ACCOUNT_LIST_SCREEN_ID = "mail-accounts";
 export const MAIL_ACCOUNT_EDIT_SCREEN_ID = "mail-account-edit";
 export const MAIL_ACCOUNT_LIST_SCREEN_QN = "inbound-mail-foundation:screen:mail-accounts";
+export const MY_MAIL_ACCOUNT_LIST_SCREEN_ID = "my-mail-accounts";
 // Registered by inbound-provider-imap, which needs the IMAP client to check the login. The
 // renderer drops a navigate action whose target screen is not mounted, so the toolbar button
 // only shows in apps that mount that provider.
 export const MAIL_ACCOUNT_SENDER_CHECK_SCREEN_ID = "mail-account-sender-check";
 export const IMAP_CONNECT_SCREEN_ID = "mail-account-connect-imap";
-// Same reason for the row action "Reconnect" on an account with a sign-in error.
+// Same reason for the row action "Reactivate" of a password mailbox.
 export const IMAP_RECONNECT_SCREEN_ID = "mail-account-reconnect-imap";
 export const MAIL_QUARANTINE_SCREEN_ID = "mail-quarantine";
 
@@ -28,6 +35,41 @@ export const MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX = "inboundMail.accounts.l
 // Same roles as the update/disconnect handlers: a screen rule wider than the
 // handlers would only render actions that 403.
 const MAIL_ACCOUNT_ADMIN_ACCESS = { roles: ["SystemAdmin", "TenantAdmin"] } as const;
+
+const reactivateOauthAction: RowActionClientAction = {
+  kind: "clientAction",
+  id: "reactivate-oauth",
+  label: i18nKey("inboundMail.accounts.reactivate"),
+  action: INBOUND_MAIL_RECONNECT_OAUTH_ACTION,
+  payload: { map: { provider: "provider", address: "address", ownerUserId: "ownerUserId" } },
+  confirm: i18nKey("inboundMail.accounts.reactivateOauth.confirm"),
+  visible: { field: "reactivateVia", eq: MailAccountReactivationPaths.oauthFlow },
+};
+
+const quarantineAction: RowActionNavigate = {
+  kind: "navigate",
+  id: "quarantine",
+  label: i18nKey("inboundMail.accounts.quarantine"),
+  screen: MAIL_QUARANTINE_SCREEN_ID,
+  visible: { field: "hasOpenQuarantine", eq: true },
+};
+
+const nameAddressStatusColumns: ProjectionListScreenDefinition["columns"] = [
+  { field: "displayName", label: i18nKey("inboundMail.accounts.col.name"), sortable: false },
+  { field: "address", label: i18nKey("inboundMail.accounts.col.address"), sortable: false },
+  {
+    field: "status",
+    label: i18nKey("inboundMail.accounts.col.status"),
+    sortable: false,
+    renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX },
+  },
+  {
+    field: "lastError",
+    label: i18nKey("inboundMail.accounts.col.lastError"),
+    sortable: false,
+    renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX },
+  },
+];
 
 // Several mailboxes per tenant, one row each. The bound query already filters
 // personal mailboxes the caller neither owns nor administers and returns no
@@ -41,25 +83,12 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
   pagination: false,
   pageSize: MAX_LIST_LIMIT,
   columns: [
-    { field: "displayName", label: i18nKey("inboundMail.accounts.col.name"), sortable: false },
-    { field: "address", label: i18nKey("inboundMail.accounts.col.address"), sortable: false },
+    ...nameAddressStatusColumns,
     {
       field: "provider",
       label: i18nKey("inboundMail.accounts.col.provider"),
       sortable: false,
       hideOnNarrow: true,
-    },
-    {
-      field: "status",
-      label: i18nKey("inboundMail.accounts.col.status"),
-      sortable: false,
-      renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX },
-    },
-    {
-      field: "lastError",
-      label: i18nKey("inboundMail.accounts.col.lastError"),
-      sortable: false,
-      renderer: { format: "enumOption", keyPrefix: MAIL_ACCOUNT_LAST_ERROR_OPTION_KEY_PREFIX },
     },
     {
       field: "quarantinedCount",
@@ -94,30 +123,16 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
     },
     {
       kind: "navigate",
-      id: "reconnect",
-      label: i18nKey("inboundMail.accounts.reconnect"),
-      screen: IMAP_RECONNECT_SCREEN_ID,
-      entityId: "id",
-      // The handler rejects accounts of other providers; the row condition cannot combine fields.
-      visible: { field: "status", eq: InboundMailAccountStatuses.authError },
-    },
-    {
-      kind: "navigate",
       id: "reactivate",
       label: i18nKey("inboundMail.accounts.reactivate"),
       screen: IMAP_RECONNECT_SCREEN_ID,
       entityId: "id",
-      // Brings a disconnected mailbox back in place, keeping its history. canReactivate is computed
-      // by the list query because only the owner may re-arm a personal mailbox.
-      visible: { field: "canReactivate", eq: true },
+      // Brings a disconnected or sign-in-failed mailbox back in place, keeping its history.
+      // reactivateVia comes from the list query: only the owner re-arms a personal mailbox.
+      visible: { field: "reactivateVia", eq: MailAccountReactivationPaths.passwordForm },
     },
-    {
-      kind: "navigate",
-      id: "quarantine",
-      label: i18nKey("inboundMail.accounts.quarantine"),
-      screen: MAIL_QUARANTINE_SCREEN_ID,
-      visible: { field: "hasOpenQuarantine", eq: true },
-    },
+    reactivateOauthAction,
+    quarantineAction,
     {
       kind: "writeHandler",
       id: "acknowledge-quarantine",
@@ -147,6 +162,22 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
     },
   ],
   access: MAIL_ACCOUNT_ADMIN_ACCESS,
+  dormant: true,
+};
+
+// The mailboxes a user sees (own personal ones and the shared ones), for apps that let users connect
+// their own mailbox: an owner re-arms a personal OAuth mailbox here without an admin.
+// dormant: the consuming app places it next to its own connect flow.
+export const myMailAccountListScreen: ProjectionListScreenDefinition = {
+  id: MY_MAIL_ACCOUNT_LIST_SCREEN_ID,
+  type: "projectionList",
+  agent: { expose: false },
+  query: InboundMailFoundationQueries.listAccounts,
+  pagination: false,
+  pageSize: MAX_LIST_LIMIT,
+  columns: nameAddressStatusColumns,
+  rowActions: [reactivateOauthAction, quarantineAction],
+  access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
   dormant: true,
 };
 
@@ -192,3 +223,10 @@ export const mailAccountSenderCheckScreen: ActionFormScreenDefinition = {
   access: MAIL_ACCOUNT_ADMIN_ACCESS,
   dormant: true,
 };
+
+export const MAIL_ACCOUNT_SCREENS = [
+  mailAccountListScreen,
+  myMailAccountListScreen,
+  mailAccountEditScreen,
+  mailAccountSenderCheckScreen,
+] as const;

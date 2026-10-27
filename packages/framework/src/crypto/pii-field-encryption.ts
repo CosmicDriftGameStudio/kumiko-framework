@@ -33,6 +33,7 @@ import {
   subjectIdFromKey,
   subjectIdToKey,
 } from "./kms-adapter.ts";
+import { classifyKmsOutage } from "./kms-outage.ts";
 import {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
@@ -325,12 +326,12 @@ let injectedKms: LocalKeyKmsAdapter | undefined;
 function gateIrreversibleKmsErase(adapter: LocalKeyKmsAdapter): LocalKeyKmsAdapter {
   return {
     capabilities: adapter.capabilities,
-    createKey: (subject, ctx) => adapter.createKey(subject, ctx),
-    getKey: (subject, ctx) => adapter.getKey(subject, ctx),
+    createKey: (subject, ctx) => classifyKmsOutage(() => adapter.createKey(subject, ctx)),
+    getKey: (subject, ctx) => classifyKmsOutage(() => adapter.getKey(subject, ctx)),
     health: () => adapter.health(),
     eraseKey: async (subject, ctx) => {
       assertIrreversibleOperationAllowed("kms.eraseKey");
-      await adapter.eraseKey(subject, ctx);
+      await classifyKmsOutage(() => adapter.eraseKey(subject, ctx));
     },
   };
 }

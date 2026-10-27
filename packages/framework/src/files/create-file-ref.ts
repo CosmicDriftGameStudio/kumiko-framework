@@ -1,13 +1,10 @@
-import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 
 import { InternalError, type WriteFailure } from "../errors/index.ts";
 import { generateId } from "../utils/index.ts";
-import { isActionFormScreenQn, resolveActionFormFileField } from "./action-form-upload.ts";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { resolveContentType } from "./resolve-content-type.ts";
@@ -17,6 +14,7 @@ import {
   validateFile,
   validateFileContent,
 } from "./types.ts";
+import { type AttachTargets, resolveUploadField } from "./upload-field-resolution.ts";
 import { takeUploadLedgerEntry } from "./upload-ledger.ts";
 
 export const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
@@ -41,40 +39,6 @@ export function getFileRefExecutor(): ReturnType<typeof buildFileRefExecutor> {
 const ACTION_FORM_STORAGE_SEGMENT = "action-form";
 
 const SAFE_IDENTIFIER = /^[A-Za-z0-9_-]+$/;
-
-export type AttachTargets = "entities" | "entities-and-read-models";
-
-type AttachedFieldResolution =
-  | { readonly kind: "unattached" }
-  | { readonly kind: "resolved"; readonly fieldDef: AnyFileFieldDef }
-  | { readonly kind: "unresolvable" };
-
-// entityType/fieldName drive the GDPR-forget decision downstream
-// (fileRefDeleteHook resolves the field's PII annotation from exactly this
-// pairing) — attaching to a field nobody can resolve would leave that
-// decision hanging on an unverified client string. Either both are omitted
-// (unattached upload, allowed) or both must resolve to a real registered
-// field. "entities-and-read-models" is for server-side callers only: a client upload must
-// never name a projection entity, whose rows nobody can write-check.
-export function resolveAttachedField(
-  registry: Registry | undefined,
-  entityType: string | undefined,
-  fieldName: string | undefined,
-  attachTargets: AttachTargets = "entities",
-): AttachedFieldResolution {
-  if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
-  const entity =
-    entityType !== undefined
-      ? (registry?.getEntity(entityType) ??
-        (attachTargets === "entities-and-read-models"
-          ? registry?.getReadModelEntity(entityType)
-          : undefined))
-      : undefined;
-  const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
-  if (!entityType || !fieldName || !entity || !fieldDef || !isFileField(fieldDef))
-    return { kind: "unresolvable" };
-  return { kind: "resolved", fieldDef };
-}
 
 export type StoreFileInput = {
   readonly fileName: string;
@@ -138,45 +102,6 @@ export type StoreFileOutcome =
 type AcceptedFile =
   | { readonly kind: "accepted"; readonly mimeType: string; readonly extension: string | undefined }
   | { readonly kind: "rejected"; readonly error: string };
-
-type UploadFieldResolution =
-  | AttachedFieldResolution
-  | { readonly kind: "rejected"; readonly error: string };
-
-function resolveUploadField(
-  registry: Registry | undefined,
-  input: Pick<StoreFileInput, "entityType" | "entityId" | "fieldName" | "actionForm">,
-  attachTargets: AttachTargets | undefined,
-): UploadFieldResolution {
-  const { entityType, entityId, fieldName, actionForm } = input;
-  if (actionForm === undefined) {
-    return resolveAttachedField(registry, entityType, fieldName, attachTargets);
-  }
-  if (entityType !== undefined || entityId !== undefined) {
-    return {
-      kind: "rejected",
-      error: "invalid_action_form: actionForm cannot be combined with entityType/entityId",
-    };
-  }
-  if (!isActionFormScreenQn(actionForm)) {
-    return {
-      kind: "rejected",
-      error: "invalid_action_form: expected a screen QN like <feature>:screen:<id>",
-    };
-  }
-  const fieldDef =
-    fieldName !== undefined
-      ? resolveActionFormFileField(registry, actionForm, fieldName)
-      : undefined;
-  if (fieldDef === undefined) {
-    return {
-      kind: "rejected",
-      error:
-        "unresolvable_field: actionForm and fieldName must name a files/image field of a registered actionForm screen",
-    };
-  }
-  return { kind: "resolved", fieldDef };
-}
 
 function acceptFile(
   deps: Pick<StoreFileDeps, "registry" | "attachTargets" | "defaultMaxUploadSize">,

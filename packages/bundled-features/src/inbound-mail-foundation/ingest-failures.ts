@@ -112,6 +112,17 @@ export async function countIngestFailure(
   return null;
 }
 
+export async function hasCountedIngestFailure(
+  db: DbConnection,
+  target: IngestFailureTarget,
+): Promise<boolean> {
+  const row = await fetchOne<CounterRow>(db, ingestFailureTable, {
+    accountId: target.accountId,
+    providerMessageId: target.providerMessageId,
+  });
+  return row !== undefined;
+}
+
 export async function clearIngestFailures(
   db: DbConnection,
   accountId: string,

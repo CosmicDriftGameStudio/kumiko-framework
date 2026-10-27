@@ -13,11 +13,36 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { InboundMailAccountStatuses } from "../constants.ts";
+import {
+  IMAP_PROVIDER_KEY,
+  InboundMailAccountStatuses,
+  InboundMailAuthMethods,
+  type MailAccountReactivationPath,
+  MailAccountReactivationPaths,
+} from "../constants.ts";
 import { MAIL_ACCOUNT_PII_FIELDS } from "../entities.ts";
 import { mailAccountsProjectionTable } from "../projection.ts";
 import { quarantineTable } from "../quarantine-entities.ts";
 import { isVisibleToCaller, mayReactivateMailbox } from "./scope-visibility.ts";
+
+const REACTIVATABLE_STATUSES: ReadonlySet<unknown> = new Set([
+  InboundMailAccountStatuses.disconnected,
+  InboundMailAccountStatuses.authError,
+]);
+
+// Null where no way back exists for this caller, so no row action leads into a refusal.
+function reactivationPathOf(
+  row: Readonly<Record<string, unknown>>,
+  user: { readonly id: string; readonly roles: readonly string[] },
+): MailAccountReactivationPath | null {
+  if (!REACTIVATABLE_STATUSES.has(row["status"])) return null;
+  if (!mayReactivateMailbox(row["ownerUserId"], user)) return null;
+  if (row["authMethod"] === InboundMailAuthMethods.oauth)
+    return MailAccountReactivationPaths.oauthFlow;
+  const isPasswordImap =
+    row["provider"] === IMAP_PROVIDER_KEY && row["authMethod"] === InboundMailAuthMethods.password;
+  return isPasswordImap ? MailAccountReactivationPaths.passwordForm : null;
+}
 
 // The projectionList screen always sends `limit`; unknown keys stay rejected.
 const listAccountsSchema = z
@@ -55,9 +80,7 @@ export const listAccountsQuery: QueryHandlerDef = {
         ...row,
         quarantinedCount,
         hasOpenQuarantine: quarantinedCount > 0,
-        canReactivate:
-          row["status"] === InboundMailAccountStatuses.disconnected &&
-          mayReactivateMailbox(row["ownerUserId"], ctx.user.id),
+        reactivateVia: reactivationPathOf(row, ctx.user),
       };
     };
     const piiKms = configuredPiiSubjectKms();
