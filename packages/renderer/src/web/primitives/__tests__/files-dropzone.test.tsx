@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
+import { createSessionEndedSignal, SessionEndedSignalProvider } from "../../../index.ts";
 import { render } from "../../__tests__/test-utils.tsx";
 import { FilesDropzoneInput } from "../files-dropzone.tsx";
 
@@ -173,5 +174,45 @@ describe("FilesDropzoneInput", () => {
     await waitFor(() => expect(getByText("At most 1 files")).toBeTruthy());
     expect(values.at(-1)).toHaveLength(1);
     expect(requests).toHaveLength(1);
+  });
+});
+
+describe("FilesDropzoneInput — ended session", () => {
+  function mountWithSignal() {
+    const signal = createSessionEndedSignal();
+    let notified = 0;
+    signal.subscribe(() => {
+      notified += 1;
+    });
+    const utils = render(
+      <SessionEndedSignalProvider signal={signal}>
+        <Harness onValue={() => {}} resetRef={{ current: () => {} }} />
+      </SessionEndedSignalProvider>,
+    );
+    return { ...utils, notifiedCount: () => notified };
+  }
+
+  test("401 unauthenticated notifies the session-ended signal", async () => {
+    const { notifiedCount } = mountWithSignal();
+    nextReplies = [
+      {
+        status: 401,
+        body: { error: "unauthenticated: sign in to upload files", code: "unauthenticated" },
+      },
+    ];
+
+    pick([pdf("a.pdf")]);
+
+    await waitFor(() => expect(notifiedCount()).toBe(1));
+  });
+
+  test("403 forbidden does not", async () => {
+    const { container, notifiedCount } = mountWithSignal();
+    nextReplies = [{ status: 403, body: { error: "forbidden: no access to this form" } }];
+
+    pick([pdf("a.pdf")]);
+
+    await waitFor(() => expect(container.querySelector("[data-testid=zone-row]")).not.toBeNull());
+    expect(notifiedCount()).toBe(0);
   });
 });

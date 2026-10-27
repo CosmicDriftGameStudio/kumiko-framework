@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
 import type { PickedFile } from "../../../index.ts";
+import { createSessionEndedSignal, SessionEndedSignalProvider } from "../../../index.ts";
 import { render } from "../../__tests__/test-utils.tsx";
 import { FileUploadInput } from "../file-upload.tsx";
 import { defaultPrimitives } from "../index.tsx";
@@ -216,5 +217,54 @@ describe("FileUploadInput — upload failure", () => {
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
     expect(await findByText("File is too large")).toBeDefined();
     expect(queryByText(rawServerMessage, { exact: false })).toBeNull();
+  });
+});
+
+describe("FileUploadInput — ended session", () => {
+  let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  async function failUploadWith(status: number, body: Record<string, unknown>): Promise<number> {
+    fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(body), { status }),
+    );
+    const signal = createSessionEndedSignal();
+    let notified = 0;
+    signal.subscribe(() => {
+      notified += 1;
+    });
+    const { container } = render(
+      <SessionEndedSignalProvider signal={signal}>
+        <FileUploadInput
+          kind="file"
+          id="doc"
+          value={null}
+          onChange={noop}
+          uploadActionForm="rental:screen:upload"
+          fieldName="doc"
+        />
+      </SessionEndedSignalProvider>,
+    );
+    const input = container.querySelector('input[type="file"]');
+    if (input === null) throw new Error("file input missing");
+    fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
+    await waitFor(() => expect(container.querySelector("span.text-destructive")).not.toBeNull());
+    return notified;
+  }
+
+  test("401 unauthenticated notifies the session-ended signal", async () => {
+    const notified = await failUploadWith(401, {
+      error: "unauthenticated: sign in to upload files",
+      code: "unauthenticated",
+    });
+    expect(notified).toBe(1);
+  });
+
+  test("403 forbidden does not", async () => {
+    const notified = await failUploadWith(403, { error: "forbidden: no access to this form" });
+    expect(notified).toBe(0);
   });
 });
