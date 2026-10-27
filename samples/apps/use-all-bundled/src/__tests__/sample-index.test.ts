@@ -21,7 +21,7 @@ describe("sample-index", () => {
     expect(delivery?.primarySample).toBe("recipes-delivery-notifications");
     expect(delivery?.whenToUse).toContain("notify");
     expect(delivery?.sampleBlurb).toContain("r.notification");
-    expect(delivery?.screenshot).toBeNull();
+    expect(delivery?.screenshot).toBe("/screenshots/features/delivery-log.png");
     expect(delivery?.readmeSummary).toBeDefined();
 
     const config = index.features["config"];
