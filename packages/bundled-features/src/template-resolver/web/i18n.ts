@@ -186,6 +186,14 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.networkError": "Network error while saving.",
     "template-resolver.editor.loading": "Loading current version…",
     "template-resolver.editor.loadFailed": "Could not load block",
+    "template-resolver.editor.create": "Create",
+    "template-resolver.editor.newEntry": "New entry",
+    "template-resolver.editor.newEntryTitle": "New {label}",
+    "template-resolver.editor.slugLabel": "Slug",
+    "template-resolver.editor.slugInvalid":
+      "Use lowercase letters, digits and dashes only; start with a letter or digit.",
+    "templateResolver.errors.collection.slugExists":
+      "An entry with the slug “{detail}” already exists. Pick another one.",
     "template-resolver.editor.readOnly": "Read-only. Your role does not allow changes here.",
   },
 };

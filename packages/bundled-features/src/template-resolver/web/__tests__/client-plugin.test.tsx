@@ -18,7 +18,8 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { canWriteContent, textBlocksClient } from "../client-plugin.tsx";
+import { textBlocksClient } from "../client-plugin.tsx";
+import { canWriteContent } from "../collection-lookup.ts";
 import { defaultTranslations } from "../i18n.ts";
 
 mockModuleForFile(
@@ -79,11 +80,11 @@ mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kum
           nav: { label: "mail:nav.signatures" },
         },
         {
-          id: "richDocs",
+          id: "stubDocs",
           kind: "mail",
-          contentFormat: "rich",
+          contentFormat: "document",
           variableSchema: {},
-          nav: { label: "mail:nav.richDocs" },
+          nav: { label: "mail:nav.stubDocs" },
         },
       ],
     },
@@ -553,12 +554,6 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
     expect(textBlocksClient().contentEditors?.["plain"]).toBe(PlainContentEditor);
   });
 
-  // Deleting the registry line would leave useContentEditor("markdown")
-  // silently falling back to TextareaContentEditor — chips gone, suite green.
-  test("contentEditors.markdown is registered as PlainContentEditor", () => {
-    expect(textBlocksClient().contentEditors?.["markdown"]).toBe(PlainContentEditor);
-  });
-
   test("a collection's variableSchema renders as chip placeholders on its plain editor", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
@@ -580,19 +575,21 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
 
 describe("textBlocksClient — findContentFormat resolves collectionId to the registered editor", () => {
   const localeResolver = createStaticLocaleResolver({ locale: "en" });
-  const RichStub: ContentEditorComponent = () => <div data-testid="rich-stub-editor" />;
+  const DocumentStub: ContentEditorComponent = () => <div data-testid="document-stub-editor" />;
 
-  function RichStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  function DocumentStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
         <PrimitivesProvider value={defaultPrimitives}>
-          <ContentEditorsProvider value={{ rich: RichStub }}>{children}</ContentEditorsProvider>
+          <ContentEditorsProvider value={{ document: DocumentStub }}>
+            {children}
+          </ContentEditorsProvider>
         </PrimitivesProvider>
       </LocaleProvider>
     );
   }
 
-  test("a collection declared with contentFormat 'rich' renders the registered rich editor, not the textarea fallback", () => {
+  test("a collection declared with contentFormat 'document' renders the registered document editor, not the textarea fallback", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
     const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
@@ -601,15 +598,15 @@ describe("textBlocksClient — findContentFormat resolves collectionId to the re
     const target = {
       featureId: "template-resolver",
       action: "edit",
-      args: { slug: "reminder", locale: "de", collectionId: "richDocs" },
+      args: { slug: "reminder", locale: "de", collectionId: "stubDocs" },
     } as const;
-    render(<Editor target={target} onClose={() => {}} />, { wrapper: RichStubWrapper });
+    render(<Editor target={target} onClose={() => {}} />, { wrapper: DocumentStubWrapper });
 
     // A broken collectionId → contentFormat mapping (wrong field name,
     // array-vs-record drift on the schema) resolves contentFormat to
     // undefined, and useContentEditor's own fallback silently swaps in the
     // plain textarea instead — no red test without this assertion.
-    expect(screen.getByTestId("rich-stub-editor")).toBeTruthy();
+    expect(screen.getByTestId("document-stub-editor")).toBeTruthy();
     expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).toBeNull();
   });
 });

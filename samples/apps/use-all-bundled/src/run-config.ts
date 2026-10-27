@@ -316,10 +316,10 @@ export const APP_FEATURES = [
           label: "templateResolver:nav.snippets",
           workspaces: ["admin-shell:workspace:platform"],
         },
-        // rich + variableSchema so the smoke app renders the WYSIWYG with
+        // document + variableSchema so the smoke app renders the WYSIWYG with
         // insertable chips, not just the plain textarea — the preview
         // substitutes these example values for `{{customerName}}` & co.
-        contentFormat: "rich",
+        contentFormat: "document",
         variableSchema: {
           customerName: "Max Mustermann",
           orderId: "A-1042",
@@ -335,7 +335,7 @@ export const APP_FEATURES = [
           label: "templateResolver:nav.signatures",
           workspaces: ["admin-shell:workspace:platform"],
         },
-        contentFormat: "rich",
+        contentFormat: "document",
       },
     ],
   }),

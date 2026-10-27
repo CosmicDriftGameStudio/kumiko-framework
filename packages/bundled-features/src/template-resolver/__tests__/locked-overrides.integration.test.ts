@@ -388,6 +388,7 @@ describe("locked template overrides :: a collection does not open system templat
             {
               id: "reply-snippets",
               kind: "document-pdf",
+              contentFormat: "document",
               access: { roles: ["TenantAdmin"] },
               nav: { label: "x:nav.snippets" },
             },

@@ -2,6 +2,7 @@ import {
   type ContentCollectionDefinition,
   createSystemConfig,
   defineFeature,
+  type TreeAction,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
@@ -109,6 +110,14 @@ function assertTenantEditableValid(entries: readonly TenantEditableTemplate[]): 
   }
 }
 
+function newEntryAction(collectionId: string): TreeAction {
+  return {
+    icon: "plus",
+    label: "template-resolver.editor.newEntry",
+    target: { featureId: "template-resolver", action: "create", args: { collectionId } },
+  };
+}
+
 export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}) {
   const collections = opts.collections ?? [];
   assertCollectionKindsAllowed(collections);
@@ -129,7 +138,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.",
         'Editing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host\'s roles. The same list decides delivery: a tenant override is served (mail, PDF, layouts, text blocks) only while its template is listed in tenantEditable; otherwise the system version is served. A locked override stays stored, a SystemAdmin sees it in the overview marked as not delivered, and listing the template makes it effective again. Tenant rows of a collection mounted with `access` are always served. A collection mounted without `access` is SystemAdmin only.',
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
-        "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
+        "How a collection is edited follows from `contentFormat`: `plain` gives a text area that stores text, `document` a WYSIWYG document editor that stores sanitized HTML (bold, italic, headings, lists, links, variable chips). Both offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
         "`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.",
         "`preview` renders a draft (or the stored template) with sample values taken from the `example` of each declared variable, through the same gates and the same mail renderer as a real send, and returns subject, html, `displayHtml` (the html with cid images as data URIs for an editor), text, attachments (inline images and files) and `checks` (images resolved, plain text present, size under 10 MiB, required placeholders used); nothing is saved or sent. `send-test` mails that rendering to the calling user's own address only, subject prefixed with `[TEST]`, at most 10 per user and hour; it needs `delivery`, `channel-email` and `renderer-mail-html` to be mounted. `send-test-status` tells an editor beforehand whether that send can work for the caller (`canSend`, else `reason` `no_channel` or `no_address`), never returning the address.",
@@ -198,6 +207,10 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       r.contentCollection({
         ...collection,
         access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
+        nav: {
+          ...collection.nav,
+          createAction: collection.nav.createAction ?? newEntryAction(collection.id),
+        },
       });
       r.queryHandler(makeCollectionListQuery(collection));
       r.queryHandler(makeCollectionItemQuery(collection));

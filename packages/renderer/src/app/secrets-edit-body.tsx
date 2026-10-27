@@ -1,5 +1,6 @@
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { FormScreenLayout } from "../components/form-screen-layout.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
@@ -36,7 +37,7 @@ function groupSectionsByTitle(
 // unlike ConfigEditBody there is no server value to pre-fill a draft with —
 // every input starts at "" and stays that way unless the user types into it.
 export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): ReactNode {
-  const { Banner, Dialog, Form, Section, Field, Input, Button, Text, Grid } = usePrimitives();
+  const { Banner, Dialog, Section, Field, Input, Button, Text, Grid } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
@@ -147,18 +148,15 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
 
   return (
     <>
-      <Form
+      <FormScreenLayout
         onSubmit={() => {
           void handleSubmit();
         }}
         testId="secrets-edit-form"
         width="full"
-        fillHeight
-        stickyActions
-        screenForm
         unsavedCount={unsavedCount}
         {...(screen.description !== undefined && {
-          subtitle: effectiveTranslate(screen.description),
+          description: effectiveTranslate(screen.description),
         })}
         actions={
           <>
@@ -272,7 +270,7 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
             </Grid>
           </Section>
         ))}
-      </Form>
+      </FormScreenLayout>
       <Dialog
         open={pendingDeleteKey !== null}
         onOpenChange={(open) => {

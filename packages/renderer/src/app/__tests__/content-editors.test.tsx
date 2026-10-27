@@ -49,8 +49,8 @@ const testPrimitives: CorePrimitives = {
   Link: noop,
 };
 
-function RichEditor({ value }: ContentEditorProps): ReactNode {
-  return <div data-testid="ca-rich">{value}</div>;
+function DocumentEditor({ value }: ContentEditorProps): ReactNode {
+  return <div data-testid="ca-document">{value}</div>;
 }
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
@@ -84,24 +84,24 @@ describe("useContentEditor", () => {
 
   test("an app-registered editor for the format wins over the textarea fallback", () => {
     render(
-      <ContentEditorsProvider value={{ rich: RichEditor }}>
-        <Probe contentFormat="rich" />
+      <ContentEditorsProvider value={{ document: DocumentEditor }}>
+        <Probe contentFormat="document" />
       </ContentEditorsProvider>,
       { wrapper: Wrapper },
     );
-    expect(screen.getByTestId("ca-rich").textContent).toBe("hello");
+    expect(screen.getByTestId("ca-document").textContent).toBe("hello");
     expect(screen.queryByTestId("ca-textarea")).toBeNull();
   });
 
   test("a registered editor only applies to its own format — other formats stay on the fallback", () => {
     render(
-      <ContentEditorsProvider value={{ rich: RichEditor }}>
+      <ContentEditorsProvider value={{ document: DocumentEditor }}>
         <Probe contentFormat="plain" />
       </ContentEditorsProvider>,
       { wrapper: Wrapper },
     );
     expect(screen.getByTestId("ca-textarea")).toBeTruthy();
-    expect(screen.queryByTestId("ca-rich")).toBeNull();
+    expect(screen.queryByTestId("ca-document")).toBeNull();
   });
 });
 

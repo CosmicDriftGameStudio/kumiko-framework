@@ -232,8 +232,8 @@ including SSE refresh, and an editor target with the `collectionId`. The app pas
 under an unmounted feature causes boot to fail instead of silently disappearing from the sidebar. Node
 visibility follows `access` unless `nav.access` specifies otherwise.
 
-A "+" on the node requires an explicit `nav.createAction`, whose target is usually
-`treeHandle.create`; without it, the collection only lists existing items. `nav.actions` adds hover actions to the row.
+A "+" on the node opens the built-in create form (`template-resolver:create`) unless
+`nav.createAction` points elsewhere, usually at `treeHandle.create`. `nav.actions` adds hover actions to the row.
 
 Saving **publishes immediately**, with status `active` and an empty `variableSchema`.
 Anyone who needs a draft stage or a variable schema uses
