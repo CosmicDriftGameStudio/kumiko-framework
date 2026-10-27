@@ -236,3 +236,14 @@ type's moved members are nested (`{ dispatch: { query: ... } }`) and the body is
 when a handler or job context is passed to that parameter somewhere in the project. A structural
 type declared in another file is reported as `manual`, and structural parameters with other names are
 invisible to it and show up as type errors afterwards.
+
+## content-collection-format.ts
+
+Content collections know two editor formats, `plain` and `document`. The codemod rewrites
+`contentFormat: "rich"` and `contentFormat: "markdown"` to `"document"` in the collection declarations of
+`createTemplateResolverFeature({ collections: [...] })` and `r.contentCollection({...})`. Record storage
+literals such as `contentFormat: "markdown"` in write payloads or seeds use a different vocabulary and stay.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/content-collection-format.ts <dir> [--check | --dry-run | --write] [--no-format]
+```

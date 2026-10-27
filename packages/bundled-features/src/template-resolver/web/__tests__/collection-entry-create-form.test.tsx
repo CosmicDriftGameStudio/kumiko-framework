@@ -40,6 +40,15 @@ mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kum
           variableSchema: {},
           nav: { label: "mail:nav.prompts" },
         },
+        {
+          id: "signatures",
+          kind: "snippet",
+          ownership: "user",
+          contentFormat: "plain",
+          access: { roles: ["Agent"] },
+          variableSchema: {},
+          nav: { label: "mail:nav.signatures" },
+        },
       ],
     },
   ]),
@@ -64,14 +73,20 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   );
 }
 
-function renderForm(write: ReturnType<typeof mock>): void {
+function renderForm(
+  write: ReturnType<typeof mock>,
+  opts: { readonly tenantId?: string; readonly collectionId?: string } = {},
+): void {
   // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
   (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Agent"] });
   // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
   (useDispatcher as any).mockReturnValue({ write, query: mock() });
-  const Create = textBlocksClient().resolvers?.["template-resolver:create"];
+  const Create = textBlocksClient(
+    opts.tenantId !== undefined ? { tenantId: opts.tenantId } : undefined,
+  ).resolvers?.["template-resolver:create"];
   if (!Create) throw new Error("create resolver not registered");
-  render(<Create target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
+  const target = { ...TARGET, args: { collectionId: opts.collectionId ?? "prompts" } };
+  render(<Create target={target} onClose={() => {}} />, { wrapper: Wrapper });
 }
 
 function fill(label: RegExp, value: string): void {
@@ -149,5 +164,75 @@ describe("collection entry create form", () => {
     });
     expect(screen.getByText(/triage/i, { selector: "[role=alert], [role=alert] *" })).toBeTruthy();
     expect(dispatchTarget).not.toHaveBeenCalled();
+  });
+
+  describe("tenant of the new entry", () => {
+    const created = () =>
+      Promise.resolve({ isSuccess: true, data: { slug: "triage", locale: "en", isNew: true } });
+    const denied = () =>
+      Promise.resolve({
+        isSuccess: false,
+        error: {
+          code: "forbidden",
+          httpStatus: 403,
+          i18nKey: "errors.forbidden",
+          message: "denied",
+          details: { reason: "tenant_override_requires_system_admin" },
+        },
+      });
+
+    async function submit(): Promise<void> {
+      fill(/slug/i, "triage");
+      fill(/title/i, "Triage");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /create/i }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    const payloadOf = (write: ReturnType<typeof mock>, call: number) =>
+      (write.mock.calls[call] as unknown as [string, Record<string, unknown>])[1];
+
+    test("a shared collection is written to the plugin tenant and its editor keeps it", async () => {
+      dispatchTarget.mockClear();
+      const write = mock(created);
+      renderForm(write, { tenantId: "system" });
+      await submit();
+      expect(payloadOf(write, 0)["tenantIdOverride"]).toBe("system");
+      expect(dispatchTarget).toHaveBeenCalledWith({
+        featureId: "template-resolver",
+        action: "edit",
+        args: { slug: "triage", locale: "en", collectionId: "prompts", tenantIdOverride: "system" },
+      });
+    });
+
+    test("a per-user collection is written to the session tenant", async () => {
+      dispatchTarget.mockClear();
+      const write = mock(created);
+      renderForm(write, { tenantId: "system", collectionId: "signatures" });
+      await submit();
+      expect(payloadOf(write, 0)).not.toHaveProperty("tenantIdOverride");
+      expect(dispatchTarget).toHaveBeenCalledWith({
+        featureId: "template-resolver",
+        action: "edit",
+        args: { slug: "triage", locale: "en", collectionId: "signatures" },
+      });
+    });
+
+    test("a denied override retries once on the session tenant", async () => {
+      dispatchTarget.mockClear();
+      const write = mock().mockImplementationOnce(denied).mockImplementationOnce(created);
+      renderForm(write, { tenantId: "system" });
+      await submit();
+      expect(write).toHaveBeenCalledTimes(2);
+      expect(payloadOf(write, 0)["tenantIdOverride"]).toBe("system");
+      expect(payloadOf(write, 1)).not.toHaveProperty("tenantIdOverride");
+      expect(dispatchTarget).toHaveBeenCalledWith({
+        featureId: "template-resolver",
+        action: "edit",
+        args: { slug: "triage", locale: "en", collectionId: "prompts" },
+      });
+    });
   });
 });

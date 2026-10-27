@@ -12,6 +12,7 @@ import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framew
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
 import type { ContentCollectionSchema } from "./collection-lookup.ts";
 import { collectionQueryName, TemplateResolverQueries } from "./qualified-names.ts";
+import { TENANT_OVERRIDE_DENIED_REASON } from "./tenant-override.ts";
 
 export type BlockSummary = {
   readonly slug: string;
@@ -174,8 +175,6 @@ async function postBlockList(
   const data: ByTenantResponse = await response.json();
   return { ok: true, blocks: data.data.blocks };
 }
-
-const TENANT_OVERRIDE_DENIED_REASON = "tenant_override_requires_system_admin";
 
 // The dispatcher accepts tenantIdOverride from a SystemAdmin only, and the
 // provider cannot see the session roles. Everyone else gets this exact denial

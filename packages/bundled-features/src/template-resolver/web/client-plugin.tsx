@@ -1,5 +1,5 @@
 import { type ClientFeatureDefinition, PlainContentEditor } from "@cosmicdrift/kumiko-renderer/web";
-import { CollectionEntryCreateForm } from "./collection-entry-create-form.tsx";
+import { createCollectionEntryCreateForm } from "./collection-entry-create-form.tsx";
 import { makeTreeProvider } from "./content-tree-provider.ts";
 import { DocumentContentEditor } from "./document-editor.tsx";
 import { defaultTranslations } from "./i18n.ts";
@@ -43,7 +43,7 @@ export function textBlocksClient(opts?: {
     }),
     resolvers: {
       "template-resolver:edit": TextBlockEditor,
-      "template-resolver:create": CollectionEntryCreateForm,
+      "template-resolver:create": createCollectionEntryCreateForm(tenantId),
     },
     // An app-registered editor for a format on another clientFeature still wins,
     // last-wins same as columnRenderers.

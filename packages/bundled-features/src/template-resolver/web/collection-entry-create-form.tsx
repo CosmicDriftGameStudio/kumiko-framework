@@ -22,11 +22,23 @@ const SLUG_INVALID_ISSUE: FieldIssue = {
 };
 
 // A new entry in the app's own locale; the tree then lists it under that locale like any other.
+// `tenantId` is the plugin's SystemAdmin tenant, the one the collection tree lists, so a new entry
+// lands where the tree looks. Same rule as the tree: per-user collections stay on the session tenant.
+export function createCollectionEntryCreateForm(
+  tenantId: string | undefined,
+): (props: { readonly target: TargetRef; readonly onClose: () => void }) => ReactNode {
+  return function BoundCollectionEntryCreateForm(props) {
+    return <CollectionEntryCreateForm {...props} tenantId={tenantId} />;
+  };
+}
+
 export function CollectionEntryCreateForm({
   target,
+  tenantId,
 }: {
   readonly target: TargetRef;
   readonly onClose: () => void;
+  readonly tenantId?: string | undefined;
 }): ReactNode {
   // @cast-boundary visual-tree-args — same de-erasure as the edit resolver; a missing
   // collectionId (hand-edited URL) leaves the form without a collection to write to.
@@ -40,7 +52,7 @@ export function CollectionEntryCreateForm({
   const dispatchTarget = useDispatchTarget();
   const editorContext = useCollectionEditorContext(collectionId);
   const { collection, canWrite } = editorContext;
-  const { submitting, error, write } = useContentWrite();
+  const { submitting, error, writeScoped } = useContentWrite();
 
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
@@ -55,20 +67,31 @@ export function CollectionEntryCreateForm({
 
   const handleCreate = async (): Promise<void> => {
     if (collectionId === undefined || !slugValid) return;
-    const response = await write(collectionHandlerName(collectionId), {
-      slug,
-      locale,
-      title,
-      content: content.length > 0 ? content : null,
-      folder,
-      createOnly: true,
-    });
-    if (response === null) return;
+    const requestedOverride = collection?.ownership === "user" ? undefined : tenantId;
+    const written = await writeScoped(
+      collectionHandlerName(collectionId),
+      {
+        slug,
+        locale,
+        title,
+        content: content.length > 0 ? content : null,
+        folder,
+        createOnly: true,
+      },
+      requestedOverride,
+    );
+    if (written === null) return;
+    const { response, tenantIdOverride } = written;
     refreshTree(collectionId);
     dispatchTarget({
       featureId: "template-resolver",
       action: "edit",
-      args: { slug: response.slug, locale: response.locale, collectionId },
+      args: {
+        slug: response.slug,
+        locale: response.locale,
+        collectionId,
+        ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+      },
     });
   };
 

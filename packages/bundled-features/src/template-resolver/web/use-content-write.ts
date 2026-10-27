@@ -1,6 +1,13 @@
 import { dispatcherErrorText, useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import { useCallback, useState } from "react";
+import { isTenantOverrideDeniedError } from "./tenant-override.ts";
+
+export type TenantScopedWrite = {
+  readonly response: ContentWriteResponse;
+  /** The override the write was accepted with; undefined after a denied override fell back to the session tenant. */
+  readonly tenantIdOverride: string | undefined;
+};
 
 export type ContentWriteResponse = {
   readonly slug: string;
@@ -28,15 +35,28 @@ export function useContentWrite() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const write = async (
+  const writeScoped = async (
     handler: string,
     payload: Readonly<Record<string, unknown>>,
-  ): Promise<ContentWriteResponse | null> => {
+    requestedOverride: string | undefined,
+  ): Promise<TenantScopedWrite | null> => {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await dispatcher.write<ContentWriteResponse>(handler, payload);
-      if (result.isSuccess) return result.data;
+      let tenantIdOverride = requestedOverride;
+      let result = await dispatcher.write<ContentWriteResponse>(handler, {
+        ...payload,
+        ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+      });
+      if (
+        !result.isSuccess &&
+        tenantIdOverride !== undefined &&
+        isTenantOverrideDeniedError(result.error)
+      ) {
+        tenantIdOverride = undefined;
+        result = await dispatcher.write<ContentWriteResponse>(handler, payload);
+      }
+      if (result.isSuccess) return { response: result.data, tenantIdOverride };
       setError(writeErrorText(result.error, t));
       return null;
     } catch (e) {
@@ -49,7 +69,13 @@ export function useContentWrite() {
     }
   };
 
+  const write = async (
+    handler: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<ContentWriteResponse | null> =>
+    (await writeScoped(handler, payload, undefined))?.response ?? null;
+
   const clearError = useCallback(() => setError(null), []);
 
-  return { submitting, error, clearError, write };
+  return { submitting, error, clearError, write, writeScoped };
 }
