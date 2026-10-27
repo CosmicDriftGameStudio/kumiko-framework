@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.395.0
+
+### Patch Changes
+
+- 092c5d7: Live updates from a separate worker process now reach the dev-server browser.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Live updates from a separate worker process reach the dev-server browser
+  detail: The dev server always used an in-memory SSE broker, so it never subscribed to Redis. When a separate worker process won the shared event cursor it published live signals to Redis, and they never reached the browser. The dev server now uses the Redis-backed broker when REDIS_URL is set, and setupTestStack accepts an optional sseBroker. Its channels are prefixed per boot (KUMIKO_REDIS_CHANNEL_PREFIX if set, otherwise derived from the dev DB mode), so parallel dev servers on one Redis stay apart; a separate worker must set the same KUMIKO_REDIS_CHANNEL_PREFIX (the handle exposes it as sseChannelPrefix).
+  -->
+- Updated dependencies [092c5d7]
+- Updated dependencies [6599341]
+- Updated dependencies [22ded17]
+- Updated dependencies [092c5d7]
+- Updated dependencies [6599341]
+- Updated dependencies [9bce295]
+- Updated dependencies [373a722]
+  - @cosmicdrift/kumiko-testing@0.395.0
+  - @cosmicdrift/kumiko-bundled-features@0.395.0
+  - @cosmicdrift/kumiko-renderer@0.395.0
+  - @cosmicdrift/kumiko-types@0.395.0
+  - @cosmicdrift/kumiko-feature-ast@0.395.0
+  - @cosmicdrift/kumiko-framework@0.395.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.395.0
+  - @cosmicdrift/kumiko-server-runtime@0.395.0
+  - @cosmicdrift/kumiko-guards@0.395.0
+
 ## 0.394.0
 
 ### Patch Changes
