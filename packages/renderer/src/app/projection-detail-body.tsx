@@ -30,6 +30,7 @@ import { useReturnHost, useReturnTarget } from "./return-to.tsx";
 import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
+import { useRelatedListTabCounts } from "./use-related-list-tab-counts.ts";
 
 // Projection detail body: read-only single-row inspector over an explicit
 // query instead of an entity (see projection-detail-shim.ts for the debt
@@ -105,6 +106,12 @@ export function ProjectionDetailBody({
   const { hasMetrics, headerActionsList, hasHeaderActions, hasHeaderCard, renderedDetailScreen } =
     useProjectionDetailLayout({ screen, headerActions, hasTabs, detailScreen });
 
+  const recordId = detailQuery.data?.["id"];
+  const tabCounts = useRelatedListTabCounts({
+    sections: hasTabs ? screen.layout.sections : [],
+    parentId: effectiveEntityId ?? (typeof recordId === "string" ? recordId : undefined),
+  });
+
   if (effectiveEntityId === undefined && screen.singleton !== true) {
     return renderMissingIdBanner(primitives, screen);
   }
@@ -140,6 +147,7 @@ export function ProjectionDetailBody({
     hasMetrics,
     hasHeaderCard,
     hasTabs,
+    tabCounts,
     activeSection,
   };
   const regionPieces = deriveDetailRegionPieces(regionModel);

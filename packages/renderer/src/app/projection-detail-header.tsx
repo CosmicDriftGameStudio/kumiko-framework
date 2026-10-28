@@ -12,7 +12,11 @@ import {
   resolveHeaderStatusText,
   resolveSubtitleHref,
 } from "./projection-detail-header-model.ts";
-import { buildSubtitleParts, runMetricNavigate } from "./projection-detail-navigation.ts";
+import {
+  buildSubtitleParts,
+  metricNavigateResolves,
+  runMetricNavigate,
+} from "./projection-detail-navigation.ts";
 import type { ReturnHost } from "./return-to.tsx";
 import { navigateTargetAllows } from "./screen-access.ts";
 
@@ -159,7 +163,9 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const navigate = metric.navigate;
     const onPress =
-      navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
+      navigate !== undefined &&
+      metricNavigateResolves(navigate, record) &&
+      navigateTargetAllows(navigate, appFeatures, userRoles)
         ? () => runMetricNavigate(nav, navigate, record, host)
         : undefined;
     return Metric !== undefined ? (

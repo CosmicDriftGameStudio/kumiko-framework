@@ -78,7 +78,7 @@ export type SearchableReferenceField = {
 // arbitrary.
 export type SortableReferenceField = SearchableReferenceField;
 
-const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
+export const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
 
 // Each `r.entity` registration gets an implicit projection with generated
 // apply handlers for the four automatic verbs. The live path writes directly

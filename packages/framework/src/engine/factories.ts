@@ -205,11 +205,9 @@ export function createTextField<R extends true | false = false>(
  * (for example, `1_000_000 = 1 MB`).
  */
 /**
- * Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`).
- * The value is derived per row from the stored columns + the clock at query
- * time, never persisted. Display only — server-side sort/filter/search don't
- * apply and there's no client-side sort path (see DerivedFieldDef). `derive`
- * must take its clock from `ctx.asOf`, never `Temporal.Now`/`Date`.
+ * Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
+ * `derive` (display only, clock from `ctx.asOf`) or `sql` (computed in the list SELECT, optionally
+ * `sortable`) — see DerivedFieldDef.
  */
 export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
   return { ...spec };

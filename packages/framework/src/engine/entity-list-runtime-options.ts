@@ -1,9 +1,12 @@
 import type { AggregateKey } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { ListRuntimeOptions } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
+import { IMPLICIT_PROJECTION_SUFFIX } from "./registry-state.ts";
 import type { HandlerContext, SessionUser } from "./types/index.ts";
 
 // Registry access only exists at request time, so the searchable/sortable-reference
@@ -29,10 +32,32 @@ export function entityListRuntime(
       referenceSearch: { fields: ctx.registry.getSearchableReferences(entityName), resolveEntity },
       referenceSort: { fields: ctx.registry.getSortableReferences(entityName), resolveEntity },
       parentVisibility,
+      derivedSql: {
+        resolveEntity,
+        today: ctx.tz.today(ctx.tz.tenant).toString(),
+        now: ctx.tz.now().toString(),
+      },
     },
     eagerLoadViewer: { user, parentVisibility },
     resolveEntity,
   };
+}
+
+// An entity with a backingTable reads and writes that table, whose name the entity's own
+// `table` does not say; the implicit projection holds the table the executor really uses.
+function physicalReadTableName(
+  ctx: HandlerContext,
+  entityName: string,
+  entity: EntityDefinition,
+): string {
+  const implicit = ctx.registry
+    .getProjectionsForSource(entityName)
+    .find((projection) =>
+      projection.name.endsWith(`:projection:${entityName}${IMPLICIT_PROJECTION_SUFFIX}`),
+    );
+  return implicit !== undefined
+    ? extractTableInfo(implicit.table).name
+    : resolveTableName(entityName, entity, undefined);
 }
 
 // Resolved through the viewer's read access, like list-aggregate labels; non-entity sources yield none.
@@ -46,7 +71,7 @@ export async function referenceGroupLabels(
 ): Promise<ReadonlyMap<string, string>> {
   const labels = new Map<string, string>();
   const owner = [...ctx.registry.getAllEntities()].find(
-    ([entityName, entity]) => resolveTableName(entityName, entity, undefined) === sourceTableName,
+    ([entityName, entity]) => physicalReadTableName(ctx, entityName, entity) === sourceTableName,
   );
   if (owner === undefined || keys.length === 0) return labels;
   const [entityName, entity] = owner;

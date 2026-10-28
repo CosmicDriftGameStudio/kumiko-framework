@@ -87,10 +87,12 @@ export function buildDetailTabItems(
   sections: ProjectionDetailScreenDefinition["layout"]["sections"],
   record: Readonly<Record<string, unknown>>,
   translate: Translate,
+  queryCounts: Readonly<Record<string, number>> = {},
 ): DetailTabItem[] {
   return sections.map((section) => {
     const countField = isWriteFormEditSection(section) ? undefined : section.countField;
-    const countValue = countField !== undefined ? record[countField] : undefined;
+    const countValue =
+      countField !== undefined ? record[countField] : queryCounts[section.id ?? ""];
     const count =
       typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
     return {

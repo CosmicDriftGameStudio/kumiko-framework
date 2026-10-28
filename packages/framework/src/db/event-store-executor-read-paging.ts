@@ -113,7 +113,7 @@ export function encodeNextCursor(
     sort.kind === "unsorted"
       ? undefined
       : toCursorSortText(
-          sort.kind === "referenceLabel"
+          sort.kind === "expression"
             ? lastSortLabel
             : lastRaw[physicalColumnName(table, sort.field)],
         );

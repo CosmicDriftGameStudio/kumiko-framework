@@ -1,4 +1,8 @@
-import type { DeriveContext, EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import {
+  type DeriveContext,
+  type EntityDefinition,
+  isSqlDerivedField,
+} from "@cosmicdrift/kumiko-types/fields";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -498,24 +502,25 @@ export function defineEntityWriteHandler(
   };
 }
 
-// Append read-time derived-field values (EntityDefinition.derivedFields) to
-// each row, after the SQL fetch + reference eagerload — i.e. on the row shape
-// the view-model will see. The clock is the read instant; derive bodies must
-// read it from ctx.asOf, never their own Date/Temporal.Now. No-op (returns the
-// rows untouched) when the entity declares no derived fields.
+// Runs the JS `derive` fields on the row shape the view-model will see (after the SQL fetch,
+// reference eagerload and SQL derived values), so a JS derive may read a SQL derived value.
+// Clock comes from the handler's tz context, never Temporal.Now.
 function augmentDerivedFields(
   rows: readonly Record<string, unknown>[],
   entity: EntityDefinition,
+  asOf: Temporal.Instant,
 ): readonly Record<string, unknown>[] {
   const derived = entity.derivedFields;
   if (derived === undefined) return rows;
-  const entries = Object.entries(derived);
-  if (entries.length === 0) return rows;
-  const ctx: DeriveContext = { asOf: Temporal.Now.instant() };
+  const jsEntries = Object.entries(derived).flatMap(([fieldName, def]) =>
+    isSqlDerivedField(def) ? [] : [[fieldName, def.derive] as const],
+  );
+  if (jsEntries.length === 0) return rows;
+  const ctx: DeriveContext = { asOf };
   return rows.map((row) => {
     const out: Record<string, unknown> = { ...row };
-    for (const [fieldName, def] of entries) {
-      out[fieldName] = def.derive(row, ctx);
+    for (const [fieldName, derive] of jsEntries) {
+      out[fieldName] = derive(row, ctx);
     }
     return out;
   });
@@ -597,7 +602,7 @@ export function defineEntityQueryHandler(
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(result.rows, entity, resolveEntity, db, eagerLoadViewer)
           : result.rows;
-        return { ...result, rows: augmentDerivedFields(enrichedRows, entity) };
+        return { ...result, rows: augmentDerivedFields(enrichedRows, entity, ctx.tz.now()) };
       };
       break;
     case "detail":

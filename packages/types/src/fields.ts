@@ -16,10 +16,17 @@ import type { EntityTenancy } from "./tenancy-brand.ts";
 export type {
   ClientDerivedFieldDef,
   DeriveContext,
+  DerivedCondition,
+  DerivedConditionValue,
   DerivedFieldDef,
   DerivedFieldsMap,
+  DerivedRelatedMeasure,
+  DerivedSqlSpec,
   DerivedValueType,
+  JsDerivedFieldDef,
+  SqlDerivedFieldDef,
 } from "./fields-derived.ts";
+export { isSqlDerivedField } from "./fields-derived.ts";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];

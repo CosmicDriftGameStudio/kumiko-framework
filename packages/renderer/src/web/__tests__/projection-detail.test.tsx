@@ -1198,6 +1198,96 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     ).toBe("3");
     expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs-meta-count")).toBeNull();
   });
+
+  test("layout.mode: 'tabs' with relatedList count — badge is the section query's total, asked with limit 1 and totalCount", async () => {
+    const countScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Overview", fields: ["userId"] },
+          {
+            id: "notes",
+            kind: "relatedList",
+            title: "Notes",
+            query: "sessions:query:note:list",
+            columns: ["id"],
+            count: true,
+          },
+        ],
+      },
+    };
+    const countSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [countScreen],
+    };
+    const noteCountPayloads: unknown[] = [];
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string, payload: unknown) => {
+        if (qn === "sessions:query:note:list") {
+          noteCountPayloads.push(payload);
+          return { isSuccess: true, data: { rows: [], nextCursor: null, total: 5 } };
+        }
+        return { isSuccess: true, data: { userId: "user-42" } };
+      }) as unknown as Dispatcher["query"],
+    });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+
+    render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={countSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("kumiko-screen-projection-detail-tabs-notes-count").textContent,
+      ).toBe("5"),
+    );
+    expect(noteCountPayloads[0]).toEqual({ id: "sess-1", limit: 1, totalCount: true });
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs-overview-count")).toBeNull();
+  });
+
+  test("layout with no sections left (all relatedList tabs stripped) renders without crashing", async () => {
+    const emptyScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: { mode: "tabs", sections: [] },
+    };
+    const emptySchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [emptyScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={emptySchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryAllByTestId(/^kumiko-screen-projection-detail-tabs-/)).toHaveLength(0);
+  });
 });
 
 // projectionDetail.actions kind:"drawer" — same shared DrawerHost

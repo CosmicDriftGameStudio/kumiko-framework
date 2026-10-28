@@ -33,11 +33,11 @@ export type ListSort =
       readonly nulls: SortNulls | undefined;
     }
   | {
-      readonly kind: "referenceLabel";
+      readonly kind: "expression";
       readonly field: string;
       readonly descending: boolean;
       readonly nulls: SortNulls | undefined;
-      readonly labelSql: (params: unknown[]) => string;
+      readonly sql: (params: unknown[]) => string;
     };
 
 export type SortedListSort = Exclude<ListSort, { readonly kind: "unsorted" }>;
@@ -65,9 +65,8 @@ function nullsClause(sort: SortedListSort): string {
 // undefined means "cannot order by this label", which drops the sort to plain
 // id order; falling back to the UUID column would look deliberate to the user
 // while being arbitrary, which is worse than no sorting.
-function buildReferenceSortExpr(
-  outerTableName: string,
-  ownColumnSql: string,
+export function buildReferenceSortExpr(
+  outerColumnSql: string,
   descriptor: { readonly targetEntityName: string; readonly labelField: string },
   resolveEntity: (entityName: string) => EntityDefinition | undefined,
   db: TenantDb,
@@ -128,7 +127,7 @@ function buildReferenceSortExpr(
     }
     return (
       `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
-      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause}${ownershipClause}${deletedClause})`
+      `WHERE t."id" = ${outerColumnSql}${tenantClause}${ownershipClause}${deletedClause})`
     );
   };
 }
@@ -141,10 +140,21 @@ export function resolveListSort(request: {
   readonly colSql: (field: string) => string;
   readonly fieldReadClause: (field: string) => OwnershipClause;
   readonly referenceSort: ReferenceSortOption;
+  readonly derivedSortExpr?: (field: string) => ((params: unknown[]) => string) | undefined;
   readonly db: TenantDb;
   readonly user: SessionUser;
 }): ListSort {
   const { payload, table, entity, referenceSort } = request;
+  const derivedSql = payload.sort ? request.derivedSortExpr?.(payload.sort) : undefined;
+  if (derivedSql !== undefined && payload.sort) {
+    return {
+      kind: "expression",
+      field: payload.sort,
+      descending: payload.sortDirection === "desc",
+      nulls: undefined,
+      sql: derivedSql,
+    };
+  }
   // A column sort must not 400 (the renderer sends one per header click), and the order of
   // ciphertext carries no meaning for the user while leaking the order of the plaintext.
   const field =
@@ -165,24 +175,23 @@ export function resolveListSort(request: {
   // directly: either the field opted into `sortable` and we order by the
   // target row's label, or the sort is dropped to plain id order.
   const descriptor = referenceSort?.fields.find((f) => f.fieldName === field);
-  const labelSql =
+  const sql =
     referenceSort && descriptor
       ? buildReferenceSortExpr(
-          request.tableName,
-          request.colSql(field),
+          `"${request.tableName}".${request.colSql(field)}`,
           descriptor,
           referenceSort.resolveEntity,
           request.db,
           request.user,
         )
       : undefined;
-  return labelSql === undefined
+  return sql === undefined
     ? { kind: "unsorted" }
-    : { kind: "referenceLabel", field, descending, nulls, labelSql };
+    : { kind: "expression", field, descending, nulls, sql };
 }
 
 export function renderSortSql(sort: SortedListSort, where: ListWhere): string {
-  return sort.kind === "referenceLabel" ? sort.labelSql(where.params) : where.colSql(sort.field);
+  return sort.kind === "expression" ? sort.sql(where.params) : where.colSql(sort.field);
 }
 
 export function renderListOrderBy(
@@ -201,7 +210,7 @@ export function renderListOrderBy(
       sortLabelProjection: "",
     };
   }
-  // The projected label alias is ordered by directly, so Postgres evaluates
+  // The projected alias is ordered by directly, so Postgres evaluates
   // the correlated subquery once per row instead of once for ORDER BY and
   // once for the SELECT list. Projecting it also lets the keyset cursor carry
   // the value that was ordered by rather than the FK column's UUID.
@@ -218,7 +227,7 @@ export function takeLastSortLabel(
   sort: ListSort,
 ): unknown {
   const lastSortLabel = rawRows[rawRows.length - 1]?.[SORT_LABEL_ALIAS];
-  if (sort.kind === "referenceLabel") {
+  if (sort.kind === "expression") {
     for (const row of rawRows) delete row[SORT_LABEL_ALIAS];
   }
   return lastSortLabel;

@@ -47,6 +47,7 @@ import type {
   ListRowViewModel,
   Translate,
 } from "../headless/index.ts";
+import { buildRelatedListParentPayload } from "../hooks/related-list-parent-payload.ts";
 import { useRelatedListRows } from "../hooks/use-related-list-rows.ts";
 import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
@@ -294,14 +295,12 @@ export function RelatedListSection({
 
   const payload = useMemo(
     () => ({
-      // `parentFilter` sends the parent id as a server-side `filter` clause
-      // instead of a bespoke top-level key — the generic `<entity>:list`
-      // query understands `filter`, not an arbitrary `parentParam` key. Kept
-      // separate from `filterPayload` (user facets) below so a facet
-      // selection can never clear or overwrite it.
-      ...(section.parentFilter !== undefined
-        ? { filter: { field: section.parentFilter.field, op: "eq" as const, value: parentId } }
-        : { [section.parentParam ?? "id"]: parentId }),
+      // Kept separate from `filterPayload` (user facets) below so a facet selection can never
+      // clear or overwrite the parent pin.
+      ...buildRelatedListParentPayload(
+        { parentFilter: section.parentFilter, parentParam: section.parentParam },
+        parentId,
+      ),
       ...(section.pageSize !== undefined && { limit: section.pageSize }),
       // Gated on the declared capability, not just on state carrying a value —
       // same rule as ProjectionListBody: a param the bound query's Zod schema

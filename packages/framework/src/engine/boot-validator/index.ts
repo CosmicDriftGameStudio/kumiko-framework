@@ -25,6 +25,7 @@ import {
   validateConfigReads,
   warnOnToggleableDependencies,
 } from "./config-deps.ts";
+import { validateSqlDerivedFields } from "./derived-sql-fields.ts";
 import { collectDetailForScreens } from "./detail-screens.ts";
 import {
   validateDerivedFieldCollisions,
@@ -253,6 +254,7 @@ export function validateBoot(
   // resolve against it inside the loop below, instead of at the very end
   // where this used to run.
   const detailForScreens = collectDetailForScreens(features, featureMap);
+  validateSqlDerivedFields(features);
 
   // Cross-feature API exposure map — each feature declares markers via
   // r.exposesApi(name). Per-feature validateApiExposureMatching walks the

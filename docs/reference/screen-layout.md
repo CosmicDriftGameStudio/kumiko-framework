@@ -120,6 +120,8 @@ header: {
 
 On a projectionDetail with `layout.mode: "tabs"`, every tab except a `relatedList` renders its content in an unframed panel with the page's content padding (`--card-padding`) and a gap below the tab strip, so it lines up with the tab labels. Extension tabs must not add padding of their own. A `relatedList` tab stays flush: the table runs from edge to edge under the tab strip.
 
+A tab badge comes from `countField` (a number field of the detail record) or, on a `relatedList` tab, from `count: true`. With `count: true` the section's own query is asked for `limit: 1, totalCount: true` as the viewer, and the badge stays live. The two options are mutually exclusive. When the viewer's roles cannot run a `relatedList` section's query, the section is removed from that viewer's schema, so it is neither shown nor counted. A metric that only jumps to that tab stays but is not clickable.
+
 ## Drawer row actions
 
 A row action with `kind: "drawer"` opens an `actionForm` of the same feature in a flush drawer (480px, right edge). The list or detail behind it stays mounted and refreshes after a successful submit.
@@ -165,7 +167,7 @@ rowActions: [
 
 ## Expandable rows
 
-`expandableRow` on an entityList puts a related list under each row. It takes the same fields as a projectionDetail `relatedList` section, without `id` and `countField`. The row's `id` is the parent id, passed through `parentFilter` or `parentParam` as in a tab.
+`expandableRow` on an entityList puts a related list under each row. It takes the same fields as a projectionDetail `relatedList` section, without `id`, `countField` and `count`. The row's `id` is the parent id, passed through `parentFilter` or `parentParam` as in a tab.
 
 ```ts illustration
 expandableRow: {

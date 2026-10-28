@@ -26,6 +26,7 @@
 // The schema route strips features the caller's tenant has switched off
 // (r.toggleable) via stripDisabledFeaturesFromAppSchema.
 
+import { isSqlDerivedField } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityWriteExcludedFields } from "@cosmicdrift/kumiko-types/screen";
 import { ZodObject, type ZodType } from "zod";
 import { createFallbackLogger } from "../logging/utils.ts";
@@ -38,7 +39,6 @@ import type {
   ScreenDefinition,
   WorkspaceSchema,
 } from "../ui-types/index.ts";
-
 import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.ts";
 import {
   buildConfigFeatureSchema,
@@ -533,12 +533,13 @@ function projectEntity(entityName: string, entity: EntityDefinition): EntityDefi
   };
 }
 
-// Only valueType is forwarded — the derive function is server-only and is not
-// JSON-safe (it would otherwise trigger the output-walk guard). Return
-// ClientDerivedFieldDef honestly instead of pretending to return a
-// DerivedFieldDef without its derive function.
+// derive/sql are server-only and not JSON-safe (they would trip the output-walk guard).
 function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef {
-  return { valueType: derivedDef.valueType };
+  return {
+    valueType: derivedDef.valueType,
+    ...(isSqlDerivedField(derivedDef) &&
+      derivedDef.sortable === true && { sortable: true as const }),
+  };
 }
 
 // A textarea height that is not a positive integer cannot render anywhere; fail
