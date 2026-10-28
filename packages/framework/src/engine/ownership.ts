@@ -280,11 +280,15 @@ export function shiftParams(fragment: SqlFragment, shift: number): SqlFragment {
 //      does this outside `buildOwnershipClause`) — this function does not.
 //   3. Treat `kind: "empty"` (see `OwnershipClause`) as a hard DENY, and
 //      `kind: "pass"` as an explicit bypass — not as "no additional filter".
+//
+// `tableNameOverride` is the alias the queried table carries in the caller's SQL: where-rules
+// qualify columns with it, and a physical name would bind to an outer row of the same table.
 export function buildOwnershipClause(
   user: SessionUser,
   accessMap: OwnershipMap | undefined,
   table: unknown,
   paramStart = 1,
+  tableNameOverride?: string,
 ): OwnershipClause {
   if (!accessMap || Object.keys(accessMap).length === 0) return PASS_CLAUSE;
 
@@ -298,7 +302,7 @@ export function buildOwnershipClause(
     if (!rule) continue;
     anyRoleMatched = true;
     if (rule === "all") return PASS_CLAUSE;
-    const resolved = ruleToFragment(rule, user, table, nextParamIdx);
+    const resolved = ruleToFragment(rule, user, table, nextParamIdx, tableNameOverride);
     if (resolved.kind === "sql") {
       clauses.push({ sqlText: resolved.sqlText, params: resolved.params });
       nextParamIdx += resolved.params.length;
@@ -357,14 +361,16 @@ function ruleToFragment(
   user: SessionUser,
   table: unknown,
   paramStart: number,
+  tableNameOverride: string | undefined,
 ): RuleFragmentResult {
   if (rule === "all") {
     return { kind: "sql", sqlText: "TRUE", params: [] };
   }
   if (rule.kind === "where") {
+    const tableName = tableNameOverride ?? tableNameOf(table);
     const frag = rule.where(user, {
       table,
-      tableName: tableNameOf(table),
+      tableName,
       paramStart,
     });
     // Runtime backstop for the boot-time probe (boot-validator/ownership.ts):
@@ -373,7 +379,7 @@ function ruleToFragment(
     assertQualifiedWhereFragment(
       frag.sqlText,
       cachedTableColumnSqlNames(table),
-      `ownership where-rule on "${tableNameOf(table)}"`,
+      `ownership where-rule on "${tableName}"`,
     );
     return { kind: "sql", sqlText: frag.sqlText, params: frag.params };
   }

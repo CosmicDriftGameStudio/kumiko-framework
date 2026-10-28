@@ -37,6 +37,7 @@ const issueEntity = createEntity({
     assigneeId: { type: "reference", entity: "dsql-contact", labelField: "name" },
   },
   access: { read: { Admin: "all", User: "all" } },
+  indexes: [{ columns: ["unitId"] }],
 });
 
 const leaseEntity = createEntity({
@@ -47,6 +48,7 @@ const leaseEntity = createEntity({
     startsOn: createDateField({ required: true }),
     endsOn: createDateField(),
   },
+  indexes: [{ columns: ["unitRef"] }],
 });
 
 const noteEntity = createEntity({
@@ -61,6 +63,7 @@ const noteEntity = createEntity({
     }),
     writtenAt: createTimestampField({ required: true }),
   },
+  indexes: [{ columns: ["unitId"] }],
 });
 
 // Readable by Admin only: a User must see NULL for every field measured on it.
@@ -68,6 +71,7 @@ const adminOnlyRemarkEntity = createEntity({
   table: "dsql_remarks",
   fields: { unitId: { type: "reference", entity: "dsql-unit" } },
   access: { read: { Admin: "all" } },
+  indexes: [{ columns: ["unitId"] }],
 });
 
 const unitEntity = createEntity({

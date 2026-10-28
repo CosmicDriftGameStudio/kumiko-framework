@@ -49,7 +49,7 @@ export function resolveReadOwnership(
     gate,
   );
   return combineClauses(
-    buildOwnershipClause(user, ctx.entity.access?.read, ctx.table),
+    buildOwnershipClause(user, ctx.entity.access?.read, ctx.table, 1, tableName),
     parentClause,
   );
 }

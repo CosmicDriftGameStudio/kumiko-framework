@@ -201,6 +201,7 @@ async function resolveReferenceMatches(
   db: TenantDb,
   user: SessionUser,
   searchAdapter: SearchAdapter,
+  resolveTable: ((entityName: string) => Table) | undefined,
 ): Promise<ReferenceMatch | undefined> {
   const targetEntity = resolveEntity(descriptor.targetEntityName);
   if (targetEntity === undefined) {
@@ -215,7 +216,9 @@ async function resolveReferenceMatches(
     return undefined;
   }
 
-  const targetTable = referenceTargetTable(descriptor.targetEntityName, targetEntity);
+  const targetTable =
+    resolveTable?.(descriptor.targetEntityName) ??
+    referenceTargetTable(descriptor.targetEntityName, targetEntity);
   const targetTableName = String(schemaTableName(targetTable));
 
   if (!isSensitiveLabelField(targetEntity, descriptor.labelField)) {
@@ -343,6 +346,7 @@ async function resolveSearchableReferenceMatches(
         request.db,
         request.user,
         searchAdapter,
+        referenceSearch.resolveTable,
       ),
     ),
   );

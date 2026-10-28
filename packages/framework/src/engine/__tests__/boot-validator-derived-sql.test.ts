@@ -28,13 +28,20 @@ const childFields = {
   plainRef: { type: "reference", entity: "unit" },
 } as const;
 
-function validateWith(derivedFields: Record<string, DerivedFieldDef>): void {
+function validateWith(
+  derivedFields: Record<string, DerivedFieldDef>,
+  childIndexes: EntityDefinition["indexes"] = [],
+): void {
   const unit: EntityDefinition = createEntity({
     table: "units",
     fields: { name: text(), nickname: text(), floor: createNumberField() },
     derivedFields,
   });
-  const child: EntityDefinition = createEntity({ table: "children", fields: childFields });
+  const child: EntityDefinition = createEntity({
+    table: "children",
+    fields: childFields,
+    indexes: childIndexes,
+  });
   const feature = defineFeature("demo", (r) => {
     r.entity({ name: "unit", ...unit });
     r.entity({ name: "child", ...child });
@@ -266,10 +273,47 @@ describe("validateSqlDerivedFields", () => {
     );
   });
 
-  test("rejects an entity deriving from itself", () => {
-    expect(() => validateWith({ n: related({ entity: "unit", on: { field: "floor" } }) })).toThrow(
-      /cannot derive from itself/,
-    );
+  describe("sortable join index", () => {
+    const sortableCount = (): Record<string, DerivedFieldDef> => ({
+      n: createDerivedField({
+        valueType: "number",
+        sortable: true,
+        sql: {
+          kind: "related",
+          entity: "child",
+          on: { field: "unitId" },
+          measure: { kind: "count" },
+        },
+      }),
+    });
+
+    test("rejects sortable without an index on the join column", () => {
+      expect(() => validateWith(sortableCount())).toThrow(
+        /sortable needs an index on the related table's "unitId"/,
+      );
+      expect(() => validateWith(sortableCount(), [{ columns: ["status"] }])).toThrow(
+        /needs an index/,
+      );
+    });
+
+    test("accepts an index that starts with the join column, or tenantId then it", () => {
+      expect(() =>
+        validateWith(sortableCount(), [{ columns: ["unitId", "status"] }]),
+      ).not.toThrow();
+      expect(() =>
+        validateWith(sortableCount(), [{ columns: ["tenantId", "unitId"] }]),
+      ).not.toThrow();
+    });
+
+    test("does not ask for an index when the column is not sortable", () => {
+      expect(() => validateWith({ n: related({}) })).not.toThrow();
+    });
+  });
+
+  test("accepts an entity deriving from itself", () => {
+    expect(() =>
+      validateWith({ n: related({ entity: "unit", on: { field: "floor" } }) }),
+    ).not.toThrow();
   });
 
   test("rejects sortable on a JS derive", () => {

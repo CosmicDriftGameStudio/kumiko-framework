@@ -7,6 +7,7 @@ import {
   isSqlDerivedField,
   type SqlDerivedFieldDef,
 } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
 import { holdsCiphertextOrSecret } from "../../db/entity-field-encryption.ts";
 import { parseRefTargetEntityName } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -112,23 +113,48 @@ function validateCondition(site: Site, related: EntityDefinition, condition: Der
   }
 }
 
+// A sortable derived value runs its subquery for every row of the page, so the join column of
+// the related table needs an index; buildEntityTable creates none for a plain reference field.
+function requireJoinIndex(
+  site: Site,
+  related: EntityDefinition,
+  field: string,
+  relations: EntityRelations | undefined,
+): void {
+  const indexed =
+    related.fields[field]?.type === "file" ||
+    related.fields[field]?.type === "image" ||
+    Object.values(relations ?? {}).some(
+      (relation) => relation.type === "belongsTo" && relation.foreignKey === field,
+    ) ||
+    (related.indexes ?? []).some(({ columns }) => {
+      const [first, second] = columns;
+      return first === field || (first === "tenantId" && second === field);
+    });
+  if (!indexed) {
+    throw new Error(
+      `${site.where}: sortable needs an index on the related table's "${field}"; declare indexes: [{ columns: ["${field}"] }] (or ["tenantId", "${field}"]) on that entity.`,
+    );
+  }
+}
+
 function validateRelated(
   site: Site,
-  entityName: string,
   own: EntityDefinition,
   def: SqlDerivedFieldDef,
   spec: Extract<SqlDerivedFieldDef["sql"], { readonly kind: "related" }>,
   allEntities: ReadonlyMap<string, EntityDefinition>,
+  relations: ReadonlyMap<string, EntityRelations>,
 ): void {
   const relatedName = parseRefTargetEntityName(spec.entity);
   const related = allEntities.get(relatedName);
   if (related === undefined) {
     throw new Error(`${site.where}: related entity "${spec.entity}" is not registered.`);
   }
-  if (relatedName === entityName || (related.table !== undefined && related.table === own.table)) {
-    throw new Error(`${site.where}: an entity cannot derive from itself.`);
-  }
   requireUsableField(site, related, spec.on.field, "on.field");
+  if (def.sortable === true) {
+    requireJoinIndex(site, related, spec.on.field, relations.get(relatedName));
+  }
   requireUsableField(site, own, spec.on.outer ?? "id", "on.outer");
   for (const condition of spec.where ?? []) validateCondition(site, related, condition);
 
@@ -192,9 +218,12 @@ function validateCoalesce(
 
 export function validateSqlDerivedFields(features: readonly FeatureDefinition[]): void {
   const allEntities = new Map<string, EntityDefinition>();
+  const relations = new Map<string, EntityRelations>();
   for (const feature of features) {
     for (const [name, entity] of Object.entries(feature.entities ?? {})) {
       allEntities.set(name, entity);
+      const entityRelations = feature.relations[name];
+      if (entityRelations !== undefined) relations.set(name, entityRelations);
     }
   }
   for (const [entityName, entity] of allEntities) {
@@ -214,7 +243,7 @@ export function validateSqlDerivedFields(features: readonly FeatureDefinition[])
         continue;
       }
       if (def.sql.kind === "coalesce") validateCoalesce(site, entity, def, def.sql.fields);
-      else validateRelated(site, entityName, entity, def, def.sql, allEntities);
+      else validateRelated(site, entity, def, def.sql, allEntities, relations);
     }
   }
 }
