@@ -13,6 +13,8 @@ import {
   type CONSENT_LOCALES,
   CONSENT_TEXTS,
   consentTextVersion,
+  documentsAcknowledgementTextFor,
+  legalLinksPerLocale,
 } from "../consumer-protection/consent-text.ts";
 import {
   type BillingPlansBase,
@@ -21,14 +23,12 @@ import {
   type ProviderPlanViews,
   toBillingPlansResult,
 } from "../plan-catalog.ts";
-import {
-  type BillingPlanCatalog,
-  type BillingPlansResult,
-  type BillingProviderView,
-  type ConsumerProtectionOptions,
-  isLegalLinkSet,
-  type LegalLinkSet,
-  type ResolvedBillingFoundationOptions,
+import type {
+  BillingPlanCatalog,
+  BillingPlansResult,
+  BillingProviderView,
+  ConsumerProtectionOptions,
+  ResolvedBillingFoundationOptions,
 } from "../types.ts";
 
 const billingPlansSchema = z.object({}).strict();
@@ -52,8 +52,8 @@ export function createBillingPlansQuery(
         ...result,
         consumerProtection: {
           consentTexts: {
-            de: consentTextView("de"),
-            en: consentTextView("en"),
+            de: consentTextView(consumerProtection, "de"),
+            en: consentTextView(consumerProtection, "en"),
           },
           legalLinks: legalLinksPerLocale(consumerProtection.legalLinks),
         },
@@ -116,13 +116,16 @@ async function providerView(
   };
 }
 
-function legalLinksPerLocale(
-  legalLinks: ConsumerProtectionOptions["legalLinks"],
-): Readonly<Record<(typeof CONSENT_LOCALES)[number], LegalLinkSet>> {
-  return isLegalLinkSet(legalLinks) ? { de: legalLinks, en: legalLinks } : legalLinks;
-}
-
-function consentTextView(locale: (typeof CONSENT_LOCALES)[number]) {
+function consentTextView(
+  consumerProtection: ConsumerProtectionOptions,
+  locale: (typeof CONSENT_LOCALES)[number],
+) {
   const { earlyPerformance, withdrawalLoss } = CONSENT_TEXTS[locale];
-  return { earlyPerformance, withdrawalLoss, consentTextVersion: consentTextVersion(locale) };
+  const documentsAcknowledgement = documentsAcknowledgementTextFor(consumerProtection, locale);
+  return {
+    earlyPerformance,
+    withdrawalLoss,
+    ...(documentsAcknowledgement !== undefined && { documentsAcknowledgement }),
+    consentTextVersion: consentTextVersion(locale, documentsAcknowledgement),
+  };
 }

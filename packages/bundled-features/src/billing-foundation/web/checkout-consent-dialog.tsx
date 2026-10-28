@@ -3,6 +3,7 @@ import type { WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { ChoiceCards } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import type { BillingPlansResult } from "../types.ts";
+import { ConsentCheckboxes, ConsentLinks, useConsentFieldState } from "./consent-fields.tsx";
 import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
 
 export const CONSENT_TEXT_OUTDATED_CODE = "consent_text_outdated";
@@ -12,6 +13,7 @@ type ConsumerProtectionView = NonNullable<BillingPlansResult["consumerProtection
 export type CheckoutConsentPayload = {
   readonly earlyPerformanceRequested: true;
   readonly withdrawalLossAcknowledged: true;
+  readonly documentsAcknowledged?: true;
   readonly consentTextVersion: string;
   readonly locale: string;
 };
@@ -60,36 +62,25 @@ export function CheckoutConsentDialog({
 }: CheckoutConsentDialogProps): ReactNode {
   const t = useTranslation();
   const uiLocale = useLocale().locale();
-  const { Modal, Text, Field, Input, Button, Link, Banner } = usePrimitives();
-  const [earlyPerformance, setEarlyPerformance] = useState(false);
-  const [withdrawalLoss, setWithdrawalLoss] = useState(false);
+  const { Modal, Text, Button, Banner } = usePrimitives();
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const consentLocale = resolveConsentLocale(uiLocale);
   const texts = consumerProtection?.consentTexts[consentLocale];
   const legalLinks = consumerProtection?.legalLinks[consentLocale];
-  const consentGiven = consumerProtection === undefined || (earlyPerformance && withdrawalLoss);
+  const consentFields = useConsentFieldState(texts);
+  const consentGiven = consumerProtection === undefined || consentFields.allGiven;
 
   async function order(): Promise<void> {
     setSubmitting(true);
     setErrorText(null);
-    const result = await onOrder(
-      texts === undefined
-        ? undefined
-        : {
-            earlyPerformanceRequested: true,
-            withdrawalLossAcknowledged: true,
-            consentTextVersion: texts.consentTextVersion,
-            locale: consentLocale,
-          },
-    );
+    const result = await onOrder(consentFields.buildPayload(consentLocale));
     if (result.isSuccess) return;
     setSubmitting(false);
     setErrorText(t(result.error.i18nKey, result.error.i18nParams));
     if (result.error.code === CONSENT_TEXT_OUTDATED_CODE) {
-      setEarlyPerformance(false);
-      setWithdrawalLoss(false);
+      consentFields.reset();
       onConsentTextOutdated();
     }
   }
@@ -135,42 +126,14 @@ export function CheckoutConsentDialog({
             </Text>
           )}
         </div>
-        {legalLinks !== undefined && (
-          <div className="flex flex-wrap gap-4">
-            <Link href={legalLinks.terms} target="_blank">
-              {t("billing-foundation.consent.link.terms")}
-            </Link>
-            <Link href={legalLinks.withdrawal} target="_blank">
-              {t("billing-foundation.consent.link.withdrawal")}
-            </Link>
-            <Link href={legalLinks.privacy} target="_blank">
-              {t("billing-foundation.consent.link.privacy")}
-            </Link>
-          </div>
-        )}
+        {legalLinks !== undefined && <ConsentLinks legalLinks={legalLinks} />}
         {texts !== undefined && (
-          <>
-            <Field id="consent-early-performance" label={texts.earlyPerformance} layout="inline">
-              <Input
-                kind="boolean"
-                id="consent-early-performance"
-                name="consent-early-performance"
-                value={earlyPerformance}
-                onChange={setEarlyPerformance}
-                disabled={submitting}
-              />
-            </Field>
-            <Field id="consent-withdrawal-loss" label={texts.withdrawalLoss} layout="inline">
-              <Input
-                kind="boolean"
-                id="consent-withdrawal-loss"
-                name="consent-withdrawal-loss"
-                value={withdrawalLoss}
-                onChange={setWithdrawalLoss}
-                disabled={submitting}
-              />
-            </Field>
-          </>
+          <ConsentCheckboxes
+            idPrefix="consent"
+            texts={texts}
+            state={consentFields}
+            disabled={submitting}
+          />
         )}
         {errorText !== null && (
           <Banner variant="error" testId="checkout-consent-error">

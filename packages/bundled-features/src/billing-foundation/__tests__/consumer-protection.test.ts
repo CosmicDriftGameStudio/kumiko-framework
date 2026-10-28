@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   CONSENT_TEXTS,
   consentTextVersion,
+  documentsAcknowledgementTextFor,
   resolveConsentLocale,
 } from "../consumer-protection/consent-text.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
@@ -30,6 +31,25 @@ describe("consent text", () => {
     expect(consentTextVersion("de")).toMatch(/^[0-9a-f]{16}$/);
     expect(consentTextVersion("de")).toBe(consentTextVersion("de"));
     expect(consentTextVersion("de")).not.toBe(consentTextVersion("en"));
+  });
+
+  test("documents text joins the version only when given, per locale and refund variant", () => {
+    const withRefund = documentsAcknowledgementTextFor(
+      options({
+        documentsAcknowledgement: true,
+        legalLinks: { terms: "/t", withdrawal: "/w", privacy: "/p", refund: "/r" },
+      }),
+      "de",
+    );
+    const withoutRefund = documentsAcknowledgementTextFor(
+      options({ documentsAcknowledgement: true }),
+      "de",
+    );
+    expect(withRefund).toContain("Erstattungsrichtlinie");
+    expect(withoutRefund).not.toContain("Erstattungsrichtlinie");
+    expect(documentsAcknowledgementTextFor(options(), "de")).toBeUndefined();
+    expect(consentTextVersion("de", withRefund)).not.toBe(consentTextVersion("de"));
+    expect(consentTextVersion("de", withRefund)).not.toBe(consentTextVersion("de", withoutRefund));
   });
 
   test("every locale carries all four texts", () => {
@@ -96,5 +116,16 @@ describe("consumerProtection option validation", () => {
         base,
       ),
     ).toThrow(/legalLinks\.en\.privacy/);
+  });
+
+  test("refund link is optional and validated like the others", () => {
+    const set = { terms: "/t", withdrawal: "/w", privacy: "/p" };
+    expect(create(options({ legalLinks: { ...set, refund: "/r" } }), base)).not.toThrow();
+    expect(create(options({ legalLinks: { ...set, refund: "http://x.example" } }), base)).toThrow(
+      /legalLinks\.refund/,
+    );
+    expect(
+      create(options({ legalLinks: { de: set, en: { ...set, refund: "//evil.example" } } }), base),
+    ).toThrow(/legalLinks\.en\.refund/);
   });
 });

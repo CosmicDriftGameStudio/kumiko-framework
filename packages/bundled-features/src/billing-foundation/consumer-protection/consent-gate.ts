@@ -20,7 +20,12 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.ts";
 import type { ConsumerProtectionOptions, ProviderPrice } from "../types.ts";
-import { consentTextVersion, resolveConsentLocale, submitMessageFor } from "./consent-text.ts";
+import {
+  consentTextVersion,
+  documentsAcknowledgementTextFor,
+  resolveConsentLocale,
+  submitMessageFor,
+} from "./consent-text.ts";
 
 export type CheckoutMode = "subscription" | "payment";
 
@@ -30,6 +35,7 @@ export const consentPayloadSchema = z
   .object({
     earlyPerformanceRequested: z.boolean(),
     withdrawalLossAcknowledged: z.boolean(),
+    documentsAcknowledged: z.boolean().optional(),
     consentTextVersion: z.string().min(1).max(64),
     locale: z.string().min(2).max(35),
   })
@@ -42,6 +48,7 @@ export type PreparedConsent = {
   readonly locale: string;
   readonly submitMessage: string;
   readonly consentTextVersion: string;
+  readonly documentsAcknowledged: boolean;
   readonly termsHash: string;
   readonly termsTemplateVersion: number;
 };
@@ -88,14 +95,20 @@ export async function prepareConsent(
   consent: ConsentPayload | undefined,
   mode: CheckoutMode,
 ): Promise<PreparedConsent> {
-  if (!consent?.earlyPerformanceRequested || !consent.withdrawalLossAcknowledged) {
+  const documentsRequired = options.documentsAcknowledgement === true;
+  if (
+    !consent?.earlyPerformanceRequested ||
+    !consent.withdrawalLossAcknowledged ||
+    (documentsRequired && consent.documentsAcknowledged !== true)
+  ) {
     throw new UnprocessableError("consent_required", {
       i18nKey: "billing-foundation.errors.consentRequired",
-      message: "billing-foundation: both consent flags must be true to start a checkout",
+      message: "billing-foundation: all consent flags must be true to start a checkout",
     });
   }
   const locale = resolveConsentLocale(consent.locale);
-  if (consent.consentTextVersion !== consentTextVersion(locale)) {
+  const documentsText = documentsAcknowledgementTextFor(options, locale);
+  if (consent.consentTextVersion !== consentTextVersion(locale, documentsText)) {
     throw new UnprocessableError("consent_text_outdated", {
       i18nKey: "billing-foundation.errors.consentTextOutdated",
       message: `billing-foundation: consent text version "${consent.consentTextVersion}" is not current for locale "${locale}"`,
@@ -128,6 +141,7 @@ export async function prepareConsent(
     locale,
     submitMessage: submitMessageFor(locale, mode),
     consentTextVersion: consent.consentTextVersion,
+    documentsAcknowledged: documentsRequired,
     termsHash: createHash("sha256").update(terms.content).digest("hex"),
     termsTemplateVersion: terms.version,
   };
@@ -160,6 +174,7 @@ export async function recordConsent(
     interval: details.price?.interval ?? null,
     intervalCount: details.price?.intervalCount ?? null,
     consentTextVersion: prepared.consentTextVersion,
+    ...(prepared.documentsAcknowledged && { documentsAcknowledged: true }),
     termsHash: prepared.termsHash,
     termsTemplateVersion: prepared.termsTemplateVersion,
     locale: prepared.locale,
