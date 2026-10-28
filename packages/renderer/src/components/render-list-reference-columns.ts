@@ -23,6 +23,47 @@ export type ReferenceColumnSpec = {
   readonly labelField: string;
 };
 
+export type ReferenceLookupRequest = ReferenceColumnSpec & {
+  readonly idChunks: readonly (readonly string[])[];
+};
+
+// Chunks in first-seen order, so appending an infinite-scroll page only
+// re-queries the last chunk; the chunk size stays within the list handler's limit.
+export function referenceIdChunks(
+  rows: readonly Readonly<Record<string, unknown>>[],
+  field: string,
+  chunkSize: number,
+): string[][] {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const value = row[field];
+    for (const entry of Array.isArray(value) ? value : [value]) {
+      if (typeof entry === "string" && entry !== "") ids.add(entry);
+    }
+  }
+  const ordered = [...ids];
+  const chunks: string[][] = [];
+  for (let start = 0; start < ordered.length; start += chunkSize) {
+    chunks.push(ordered.slice(start, start + chunkSize));
+  }
+  return chunks;
+}
+
+// One published lookup per id chunk; a column is complete only when every chunk is.
+export function mergeChunkLookups(
+  chunks: readonly (PublishedReferenceLookup | undefined)[],
+): PublishedReferenceLookup | undefined {
+  const published = chunks.filter((chunk) => chunk !== undefined);
+  if (published.length === 0) return undefined;
+  if (published.length === 1 && chunks.length === 1) return published[0];
+  const map = new Map<string, string>();
+  for (const chunk of published) for (const [id, label] of chunk.map) map.set(id, label);
+  return {
+    map,
+    complete: published.length === chunks.length && published.every((chunk) => chunk.complete),
+  };
+}
+
 type ResolveReferenceLink = ReturnType<typeof useReferenceLinkResolver>;
 
 type EagerloadedRef = Record<string, unknown> | readonly Record<string, unknown>[] | undefined;

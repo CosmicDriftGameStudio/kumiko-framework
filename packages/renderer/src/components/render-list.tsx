@@ -110,7 +110,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   const [menuActionBusyId, setMenuActionBusyId] = useState<string | null>(null);
   const [menuActionError, setMenuActionError] = useState<string | null>(null);
   const { localQ, setLocalQ } = useRenderListSearch(searchValue, onSearchChange);
-  const { referenceColumns, handleLookupMap, enrichedVm } = useRenderListColumns({
+  const { referenceRequests, handleLookupMap, enrichedVm } = useRenderListColumns({
     screen,
     entity,
     rows,
@@ -191,7 +191,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           promotedMenuItems,
         )}
       {menuActionError !== null && renderMenuActionError(Banner, menuActionError)}
-      {renderReferenceLookupBridges(referenceColumns, handleLookupMap)}
+      {renderReferenceLookupBridges(referenceRequests, handleLookupMap)}
       <DataTable
         columns={enrichedVm.columns}
         rows={enrichedVm.rows}
