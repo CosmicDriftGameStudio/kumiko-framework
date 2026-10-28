@@ -1286,6 +1286,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     );
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryAllByTestId(/^kumiko-screen-projection-detail-tabs-/)).toHaveLength(0);
   });
 });
 

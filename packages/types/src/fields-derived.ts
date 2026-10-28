@@ -35,6 +35,8 @@ export type SqlDerivedFieldDef = {
   readonly valueType: DerivedValueType;
   readonly sortable?: boolean;
   readonly sql: DerivedSqlSpec;
+  // Keeps `def.derive` readable on the union (as `undefined` here) for callers written before `sql`.
+  readonly derive?: undefined;
 };
 
 export type DerivedFieldDef = JsDerivedFieldDef | SqlDerivedFieldDef;

@@ -3368,6 +3368,7 @@ type SqlDerivedFieldDef = {
   valueType: DerivedValueType;
   sortable?: boolean;
   sql: DerivedSqlSpec;
+  derive?: undefined;
 };
 ```
 

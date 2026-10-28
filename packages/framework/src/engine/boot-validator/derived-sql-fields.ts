@@ -70,6 +70,7 @@ function validateCondition(site: Site, related: EntityDefinition, condition: Der
         throw new Error(`${site.where}: activeOn field "${field}" must be a date field.`);
       }
     }
+    // skip: activeOn carries no op/value to check
     return;
   }
   requireUsableField(site, related, condition.field, "where field");
@@ -124,11 +125,13 @@ function requireMeasureValueType(
 ): void {
   if (measure.kind === "count") {
     requireValueType(site, def, "number");
+    // skip: count measures no field
     return;
   }
   requireUsableField(site, related, measure.field, "measure field");
   if (measure.kind === "countDistinct") {
     requireValueType(site, def, "number");
+    // skip: countDistinct has no orderBy or label
     return;
   }
   requireUsableField(site, related, measure.orderBy, "measure orderBy");
@@ -138,6 +141,7 @@ function requireMeasureValueType(
       throw new Error(`${site.where}: label: true needs a reference field with a labelField.`);
     }
     requireValueType(site, def, "text");
+    // skip: a label is always text, the measured field's own type does not apply
     return;
   }
   const expected = valueTypeOfField(related, measure.field);
