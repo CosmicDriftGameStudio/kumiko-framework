@@ -667,7 +667,8 @@ export type ReferenceFieldDef = {
    *  entity is a readable label. Fully-qualified QN
    *  ("<feature>:query:<short>"), boot-validated against the registered
    *  handlers; result contract `{ rows: { id, label }[] }`, called with
-   *  `{ limit, search? }` like the default list handler. `id` rather than the
+   *  `{ limit, search? }` like the default list handler, and with `{ limit, ids }`
+   *  for stored values, which should answer exactly those rows. `id` rather than the
    *  `{ value, label }` of `DashboardFilterDefinition.optionsQuery`, because
    *  the stored value here IS the referenced row's id.
    *

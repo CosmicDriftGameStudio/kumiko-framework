@@ -16,7 +16,7 @@ import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import {
   referenceOptionSource,
-  referenceRowsByIdsPayload,
+  storedReferenceRowsPayload,
   withUnlistedSelectedRows,
 } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
@@ -183,14 +183,13 @@ function EmbeddedListFieldInner({
     }),
   );
   // The first options page can miss a stored value; without its row the cell shows no label.
-  // An author `refOptionsQuery` is only contracted for `{ limit, search? }`.
   const storedReferenceQueries = referenceCells.map((cell, idx) => {
     const storedIds = storedCellIds(rows, cell.field);
     // biome-ignore lint/correctness/useHookAtTopLevel: same fixed per-mount hook count as referenceQueries above.
     return useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
       referenceSources[idx]?.queryQn ?? "",
-      referenceRowsByIdsPayload(storedIds, REFERENCE_COMBOBOX_LIMIT),
-      { enabled: cell.refOptionsQuery === undefined && storedIds.length > 0 },
+      storedReferenceRowsPayload(cell, storedIds, REFERENCE_COMBOBOX_LIMIT),
+      { enabled: storedIds.length > 0 },
     );
   });
 

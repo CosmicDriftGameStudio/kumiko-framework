@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useReferenceLookup } from "../hooks/use-reference-lookup.ts";
-import type {
-  PublishedReferenceLookup,
-  ReferenceLookupRequest,
+import {
+  type PublishedReferenceChunk,
+  type ReferenceLookupRequest,
+  referenceChunkKey,
 } from "./render-list-reference-columns.ts";
 
 // Bridge component for each reference column. It is mounted once per
@@ -35,16 +36,19 @@ function ReferenceLookupBridge({
   // "not resolved", whereas an empty published map means "nothing found".
   // Only the latter may display "Unknown".
   const resolved = !lookup.loading && !lookup.failed;
+  const idsKey = referenceChunkKey(ids);
+  // The parent keys this bridge by its ids, so a changed id set remounts it and
+  // useQuery starts loading instead of handing back the previous ids' rows.
   useEffect(() => {
-    if (resolved) onMap(field, chunkIndex, { map: lookup.map, complete: lookup.complete });
-  }, [field, chunkIndex, lookup.map, lookup.complete, resolved, onMap]);
+    if (resolved) onMap(field, chunkIndex, { map: lookup.map, complete: lookup.complete, idsKey });
+  }, [field, chunkIndex, idsKey, lookup.map, lookup.complete, resolved, onMap]);
   return null;
 }
 
 export type ReferenceChunkPublisher = (
   field: string,
   chunkIndex: number,
-  lookup: PublishedReferenceLookup,
+  lookup: PublishedReferenceChunk,
 ) => void;
 
 export function renderReferenceLookupBridges(
@@ -54,7 +58,7 @@ export function renderReferenceLookupBridges(
   return referenceRequests.flatMap((request) =>
     request.idChunks.map((ids, chunkIndex) => (
       <ReferenceLookupBridge
-        key={`${request.field}:${ids[0] ?? ""}`}
+        key={`${request.field}:${referenceChunkKey(ids)}`}
         field={request.field}
         chunkIndex={chunkIndex}
         ids={ids}
