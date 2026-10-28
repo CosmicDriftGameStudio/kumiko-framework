@@ -161,7 +161,7 @@ jobs:
       # helpers/real-providers subpath loads without Bun.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.22.1"
+          node-version: "26.12.1"
 
       - name: Cache Bun
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -216,7 +216,7 @@ jobs:
         # Merge mit dem integration-lcov + Badge-Commit passiert im
         # coverage-badge-Job unten, nachdem beide Jobs fertig sind.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-unit
           path: coverage/unit/lcov.info
@@ -226,7 +226,7 @@ jobs:
         # lcov aus dem dom-Step des "Run tests"-Laufs (bunfig.dom.toml) —
         # einzige Suite, die die tsx-abgedeckten UI-Dateien ausführt.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-dom
           path: coverage/dom/lcov.info
@@ -505,7 +505,7 @@ jobs:
       - name: Upload integration coverage
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-integration
           path: coverage/integration/lcov.info
@@ -673,7 +673,7 @@ jobs:
         # The sample apps write their screenshot specs to $RUNNER_TEMP/screenshots (see above);
         # uploaded even when a suite failed so the shots can be looked at.
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-screenshots-${{ matrix.shard }}
           path: ${{ runner.temp }}/screenshots
@@ -684,7 +684,7 @@ jobs:
       # what a failed spec rendered; the job log has just the locator.
       - name: Upload e2e failure context
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-failure-context-${{ matrix.shard }}
           path: |
@@ -743,12 +743,12 @@ jobs:
         with:
           bun-version: "1.4.4"
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage-unit
           path: coverage/unit
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: die Integration-Coverage-Pass ist selbst schon
         # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
         # dann auf Unit-only zurück statt zu crashen.
@@ -757,7 +757,7 @@ jobs:
           name: coverage-integration
           path: coverage/integration
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: fehlt das Artefakt (alter Run vor dem dom-Split),
         # merged coverage-badge.ts ohne dom-Anteil statt zu crashen.
         continue-on-error: true
@@ -809,7 +809,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.22.1"
+          node-version: "26.12.1"
           registry-url: "https://registry.npmjs.org"
 
       - name: Cache Bun
@@ -834,7 +834,7 @@ jobs:
       # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
       # workspaces, ruft `npm publish --provenance --access public`.
-      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+      - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         id: changesets
         with:
           # changesets/action runs `version:` as a split argv (no shell), so an
