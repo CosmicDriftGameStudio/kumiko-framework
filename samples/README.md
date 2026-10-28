@@ -42,6 +42,7 @@ an open-source statuspage clone built with Kumiko.
 | Pin jobs to deploy lane (`runIn: "api" \| "worker"`), event-triggered fan-out | [recipes/lane-routing](recipes/lane-routing/) | Integration |
 | Register screens + navigation (`r.screen` + `r.nav`) with cross-feature parents | [recipes/screens-nav](recipes/screens-nav/) | Unit |
 | Generate Playwright E2E specs from the registry | [recipes/e2e-generator](recipes/e2e-generator/) | Unit |
+| SQL derived list columns (coalesce, related count/first, money, sort, defaultSort) | [recipes/derived-fields-sql](recipes/derived-fields-sql/) | Integration |
 | Opt-in list table behaviour (remembered state, reset, column picker, density) | [recipes/list-table-options](recipes/list-table-options/) | Unit |
 | Multi-currency money type (global rate table) | [recipes/currencies-global](recipes/currencies-global/) | Integration |
 | Multi-currency money type (per-tenant rate table) | [recipes/currencies-per-tenant](recipes/currencies-per-tenant/) | Integration |

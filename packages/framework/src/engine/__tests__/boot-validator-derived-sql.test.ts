@@ -53,7 +53,7 @@ const related = (
       : never;
     where: never[];
   }>,
-  valueType: "number" | "text" | "date" = "number",
+  valueType: "number" | "text" | "date" | "money" = "number",
 ): DerivedFieldDef =>
   createDerivedField({
     valueType,
@@ -120,6 +120,63 @@ describe("validateSqlDerivedFields", () => {
         n: related({ measure: { kind: "countDistinct", field: "amount" } }),
       }),
     ).toThrow(/measure field "amount".*money/);
+  });
+
+  describe("money", () => {
+    const firstAmount = {
+      kind: "first",
+      field: "amount",
+      orderBy: "rank",
+      direction: "desc",
+    } as const;
+
+    test("accepts related first on a money field with valueType money", () => {
+      expect(() =>
+        validateWith({ rent: related({ measure: firstAmount }, "money") }),
+      ).not.toThrow();
+    });
+
+    test("rejects a money field with another valueType", () => {
+      expect(() => validateWith({ rent: related({ measure: firstAmount }, "number") })).toThrow(
+        /valueType must be "money", got "number"/,
+      );
+    });
+
+    test("rejects valueType money on a non-money measure", () => {
+      expect(() =>
+        validateWith({
+          n: related(
+            { measure: { kind: "first", field: "title", orderBy: "rank", direction: "asc" } },
+            "money",
+          ),
+        }),
+      ).toThrow(/valueType must be "text", got "money"/);
+      expect(() => validateWith({ n: related({}, "money") })).toThrow(
+        /valueType must be "number", got "money"/,
+      );
+    });
+
+    test("rejects label on a money field", () => {
+      expect(() =>
+        validateWith({
+          rent: related({ measure: { ...firstAmount, label: true } }, "money"),
+        }),
+      ).toThrow(/label: true needs a reference field, not money/);
+    });
+
+    test("rejects money in coalesce and valueType money on a JS derive", () => {
+      expect(() =>
+        validateWith({
+          n: createDerivedField({
+            valueType: "money",
+            sql: { kind: "coalesce", fields: ["name"] },
+          }),
+        }),
+      ).toThrow(/valueType must be "text", got "money"/);
+      expect(() =>
+        validateWith({ n: createDerivedField({ valueType: "money", derive: () => 1 }) }),
+      ).toThrow(/needs a sql derived field/);
+    });
   });
 
   test("rejects an encrypted field", () => {

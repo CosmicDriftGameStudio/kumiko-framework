@@ -3359,7 +3359,7 @@ type DerivedSqlSpec =
     where?: DerivedCondition[]; // AND-ed.
   }
 ;
-type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
+type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp" | "money"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
 type JsDerivedFieldDef = {
   valueType: DerivedValueType;
   derive: (row: Readonly<Record<string, unknown>>, ctx: DeriveContext) => unknown; // Pure function of the stored row + clock.

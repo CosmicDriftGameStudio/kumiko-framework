@@ -46,7 +46,7 @@ function requireUsableField(site: Site, entity: EntityDefinition, field: string,
   }
   if (valueTypeOfField(entity, field) === undefined) {
     throw new Error(
-      `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (money and compound types are not supported).`,
+      `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (compound types are not supported; money only as the measure of a related first).`,
     );
   }
   if (holdsCiphertextOrSecret(entity, field)) {
@@ -60,6 +60,24 @@ function requireValueType(site: Site, def: SqlDerivedFieldDef, expected: Derived
   if (def.valueType !== expected) {
     throw new Error(`${site.where}: valueType must be "${expected}", got "${def.valueType}".`);
   }
+}
+
+function requireMoneyMeasure(
+  site: Site,
+  def: SqlDerivedFieldDef,
+  related: EntityDefinition,
+  measure: Extract<DerivedRelatedMeasure, { readonly kind: "first" }>,
+): void {
+  if (measure.label === true) {
+    throw new Error(`${site.where}: label: true needs a reference field, not money.`);
+  }
+  if (holdsCiphertextOrSecret(related, measure.field)) {
+    throw new Error(
+      `${site.where}: measure field "${measure.field}" is encrypted or secret; a SQL derived field would expose or order by it.`,
+    );
+  }
+  requireUsableField(site, related, measure.orderBy, "measure orderBy");
+  requireValueType(site, def, "money");
 }
 
 function validateCondition(site: Site, related: EntityDefinition, condition: DerivedCondition) {
@@ -128,6 +146,11 @@ function requireMeasureValueType(
     // skip: count measures no field
     return;
   }
+  if (measure.kind === "first" && related.fields[measure.field]?.type === "money") {
+    requireMoneyMeasure(site, def, related, measure);
+    // skip: money is checked in full above
+    return;
+  }
   requireUsableField(site, related, measure.field, "measure field");
   if (measure.kind === "countDistinct") {
     requireValueType(site, def, "number");
@@ -178,6 +201,11 @@ export function validateSqlDerivedFields(features: readonly FeatureDefinition[])
     for (const [key, def] of Object.entries(entity.derivedFields ?? {})) {
       const site: Site = { where: `Entity "${entityName}" derived field "${key}"` };
       if (!isSqlDerivedField(def)) {
+        if (def.valueType === "money") {
+          throw new Error(
+            `${site.where}: valueType "money" needs a sql derived field (related first on a money field); a JS derive has no currency column.`,
+          );
+        }
         if ("sortable" in def) {
           throw new Error(
             `${site.where}: sortable needs a sql derived field; a JS derive cannot order in SQL.`,
