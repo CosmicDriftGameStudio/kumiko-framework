@@ -124,7 +124,7 @@ Requires: `delivery`
 
 ## channel-in-app
 
-Persists notifications to an in-app inbox table so users can retrieve them via `handlers.inbox` and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`. Requires `delivery`; no external service needed — messages are stored in the app's own database.
+Persists notifications to an in-app inbox table so users can page through them via `queries.inbox` (cursor, total, parsed `target`) and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`. A notification links to a screen when `data.target` is set with `inAppTarget(screenId, entityId?)`. The renderer shell shows a bell with a live unread badge whenever this feature is mounted. Requires `delivery`; no external service needed — messages are stored in the app's own database.
 
 Category: notifications
 

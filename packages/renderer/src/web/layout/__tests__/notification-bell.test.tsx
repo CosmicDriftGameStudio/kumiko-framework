@@ -200,6 +200,6 @@ describe("NotificationBell", () => {
 
     unread.count = 4;
     act(() => live.emit("channel-in-app:event:delivered"));
-    await screen.findByRole("button", { name: "Notifications, 4 unread" });
+    expect(await screen.findByRole("button", { name: "Notifications, 4 unread" })).toBeTruthy();
   });
 });

@@ -193,6 +193,15 @@ function buildSeries(
   }));
 }
 
+async function resolveReferencedGroupLabels(
+  metric: MetricDefinition,
+  params: MetricRunParams,
+  groups: readonly AggregateRow[],
+): Promise<ReadonlyMap<string, string>> {
+  if (params.referenceLabels === undefined || metric.groupBy === undefined) return new Map();
+  return params.referenceLabels(groups.map((row) => row.keys[0] ?? null));
+}
+
 export async function runMetric(
   db: TenantDb,
   metric: MetricDefinition,
@@ -235,10 +244,7 @@ export async function runMetric(
           ),
         )
       : [];
-  const referencedLabels =
-    params.referenceLabels === undefined || metric.groupBy === undefined
-      ? new Map<string, string>()
-      : await params.referenceLabels(aggregates.groups.map((row) => row.keys[0] ?? null));
+  const referencedLabels = await resolveReferencedGroupLabels(metric, params, aggregates.groups);
   const groupLabelOf = (key: string): string =>
     metric.groupLabels?.[key] ?? referencedLabels.get(key) ?? key;
   const rows = buildRows(metric, aggregates, value, labelOf, groupLabelOf);

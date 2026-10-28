@@ -57,11 +57,13 @@ export function useInAppInbox(open: boolean): InAppInbox {
   const nextCursor = olderCursor === undefined ? (firstPage.data?.nextCursor ?? null) : olderCursor;
 
   const loadMore = useCallback(async (): Promise<void> => {
+    // skip: no older page left
     if (nextCursor === null) return;
     const result = await dispatcher.query<InAppInboxResult>(IN_APP_NOTIFICATION_QUERIES.inbox, {
       limit: IN_APP_INBOX_PAGE_SIZE,
       cursor: nextCursor,
     });
+    // skip: keep the loaded rows, the next click retries
     if (!result.isSuccess) return;
     setOlderRows((previous) => [...previous, ...result.data.rows]);
     setOlderCursor(result.data.nextCursor);

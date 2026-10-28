@@ -76,7 +76,7 @@ function renderTab(tab: string, dispatcher: Dispatcher): void {
 describe("projectionDetail tabs: description per tab", () => {
   test("a fields tab shows its description", async () => {
     renderTab("overview", dispatcherWithPayments([]));
-    await waitFor(() => screen.getByText("Master data of the rental."));
+    expect(await screen.findByText("Master data of the rental.")).toBeTruthy();
   });
 
   test("a groups tab shows its description", async () => {
@@ -93,6 +93,6 @@ describe("projectionDetail tabs: description per tab", () => {
 
   test("an empty relatedList tab still shows its description", async () => {
     renderTab("payments", dispatcherWithPayments([]));
-    await waitFor(() => screen.getByText("Everything the tenant paid so far."));
+    expect(await screen.findByText("Everything the tenant paid so far.")).toBeTruthy();
   });
 });
