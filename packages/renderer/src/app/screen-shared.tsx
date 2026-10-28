@@ -13,7 +13,7 @@ import type { Dispatcher, Translate } from "../headless/index.ts";
 import { applyFormatSpec } from "../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import { type ListSort, PAGE_SIZE_OPTIONS } from "../hooks/use-list-url-state.ts";
-import { referenceLookupSource } from "../hooks/use-reference-lookup.ts";
+import { referenceLookupSource, referenceRowsByIdsPayload } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import type { ResolvedSuccessLink } from "./action-form-support.tsx";
@@ -251,16 +251,9 @@ export async function resolveSuccessMessageParams(
         target.entityName,
         def.labelField ?? "id",
       );
-      // Ask for exactly the chosen record so it cannot fall beyond the lookup cap: `ids` is the
-      // by-id input of directory sources, `filters` that of entity list handlers. A source that
-      // knows neither returns its capped list and the scan below still finds the row if present.
       const lookup = await dispatcher.query<{ rows: ReadonlyArray<Record<string, unknown>> }>(
         queryQn,
-        {
-          limit: REFERENCE_LIST_LOOKUP_LIMIT,
-          ids: [raw],
-          filters: [{ field: "id", op: "in", value: [raw] }],
-        },
+        referenceRowsByIdsPayload([raw], REFERENCE_LIST_LOOKUP_LIMIT),
       );
       if (!lookup.isSuccess) return;
       const row = lookup.data.rows.find((candidate) => candidate["id"] === raw);

@@ -61,6 +61,21 @@ export function referenceOptionSource(
   return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
 }
 
+// Asks a label source for exactly these rows, so a stored id cannot fall beyond a
+// lookup cap: `ids` is the by-id input of directory sources, `filters` that of entity
+// list handlers. Both only narrow the caller's own read scope. A hand-written handler
+// that knows neither still answers its first `capLimit` rows, as before.
+export function referenceRowsByIdsPayload(
+  ids: readonly string[],
+  capLimit: number,
+): Record<string, unknown> {
+  return {
+    limit: Math.max(ids.length, capLimit),
+    ids,
+    filters: [{ field: "id", op: "in", value: ids }],
+  };
+}
+
 // A page with a continuation cursor is only a prefix of the referenced rows,
 // so a missing id in it proves nothing about the row's existence.
 export function isCompleteRowPage(data: { readonly nextCursor?: string | null } | null): boolean {

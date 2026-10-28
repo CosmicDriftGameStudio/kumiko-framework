@@ -10,6 +10,7 @@ import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
+import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
@@ -19,6 +20,28 @@ import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
 
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+// More properties than the reference lookup's first page holds; the session points at the last one.
+const propertyRows = Array.from({ length: REFERENCE_COMBOBOX_LIMIT + 10 }, (_, index) => ({
+  id: `prop-${index + 1}`,
+  name: `Property ${index + 1}`,
+}));
+const lastPropertyId = propertyRows[propertyRows.length - 1]?.id;
+
+// Mirrors the entity list handler: an `id in` filter narrows, `limit` caps the page.
+function answerPropertyList(payload: unknown): Record<string, unknown> {
+  const { limit, filters } = payload as {
+    readonly limit: number;
+    readonly filters?: readonly { field: string; op: string; value: readonly string[] }[];
+  };
+  const idFilter = filters?.find((filter) => filter.field === "id" && filter.op === "in");
+  const matching =
+    idFilter === undefined
+      ? propertyRows
+      : propertyRows.filter((row) => idFilter.value.includes(row.id));
+  const page = matching.slice(0, limit);
+  return { rows: page, nextCursor: matching.length > limit ? "next" : null };
+}
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -53,12 +76,21 @@ const testPrimitives: CorePrimitives = {
 function stubDispatcher(): Dispatcher {
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string) => {
+    query: (async (type: string, payload: unknown) => {
       if (type === "sessions:query:session:detail") {
         return {
           isSuccess: true,
-          data: { id: "sess-1", userId: "u-1", actedBy: SYSTEM_USER_ID, ip: "10.0.0.1" },
+          data: {
+            id: "sess-1",
+            userId: "u-1",
+            actedBy: SYSTEM_USER_ID,
+            ip: "10.0.0.1",
+            propertyId: lastPropertyId,
+          },
         };
+      }
+      if (type === "property:query:property:list") {
+        return { isSuccess: true, data: answerPropertyList(payload) };
       }
       // user:user resolves through the tenant-scoped member directory, not the
       // SystemAdmin-only user:query:user:list a TenantAdmin can't call.
@@ -94,6 +126,7 @@ const detailScreen: ProjectionDetailScreenDefinition = {
           // write has no read_users row for the bulk lookup to find.
           { field: "actedBy", refEntity: "user:user", refLabelField: "displayName" },
           "ip",
+          { field: "propertyId", refEntity: "property:property", refLabelField: "name" },
         ],
       },
     ],
@@ -152,6 +185,16 @@ describe("projectionDetail reference field resolves labels", () => {
 
     await waitFor(() => {
       expect(getByTestId("field-value-actedBy").textContent).toBe("System");
+    });
+  });
+
+  test("a referenced row beyond the lookup's first page still shows its label", async () => {
+    const { getByTestId } = renderDetailScreen();
+
+    await waitFor(() => {
+      expect(getByTestId("field-value-propertyId").textContent).toBe(
+        `Property ${REFERENCE_COMBOBOX_LIMIT + 10}`,
+      );
     });
   });
 

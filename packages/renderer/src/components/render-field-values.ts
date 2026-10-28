@@ -76,6 +76,16 @@ export function stringArrayOf(value: unknown): readonly string[] {
     : [];
 }
 
+// The ids a reference field currently points at: the array of a `refMultiple`
+// field, else the single non-empty id.
+export function selectedReferenceIds(field: {
+  readonly value: unknown;
+  readonly refMultiple?: boolean;
+}): readonly string[] {
+  if (field.refMultiple === true) return stringArrayOf(field.value);
+  return typeof field.value === "string" && field.value !== "" ? [field.value] : [];
+}
+
 // The combobox cannot disable a single option, so removals of disabled options
 // the form already holds are merged back.
 export function withPinnedValues(
