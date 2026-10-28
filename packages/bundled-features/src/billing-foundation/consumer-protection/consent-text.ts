@@ -45,14 +45,12 @@ const DOCUMENTS_ACKNOWLEDGEMENT_TEXTS: Readonly<
 > = {
   de: {
     withRefund:
-      "Ich habe die AGB, die Erstattungsrichtlinie und die Datenschutzerklärung gelesen. Mit den AGB und der Erstattungsrichtlinie bin ich einverstanden.",
-    withoutRefund:
-      "Ich habe die AGB und die Datenschutzerklärung gelesen. Mit den AGB bin ich einverstanden.",
+      "Ich habe die AGB und die Erstattungsrichtlinie gelesen und bin mit ihnen einverstanden.",
+    withoutRefund: "Ich habe die AGB gelesen und bin mit ihnen einverstanden.",
   },
   en: {
-    withRefund:
-      "I have read the Terms, the Refund Policy and the Privacy Policy, and I agree to the Terms and the Refund Policy.",
-    withoutRefund: "I have read the Terms and the Privacy Policy, and I agree to the Terms.",
+    withRefund: "I have read and agree to the Terms and the Refund Policy.",
+    withoutRefund: "I have read and agree to the Terms.",
   },
 };
 
