@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.398.0
+
+### Patch Changes
+
+- 0fe069a: Update jose to ^6.2.13.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: jose updated to 6.2.13
+  detail: Dependency bump of jose in framework and bundled-features. No API change for consumers.
+  -->
+- Updated dependencies [1b96c8c]
+  - @cosmicdrift/kumiko-types@0.398.0
+
 ## 0.397.0
 
 ### Minor Changes
