@@ -374,6 +374,7 @@ type EagerLoadEntityResolver = (entityName: string) => EntityDefinition | undefi
 type EagerLoadViewer = {
   user: SessionUser;
   parentVisibility: ParentVisibilityOption;
+  resolveTable?: (entityName: string) => ReturnType<typeof buildEntityTable>;
 };
 ```
 
@@ -3155,14 +3156,18 @@ type ListRuntimeOptions = {
   referenceSearch?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable?: (entityName: string) => SchemaTable;
   };
   referenceSort?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable?: (entityName: string) => SchemaTable;
   };
   parentVisibility?: ParentVisibilityOption;
   derivedSql?: {
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable: (entityName: string) => SchemaTable;
+    canReadEntity: (entityName: string) => boolean;
     today: string;
     now: string;
   };

@@ -175,6 +175,8 @@ export const ticketEntity = createEntity({
     openedOn: createDateField({ required: true }),
     cost: createMoneyField(),
   },
+  // The sortable derived columns of the building run a subquery per row over this column.
+  indexes: [{ columns: ["buildingId"] }],
 });
 
 export const buildingEntity = createEntity({
