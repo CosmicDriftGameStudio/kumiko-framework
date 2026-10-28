@@ -198,6 +198,8 @@ The field's own `accept` and `maxSize` apply, and `maxSize` raises the request
 body limit like an entity field does. The route answers `403` before any byte is
 written when the caller may not submit the form: the screen's `access` (if set)
 and the access of its `handler` must both pass. Anonymous callers get no upload.
+
+Anonymous visitors get `401` on every upload unless the target is an entity file field with `anonymousUpload: true`, sent without `entityId` and `actionForm`: that stores a pending upload the app binds itself.
 An unknown screen, a screen of another type, a missing or non-file field and a
 malformed QN answer `400`.
 

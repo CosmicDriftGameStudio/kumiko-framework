@@ -949,6 +949,9 @@ export type FileFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly maxSize?: string;
+  /** Anonymous visitors may upload into this field as a pending upload (no entityId); the app
+   *  binds the file itself. Default off. */
+  readonly anonymousUpload?: boolean;
   readonly accept?: readonly string[];
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
@@ -958,6 +961,9 @@ export type ImageFieldDef = {
   readonly description?: string;
   readonly required?: boolean;
   readonly maxSize?: string;
+  /** Anonymous visitors may upload into this field as a pending upload (no entityId); the app
+   *  binds the file itself. Default off. */
+  readonly anonymousUpload?: boolean;
   readonly accept?: readonly string[];
   /** Named derived versions of the uploaded image. The name is the only
    *  thing a caller may ask for — the spec lives here, never in a request,
@@ -973,6 +979,9 @@ export type FilesFieldDef = {
   readonly type: "files";
   readonly description?: string;
   readonly maxSize?: string;
+  /** Anonymous visitors may upload into this field as a pending upload (no entityId); the app
+   *  binds the file itself. Default off. */
+  readonly anonymousUpload?: boolean;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
   /** `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a
@@ -986,6 +995,9 @@ export type ImagesFieldDef = {
   readonly type: "images";
   readonly description?: string;
   readonly maxSize?: string;
+  /** Anonymous visitors may upload into this field as a pending upload (no entityId); the app
+   *  binds the file itself. Default off. */
+  readonly anonymousUpload?: boolean;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
   /** `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a

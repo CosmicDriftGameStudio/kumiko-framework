@@ -388,3 +388,80 @@ describe("upload with an actionForm that is open to anonymous callers", () => {
     },
   );
 });
+
+describe("anonymous upload into a field with anonymousUpload", () => {
+  const optInFeature = defineFeature("optin", (r) => {
+    r.entity({
+      name: "photo",
+      table: "optin_photos",
+      fields: {
+        open: createFileField({ anonymousUpload: true, accept: ["pdf"] }),
+        closed: createFileField({ accept: ["pdf"] }),
+      },
+    });
+    r.writeHandler({
+      name: "contact",
+      schema: z.object({}),
+      access: { roles: ["anonymous"] },
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    r.screen({
+      id: "contact-form",
+      type: "actionForm",
+      dormant: true,
+      handler: "optin:write:contact",
+      fields: { docs: createFilesField({ accept: ["pdf"] }) },
+      layout: { sections: [{ fields: ["docs"] }] },
+    });
+  });
+
+  let optInStack: TestStack;
+  beforeAll(async () => {
+    patchFileInstanceofForBunTest();
+    optInStack = await setupTestStack({
+      features: [createFilesFeature(), optInFeature],
+      files: { storageProvider: createInMemoryFileProvider() },
+      anonymousAccess: { defaultTenantId: testTenantId(1) },
+    });
+  });
+  afterAll(async () => {
+    await optInStack.cleanup();
+  });
+
+  async function anonymousUpload(fields: Record<string, string>): Promise<Response> {
+    const fd = new FormData();
+    for (const [key, value] of Object.entries(fields)) fd.append(key, value);
+    fd.append("file", new File([Buffer.from(PDF_BYTES)], "doc.pdf", { type: "application/pdf" }));
+    const { body, contentType } = await buildMultipartBody(fd);
+    return optInStack.app.request("/api/files", {
+      method: "POST",
+      headers: { "Content-Type": contentType },
+      body,
+    });
+  }
+
+  test("a pending upload without entityId is stored", async () => {
+    const res = await anonymousUpload({ entityType: "photo", fieldName: "open" });
+    expect(res.status).toBe(201);
+    const stored = (await res.json()) as { id: string };
+    const [row] = await selectMany(optInStack.db, fileRefsTable, { id: stored.id });
+    expect(row).toMatchObject({ entityType: "photo", fieldName: "open", entityId: null });
+  });
+
+  test.each([
+    ["a field without the opt-in", { entityType: "photo", fieldName: "closed" }],
+    [
+      "an entityId",
+      {
+        entityType: "photo",
+        fieldName: "open",
+        entityId: "11111111-2222-4333-8444-555555555555",
+      },
+    ],
+    ["an actionForm", { actionForm: "optin:screen:contact-form", fieldName: "docs" }],
+    ["no target", {}],
+  ])("%s gets 401", async (_name, fields) => {
+    const res = await anonymousUpload(fields);
+    expect(res.status).toBe(401);
+  });
+});
