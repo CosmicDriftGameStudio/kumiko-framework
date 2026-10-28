@@ -64,7 +64,7 @@
         "hono": "^4.13.14",
         "imapflow": "^1.7.8",
         "ioredis": "^5.10.1",
-        "jose": "^6.2.3",
+        "jose": "^6.2.13",
         "lucide-react": "^1.14.0",
         "mailparser": "^3.12.4",
         "marked": "^18.0.3",
@@ -213,7 +213,7 @@
         "hono": "^4.13.14",
         "i18next": "^26.1.0",
         "ioredis": "^5.10.1",
-        "jose": "^6.2.3",
+        "jose": "^6.2.13",
         "pino": "^10.3.1",
         "temporal-polyfill": "^0.3.2",
         "uuid": "^14.0.0",
@@ -2478,7 +2478,7 @@
 
     "jju": ["jju@1.4.0", "", {}, "sha512-8wb9Yw966OSxApiCt0K3yNJL8pnNeIv+OEq2YMidz4FKP6nonSRoOXc80iXY4JaN2FC11B9qsNmDsm+ZOfMROA=="],
 
-    "jose": ["jose@6.2.3", "", {}, "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="],
+    "jose": ["jose@6.2.13", "", {}, "sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ=="],
 
     "joycon": ["joycon@3.1.1", "", {}, "sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw=="],
 

@@ -182,7 +182,7 @@
     "hono": "^4.13.14",
     "imapflow": "^1.7.8",
     "ioredis": "^5.10.1",
-    "jose": "^6.2.3",
+    "jose": "^6.2.13",
     "lucide-react": "^1.14.0",
     "mailparser": "^3.12.4",
     "marked": "^18.0.3",
