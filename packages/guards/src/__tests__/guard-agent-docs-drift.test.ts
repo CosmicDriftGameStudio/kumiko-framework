@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { AGENT_DOCS_DIR, renderAgentDocs, writeAgentDocs } from "../_lib/agent-docs";
 import { check } from "../guard-agent-docs-drift";
+import { API_ENTRY_FIXTURE_FILES } from "./agent-docs-entry-fixture";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
 const FEATURE_MANIFEST_PATH = "samples/apps/use-all-bundled/feature-manifest.json";
@@ -27,7 +28,7 @@ function manifestWith(description: string): string {
 }
 
 const BASE_FILES: Record<string, string> = {
-  "packages/framework/package.json": JSON.stringify({ name: "@cosmicdrift/kumiko-framework" }),
+  ...API_ENTRY_FIXTURE_FILES,
   "packages/framework/AGENTS.md": "Start with `agents/features.md`.\n",
   [FEATURE_MANIFEST_PATH]: manifestWith("Does a demo thing."),
   "samples/recipes/demo/package.json": JSON.stringify({ description: "Demo recipe." }),
@@ -83,7 +84,7 @@ describe("agent-docs-drift guard", () => {
       const outcome = await runCheck(root);
       expect(outcome.violations).toEqual([]);
       expect(outcome.notApplicable).toBe(false);
-      expect(outcome.matchedFiles).toBe(4);
+      expect(outcome.matchedFiles).toBe(17);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -121,7 +122,10 @@ describe("agent-docs-drift guard", () => {
       writeAgentDocs(root);
       overwrite(root, FEATURE_MANIFEST_PATH, manifestWith("Changed description."));
       const stale = await runCheck(root);
-      expect(stale.violations.map((v) => v.file)).toEqual([`${AGENT_DOCS_DIR}/features.md`]);
+      expect(stale.violations.map((v) => v.file)).toEqual([
+        `${AGENT_DOCS_DIR}/features-index.md`,
+        `${AGENT_DOCS_DIR}/features.md`,
+      ]);
       writeAgentDocs(root);
       expect((await runCheck(root)).violations).toEqual([]);
     } finally {

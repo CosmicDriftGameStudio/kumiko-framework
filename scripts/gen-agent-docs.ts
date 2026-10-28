@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // @runtime tooling
-// Regenerates packages/framework/agents/ (feature, widget and example indexes
-// shipped in the framework package). The agent-docs-drift guard fails when
+// Regenerates packages/framework/agents/ (feature, API, widget and example
+// indexes shipped in the framework package). The agent-docs-drift guard fails when
 // the committed files differ from this output.
 import { join } from "node:path";
 import { AGENT_DOCS_DIR, writeAgentDocs } from "@cosmicdrift/kumiko-guards";

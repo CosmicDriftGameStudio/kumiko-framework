@@ -9,22 +9,31 @@ not exist in your version:
 
 | File | What it holds |
 | --- | --- |
-| `agents/features.md` | Every bundled feature: name, purpose, config keys, dependencies |
+| `agents/features-index.md` | One line per bundled feature: name, purpose, required features |
+| `agents/features.md` | Every bundled feature in detail: purpose, config keys, secrets, dependencies, APIs |
+| `agents/api.md` | Index of the API reference: one file per entry point an app imports |
+| `agents/api/<entry>.md` | Signatures of one entry point; options and screen types as property lists |
+| `agents/api/types.md` | Types the entry points use but do not export, such as nested option shapes |
 | `agents/widgets.md` | Every value export of `@cosmicdrift/kumiko-renderer/web` with its short description |
 | `agents/examples.md` | Index of the worked examples, one per concept |
 | `agents/examples/<name>.md` | One tested sample app: README plus every source and test file |
 
 The paths are relative to this file. From an app root they live under
-`node_modules/@cosmicdrift/kumiko-framework/`. Type signatures are in
-`dist/*.d.ts` of each package; this file does not repeat them.
+`node_modules/@cosmicdrift/kumiko-framework/`. For signatures and option
+types read `agents/api.md` and the file it points to. Do not read
+`dist/*.d.ts` in `node_modules`; the API files hold the same public
+signatures at a fraction of the size.
 
 Order of work for a new feature:
 
-1. Search `agents/features.md` for a bundled feature that already does it.
+1. Search `agents/features-index.md` for a bundled feature that already does
+   it. Open `agents/features.md` only for the feature you picked.
 2. Find the closest example in `agents/examples.md` and read it fully.
-3. Build the feature with the declarative building blocks below.
-4. Write an integration test against the real stack.
-5. Run boot validation and the tests. Boot errors name the fix; apply it.
+3. Look up every function, screen, column, action and field option you use in
+   `agents/api.md` instead of `dist/*.d.ts`.
+4. Build the feature with the declarative building blocks below.
+5. Write an integration test against the real stack.
+6. Run boot validation and the tests. Boot errors name the fix; apply it.
 
 ## Mental model
 
@@ -287,7 +296,7 @@ produces code that compiles and then fails in production.
 
 ## I need X, use Y
 
-Before building anything here, search `agents/features.md`: auth, tenants,
+Before building anything here, search `agents/features-index.md`: auth, tenants,
 mail, files, jobs, billing, audit, notifications and GDPR flows already exist
 as bundled features.
 
@@ -333,7 +342,8 @@ as bundled features.
 | Multi-step background flows | Workflow engine | `agents/examples/workflow-engine.md` |
 | A mount invariant for my feature | `r.bootCheck` | `agents/examples/boot-check.md` |
 | A widget for a custom screen | Search by concern | `agents/widgets.md` |
-| A bundled feature and its config | Search by name or purpose | `agents/features.md` |
+| A bundled feature and its config | Search by name or purpose | `agents/features-index.md`, then `agents/features.md` |
+| The options of a function, screen or field | Search by name | `agents/api.md` |
 
 ## Reading an example
 
@@ -350,15 +360,19 @@ isolate tests with one tenant each.
 
 ## Package entry points
 
-Import only from these subpaths of `@cosmicdrift/kumiko-framework`. Deep
-imports into `src/` or `dist/` break on the next release.
+Import only from these entry points. Deep imports into `src/` or `dist/`
+break on the next release. Each one has its signatures in the file named in
+`agents/api.md`.
 
-| Subpath | Use it for |
+| Entry point | Use it for |
 | --- | --- |
-| `/engine` | `defineFeature`, `createEntity`, field factories, handler helpers, executors, events |
-| `/errors` | Typed failures and error helpers |
-| `/stack` | Test stack, `TestUsers`, `createTestUser` |
-| `/testing` | Assertion helpers such as `expectErrorIncludes` |
-| `/ui-types` | Screen definition types (`EntityListScreenDefinition`, ...) |
-| `/db` | `buildEntityTable` and database helpers for tests and migrations |
-| `/event-store` | Event store helpers |
+| `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field factories, handler helpers, executors, events |
+| `@cosmicdrift/kumiko-framework/errors` | Typed failures and error helpers |
+| `@cosmicdrift/kumiko-framework/ui-types` | Screen definition types (`EntityListScreenDefinition`, ...) |
+| `@cosmicdrift/kumiko-framework/db` | `buildEntityTable` and database helpers for tests and migrations |
+| `@cosmicdrift/kumiko-framework/event-store` | Event store helpers |
+| `@cosmicdrift/kumiko-framework/seeding` | `TestUsers`, `createTestUser`, seed helpers |
+| `@cosmicdrift/kumiko-renderer/web` | Widgets, hooks and the web app shell |
+| `@cosmicdrift/kumiko-dev-server/testing` | `setupAppTestStack`, `seedTenant` for app integration tests |
+| `@cosmicdrift/kumiko-testing/stack` | `setupTestStack`, the stack the samples use |
+| `@cosmicdrift/kumiko-testing/helpers` | Assertion helpers such as `expectErrorIncludes` |

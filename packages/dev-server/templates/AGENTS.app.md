@@ -3,7 +3,7 @@
 {{productName}} is built on Kumiko. The framework guide for coding agents ships with the installed package and matches its version:
 
 - `node_modules/@cosmicdrift/kumiko-framework/AGENTS.md`: start here.
-- `node_modules/@cosmicdrift/kumiko-framework/agents/`: generated indexes of bundled features, widgets and tested examples.
+- `node_modules/@cosmicdrift/kumiko-framework/agents/`: generated feature index, API reference (read it instead of `dist/*.d.ts`), widgets and tested examples.
 
 Read the framework guide before you add or change a feature. The sections below are specific to this app.
 

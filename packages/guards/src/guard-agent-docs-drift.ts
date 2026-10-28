@@ -2,7 +2,8 @@
 /**
  * Guard: the generated agent docs under `packages/framework/agents/` must
  * match what `bun run gen:agent-docs` renders from the current sources
- * (feature manifest, renderer web exports, sample recipes), and every
+ * (feature manifest, public entry-point signatures, renderer web exports,
+ * sample recipes), and every
  * `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md`
  * points at must exist in that generated set.
  *
