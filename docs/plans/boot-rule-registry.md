@@ -1,6 +1,7 @@
 ---
 status: in-progress
 verified: 2026-10-28
+issue: kumiko-framework#4124
 next: Runde 1 (S1 Sammler und Phasen, S3 validate-Ausgabe) in fw-next bauen, dann alle Apps messen
 ---
 
