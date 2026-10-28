@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { type ConsumerProtectionOptions, isLegalLinkSet, type LegalLinkSet } from "../types.ts";
 import type { ConsentLocale } from "../web/consumer-protection/consent-locale.ts";
 
 export {
@@ -39,14 +40,52 @@ export const CONSENT_TEXTS: Readonly<Record<ConsentLocale, ConsentTexts>> = {
   },
 };
 
+const DOCUMENTS_ACKNOWLEDGEMENT_TEXTS: Readonly<
+  Record<ConsentLocale, { readonly withRefund: string; readonly withoutRefund: string }>
+> = {
+  de: {
+    withRefund:
+      "Ich habe die AGB, die Erstattungsrichtlinie und die Datenschutzerklärung gelesen. Mit den AGB und der Erstattungsrichtlinie bin ich einverstanden.",
+    withoutRefund:
+      "Ich habe die AGB und die Datenschutzerklärung gelesen. Mit den AGB bin ich einverstanden.",
+  },
+  en: {
+    withRefund:
+      "I have read the Terms, the Refund Policy and the Privacy Policy, and I agree to the Terms and the Refund Policy.",
+    withoutRefund: "I have read the Terms and the Privacy Policy, and I agree to the Terms.",
+  },
+};
+
+export function legalLinksPerLocale(
+  legalLinks: ConsumerProtectionOptions["legalLinks"],
+): Readonly<Record<ConsentLocale, LegalLinkSet>> {
+  return isLegalLinkSet(legalLinks) ? { de: legalLinks, en: legalLinks } : legalLinks;
+}
+
+/** The documents checkbox text for a locale, or undefined when the app did not
+ *  opt in. The variant follows whether that locale has a refund link. */
+export function documentsAcknowledgementTextFor(
+  options: ConsumerProtectionOptions,
+  locale: ConsentLocale,
+): string | undefined {
+  if (!options.documentsAcknowledgement) return undefined;
+  const texts = DOCUMENTS_ACKNOWLEDGEMENT_TEXTS[locale];
+  return legalLinksPerLocale(options.legalLinks)[locale].refund !== undefined
+    ? texts.withRefund
+    : texts.withoutRefund;
+}
+
 const CONSENT_TEXT_VERSION_LENGTH = 16;
 
-export function consentTextVersion(locale: ConsentLocale): string {
+// The documents text joins the hash only when shown, so apps without the opt-in keep their version.
+export function consentTextVersion(
+  locale: ConsentLocale,
+  documentsAcknowledgementText?: string,
+): string {
   const { earlyPerformance, withdrawalLoss } = CONSENT_TEXTS[locale];
-  return createHash("sha256")
-    .update(`${earlyPerformance}\n${withdrawalLoss}`)
-    .digest("hex")
-    .slice(0, CONSENT_TEXT_VERSION_LENGTH);
+  const hash = createHash("sha256").update(`${earlyPerformance}\n${withdrawalLoss}`);
+  if (documentsAcknowledgementText !== undefined) hash.update(`\n${documentsAcknowledgementText}`);
+  return hash.digest("hex").slice(0, CONSENT_TEXT_VERSION_LENGTH);
 }
 
 export function submitMessageFor(locale: ConsentLocale, mode: "subscription" | "payment"): string {

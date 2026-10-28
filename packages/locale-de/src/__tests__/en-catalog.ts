@@ -320,6 +320,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.consent.cancelAnytime":
     "You can cancel at any time, effective at the end of the current period.",
   "billing-foundation.consent.link.privacy": "Privacy policy",
+  "billing-foundation.consent.link.refund": "Refund policy",
   "billing-foundation.consent.link.terms": "Terms",
   "billing-foundation.consent.link.withdrawal": "Withdrawal policy",
   "billing-foundation.consent.order": "Order with obligation to pay",

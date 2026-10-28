@@ -352,6 +352,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "billing-foundation.consent.cancelAnytime":
     "Vous pouvez résilier à tout moment, avec effet à la fin de la période en cours.",
   "billing-foundation.consent.link.privacy": "Politique de confidentialité",
+  "billing-foundation.consent.link.refund": "Politique de remboursement",
   "billing-foundation.consent.link.terms": "Conditions",
   "billing-foundation.consent.link.withdrawal": "Politique de rétractation",
   "billing-foundation.consent.order": "Commande avec obligation de paiement",

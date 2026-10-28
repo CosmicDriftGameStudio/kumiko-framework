@@ -12,6 +12,7 @@ type ConsumerProtectionView = NonNullable<BillingPlansResult["consumerProtection
 export type CheckoutConsentPayload = {
   readonly earlyPerformanceRequested: true;
   readonly withdrawalLossAcknowledged: true;
+  readonly documentsAcknowledged?: true;
   readonly consentTextVersion: string;
   readonly locale: string;
 };
@@ -61,6 +62,7 @@ export function CheckoutConsentDialog({
   const t = useTranslation();
   const uiLocale = useLocale().locale();
   const { Modal, Text, Field, Input, Button, Link, Banner } = usePrimitives();
+  const [documentsAcknowledged, setDocumentsAcknowledged] = useState(false);
   const [earlyPerformance, setEarlyPerformance] = useState(false);
   const [withdrawalLoss, setWithdrawalLoss] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +71,10 @@ export function CheckoutConsentDialog({
   const consentLocale = resolveConsentLocale(uiLocale);
   const texts = consumerProtection?.consentTexts[consentLocale];
   const legalLinks = consumerProtection?.legalLinks[consentLocale];
-  const consentGiven = consumerProtection === undefined || (earlyPerformance && withdrawalLoss);
+  const documentsRequired = texts?.documentsAcknowledgement !== undefined;
+  const consentGiven =
+    consumerProtection === undefined ||
+    (earlyPerformance && withdrawalLoss && (!documentsRequired || documentsAcknowledged));
 
   async function order(): Promise<void> {
     setSubmitting(true);
@@ -80,6 +85,7 @@ export function CheckoutConsentDialog({
         : {
             earlyPerformanceRequested: true,
             withdrawalLossAcknowledged: true,
+            ...(documentsRequired && { documentsAcknowledged: true }),
             consentTextVersion: texts.consentTextVersion,
             locale: consentLocale,
           },
@@ -88,6 +94,7 @@ export function CheckoutConsentDialog({
     setSubmitting(false);
     setErrorText(t(result.error.i18nKey, result.error.i18nParams));
     if (result.error.code === CONSENT_TEXT_OUTDATED_CODE) {
+      setDocumentsAcknowledged(false);
       setEarlyPerformance(false);
       setWithdrawalLoss(false);
       onConsentTextOutdated();
@@ -146,10 +153,27 @@ export function CheckoutConsentDialog({
             <Link href={legalLinks.privacy} target="_blank">
               {t("billing-foundation.consent.link.privacy")}
             </Link>
+            {legalLinks.refund !== undefined && (
+              <Link href={legalLinks.refund} target="_blank">
+                {t("billing-foundation.consent.link.refund")}
+              </Link>
+            )}
           </div>
         )}
         {texts !== undefined && (
           <>
+            {texts.documentsAcknowledgement !== undefined && (
+              <Field id="consent-documents" label={texts.documentsAcknowledgement} layout="inline">
+                <Input
+                  kind="boolean"
+                  id="consent-documents"
+                  name="consent-documents"
+                  value={documentsAcknowledged}
+                  onChange={setDocumentsAcknowledged}
+                  disabled={submitting}
+                />
+              </Field>
+            )}
             <Field id="consent-early-performance" label={texts.earlyPerformance} layout="inline">
               <Input
                 kind="boolean"

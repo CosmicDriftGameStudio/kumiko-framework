@@ -15,7 +15,8 @@ evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, term
 - `termsTextBlock`: slug of a `text-block` in `template-resolver`. It is read from the system tenant, so a tenant cannot shadow it. Its content hash is stored with every consent.
 - `vatNote`: per-locale VAT note, at least `de` and `en`.
 - `operatorEmail`: receives notices for withdrawals and extraordinary terminations.
-- `legalLinks`: `{ terms, withdrawal, privacy }` for all locales, or one such set per locale (`de` and `en` both required). Values are root-relative paths or absolute https URLs.
+- `legalLinks`: `{ terms, withdrawal, privacy, refund? }` for all locales, or one such set per locale (`de` and `en` both required). Values are root-relative paths or absolute https URLs. A set `refund` link is shown next to the others.
+- `documentsAcknowledgement`: `true` adds a required first checkbox "documents read and accepted" (terms and privacy, plus the refund policy when a `refund` link is set for the locale). Off by default. The text joins the `consentTextVersion` only when on, the consent payload then needs `documentsAcknowledged: true` (else 422 `consent_required`), and the recorded consent stores the flag.
 - `terminationScope`: `"tenant-host"` (default) or `"platform"`. See below.
 - `oneOffItemLabel(ctx, priceId)`: names the item of a one-off payment for the consent record and the confirmation mail. The key resolves through the registry i18n, so qualify it with the registering feature.
 - `providerTexts`: texts per provider name, see below.

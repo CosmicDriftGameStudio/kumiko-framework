@@ -139,6 +139,7 @@ export const checkoutConsentRecordedPayloadSchema = z.object({
   interval: z.string().nullable(),
   intervalCount: z.number().nullable(),
   consentTextVersion: z.string().min(1).max(64),
+  documentsAcknowledged: z.boolean().optional(),
   termsHash: z.string().length(64),
   termsTemplateVersion: z.number(),
   locale: z.string().min(2).max(35),

@@ -459,6 +459,8 @@ export type LegalLinkSet = {
   readonly terms: string;
   readonly withdrawal: string;
   readonly privacy: string;
+  /** Link to the refund policy; shown next to the other links when set. */
+  readonly refund?: string;
 };
 
 export function isLegalLinkSet(
@@ -510,6 +512,9 @@ export type ConsumerProtectionOptions = {
   /** Root-relative paths or absolute https URLs. One set for every locale, or
    *  one set per consent locale (`de` and `en` required). */
   readonly legalLinks: LegalLinkSet | Readonly<Record<ConsentLocale, LegalLinkSet>>;
+  /** Adds a required first checkbox "documents read and accepted" (terms, privacy,
+   *  and the refund policy when `legalLinks.refund` is set). Off by default. */
+  readonly documentsAcknowledgement?: boolean;
 };
 
 export type OneOffCheckoutRequest = {
@@ -621,6 +626,8 @@ export type BillingPlansResult = {
         {
           readonly earlyPerformance: string;
           readonly withdrawalLoss: string;
+          /** Present only when `documentsAcknowledgement` is on. */
+          readonly documentsAcknowledgement?: string;
           readonly consentTextVersion: string;
         }
       >

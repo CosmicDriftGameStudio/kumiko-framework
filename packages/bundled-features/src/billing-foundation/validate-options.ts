@@ -96,7 +96,9 @@ function validatePerLocaleLegalLinks(
 
 function validateLegalLinkSet(set: LegalLinkSet, path: string): void {
   for (const [key, link] of Object.entries(set)) {
-    if (!isRootRelativeOrHttpsUrl(link)) {
+    // skip: refund is optional
+    if (key === "refund" && link === undefined) continue;
+    if (typeof link !== "string" || !isRootRelativeOrHttpsUrl(link)) {
       throw new Error(
         `createBillingFoundationFeature: consumerProtection.${path}.${key} "${link}" must be a root-relative path ("/..." not "//") or an absolute https URL.`,
       );

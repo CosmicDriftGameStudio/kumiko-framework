@@ -335,6 +335,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.consent.cancelAnytime":
     "Du kannst jederzeit zum Ende des laufenden Zeitraums kündigen.",
   "billing-foundation.consent.link.privacy": "Datenschutzerklärung",
+  "billing-foundation.consent.link.refund": "Erstattungsrichtlinie",
   "billing-foundation.consent.link.terms": "AGB",
   "billing-foundation.consent.link.withdrawal": "Widerrufsbelehrung",
   "billing-foundation.consent.order": "Zahlungspflichtig bestellen",

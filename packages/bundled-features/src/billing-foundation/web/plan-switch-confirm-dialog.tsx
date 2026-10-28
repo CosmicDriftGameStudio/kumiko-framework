@@ -61,6 +61,7 @@ export function PlanSwitchConfirmDialog({
   const switchMutation = useMutation<{ readonly applied: true }>(
     SubscriptionFoundationHandlers.switchPlan,
   );
+  const [documentsAcknowledged, setDocumentsAcknowledged] = useState(false);
   const [earlyPerformance, setEarlyPerformance] = useState(false);
   const [withdrawalLoss, setWithdrawalLoss] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +70,10 @@ export function PlanSwitchConfirmDialog({
   const consentLocale = resolveConsentLocale(locale);
   const texts = consumerProtection?.consentTexts[consentLocale];
   const legalLinks = consumerProtection?.legalLinks[consentLocale];
-  const consentGiven = consumerProtection === undefined || (earlyPerformance && withdrawalLoss);
+  const documentsRequired = texts?.documentsAcknowledgement !== undefined;
+  const consentGiven =
+    consumerProtection === undefined ||
+    (earlyPerformance && withdrawalLoss && (!documentsRequired || documentsAcknowledged));
 
   async function confirm(): Promise<void> {
     setSubmitting(true);
@@ -80,6 +84,7 @@ export function PlanSwitchConfirmDialog({
         : {
             earlyPerformanceRequested: true,
             withdrawalLossAcknowledged: true,
+            ...(documentsRequired && { documentsAcknowledged: true }),
             consentTextVersion: texts.consentTextVersion,
             locale: consentLocale,
           };
@@ -91,6 +96,7 @@ export function PlanSwitchConfirmDialog({
     setSubmitting(false);
     setErrorText(t(result.error.i18nKey, result.error.i18nParams));
     if (result.error.code === CONSENT_TEXT_OUTDATED_CODE) {
+      setDocumentsAcknowledged(false);
       setEarlyPerformance(false);
       setWithdrawalLoss(false);
       onConsentTextOutdated();
@@ -171,10 +177,31 @@ export function PlanSwitchConfirmDialog({
             <Link href={legalLinks.privacy} target="_blank">
               {t("billing-foundation.consent.link.privacy")}
             </Link>
+            {legalLinks.refund !== undefined && (
+              <Link href={legalLinks.refund} target="_blank">
+                {t("billing-foundation.consent.link.refund")}
+              </Link>
+            )}
           </div>
         )}
         {texts !== undefined && (
           <>
+            {texts.documentsAcknowledgement !== undefined && (
+              <Field
+                id="plan-switch-documents"
+                label={texts.documentsAcknowledgement}
+                layout="inline"
+              >
+                <Input
+                  kind="boolean"
+                  id="plan-switch-documents"
+                  name="plan-switch-documents"
+                  value={documentsAcknowledged}
+                  onChange={setDocumentsAcknowledged}
+                  disabled={submitting}
+                />
+              </Field>
+            )}
             <Field
               id="plan-switch-early-performance"
               label={texts.earlyPerformance}
