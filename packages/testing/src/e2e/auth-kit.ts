@@ -267,13 +267,20 @@ export async function loginViaUi(page: Page, credentials: LoginCredentials): Pro
   await page.locator("#login-password").fill(credentials.password);
   await page.locator("#login-password").press("Enter");
   await expect(page.locator("#login-password")).toHaveCount(0);
-  // skip: no secret, so no MFA step expected
-  if (credentials.mfaTotpSecret === undefined) return;
+  if (credentials.mfaTotpSecret !== undefined) {
+    await completeMfaStep(page, credentials.mfaTotpSecret);
+  }
+  // The form disappears before the app navigates to its landing page; a goto issued in
+  // between is interrupted by that navigation.
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+}
+
+async function completeMfaStep(page: Page, mfaTotpSecret: string): Promise<void> {
   // A secret means an enrolled factor, so the MFA step must come; waiting for it
   // avoids racing the transition from the password form.
   const codeField = page.locator("#mfa-verify-code");
   await expect(codeField).toBeVisible();
-  const code = await unburnedTotpCode(credentials.mfaTotpSecret);
+  const code = await unburnedTotpCode(mfaTotpSecret);
   // The sixth digit submits on its own and disables the field; an Enter press would race that.
   await Promise.all([
     page.waitForResponse(
