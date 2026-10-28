@@ -9,7 +9,7 @@ import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import {
   referenceOptionSource,
-  referenceRowsByIdsPayload,
+  storedReferenceRowsPayload,
   withUnlistedSelectedRows,
 } from "../hooks/use-reference-lookup.ts";
 import { selectedReferenceIds, stringArrayOf } from "./render-field-values.ts";
@@ -66,8 +66,8 @@ export function useReferenceInputState(
   const selectedIds = selectedReferenceIds(field);
   const selectedResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
     queryQn,
-    referenceRowsByIdsPayload(selectedIds, REFERENCE_COMBOBOX_LIMIT),
-    { enabled: field.refOptionsQuery === undefined && selectedIds.length > 0 },
+    storedReferenceRowsPayload(field, selectedIds, REFERENCE_COMBOBOX_LIMIT),
+    { enabled: selectedIds.length > 0 },
   );
   const handleSearchChange = useCallback((q: string) => setSearchTerm(q), []);
   const createTarget =

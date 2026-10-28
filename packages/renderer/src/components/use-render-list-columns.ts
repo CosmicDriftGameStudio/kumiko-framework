@@ -15,6 +15,7 @@ import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import {
   enrichReferenceColumns,
   mergeChunkLookups,
+  type PublishedReferenceChunk,
   type PublishedReferenceLookup,
   type ReferenceLookupRequest,
   referenceIdChunks,
@@ -82,29 +83,29 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
     [referenceColumns, rows],
   );
   const [chunkLookups, setChunkLookups] = useState<
-    Record<string, Readonly<Record<number, PublishedReferenceLookup>>>
+    Record<string, Readonly<Record<number, PublishedReferenceChunk>>>
   >({});
   const handleLookupMap = useCallback(
-    (field: string, chunkIndex: number, lookup: PublishedReferenceLookup) => {
+    (field: string, chunkIndex: number, lookup: PublishedReferenceChunk) => {
       setChunkLookups((prev) => {
         // Skip the update when the lookup is identical. Otherwise the bridge
         // would re-render and send the same map back until React entered
         // an infinite loop.
         const current = prev[field]?.[chunkIndex];
-        if (current?.map === lookup.map && current.complete === lookup.complete) return prev;
+        const unchanged =
+          current?.map === lookup.map &&
+          current.complete === lookup.complete &&
+          current.idsKey === lookup.idsKey;
+        if (unchanged) return prev;
         return { ...prev, [field]: { ...prev[field], [chunkIndex]: lookup } };
       });
     },
     [],
   );
-  // Chunks beyond the current id set are stale and must not decide completeness.
   const referenceLookups = useMemo(() => {
     const merged: Record<string, PublishedReferenceLookup> = {};
     for (const request of referenceRequests) {
-      const published = chunkLookups[request.field];
-      const lookup = mergeChunkLookups(
-        request.idChunks.map((_, chunkIndex) => published?.[chunkIndex]),
-      );
+      const lookup = mergeChunkLookups(request.idChunks, chunkLookups[request.field]);
       if (lookup !== undefined) merged[request.field] = lookup;
     }
     return merged;

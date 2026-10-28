@@ -688,15 +688,15 @@ describe("EmbeddedListField — reference cells", () => {
       id: `p-${index + 1}`,
       name: `Product ${index + 1}`,
     }));
-    const lastProduct = productRows[productRows.length - 1];
-    const rows = [{ product: lastProduct?.id, unit: "pcs", quantity: 1, unitPrice: 100 }];
+    const lastProductId = `p-${productRows.length}`;
+    const rows = [{ product: lastProductId, unit: "pcs", quantity: 1, unitPrice: 100 }];
     await renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {}, {}, productRows);
 
     await waitFor(() => {
       const productColumn = captured?.columns.find((column) => column.field === "product");
       expect(productColumn?.referenceOptions).toContainEqual({
-        value: lastProduct?.id,
-        label: lastProduct?.name,
+        value: lastProductId,
+        label: `Product ${productRows.length}`,
       });
     });
   });

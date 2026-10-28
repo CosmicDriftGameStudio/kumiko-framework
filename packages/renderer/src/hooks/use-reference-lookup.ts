@@ -84,6 +84,18 @@ export function withUnlistedSelectedRows(
   return unlisted.length === 0 ? listedRows : [...listedRows, ...unlisted];
 }
 
+// An author `refOptionsQuery` takes `{ limit, search? }` for its picker page and `ids`
+// for stored values; it knows no list filters.
+export function storedReferenceRowsPayload(
+  field: { readonly refOptionsQuery?: string },
+  ids: readonly string[],
+  capLimit: number,
+): Record<string, unknown> {
+  return field.refOptionsQuery === undefined
+    ? referenceRowsByIdsPayload(ids, capLimit)
+    : { limit: Math.max(ids.length, capLimit), ids };
+}
+
 // A page with a continuation cursor is only a prefix of the referenced rows,
 // so a missing id in it proves nothing about the row's existence.
 export function isCompleteRowPage(data: { readonly nextCursor?: string | null } | null): boolean {
