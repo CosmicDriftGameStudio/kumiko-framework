@@ -11,6 +11,8 @@ import {
   isCompleteRowPage,
   referenceOptionSource,
   referenceRowsByIdsPayload,
+  storedReferenceRowsPayload,
+  withUnlistedSelectedRows,
 } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
@@ -132,7 +134,8 @@ export function ReadOnlyReferenceValue({
   const refFeature = field.refFeature ?? featureName;
   const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
   const ids = selectedReferenceIds(field);
-  // An author-supplied `refOptionsQuery` is only contracted for `{ limit, search? }`.
+  // An author `refOptionsQuery` keeps its capped picker page; a strict handler schema
+  // that rejects `ids` then only fails the extra stored-rows query.
   const queryResult = useQuery<{
     rows: ReadonlyArray<Record<string, unknown>>;
     nextCursor?: string | null;
@@ -143,9 +146,17 @@ export function ReadOnlyReferenceValue({
       : { limit: REFERENCE_COMBOBOX_LIMIT },
     { enabled: ids.length > 0 },
   );
+  const storedResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
+    queryQn,
+    storedReferenceRowsPayload(field, ids, REFERENCE_COMBOBOX_LIMIT),
+    { enabled: field.refOptionsQuery !== undefined && ids.length > 0 },
+  );
   if (ids.length === 0)
     return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
-  const rows = queryResult.data?.rows ?? [];
+  const rows = withUnlistedSelectedRows(
+    queryResult.data?.rows ?? [],
+    storedResult.data?.rows ?? [],
+  );
   // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row —
   // same central fallback as useReferenceLookup (render-list.tsx), so a
   // reference field showing one on the detail path also gets a label

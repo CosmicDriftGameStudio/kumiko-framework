@@ -1,21 +1,16 @@
 // Renderer-side eager load for reference fields.
 //
 // Each reference column of a list calls `<feature>:query:
-// <refEntity>:list` (limit:200) once, builds a Map<uuid, displayValue>,
-// and the renderer uses it as the cell display renderer.
+// <refEntity>:list` for the ids on screen (in chunks of 200), builds a
+// Map<uuid, displayValue>, and the renderer uses it as the cell display renderer.
 //
 // Strategy trade-offs:
 //   - Server-side Drizzle joins would be more efficient (one query instead
 //     of N+1) but would have to extend the executor API with lookupTables.
 //     The renderer-side path wins for the MVP.
-//   - limit:200 is a hard UX limit: with more entries in the referenced
-//     entity, the last rows fall back to the raw id (or "Unknown" for
-//     opt-in entities once the lookup is complete). A searchable combobox plus a
-//     server-side eager load with an ID whitelist will lift that later.
-//
-// The hook is call-stable: useQuery's internal cache shares the lookup map
-// between list and edit form for the same entity, and live updates arrive
-// via SSE (use-query-live).
+//   - A source that ignores both by-id inputs still answers its first 200 rows,
+//     so later ids fall back to the raw id (or "Unknown" for opt-in entities
+//     once the lookup is complete).
 
 import {
   REFERENCE_LOOKUP_SOURCES,
@@ -76,13 +71,40 @@ export function referenceRowsByIdsPayload(
   };
 }
 
+type ReferenceRow = Readonly<Record<string, unknown>>;
+
+// Option rows of a picker plus the stored ones its first page did not carry, so a
+// stored value keeps its label without dropping the picker's own order.
+export function withUnlistedSelectedRows(
+  listedRows: readonly ReferenceRow[],
+  selectedRows: readonly ReferenceRow[],
+): readonly ReferenceRow[] {
+  const listedIds = new Set(listedRows.map((row) => String(row["id"] ?? "")));
+  const unlisted = selectedRows.filter((row) => !listedIds.has(String(row["id"] ?? "")));
+  return unlisted.length === 0 ? listedRows : [...listedRows, ...unlisted];
+}
+
+// An author `refOptionsQuery` takes `{ limit, search? }` for its picker page and `ids`
+// for stored values; it knows no list filters.
+export function storedReferenceRowsPayload(
+  field: { readonly refOptionsQuery?: string },
+  ids: readonly string[],
+  capLimit: number,
+): Record<string, unknown> {
+  return field.refOptionsQuery === undefined
+    ? referenceRowsByIdsPayload(ids, capLimit)
+    : { limit: Math.max(ids.length, capLimit), ids };
+}
+
 // A page with a continuation cursor is only a prefix of the referenced rows,
 // so a missing id in it proves nothing about the row's existence.
 export function isCompleteRowPage(data: { readonly nextCursor?: string | null } | null): boolean {
   return data !== null && (data.nextCursor ?? null) === null;
 }
 
-/** `map` holds the resolved labels; while the query loads or has failed an id is
+/** Without `ids` the lookup reads the first capped page, as an option source does;
+ *  with `ids` it asks for exactly those rows.
+ *  `map` holds the resolved labels; while the query loads or has failed an id is
  *  simply not in it. Callers decide the fallback: the raw id, or the "Unknown"
  *  label for entities listed in `UNRESOLVED_REFERENCE_LABEL_KEYS` once the
  *  lookup is complete.
@@ -91,6 +113,7 @@ export function useReferenceLookup(
   featureName: string,
   refEntity: string,
   labelField: string,
+  ids?: readonly string[],
 ): {
   readonly map: ReferenceLookupMap;
   readonly loading: boolean;
@@ -102,9 +125,13 @@ export function useReferenceLookup(
   const result = useQuery<{
     rows: ReadonlyArray<Record<string, unknown>>;
     nextCursor?: string | null;
-  }>(queryQn, {
-    limit: REFERENCE_LIST_LOOKUP_LIMIT,
-  });
+  }>(
+    queryQn,
+    ids === undefined
+      ? { limit: REFERENCE_LIST_LOOKUP_LIMIT }
+      : referenceRowsByIdsPayload(ids, REFERENCE_LIST_LOOKUP_LIMIT),
+    { enabled: ids === undefined || ids.length > 0 },
+  );
   const translate = useTranslation();
   const systemLabel = SYSTEM_REFERENCE_LABELS[`${featureName}:${refEntity}`];
   const map = useMemo(() => {

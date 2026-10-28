@@ -14,6 +14,8 @@ import type { ReferenceLookupMap } from "../hooks/use-reference-lookup.ts";
 export type PublishedReferenceLookup = {
   readonly map: ReferenceLookupMap;
   readonly complete: boolean;
+  /** The map is from an earlier id set; the current ids are still loading. */
+  readonly pending?: true;
 };
 
 export type ReferenceColumnSpec = {
@@ -22,6 +24,59 @@ export type ReferenceColumnSpec = {
   readonly refFeature: string;
   readonly labelField: string;
 };
+
+export type ReferenceLookupRequest = ReferenceColumnSpec & {
+  readonly idChunks: readonly (readonly string[])[];
+};
+
+// Chunks in first-seen order, so appending an infinite-scroll page only
+// re-queries the last chunk; the chunk size stays within the list handler's limit.
+export function referenceIdChunks(
+  rows: readonly Readonly<Record<string, unknown>>[],
+  field: string,
+  chunkSize: number,
+): string[][] {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const value = row[field];
+    for (const entry of Array.isArray(value) ? value : [value]) {
+      if (typeof entry === "string" && entry !== "") ids.add(entry);
+    }
+  }
+  const ordered = [...ids];
+  const chunks: string[][] = [];
+  for (let start = 0; start < ordered.length; start += chunkSize) {
+    chunks.push(ordered.slice(start, start + chunkSize));
+  }
+  return chunks;
+}
+
+export type PublishedReferenceChunk = PublishedReferenceLookup & { readonly idsKey: string };
+
+export function referenceChunkKey(ids: readonly string[]): string {
+  return ids.join("\n");
+}
+
+// A chunk last resolved for other ids keeps its labels on screen, but it is
+// `pending` and cannot prove absence until the current ids have loaded.
+export function mergeChunkLookups(
+  idChunks: readonly (readonly string[])[],
+  published: Readonly<Record<number, PublishedReferenceChunk>> | undefined,
+): PublishedReferenceLookup | undefined {
+  const chunks = idChunks.map((ids, chunkIndex) => {
+    const chunk = published?.[chunkIndex];
+    return { chunk, current: chunk?.idsKey === referenceChunkKey(ids) };
+  });
+  const resolved = chunks.flatMap(({ chunk }) => (chunk === undefined ? [] : [chunk]));
+  if (resolved.length === 0) return undefined;
+  const pending = !chunks.every(({ current }) => current);
+  const complete = !pending && resolved.every((chunk) => chunk.complete);
+  const only = resolved.length === 1 && chunks.length === 1 ? resolved[0] : undefined;
+  if (only !== undefined && !pending) return only;
+  const map = new Map<string, string>();
+  for (const chunk of resolved) for (const [id, label] of chunk.map) map.set(id, label);
+  return { map, complete, ...(pending && { pending }) };
+}
 
 type ResolveReferenceLink = ReturnType<typeof useReferenceLinkResolver>;
 
@@ -77,7 +132,7 @@ function unresolvedLabelFor(
   return (id: string): string =>
     unknownKey === undefined
       ? id
-      : published === undefined
+      : published === undefined || published.pending === true
         ? EMPTY_VALUE_PLACEHOLDER
         : published.complete
           ? translate(unknownKey)

@@ -11,9 +11,14 @@ import {
 } from "../app/reference-link.ts";
 import type { ListColumnViewModel, ListViewModel, Translate } from "../headless/index.ts";
 import { computeListViewModel } from "../headless/index.ts";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import {
   enrichReferenceColumns,
+  mergeChunkLookups,
+  type PublishedReferenceChunk,
   type PublishedReferenceLookup,
+  type ReferenceLookupRequest,
+  referenceIdChunks,
   selectReferenceColumns,
 } from "./render-list-reference-columns.ts";
 
@@ -69,19 +74,42 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
     () => selectReferenceColumns(vm.columns, featureName),
     [vm.columns, featureName],
   );
-  const [referenceLookups, setReferenceLookups] = useState<
-    Record<string, PublishedReferenceLookup>
+  const referenceRequests = useMemo(
+    (): readonly ReferenceLookupRequest[] =>
+      referenceColumns.map((column) => ({
+        ...column,
+        idChunks: referenceIdChunks(rows, column.field, REFERENCE_LIST_LOOKUP_LIMIT),
+      })),
+    [referenceColumns, rows],
+  );
+  const [chunkLookups, setChunkLookups] = useState<
+    Record<string, Readonly<Record<number, PublishedReferenceChunk>>>
   >({});
-  const handleLookupMap = useCallback((field: string, lookup: PublishedReferenceLookup) => {
-    setReferenceLookups((prev) => {
-      // Skip the update when the lookup is identical. Otherwise the bridge
-      // would re-render and send the same map back until React entered
-      // an infinite loop.
-      const current = prev[field];
-      if (current?.map === lookup.map && current.complete === lookup.complete) return prev;
-      return { ...prev, [field]: lookup };
-    });
-  }, []);
+  const handleLookupMap = useCallback(
+    (field: string, chunkIndex: number, lookup: PublishedReferenceChunk) => {
+      setChunkLookups((prev) => {
+        // Skip the update when the lookup is identical. Otherwise the bridge
+        // would re-render and send the same map back until React entered
+        // an infinite loop.
+        const current = prev[field]?.[chunkIndex];
+        const unchanged =
+          current?.map === lookup.map &&
+          current.complete === lookup.complete &&
+          current.idsKey === lookup.idsKey;
+        if (unchanged) return prev;
+        return { ...prev, [field]: { ...prev[field], [chunkIndex]: lookup } };
+      });
+    },
+    [],
+  );
+  const referenceLookups = useMemo(() => {
+    const merged: Record<string, PublishedReferenceLookup> = {};
+    for (const request of referenceRequests) {
+      const lookup = mergeChunkLookups(request.idChunks, chunkLookups[request.field]);
+      if (lookup !== undefined) merged[request.field] = lookup;
+    }
+    return merged;
+  }, [referenceRequests, chunkLookups]);
   const resolveReferenceLink = useReferenceLinkResolver();
   const resolveScreenLink = useScreenLinkResolver();
   const enrichedColumns = useMemo(
@@ -116,5 +144,5 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
     }),
     [vm, enrichedColumns],
   );
-  return { referenceColumns, handleLookupMap, enrichedVm };
+  return { referenceRequests, handleLookupMap, enrichedVm };
 }
