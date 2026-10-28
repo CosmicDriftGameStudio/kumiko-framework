@@ -72,6 +72,19 @@ export const API_ENTRY_FIXTURE_FILES: Readonly<Record<string, string>> = {
     "./mail": "./src/mail/index.ts",
   }),
   "packages/bundled-features/src/mail/index.ts": 'export * from "./feature.ts";\n',
-  "packages/bundled-features/src/mail/feature.ts":
-    "export function createMailFeature() {}\nexport function createMailTestFeature() {}\n",
+  "packages/bundled-features/src/mail/names.ts": 'export const MAIL_FEATURE = "mail" as const;\n',
+  "packages/bundled-features/src/mail/constants.ts": 'export { MAIL_FEATURE } from "./names.ts";\n',
+  "packages/bundled-features/src/mail/feature.ts": [
+    'import { MAIL_FEATURE } from "./constants.ts";',
+    'const MAIL_ENV_FEATURE = "mail-env";',
+    "function createMailEnvFeature() {",
+    "  const feature = defineFeature(MAIL_ENV_FEATURE, () => {});",
+    "  return feature;",
+    "}",
+    "export function createMailFeature(options = {}) {",
+    "  return options.fromEnv === true ? createMailEnvFeature() : defineFeature(MAIL_FEATURE, () => {});",
+    "}",
+    "export function createMailTestFeature() {}",
+    "",
+  ].join("\n"),
 };

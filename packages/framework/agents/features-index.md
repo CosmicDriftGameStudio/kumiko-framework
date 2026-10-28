@@ -2,12 +2,10 @@
 
 # Bundled features index
 
-One entry per bundled feature: purpose, import of its factory, required features, config keys without a default and secrets. Factory options: `api/` or the feature's types. Details: `features.md`.
+One entry per feature a package ships: purpose, import of its factory, required features, config keys without a default and secrets. Factory options: `api/` or the feature's types. Details: `features.md`.
 
 - `account-security`: Self-service account dashboard: MFA enrollment, recovery codes and the user's own sessions, composed from the auth-mfa and sessions screens.
   `import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-features/account-security"`; requires `sessions`, `auth-mfa`
-- `admin-nav`: Administration group in the sidebar of this sample app.
-  Import: no factory found in the package exports
 - `admin-shell`: Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS).
   `import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell"`; requires `user`, `tenant`, `audit`, `jobs`, `metrics`, `metrics-system`, `tier-engine`, `cap-overview`, `document-designer`
 - `agent-tools`: Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape.
@@ -23,15 +21,13 @@ One entry per bundled feature: purpose, import of its factory, required features
 - `auth-mfa-user-data`: GDPR (Art.
   `import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data"`; requires `user-data-rights`
 - `auth-self-registration`: Runtime on/off switch for the auth-email-password self-signup flow.
-  Import: no factory found in the package exports
+  `import { createAuthSelfRegistrationToggleFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password"`
 - `billing-foundation`: Plugin host for subscription billing.
   `import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation"`; requires `tenant-lifecycle`, `compliance-profiles`
 - `cap-counter`: Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection).
   `import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter"`
 - `cap-overview`: Read-only visibility into per-tenant tier assignment and cap usage.
   `import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview"`; requires `tenant`, `tier-engine`, `billing-foundation`
-- `cap-overview-labels`: Labels for the example caps this sample app mounts into cap-overview.
-  Import: no factory found in the package exports
 - `channel-discord`: Posts delivery notifications to a Discord webhook, registered as the `discord` channel in the delivery system.
   `import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord"`; requires `delivery`, `secrets`
 - `channel-email`: Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel.
@@ -46,8 +42,6 @@ One entry per bundled feature: purpose, import of its factory, required features
   `import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams"`; requires `delivery`, `secrets`
 - `channel-telegram`: Sends delivery notifications through the Telegram Bot API (`sendMessage`, plain text), registered as the `telegram` channel in the delivery system.
   `import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram"`; requires `delivery`, `secrets`; secrets `channel-telegram:secret:bot-token`
-- `collection-labels`: Nav labels for the content collections mounted by this sample app.
-  Import: no factory found in the package exports
 - `compliance-profiles`: Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile.
   `import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles"`
 - `compliance-profiles-ops`: Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant.
@@ -77,11 +71,11 @@ One entry per bundled feature: purpose, import of its factory, required features
 - `file-provider-inmemory`: Registers an in-process `"inmemory"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map.
   `import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory"`; requires `file-foundation`
 - `file-provider-s3`: Registers itself as the `"s3"` provider for `file-foundation` and owns the per-tenant config keys (`bucket`, `region`, `endpoint`, `forcePathStyle`, `accessKeyId`) and the encrypted `s3.secretAccessKey` secret.
-  `import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3"`; requires `config`, `secrets`, `file-foundation`; secrets `file-provider-s3:secret:s3-secret-access-key`
+  `import { createFileProviderS3Feature, createFileProviderS3NamedEnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3"`; requires `config`, `secrets`, `file-foundation`; secrets `file-provider-s3:secret:s3-secret-access-key`
 - `file-provider-s3-env`: Registers an `"s3-env"` provider for `file-foundation` that reads one S3 credential set from `process.env` (`S3_BUCKET`/`S3_REGION`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE`) and serves every tenant from one shared bucket — no per-tenant config or secret seeding.
-  Import: no factory found in the package exports; requires `file-foundation`
+  `import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3"`, call `createFileProviderS3Feature({ fromEnv: true })`; requires `file-foundation`
 - `files`: Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy.
-  `import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files"`
+  `import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files"`
 - `files-tenant-data`: GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER), plus a manual backfill/GC job that sweeps derivatives orphaned by a forget/tenant-destroy that ran before #2461 wired binary cleanup into those flows.
   `import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data"`; requires `tenant-lifecycle`
 - `folders`: Generic, host-agnostic hierarchical folders for any entity.
@@ -107,7 +101,7 @@ One entry per bundled feature: purpose, import of its factory, required features
 - `legal-pages`: Opt-in wrapper around `template-resolver` text-blocks that registers public HTML routes (default: `/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required blocks (default: `imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`.
   `import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages"`; requires `template-resolver`
 - `locale-de`: German UI and mail copy for framework screens.
-  Import: no factory found in the package exports
+  `import { localeDe } from "@cosmicdrift/kumiko-locale-de"`
 - `mail-foundation`: Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime.
   `import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation"`; requires `config`
 - `mail-transport-inmemory`: Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server.
@@ -119,13 +113,11 @@ One entry per bundled feature: purpose, import of its factory, required features
 - `metrics`: Declarative tenant-scoped metrics: each metric declaration becomes an admin-only query that aggregates a read-model table for the caller's own tenant and returns the shape dashboard panels consume (stat value with period delta, time series, ranked rows).
   `import { createMetricsFeature } from "@cosmicdrift/kumiko-bundled-features/metrics"`; requires `jobs`, `delivery`, `sessions`
 - `metrics-system`: Declarative platform-wide metrics for SystemAdmin: each metric declaration becomes a query that aggregates a read-model table across all tenants (optionally narrowed to one tenant) and returns the shape dashboard panels consume.
-  Import: no factory found in the package exports; requires `jobs`, `delivery`, `sessions`, `tenant`
+  `import { createSystemMetricsFeature } from "@cosmicdrift/kumiko-bundled-features/metrics"`; requires `jobs`, `delivery`, `sessions`, `tenant`
 - `notes-history`: Generic, host-agnostic, append-only note history for any entity.
   `import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history"`
 - `notes-history-user-data`: GDPR (Art.
   `import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data"`; requires `user-data-rights`
-- `pat-scope-labels`: German labels for the token scopes this sample app declares.
-  Import: no factory found in the package exports
 - `personal-access-tokens`: Long-lived, revocable Personal Access Tokens for headless HTTP-API access.
   `import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens"`; requires `user`, `tenant`, `auth-foundation`
 - `rate-limiting`: Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`.

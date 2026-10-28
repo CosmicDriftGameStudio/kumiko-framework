@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Project } from "ts-morph";
-import { type FeatureImport, featureImport } from "./agent-docs-feature-imports";
+import { createFeatureImportResolver, type FeatureImport } from "./agent-docs-feature-imports";
 import {
   codeList,
   compareCodepoint,
@@ -155,12 +155,13 @@ export type FeatureDocs = {
   readonly featuresIndex: string;
 };
 
-function importLine(found: FeatureImport | undefined): string {
-  if (found === undefined) return "Import: no factory found in the package exports";
-  return `\`import { ${found.exportNames.join(", ")} } from "${found.importPath}"\``;
+function importLine(found: FeatureImport): string {
+  if (found.kind === "unresolved") return "Import: no factory found in the package exports";
+  const statement = `\`import { ${found.exportNames.join(", ")} } from "${found.importPath}"\``;
+  return found.call === undefined ? statement : `${statement}, call \`${found.call}\``;
 }
 
-function renderIndexEntry(feature: ManifestFeatureDoc, found: FeatureImport | undefined): string {
+function renderIndexEntry(feature: ManifestFeatureDoc, found: FeatureImport): string {
   const purpose = feature.description === null ? "" : ` ${firstSentence(feature.description)}`;
   const details = [importLine(found)];
   if (feature.requires.length > 0) details.push(`requires ${codeList(feature.requires)}`);
@@ -175,14 +176,16 @@ function renderIndexEntry(feature: ManifestFeatureDoc, found: FeatureImport | un
 }
 
 const INDEX_INTRO =
-  "One entry per bundled feature: purpose, import of its factory, required features, config keys without a default and secrets. Factory options: `api/` or the feature's types. Details: `features.md`.";
+  "One entry per feature a package ships: purpose, import of its factory, required features, config keys without a default and secrets. Factory options: `api/` or the feature's types. Details: `features.md`.";
 
 export function renderFeatureDocs(repoRoot: string, project: Project): FeatureDocs {
   const manifest = readFeatureManifest(repoRoot);
   const sections = manifest.map(renderFeatureSection);
-  const entries = manifest.map((feature) =>
-    renderIndexEntry(feature, featureImport(repoRoot, project, feature.name)),
-  );
+  const resolveImport = createFeatureImportResolver(repoRoot, project);
+  const entries = manifest.flatMap((feature) => {
+    const found = resolveImport(feature.name);
+    return found === undefined ? [] : [renderIndexEntry(feature, found)];
+  });
   return {
     features: finishFile(FEATURE_MANIFEST_REL, `# Bundled features\n\n${sections.join("\n\n")}`),
     featuresIndex: finishFile(

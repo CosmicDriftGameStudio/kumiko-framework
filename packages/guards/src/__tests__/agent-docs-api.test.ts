@@ -5,20 +5,29 @@ import { dirname, join } from "node:path";
 import { renderAgentDocs } from "../_lib/agent-docs";
 import { API_ENTRY_FIXTURE_FILES } from "./agent-docs-entry-fixture";
 
+function manifestFeature(name: string, description: string, requires: readonly string[]) {
+  return {
+    name,
+    description,
+    requires,
+    optionalRequires: [],
+    exposesApis: [],
+    usesApis: [],
+    configKeys: [],
+    secrets: [],
+  };
+}
+
 const BASE_FILES: Readonly<Record<string, string>> = {
   ...API_ENTRY_FIXTURE_FILES,
   "samples/apps/use-all-bundled/feature-manifest.json": JSON.stringify({
     features: [
-      {
-        name: "mail",
-        description: "Sends mail through a provider. Retries are handled by jobs.",
-        requires: ["jobs", "secrets"],
-        optionalRequires: [],
-        exposesApis: [],
-        usesApis: [],
-        configKeys: [],
-        secrets: [],
-      },
+      manifestFeature("mail", "Sends mail through a provider. Retries are handled by jobs.", [
+        "jobs",
+        "secrets",
+      ]),
+      manifestFeature("mail-env", "Sends mail with credentials from the environment.", []),
+      manifestFeature("sample-labels", "Labels of the sample app.", []),
     ],
   }),
   "packages/renderer/src/web/index.ts": "export {};\n",
@@ -137,9 +146,43 @@ describe("agent docs feature index", () => {
     });
   });
 
+  test("derives the flag call when an exported factory switches to the defining one", () => {
+    withRepo({}, (root) => {
+      expect(renderedFile(root, "features-index.md")).toContain(
+        '  `import { createMailFeature } from "@cosmicdrift/kumiko-bundled-features/mail"`, call `createMailFeature({ fromEnv: true })`',
+      );
+    });
+  });
+
+  test("leaves out features that no package defines", () => {
+    withRepo({}, (root) => {
+      expect(renderedFile(root, "features-index.md")).not.toContain("sample-labels");
+    });
+  });
+
+  test("lists every factory of the subpath when the defining one is not exported", () => {
+    withRepo(
+      {
+        "packages/bundled-features/src/mail/feature.ts": [
+          'function build() { return defineFeature("mail", () => {}); }',
+          "export function createMailFeature() {}",
+          "export function createMailTestFeature() {}",
+        ].join("\n"),
+      },
+      (root) => {
+        expect(renderedFile(root, "features-index.md")).toContain(
+          "`import { createMailFeature, createMailTestFeature } from",
+        );
+      },
+    );
+  });
+
   test("says so when no package export provides a factory", () => {
     withRepo(
-      { "packages/bundled-features/src/mail/feature.ts": "export const mailLabels = {};\n" },
+      {
+        "packages/bundled-features/src/mail/feature.ts":
+          'function build() { return defineFeature("mail", () => {}); }\nexport const mailLabels = {};\n',
+      },
       (root) => {
         expect(renderedFile(root, "features-index.md")).toContain(
           "  Import: no factory found in the package exports; requires",

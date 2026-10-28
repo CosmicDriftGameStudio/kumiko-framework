@@ -14,7 +14,7 @@ function manifestWith(description: string): string {
   return JSON.stringify({
     features: [
       {
-        name: "demo-feature",
+        name: "mail",
         description,
         requires: [],
         optionalRequires: [],
