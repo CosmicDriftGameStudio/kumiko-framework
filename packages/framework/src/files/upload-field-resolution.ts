@@ -82,3 +82,30 @@ export function resolveUploadField(
   }
   return { kind: "resolved", fieldDef };
 }
+
+const anonymousUploadRegistries = new WeakMap<Registry, boolean>();
+
+export function registryHasAnonymousUploadField(registry: Registry | undefined): boolean {
+  if (registry === undefined) return false;
+  const cached = anonymousUploadRegistries.get(registry);
+  if (cached !== undefined) return cached;
+  let found = false;
+  for (const [, entity] of registry.getAllEntities()) {
+    for (const fieldDef of Object.values(entity.fields)) {
+      if (isFileField(fieldDef) && fieldDef.anonymousUpload === true) found = true;
+    }
+  }
+  anonymousUploadRegistries.set(registry, found);
+  return found;
+}
+
+// Anonymous visitors share one user id and cannot bind, so only an opted-in field's
+// pending upload (no record, no action form) is allowed.
+export function isAnonymousPendingUploadAllowed(
+  registry: Registry | undefined,
+  target: UploadTarget,
+): boolean {
+  if (target.entityId !== undefined || target.actionForm !== undefined) return false;
+  const resolution = resolveAttachedField(registry, target.entityType, target.fieldName);
+  return resolution.kind === "resolved" && resolution.fieldDef.anonymousUpload === true;
+}

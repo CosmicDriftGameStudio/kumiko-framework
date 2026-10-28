@@ -49,6 +49,10 @@ import {
 } from "./record-write-check.ts";
 import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
 import { parseMaxSize, resolveServedContentType } from "./types.ts";
+import {
+  isAnonymousPendingUploadAllowed,
+  registryHasAnonymousUploadField,
+} from "./upload-field-resolution.ts";
 import { withUploadLedger } from "./upload-ledger.ts";
 
 // Exactly the httpStatus values declared by KumikoError subclasses across packages/*.
@@ -286,22 +290,36 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // POST /files — multipart upload.
   api.post("/files", uploadBodyLimit, async (c) => {
     const user = getUser(c);
-    // Anonymous visitors share one user id and cannot bind pending uploads (bind-pending-file-refs),
-    // so an anonymous upload could never be used; 401 lets the client tell an ended session apart.
-    if (isAnonymousSessionUser(user)) return unauthenticatedUploadResponse(c);
+    const isAnonymous = isAnonymousSessionUser(user);
+    // 401 (not 403) lets the client tell an ended session apart. Without any opted-in field
+    // no body is worth reading.
+    if (isAnonymous && !registryHasAnonymousUploadField(options.registry)) {
+      return unauthenticatedUploadResponse(c);
+    }
     const body = await c.req.parseBody();
     const file = body["file"];
-
-    if (!file || !(file instanceof File)) {
-      return c.json({ error: "missing_file: expected multipart field 'file'" }, 400);
-    }
-
     const entityType = typeof body["entityType"] === "string" ? body["entityType"] : undefined;
     // Post-ES migration entities use UUID ids; we accept the raw string and
     // store it in the text entityId column.
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
     const actionForm = typeof body["actionForm"] === "string" ? body["actionForm"] : undefined;
+
+    if (
+      isAnonymous &&
+      !isAnonymousPendingUploadAllowed(options.registry, {
+        entityType,
+        entityId,
+        fieldName,
+        actionForm,
+      })
+    ) {
+      return unauthenticatedUploadResponse(c);
+    }
+
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: "missing_file: expected multipart field 'file'" }, 400);
+    }
 
     // Ahead of the record check below, which would answer 404/403 for the entity half.
     if (actionForm !== undefined && (entityType !== undefined || entityId !== undefined)) {
