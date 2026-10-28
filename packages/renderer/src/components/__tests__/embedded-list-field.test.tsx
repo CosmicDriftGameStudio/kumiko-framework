@@ -10,6 +10,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, EditFieldViewModel, FieldIssue } from "../../headless/index.ts";
+import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
@@ -65,12 +66,26 @@ function testPrimitives(): CorePrimitives {
 
 type ProductRow = { readonly id: string; readonly name: string };
 
+// Mirrors the entity list handler: an `id in` filter narrows, `limit` caps the page.
+function productPage(productRows: readonly ProductRow[], payload: unknown): readonly ProductRow[] {
+  const { limit, filters } = payload as {
+    readonly limit: number;
+    readonly filters?: readonly { field: string; op: string; value: readonly string[] }[];
+  };
+  const idFilter = filters?.find((filter) => filter.field === "id" && filter.op === "in");
+  const matching =
+    idFilter === undefined
+      ? productRows
+      : productRows.filter((row) => idFilter.value.includes(row.id));
+  return matching.slice(0, limit);
+}
+
 function stubDispatcher(productRows: readonly ProductRow[] = []): Dispatcher {
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string) => {
+    query: (async (type: string, payload: unknown) => {
       if (type === "invoices:query:product:list") {
-        return { isSuccess: true, data: { rows: productRows } };
+        return { isSuccess: true, data: { rows: productPage(productRows, payload) } };
       }
       return { isSuccess: true, data: { rows: [] } };
     }) as unknown as Dispatcher["query"],
@@ -664,5 +679,25 @@ describe("EmbeddedListField — labelled footer totals", () => {
         money: true,
       },
     ]);
+  });
+});
+
+describe("EmbeddedListField — reference cells", () => {
+  test("a stored reference beyond the first options page keeps its label", async () => {
+    const productRows = Array.from({ length: REFERENCE_COMBOBOX_LIMIT + 10 }, (_, index) => ({
+      id: `p-${index + 1}`,
+      name: `Product ${index + 1}`,
+    }));
+    const lastProduct = productRows[productRows.length - 1];
+    const rows = [{ product: lastProduct?.id, unit: "pcs", quantity: 1, unitPrice: 100 }];
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {}, {}, productRows);
+
+    await waitFor(() => {
+      const productColumn = captured?.columns.find((column) => column.field === "product");
+      expect(productColumn?.referenceOptions).toContainEqual({
+        value: lastProduct?.id,
+        label: lastProduct?.name,
+      });
+    });
   });
 });

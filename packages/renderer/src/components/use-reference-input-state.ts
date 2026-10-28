@@ -7,7 +7,11 @@ import { rendererError } from "../dev-console.ts";
 import type { EditFieldViewModel } from "../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import { referenceOptionSource, referenceRowsByIdsPayload } from "../hooks/use-reference-lookup.ts";
+import {
+  referenceOptionSource,
+  referenceRowsByIdsPayload,
+  withUnlistedSelectedRows,
+} from "../hooks/use-reference-lookup.ts";
 import { selectedReferenceIds, stringArrayOf } from "./render-field-values.ts";
 
 export function useReferenceInputState(
@@ -91,12 +95,11 @@ export function useReferenceInputState(
     [isMultiple, field.value, onChange, queryResult.refetch],
   );
   const options = useMemo(() => {
-    const listedRows = queryResult.data?.rows ?? [];
-    const listedIds = new Set(listedRows.map((row) => String(row["id"] ?? "")));
-    const unlistedSelectedRows = (selectedResult.data?.rows ?? []).filter(
-      (row) => !listedIds.has(String(row["id"] ?? "")),
+    const rows = withUnlistedSelectedRows(
+      queryResult.data?.rows ?? [],
+      selectedResult.data?.rows ?? [],
     );
-    return [...listedRows, ...unlistedSelectedRows].map((row) => {
+    return rows.map((row) => {
       const idVal = String(row["id"] ?? "");
       const label = String(row[labelKey] ?? idVal);
       return { value: idVal, label };

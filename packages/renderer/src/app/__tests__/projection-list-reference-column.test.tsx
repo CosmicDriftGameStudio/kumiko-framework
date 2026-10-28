@@ -16,6 +16,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
@@ -36,6 +37,26 @@ const SYSTEM_USER_ID = systemReferenceId("user:user");
 const REAL_USER_ID = "22222222-2222-4222-8222-222222222222";
 const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
 const ERASED_TENANT_ID = "44444444-4444-4444-8444-444444444444";
+
+const OWNER_ROWS = Array.from({ length: REFERENCE_LIST_LOOKUP_LIMIT + 50 }, (_, index) => ({
+  id: `owner-${index + 1}`,
+  name: `Owner ${index + 1}`,
+}));
+const LAST_OWNER_ID = `owner-${OWNER_ROWS.length}`;
+
+// Mirrors the entity list handler: an `id in` filter narrows, `limit` caps the page.
+function answerOwnerList(payload: unknown): Record<string, unknown> {
+  const { limit, filters } = payload as {
+    readonly limit: number;
+    readonly filters?: readonly { field: string; op: string; value: readonly string[] }[];
+  };
+  const idFilter = filters?.find((filter) => filter.field === "id" && filter.op === "in");
+  const matching =
+    idFilter === undefined
+      ? OWNER_ROWS
+      : OWNER_ROWS.filter((row) => idFilter.value.includes(row.id));
+  return { rows: matching.slice(0, limit), nextCursor: matching.length > limit ? "next" : null };
+}
 
 let capturedProps: DataTableProps | undefined;
 let memberDirectoryHasMore = false;
@@ -73,13 +94,21 @@ const testPrimitives: CorePrimitives = {
 function stubDispatcher(): Dispatcher {
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string) => {
+    query: (async (type: string, payload: unknown) => {
+      if (type === "delivery:query:owner:list") {
+        return { isSuccess: true, data: answerOwnerList(payload) };
+      }
       if (type === "delivery:query:log:list") {
         return {
           isSuccess: true,
           data: {
             rows: [
-              { id: "row-1", tenantId: REAL_TENANT_ID, createdBy: REAL_USER_ID },
+              {
+                id: "row-1",
+                tenantId: REAL_TENANT_ID,
+                createdBy: REAL_USER_ID,
+                ownerId: LAST_OWNER_ID,
+              },
               { id: "row-2", tenantId: SYSTEM_TENANT_ID, createdBy: SYSTEM_USER_ID },
               { id: "row-3", tenantId: REAL_TENANT_ID, createdBy: DELETED_USER_ID },
             ],
@@ -290,5 +319,23 @@ describe("actor column resolves display names", () => {
       expect(actorCell(REAL_USER_ID)).toBe("Ada Lovelace");
     });
     expect(actorCell(DELETED_USER_ID)).toBe("Unknown");
+  });
+});
+
+describe("reference column beyond the lookup cap", () => {
+  test("a row pointing past the first lookup page shows the target's label", async () => {
+    capturedProps = undefined;
+    renderLogScreen({
+      field: "ownerId",
+      label: "delivery.log.col.owner",
+      refEntity: "owner",
+      refLabelField: "name",
+    });
+
+    await waitFor(() => {
+      expect(referenceRenderer("ownerId")(LAST_OWNER_ID, { ownerId: LAST_OWNER_ID })).toBe(
+        `Owner ${OWNER_ROWS.length}`,
+      );
+    });
   });
 });

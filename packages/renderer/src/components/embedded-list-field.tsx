@@ -14,7 +14,11 @@ import {
 import { pluralKey } from "../headless/plural-key.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
+import {
+  referenceOptionSource,
+  referenceRowsByIdsPayload,
+  withUnlistedSelectedRows,
+} from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.tsx";
 import { usePrimitives } from "../primitives.tsx";
@@ -28,6 +32,15 @@ export type EmbeddedListFieldProps = {
 };
 
 type EmbeddedRow = Readonly<Record<string, unknown>>;
+
+function storedCellIds(rows: readonly EmbeddedRow[], cellField: string): string[] {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const value = row[cellField];
+    if (typeof value === "string" && value !== "") ids.add(value);
+  }
+  return [...ids].sort();
+}
 
 function withRecomputedDerived(
   row: EmbeddedRow,
@@ -169,6 +182,17 @@ function EmbeddedListFieldInner({
       limit: REFERENCE_COMBOBOX_LIMIT,
     }),
   );
+  // The first options page can miss a stored value; without its row the cell shows no label.
+  // An author `refOptionsQuery` is only contracted for `{ limit, search? }`.
+  const storedReferenceQueries = referenceCells.map((cell, idx) => {
+    const storedIds = storedCellIds(rows, cell.field);
+    // biome-ignore lint/correctness/useHookAtTopLevel: same fixed per-mount hook count as referenceQueries above.
+    return useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
+      referenceSources[idx]?.queryQn ?? "",
+      referenceRowsByIdsPayload(storedIds, REFERENCE_COMBOBOX_LIMIT),
+      { enabled: cell.refOptionsQuery === undefined && storedIds.length > 0 },
+    );
+  });
 
   if (EmbeddedListInput === undefined) return null;
 
@@ -178,7 +202,10 @@ function EmbeddedListFieldInner({
       const idx = referenceCells.indexOf(cell);
       const query = referenceQueries[idx];
       const labelKey = referenceSources[idx]?.labelKey ?? "id";
-      const referenceOptions = (query?.data?.rows ?? []).map((row) => ({
+      const referenceOptions = withUnlistedSelectedRows(
+        query?.data?.rows ?? [],
+        storedReferenceQueries[idx]?.data?.rows ?? [],
+      ).map((row) => ({
         value: String(row["id"] ?? ""),
         label: String(row[labelKey] ?? row["id"] ?? ""),
       }));
