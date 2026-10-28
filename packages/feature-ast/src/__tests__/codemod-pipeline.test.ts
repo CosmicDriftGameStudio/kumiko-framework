@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Bun.Glob is only used by scanForCandidates / runCodemod. Emulate
@@ -38,7 +47,8 @@ import {
   scanForCandidates,
 } from "../codemod/index.ts";
 
-const tmpDir = join(__dirname, "__codemod_fixtures__");
+// Outside the repo: the pre-push guards scan src/ in parallel with this test.
+const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-codemod-fixtures-"));
 
 function writeFixture(name: string, content: string): string {
   const p = join(tmpDir, name);
