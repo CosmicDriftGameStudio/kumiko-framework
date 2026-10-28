@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Project } from "ts-morph";
+import { type FeatureImport, featureImport } from "./agent-docs-feature-imports";
 import {
   codeList,
   compareCodepoint,
@@ -153,21 +155,39 @@ export type FeatureDocs = {
   readonly featuresIndex: string;
 };
 
-export function renderFeatureDocs(repoRoot: string): FeatureDocs {
+function importLine(found: FeatureImport | undefined): string {
+  if (found === undefined) return "Import: no factory found in the package exports";
+  return `\`import { ${found.exportNames.join(", ")} } from "${found.importPath}"\``;
+}
+
+function renderIndexEntry(feature: ManifestFeatureDoc, found: FeatureImport | undefined): string {
+  const purpose = feature.description === null ? "" : ` ${firstSentence(feature.description)}`;
+  const details = [importLine(found)];
+  if (feature.requires.length > 0) details.push(`requires ${codeList(feature.requires)}`);
+  const unset = feature.configKeys.filter((configKey) => configKey.default === null);
+  if (unset.length > 0) {
+    details.push(`config without default ${codeList(unset.map((configKey) => configKey.key))}`);
+  }
+  if (feature.secrets.length > 0) {
+    details.push(`secrets ${codeList(feature.secrets.map((secret) => secret.qualifiedName))}`);
+  }
+  return `- \`${feature.name}\`:${purpose}\n  ${details.join("; ")}`;
+}
+
+const INDEX_INTRO =
+  "One entry per bundled feature: purpose, import of its factory, required features, config keys without a default and secrets. Factory options: `api/` or the feature's types. Details: `features.md`.";
+
+export function renderFeatureDocs(repoRoot: string, project: Project): FeatureDocs {
   const manifest = readFeatureManifest(repoRoot);
   const sections = manifest.map(renderFeatureSection);
-  const indexRows = manifest.map((feature) => [
-    `\`${feature.name}\``,
-    feature.description === null ? "" : firstSentence(feature.description),
-    codeList(feature.requires),
-  ]);
-  const indexIntro =
-    "One line per bundled feature. Details, config keys and secrets: `features.md`.";
+  const entries = manifest.map((feature) =>
+    renderIndexEntry(feature, featureImport(repoRoot, project, feature.name)),
+  );
   return {
     features: finishFile(FEATURE_MANIFEST_REL, `# Bundled features\n\n${sections.join("\n\n")}`),
     featuresIndex: finishFile(
       FEATURE_MANIFEST_REL,
-      `# Bundled features index\n\n${indexIntro}\n\n${table(["Feature", "Purpose", "Requires"], indexRows)}`,
+      `# Bundled features index\n\n${INDEX_INTRO}\n\n${entries.join("\n")}`,
     ),
   };
 }

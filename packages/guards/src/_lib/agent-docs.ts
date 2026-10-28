@@ -192,7 +192,7 @@ function renderRecipe(recipe: Recipe): string {
 export function renderAgentDocs(repoRoot: string): ReadonlyMap<string, string> {
   const recipes = readRecipes(repoRoot);
   const project = createAgentDocsProject(repoRoot);
-  const featureDocs = renderFeatureDocs(repoRoot);
+  const featureDocs = renderFeatureDocs(repoRoot, project);
   const files = new Map<string, string>();
   files.set("features-index.md", featureDocs.featuresIndex);
   files.set("features.md", featureDocs.features);

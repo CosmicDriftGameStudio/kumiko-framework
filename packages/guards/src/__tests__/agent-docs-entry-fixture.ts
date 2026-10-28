@@ -68,4 +68,10 @@ export const API_ENTRY_FIXTURE_FILES: Readonly<Record<string, string>> = {
     "./testing": "./src/testing.ts",
   }),
   "packages/dev-server/src/testing.ts": "export {};\n",
+  "packages/bundled-features/package.json": packageJson("@cosmicdrift/kumiko-bundled-features", {
+    "./mail": "./src/mail/index.ts",
+  }),
+  "packages/bundled-features/src/mail/index.ts": 'export * from "./feature.ts";\n',
+  "packages/bundled-features/src/mail/feature.ts":
+    "export function createMailFeature() {}\nexport function createMailTestFeature() {}\n",
 };

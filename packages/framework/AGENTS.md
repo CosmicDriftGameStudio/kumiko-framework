@@ -9,7 +9,7 @@ not exist in your version:
 
 | File | What it holds |
 | --- | --- |
-| `agents/features-index.md` | One line per bundled feature: name, purpose, required features |
+| `agents/features-index.md` | One entry per bundled feature: purpose, factory import, required features, config keys without a default, secrets |
 | `agents/features.md` | Every bundled feature in detail: purpose, config keys, secrets, dependencies, APIs |
 | `agents/api.md` | Index of the API reference: one file per entry point an app imports |
 | `agents/api/<entry>.md` | Signatures of one entry point; options and screen types as property lists |

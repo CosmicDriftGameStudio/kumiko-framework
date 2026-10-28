@@ -129,11 +129,22 @@ describe("agent docs API reference", () => {
 });
 
 describe("agent docs feature index", () => {
-  test("has one row per feature with the first sentence and the required features", () => {
+  test("lists purpose, the factory named after the feature and its requirements", () => {
     withRepo({}, (root) => {
       expect(renderedFile(root, "features-index.md")).toContain(
-        "| `mail` | Sends mail through a provider. | `jobs`, `secrets` |",
+        '- `mail`: Sends mail through a provider.\n  `import { createMailFeature } from "@cosmicdrift/kumiko-bundled-features/mail"`; requires `jobs`, `secrets`',
       );
     });
+  });
+
+  test("says so when no package export provides a factory", () => {
+    withRepo(
+      { "packages/bundled-features/src/mail/feature.ts": "export const mailLabels = {};\n" },
+      (root) => {
+        expect(renderedFile(root, "features-index.md")).toContain(
+          "  Import: no factory found in the package exports; requires",
+        );
+      },
+    );
   });
 });
