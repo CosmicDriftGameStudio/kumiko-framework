@@ -1,0 +1,11 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-derived-fields-sql",
+  "description": "SQL derived fields on a list: coalesce, related count with a where, related first (text and money), sortable columns and a defaultSort on a derived value.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

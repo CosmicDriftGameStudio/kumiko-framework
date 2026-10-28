@@ -111,6 +111,8 @@ export function buildRelatedSubquery(input: {
   readonly db: TenantDb;
   readonly runtime: DerivedSqlRuntime;
   readonly parentVisibility: ParentVisibilityOption | undefined;
+  /** Select the measured money field's currency column instead of its amount. */
+  readonly currency?: boolean;
 }): ((params: unknown[]) => string) | undefined {
   const { spec, outer, user, db, runtime } = input;
   const relatedName = parseRefTargetEntityName(spec.entity);
@@ -183,12 +185,16 @@ function relatedSelect(
     readonly runtime: DerivedSqlRuntime;
     readonly db: TenantDb;
     readonly user: SessionUser;
+    readonly currency?: boolean;
   },
 ): ((params: unknown[]) => string) | undefined {
   if (measure.kind === "count") return () => "COUNT(*)::int";
   if (measure.kind === "countDistinct")
     return () => `COUNT(DISTINCT ${column(measure.field)})::int`;
-  if (measure.label !== true) return () => column(measure.field);
+  if (measure.label !== true) {
+    const selected = input.currency === true ? `${measure.field}Currency` : measure.field;
+    return () => column(selected);
+  }
   const def = related.fields[measure.field];
   if (def?.type !== "reference" || def.labelField === undefined) return undefined;
   return buildReferenceSortExpr(

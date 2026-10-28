@@ -29,6 +29,7 @@ const taskEntity = {
     ageDays: { valueType: "number", derive: () => 0 },
     // Client schema entries carry only valueType + sortable (the sql spec is stripped).
     displayName: { valueType: "text", sortable: true },
+    currentRent: { valueType: "money", sortable: true },
   },
 } as unknown as EntityDefinition;
 
@@ -228,6 +229,20 @@ describe("computeListViewModel", () => {
       ["displayName", true],
       ["statusLabel", false],
     ]);
+  });
+
+  test("a derived money column is typed money and keeps the stored money row value", () => {
+    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050, amountMinor: 120050 };
+    const vm = computeListViewModel({
+      screen: listScreen(["currentRent"]),
+      entity: taskEntity,
+      rows: [{ id: "t-1", currentRent: rent }],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[0]).toMatchObject({ field: "currentRent", type: "money", sortable: true });
+    expect(vm.rows[0]?.values["currentRent"]).toEqual(rent);
   });
 
   test("derived column value passes through from the row (handler already appended it)", () => {
