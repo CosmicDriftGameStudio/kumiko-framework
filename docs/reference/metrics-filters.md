@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-28
-evidence: "packages/bundled-features/src/metrics/types.ts (MetricDefinition.filters, MetricFilterResolver, access, groupLabelsFrom); packages/bundled-features/src/metrics/__tests__/metrics-access-labels.integration.test.ts; packages/bundled-features/src/metrics/filters.ts; packages/bundled-features/src/metrics/validate.ts; packages/bundled-features/src/metrics/__tests__/metrics-filters.integration.test.ts"
+evidence: "packages/bundled-features/src/metrics/types.ts (MetricDefinition.filters, MetricFilterResolver, access, reference labels); packages/bundled-features/src/metrics/__tests__/metrics-access-labels.integration.test.ts; packages/bundled-features/src/metrics/filters.ts; packages/bundled-features/src/metrics/validate.ts; packages/bundled-features/src/metrics/__tests__/metrics-filters.integration.test.ts"
 ---
 
 # Metrics filters
@@ -44,7 +44,7 @@ Resolver filters work only on metrics without the `"system"` scope. The boot val
 
 `access: { roles: ["Staff"] }` replaces the default admin-only access of the tenant query with the listed roles, for dashboards that non-admins may see. An empty list fails boot. Metrics with scope `"system"` stay SystemAdmin only.
 
-`groupLabelsFrom: { source, labelField }` names the `groupBy` rows after the referenced row instead of showing its id. The keys are ids of `source`, read in one query through the caller's tenant-scoped db, so a row of another tenant is never resolved and its key stays the label. A static `groupLabels` entry wins. `stackBy` keys are not resolved.
+A `groupBy` column that is a single `reference` field of an entity-table source is named after the referenced row's `labelField` instead of its id. The lookup is the one list aggregates use, run with the caller's identity: tenant, the target entity's read access and field-level read apply, so a row the caller may not read keeps its key as label. A static `groupLabels` entry wins. `stackBy` keys and scope `system` metrics are not resolved.
 
 ## Tenant isolation
 
@@ -52,4 +52,4 @@ Filters only narrow. The handler builds the where clause from the metric's `wher
 
 ## Validation at boot
 
-A metric fails boot when `groupLabelsFrom` has no `groupBy` or names a column the source does not have, or when a filter key is not camelCase, uses a reserved payload key (`range`, `timeZone`, `tenantId`), points at a missing column or at `tenantId`, repeats a column the metric's own `where` already fixes, or points at a column that is not uuid, text or a number type. A numeric filter accepts a number or a numeric string in the payload.
+A metric fails boot when a filter key is not camelCase, uses a reserved payload key (`range`, `timeZone`, `tenantId`), points at a missing column or at `tenantId`, repeats a column the metric's own `where` already fixes, or points at a column that is not uuid, text or a number type. A numeric filter accepts a number or a numeric string in the payload.

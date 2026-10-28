@@ -26,6 +26,10 @@ export type MetricRunParams = {
   readonly filterWhere: WhereObject;
   /** Extra filter that narrows the source to the caller's scope. */
   readonly scopeWhere: WhereObject;
+  /** Names for referenced-row group keys; absent where the caller cannot resolve them (system scope). */
+  readonly referenceLabels?: (
+    keys: readonly AggregateKey[],
+  ) => Promise<ReadonlyMap<string, string>>;
 };
 
 const NULL_KEY_TEXT = "—";
@@ -148,27 +152,6 @@ function groupSegments(
   return segmentsByGroup;
 }
 
-// One query for all group keys; rows the caller cannot read (other tenant) simply stay unresolved.
-async function referencedGroupLabels(
-  db: TenantDb,
-  metric: MetricDefinition,
-  groups: readonly AggregateRow[],
-): Promise<ReadonlyMap<string, string>> {
-  const labelsFrom = metric.groupLabelsFrom;
-  const ids = groups.flatMap((row) => {
-    const key = row.keys[0];
-    return key === null || key === undefined ? [] : [key];
-  });
-  if (labelsFrom === undefined || ids.length === 0) return new Map();
-  const referenced = await db.selectMany(labelsFrom.source, { id: ids });
-  const labels = new Map<string, string>();
-  for (const row of referenced) {
-    const label = row[labelsFrom.labelField];
-    if (typeof label === "string" && label !== "") labels.set(String(row["id"]), label);
-  }
-  return labels;
-}
-
 function buildRows(
   metric: MetricDefinition,
   aggregates: MetricAggregates,
@@ -252,7 +235,10 @@ export async function runMetric(
           ),
         )
       : [];
-  const referencedLabels = await referencedGroupLabels(db, metric, aggregates.groups);
+  const referencedLabels =
+    params.referenceLabels === undefined || metric.groupBy === undefined
+      ? new Map<string, string>()
+      : await params.referenceLabels(aggregates.groups.map((row) => row.keys[0] ?? null));
   const groupLabelOf = (key: string): string =>
     metric.groupLabels?.[key] ?? referencedLabels.get(key) ?? key;
   const rows = buildRows(metric, aggregates, value, labelOf, groupLabelOf);

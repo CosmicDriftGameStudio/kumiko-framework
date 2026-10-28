@@ -41,13 +41,8 @@ export type MetricDefinition = {
   readonly groupBy?: string;
   /** Second dimension, becomes `rows[].segments`; only without bucket. */
   readonly stackBy?: string;
-  /** Key value → i18n key, applied to groupBy and stackBy keys. */
+  /** Key value → i18n key, applied to groupBy and stackBy keys. Without an entry, a groupBy that is a single reference of an entity-table source is named after the referenced row (tenant scope, through the caller's read access); otherwise the key stays. */
   readonly groupLabels?: Readonly<Record<string, string>>;
-  /** Names the groupBy keys after the referenced row: keys are ids of `source` (read through the caller's tenant-scoped db), `labelField` supplies the text. Static `groupLabels` win; a key without a readable row stays its own label. stackBy keys are not resolved. */
-  readonly groupLabelsFrom?: {
-    readonly source: SchemaTable | EntityTableMeta;
-    readonly labelField: string;
-  };
   /** Roles that may read the tenant query; default is the admin roles. Ignored for scope "system", which stays SystemAdmin only. */
   readonly access?: { readonly roles: readonly string[] };
   readonly scopes: readonly MetricScope[];

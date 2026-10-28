@@ -42,8 +42,8 @@ export function NotificationBell({
     if (!row.isRead) await inbox.markRead(row.id);
     const target = row.target;
     if (target === null) return;
+    if (!screens.some((screen) => screen.id === target.screenId)) return;
     const screenId = lastSegment(target.screenId);
-    if (!screens.some((screen) => lastSegment(screen.id) === screenId)) return;
     setOpen(false);
     nav.navigate(
       target.entityId === undefined ? { screenId } : { screenId, entityId: target.entityId },

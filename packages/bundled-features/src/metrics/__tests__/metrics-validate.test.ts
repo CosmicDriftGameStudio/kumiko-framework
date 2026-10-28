@@ -90,29 +90,10 @@ describe("validateMetrics — filters", () => {
   });
 });
 
-describe("validateMetrics — access and groupLabelsFrom", () => {
+describe("validateMetrics — access", () => {
   test("rejects an empty access roles list", () => {
     expect(() => validateMetrics([withFilters({}, { access: { roles: [] } })])).toThrow(
       /empty roles list/,
     );
-  });
-
-  test("rejects groupLabelsFrom without groupBy", () => {
-    expect(() =>
-      validateMetrics([
-        withFilters({}, { groupLabelsFrom: { source: filesTable, labelField: "kind" } }),
-      ]),
-    ).toThrow(/without groupBy/);
-  });
-
-  test("rejects a labelField that is not a column of the source", () => {
-    expect(() =>
-      validateMetrics([
-        withFilters(
-          {},
-          { groupBy: "folderId", groupLabelsFrom: { source: filesTable, labelField: "ghost" } },
-        ),
-      ]),
-    ).toThrow(/"ghost" is not a column/);
   });
 });
