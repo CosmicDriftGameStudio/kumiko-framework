@@ -437,7 +437,7 @@ export const FEATURES = [
     const cap = captureOut();
     const code = await runSchemaCli(["validate"], appCwd, cap.out);
     expect(code).toBe(1);
-    expect(cap.err.join("\n")).toContain("boot:");
+    expect(cap.err.join("\n")).toContain("✗ boot [");
     expect(cap.err.join("\n")).toContain("probe:screen:ghost");
     expect(cap.err.join("\n")).toContain("is not registered");
   });

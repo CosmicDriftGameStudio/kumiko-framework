@@ -39,7 +39,7 @@ function printSchemaCliUsage(out: SchemaCliOut): number {
   out.log("");
   out.log("  Subcommands:");
   out.log("    generate <name>   Write a new migration from the EntityTableMeta diff");
-  out.log("    validate          Static CI gate (no DB): schema drift + validateBoot");
+  out.log("    validate [--json] Static CI gate (no DB): schema drift + validateBoot");
   out.log("    apply             Apply pending checked-in SQL files");
   out.log("    baseline          Mark checked-in migrations as applied (no SQL run)");
   out.log("    status            List applied vs pending");

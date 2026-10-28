@@ -27,6 +27,7 @@ import {
   from,
 } from "../index.ts";
 import type { RowFieldExtractor } from "../types/screen.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -2374,6 +2375,7 @@ describe("boot-validator", () => {
     test("projectionDetail field renderer as a function → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
+          registerStubQueryHandler(r, "order-detail");
           r.screen({
             id: "order-detail",
             type: "projectionDetail",
@@ -2394,6 +2396,7 @@ describe("boot-validator", () => {
     test("dashboard list-panel column renderer as a function → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
+          registerStubQueryHandler(r, "recent-orders");
           r.screen({
             id: "overview",
             type: "dashboard",
@@ -5231,6 +5234,7 @@ describe("boot-validator", () => {
 
     test("projectionDetail action entity-target without explicit entityId → Throw", () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
         r.entity({
           name: "product",
           ...createEntity({
@@ -5329,6 +5333,7 @@ describe("boot-validator", () => {
   describe("drawer-target reachability at the remaining RowAction call sites", () => {
     test('projectionDetail.actions drawer-target unknown → throw with actionLabel "action"', () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -5426,6 +5431,8 @@ describe("boot-validator", () => {
 
     test('projectionDetail relatedList section rowAction drawer-target unknown → throw with actionLabel "rowAction"', () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
+        registerStubQueryHandler(r, "order-positions");
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -5457,6 +5464,8 @@ describe("boot-validator", () => {
 
     test("projectionDetail tabs-mode fields section with both groups and actions → throw", () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
+        registerStubQueryHandler(r, "order-positions");
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -5490,6 +5499,8 @@ describe("boot-validator", () => {
 
     test("projectionDetail relatedList defaultSort.field not a listed column → throw", () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
+        registerStubQueryHandler(r, "order-positions");
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -5514,6 +5525,8 @@ describe("boot-validator", () => {
 
     test("projectionDetail relatedList defaultSort.field not sortable → throw", () => {
       const feature = defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order-detail");
+        registerStubQueryHandler(r, "order-positions");
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -7100,6 +7113,7 @@ describe("boot-validator — config key backing × scope", () => {
   // extended to projectionList rowActions (entityList is covered separately).
   test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "products");
       r.entity({
         name: "product",
         ...createEntity({

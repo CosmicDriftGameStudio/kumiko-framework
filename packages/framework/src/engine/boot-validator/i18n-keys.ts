@@ -16,8 +16,7 @@ import {
   SETTINGS_HUB_FEATURE,
 } from "../build-config-feature-schema.ts";
 import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins.ts";
-import { createRegistry } from "../registry.ts";
-import type { FeatureDefinition } from "../types/index.ts";
+import type { FeatureDefinition, Registry } from "../types/index.ts";
 
 function isDormantSecretsScreen(screen: ScreenDefinition): boolean {
   return screen.type === "secretsEdit" && screen.dormant === true;
@@ -74,9 +73,11 @@ function hasDefinedTranslation(defined: Set<string>, key: string): boolean {
   return false;
 }
 
-export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]): void {
+export function validateI18nSurfaceKeys(
+  features: readonly FeatureDefinition[],
+  registry: Registry,
+): void {
   const defined = buildEffectiveTranslationKeys(features);
-  const registry = createRegistry(features);
   const generatedConfigHub = buildConfigFeatureSchema(registry);
   // The secrets screen's labels/hints come from the `r.secret()` declaration
   // itself, not from r.translations — without this, every app with a

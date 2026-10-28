@@ -8,7 +8,7 @@ import {
 import { isLiveFrameworkTable, type KnownTables } from "../db/known-table-names.ts";
 import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
 import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../db/replay-migration-sql.ts";
-
+import { BootValidationError, type BootViolation } from "../engine/boot-validator/boot-rule.ts";
 import { validateBoot } from "../engine/boot-validator.ts";
 import {
   describeThrown,
@@ -63,20 +63,37 @@ function checkSchemaDrift(
   return false;
 }
 
+type BootOutcome = {
+  readonly ok: boolean;
+  readonly skipped?: true;
+  readonly violations: readonly BootViolation[];
+};
+
+function unclassifiedViolation(check: string, e: unknown): BootViolation {
+  return { ruleId: `unclassified/${check}`, check, message: describeThrown(e) };
+}
+
+function reportBootViolations(out: SchemaCliOut, violations: readonly BootViolation[]): void {
+  for (const v of violations) {
+    out.err(`  ✗ boot [${v.ruleId}] ${v.message}`);
+    if (v.fix !== undefined) out.err(`    Fix: ${v.fix}`);
+  }
+}
+
 // 2. Boot validity — needs the composed feature set.
-function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): boolean {
+function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): BootOutcome {
   let bootFeatures: ReturnType<typeof featureDefinitionsOf>;
   try {
     bootFeatures = featureDefinitionsOf(schemaMod.features);
   } catch (e) {
     out.err(`  ✗ boot: ${describeThrown(e)}`);
-    return false;
+    return { ok: false, violations: [unclassifiedViolation("featureDefinitionsOf", e)] };
   }
   if (bootFeatures === undefined) {
     out.log(
       "  · boot: skipped — add `export const FEATURES = composeFeatures(APP_FEATURES, { includeBundled: true })` to kumiko/schema.ts to enable validateBoot.",
     );
-    return true;
+    return { ok: true, skipped: true, violations: [] };
   }
   try {
     validateBoot(bootFeatures, {
@@ -84,10 +101,14 @@ function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): boolean {
       env: withFileStoragePresence(process.env),
     });
     out.log("  ✓ boot: feature configuration is valid");
-    return true;
+    return { ok: true, violations: [] };
   } catch (e) {
+    if (e instanceof BootValidationError) {
+      reportBootViolations(out, e.violations);
+      return { ok: false, violations: e.violations };
+    }
     out.err(`  ✗ boot: ${describeThrown(e)}`);
-    return false;
+    return { ok: false, violations: [unclassifiedViolation("validateBoot", e)] };
   }
 }
 
@@ -199,7 +220,8 @@ function checkMigrationContentDrift(
 //      added/changed but never generated → missing table → prod 500)
 //   2. boot validity: validateBoot over the composed FEATURES (QN/screen/
 //      nav/role refs). Runs only if kumiko/schema.ts exports FEATURES;
-//      honours its optional VALIDATE_BOOT_OPTIONS export.
+//      honours its optional VALIDATE_BOOT_OPTIONS export. `--json` prints
+//      this result as one JSON document on stdout.
 //   3. migration-content drift: replay every committed *.sql file and
 //      diff the result against .snapshot.json — catches a migration
 //      file whose SQL body doesn't match what its own snapshot entry
@@ -210,13 +232,32 @@ function checkMigrationContentDrift(
 //   4. live row-level security (only with DATABASE_URL): the boot's
 //      table-state check against the real database (not the role: that is a boot-time property).
 // The DB-level gate (assertKumikoSchemaCurrent) stays at boot/deploy.
+function printBootJson(ctx: SchemaCliContext, boot: BootOutcome): void {
+  const { ok, skipped, violations } = boot;
+  ctx.out.log(JSON.stringify({ boot: { ok, ...(skipped ? { skipped } : {}), violations } }));
+}
+
 export async function runValidateCommand(ctx: SchemaCliContext): Promise<number> {
-  const schemaMod = await loadSchemaModOrReport(ctx);
-  if (schemaMod === undefined) return 1;
+  const jsonMode = ctx.argv.includes("--json");
+  // stdout carries exactly one JSON document in --json mode.
+  const out: SchemaCliOut = jsonMode ? { log: ctx.out.err, err: ctx.out.err } : ctx.out;
+  const humanCtx: SchemaCliContext = { ...ctx, out };
+  const schemaMod = await loadSchemaModOrReport(humanCtx);
+  if (schemaMod === undefined) {
+    if (jsonMode) {
+      const message = "kumiko/schema.ts could not be loaded";
+      printBootJson(ctx, {
+        ok: false,
+        violations: [{ ruleId: "unclassified/loadSchemaMod", check: "loadSchemaMod", message }],
+      });
+    }
+    return 1;
+  }
   const prevSnapshot = loadPreviousSnapshot(join(ctx.migrationsDir, SNAPSHOT_FILENAME));
-  const schemaOk = checkSchemaDrift(ctx, schemaMod, prevSnapshot);
-  const bootOk = checkBootValidity(ctx.out, schemaMod);
-  const migrationsOk = checkMigrationContentDrift(ctx, prevSnapshot);
-  const rowLevelSecurityOk = await checkLiveRowLevelSecurity(ctx.out, schemaMod);
-  return schemaOk && bootOk && migrationsOk && rowLevelSecurityOk ? 0 : 1;
+  const schemaOk = checkSchemaDrift(humanCtx, schemaMod, prevSnapshot);
+  const boot = checkBootValidity(out, schemaMod);
+  const migrationsOk = checkMigrationContentDrift(humanCtx, prevSnapshot);
+  const rowLevelSecurityOk = await checkLiveRowLevelSecurity(out, schemaMod);
+  if (jsonMode) printBootJson(ctx, boot);
+  return schemaOk && boot.ok && migrationsOk && rowLevelSecurityOk ? 0 : 1;
 }

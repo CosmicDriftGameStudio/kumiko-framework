@@ -8,6 +8,7 @@ import { defineEntityListHandler } from "../entity-handlers.ts";
 import { createDerivedField, createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
 import type { ScreenDefinition } from "../types/screen.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -78,6 +79,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionList with empty columns", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:list");
         r.screen({ id: "x", type: "projectionList", query: "app:query:foo:list", columns: [] });
       }),
     ];
@@ -125,6 +127,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail with empty sections", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -139,6 +142,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects an unknown header.statusTones tone", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -154,6 +158,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects header.statusFormat without header.status", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -172,6 +177,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail section with zero fields", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -186,6 +192,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail extension section with contributesToFormSubmit: true (read-only screen)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -210,6 +217,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail extension section without entityName", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -228,6 +236,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail extension section with no component", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -273,6 +282,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail relatedList section with an empty query", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -291,6 +301,8 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList rowClick with no matching detailFor screen", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
+        registerStubQueryHandler(r, "foo:list");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -368,6 +380,8 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section in a wizard layout", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
+        registerStubQueryHandler(r, "foo:list");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -784,6 +798,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section on entityEdit", () => {
     const features = [
       defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "foo:list");
         r.entity({ name: "product", ...productEntity() });
         r.screen({
           id: "product-edit",
@@ -805,6 +820,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section on configEdit", () => {
     const features = [
       defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "foo:list");
         r.config({
           keys: { "site-name": createTenantConfig("text", { default: "" }) },
         });
@@ -830,6 +846,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section on actionForm", () => {
     const features = [
       defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "foo:list");
         r.writeHandler({
           name: "restock",
           schema: z.object({}),
@@ -857,6 +874,8 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList rowAction with an unregistered write-handler (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
+        registerStubQueryHandler(r, "foo:list");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -947,6 +966,8 @@ describe("r.screen() — registration", () => {
         });
       }),
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
+        registerStubQueryHandler(r, "foo:list");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -983,6 +1004,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail writeForm section with an empty fieldDefs map (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1007,6 +1029,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail writeForm section with zero fields (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1031,6 +1054,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail writeForm field with no entry in fieldDefs (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1057,6 +1081,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail writeForm section in a wizard layout (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",
@@ -1082,6 +1107,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a projectionDetail writeForm section with an unregistered write-handler (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("app", (r) => {
+        registerStubQueryHandler(r, "foo:detail");
         r.screen({
           id: "x",
           type: "projectionDetail",

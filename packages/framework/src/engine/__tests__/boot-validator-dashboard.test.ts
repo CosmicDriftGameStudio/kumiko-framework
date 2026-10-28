@@ -9,6 +9,7 @@ import type {
   DashboardTextPanel,
   DashboardValueFormat,
 } from "../types/screen.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 const STAT_PANEL = {
   kind: "stat",
@@ -26,6 +27,7 @@ function dashboardFeature(
   > = {},
 ) {
   return defineFeature("demo", (r) => {
+    registerStubQueryHandler(r, "folder:list");
     r.queryHandler({
       name: "incident:open-count",
       schema: z.object({}),

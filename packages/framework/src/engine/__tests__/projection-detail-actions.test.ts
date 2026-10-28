@@ -4,6 +4,7 @@ import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -17,6 +18,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot projectionDetail actions", () => {
   test("navigate action with rowClick: true throws, naming the screen and action", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -41,6 +43,7 @@ describe("validateBoot projectionDetail actions", () => {
 
   test("drawer action with rowClick: true throws, like navigate's", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -105,6 +108,7 @@ describe("validateBoot projectionDetail actions", () => {
 
   test("navigate action to an unregistered screen throws, via the same existence check as entityList/projectionList", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -120,6 +124,7 @@ describe("validateBoot projectionDetail actions", () => {
 
   test("navigate action with params targeting an entityEdit of the SAME entity (via detailFor) throws — params are a no-op on an update target (review finding 3b)", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.entity({
         name: "rent",
         ...createEntity({
@@ -156,6 +161,7 @@ describe("validateBoot projectionDetail actions", () => {
 
   test("writeHandler action referencing an unregistered handler QN throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
