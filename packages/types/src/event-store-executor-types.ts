@@ -4,6 +4,7 @@ import type { SessionUser, WriteResult } from "./handlers.ts";
 import type { DeleteContext, SaveContext } from "./hooks.ts";
 import type { EntityId, TenantId } from "./identifiers.ts";
 import type { ListAggregatePayload, ListAggregateResult } from "./list-aggregate-types.ts";
+import type { SchemaTable } from "./schema-table-types.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
 import type { TenantDb } from "./tenant-db-types.ts";
 
@@ -70,6 +71,8 @@ export type ListRuntimeOptions = {
       readonly labelField: string;
     }>;
     readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    // The table the executor reads the target from (a backingTable differs from the field-derived one).
+    readonly resolveTable?: (entityName: string) => SchemaTable;
   };
   // `sortable: true` reference fields order by the target row's
   // labelField instead of the raw FK column. Same request-time registry
@@ -81,6 +84,8 @@ export type ListRuntimeOptions = {
       readonly labelField: string;
     }>;
     readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    // The table the executor reads the target from (a backingTable differs from the field-derived one).
+    readonly resolveTable?: (entityName: string) => SchemaTable;
   };
   // Join-row read-gate (EntityDefinition.parentRef) — same request-time
   // registry dependency as referenceSearch/referenceSort above.
@@ -90,6 +95,9 @@ export type ListRuntimeOptions = {
   // it SQL derived fields are not computed.
   readonly derivedSql?: {
     readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    readonly resolveTable: (entityName: string) => SchemaTable;
+    // Whether a query handler grants the viewer's roles the entity, the gate live signals use too.
+    readonly canReadEntity: (entityName: string) => boolean;
     readonly today: string;
     readonly now: string;
   };

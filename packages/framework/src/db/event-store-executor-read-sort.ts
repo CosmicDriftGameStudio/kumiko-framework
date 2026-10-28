@@ -21,6 +21,9 @@ import type { TenantDb } from "./tenant-db.ts";
 // cursor carries the label that was ordered by instead of the FK's UUID.
 const SORT_LABEL_ALIAS = "__kumiko_sort_label";
 
+// Where-rules qualify with the table name they get; the target may be the outer entity itself.
+const TARGET_ALIAS = "t";
+
 type ListPayload = Parameters<EventStoreExecutor["list"]>[0];
 type ReferenceSortOption = NonNullable<Parameters<EventStoreExecutor["list"]>[3]>["referenceSort"];
 
@@ -71,6 +74,7 @@ export function buildReferenceSortExpr(
   resolveEntity: (entityName: string) => EntityDefinition | undefined,
   db: TenantDb,
   user: SessionUser,
+  resolveTable?: (entityName: string) => Table,
 ): ((params: unknown[]) => string) | undefined {
   const targetEntity = resolveEntity(descriptor.targetEntityName);
   if (targetEntity === undefined) {
@@ -88,15 +92,25 @@ export function buildReferenceSortExpr(
     return undefined;
   }
 
-  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  const targetTable =
+    resolveTable?.(descriptor.targetEntityName) ??
+    buildEntityTable(descriptor.targetEntityName, targetEntity);
   // The order of labels the viewer may not read would leak them bit by bit, same as the search path.
   const labelAccess = buildOwnershipClause(
     user,
     normalizeAccessEntry(targetEntity.fields[descriptor.labelField]?.access?.read),
     targetTable,
+    1,
+    TARGET_ALIAS,
   );
   if (labelAccess.kind !== "pass") return undefined;
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  const ownership = buildOwnershipClause(
+    user,
+    targetEntity.access?.read,
+    targetTable,
+    1,
+    TARGET_ALIAS,
+  );
   if (ownership.kind === "empty") return undefined;
   const targetTableName = String(schemaTableName(targetTable));
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
@@ -183,6 +197,7 @@ export function resolveListSort(request: {
           referenceSort.resolveEntity,
           request.db,
           request.user,
+          referenceSort.resolveTable,
         )
       : undefined;
   return sql === undefined

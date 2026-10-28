@@ -30,6 +30,7 @@ const rentEntity = createEntity({
     secretRent: createMoneyField({ access: { read: { Admin: "all" } } }),
   },
   access: { read: { Admin: "all", User: "all" } },
+  indexes: [{ columns: ["propertyId"] }],
 });
 
 const propertyEntity = createEntity({

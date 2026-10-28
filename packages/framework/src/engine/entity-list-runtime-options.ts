@@ -1,13 +1,39 @@
 import type { AggregateKey } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { ListRuntimeOptions } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
+import { collectEntityReadAccess } from "../api/entity-read-access.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
+import { hasAccess } from "./access.ts";
 import { IMPLICIT_PROJECTION_SUFFIX } from "./registry-state.ts";
-import type { HandlerContext, SessionUser } from "./types/index.ts";
+import type { HandlerContext, Registry, SessionUser } from "./types/index.ts";
+
+// The rules only change with the registry, so they are collected once, not per request.
+const readAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, readonly AccessRule[]>>();
+
+function readAccessOf(registry: Registry): ReadonlyMap<string, readonly AccessRule[]> {
+  let rules = readAccessByRegistry.get(registry);
+  if (rules === undefined) {
+    rules = collectEntityReadAccess(registry);
+    readAccessByRegistry.set(registry, rules);
+  }
+  return rules;
+}
+
+// An entity with a backingTable is read from that table; the implicit projection holds it.
+function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
+  const implicit = ctx.registry
+    .getProjectionsForSource(entityName)
+    .find((projection) =>
+      projection.name.endsWith(`:projection:${entityName}${IMPLICIT_PROJECTION_SUFFIX}`),
+    );
+  return implicit?.table ?? buildEntityTable(entityName, entity);
+}
 
 // Registry access only exists at request time, so the searchable/sortable-reference
 // caches, the entity resolver and the join-row read gate travel through the
@@ -23,22 +49,38 @@ export function entityListRuntime(
 } {
   const parentVisibility = { entities: ctx.registry.getAllEntities() };
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
+  const resolveTable = (name: string) => {
+    const entity = ctx.registry.getEntity(name);
+    if (entity === undefined) throw new Error(`entityListRuntime: unknown entity "${name}"`);
+    return readTableOf(ctx, name, entity);
+  };
+  const readRules = readAccessOf(ctx.registry);
   return {
     runtimeOptions: {
       ...(ctx.services.searchAdapter !== undefined && {
         searchAdapter: ctx.services.searchAdapter,
       }),
       ...(ctx.includeDeleted === true && { includeDeleted: true }),
-      referenceSearch: { fields: ctx.registry.getSearchableReferences(entityName), resolveEntity },
-      referenceSort: { fields: ctx.registry.getSortableReferences(entityName), resolveEntity },
+      referenceSearch: {
+        fields: ctx.registry.getSearchableReferences(entityName),
+        resolveEntity,
+        resolveTable,
+      },
+      referenceSort: {
+        fields: ctx.registry.getSortableReferences(entityName),
+        resolveEntity,
+        resolveTable,
+      },
       parentVisibility,
       derivedSql: {
         resolveEntity,
+        resolveTable,
+        canReadEntity: (name) => (readRules.get(name) ?? []).some((rule) => hasAccess(user, rule)),
         today: ctx.tz.today(ctx.tz.tenant).toString(),
         now: ctx.tz.now().toString(),
       },
     },
-    eagerLoadViewer: { user, parentVisibility },
+    eagerLoadViewer: { user, parentVisibility, resolveTable },
     resolveEntity,
   };
 }

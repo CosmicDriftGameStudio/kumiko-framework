@@ -45,9 +45,39 @@ const schemaRouteFeature = defineFeature("schema-route-fixture", (r) => {
     access: { roles: ["Admin"] },
   });
   r.screen({
+    id: "widget-expand",
+    type: "entityList",
+    entity: "widget",
+    columns: ["id"],
+    expandableRow: {
+      kind: "relatedList",
+      title: "Docs",
+      query: "schema-route-fixture:query:widget:admin-docs",
+      columns: ["id"],
+    },
+  });
+  r.screen({
+    id: "widget-edit",
+    type: "entityEdit",
+    entity: "widget",
+    dormant: true,
+    layout: {
+      sections: [
+        { fields: ["id"] },
+        {
+          kind: "relatedList",
+          title: "Docs",
+          query: "schema-route-fixture:query:widget:admin-docs",
+          columns: ["id"],
+        },
+      ],
+    },
+  });
+  r.screen({
     id: "widget-detail",
     type: "projectionDetail",
     query: "schema-route-fixture:query:widget:detail",
+    metrics: [{ field: "id", label: "Docs", navigate: { tab: "docs" } }],
     layout: {
       mode: "tabs",
       sections: [
@@ -159,6 +189,8 @@ describe("GET /api/schema", () => {
     expect(adminFixture?.screens.map((s) => s.id).sort()).toEqual([
       "admin-only",
       "widget-detail",
+      "widget-edit",
+      "widget-expand",
       "widget-list",
     ]);
 
@@ -170,7 +202,12 @@ describe("GET /api/schema", () => {
       features: Array<{ featureName: string; screens: Array<{ id: string }> }>;
     };
     const userFixture = userBody.features.find((f) => f.featureName === "schema-route-fixture");
-    expect(userFixture?.screens.map((s) => s.id).sort()).toEqual(["widget-detail", "widget-list"]);
+    expect(userFixture?.screens.map((s) => s.id).sort()).toEqual([
+      "widget-detail",
+      "widget-edit",
+      "widget-expand",
+      "widget-list",
+    ]);
 
     // Different bodies must carry different (strong) ETags.
     expect(adminRes.headers.get("etag")).not.toBe(userRes.headers.get("etag"));
@@ -211,5 +248,38 @@ describe("GET /api/schema", () => {
 
     expect(await tabIds(TestUsers.admin)).toEqual(["main", "docs"]);
     expect(await tabIds(TestUsers.user)).toEqual(["main"]);
+  });
+
+  test("expandableRow, entityEdit section and a metric pointing at the removed tab follow the same query gate", async () => {
+    type Screen = {
+      id: string;
+      expandableRow?: unknown;
+      layout?: { sections: Array<{ kind?: string }> };
+      metrics?: Array<{ navigate?: unknown }>;
+    };
+    const screensOf = async (user: Parameters<typeof stack.jwt.sign>[0]) => {
+      const token = await stack.jwt.sign(user);
+      const res = await stack.app.request(SCHEMA_PATH, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = (await res.json()) as {
+        features: Array<{ featureName: string; screens: Screen[] }>;
+      };
+      const screens = body.features.find((f) => f.featureName === "schema-route-fixture")?.screens;
+      return (id: string): Screen | undefined => screens?.find((s) => s.id === id);
+    };
+
+    const asAdmin = await screensOf(TestUsers.admin);
+    expect(asAdmin("widget-expand")?.expandableRow).toBeDefined();
+    expect(asAdmin("widget-edit")?.layout?.sections.map((s) => s.kind)).toEqual([
+      undefined,
+      "relatedList",
+    ]);
+    expect(asAdmin("widget-detail")?.metrics?.[0]?.navigate).toEqual({ tab: "docs" });
+
+    const asUser = await screensOf(TestUsers.user);
+    expect(asUser("widget-expand")?.expandableRow).toBeUndefined();
+    expect(asUser("widget-edit")?.layout?.sections.map((s) => s.kind)).toEqual([undefined]);
+    expect(asUser("widget-detail")?.metrics?.[0]?.navigate).toBeUndefined();
   });
 });
