@@ -3403,6 +3403,7 @@ type FileFieldDef = ResolvedPiiFlags & {
   description?: string;
   required?: boolean;
   maxSize?: string;
+  anonymousUpload?: boolean; // Anonymous visitors may upload into this field as a pending upload (no entityId); the app binds the file itself.
   accept?: string[];
   access?: FieldAccess;
 };
@@ -3410,6 +3411,7 @@ type FilesFieldDef = ResolvedPiiFlags & {
   type: "files";
   description?: string;
   maxSize?: string;
+  anonymousUpload?: boolean; // Anonymous visitors may upload into this field as a pending upload (no entityId); the app binds the file itself.
   accept?: string[];
   maxCount?: number;
   display?: "list" | "dropzone"; // `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a drag-and-drop zone with one status row per file, a remove action per file and the field's `maxCount`/`accept`/`maxSize` as hints.
@@ -3422,6 +3424,7 @@ type ImageFieldDef = ResolvedPiiFlags & {
   description?: string;
   required?: boolean;
   maxSize?: string;
+  anonymousUpload?: boolean; // Anonymous visitors may upload into this field as a pending upload (no entityId); the app binds the file itself.
   accept?: string[];
   variants?: Readonly<Record<string, VariantSpec>>; // Named derived versions of the uploaded image.
   capture?: "environment" | "user"; // Forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker.
@@ -3431,6 +3434,7 @@ type ImagesFieldDef = ResolvedPiiFlags & {
   type: "images";
   description?: string;
   maxSize?: string;
+  anonymousUpload?: boolean; // Anonymous visitors may upload into this field as a pending upload (no entityId); the app binds the file itself.
   accept?: string[];
   maxCount?: number;
   display?: "list" | "dropzone"; // `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a drag-and-drop zone with one status row per file, a remove action per file and the field's `maxCount`/`accept`/`maxSize` as hints.
