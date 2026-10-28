@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.399.0",
+    "type": "improvement",
+    "title": "Shorter documents checkbox text in the consent box",
+    "detail": "With `consumerProtection.documentsAcknowledgement: true` the checkbox now reads \"I have read and agree to the Terms and the Refund Policy.\" (de: \"Ich habe die AGB und die Erstattungsrichtlinie gelesen und bin mit ihnen einverstanden.\"), or without a refund link only the terms. The privacy policy stays a link. The text is part of `consentTextVersion`, so apps with the option on get a new version hash; consents recorded earlier keep their stored version."
+  },
+  {
     "version": "0.398.0",
     "type": "improvement",
     "title": "Consent box takes a refund policy link and an optional documents checkbox",

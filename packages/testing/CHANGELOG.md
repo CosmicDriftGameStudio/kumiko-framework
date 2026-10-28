@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.399.0
+
+### Patch Changes
+
+- 8b09777: `loginViaUi` returns only after the app has left `/login`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: loginViaUi waits for the landing page after the login
+  detail: loginViaUi returned as soon as the login form disappeared, while the app was still navigating to its landing page. A page.goto right after it was then interrupted by that navigation ("Navigation to … is interrupted by another navigation to …/d"). It now waits until the URL has left /login, with and without the MFA step.
+  -->
+- Updated dependencies [f6a0ca5]
+- Updated dependencies [8cb9276]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+  - @cosmicdrift/kumiko-framework@0.399.0
+  - @cosmicdrift/kumiko-guards@0.399.0
+  - @cosmicdrift/kumiko-types@0.399.0
+
 ## 0.398.0
 
 ### Patch Changes
