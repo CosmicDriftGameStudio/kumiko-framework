@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.399.0
+
+### Patch Changes
+
+- Updated dependencies [f6a0ca5]
+- Updated dependencies [8cb9276]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+  - @cosmicdrift/kumiko-framework@0.399.0
+  - @cosmicdrift/kumiko-types@0.399.0
+
 ## 0.398.0
 
 ### Patch Changes

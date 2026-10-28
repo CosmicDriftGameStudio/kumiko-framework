@@ -1,5 +1,50 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.399.0
+
+### Minor Changes
+
+- 13a9366: The channel-in-app inbox pages with a cursor, reports a total and parses a navigation target per notification.
+  
+  <!-- kumiko-changes
+  feature: channel-in-app
+  type: improvement
+  title: Inbox cursor, total and navigation target for the shell bell
+  detail: `channel-in-app:query:inbox` accepts a `cursor` and answers `{ rows, nextCursor, total }`; each row carries `target` (`{ screenId, entityId? }` or null) parsed from `data.target`. Build the target with `inAppTarget(screenId, entityId?)`; a malformed target is dropped and the notification is still delivered. The SSE frame `channel-in-app:event:delivered` now carries only `{ id, userId, notificationType }`, and a failing push no longer fails the delivery because the row is already stored. The shared contract lives in `@cosmicdrift/kumiko-types/in-app-notification-types`.
+  -->
+- 13a9366: Metrics can be readable by app roles and can name reference groups after the referenced row.
+  
+  <!-- kumiko-changes
+  feature: metrics
+  type: improvement
+  title: Metric access roles and group names from a source table
+  detail: A metric declares `access: { roles }` to open its tenant query to roles other than the admin roles; an empty list fails boot validation and no `access` keeps the admin-only default. A `groupBy` metric on an entity-table source whose column is a single reference names the rows after the referenced row's label field; the lookup runs through the caller's read access on the target entity, so unreadable or foreign-tenant rows keep their key, and static `groupLabels` still win.
+  -->
+
+### Patch Changes
+
+- a097d17: The documents checkbox in the consent box no longer mentions the privacy policy; the buyer agrees to the terms and, where linked, the refund policy.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Shorter documents checkbox text in the consent box
+  detail: With `consumerProtection.documentsAcknowledgement: true` the checkbox now reads "I have read and agree to the Terms and the Refund Policy." (de: "Ich habe die AGB und die Erstattungsrichtlinie gelesen und bin mit ihnen einverstanden."), or without a refund link only the terms. The privacy policy stays a link. The text is part of `consentTextVersion`, so apps with the option on get a new version hash; consents recorded earlier keep their stored version.
+  -->
+- Updated dependencies [f6a0ca5]
+- Updated dependencies [8cb9276]
+- Updated dependencies [13a9366]
+- Updated dependencies [8b09777]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+- Updated dependencies [13a9366]
+  - @cosmicdrift/kumiko-framework@0.399.0
+  - @cosmicdrift/kumiko-types@0.399.0
+  - @cosmicdrift/kumiko-testing@0.399.0
+  - @cosmicdrift/kumiko-renderer@0.399.0
+
 ## 0.398.0
 
 ### Minor Changes
