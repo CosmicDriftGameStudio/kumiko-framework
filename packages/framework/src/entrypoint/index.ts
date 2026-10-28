@@ -281,6 +281,7 @@ function buildWorkerServer(
     lifecycle,
     processLane: "worker",
     instanceId: opts.instanceId,
+    sseBroker: opts.sseBroker,
     observability: opts.observability,
     dispatcherOptions,
     systemHooks: opts.systemHooks,

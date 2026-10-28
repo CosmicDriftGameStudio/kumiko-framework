@@ -24,7 +24,8 @@ import { useNav } from "../app/nav.tsx";
 import { SYNTHESIZED_FIELD_PII_REASON } from "../app/projection-list-shim.ts";
 import {
   ReferenceFacetBridges,
-  type ReferenceFacetOption,
+  type ReferenceFacetState,
+  withReferenceFacetState,
 } from "../app/reference-facet-bridge.tsx";
 import { navigateWithReturnTo, useReturnHost } from "../app/return-to.tsx";
 import {
@@ -267,13 +268,11 @@ export function RelatedListSection({
     [section.facets, effectiveTranslate, featureName],
   );
   const [referenceFacetOptions, setReferenceFacetOptions] = useState<
-    Record<string, readonly ReferenceFacetOption[]>
+    Record<string, ReferenceFacetState>
   >({});
   const handleFacetOptions = useCallback(
-    (field: string, options: readonly ReferenceFacetOption[]) =>
-      setReferenceFacetOptions((prev) =>
-        prev[field] === options ? prev : { ...prev, [field]: options },
-      ),
+    (field: string, state: ReferenceFacetState) =>
+      setReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
     [],
   );
   const resolvedFacetSpecs = useMemo(
@@ -569,7 +568,9 @@ export function RelatedListSection({
   // `renderer` stays DOM-free. Stacked (non-tabs) sections keep their own
   // Section card and document-flow height since they render a visible title
   // and aren't confined to a tab panel.
-  const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
+  const bridges = (
+    <ReferenceFacetBridges specs={facetSpecs} selected={filters} onState={handleFacetOptions} />
+  );
 
   if (embedded === true) {
     const countSuffix = listRows.hasData

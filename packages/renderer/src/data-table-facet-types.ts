@@ -16,6 +16,11 @@ export type DataTableFacet = {
   readonly showCounts?: boolean;
   /** Chips only: hide chips whose `count` is 0 (unless pressed). */
   readonly hideEmpty?: boolean;
+  /** Present: the options come from a server-side search (reference facets), so the dropdown
+   *  shows a search field and reports the typed term instead of filtering `options` itself. */
+  readonly onSearchChange?: (query: string) => void;
+  /** The search is loading; the option list may still show the previous term's rows. */
+  readonly searching?: boolean;
 };
 
 export type DataTableFacetChip = {

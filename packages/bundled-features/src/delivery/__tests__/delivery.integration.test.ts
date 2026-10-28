@@ -827,7 +827,8 @@ describe("flow 6: user preferences", () => {
     // Should have created a message despite disabled preference
     const notifs = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
     expect(notifs).toHaveLength(1);
-    expect(notifs[0]?.data["title"]).toBe("CRITICAL: Order storniert");
+    const stored = await selectMany(db, inAppMessagesTable, { userId: user1.id });
+    expect(stored.map((message) => message["title"])).toContain("CRITICAL: Order storniert");
   });
 
   test("re-enable preference restores delivery", async () => {
@@ -1171,9 +1172,7 @@ describe("flow 9: email channel with renderer", () => {
     expect(email.html).toContain("</html>");
 
     // InApp also fired — ticketAssigned for user1 + ticketCreatedAdmin for admin
-    const sseEvents = stack.events.sse.filter(
-      (e) => e.type === "channel-in-app:event:delivered" && e.data["title"] === "Neues Ticket",
-    );
+    const sseEvents = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
     expect(sseEvents.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -1224,7 +1223,7 @@ describe("flow 10: complete end-to-end", () => {
       (e) =>
         e.type === "channel-in-app:event:delivered" &&
         e.data["userId"] === user2.id &&
-        e.data["title"] === "Neues Ticket",
+        e.data["notificationType"] === "tickets:notify:ticket-assigned",
     );
     expect(sseNotifs.length).toBeGreaterThanOrEqual(1);
 

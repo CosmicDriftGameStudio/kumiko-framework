@@ -12,6 +12,7 @@ import {
 } from "./dropdown-menu.tsx";
 import "../react-css-custom-properties.ts";
 import { DefaultButton } from "./button.tsx";
+import { FacetSearchFilter } from "./facet-search-filter.tsx";
 
 // ---- DataTable (shadcn: Table) ----
 
@@ -81,6 +82,17 @@ export function FacetFilter({
   };
   if (facet.chips !== undefined) {
     return <FacetChips facet={facet} selected={selected} onChange={onChange} />;
+  }
+  if (facet.onSearchChange !== undefined) {
+    return (
+      <FacetSearchFilter
+        facet={facet}
+        onSearchChange={facet.onSearchChange}
+        selected={selected}
+        onChange={onChange}
+        dense={dense}
+      />
+    );
   }
   return (
     <DropdownMenu>

@@ -32,7 +32,7 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord"`; requires `delivery`, `secrets`
 - `channel-email`: Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel.
   `import { createChannelEmailFeature } from "@cosmicdrift/kumiko-bundled-features/channel-email"`; requires `delivery`
-- `channel-in-app`: Persists notifications to an in-app inbox table so users can retrieve them via `handlers.inbox` and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`.
+- `channel-in-app`: Persists notifications to an in-app inbox table so users can page through them via `queries.inbox` (cursor, total, parsed `target`) and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`.
   `import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app"`; requires `delivery`
 - `channel-push`: Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system.
   `import { createChannelPushFeature } from "@cosmicdrift/kumiko-bundled-features/channel-push"`; requires `delivery`

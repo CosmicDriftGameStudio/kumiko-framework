@@ -749,7 +749,13 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     await waitFor(() => expect(capturedFilterFacets?.[0]?.options).toHaveLength(1));
     expect(capturedFilterFacets).toEqual([
-      { field: "name", label: "Tenant", options: [{ value: "t1", label: "Acme" }] },
+      {
+        field: "name",
+        label: "Tenant",
+        options: [{ value: "t1", label: "Acme" }],
+        onSearchChange: expect.any(Function),
+        searching: false,
+      },
     ]);
 
     const countBeforeSelect = calls.length;

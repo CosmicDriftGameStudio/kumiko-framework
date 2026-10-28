@@ -26,6 +26,10 @@ export type MetricRunParams = {
   readonly filterWhere: WhereObject;
   /** Extra filter that narrows the source to the caller's scope. */
   readonly scopeWhere: WhereObject;
+  /** Names for referenced-row group keys; absent where the caller cannot resolve them (system scope). */
+  readonly referenceLabels?: (
+    keys: readonly AggregateKey[],
+  ) => Promise<ReadonlyMap<string, string>>;
 };
 
 const NULL_KEY_TEXT = "—";
@@ -153,6 +157,7 @@ function buildRows(
   aggregates: MetricAggregates,
   total: number | null,
   labelOf: (key: string) => string,
+  groupLabelOf: (key: string) => string,
 ): readonly MetricRow[] {
   const segmentsByGroup = groupSegments(aggregates.stacks, labelOf);
   return aggregates.groups.map((row) => {
@@ -161,7 +166,7 @@ function buildRows(
     return {
       id: key,
       key,
-      label: labelOf(key),
+      label: groupLabelOf(key),
       value: rowValue,
       fraction: fractionOf(rowValue, total),
       ...(metric.stackBy !== undefined && { segments: segmentsByGroup.get(key) ?? [] }),
@@ -186,6 +191,15 @@ function buildSeries(
     label: row.label,
     points: fillBuckets(bucketsByGroup.get(row.key) ?? new Map()),
   }));
+}
+
+async function resolveReferencedGroupLabels(
+  metric: MetricDefinition,
+  params: MetricRunParams,
+  groups: readonly AggregateRow[],
+): Promise<ReadonlyMap<string, string>> {
+  if (params.referenceLabels === undefined || metric.groupBy === undefined) return new Map();
+  return params.referenceLabels(groups.map((row) => row.keys[0] ?? null));
 }
 
 export async function runMetric(
@@ -230,7 +244,10 @@ export async function runMetric(
           ),
         )
       : [];
-  const rows = buildRows(metric, aggregates, value, labelOf);
+  const referencedLabels = await resolveReferencedGroupLabels(metric, params, aggregates.groups);
+  const groupLabelOf = (key: string): string =>
+    metric.groupLabels?.[key] ?? referencedLabels.get(key) ?? key;
+  const rows = buildRows(metric, aggregates, value, labelOf, groupLabelOf);
 
   return {
     value,

@@ -42,7 +42,11 @@ import {
 } from "./list-facets.ts";
 import { type ScreenTarget, useNav } from "./nav.tsx";
 import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.tsx";
+import {
+  ReferenceFacetBridges,
+  type ReferenceFacetState,
+  withReferenceFacetState,
+} from "./reference-facet-bridge.tsx";
 import { navigateWithReturnTo, useReturnHost } from "./return-to.tsx";
 import {
   buildClientActionRowAction,
@@ -248,13 +252,11 @@ function EntityListBody({
     await refreshListAfterWrite();
   }, [refreshFacetCounts, refreshListAfterWrite]);
   const [entityReferenceFacetOptions, setEntityReferenceFacetOptions] = useState<
-    Record<string, readonly ReferenceFacetOption[]>
+    Record<string, ReferenceFacetState>
   >({});
   const handleEntityFacetOptions = useCallback(
-    (field: string, options: readonly ReferenceFacetOption[]) =>
-      setEntityReferenceFacetOptions((prev) =>
-        prev[field] === options ? prev : { ...prev, [field]: options },
-      ),
+    (field: string, state: ReferenceFacetState) =>
+      setEntityReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
     [],
   );
   const [facetCounts, setFacetCounts] = useState<Record<string, number>>({});
@@ -590,7 +592,11 @@ function EntityListBody({
     <>
       {refetchErrorBanner}
       <ListGroupPageBridges {...listTable.aggregates.groupPages} />
-      <ReferenceFacetBridges specs={entityFacetSpecs} onOptions={handleEntityFacetOptions} />
+      <ReferenceFacetBridges
+        specs={entityFacetSpecs}
+        selected={urlState.filters}
+        onState={handleEntityFacetOptions}
+      />
       <FacetCountBridges
         queryType={queryType}
         queries={facetCountQueries}

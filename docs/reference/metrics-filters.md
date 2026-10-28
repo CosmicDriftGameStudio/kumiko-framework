@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-04
-evidence: "packages/bundled-features/src/metrics/types.ts (MetricDefinition.filters, MetricFilterResolver); packages/bundled-features/src/metrics/filters.ts; packages/bundled-features/src/metrics/validate.ts; packages/bundled-features/src/metrics/__tests__/metrics-filters.integration.test.ts"
+verified: 2026-10-28
+evidence: "packages/bundled-features/src/metrics/types.ts (MetricDefinition.filters, MetricFilterResolver, access, reference labels); packages/bundled-features/src/metrics/__tests__/metrics-access-labels.integration.test.ts; packages/bundled-features/src/metrics/filters.ts; packages/bundled-features/src/metrics/validate.ts; packages/bundled-features/src/metrics/__tests__/metrics-filters.integration.test.ts"
 ---
 
 # Metrics filters
@@ -39,6 +39,12 @@ filters: {
 `resolve` runs with the tenant handler context, so its reads are tenant scoped. The returned values become an `IN` list on `column`. An empty list matches no rows. `valueKind` describes the payload value (`"uuid"`, `"number"` or `"string"`, default `"string"`) and drives payload validation.
 
 Resolver filters work only on metrics without the `"system"` scope. The boot validation fails otherwise, because a system metric has no tenant context to resolve with.
+
+## Access and group names
+
+`access: { roles: ["Staff"] }` replaces the default admin-only access of the tenant query with the listed roles, for dashboards that non-admins may see. An empty list fails boot. Metrics with scope `"system"` stay SystemAdmin only.
+
+A `groupBy` column that is a single `reference` field of an entity-table source is named after the referenced row's `labelField` instead of its id. The lookup is the one list aggregates use, run with the caller's identity: tenant, the target entity's read access and field-level read apply, so a row the caller may not read keeps its key as label. A static `groupLabels` entry wins. `stackBy` keys and scope `system` metrics are not resolved.
 
 ## Tenant isolation
 

@@ -42,6 +42,10 @@
       "types": "./src/session-cookies.ts",
       "default": "./src/session-cookies.ts"
     },
+    "./in-app-notification-types": {
+      "types": "./src/in-app-notification-types.ts",
+      "default": "./src/in-app-notification-types.ts"
+    },
     "./target-ref": {
       "types": "./src/target-ref.ts",
       "default": "./src/target-ref.ts"
@@ -336,6 +340,10 @@
       "./session-cookies": {
         "types": "./dist/session-cookies.d.ts",
         "default": "./dist/session-cookies.js"
+      },
+      "./in-app-notification-types": {
+        "types": "./dist/in-app-notification-types.d.ts",
+        "default": "./dist/in-app-notification-types.js"
       },
       "./target-ref": {
         "types": "./dist/target-ref.d.ts",

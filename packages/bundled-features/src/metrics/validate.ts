@@ -31,6 +31,9 @@ function validateMetric(metric: MetricDefinition): void {
   };
   if (!KEBAB_ID.test(metric.id)) fail("has an id that is not kebab-case");
   if (metric.scopes.length === 0) fail("declares no scopes");
+  if (metric.access !== undefined && metric.access.roles.length === 0) {
+    fail("declares access with an empty roles list");
+  }
 
   const info = extractTableInfo(metric.source);
   validateColumns(metric, info, fail);

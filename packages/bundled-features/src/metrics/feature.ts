@@ -1,9 +1,11 @@
+import { extractTableInfo } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineFeature,
   defineQueryHandler,
   type FeatureDefinition,
   type QueryHandlerDefinition,
+  referenceGroupLabels,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -78,7 +80,7 @@ function createTenantMetricQuery(
     name: metric.id,
     description: metric.description,
     schema: tenantPayloadSchema(metric),
-    access: { roles: access.admin },
+    access: { roles: metric.access?.roles ?? access.admin },
     handler: async (query, ctx) =>
       runMetric(ctx.db, metric, {
         range: query.payload.range,
@@ -87,6 +89,17 @@ function createTenantMetricQuery(
         filterWhere: await resolveMetricFilterWhere(metric, query.payload, ctx),
         // ctx.db already reads own-tenant + SYSTEM reference rows; this narrows to own-tenant only.
         scopeWhere: { tenantId: query.user.tenantId },
+        referenceLabels: (keys) =>
+          metric.groupBy === undefined
+            ? Promise.resolve(new Map())
+            : referenceGroupLabels(
+                ctx,
+                query.user,
+                extractTableInfo(metric.source).name,
+                metric.groupBy,
+                keys,
+                ctx.db,
+              ),
       }),
   });
 }

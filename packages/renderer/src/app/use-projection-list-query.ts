@@ -8,7 +8,7 @@ import {
   resolveProjectionFacetSpecs,
 } from "./list-facets.ts";
 import type { synthesizeProjectionEntity } from "./projection-list-shim.ts";
-import type { ReferenceFacetOption } from "./reference-facet-bridge.tsx";
+import { type ReferenceFacetState, withReferenceFacetState } from "./reference-facet-bridge.tsx";
 import { buildListQueryPayload } from "./screen-shared.tsx";
 import { useProjectionDateRange } from "./use-projection-date-range.ts";
 
@@ -60,13 +60,11 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     [screen.facets, effectiveTranslate, featureName],
   );
   const [projectionReferenceFacetOptions, setProjectionReferenceFacetOptions] = useState<
-    Record<string, readonly ReferenceFacetOption[]>
+    Record<string, ReferenceFacetState>
   >({});
   const handleProjectionFacetOptions = useCallback(
-    (field: string, options: readonly ReferenceFacetOption[]) =>
-      setProjectionReferenceFacetOptions((prev) =>
-        prev[field] === options ? prev : { ...prev, [field]: options },
-      ),
+    (field: string, state: ReferenceFacetState) =>
+      setProjectionReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
     [],
   );
   const resolvedFacetSpecs = useMemo(

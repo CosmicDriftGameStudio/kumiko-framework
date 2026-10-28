@@ -89,3 +89,11 @@ describe("validateMetrics — filters", () => {
     ).toThrow(/only uuid, text and numeric/);
   });
 });
+
+describe("validateMetrics — access", () => {
+  test("rejects an empty access roles list", () => {
+    expect(() => validateMetrics([withFilters({}, { access: { roles: [] } })])).toThrow(
+      /empty roles list/,
+    );
+  });
+});

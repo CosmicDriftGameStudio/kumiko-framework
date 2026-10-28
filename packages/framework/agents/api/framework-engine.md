@@ -129,6 +129,7 @@ function parseTenantId(value: unknown): TenantId | null;
 function projectAppSchemaForRoles(schema: AppSchema, roles: string[]): AppSchema;
 function qn(scope: string, type: QnType, name: string): string;
 function readClaim<T extends ClaimKeyType>(user: SessionUser, handle: ClaimKeyHandle<T>): ClaimKeyJsType<T> | undefined;
+function referenceGroupLabels(ctx: HandlerContext, user: SessionUser, sourceTableName: string, groupByField: string, keys: AggregateKey[], db: TenantDb): Promise<ReadonlyMap<string, string>>;
 function requireTierResolverPlugin(usage: RegistrarExtensionRegistration): TierResolverPlugin;
 function resolveAgentExposure(def: { description?: string; agent?: AgentHandlerHints; }, kind: "query" | "write"): AgentExposure; // Fail-closed: a handler without a `description` stays invisible to the agent unless it opts in explicitly.
 function resolveEntityTransferAdjacency(entities: ReadonlyMap<string, EntityDefinition>, rootEntityType?: string): TransferAdjacency;

@@ -38,7 +38,11 @@ function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
   // undefined here at runtime.
   return rc.wrapWizardStep(
     sectionKey,
-    <Card key={sectionKey} options={{ framed: false }}>
+    <Card
+      key={sectionKey}
+      options={{ framed: false }}
+      {...(section.description !== undefined && { slots: { subtitle: section.description } })}
+    >
       {groupsGrid}
     </Card>,
   );

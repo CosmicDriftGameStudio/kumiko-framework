@@ -1703,6 +1703,8 @@ type DataTableFacet = {
   chips?: DataTableFacetChip[]; // Present: render the facet as a row of single-choice toggle chips instead of a dropdown.
   showCounts?: boolean; // Chips only: show each chip's `count` next to its label.
   hideEmpty?: boolean; // Chips only: hide chips whose `count` is 0 (unless pressed).
+  onSearchChange?: (query: string) => void; // Present: the options come from a server-side search (reference facets), so the dropdown shows a search field and reports the typed term instead of filtering `options` itself.
+  searching?: boolean; // The search is loading; the option list may still show the previous term's rows.
 };
 type DataTableFacetChip = {
   id: string;
