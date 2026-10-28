@@ -7,11 +7,15 @@ import { useReferenceLinkResolver } from "../app/reference-link.ts";
 import { type EditFieldViewModel, EMPTY_VALUE_PLACEHOLDER } from "../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import { isCompleteRowPage, referenceOptionSource } from "../hooks/use-reference-lookup.ts";
+import {
+  isCompleteRowPage,
+  referenceOptionSource,
+  referenceRowsByIdsPayload,
+} from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { ReferenceCreateDialog } from "./reference-create-dialog.tsx";
-import { stringArrayOf } from "./render-field-values.ts";
+import { selectedReferenceIds, stringArrayOf } from "./render-field-values.ts";
 import { useReferenceInputState } from "./use-reference-input-state.ts";
 
 // ReferenceInput renders a searchable combobox populated by a live query for
@@ -126,19 +130,19 @@ export function ReadOnlyReferenceValue({
   const resolveReferenceLink = useReferenceLinkResolver();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
-  const isMultiple = field.refMultiple === true;
   const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
+  const ids = selectedReferenceIds(field);
+  // An author-supplied `refOptionsQuery` is only contracted for `{ limit, search? }`.
   const queryResult = useQuery<{
     rows: ReadonlyArray<Record<string, unknown>>;
     nextCursor?: string | null;
-  }>(queryQn, {
-    limit: REFERENCE_COMBOBOX_LIMIT,
-  });
-  const ids: readonly string[] = isMultiple
-    ? stringArrayOf(field.value)
-    : typeof field.value === "string" && field.value !== ""
-      ? [field.value]
-      : [];
+  }>(
+    queryQn,
+    field.refOptionsQuery === undefined
+      ? referenceRowsByIdsPayload(ids, REFERENCE_COMBOBOX_LIMIT)
+      : { limit: REFERENCE_COMBOBOX_LIMIT },
+    { enabled: ids.length > 0 },
+  );
   if (ids.length === 0)
     return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
   const rows = queryResult.data?.rows ?? [];
