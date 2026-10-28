@@ -21,6 +21,7 @@ export function resolveEntityFacetSpecs(
       options: propertyOf(rawDef, "options"),
       entity: propertyOf(rawDef, "entity"),
       labelField: propertyOf(rawDef, "labelField"),
+      optionsQuery: propertyOf(rawDef, "optionsQuery"),
     };
     if (def.filterable !== true) continue;
     const label = translate(fieldLabelKey(featureName, entityName, field));
@@ -64,6 +65,7 @@ export function resolveEntityFacetSpecs(
           refEntity: target.entityName,
           refFeature: target.featureName,
           labelField: typeof def.labelField === "string" ? def.labelField : "id",
+          ...(typeof def.optionsQuery === "string" && { optionsQuery: def.optionsQuery }),
         },
       });
     }

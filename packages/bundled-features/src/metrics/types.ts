@@ -43,6 +43,13 @@ export type MetricDefinition = {
   readonly stackBy?: string;
   /** Key value → i18n key, applied to groupBy and stackBy keys. */
   readonly groupLabels?: Readonly<Record<string, string>>;
+  /** Names the groupBy keys after the referenced row: keys are ids of `source` (read through the caller's tenant-scoped db), `labelField` supplies the text. Static `groupLabels` win; a key without a readable row stays its own label. stackBy keys are not resolved. */
+  readonly groupLabelsFrom?: {
+    readonly source: SchemaTable | EntityTableMeta;
+    readonly labelField: string;
+  };
+  /** Roles that may read the tenant query; default is the admin roles. Ignored for scope "system", which stays SystemAdmin only. */
+  readonly access?: { readonly roles: readonly string[] };
   readonly scopes: readonly MetricScope[];
 };
 

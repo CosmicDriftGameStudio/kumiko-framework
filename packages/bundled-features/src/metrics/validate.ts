@@ -31,6 +31,9 @@ function validateMetric(metric: MetricDefinition): void {
   };
   if (!KEBAB_ID.test(metric.id)) fail("has an id that is not kebab-case");
   if (metric.scopes.length === 0) fail("declares no scopes");
+  if (metric.access !== undefined && metric.access.roles.length === 0) {
+    fail("declares access with an empty roles list");
+  }
 
   const info = extractTableInfo(metric.source);
   validateColumns(metric, info, fail);
@@ -51,6 +54,22 @@ function validateColumns(metric: MetricDefinition, info: TableInfo, fail: Fail):
   if (metric.groupBy !== undefined) requireColumn(metric.groupBy, "groupBy field");
   if (metric.stackBy !== undefined) requireColumn(metric.stackBy, "stackBy field");
   if (metric.timeField !== undefined) requireColumn(metric.timeField, "timeField");
+  if (metric.groupLabelsFrom !== undefined)
+    validateGroupLabelsFrom(metric, metric.groupLabelsFrom, fail);
+}
+
+function validateGroupLabelsFrom(
+  metric: MetricDefinition,
+  labelsFrom: NonNullable<MetricDefinition["groupLabelsFrom"]>,
+  fail: Fail,
+): void {
+  if (metric.groupBy === undefined) fail("sets groupLabelsFrom without groupBy");
+  const labelInfo = extractTableInfo(labelsFrom.source);
+  for (const field of ["id", labelsFrom.labelField]) {
+    if (!labelInfo.hasColumn(field)) {
+      fail(`groupLabelsFrom field "${field}" is not a column of ${labelInfo.name}`);
+    }
+  }
 }
 
 function validateFilters(metric: MetricDefinition, info: TableInfo, fail: Fail): void {

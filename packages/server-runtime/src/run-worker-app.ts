@@ -123,8 +123,8 @@ export type RunWorkerAppOptions = {
    *  ["migrations"] — identical semantics. */
   readonly migrations?: { readonly dir: string } | false;
   /** Extra AppContext keys — same factory-union pattern as
-   *  RunProdAppOptions["extraContext"], without sseBroker (the worker
-   *  has none — see entrypoint/index.ts's documented SSE limitation). */
+   *  RunProdAppOptions["extraContext"], without sseBroker (the worker builds its own: with
+   *  REDIS_URL in the env it publishes its SSE signals over Redis to the API's clients). */
   readonly extraContext?: WorkerContextOption;
   /** MasterKeyProvider replacing the env KEK for ctx.services.secrets, encrypted
    *  config keys and `encrypted: true` entity fields; with it set,

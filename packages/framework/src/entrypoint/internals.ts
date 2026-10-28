@@ -1,5 +1,6 @@
 import type { JwtKeyring } from "../api/jwt.ts";
 import type { ServerOptions } from "../api/server.ts";
+import type { SseBroker } from "../api/sse-broker.ts";
 import type { RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
 import type { JobRunnerOptions } from "../jobs/job-runner.ts";
@@ -50,6 +51,9 @@ export type WorkerEntrypointOptions = BaseEntrypointOptions &
     // pgClient so LISTEN/NOTIFY drops the poll latency from seconds to TCP
     // round-trip.
     readonly eventDispatcher?: ServerOptions["eventDispatcher"];
+    // The worker runs the SSE-broadcast consumer: without an explicit broker buildServer reads
+    // process.env, which ignores the worker's resolved env source.
+    readonly sseBroker?: SseBroker;
   };
 
 export type AllInOneEntrypointOptions = ApiEntrypointOptions & WorkerEntrypointOptions;

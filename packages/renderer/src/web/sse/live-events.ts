@@ -133,10 +133,21 @@ export function createEventSourceLiveEvents(
   // addEventListener(entityName, ...) gate below only filters which frames
   // arrive at all, not which subscriber a given frame is for. Without this
   // filter, an `invoice` subscriber would also fire on every `user` frame.
-  const handleEvent = (raw: string): void => {
+  // Frames without an aggregateType (channel-in-app:event:delivered) are named after their
+  // event type, so the frame name is the subscription key and the signal is synthesized.
+  const handleEvent = (raw: string, frameName: string): void => {
     let parsed: LiveEvent["data"];
     try {
-      parsed = JSON.parse(raw) as LiveEvent["data"];
+      const body: unknown = JSON.parse(raw);
+      const aggregateType = propertyOf(body, "aggregateType");
+      parsed =
+        typeof aggregateType === "string"
+          ? (body as LiveEvent["data"])
+          : {
+              aggregateType: frameName,
+              eventType: frameName,
+              createdAt: Temporal.Instant.fromEpochMilliseconds(now()).toString(),
+            };
     } catch {
       // skip: malformed SSE payload, drop it rather than crash all subscribers
       return;
@@ -162,7 +173,7 @@ export function createEventSourceLiveEvents(
     if (wiredEntities.has(entityName)) return;
     connection.addEventListener(entityName, (e) => {
       const data = propertyOf(e, "data");
-      if (typeof data === "string") handleEvent(data);
+      if (typeof data === "string") handleEvent(data, entityName);
     });
     wiredEntities.add(entityName);
   };

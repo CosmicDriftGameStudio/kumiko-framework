@@ -1,11 +1,11 @@
-export const CHANNEL_IN_APP_FEATURE = "channel-in-app" as const;
+import {
+  IN_APP_NOTIFICATION_FEATURE,
+  IN_APP_NOTIFICATION_QUERIES,
+  IN_APP_NOTIFICATION_WRITES,
+} from "@cosmicdrift/kumiko-types/in-app-notification-types";
 
-export const InAppHandlers = {
-  markRead: "channel-in-app:write:mark-read",
-  markAllRead: "channel-in-app:write:mark-all-read",
-} as const;
+export const CHANNEL_IN_APP_FEATURE = IN_APP_NOTIFICATION_FEATURE;
 
-export const InAppQueries = {
-  inbox: "channel-in-app:query:inbox",
-  unreadCount: "channel-in-app:query:unread-count",
-} as const;
+export const InAppHandlers = IN_APP_NOTIFICATION_WRITES;
+
+export const InAppQueries = IN_APP_NOTIFICATION_QUERIES;

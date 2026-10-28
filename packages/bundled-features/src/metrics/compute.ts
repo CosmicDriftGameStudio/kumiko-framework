@@ -148,11 +148,33 @@ function groupSegments(
   return segmentsByGroup;
 }
 
+// One query for all group keys; rows the caller cannot read (other tenant) simply stay unresolved.
+async function referencedGroupLabels(
+  db: TenantDb,
+  metric: MetricDefinition,
+  groups: readonly AggregateRow[],
+): Promise<ReadonlyMap<string, string>> {
+  const labelsFrom = metric.groupLabelsFrom;
+  const ids = groups.flatMap((row) => {
+    const key = row.keys[0];
+    return key === null || key === undefined ? [] : [key];
+  });
+  if (labelsFrom === undefined || ids.length === 0) return new Map();
+  const referenced = await db.selectMany(labelsFrom.source, { id: ids });
+  const labels = new Map<string, string>();
+  for (const row of referenced) {
+    const label = row[labelsFrom.labelField];
+    if (typeof label === "string" && label !== "") labels.set(String(row["id"]), label);
+  }
+  return labels;
+}
+
 function buildRows(
   metric: MetricDefinition,
   aggregates: MetricAggregates,
   total: number | null,
   labelOf: (key: string) => string,
+  groupLabelOf: (key: string) => string,
 ): readonly MetricRow[] {
   const segmentsByGroup = groupSegments(aggregates.stacks, labelOf);
   return aggregates.groups.map((row) => {
@@ -161,7 +183,7 @@ function buildRows(
     return {
       id: key,
       key,
-      label: labelOf(key),
+      label: groupLabelOf(key),
       value: rowValue,
       fraction: fractionOf(rowValue, total),
       ...(metric.stackBy !== undefined && { segments: segmentsByGroup.get(key) ?? [] }),
@@ -230,7 +252,10 @@ export async function runMetric(
           ),
         )
       : [];
-  const rows = buildRows(metric, aggregates, value, labelOf);
+  const referencedLabels = await referencedGroupLabels(db, metric, aggregates.groups);
+  const groupLabelOf = (key: string): string =>
+    metric.groupLabels?.[key] ?? referencedLabels.get(key) ?? key;
+  const rows = buildRows(metric, aggregates, value, labelOf, groupLabelOf);
 
   return {
     value,

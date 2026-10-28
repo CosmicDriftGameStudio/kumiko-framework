@@ -139,7 +139,8 @@ export function ProjectionListBody({
       <ListGroupPageBridges {...data.listTable.aggregates.groupPages} />
       <ReferenceFacetBridges
         specs={query.facetSpecs}
-        onOptions={query.handleProjectionFacetOptions}
+        selected={query.urlState.filters}
+        onState={query.handleProjectionFacetOptions}
       />
       {renderProjectionList({
         schema,

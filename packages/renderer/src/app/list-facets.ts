@@ -6,6 +6,7 @@ import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Translate } from "../headless/index.ts";
 import type { DataTableFacet, DataTableFacetChip } from "../primitives.tsx";
+import type { ReferenceFacetState } from "./reference-facet-bridge.tsx";
 
 // One resolved facet, independent of where the type info came from — an
 // entity field (entityList) or an explicit ListFacetSpec (projectionList,
@@ -24,26 +25,45 @@ export type ResolvedFacetSpec = {
     readonly refEntity: string;
     readonly refFeature: string;
     readonly labelField: string;
+    /** Author handler that serves the options instead of the entity list. */
+    readonly optionsQuery?: string;
   };
+  /** Reference facets only: set once the bridge resolved it. Makes the facet searchable. */
+  readonly onSearchChange?: (query: string) => void;
+  readonly searching?: boolean;
 };
 
 // Fills in a "reference" spec's initially-empty `options` from the
 // field-keyed options ReferenceFacetBridges resolved, shared by every caller.
 export function mergeReferenceFacetOptions(
   specs: readonly ResolvedFacetSpec[],
-  optionsByField: Readonly<
-    Record<string, readonly { readonly value: string; readonly label: string }[]>
-  >,
+  stateByField: Readonly<Record<string, ReferenceFacetState>>,
 ): ResolvedFacetSpec[] {
-  return specs.map((spec) =>
-    spec.reference !== undefined
-      ? { ...spec, options: optionsByField[spec.field] ?? spec.options }
-      : spec,
-  );
+  return specs.map((spec) => {
+    const state = stateByField[spec.field];
+    return spec.reference !== undefined && state !== undefined
+      ? {
+          ...spec,
+          options: state.options,
+          onSearchChange: state.onSearchChange,
+          searching: state.searching,
+        }
+      : spec;
+  });
+}
+
+function facetBase(spec: ResolvedFacetSpec): DataTableFacet {
+  return {
+    field: spec.field,
+    label: spec.label,
+    options: spec.options,
+    ...(spec.onSearchChange !== undefined && { onSearchChange: spec.onSearchChange }),
+    ...(spec.searching !== undefined && { searching: spec.searching }),
+  };
 }
 
 export function buildFilterFacets(specs: readonly ResolvedFacetSpec[]): DataTableFacet[] {
-  return specs.map((spec) => ({ field: spec.field, label: spec.label, options: spec.options }));
+  return specs.map(facetBase);
 }
 
 type FacetConfigByField = Readonly<Record<string, EntityListFacetConfig | false>>;
@@ -84,7 +104,7 @@ export function buildEntityFilterFacets(
   for (const spec of specs) {
     const config = configs?.[spec.field];
     if (config === false) continue;
-    const base = { field: spec.field, label: spec.label, options: spec.options };
+    const base = facetBase(spec);
     if (config?.display !== "chips") {
       out.push(base);
       continue;

@@ -5,7 +5,7 @@
 // share every step that decides ciphers, blind indexes and config encryption.
 
 import type { AuthEmailPasswordOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { loadJwtSecretOrKeyring } from "@cosmicdrift/kumiko-framework/api";
+import { createDefaultSseBroker, loadJwtSecretOrKeyring } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -291,7 +291,9 @@ export async function bootWorkerProcess(
   );
 
   const jobLogger = jobRunLoggerCallbacks(registry, db);
+  const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
   const entrypoint = createWorkerEntrypoint({
+    sseBroker,
     registry,
     rowLevelSecurity,
     context: { db, redis, entityCache, registry, ...extraContext },
@@ -319,6 +321,11 @@ export async function bootWorkerProcess(
   entrypoint.lifecycle.registerShutdownHook("workerCacheSync", async () => {
     await cacheSync.close();
   });
+  if (ownedRedisSseBroker) {
+    entrypoint.lifecycle.registerShutdownHook("workerRedisSseBroker", async () => {
+      await ownedRedisSseBroker.close();
+    });
+  }
 
   return {
     kind: "booted",

@@ -6,7 +6,7 @@
 // screen.filter and screen.facets reach payload.filter/payload.filters,
 // with boolean facets coerced from URL-state strings to real booleans.
 
-import { describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   type EntityDefinition,
   type EntityListScreenDefinition,
@@ -17,7 +17,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
-import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
+import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
@@ -82,8 +82,14 @@ function stubDispatcher(): Dispatcher {
 // Stateful nav so setSearchParams (called by useListUrlState.setFilter)
 // actually re-renders the tree — a plain mock object wouldn't trigger React,
 // and toggling a facet would never reach a second query() call.
-function StatefulNav({ children }: { readonly children: ReactNode }): ReactNode {
-  const [params, setParams] = useState<Record<string, string>>({});
+function StatefulNav({
+  children,
+  initialParams = {},
+}: {
+  readonly children: ReactNode;
+  readonly initialParams?: Record<string, string>;
+}): ReactNode {
+  const [params, setParams] = useState<Record<string, string>>(initialParams);
   const value: NavApi = {
     route: { screenId: "unused" },
     navigate: () => {},
@@ -109,6 +115,7 @@ function renderScreen(
   qn: string,
   dispatcher: Dispatcher = stubDispatcher(),
   timeZone = "UTC",
+  initialParams: Record<string, string> = {},
 ): void {
   render(
     <LocaleProvider
@@ -116,7 +123,7 @@ function renderScreen(
       fallbackBundles={[kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
-        <StatefulNav>
+        <StatefulNav initialParams={initialParams}>
           <PrimitivesProvider value={testPrimitives}>
             <KumikoScreen schema={schema} qn={qn} />
           </PrimitivesProvider>
@@ -418,6 +425,8 @@ describe("projectionList filter + facets", () => {
           { value: "t1", label: "Acme" },
           { value: "t2", label: "Globex" },
         ],
+        onSearchChange: expect.any(Function),
+        searching: false,
       },
     ]);
 
@@ -432,18 +441,13 @@ describe("projectionList filter + facets", () => {
     });
   });
 
-  test("a reference facet warns when the lookup hits the row cap and options may be truncated", async () => {
-    queryCalls = [];
-    capturedProps = undefined;
-    const rows = Array.from({ length: REFERENCE_LIST_LOOKUP_LIMIT }, (_, i) => ({
-      id: `t${i}`,
-      name: `Tenant ${i}`,
+  describe("reference facet beyond the first option page", () => {
+    const TENANT_COUNT = 300;
+    const tenants = Array.from({ length: TENANT_COUNT }, (_, i) => ({
+      id: `t${i + 1}`,
+      name: `Tenant ${i + 1}`,
     }));
-    const dispatcher = stubDispatcherByType({
-      "ledger:query:member:list": { rows: [] },
-      "ledger:query:tenant:list": { rows },
-    });
-    const screen: ProjectionListScreenDefinition = {
+    const memberScreen: ProjectionListScreenDefinition = {
       id: "member-list",
       type: "projectionList",
       query: "ledger:query:member:list",
@@ -458,25 +462,156 @@ describe("projectionList filter + facets", () => {
         },
       ],
     };
-    const schema: FeatureSchema = {
+    const schema = {
       featureName: "ledger",
       entities: {},
-      screens: [screen],
+      screens: [memberScreen],
     } as FeatureSchema;
-    const warn = spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      renderScreen(schema, "ledger:screen:member-list", dispatcher);
+
+    // Mirrors an entity list handler: `search` narrows by name, an `id in` filter by id, `limit` caps the page.
+    function answerTenantList(payload: unknown): { rows: Array<Record<string, unknown>> } {
+      const { search, limit, filters } = payload as {
+        readonly search?: string;
+        readonly limit: number;
+        readonly filters?: readonly { field: string; op: string; value: readonly string[] }[];
+      };
+      const idFilter = filters?.find((filter) => filter.field === "id" && filter.op === "in");
+      const matching = tenants.filter(
+        (row) =>
+          (search === undefined || row.name.includes(search)) &&
+          (idFilter === undefined || idFilter.value.includes(row.id)),
+      );
+      return { rows: matching.slice(0, limit) };
+    }
+
+    function tenantDispatcher(): Dispatcher {
+      return {
+        ...stubDispatcher(),
+        query: (async (type: string, payload: unknown) => {
+          queryCalls.push({ type, payload });
+          return {
+            isSuccess: true,
+            data: type === "ledger:query:tenant:list" ? answerTenantList(payload) : { rows: [] },
+          };
+        }) as unknown as Dispatcher["query"],
+      };
+    }
+
+    test("searching finds a row beyond the first page and selecting it filters the list", async () => {
+      queryCalls = [];
+      capturedProps = undefined;
+      renderScreen(schema, "ledger:screen:member-list", tenantDispatcher());
       await waitFor(() =>
         expect(getCapturedProps()?.filterFacets?.[0]?.options).toHaveLength(
-          REFERENCE_LIST_LOOKUP_LIMIT,
+          REFERENCE_COMBOBOX_LIMIT,
         ),
       );
-      expect(
-        warn.mock.calls.some((call) => String(call[0]).includes('reference facet "tenantId"')),
-      ).toBe(true);
-    } finally {
-      warn.mockRestore();
-    }
+      const firstFacet = getCapturedProps()?.filterFacets?.[0];
+      expect(firstFacet?.options.some((option) => option.value === "t250")).toBe(false);
+
+      await act(async () => {
+        firstFacet?.onSearchChange?.("Tenant 250");
+      });
+      await waitFor(() =>
+        expect(getCapturedProps()?.filterFacets?.[0]?.options).toEqual([
+          { value: "t250", label: "Tenant 250" },
+        ]),
+      );
+
+      await act(async () => {
+        getCapturedProps()?.onFilterChange?.("tenantId", ["t250"]);
+      });
+      await waitFor(() =>
+        expect(queryCalls[queryCalls.length - 1]?.payload).toMatchObject({
+          filters: [{ field: "tenantId", op: "in", value: ["t250"] }],
+        }),
+      );
+    });
+
+    test("a value chosen from the URL keeps its label although it is not on the first page", async () => {
+      queryCalls = [];
+      capturedProps = undefined;
+      renderScreen(schema, "ledger:screen:member-list", tenantDispatcher(), "UTC", {
+        "member-list.f.tenantId": "t250",
+      });
+      await waitFor(() =>
+        expect(getCapturedProps()?.filterFacets?.[0]?.options).toContainEqual({
+          value: "t250",
+          label: "Tenant 250",
+        }),
+      );
+      expect(getCapturedProps()?.filterFacets?.[0]?.options).toHaveLength(
+        REFERENCE_COMBOBOX_LIMIT + 1,
+      );
+    });
+  });
+
+  test("a reference facet on a field with an optionsQuery asks that handler for options and chosen rows", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const optionsRows = [
+      { id: "a1", label: "Alpha GmbH" },
+      { id: "b2", label: "Beta AG" },
+    ];
+    const dispatcher: Dispatcher = {
+      ...stubDispatcher(),
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        if (type !== "ledger:query:tenant-options") {
+          return { isSuccess: true, data: { rows: [] } };
+        }
+        const { search, ids } = payload as { search?: string; ids?: readonly string[] };
+        const rows = optionsRows.filter(
+          (row) =>
+            (search === undefined || row.label.includes(search)) &&
+            (ids === undefined || ids.includes(row.id)),
+        );
+        return { isSuccess: true, data: { rows } };
+      }) as unknown as Dispatcher["query"],
+    };
+    const entity: EntityDefinition = {
+      fields: {
+        tenantId: {
+          type: "reference",
+          entity: "tenant",
+          labelField: "name",
+          optionsQuery: "ledger:query:tenant-options",
+          filterable: true,
+          required: false,
+        },
+      },
+    } as unknown as EntityDefinition;
+    const screen: EntityListScreenDefinition = {
+      id: "member-list",
+      type: "entityList",
+      entity: "member",
+      columns: ["tenantId"],
+    };
+    const schema = {
+      featureName: "ledger",
+      entities: { member: entity },
+      screens: [screen],
+    } as unknown as FeatureSchema;
+
+    renderScreen(schema, "ledger:screen:member-list", dispatcher, "UTC", {
+      "member-list.f.tenantId": "b2",
+    });
+    await waitFor(() =>
+      expect(getCapturedProps()?.filterFacets?.[0]?.options).toEqual([
+        { value: "a1", label: "Alpha GmbH" },
+        { value: "b2", label: "Beta AG" },
+      ]),
+    );
+    expect(queryCalls.some((call) => call.type === "ledger:query:tenant:list")).toBe(false);
+
+    await act(async () => {
+      getCapturedProps()?.filterFacets?.[0]?.onSearchChange?.("Beta");
+    });
+    await waitFor(() =>
+      expect(getCapturedProps()?.filterFacets?.[0]?.options).toEqual([
+        { value: "b2", label: "Beta AG" },
+      ]),
+    );
   });
 });
 

@@ -87,6 +87,19 @@ function entityEvent(overrides: Partial<LiveEvent["data"]> = {}): LiveEvent["dat
 }
 
 describe("createEventSourceLiveEvents", () => {
+  test("a frame without an aggregateType reaches the subscriber named after the frame", () => {
+    const subscribe = createEventSourceLiveEvents();
+    const received: LiveEvent[] = [];
+    subscribe("channel-in-app:event:delivered", (event) => received.push(event));
+    FakeEventSource.instances[0]?.dispatch("channel-in-app:event:delivered", {
+      id: 5,
+      userId: "u1",
+      notificationType: "t:notify:a",
+    });
+    expect(received).toHaveLength(1);
+    expect(received[0]?.data.aggregateType).toBe("channel-in-app:event:delivered");
+  });
+
   test("any verb — including business verbs and the auto-verb 'forgotten' — triggers the entity listener", () => {
     const liveEvents = createEventSourceLiveEvents();
     const received: LiveEvent[] = [];

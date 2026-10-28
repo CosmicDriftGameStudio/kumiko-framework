@@ -7,6 +7,7 @@
 // in styles.css (:has() selector) — the single source for the header height
 // that Drawer's `belowHeader` prop also reads.
 
+import { IN_APP_NOTIFICATION_FEATURE } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import { MoreHorizontal } from "lucide-react";
 import {
   Fragment,
@@ -40,6 +41,7 @@ import {
 import { SidebarTrigger } from "../ui/sidebar.tsx";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
 import { buildNavRegistrySliceForApp } from "./nav-tree.tsx";
+import { NotificationBell } from "./notification-bell.tsx";
 import { usePageHeaderSlot } from "./page-header-slot.tsx";
 import {
   activeNavLabel,
@@ -82,6 +84,9 @@ export function ShellHeader({
   const allScreens = useMemo(
     () => appSchema.features.flatMap((f) => f.screens),
     [appSchema.features],
+  );
+  const hasInAppChannel = appSchema.features.some(
+    (feature) => feature.featureName === IN_APP_NOTIFICATION_FEATURE,
   );
   const slot = usePageHeaderSlot();
   const standInScreenId = slot?.breadcrumbScreenId;
@@ -203,6 +208,7 @@ export function ShellHeader({
             compact && "overflow-hidden",
           )}
         />
+        {user !== undefined && hasInAppChannel && <NotificationBell screens={allScreens} />}
         {!compact && headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
             {headerActions}

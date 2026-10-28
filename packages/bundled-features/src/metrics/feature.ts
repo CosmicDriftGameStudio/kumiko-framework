@@ -78,7 +78,7 @@ function createTenantMetricQuery(
     name: metric.id,
     description: metric.description,
     schema: tenantPayloadSchema(metric),
-    access: { roles: access.admin },
+    access: { roles: metric.access?.roles ?? access.admin },
     handler: async (query, ctx) =>
       runMetric(ctx.db, metric, {
         range: query.payload.range,
