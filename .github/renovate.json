@@ -34,6 +34,11 @@
         ".github/actions/kumiko-services/service-images.txt"
       ],
       "automerge": false
+    },
+    {
+      "description": "v2 renames inputs and outputs, ignores the GITHUB_TOKEN env (the version PR would no longer trigger CI), drops the NPM_TOKEN .npmrc handling and pushes tags via the API; the release job needs a deliberate migration first",
+      "matchPackageNames": ["changesets/action"],
+      "allowedVersions": "<2"
     }
   ]
 }
