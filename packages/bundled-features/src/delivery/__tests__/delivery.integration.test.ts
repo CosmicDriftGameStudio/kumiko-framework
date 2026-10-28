@@ -976,7 +976,8 @@ describe("flow 7: unsubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
     const issuedLongAgo = Math.floor(Date.now() / 1000) - 10 * 365 * 24 * 3600;
-    const expiredToken = await new jose.SignJWT({ ...jose.decodeJwt(token) })
+    const originalClaims = jose.decodeJwt(token);
+    const expiredToken = await new jose.SignJWT({ ...originalClaims })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt(issuedLongAgo)
       .setExpirationTime(issuedLongAgo + 3600)
