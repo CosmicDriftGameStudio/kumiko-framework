@@ -8,10 +8,8 @@ import {
 import { formatMoney } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
 import type { BillingPlansResult, PlanSwitchPreview } from "../types.ts";
-import {
-  type CheckoutConsentPayload,
-  CONSENT_TEXT_OUTDATED_CODE,
-} from "./checkout-consent-dialog.tsx";
+import { CONSENT_TEXT_OUTDATED_CODE } from "./checkout-consent-dialog.tsx";
+import { ConsentCheckboxes, ConsentLinks, useConsentFieldState } from "./consent-fields.tsx";
 import { SubscriptionFoundationHandlers, SubscriptionFoundationQueries } from "./constants.ts";
 import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
 import { intervalKey } from "./plan-price.ts";
@@ -53,7 +51,7 @@ export function PlanSwitchConfirmDialog({
 }: PlanSwitchConfirmDialogProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
-  const { Modal, Text, Field, Input, Button, Link, Banner } = usePrimitives();
+  const { Modal, Text, Button, Banner } = usePrimitives();
   const previewQuery = useQuery<PlanSwitchPreviewReply>(
     SubscriptionFoundationQueries.planSwitchPreview,
     { tier },
@@ -61,33 +59,19 @@ export function PlanSwitchConfirmDialog({
   const switchMutation = useMutation<{ readonly applied: true }>(
     SubscriptionFoundationHandlers.switchPlan,
   );
-  const [documentsAcknowledged, setDocumentsAcknowledged] = useState(false);
-  const [earlyPerformance, setEarlyPerformance] = useState(false);
-  const [withdrawalLoss, setWithdrawalLoss] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const consentLocale = resolveConsentLocale(locale);
   const texts = consumerProtection?.consentTexts[consentLocale];
   const legalLinks = consumerProtection?.legalLinks[consentLocale];
-  const documentsRequired = texts?.documentsAcknowledgement !== undefined;
-  const consentGiven =
-    consumerProtection === undefined ||
-    (earlyPerformance && withdrawalLoss && (!documentsRequired || documentsAcknowledged));
+  const consentFields = useConsentFieldState(texts);
+  const consentGiven = consumerProtection === undefined || consentFields.allGiven;
 
   async function confirm(): Promise<void> {
     setSubmitting(true);
     setErrorText(null);
-    const consent: CheckoutConsentPayload | undefined =
-      texts === undefined
-        ? undefined
-        : {
-            earlyPerformanceRequested: true,
-            withdrawalLossAcknowledged: true,
-            ...(documentsRequired && { documentsAcknowledged: true }),
-            consentTextVersion: texts.consentTextVersion,
-            locale: consentLocale,
-          };
+    const consent = consentFields.buildPayload(consentLocale);
     const result = await switchMutation.mutate({ tier, ...(consent && { consent }) });
     if (result.isSuccess) {
       onApplied();
@@ -96,9 +80,7 @@ export function PlanSwitchConfirmDialog({
     setSubmitting(false);
     setErrorText(t(result.error.i18nKey, result.error.i18nParams));
     if (result.error.code === CONSENT_TEXT_OUTDATED_CODE) {
-      setDocumentsAcknowledged(false);
-      setEarlyPerformance(false);
-      setWithdrawalLoss(false);
+      consentFields.reset();
       onConsentTextOutdated();
     }
   }
@@ -166,67 +148,14 @@ export function PlanSwitchConfirmDialog({
             <Text variant="muted">{t("billing-foundation.planSwitch.pendingNote")}</Text>
           </div>
         )}
-        {legalLinks !== undefined && (
-          <div className="flex flex-wrap gap-4">
-            <Link href={legalLinks.terms} target="_blank">
-              {t("billing-foundation.consent.link.terms")}
-            </Link>
-            <Link href={legalLinks.withdrawal} target="_blank">
-              {t("billing-foundation.consent.link.withdrawal")}
-            </Link>
-            <Link href={legalLinks.privacy} target="_blank">
-              {t("billing-foundation.consent.link.privacy")}
-            </Link>
-            {legalLinks.refund !== undefined && (
-              <Link href={legalLinks.refund} target="_blank">
-                {t("billing-foundation.consent.link.refund")}
-              </Link>
-            )}
-          </div>
-        )}
+        {legalLinks !== undefined && <ConsentLinks legalLinks={legalLinks} />}
         {texts !== undefined && (
-          <>
-            {texts.documentsAcknowledgement !== undefined && (
-              <Field
-                id="plan-switch-documents"
-                label={texts.documentsAcknowledgement}
-                layout="inline"
-              >
-                <Input
-                  kind="boolean"
-                  id="plan-switch-documents"
-                  name="plan-switch-documents"
-                  value={documentsAcknowledged}
-                  onChange={setDocumentsAcknowledged}
-                  disabled={submitting}
-                />
-              </Field>
-            )}
-            <Field
-              id="plan-switch-early-performance"
-              label={texts.earlyPerformance}
-              layout="inline"
-            >
-              <Input
-                kind="boolean"
-                id="plan-switch-early-performance"
-                name="plan-switch-early-performance"
-                value={earlyPerformance}
-                onChange={setEarlyPerformance}
-                disabled={submitting}
-              />
-            </Field>
-            <Field id="plan-switch-withdrawal-loss" label={texts.withdrawalLoss} layout="inline">
-              <Input
-                kind="boolean"
-                id="plan-switch-withdrawal-loss"
-                name="plan-switch-withdrawal-loss"
-                value={withdrawalLoss}
-                onChange={setWithdrawalLoss}
-                disabled={submitting}
-              />
-            </Field>
-          </>
+          <ConsentCheckboxes
+            idPrefix="plan-switch"
+            texts={texts}
+            state={consentFields}
+            disabled={submitting}
+          />
         )}
         {errorText !== null && (
           <Banner variant="error" testId="plan-switch-confirm-error">
