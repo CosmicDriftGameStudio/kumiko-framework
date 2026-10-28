@@ -3,6 +3,7 @@ import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 
 import { getStreamVersion } from "../event-store/index.ts";
+import { buildDerivedSelect } from "./derived-field-sql.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
 import { aggregateList } from "./event-store-executor-read-aggregate.ts";
@@ -66,6 +67,15 @@ export function createReadVerbs(
       if (built.kind === "empty") return emptyListPage(totalCount);
       const { where, fieldReadClause, searchTruncated } = built;
 
+      const derived = buildDerivedSelect({
+        entity,
+        table,
+        tableName,
+        fieldReadClause,
+        user,
+        db,
+        runtime: runtimeOptions,
+      });
       const sort = resolveListSort({
         payload,
         table,
@@ -74,6 +84,7 @@ export function createReadVerbs(
         colSql: where.colSql,
         fieldReadClause,
         referenceSort: runtimeOptions?.referenceSort,
+        derivedSortExpr: derived?.sortExpr,
         db,
         user,
       });
@@ -92,7 +103,8 @@ export function createReadVerbs(
         tableName,
         streamTenantFor(user),
       );
-      const selectList = `*${sortLabelProjection}${streamVersionProjection}`;
+      const derivedProjection = derived?.projections(where.params) ?? "";
+      const selectList = `*${sortLabelProjection}${streamVersionProjection}${derivedProjection}`;
       const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(
@@ -102,6 +114,7 @@ export function createReadVerbs(
       );
       const lastSortLabel = takeLastSortLabel(rawRows, sort);
       const streamVersions = takeStreamVersions(rawRows);
+      const derivedValues = derived?.takeValues(rawRows);
       const tableInfo = extractTableInfo(table);
       const encryptedRows = rawRows.map((r) => coerceAndRehydrateRow(r, tableInfo, entity));
       const decryptedRows = await Promise.all(
@@ -111,12 +124,12 @@ export function createReadVerbs(
       // Stream version is authoritative (see detail()): ctx.events.append bumps the
       // stream without touching row.version, so the raw row version would hand
       // clients a stale optimistic-lock base. Rows without events keep theirs.
-      const rows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
+      const storedRows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
 
       // Cache the still-encrypted raw rows (read-row version): same at-rest guarantee as
       // detail()'s encryptForStorage round-trip, without a re-encrypt; detail() rejects
       // a cached version that differs from the stream.
-      if (entityCache && entityName && rows.length > 0) {
+      if (entityCache && entityName && storedRows.length > 0) {
         await entityCache.mset(
           user.tenantId,
           entityName,
@@ -124,6 +137,11 @@ export function createReadVerbs(
         );
       }
 
+      // Viewer-dependent, so attached only after the cache write, as new row objects.
+      const rows =
+        derivedValues === undefined
+          ? storedRows
+          : storedRows.map((r, i) => ({ ...r, ...derivedValues[i] }));
       const lastRow = rows[rows.length - 1];
       const lastRaw = rawRows[rawRows.length - 1];
       let nextCursor: string | null = null;

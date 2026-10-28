@@ -7,6 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createEntity, defineFeature } from "../../engine/index.ts";
 import type { TenantId } from "../../engine/types/identifiers.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -30,6 +31,36 @@ const schemaRouteFeature = defineFeature("schema-route-fixture", (r) => {
     entity: "widget",
     columns: ["id"],
     access: { roles: ["Admin"] },
+  });
+  r.queryHandler({
+    name: "widget:detail",
+    schema: z.object({}),
+    handler: async () => ({ id: "1" }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+  r.queryHandler({
+    name: "widget:admin-docs",
+    schema: z.object({}),
+    handler: async () => ({ rows: [], nextCursor: null }),
+    access: { roles: ["Admin"] },
+  });
+  r.screen({
+    id: "widget-detail",
+    type: "projectionDetail",
+    query: "schema-route-fixture:query:widget:detail",
+    layout: {
+      mode: "tabs",
+      sections: [
+        { id: "main", title: "Main", fields: ["id"] },
+        {
+          id: "docs",
+          kind: "relatedList",
+          title: "Docs",
+          query: "schema-route-fixture:query:widget:admin-docs",
+          columns: ["id"],
+        },
+      ],
+    },
   });
   r.nav({ id: "widget-list", label: "Widgets", screen: "widget-list" });
   r.nav({ id: "admin-only", label: "Admin Only", screen: "admin-only" });
@@ -125,7 +156,11 @@ describe("GET /api/schema", () => {
       features: Array<{ featureName: string; screens: Array<{ id: string }> }>;
     };
     const adminFixture = adminBody.features.find((f) => f.featureName === "schema-route-fixture");
-    expect(adminFixture?.screens.map((s) => s.id).sort()).toEqual(["admin-only", "widget-list"]);
+    expect(adminFixture?.screens.map((s) => s.id).sort()).toEqual([
+      "admin-only",
+      "widget-detail",
+      "widget-list",
+    ]);
 
     const userToken = await stack.jwt.sign(TestUsers.user);
     const userRes = await stack.app.request(SCHEMA_PATH, {
@@ -135,7 +170,7 @@ describe("GET /api/schema", () => {
       features: Array<{ featureName: string; screens: Array<{ id: string }> }>;
     };
     const userFixture = userBody.features.find((f) => f.featureName === "schema-route-fixture");
-    expect(userFixture?.screens.map((s) => s.id)).toEqual(["widget-list"]);
+    expect(userFixture?.screens.map((s) => s.id).sort()).toEqual(["widget-detail", "widget-list"]);
 
     // Different bodies must carry different (strong) ETags.
     expect(adminRes.headers.get("etag")).not.toBe(userRes.headers.get("etag"));
@@ -154,5 +189,27 @@ describe("GET /api/schema", () => {
       headers: { Authorization: `Bearer ${userToken}`, "If-None-Match": adminEtag ?? "" },
     });
     expect(userRes.status).toBe(200);
+  });
+
+  test("relatedList tab whose query the role cannot run is absent from that role's schema", async () => {
+    const tabIds = async (user: Parameters<typeof stack.jwt.sign>[0]): Promise<string[]> => {
+      const token = await stack.jwt.sign(user);
+      const res = await stack.app.request(SCHEMA_PATH, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = (await res.json()) as {
+        features: Array<{
+          featureName: string;
+          screens: Array<{ id: string; layout?: { sections: Array<{ id?: string }> } }>;
+        }>;
+      };
+      const detail = body.features
+        .find((f) => f.featureName === "schema-route-fixture")
+        ?.screens.find((s) => s.id === "widget-detail");
+      return (detail?.layout?.sections ?? []).map((s) => s.id ?? "");
+    };
+
+    expect(await tabIds(TestUsers.admin)).toEqual(["main", "docs"]);
+    expect(await tabIds(TestUsers.user)).toEqual(["main"]);
   });
 });

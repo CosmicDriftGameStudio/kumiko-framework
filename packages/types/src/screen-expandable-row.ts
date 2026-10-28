@@ -13,7 +13,7 @@ export type ExpandableRowGrouping = Omit<ListTableGrouping, "field" | "userChoic
  *  `grouping`; the other table options belong on the entityList itself. */
 export type EntityListExpandableRow = Omit<
   EditRelatedListSection,
-  "id" | "countField" | "table" | "bulkActions"
+  "id" | "countField" | "count" | "table" | "bulkActions"
 > & {
   readonly table?: { readonly grouping?: ExpandableRowGrouping };
 };

@@ -163,6 +163,21 @@ function driverValueCoercerFor(pgType: string | undefined): DriverValueCoercer |
   return pgType.startsWith("numeric") ? numberUnlessNaN : undefined;
 }
 
+const STANDALONE_VALUE_INFO: TableInfo = {
+  name: "",
+  columnOf: (field) => field,
+  pgTypeOf: () => undefined,
+  bigintJsModeOf: () => undefined,
+  fieldOf: (column) => column,
+  hasColumn: () => false,
+};
+
+// For computed values that have no table column: coerces by pg type exactly as a stored column of that type.
+export function coerceDriverValueOfPgType(value: unknown, pgType: string, column: string): unknown {
+  const coercer = driverValueCoercerFor(pgType);
+  return coercer ? coercer(value, column, STANDALONE_VALUE_INFO) : value;
+}
+
 export function coerceDriverRow(
   row: Record<string, unknown>,
   info: TableInfo,

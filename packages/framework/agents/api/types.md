@@ -3161,6 +3161,11 @@ type ListRuntimeOptions = {
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
   };
   parentVisibility?: ParentVisibilityOption;
+  derivedSql?: {
+    resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    today: string;
+    now: string;
+  };
 };
 type LockGuardOption = {
   unsafeSkipLockGuard?: boolean;
@@ -3294,12 +3299,76 @@ type UiHints = {
 ## packages/types/src/fields-derived.ts
 
 ```ts
-type DerivedFieldDef = {
+type DerivedCondition =
+  | {
+    field: string;
+    op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
+    value: DerivedConditionValue;
+  }
+  | {
+    activeOn: {
+      from: string;
+      to: string;
+    };
+  }
+;
+type DerivedConditionValue =
+  | string
+  | number
+  | boolean
+  | null
+  | (string | number)[]
+  | {
+    today: true;
+  }
+  | {
+    now: true;
+  }
+;
+type DerivedFieldDef = JsDerivedFieldDef | SqlDerivedFieldDef;
+type DerivedFieldsMap = Readonly<Record<string, DerivedFieldDef>>;
+type DerivedRelatedMeasure =
+  | {
+    kind: "count";
+  }
+  | {
+    kind: "countDistinct";
+    field: string;
+  }
+  | {
+    kind: "first";
+    field: string;
+    orderBy: string;
+    direction: "asc" | "desc";
+    label?: boolean; // Only for a reference field with labelField: yields the referenced row's label.
+  }
+;
+type DerivedSqlSpec =
+  | {
+    kind: "coalesce";
+    fields: string[];
+  }
+  | {
+    kind: "related";
+    entity: string; // Same convention as a reference field's `entity` ("feature:entity").
+    on: {
+      field: string;
+      outer?: string;
+    }; // related.<field> = outer.<outer ??
+    measure: DerivedRelatedMeasure;
+    where?: DerivedCondition[]; // AND-ed.
+  }
+;
+type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
+type JsDerivedFieldDef = {
   valueType: DerivedValueType;
   derive: (row: Readonly<Record<string, unknown>>, ctx: DeriveContext) => unknown; // Pure function of the stored row + clock.
 };
-type DerivedFieldsMap = Readonly<Record<string, DerivedFieldDef>>;
-type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
+type SqlDerivedFieldDef = {
+  valueType: DerivedValueType;
+  sortable?: boolean;
+  sql: DerivedSqlSpec;
+};
 ```
 
 ## packages/types/src/fields.ts
@@ -4565,7 +4634,7 @@ type ScreenFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
 ## packages/types/src/screen-expandable-row.ts
 
 ```ts
-type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "table" | "bulkActions"> & { // Expandable area of an `entityList` row: a relatedList of the row's record.
+type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "count" | "table" | "bulkActions"> & { // Expandable area of an `entityList` row: a relatedList of the row's record.
   table?: {
     grouping?: ExpandableRowGrouping;
   };

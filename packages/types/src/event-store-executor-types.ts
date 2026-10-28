@@ -85,6 +85,14 @@ export type ListRuntimeOptions = {
   // Join-row read-gate (EntityDefinition.parentRef) — same request-time
   // registry dependency as referenceSearch/referenceSort above.
   readonly parentVisibility?: ParentVisibilityOption;
+  // SQL derived fields (EntityDefinition.derivedFields with `sql`): the entity resolver and the
+  // read clock (`today` as PlainDate ISO in the tenant timezone, `now` as Instant ISO). Without
+  // it SQL derived fields are not computed.
+  readonly derivedSql?: {
+    readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    readonly today: string;
+    readonly now: string;
+  };
 };
 
 type ListFilterOption = {

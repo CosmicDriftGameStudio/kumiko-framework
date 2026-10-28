@@ -2,6 +2,7 @@ import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-types/scree
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
 export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap-list"]);
@@ -58,7 +59,8 @@ function validateOneEntityListScreen(
     const entityDef = feature.entities?.[screen.entity];
     const fieldDef = entityDef?.fields[sortField];
     const isSortable =
-      fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true;
+      (entityDef !== undefined && isSortableSqlDerivedField(entityDef, sortField)) ||
+      (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
     if (!isSortable) {
       throw new Error(`${prefix}: defaultSort column "${sortField}" must be sortable`);
     }

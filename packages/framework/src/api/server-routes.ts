@@ -7,6 +7,7 @@ import {
   resolveDisabledFeatureNames,
   stripDisabledFeaturesFromAppSchema,
 } from "../engine/strip-disabled-features-from-app-schema.ts";
+import { stripUnreadableRelatedLists } from "../engine/strip-unreadable-related-lists.ts";
 import { createAnonymousUser, isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -162,9 +163,14 @@ export function mountSchemaRoute(
           searchAdapterMissing: !options.context.searchAdapter,
         });
       }
-      const projected = projectAppSchemaForRoles(
-        stripDisabledFeaturesFromAppSchema(fullSchema, options.registry, disabledFeatureNames),
-        user?.roles ?? [],
+      const roles = user?.roles ?? [];
+      const projected = stripUnreadableRelatedLists(
+        projectAppSchemaForRoles(
+          stripDisabledFeaturesFromAppSchema(fullSchema, options.registry, disabledFeatureNames),
+          roles,
+        ),
+        roles,
+        (queryQn) => options.registry.getQueryHandler(queryQn)?.access,
       );
       const json = JSON.stringify(projected);
       cached = { json, etag: computeStrongEtag(json) };

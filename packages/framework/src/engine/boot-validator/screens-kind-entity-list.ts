@@ -6,6 +6,7 @@ import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts"
 import { normalizeListColumn } from "../screen-helpers.ts";
 
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
+import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { validateEntityListAggregateOptions } from "./entity-list-aggregate-options.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
@@ -45,10 +46,9 @@ function resolveEntityListFields(
 ): EntityListFields {
   const entityDef = resolveScreenEntity(ctx, screenId, entityName);
   const fieldNames = new Set(Object.keys(entityDef.fields));
-  // List columns may also name a read-time derived field (not a stored
-  // column). Allowed for display; deliberately NOT added to `fieldNames`, so
-  // defaultSort/filter on a derived field still fails — server-side sort over
-  // a non-column is a silent no-op (see DerivedFieldDef).
+  // List columns may also name a read-time derived field (not a stored column).
+  // Deliberately NOT added to `fieldNames`, so filtering one still fails; only a
+  // `sortable` SQL derived field may be the defaultSort (see isSortableSqlDerivedField).
   const columnFieldNames =
     entityDef.derivedFields !== undefined
       ? new Set([...fieldNames, ...Object.keys(entityDef.derivedFields)])
@@ -106,7 +106,8 @@ function validateEntityListDefaultSort(
   fields: EntityListFields,
 ): void {
   const sortField = defaultSort.field;
-  if (!fields.fieldNames.has(sortField)) {
+  const sortsOnDerived = isSortableSqlDerivedField(fields.entityDef, sortField);
+  if (!fields.fieldNames.has(sortField) && !sortsOnDerived) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort references unknown ` +
         `field "${sortField}". Known fields: ${[...fields.fieldNames].sort().join(", ")}`,
@@ -120,7 +121,9 @@ function validateEntityListDefaultSort(
   // Number/Date fields are naturally sortable. Authors can mark them
   // sortable when their field type supports it.
   const fieldDef = fields.entityDef.fields[sortField];
-  const isSortable = fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true;
+  const isSortable =
+    sortsOnDerived ||
+    (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
   if (!isSortable) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort.field "${sortField}" ` +

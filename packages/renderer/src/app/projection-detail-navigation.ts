@@ -69,6 +69,22 @@ export type SubtitlePartView = {
   readonly onPress?: () => void;
 };
 
+function recordEntityId(
+  navigate: MetricNavigate,
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  return navigate.entityId !== undefined ? String(record[navigate.entityId] ?? "") : undefined;
+}
+
+// A metric whose declared entityId field is empty on this record has nowhere to go, so it must
+// not look clickable. Tab-only navigation always resolves.
+export function metricNavigateResolves(
+  navigate: MetricNavigate,
+  record: Readonly<Record<string, unknown>>,
+): boolean {
+  return recordEntityId(navigate, record) !== "";
+}
+
 // hrefFor throws for an entity without a detailFor screen; outside
 // createKumikoApp the feature list is empty, so navigateTargetAllows can't
 // rule that out beforehand. The NavApi owns target resolution, so asking it
@@ -78,8 +94,7 @@ function hrefForNavigate(
   navigate: MetricNavigate,
   record: Readonly<Record<string, unknown>>,
 ): string | undefined {
-  const entityId =
-    navigate.entityId !== undefined ? String(record[navigate.entityId] ?? "") : undefined;
+  const entityId = recordEntityId(navigate, record);
   try {
     if (navigate.entity !== undefined) {
       return entityId === undefined || entityId === ""

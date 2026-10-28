@@ -25,6 +25,7 @@ export type DetailRegionModel = DetailHeaderModel & {
   readonly hasMetrics: boolean;
   readonly hasHeaderCard: boolean;
   readonly hasTabs: boolean;
+  readonly tabCounts: Readonly<Record<string, number>>;
   readonly activeSection:
     | ProjectionDetailScreenDefinition["layout"]["sections"][number]
     | undefined;
@@ -177,7 +178,12 @@ function renderDetailTabs(
   return (
     <Tabs
       testId="kumiko-screen-projection-detail-tabs"
-      items={buildDetailTabItems(screen.layout.sections, record, effectiveTranslate)}
+      items={buildDetailTabItems(
+        screen.layout.sections,
+        record,
+        effectiveTranslate,
+        model.tabCounts,
+      )}
       activeId={activeSection.id ?? ""}
       onSelect={(id) => requestLeave(() => nav.setSearchParams({ tab: id }))}
     />

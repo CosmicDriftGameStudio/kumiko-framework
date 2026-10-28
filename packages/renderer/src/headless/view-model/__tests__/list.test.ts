@@ -27,6 +27,8 @@ const taskEntity = {
     // no-op stand-in is enough.
     statusLabel: { valueType: "text", derive: () => "" },
     ageDays: { valueType: "number", derive: () => 0 },
+    // Client schema entries carry only valueType + sortable (the sql spec is stripped).
+    displayName: { valueType: "text", sortable: true },
   },
 } as unknown as EntityDefinition;
 
@@ -210,6 +212,21 @@ describe("computeListViewModel", () => {
         type: "number",
         sortable: false,
       },
+    ]);
+  });
+
+  test("sortable SQL derived column is sortable, JS derive column is not", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["displayName", "statusLabel"]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns.map((c) => [c.field, c.sortable])).toEqual([
+      ["displayName", true],
+      ["statusLabel", false],
     ]);
   });
 

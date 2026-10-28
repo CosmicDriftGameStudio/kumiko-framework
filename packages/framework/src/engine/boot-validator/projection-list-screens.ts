@@ -246,6 +246,28 @@ function validateRelatedListFacets(
   );
 }
 
+function validateRelatedListCount(
+  prefix: string,
+  section: EditRelatedListSection,
+  layoutMode: string | undefined,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: no count badge declared — nothing to reject.
+  if (section.count !== true) return;
+  if (layoutMode !== "tabs") {
+    throw new Error(`${prefix}: count: true only renders in a layout with mode "tabs".`);
+  }
+  if (section.countField !== undefined) {
+    throw new Error(`${prefix}: declares both count and countField — pick one badge source.`);
+  }
+  for (const key of ["totalCount", "limit"]) {
+    if (schemaAccepts(schema, key)) continue;
+    throw new Error(
+      `${prefix}: count: true needs query "${section.query}" to accept "${key}" in its Zod schema (the badge asks for limit: 1, totalCount: true).`,
+    );
+  }
+}
+
 // parentFilter lets a relatedList reuse the
 // generic `<entity>:list` query instead of a bespoke child-rows handler —
 // same 422 footgun as facets/filter above, plus its own mutual-exclusivity
@@ -313,9 +335,13 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
       if (!isEditLayoutScreen(screen)) continue;
       for (const section of screen.layout.sections) {
         if (section.kind !== "relatedList") continue;
-        validateSectionQuery(
-          `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`,
+        const sectionPrefix = `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`;
+        validateSectionQuery(sectionPrefix, section);
+        validateRelatedListCount(
+          sectionPrefix,
           section,
+          screen.layout.mode,
+          queryHandlers.get(section.query)?.schema,
         );
       }
     }

@@ -334,6 +334,11 @@ export type EditRelatedListSection = {
    *  Ignored outside tabs mode or when the field's value is not a finite
    *  number. */
   readonly countField?: string;
+  /** Tab badge counted from this section's own query (`limit: 1, totalCount: true`
+   *  → `total`), so it matches the tab's rows and stays live. Tabs mode only,
+   *  exclusive with `countField`; the query's Zod schema must accept `totalCount`
+   *  and `limit`. */
+  readonly count?: true;
   /** Rendered top-right in the section's Card title row — same
    *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
    *  evaluated against the parent record. Every action must resolve an icon
