@@ -1,12 +1,14 @@
 ---
-status: idea
+status: in-progress
 verified: 2026-10-28
+next: Runde 1 (S1 Sammler und Phasen, S3 validate-Ausgabe) in fw-next bauen, dann alle Apps messen
 ---
 
 # Boot-Regel-Registry: alle Boot-Fehler in einem Lauf, mit stabiler Regel-ID
 
-Entwurf zur Besprechung mit Marc. Nichts davon ist gebaut oder entschieden; die offenen
-Entscheidungen stehen am Ende, jeweils mit Empfehlung.
+Marc hat am 2026-10-28 entschieden: Runde 1 umfasst S1 (Sammler und Phasen) und S3 (eine
+`✗`-Zeile pro Verstoß in `validate`, plus `--json`). S2 und S4 bis S8 folgen in einer späteren
+Runde. E1 bis E8 gelten wie empfohlen (Abschnitt 7).
 
 ## Anlass
 
@@ -411,26 +413,32 @@ Runde (Abschnitt 6, Folgerunde).
 
 ## 6. Schnitt
 
-fw-next-Lane für S1 bis S4, weil sie das Verhalten jedes Boots ändern: auf `main` mergen ohne
-Release, alle Apps lokal dagegen messen, ein Release am Ende. S5 ff. sind verhaltensneutral und
-laufen in normalen Releases.
+Runde 1 läuft als fw-next-Runde, weil sie das Verhalten jedes Boots ändert: auf `main` mergen
+ohne Release, alle Apps lokal dagegen messen, ein Release am Ende.
+
+**Runde 1 (freigegeben 2026-10-28)**
 
 | S | Repo | Inhalt | Abhängig von |
 |---|---|---|---|
 | S1 | FW | `boot-rule.ts`, `boot-report.ts`, `boot-phases.ts`; Grenzen und Phasen in `validateBoot` und `validateNavBootSubset`; `unclassified`-Sammeln; Crash-Unterdrückung; ein bootCheck pro Grenze; `BootValidationError` mit `violations`. Tests: Gesamtmeldung enthält jeden Einzeltext, Abbruch nach P1, Paar-Skip, Registry-Grenze, Crash ohne Vorverstoß wird geworfen. Fixtures mit verstecktem P1-Verstoß, die im FW-Lauf rot werden, werden korrigiert | keine |
-| S2 | FW | Regeltabellen und zentrale Liste; Export `bootRuleError`/Typen aus `engine`; Migration der 40 Stellen aus Abschnitt 5 inkl. Grenzen pro Regel (`FIELD_RULES`, entityList als Regeltabelle, i18n sammelt alle Keys, bootChecks); Test auf eindeutige IDs | S1 |
-| S3 | FW | `validate-command.ts`: eine `✗`-Zeile pro Verstoß mit ID und Fix-Zeile, `--json`; `kumiko check` reicht durch; CLI-Tests | S1 (IDs aus S2 für schöne Ausgabe) |
-| S4 | FW | Generator `agents/boot-rules.md`, Eintrag in `AGENTS.md`; Ratchet-Guard mit Baseline | S2 |
-| Mess | alle Apps | lokal gegen unveröffentlichtes FW: Tests jeder App aus Abschnitt 4, `bun kumiko check` pro App. Erwartung: keine Änderung außer der Ausgabe von `validate` | S1 bis S4 |
+| S3 | FW | `validate-command.ts`: eine `✗`-Zeile pro Verstoß mit ID und Fix-Zeile, `--json`; `kumiko check` reicht durch; CLI-Tests. Ohne S2 tragen die meisten Verstöße die ID `unclassified/<check>` | S1 |
+| Mess | alle Apps | lokal gegen unveröffentlichtes FW: Tests jeder App aus Abschnitt 4, `bun kumiko check` pro App. Erwartung: keine Änderung außer der Ausgabe von `validate` | S1, S3 |
 | Release | FW | ein Release nach grüner Messung; Changeset als minor, weil sich die Ausgabe von `kumiko-schema validate` ändert | Mess |
-| S-Studio | kumiko-studio | `check-runner.ts`: `--json` lesen statt Zeilen-Regex, Kürzung pro Befund auf Meldung, Fix getrennt; Unterweisung erneut messen | Release + Bump |
+
+**Spätere Runde**
+
+| S | Repo | Inhalt | Abhängig von |
+|---|---|---|---|
+| S-Studio | kumiko-studio | `check-runner.ts`: `--json` lesen statt Zeilen-Regex, Kürzung pro Befund auf Meldung, Fix getrennt; Unterweisung erneut messen | Release Runde 1 + Bump |
+| S2 | FW | Regeltabellen und zentrale Liste; Export `bootRuleError`/Typen aus `engine`; Migration der 40 Stellen aus Abschnitt 5 inkl. Grenzen pro Regel (`FIELD_RULES`, entityList als Regeltabelle, i18n sammelt alle Keys, bootChecks); Test auf eindeutige IDs | Runde 1 |
+| S4 | FW | Generator `agents/boot-rules.md`, Eintrag in `AGENTS.md`; Ratchet-Guard mit Baseline | S2 |
 | S5 bis S8 | FW | ID-Migration in vier Gruppen (Abschnitt 5), Baseline sinkt; bei 0 Guard löschen | S4 |
 | Folgerunde | FW | Schicht 0 (Registrar sammelt), Schicht 1 in validateBoot ziehen, Schicht 3 an den Collector, Warnungen als Regeln | S5 bis S8 |
 
-S1 und S2 können ein PR werden, wenn das Review es zulässt; getrennt sind sie, weil S1 alleine
-schon das Hauptproblem löst und ohne neue öffentliche Exporte auskommt.
+## 7. Entscheidungen
 
-## 7. Offene Entscheidungen
+Am 2026-10-28 von Marc entschieden: E1 bis E8 jeweils wie empfohlen. Die Optionen bleiben als
+Begründung stehen.
 
 **E1 Abbruch zwischen Phasen**
 - (a) nach jeder Phase mit Verstößen abbrechen: kaum Folgefehler, Unterweisung braucht 2 Läufe.
