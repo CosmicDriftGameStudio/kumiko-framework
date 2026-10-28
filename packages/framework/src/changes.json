@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.398.0",
+    "type": "fix",
+    "title": "jose updated to 6.2.13",
+    "detail": "Dependency bump of jose in framework and bundled-features. No API change for consumers."
+  },
+  {
     "version": "0.397.0",
     "type": "improvement",
     "title": "Scrub primitive for event payload fields",

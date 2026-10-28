@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.398.0
+
+### Minor Changes
+
+- bb422a5: The consumer-protection consent box of billing-foundation can show a refund policy link and, per app opt-in, require a checkbox confirming that the terms, the privacy policy and the refund policy were read and accepted.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Consent box takes a refund policy link and an optional documents checkbox
+  detail: `legalLinks.refund` is rendered next to the other links in the checkout and plan-switch dialogs. `consumerProtection.documentsAcknowledgement: true` adds a required first checkbox whose text depends on whether a refund link is set for the locale. The text joins `consentTextVersion` only when the option is on, `start-plan-checkout`, `create-checkout-session` and `switch-plan` then reject a consent without `documentsAcknowledged: true` with 422 `consent_required`, and the recorded consent stores the flag. Without the option nothing changes, including the version. New i18n key `billing-foundation.consent.link.refund`.
+  -->
+
+### Patch Changes
+
+- 0fe069a: Update jose to ^6.2.13.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: jose updated to 6.2.13
+  detail: Dependency bump of jose in framework and bundled-features. No API change for consumers.
+  -->
+- Updated dependencies [1b96c8c]
+- Updated dependencies [0fe069a]
+  - @cosmicdrift/kumiko-renderer@0.398.0
+  - @cosmicdrift/kumiko-types@0.398.0
+  - @cosmicdrift/kumiko-framework@0.398.0
+  - @cosmicdrift/kumiko-testing@0.398.0
+
 ## 0.397.0
 
 ### Minor Changes
