@@ -172,20 +172,22 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
     cleanup: async () => {
       await conn.close();
       await outsideConn.close();
-      if (!opts.persistent) {
-        const admin2 = createDbConnection({
-          url: adminUrl,
-          maxConnections: 1,
-          rowLevelSecurity: "off",
-        });
-        try {
-          await dropDatabaseIfExists(admin2.db, dbName);
-        } finally {
-          await admin2.close();
-        }
-      }
+      if (!opts.persistent) await dropTestDb(url, dbName);
     },
   };
+}
+
+export async function dropTestDb(baseUrl: string, dbName: string): Promise<void> {
+  const admin = createDbConnection({
+    url: adminUrlOf(baseUrl),
+    maxConnections: 1,
+    rowLevelSecurity: "off",
+  });
+  try {
+    await dropDatabaseIfExists(admin.db, dbName);
+  } finally {
+    await admin.close();
+  }
 }
 
 const testDbTemplates = new Map<string, Promise<void>>();

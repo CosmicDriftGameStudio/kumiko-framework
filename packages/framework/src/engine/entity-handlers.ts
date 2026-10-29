@@ -312,11 +312,19 @@ function assertExcludableFields(
   }
 }
 
+/** The phase slots are always unset on entity handlers, so a consumer can spread one into its own
+ *  handler and add typed phases without inheriting the slot types. */
+export type EntityWriteHandlerDef = WriteHandlerDef & {
+  readonly reserveBeforeTransaction?: undefined;
+  readonly beforeTransaction?: undefined;
+  readonly beforeTransactionWhenNested?: undefined;
+};
+
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
   options: EntityWriteHandlerOptions,
-): WriteHandlerDef {
+): EntityWriteHandlerDef {
   const { entityName, verb } = parseHandlerName(name, WRITE_VERBS);
   if (verb === "restore" && !entity.softDelete) {
     throw new Error(
@@ -666,7 +674,7 @@ export function defineEntityCreateHandler(
   entityName: string,
   entity: EntityDefinition,
   options: EntityWriteHandlerOptions,
-): WriteHandlerDef {
+): EntityWriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:create`, entity, options);
 }
 
@@ -675,7 +683,7 @@ export function defineEntityUpdateHandler(
   entityName: string,
   entity: EntityDefinition,
   options: EntityWriteHandlerOptions,
-): WriteHandlerDef {
+): EntityWriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:update`, entity, options);
 }
 
@@ -684,7 +692,7 @@ export function defineEntityDeleteHandler(
   entityName: string,
   entity: EntityDefinition,
   options: EntityHandlerOptions,
-): WriteHandlerDef {
+): EntityWriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:delete`, entity, options);
 }
 
@@ -693,7 +701,7 @@ export function defineEntityRestoreHandler(
   entityName: string,
   entity: EntityDefinition,
   options: EntityHandlerOptions,
-): WriteHandlerDef {
+): EntityWriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:restore`, entity, options);
 }
 

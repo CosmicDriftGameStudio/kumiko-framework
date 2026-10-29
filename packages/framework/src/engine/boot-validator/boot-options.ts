@@ -31,4 +31,9 @@ export type ValidateBootOptions = {
    *  (locale packages count). Without it a key can ship in one language and
    *  silently fall back at runtime for users of the others. */
   readonly requiredLocales?: readonly string[];
+  /** Require translations for the values that entityList columns and entityEdit
+   *  fields display: select/multiSelect option labels and the column headers
+   *  and select options of embedded lists. Without them the UI shows raw
+   *  option values and sub-field names. Opt-in (default false). */
+  readonly requireFieldValueTranslations?: boolean;
 };

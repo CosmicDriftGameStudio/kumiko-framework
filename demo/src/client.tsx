@@ -11,17 +11,22 @@
 // Add new client plugins (e.g. notificationsClient()) here in clientFeatures
 // — symmetric to APP_FEATURES on the server side.
 
-import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import {
+  emailPasswordClient,
+  useShellUser,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 
 // createKumikoApp's shell option only injects schema + children, so brand is supplied here.
 function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {
+  const user = useShellUser();
   return (
     <DefaultAppShell
       brand={<span className="font-semibold tracking-tight">demo</span>}
       schema={schema}
+      {...(user !== undefined && { user })}
     >
       {children}
     </DefaultAppShell>

@@ -29,7 +29,11 @@ export type AppPorts = {
 /** The boot-validator options an app owns; `env` and the cipher are injected by the runners. */
 export type AppValidateBootOptions = Pick<
   ValidateBootOptions,
-  "navAllowlist" | "navAllowlistExempt" | "requiredLocales" | "warnOnUniqueAccessRoles"
+  | "navAllowlist"
+  | "navAllowlistExempt"
+  | "requiredLocales"
+  | "requireFieldValueTranslations"
+  | "warnOnUniqueAccessRoles"
 >;
 
 export type AppConfig = {

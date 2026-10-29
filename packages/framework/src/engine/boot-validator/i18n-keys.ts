@@ -2,6 +2,7 @@ import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
 import {
   buildEffectiveTranslationKeys,
   featureHasI18nSurface,
+  fieldValueTranslationKeysFromFeature,
   findRequiredLocaleGaps,
   findTranslationLocaleGaps,
   requiredKeysFromFeature,
@@ -134,6 +135,26 @@ export function validateRequiredLocales(
     );
     throw new Error(
       `${lines.join("\n")}\nThe app requires locales [${requiredLocales.join(", ")}] for every translation key; load the matching locale package or add the missing translations.`,
+    );
+  }
+}
+
+export function validateFieldValueTranslations(
+  features: readonly FeatureDefinition[],
+  enabled: boolean | undefined,
+): void {
+  // skip: opt-in rule, off unless the app enables requireFieldValueTranslations
+  if (enabled !== true) return;
+  const defined = buildEffectiveTranslationKeys(features);
+  const missing: string[] = [];
+  for (const feature of features) {
+    for (const key of fieldValueTranslationKeysFromFeature(feature)) {
+      if (!hasDefinedTranslation(defined, key)) missing.push(`  - ${feature.name}: ${key}`);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `[i18n] ${missing.length} select option / embedded-cell translation key(s) missing (requireFieldValueTranslations):\n${missing.join("\n")}\nAdd them via r.translations(...) in the owning feature.`,
     );
   }
 }

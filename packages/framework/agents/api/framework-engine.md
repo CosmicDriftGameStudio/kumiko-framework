@@ -45,6 +45,7 @@ function createLongTextField<R extends true | false = false>(overrides: Partial<
 function createMoneyField<R extends true | false = false>(overrides?: Partial<Omit<MoneyFieldDef, "type" | "required">> & { required?: R; }): MoneyFieldDef & { required: R; };
 function createMultiSelectField<const TOptions extends string[]>(opts: { options: TOptions; } & Partial<Omit<MultiSelectFieldDef<TOptions>, "type" | "options" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): MultiSelectFieldDef<TOptions>; // Multi-select field — N values from a fixed option list.
 function createNumberField<R extends true | false = false>(overrides?: Partial<Omit<NumberFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): NumberFieldDef & { required: R; }; // Numeric field — `double precision` column by default (fractional values allowed end to end).
+function createReferenceField<R extends true | false = false>(opts: { entity: string; } & Partial<Omit<ReferenceFieldDef, "type" | "entity" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): ReferenceFieldDef & { required: R; }; // Foreign key to another entity (`"customer"` or `"feature:entity"`), stored as a UUID.
 function createRegistry(rawFeatures: FeatureDefinition[]): Registry;
 function createSeed(opts: CreateSeedOptions): ConfigSeedDef;
 function createSelectField<const TOptions extends string[], R extends true | false = false>(opts: { options: TOptions; } & Partial<Omit<SelectFieldDef<NoInfer<TOptions>>, "type" | "options" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): SelectFieldDef<TOptions> & { required: R; };
@@ -60,14 +61,14 @@ function createUserConfig<T extends ConfigKeyType>(type: T, opts?: ConfigKeyOpti
 function declareEscapeHatch(declaration: EscapeHatchDeclaration): void;
 function dedupeFeatures(features: FeatureDefinition[]): FeatureDefinition[];
 function defineApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent<TPayload>, tx: ExecutorManagedRunner, table: ProjectionTable) => Promise<void>): SingleStreamApplyFn;
-function defineEntityCreateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): WriteHandlerDef;
-function defineEntityDeleteHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): WriteHandlerDef;
+function defineEntityCreateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
+function defineEntityDeleteHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): EntityWriteHandlerDef;
 function defineEntityDetailHandler(entityName: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
 function defineEntityListHandler(entityName: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
 function defineEntityQueryHandler(name: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
-function defineEntityRestoreHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): WriteHandlerDef;
-function defineEntityUpdateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): WriteHandlerDef;
-function defineEntityWriteHandler(name: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): WriteHandlerDef;
+function defineEntityRestoreHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): EntityWriteHandlerDef;
+function defineEntityUpdateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
+function defineEntityWriteHandler(name: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
 function defineFeature<const TName extends string, TExports = undefined>(name: TName, setup: (r: FeatureRegistrar<TName>) => TExports, settings?: DefineFeatureSettings): FeatureDefinition & { exports: TExports; };
 function defineMspApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent<TPayload>, tx: ExecutorManagedRunner, ctx: MultiStreamApplyContext) => Promise<void>): MultiStreamApplyFn;
 function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap>(def: QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
@@ -1713,6 +1714,7 @@ type ValidateBootOptions = {
   env?: Readonly<Record<string, string | undefined>>; // Env the encrypted-field master-key probe reads.
   entityFieldCipher?: EnvelopeCipher; // The cipher the runner injects after validation (built from the app's `masterKey` or the env keyring).
   requiredLocales?: string[]; // Locales every translation key must carry across all mounted features (locale packages count).
+  requireFieldValueTranslations?: boolean; // Require translations for the values that entityList columns and entityEdit fields display: select/multiSelect option labels and the column headers and select options of embedded lists.
 };
 type ValidationError = {
   field: string;

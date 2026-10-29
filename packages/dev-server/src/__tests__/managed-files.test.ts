@@ -130,6 +130,14 @@ describe("kumiko check managed", () => {
     expect(ci).not.toContain("minio: true");
     expect(ci).toContain("${{ ");
   });
+
+  test("the test job grants the read permissions the v2 reusable test workflow asks for", () => {
+    syncAll();
+    const ci = readFileSync(join(appRoot, ".github/workflows/ci.yml"), "utf-8");
+    expect(ci).toMatch(
+      /\n {2}test:\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
+    );
+  });
 });
 
 describe("kumiko sync-managed", () => {

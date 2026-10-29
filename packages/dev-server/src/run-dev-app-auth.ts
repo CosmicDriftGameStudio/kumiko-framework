@@ -247,7 +247,7 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
   // Apply r.config({ seeds }) declared by any registered feature.
   // Runs before user-supplied seed callbacks so those can read /
   // override the deploy-defaults.
-  await applyStandardBootSeeds({
+  const { adminUserId } = await applyStandardBootSeeds({
     db: stack.db,
     registry: stack.registry,
     admin: effectiveAuth?.admin,
@@ -255,7 +255,12 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
     cipher: bootCrypto.configCipher,
     processName: "runDevApp",
   });
+  const firstMembership = effectiveAuth?.admin?.memberships[0];
+  const admin: SessionUser | undefined =
+    adminUserId !== undefined && firstMembership !== undefined
+      ? { id: adminUserId, tenantId: firstMembership.tenantId, roles: firstMembership.roles }
+      : undefined;
   for (const seed of config.stackSeeds) {
-    await seed(stack);
+    await seed(stack, { admin });
   }
 }

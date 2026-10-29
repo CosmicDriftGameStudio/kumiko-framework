@@ -43,7 +43,7 @@ export type ManagedAppFacts = {
 export const DEFAULT_INFRA_REF = "main";
 
 /** Infra tag a new app is scaffolded with; Renovate keeps it current via the reusables-v* rule. */
-export const CURRENT_INFRA_REF = "reusables-v1.2.4";
+export const CURRENT_INFRA_REF = "reusables-v2.0.0";
 
 /** Byte-compared after the marker lines are stripped. */
 export type ManagedTemplateFile = {

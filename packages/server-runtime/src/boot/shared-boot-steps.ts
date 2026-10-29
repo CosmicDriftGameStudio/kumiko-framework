@@ -115,8 +115,9 @@ export async function applyStandardBootSeeds(deps: {
   readonly cipher: EnvelopeCipher | undefined;
   readonly processName: string;
   readonly databaseWait?: DatabaseWaitClock;
-}): Promise<void> {
+}): Promise<{ readonly adminUserId?: string }> {
   const { db, registry, admin, shortcutSeeds, cipher, processName, databaseWait } = deps;
+  let adminUserId: string | undefined;
   // Seeds are idempotent, so a transient connection error re-runs the whole sequence; any other
   // error stays fatal. Later boot steps build on the seeds, so this cannot continue in the background.
   await waitUntilDatabaseReachable(
@@ -124,7 +125,7 @@ export async function applyStandardBootSeeds(deps: {
       if (admin) {
         // Operator-created account, not a self-registration: under emailVerificationMode "strict"
         // an unverified seed admin could never log in. `admin.emailVerified` still overrides.
-        await seedAdminGuarded(db, { emailVerified: true, ...admin });
+        adminUserId = (await seedAdminGuarded(db, { emailVerified: true, ...admin })).id;
       }
       for (const seed of shortcutSeeds) {
         await seed(db);
@@ -138,6 +139,7 @@ export async function applyStandardBootSeeds(deps: {
     },
     { ...databaseWait, processName, target: "database (boot seeds)" },
   );
+  return adminUserId === undefined ? {} : { adminUserId };
 }
 
 const MFA_ROUTE_HANDLERS = {

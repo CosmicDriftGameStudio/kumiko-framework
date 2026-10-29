@@ -274,6 +274,7 @@ function renderPackageJson(
         "@cosmicdrift/kumiko-bundled-features": version,
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
+        "@cosmicdrift/kumiko-locale-de": version,
         "@cosmicdrift/kumiko-renderer": version,
         "@cosmicdrift/kumiko-server-runtime": version,
         react: "^19.2.6",
@@ -388,10 +389,11 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   }
   const imports: ImportSpec[] = [
     ...[...grouped].map(([specifier, names]) => ({ specifier, names })),
+    { specifier: "@cosmicdrift/kumiko-locale-de", names: ["localeDe"] },
     { specifier: "./features/tasks", names: ["tasksFeature"] },
   ];
 
-  const callExprs = [...effective.map((f) => f.callExpression), "tasksFeature"];
+  const callExprs = [...effective.map((f) => f.callExpression), "localeDe()", "tasksFeature"];
   const oneLineFeatures = `export const APP_FEATURES = [${callExprs.join(", ")}] as const;`;
   const appFeatures =
     oneLineFeatures.length <= MAX_LINE_WIDTH
@@ -454,6 +456,7 @@ ${imports}
 
 export default defineAppConfig({
   features: composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH }),
+  validateBootOptions: { requireFieldValueTranslations: true },
   client: { entries: ["src/client.tsx"] },
   ports: { dev: ${SCAFFOLD_DEV_PORT}, e2e: ${SCAFFOLD_E2E_PORT} },
 });
@@ -581,12 +584,14 @@ ${authBlock}
 `;
 }
 
-// Tiers mirror how Biome wraps the JSX as the name grows.
+// Tiers mirror how Biome wraps the JSX as the name grows. The user spread
+// is part of every tier so the line-width math covers it.
 function renderDefaultAppShellElement(appName: string): string {
   const spanOpen = '<span className="font-semibold tracking-tight">';
+  const userSpread = "{...(user !== undefined && { user })}";
   // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
   const brandInline = `${spanOpen}${appName}</span>`;
-  const singleLine = `    <DefaultAppShell brand={${brandInline}} schema={schema}>`;
+  const singleLine = `    <DefaultAppShell brand={${brandInline}} schema={schema} ${userSpread}>`;
   if (singleLine.length <= MAX_LINE_WIDTH) return singleLine;
   const brandAttrInline = `      brand={${brandInline}}`;
   const brandAttribute =
@@ -599,15 +604,22 @@ function renderDefaultAppShellElement(appName: string): string {
             : [`        ${spanOpen}`, `          ${appName}`, "        </span>"]),
           "      }",
         ].join("\n")}`;
-  return ["    <DefaultAppShell", brandAttribute, "      schema={schema}", "    >"].join("\n");
+  return [
+    "    <DefaultAppShell",
+    brandAttribute,
+    "      schema={schema}",
+    `      ${userSpread}`,
+    "    >",
+  ].join("\n");
 }
 
 function renderClient(appName: string): string {
   const imports = renderSortedImports([
     {
       specifier: "@cosmicdrift/kumiko-bundled-features/auth-email-password/web",
-      names: ["emailPasswordClient"],
+      names: ["emailPasswordClient", "useShellUser"],
     },
+    { specifier: "@cosmicdrift/kumiko-locale-de/web", names: ["localeDeClient"] },
     { specifier: "./features/tasks/web", names: ["tasksClient"] },
     {
       specifier: "@cosmicdrift/kumiko-renderer/web",
@@ -632,6 +644,7 @@ function renderClient(appName: string): string {
 ${imports}
 
 function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {
+  const user = useShellUser();
   return (
 ${renderDefaultAppShellElement(appName)}
       {children}
@@ -641,7 +654,7 @@ ${renderDefaultAppShellElement(appName)}
 
 createKumikoApp({
   shell: AppShell,
-  clientFeatures: [emailPasswordClient(), tasksClient],
+  clientFeatures: [localeDeClient(), emailPasswordClient(), tasksClient],
 });
 `;
 }

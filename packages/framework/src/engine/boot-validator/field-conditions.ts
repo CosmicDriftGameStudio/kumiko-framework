@@ -133,8 +133,22 @@ function assertFileSubField(where: string, sub: EmbeddedFileSubFieldDef): void {
       throw new Error(`${where} has invalid maxSize "${sub.maxSize}". Use e.g. "10mb", "500kb".`);
     }
   }
-  if (sub.accept?.some((ext) => ext.length === 0)) {
+  assertAcceptEntries(where, sub.accept);
+}
+
+// validateFile compares accept entries with the lower-cased last file-name segment, so only
+// bare lower-case extensions can ever match.
+const BARE_EXTENSION = /^[a-z0-9]+$/;
+
+function assertAcceptEntries(where: string, accept: readonly string[] | undefined): void {
+  if (accept?.some((ext) => ext.length === 0)) {
     throw new Error(`${where} has an empty entry in accept. List file extensions like "pdf".`);
+  }
+  const offender = accept?.find((entry) => !BARE_EXTENSION.test(entry));
+  if (offender !== undefined) {
+    throw new Error(
+      `${where} has accept entry "${offender}", which can never match an uploaded file. accept takes bare lower-case file extensions without dot, MIME type or wildcard: use "pdf" instead of ".pdf" or "application/pdf".`,
+    );
   }
 }
 
@@ -256,6 +270,18 @@ function assertField(
     if (condition !== undefined) assertTopLevelCondition(where, key, fieldName, condition, entity);
   }
   if (field.type === "embedded") assertEmbeddedField(where, field);
+  if (isFileAcceptField(field)) assertAcceptEntries(where, field.accept);
+}
+
+function isFileAcceptField(
+  field: FieldDefinition,
+): field is Extract<FieldDefinition, { type: "file" | "files" | "image" | "images" }> {
+  return (
+    field.type === "file" ||
+    field.type === "files" ||
+    field.type === "image" ||
+    field.type === "images"
+  );
 }
 
 export function validateFieldConditions(feature: FeatureDefinition): void {
