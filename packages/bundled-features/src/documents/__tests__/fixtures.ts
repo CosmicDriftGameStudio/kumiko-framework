@@ -216,6 +216,19 @@ export const documentsFeature = createDocumentsFeature({
   categories: ["contract", "id"],
   linkTargets: ["property", "lease"],
   access: openToAll,
+  // Every test role reads all the gate allows; the system role is left out on purpose, so
+  // capture and import must work without it.
+  readAccess: Object.fromEntries(
+    [
+      "TenantAdmin",
+      "PropertyReader",
+      "LeaseReader",
+      "PropertyEditor",
+      "Nobody",
+      "MemoReader",
+      "SecretReader",
+    ].map((role) => [role, "all" as const]),
+  ),
   capture: [
     {
       entity: "lease",

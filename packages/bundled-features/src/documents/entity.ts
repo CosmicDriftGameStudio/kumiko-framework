@@ -6,6 +6,7 @@ import {
   createSelectField,
   createTextField,
   type EntityDefinition,
+  SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DOCUMENT_LINK_ENTITY } from "./constants.ts";
 
@@ -24,7 +25,11 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
     softDelete: true,
     description:
       "A filed document: title, category, issue and expiry dates and one file. It is visible only through its links to other records and the owner of its file; the file may stay owned by the record it came from.",
-    ...(options.readAccess !== undefined && { access: { read: options.readAccess } }),
+    // The system user passes the gate; the capture and import checks run as it and would
+    // otherwise miss a document that readAccess hides.
+    ...(options.readAccess !== undefined && {
+      access: { read: { ...options.readAccess, [SYSTEM_ROLE]: "all" } },
+    }),
     ...(options.retention !== undefined && { retention: options.retention }),
     readGate: {
       anyLink: { entity: DOCUMENT_LINK_ENTITY, field: "documentId" },

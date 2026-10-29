@@ -2,6 +2,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   defineWriteHandler,
+  type HandlerEvents,
   type SessionUser,
   SYSTEM_ROLE,
   type WriteHandlerDef,
@@ -41,47 +42,44 @@ async function fileRefExists(
   return row !== null;
 }
 
-// Deleted ones count: a re-run after an import with `deleted` must converge, not fail.
-async function isDocumentStream(
-  executors: DocumentExecutors,
-  id: string,
-  user: SessionUser,
-  db: TenantDb,
-): Promise<boolean> {
-  const page = await executors.document.list(
-    { filter: { field: "id", op: "eq", value: id }, limit: 1 },
-    user,
-    db,
-    { includeDeleted: true },
-  );
-  return page.rows.length > 0;
+type StreamLoader = Pick<HandlerEvents, "load">;
+
+// The stream, not the projected row: a row-level readAccess can hide a document from the system
+// user, and a deleted document still has its stream.
+async function streamTypeOf(events: StreamLoader, id: string): Promise<string | undefined> {
+  const [first] = await events.load(id, { atVersion: 1 });
+  return first?.aggregateType;
 }
 
 // undefined: the document exists now, created here or by an earlier run of the same import.
 async function createUnlessImported(
   executors: DocumentExecutors,
+  events: StreamLoader,
   payload: ImportDocumentPayload,
   user: SessionUser,
   db: TenantDb,
 ): Promise<WriteFailure | undefined> {
-  if (await isDocumentStream(executors, payload.id, user, db)) return undefined;
-  const created = await executors.document.create(
-    {
-      id: payload.id,
-      title: payload.title,
-      category: payload.category,
-      file: payload.fileRefId,
-      ...(payload.issuedAt !== undefined && { issuedAt: payload.issuedAt }),
-      ...(payload.validUntil !== undefined && { validUntil: payload.validUntil }),
-    },
-    user,
-    db,
-  );
-  if (created.isSuccess) return undefined;
-  if (created.error.code !== "version_conflict") return created;
-  // Stream ids are unique across aggregate types: a conflict is only the retry of this import
-  // when the stream is a document, otherwise linking would point at nothing.
-  if (await isDocumentStream(executors, payload.id, user, db)) return undefined;
+  const existingType = await streamTypeOf(events, payload.id);
+  if (existingType === undefined) {
+    const created = await executors.document.create(
+      {
+        id: payload.id,
+        title: payload.title,
+        category: payload.category,
+        file: payload.fileRefId,
+        ...(payload.issuedAt !== undefined && { issuedAt: payload.issuedAt }),
+        ...(payload.validUntil !== undefined && { validUntil: payload.validUntil }),
+      },
+      user,
+      db,
+    );
+    if (created.isSuccess) return undefined;
+    if (created.error.code !== "version_conflict") return created;
+  }
+  // Stream ids are unique per tenant across aggregate types: an existing stream is the retry of
+  // this import only when it is a document, otherwise linking would point at nothing.
+  const streamType = existingType ?? (await streamTypeOf(events, payload.id));
+  if (streamType === DOCUMENT_ENTITY) return undefined;
   return writeFailure(
     new ConflictError({
       message: `documents import: id ${payload.id} belongs to another record`,
@@ -137,7 +135,13 @@ export function createImportDocumentHandler(args: ImportArgs) {
         return writeFailure(new NotFoundError(FILE_REF_ENTITY_NAME, payload.fileRefId));
       }
 
-      const notImported = await createUnlessImported(executors, payload, event.user, ctx.db);
+      const notImported = await createUnlessImported(
+        executors,
+        ctx.events,
+        payload,
+        event.user,
+        ctx.db,
+      );
       if (notImported !== undefined) return notImported;
       for (const link of payload.links) {
         const linked = await ensureDocumentLink(executors, event.user, ctx.db, payload.id, link);
