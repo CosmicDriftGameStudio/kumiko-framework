@@ -20,19 +20,26 @@ function fail(check: GateCheck, message: string): never {
   );
 }
 
-function validateAnyLink(check: GateCheck, anyLink: { entity: string; field: string }): void {
-  const link = findEntity(check.featureMap, anyLink.entity);
+function validateLink(
+  check: GateCheck,
+  key: "anyLink" | "allLinks",
+  gateLink: { entity: string; field: string },
+): void {
+  const link = findEntity(check.featureMap, gateLink.entity);
   if (link === undefined) {
-    fail(check, `readGate.anyLink.entity "${anyLink.entity}" is not registered.`);
+    fail(check, `readGate.${key}.entity "${gateLink.entity}" is not registered.`);
   }
   if (link.parentRef === undefined) {
     fail(
       check,
-      `readGate.anyLink.entity "${anyLink.entity}" must declare a parentRef; its host visibility is what the gate checks.`,
+      `readGate.${key}.entity "${gateLink.entity}" must declare a parentRef; its host visibility is what the gate checks.`,
     );
   }
-  if (link.fields[anyLink.field] === undefined) {
-    fail(check, `readGate.anyLink.field "${anyLink.field}" is not a field of "${anyLink.entity}".`);
+  if (link.fields[gateLink.field] === undefined) {
+    fail(
+      check,
+      `readGate.${key}.field "${gateLink.field}" is not a field of "${gateLink.entity}".`,
+    );
   }
 }
 
@@ -79,7 +86,11 @@ export function validateReadGates(
         "readGate and parentRef cannot be combined; a gated entity cannot be a join row.",
       );
     }
-    if (gate.anyLink !== undefined) validateAnyLink(check, gate.anyLink);
+    if (gate.anyLink !== undefined && gate.allLinks !== undefined) {
+      fail(check, "readGate declares both anyLink and allLinks; pick one.");
+    }
+    if (gate.anyLink !== undefined) validateLink(check, "anyLink", gate.anyLink);
+    if (gate.allLinks !== undefined) validateLink(check, "allLinks", gate.allLinks);
     if (gate.fileOwner !== undefined) validateFileOwner(check, gate.fileOwner);
     validateNoHandWrittenReaders(check);
   }

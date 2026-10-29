@@ -80,6 +80,17 @@ describe("validateReadGates", () => {
     );
   });
 
+  test("allLinks is validated like anyLink and cannot be combined with it", () => {
+    const link = { entity: "link", field: "documentId" } as const;
+    expect(() => check(gated({ allLinks: link, fileOwner: { field: "file" } }))).not.toThrow();
+    expect(() => check(gated({ allLinks: { entity: "link", field: "nope" } }))).toThrow(
+      /readGate\.allLinks\.field "nope" is not a field/,
+    );
+    expect(() => check(gated({ anyLink: link, allLinks: link }))).toThrow(
+      /both anyLink and allLinks/,
+    );
+  });
+
   test("rejects a file-owner field that is not a file field, or a stack without the files feature", () => {
     expect(() => check(gated({ fileOwner: { field: "title" } }))).toThrow(/single file or image/);
     expect(() => check(gated({ fileOwner: { field: "file" } }), false)).toThrow(/files feature/);

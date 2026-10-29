@@ -46,6 +46,12 @@ export {
   createFileProviderForTenant,
   isFileProviderPlugin,
 } from "./provider-resolver.ts";
+export type {
+  FileRefOwner,
+  RebindFileRefContext,
+  RebindFileRefOutcome,
+} from "./rebind-file-ref.ts";
+export { rebindFileRef } from "./rebind-file-ref.ts";
 export {
   filesStorageTrackingFeature,
   tenantStorageUsageTable,

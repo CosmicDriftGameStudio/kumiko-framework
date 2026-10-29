@@ -93,7 +93,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "documents:write:filed-document:create expose=true risk=mid",
   "documents:write:filed-document:delete expose=true risk=high",
   "documents:write:filed-document:update expose=true risk=mid",
-  "documents:write:import expose=false risk=mid",
+  "documents:write:import expose=false risk=high",
   "documents:write:link expose=true risk=mid",
   "documents:write:unlink expose=true risk=mid",
   "feature-toggles:query:list expose=true risk=low",

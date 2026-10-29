@@ -23,7 +23,11 @@ import {
   DOCUMENT_LINK_ENTITY,
   DOCUMENTS_FEATURE_NAME,
 } from "./constants.ts";
-import { createDocumentEntity, createDocumentLinkEntity } from "./entity.ts";
+import {
+  createDocumentEntity,
+  createDocumentLinkEntity,
+  type DocumentLinkReadMode,
+} from "./entity.ts";
 import { createDocumentExecutors } from "./executor.ts";
 import { createImportDocumentHandler } from "./handlers/import.write.ts";
 import { createLinkDocumentHandler, createUnlinkDocumentHandler } from "./handlers/link.write.ts";
@@ -38,14 +42,23 @@ import { createDocumentWriteGuard } from "./write-guard.ts";
 export type DocumentsFeatureOptions = {
   /** Allowed document categories; they become the options of the category field. */
   readonly categories: readonly [string, ...string[]];
-  /** Entities a document can be linked to. Each needs an update handler, which linking requires. */
+  /** Entities a document can be linked to. Linking needs write access to the target: its update handler, or its entity write roles when it has none. */
   readonly linkTargets: readonly [string, ...string[]];
+  /** Display label per category (de, en); a category without one shows its raw value. */
+  readonly categoryLabels?: Readonly<Record<string, { readonly de: string; readonly en: string }>>;
   /** Files saved into these fields become documents automatically. */
   readonly capture?: readonly DocumentCaptureRule[];
   /** Retention of the document rows, in the entity's own retention vocabulary. */
   readonly retention?: EntityDefinition["retention"];
   /** Row-level read rule on the document, AND-ed with the link and file-owner gate. */
   readonly readAccess?: NonNullable<EntityDefinition["access"]>["read"];
+  /**
+   * "anyLink" (default): one readable linked record shows the document. "allLinks": the viewer
+   * must read every record it is linked to, so a link to a shared record (a contact) does not
+   * open a document that also hangs off a record of another team. The file-owner check applies
+   * either way.
+   */
+  readonly linkReadMode?: DocumentLinkReadMode;
   /**
    * Who may use the document handlers. One rule applies to read, write and delete; the split form
    * sets them apart. Default TenantAdmin and TenantMember; a missing delete follows write.
@@ -84,11 +97,14 @@ function resolveAccess(access: AccessRule | DocumentsAccess | undefined): Resolv
   return { read: access.read ?? DEFAULT_DOCUMENT_ACCESS, write, delete: access.delete ?? write };
 }
 
-function categoryOptionLabels(categories: readonly string[]) {
+function categoryOptionLabels(
+  categories: readonly string[],
+  labels: DocumentsFeatureOptions["categoryLabels"],
+) {
   return Object.fromEntries(
     categories.map((category) => [
       `documents:entity:filed-document:field:category:option:${category}`,
-      { en: category, de: category },
+      labels?.[category] ?? { en: category, de: category },
     ]),
   );
 }
@@ -103,6 +119,7 @@ function registerDocuments(
     categories: opts.categories,
     adminRoles: opts.adminRoles ?? DEFAULT_ADMIN_ROLES,
     ...(opts.readAccess !== undefined && { readAccess: opts.readAccess }),
+    ...(opts.linkReadMode !== undefined && { linkReadMode: opts.linkReadMode }),
     ...(opts.retention !== undefined && { retention: opts.retention }),
   });
   const linkEntity = createDocumentLinkEntity(linkTargets);
@@ -123,6 +140,7 @@ function registerDocuments(
       access: access.write,
       description:
         "Files a new document from an uploaded file; it stays invisible to everyone but the admin roles until it is linked to a record.",
+      agent: { risk: "mid" },
     }),
   );
   const writeGuard = createDocumentWriteGuard(executors, opts.adminRoles ?? DEFAULT_ADMIN_ROLES);
@@ -131,6 +149,7 @@ function registerDocuments(
       access: access.write,
       description:
         "Edits a document's title, category and dates from the entity-edit envelope; it does not change what the document is linked to.",
+      agent: { risk: "mid" },
     }),
   );
   r.writeHandler(
@@ -185,13 +204,23 @@ function registerDocuments(
 
   r.screen(createDocumentListScreen(access.read, opts.categories));
   r.translations({
-    keys: { ...DOCUMENTS_FEATURE_I18N, ...categoryOptionLabels(opts.categories) },
+    keys: {
+      ...DOCUMENTS_FEATURE_I18N,
+      ...categoryOptionLabels(opts.categories, opts.categoryLabels),
+    },
   });
 }
 
 export function createDocumentsFeature(opts: DocumentsFeatureOptions) {
   if (opts.expiringWithinDays !== undefined && opts.expiringWithinDays < 0) {
     throw new Error("createDocumentsFeature({ expiringWithinDays }) must not be negative.");
+  }
+  for (const category of Object.keys(opts.categoryLabels ?? {})) {
+    if (!opts.categories.includes(category)) {
+      throw new Error(
+        `createDocumentsFeature({ categoryLabels }) names "${category}", which is not in categories.`,
+      );
+    }
   }
   return defineFeature(DOCUMENTS_FEATURE_NAME, (r) => registerDocuments(r, opts));
 }

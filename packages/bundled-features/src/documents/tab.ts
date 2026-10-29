@@ -1,6 +1,6 @@
 import type { EditRelatedListSection } from "@cosmicdrift/kumiko-framework/engine";
 import type { DashboardStatPanel } from "@cosmicdrift/kumiko-framework/ui-types";
-import { DocumentsQueries } from "./constants.ts";
+import { DOCUMENT_ENTITY, DOCUMENTS_FEATURE_NAME, DocumentsQueries } from "./constants.ts";
 import { forTypeQueryQn } from "./queries/for-record.query.ts";
 
 // "Documents" tab for the edit screen of a link target. The tab id is the same on every screen,
@@ -11,7 +11,7 @@ export function documentsTab(entityType: string): EditRelatedListSection {
     kind: "relatedList",
     title: "documents:tab.title",
     query: forTypeQueryQn(entityType),
-    entity: "documents:document",
+    entity: `${DOCUMENTS_FEATURE_NAME}:${DOCUMENT_ENTITY}`,
     columns: [
       { field: "title", sortable: true },
       { field: "category", sortable: true },

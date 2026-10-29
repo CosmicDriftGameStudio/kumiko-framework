@@ -10,16 +10,20 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DOCUMENT_LINK_ENTITY } from "./constants.ts";
 
+export type DocumentLinkReadMode = "anyLink" | "allLinks";
+
 export type DocumentEntityOptions = {
   readonly categories: readonly [string, ...string[]];
   readonly adminRoles: readonly string[];
   readonly readAccess?: NonNullable<EntityDefinition["access"]>["read"];
+  readonly linkReadMode?: DocumentLinkReadMode;
   readonly retention?: EntityDefinition["retention"];
 };
 
 // Readable only through a link to a host the viewer can read, and only when the file's owner is
 // readable too (see EntityDefinition.readGate); readAccess narrows further.
 export function createDocumentEntity(options: DocumentEntityOptions) {
+  const documentLink = { entity: DOCUMENT_LINK_ENTITY, field: "documentId" };
   return createEntity({
     table: "read_filed_documents",
     softDelete: true,
@@ -32,7 +36,9 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
     }),
     ...(options.retention !== undefined && { retention: options.retention }),
     readGate: {
-      anyLink: { entity: DOCUMENT_LINK_ENTITY, field: "documentId" },
+      ...(options.linkReadMode === "allLinks"
+        ? { allLinks: documentLink }
+        : { anyLink: documentLink }),
       fileOwner: { field: "file" },
       linkExemptRoles: options.adminRoles,
     },

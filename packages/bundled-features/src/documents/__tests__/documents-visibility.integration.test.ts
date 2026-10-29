@@ -65,6 +65,17 @@ describe("documents visibility", () => {
     ]);
     expect(titles(await visibleDocuments(stack, users.nobody))).toEqual([]);
     expect(titles(await documentsOf(stack, users.nobody, "property", propertyId))).toEqual([]);
+
+    // anyLink (default): one readable link is enough, a further link to a lease changes nothing
+    const leaseId = await seedLease(stack, propertyId, { name: "L-any" });
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: created.id, entityType: "lease", entityId: leaseId },
+      users.admin,
+    );
+    expect(titles(await documentsOf(stack, users.propertyReader, "property", propertyId))).toEqual([
+      "Insurance",
+    ]);
   });
 
   test("a file in a field the viewer may not read hides the document", async () => {

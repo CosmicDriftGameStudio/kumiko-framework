@@ -20,6 +20,20 @@ export const DOCUMENTS_FEATURE_I18N: Readonly<Record<string, LocalizedString>> =
   "documents:list.expiry.expiring": { en: "Expiring soon", de: "Läuft bald ab" },
   "documents:list.expiry.valid": { en: "Valid", de: "Gültig" },
   "documents:list.expiry.none": { en: "No expiry date", de: "Ohne Ablaufdatum" },
+  "documents:write:link:title": {
+    en: "Link document to record",
+    de: "Dokument mit Datensatz verknüpfen",
+  },
+  "documents:write:link:field:documentId": { en: "Document", de: "Dokument" },
+  "documents:write:link:field:entityType": { en: "Record type", de: "Datensatztyp" },
+  "documents:write:link:field:entityId": { en: "Record", de: "Datensatz" },
+  "documents:write:unlink:title": {
+    en: "Remove document from record",
+    de: "Dokument von Datensatz lösen",
+  },
+  "documents:write:unlink:field:documentId": { en: "Document", de: "Dokument" },
+  "documents:write:unlink:field:entityType": { en: "Record type", de: "Datensatztyp" },
+  "documents:write:unlink:field:entityId": { en: "Record", de: "Datensatz" },
   "documents.errors.unknown-category": {
     en: "Unknown document category",
     de: "Unbekannte Dokumentenkategorie",

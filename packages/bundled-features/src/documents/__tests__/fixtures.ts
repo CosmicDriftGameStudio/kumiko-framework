@@ -26,7 +26,7 @@ import {
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { documentIdForFile } from "../aggregate-id.ts";
-import { createDocumentsFeature } from "../feature.ts";
+import { createDocumentsFeature, type DocumentsFeatureOptions } from "../feature.ts";
 
 export const tenant = testTenantId(1);
 export const otherTenant = testTenantId(2);
@@ -46,6 +46,17 @@ export const users = {
   }),
   secretReader: createTestUser({ id: 7, tenantId: tenant, roles: ["LeaseReader", "SecretReader"] }),
   foreign: createTestUser({ id: 8, tenantId: otherTenant, roles: ["TenantAdmin"] }),
+  // read the property a document is first linked to, so they can open the document
+  ledgerEditor: createTestUser({
+    id: 9,
+    tenantId: tenant,
+    roles: ["PropertyReader", "LedgerReader", "LedgerEditor"],
+  }),
+  ledgerReader: createTestUser({
+    id: 10,
+    tenantId: tenant,
+    roles: ["PropertyReader", "LedgerReader"],
+  }),
 };
 export type TestUser = (typeof users)["admin"];
 
@@ -82,6 +93,21 @@ export const vaultEntity = createEntity({
   fields: { name: text(64), propertyId: text(64), file: createFileField() },
 });
 
+// Link targets without an update handler: ledger declares who writes it, crate declares nothing.
+export const ledgerEntity = createEntity({
+  table: "doc_t_ledgers",
+  fields: { name: text(64) },
+  access: {
+    read: { LedgerReader: "all", LedgerEditor: "all", TenantAdmin: "all" },
+    write: { LedgerEditor: "all" },
+  },
+});
+export const crateEntity = createEntity({
+  table: "doc_t_crates",
+  fields: { name: text(64) },
+  access: { read: { LedgerReader: "all", TenantAdmin: "all" } },
+});
+
 const PDF = new TextEncoder().encode("%PDF-1.4 fixture");
 
 export const hostFeature = defineFeature("doc-fixtures", (r) => {
@@ -89,9 +115,13 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
   r.entity({ name: "lease", ...leaseEntity });
   r.entity({ name: "memo", ...memoEntity });
   r.entity({ name: "vault", ...vaultEntity });
+  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity({ name: "crate", ...crateEntity });
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["lease", leaseEntity],
+    ["ledger", ledgerEntity],
+    ["crate", crateEntity],
   ] as const) {
     r.writeHandler(defineEntityCreateHandler(name, entity, { access: openToAll }));
     r.queryHandler(defineEntityListHandler(name, entity, { access: openToAll }));
@@ -212,48 +242,63 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
   });
 });
 
-export const documentsFeature = createDocumentsFeature({
-  categories: ["contract", "id"],
-  linkTargets: ["property", "lease"],
-  access: openToAll,
-  // Every test role reads all the gate allows; the system role is left out on purpose, so
-  // capture and import must work without it.
-  readAccess: Object.fromEntries(
-    [
-      "TenantAdmin",
-      "PropertyReader",
-      "LeaseReader",
-      "PropertyEditor",
-      "Nobody",
-      "MemoReader",
-      "SecretReader",
-    ].map((role) => [role, "all" as const]),
-  ),
-  capture: [
-    {
-      entity: "lease",
-      field: "file",
-      category: "contract",
-      title: (row) => `Lease ${String(row["name"])}`,
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+export const documentsFeature = createFixtureDocumentsFeature();
+
+export function createFixtureDocumentsFeature(
+  options: Pick<DocumentsFeatureOptions, "linkReadMode"> & {
+    readonly readAccessOverride?: NonNullable<DocumentsFeatureOptions["readAccess"]>;
+  } = {},
+) {
+  const { readAccessOverride, ...featureOptions } = options;
+  return createDocumentsFeature({
+    ...featureOptions,
+    categories: ["contract", "id"],
+    linkTargets: ["property", "lease", "ledger", "crate"],
+    access: openToAll,
+    // Every test role reads all the gate allows; the system role is left out on purpose, so
+    // capture and import must work without it.
+    readAccess: {
+      ...Object.fromEntries(
+        [
+          "TenantAdmin",
+          "PropertyReader",
+          "LeaseReader",
+          "PropertyEditor",
+          "Nobody",
+          "MemoReader",
+          "SecretReader",
+          "LedgerReader",
+          "LedgerEditor",
+        ].map((role) => [role, "all" as const]),
+      ),
+      ...readAccessOverride,
     },
-    { entity: "lease", field: "secret", category: "id", title: () => "Secret" },
-    {
-      entity: "vault",
-      field: "file",
-      category: "contract",
-      title: () => "Vault",
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
-    },
-    {
-      entity: "memo",
-      field: "file",
-      category: "contract",
-      title: () => "Memo",
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
-    },
-  ],
-});
+    capture: [
+      {
+        entity: "lease",
+        field: "file",
+        category: "contract",
+        title: (row) => `Lease ${String(row["name"])}`,
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+      { entity: "lease", field: "secret", category: "id", title: () => "Secret" },
+      {
+        entity: "vault",
+        field: "file",
+        category: "contract",
+        title: () => "Vault",
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+      {
+        entity: "memo",
+        field: "file",
+        category: "contract",
+        title: () => "Memo",
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+    ],
+  });
+}
 
 export async function uploadFile(
   stack: TestStack,
@@ -281,10 +326,10 @@ export const IMPORT_JOB = "doc-fixtures:job:import-document";
 
 export const FIXED_NOW = "2026-06-15T10:00:00Z";
 
-export async function setupDocumentStack(): Promise<TestStack> {
+export async function setupDocumentStack(documents = documentsFeature): Promise<TestStack> {
   patchFileInstanceofForBunTest();
   return setupTestStack({
-    features: [createFilesFeature(), hostFeature, documentsFeature],
+    features: [createFilesFeature(), hostFeature, documents],
     files: { storageProvider: createInMemoryFileProvider() },
     jobs: { consumerLane: "worker" },
     extraContext: { clock: { now: () => Temporal.Instant.from(FIXED_NOW) } },

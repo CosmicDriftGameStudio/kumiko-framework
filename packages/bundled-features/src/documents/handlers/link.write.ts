@@ -26,6 +26,7 @@ export function createLinkDocumentHandler(args: LinkHandlerArgs) {
     name: "link",
     schema: documentLinkPayloadSchema,
     access,
+    agent: { risk: "mid" },
     description:
       "Makes a document visible on another record by linking it to that record; the caller must be able to read the document and edit the record.",
     handler: async (event, ctx): Promise<WriteResult<unknown>> => {
@@ -63,6 +64,7 @@ export function createUnlinkDocumentHandler(args: LinkHandlerArgs) {
     name: "unlink",
     schema: documentLinkPayloadSchema,
     access,
+    agent: { risk: "mid" },
     description:
       "Removes a document from a record it was linked to, reporting success when no link existed; the document and its file stay.",
     handler: async (event, ctx): Promise<WriteResult<unknown>> => {
