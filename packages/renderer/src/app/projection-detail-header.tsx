@@ -10,6 +10,7 @@ import type { NavApi } from "./nav.tsx";
 import {
   headerStatusTone,
   resolveHeaderStatusText,
+  resolveMetricText,
   resolveSubtitleHref,
 } from "./projection-detail-header-model.ts";
 import {
@@ -156,7 +157,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const field = metric.field;
     const label = effectiveTranslate(metric.label);
     const rawValue = record[field];
-    const value = String(rawValue ?? "");
+    const value = resolveMetricText(metric, rawValue, effectiveTranslate);
     const tiles = screen.metricsStyle === "tiles";
     // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
     const tone = rawValue === 0 ? undefined : metric.tone;
