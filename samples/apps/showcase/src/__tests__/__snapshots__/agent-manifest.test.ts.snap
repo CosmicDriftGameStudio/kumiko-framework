@@ -93,10 +93,6 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
   ],
   "features": [
     {
-      "description": "German UI and mail copy for framework screens. Opt-in; not included by includeBundled.",
-      "name": "locale-de",
-    },
-    {
       "name": "showcase",
     },
     {
