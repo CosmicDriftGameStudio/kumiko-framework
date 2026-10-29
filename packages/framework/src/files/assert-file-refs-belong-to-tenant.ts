@@ -1,9 +1,15 @@
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry } from "../engine/types/index.ts";
 
 import { ValidationError } from "../errors/index.ts";
-import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { assertRowFitsFileField } from "./bind-pending-file-refs.ts";
+import {
+  fileRefIdsBySubField,
+  fileRefIdsInField,
+  holdsFileRefs,
+  resolveFileSubField,
+} from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import type { FileRefRows } from "./load-save-file-refs.ts";
 
@@ -32,6 +38,27 @@ function isBoundToOtherRecord(
   return row["entityType"] !== entityName || boundId !== recordId;
 }
 
+// A file sub-field may be stricter than the sibling the upload came in through (`images` next
+// to `files`); the upload was only checked against the sub-field it named. Ids a sub-field
+// already held are not re-checked, a move from another sub-field counts as new.
+function assertNewIdsFitSubFields(
+  fieldDef: FieldDefinition,
+  previous: unknown,
+  changes: unknown,
+  fileRefRows: FileRefRows,
+): void {
+  const previousBySubField = fileRefIdsBySubField(fieldDef, previous);
+  for (const [subField, ids] of fileRefIdsBySubField(fieldDef, changes)) {
+    const subFieldDef = resolveFileSubField(fieldDef, subField);
+    if (subFieldDef === undefined) continue;
+    for (const fileRefId of ids) {
+      if (previousBySubField.get(subField)?.includes(fileRefId)) continue;
+      const row = fileRefRows.get(fileRefId);
+      if (row !== undefined) assertRowFitsFileField(row, subFieldDef);
+    }
+  }
+}
+
 export function assertFileRefsBelongToTenant(args: {
   readonly registry: Registry;
   readonly result: SaveContext;
@@ -49,13 +76,15 @@ export function assertFileRefsBelongToTenant(args: {
   const recordId = String(result.id);
   const alreadyHeld = new Set<string>();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(result.previous[fieldName])) alreadyHeld.add(fileRefId);
+    if (!holdsFileRefs(fieldDef)) continue;
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.previous[fieldName])) {
+      alreadyHeld.add(fileRefId);
+    }
   }
 
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
+    if (!holdsFileRefs(fieldDef)) continue;
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.changes[fieldName])) {
       // A value the record already holds is no new binding; its file_refs row may be gone
       // (forget purged the file), and sending the unchanged field back must still save.
       if (alreadyHeld.has(fileRefId)) continue;
@@ -71,5 +100,11 @@ export function assertFileRefsBelongToTenant(args: {
         ],
       });
     }
+    assertNewIdsFitSubFields(
+      fieldDef,
+      result.previous[fieldName],
+      result.changes[fieldName],
+      fileRefRows,
+    );
   }
 }

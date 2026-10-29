@@ -47,6 +47,8 @@ export type StoreFileInput = {
   readonly entityType?: string | undefined;
   readonly entityId?: string | undefined;
   readonly fieldName?: string | undefined;
+  /** File sub-field of the embedded `fieldName`; the stored row keeps the top-level `fieldName`. */
+  readonly subField?: string | undefined;
   /** Qualified name of a registered actionForm screen; `fieldName` then names one of its files
    *  fields and the upload is stored as pending (entityType = the screen QN, no entityId). */
   readonly actionForm?: string | undefined;
@@ -103,25 +105,71 @@ type AcceptedFile =
   | { readonly kind: "accepted"; readonly mimeType: string; readonly extension: string | undefined }
   | { readonly kind: "rejected"; readonly error: string };
 
-function acceptFile(
-  deps: Pick<StoreFileDeps, "registry" | "attachTargets" | "defaultMaxUploadSize">,
-  input: StoreFileInput,
-): AcceptedFile {
-  const { fileName, declaredMimeType, data, entityType, entityId, fieldName } = input;
-  const rejected = (error: string): AcceptedFile => ({ kind: "rejected", error });
-
-  // These interpolate directly into the storage key (buildStorageKey) —
-  // reject anything but a safe identifier so a caller can't path-traverse
-  // out of its tenant's storage prefix (../.. segments, absolute paths).
+// These interpolate directly into the storage key (buildStorageKey) —
+// reject anything but a safe identifier so a caller can't path-traverse
+// out of its tenant's storage prefix (../.. segments, absolute paths).
+function invalidIdentifierError(input: StoreFileInput): string | undefined {
+  const { entityType, entityId, fieldName, subField } = input;
   for (const [field, value] of [
     ["entityType", entityType],
     ["entityId", entityId],
     ["fieldName", fieldName],
+    ["subField", subField],
   ] as const) {
     if (value !== undefined && !SAFE_IDENTIFIER.test(value)) {
-      return rejected(`invalid_${field}: must match /^[A-Za-z0-9_-]+$/`);
+      return `invalid_${field}: must match /^[A-Za-z0-9_-]+$/`;
     }
   }
+  if (subField !== undefined && (entityType === undefined || fieldName === undefined)) {
+    return "invalid_sub_field: subField requires entityType and fieldName";
+  }
+  return undefined;
+}
+
+function acceptFileContent(
+  input: StoreFileInput,
+  accept: readonly string[] | undefined,
+): AcceptedFile {
+  const { fileName, declaredMimeType, data } = input;
+  const contentValidation = validateFileContent(fileName, data, accept);
+  if (contentValidation.kind === "rejected") {
+    return { kind: "rejected", error: contentValidation.error };
+  }
+
+  // A normalized upload's real type is already known from the sniffed
+  // bytes — resolveUploadMimeType's alias/rewrite step only applies to the
+  // declared mimeType of an unnormalized upload.
+  if (contentValidation.kind === "normalized") {
+    return {
+      kind: "accepted",
+      mimeType: contentValidation.mimeType,
+      extension: contentValidation.extension,
+    };
+  }
+  const mimeTypeResolution = resolveUploadMimeType(fileName, declaredMimeType, data);
+  if (mimeTypeResolution.kind === "rejected") {
+    return { kind: "rejected", error: mimeTypeResolution.error };
+  }
+  return {
+    kind: "accepted",
+    mimeType: resolveContentType({
+      declared: mimeTypeResolution.mimeType,
+      bytes: data,
+      filename: fileName,
+    }),
+    extension: undefined,
+  };
+}
+
+function acceptFile(
+  deps: Pick<StoreFileDeps, "registry" | "attachTargets" | "defaultMaxUploadSize">,
+  input: StoreFileInput,
+): AcceptedFile {
+  const { fileName, declaredMimeType, data } = input;
+  const rejected = (error: string): AcceptedFile => ({ kind: "rejected", error });
+
+  const identifierError = invalidIdentifierError(input);
+  if (identifierError !== undefined) return rejected(identifierError);
 
   const field = resolveUploadField(deps.registry, input, deps.attachTargets);
   if (field.kind === "rejected") return field;
@@ -139,31 +187,7 @@ function acceptFile(
     { maxSize, accept },
   );
   if (validationError) return rejected(validationError);
-
-  const contentValidation = validateFileContent(fileName, data, accept);
-  if (contentValidation.kind === "rejected") return rejected(contentValidation.error);
-
-  // A normalized upload's real type is already known from the sniffed
-  // bytes — resolveUploadMimeType's alias/rewrite step only applies to the
-  // declared mimeType of an unnormalized upload.
-  if (contentValidation.kind === "normalized") {
-    return {
-      kind: "accepted",
-      mimeType: contentValidation.mimeType,
-      extension: contentValidation.extension,
-    };
-  }
-  const mimeTypeResolution = resolveUploadMimeType(fileName, declaredMimeType, data);
-  if (mimeTypeResolution.kind === "rejected") return rejected(mimeTypeResolution.error);
-  return {
-    kind: "accepted",
-    mimeType: resolveContentType({
-      declared: mimeTypeResolution.mimeType,
-      bytes: data,
-      filename: fileName,
-    }),
-    extension: undefined,
-  };
+  return acceptFileContent(input, accept);
 }
 
 // Upload step: validates and writes the binary. Outside any transaction on purpose — network/disk

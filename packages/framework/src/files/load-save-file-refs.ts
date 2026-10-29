@@ -2,11 +2,10 @@ import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import { selectMany } from "../db/query.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 
 import { getStreamVersions } from "../event-store/event-store.ts";
-import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 
@@ -31,8 +30,8 @@ export async function loadSaveFileRefs(args: {
 
   const ids = new Set<string>();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const id of fileRefIdsOf(result.changes[fieldName])) ids.add(id);
+    if (!holdsFileRefs(fieldDef)) continue;
+    for (const id of fileRefIdsInField(fieldDef, result.changes[fieldName])) ids.add(id);
   }
   return loadFileRefRows(db, [...ids], user.tenantId);
 }

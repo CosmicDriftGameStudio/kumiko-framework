@@ -1,5 +1,5 @@
 import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
-import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
+import { FIRST_STYLEGUIDE_INSPECTION_ID, FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 
 // One entry = one styleguide block = one screenshot (×locale×theme×viewport).
 // Baseline: the two real auto-UI screens (edit form in card + list with
@@ -57,6 +57,25 @@ export const SCENARIOS: readonly Scenario[] = [
       "Timezones-Recipe: locatedTimestamp-Picker (Wall-Clock + IANA-Zone) + date/timestamp/tz",
     url: "/delivery-edit",
     waitFor: "text=Located date-time",
+    fullPage: true,
+  },
+  {
+    name: "inspection-checklist-mobile",
+    description:
+      "Inspection checklist as phone cards: tone segments, finding on not_ok, photo tile",
+    url: `/inspection-edit/${FIRST_STYLEGUIDE_INSPECTION_ID}`,
+    viewport: { width: 390, height: 844 },
+    waitFor: "text=Hydraulic hose intact",
+    fullPage: true,
+    // The shell scrolls internally, so fullPage alone stops at the viewport and hides cards 3 and 4.
+    captureStyle:
+      "html, body, #root, .h-svh, .h-dvh, .h-screen { height: auto !important; } .overflow-y-auto, .overflow-auto { overflow: visible !important; }",
+  },
+  {
+    name: "inspection-checklist",
+    description: "Inspection checklist as desktop table with per-row hidden cells and tone badges",
+    url: `/inspection-edit/${FIRST_STYLEGUIDE_INSPECTION_ID}`,
+    waitFor: "text=Hydraulic hose intact",
     fullPage: true,
   },
   {

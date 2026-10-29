@@ -1,12 +1,11 @@
 import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import type { TenantDb } from "../db/tenant-db.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 
 import { reraiseAsKumikoError } from "../errors/index.ts";
-import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
+import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 
 // The bound fieldName may differ from the field the id was removed from: an id
@@ -22,7 +21,7 @@ function isBoundToRecord(
     row["entityType"] === entityName &&
     row["entityId"] === entityId &&
     typeof boundField === "string" &&
-    isFileField(fileFields[boundField])
+    holdsFileRefs(fileFields[boundField])
   );
 }
 
@@ -33,8 +32,7 @@ function fileRefIdsStoredInAnyField(
 ): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const [fieldName, fieldDef] of Object.entries(fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(data[fieldName])) ids.add(fileRefId);
+    for (const fileRefId of fileRefIdsInField(fieldDef, data[fieldName])) ids.add(fileRefId);
   }
   return ids;
 }
@@ -68,8 +66,8 @@ export async function disposeRemovedFileRefs(args: {
   const executor = getFileRefExecutor();
   const keptAnywhere = fileRefIdsStoredInAnyField(entity.fields, result.data);
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef) || !(fieldName in result.changes)) continue;
-    for (const fileRefId of fileRefIdsOf(result.previous[fieldName])) {
+    if (!holdsFileRefs(fieldDef) || !(fieldName in result.changes)) continue;
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.previous[fieldName])) {
       if (keptAnywhere.has(fileRefId)) continue;
       const row = await executor.detail({ id: fileRefId }, user, db);
       if (row === null || !isBoundToRecord(row, entityName, entityId, entity.fields)) continue;

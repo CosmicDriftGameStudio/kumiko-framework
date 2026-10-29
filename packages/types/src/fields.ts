@@ -2,6 +2,22 @@
 // --- Field Types ---
 
 import type { VariantSpec } from "./derivatives-types.ts";
+import type {
+  EmbeddedDerivedCellDef,
+  EmbeddedFilesSubFieldProps,
+  EmbeddedImagesSubFieldProps,
+  FieldCondition,
+  FieldStateConditions,
+} from "./field-state-conditions.ts";
+
+export type {
+  EmbeddedDerivedCellDef,
+  EmbeddedFilesSubFieldProps,
+  EmbeddedImagesSubFieldProps,
+  FieldCondition,
+  FieldStateConditions,
+} from "./field-state-conditions.ts";
+
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
@@ -175,6 +191,8 @@ export type ResolvedPiiFlags = {
   readonly subjectRef?: true;
 };
 
+type PiiAndFieldState = ResolvedPiiFlags & FieldStateConditions;
+
 // --- Author-facing PII API ---
 //
 // Two questions instead of the twelve raw flags above: whose data is this
@@ -332,7 +350,7 @@ export type TextFieldDef = {
    *  sets an explicit height. Search, sort, and encryption remain unchanged;
    *  only the rendering surface differs. */
   readonly multiline?: boolean | { readonly rows?: number };
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 /**
  * Long-form text content — source code, markdown, blog posts, email
@@ -370,7 +388,7 @@ export type LongTextFieldDef = {
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
@@ -382,7 +400,7 @@ export type BooleanFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: boolean;
   readonly access?: FieldAccess;
-};
+} & FieldStateConditions;
 
 export const SELECT_OPTION_TONES = ["ok", "warn", "bad", "critical", "accent", "neutral"] as const;
 
@@ -405,21 +423,6 @@ export function optionsQueryFieldRefs(payload: OptionsQueryPayload | undefined):
     .filter(isOptionsQueryFieldRef)
     .map((ref) => ref.field);
 }
-
-// Declarative field-state condition. Evaluated by the renderer against the
-// current row/form values. Five forms:
-//   boolean          — static on/off (e.g. readOnly: true)
-//   { field, eq }    — true when row[field] === eq
-//   { field, ne }    — true when row[field] !== ne
-//   { field, in }    — true when row[field] is one of the given values
-//   { field, notIn } — true when row[field] is none of the given values
-// JSON-safe: survives buildAppSchema → GET /api/schema stringify.
-export type FieldCondition =
-  | boolean
-  | { readonly field: string; readonly eq: unknown }
-  | { readonly field: string; readonly ne: unknown }
-  | { readonly field: string; readonly in: readonly unknown[] }
-  | { readonly field: string; readonly notIn: readonly unknown[] };
 
 /** Options of a select field that are only available while `when` holds for the row values. */
 export type SelectConditionalOptions<TOption extends string = string> = {
@@ -469,7 +472,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  in no rule are always available. The write path enforces it, the renderer only
    *  filters. Only valid on entity fields. */
   readonly conditionalOptions?: readonly SelectConditionalOptions<TOptions[number]>[];
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // Several values from a fixed option list, rendered as a checkbox or
 // multi-select control. Stored as a jsonb array of strings; every entry
@@ -511,7 +514,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
    *  `hint` is ignored. Static `options` stay authoritative and the write path must
    *  enforce the same rule, the renderer only mirrors it. Called with an empty payload. */
   readonly optionsAvailabilityQuery?: string;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 /**
  * Storage: `integer` flag decides the Postgres column type, not just Zod
@@ -544,7 +547,7 @@ export type NumberFieldDef = {
    *  Default `true`. Set `false` for values that read wrong grouped (e.g. a
    *  model year: "2021", not "2.021"). Never affects the stored value. */
   readonly grouping?: boolean;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 /**
  * 64-bit integer field for audit counters, byte sizes, event IDs, and other
@@ -567,7 +570,7 @@ export type BigIntFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 /**
  * Exact decimal — Postgres `numeric(precision, scale)`. For values that need
@@ -593,7 +596,7 @@ export type DecimalFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 /** Where a money field's currency comes from. `"tenant"` is the
  *  tenant-settings bundle's per-tenant currency (`tenant-settings:config:
@@ -626,7 +629,7 @@ export type MoneyFieldDef = {
    *  (`entity.defaultCurrency ?? "EUR"`); a stored value always keeps its
    *  own currency regardless of this declaration. */
   readonly currency?: MoneyCurrencySource;
-};
+} & FieldStateConditions;
 
 // Reference field — FK-style reference to another entity. Stored in a UUID
 // column; the read side can optionally include the referenced row.
@@ -694,7 +697,7 @@ export type ReferenceFieldDef = {
    *  reference then deliberately crosses the tenant boundary after the
    *  handover. Use it for an entity that must not move with its host. */
   readonly handover?: "stay";
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // --- Currency ---
 
@@ -722,7 +725,7 @@ type EmbeddedSubFieldBase = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly access?: FieldAccess;
-};
+} & FieldStateConditions;
 
 /** `money` is a signed integer amount in minor units (cents); which currency
  *  it means is defined by the owning aggregate (a head-level field or tenant
@@ -747,6 +750,7 @@ export type EmbeddedSubFieldDef =
       /** Same contract as `SelectFieldDef.display`; in a table cell the
        *  default stays a dropdown. */
       readonly display?: "radio" | "dropdown";
+      readonly optionTones?: { readonly [option: string]: SelectOptionTone };
     })
   | (EmbeddedSubFieldBase & {
       readonly type: "reference";
@@ -754,18 +758,11 @@ export type EmbeddedSubFieldDef =
       readonly labelField?: string;
       /** Same contract as `ReferenceFieldDef.optionsQuery`. */
       readonly optionsQuery?: string;
-    });
+    })
+  | (EmbeddedSubFieldBase & EmbeddedImagesSubFieldProps & { readonly type: "images" })
+  | (EmbeddedSubFieldBase & EmbeddedFilesSubFieldProps & { readonly type: "files" });
 
-/** A cell computed from other cells of the same row. `from` names the
- *  sub-fields the operation reads (order matters for `subtract`). Renderer
- *  metadata — the derived value is rounded server- and client-side to the
- *  precision its target sub-field in `schema` declares (money → integer,
- *  decimal → `scale`) before it's validated. */
-export type EmbeddedDerivedCellDef = {
-  /** `percent` = `from[0] * from[1] / 100` (exactly two sources, e.g. amount and rate). */
-  readonly op: "multiply" | "sum" | "subtract" | "percent";
-  readonly from: readonly string[];
-};
+export type EmbeddedFileSubFieldDef = Extract<EmbeddedSubFieldDef, { type: "images" | "files" }>;
 
 export type EmbeddedTotalDef =
   | string
@@ -810,7 +807,7 @@ export type EmbeddedFieldDef = {
    *  rounded `derived` cells, i.e. "sum-of-rounded" not "round-of-sum" —
    *  see the embedded-list totals-matching behavior. */
   readonly totalsMatch?: Readonly<Record<string, string>>;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:
 //   - Tenant-defined extension data (custom-fields-bundle uses this for
@@ -834,7 +831,7 @@ export type JsonbFieldDef = {
    *  run that already read the compromised value. See irreversible-operation-gate. */
   readonly readAsInstruction?: boolean;
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type JsonbEmptyValue = "object" | "array";
 
@@ -862,7 +859,7 @@ export type DateFieldDef = {
   /** Format/locale override for display and input parsing (for example,
    *  "de-DE"). Default: app locale. */
   readonly locale?: string;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // UTC instant (`Temporal.Instant`) for events occurring at a specific moment
 // without a location: createdAt, loginAt, actualPickupAt.
@@ -900,7 +897,7 @@ export type TimestampFieldDef = {
   /** Format/locale override for display and input parsing. Default: app
    *  locale. */
   readonly locale?: string;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // IANA time-zone name (for example, "Europe/Berlin" or
 // "America/Los_Angeles"). It is validated through
@@ -913,7 +910,7 @@ export type TzFieldDef = {
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 // Wall-clock appointment at a location as an atomic concept.
 // One field in the schema definition, two database columns
@@ -949,7 +946,7 @@ export type LocatedTimestampFieldDef = {
   /** Format/locale override for display and input parsing. Default: app
    *  locale. */
   readonly locale?: string;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type FileFieldDef = {
   readonly type: "file";
@@ -961,7 +958,7 @@ export type FileFieldDef = {
   readonly anonymousUpload?: boolean;
   readonly accept?: readonly string[];
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type ImageFieldDef = {
   readonly type: "image";
@@ -980,7 +977,7 @@ export type ImageFieldDef = {
    *  camera instead of the file picker. */
   readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type FilesFieldDef = {
   readonly type: "files";
@@ -996,7 +993,7 @@ export type FilesFieldDef = {
    *  `maxCount`/`accept`/`maxSize` as hints. The stored value is the same array of FileRef ids. */
   readonly display?: "list" | "dropzone";
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type ImagesFieldDef = {
   readonly type: "images";
@@ -1016,7 +1013,7 @@ export type ImagesFieldDef = {
    *  camera instead of the file picker. */
   readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
-} & ResolvedPiiFlags;
+} & PiiAndFieldState;
 
 export type FieldDefinition =
   | TextFieldDef

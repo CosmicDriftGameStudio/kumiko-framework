@@ -1,3 +1,5 @@
+import { evalFieldCondition, isFieldRequired } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import type {
   EditFieldViewModel,
@@ -5,11 +7,9 @@ import type {
   FieldIssue,
 } from "../headless/index.ts";
 import {
-  computeDerivedCellValue,
-  currencyDecimals,
   groupEmbeddedListIssues,
-  roundDerivedCellValue,
   sumEmbeddedListColumn,
+  withDerivedCells,
 } from "../headless/index.ts";
 import { pluralKey } from "../headless/plural-key.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
@@ -22,6 +22,7 @@ import {
 import { useTranslation } from "../i18n.tsx";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.tsx";
 import { usePrimitives } from "../primitives.tsx";
+import { coerceCellValue } from "./embedded-list-paste.ts";
 
 export type EmbeddedListFieldProps = {
   readonly field: EditFieldViewModel;
@@ -32,6 +33,33 @@ export type EmbeddedListFieldProps = {
 };
 
 type EmbeddedRow = Readonly<Record<string, unknown>>;
+
+type RowStateCallbacks = Pick<
+  EmbeddedListColumn,
+  "isHiddenInRow" | "isRequiredInRow" | "isDerivedInRow"
+>;
+
+// The primitive never imports condition logic, so the per-row state is evaluated here.
+function rowStateCallbacks(
+  cell: EmbeddedListCellViewModel,
+  derivedDef: NonNullable<EditFieldViewModel["embeddedListDerived"]>[string] | undefined,
+): RowStateCallbacks {
+  const { visibleWhen, requiredWhen } = cell;
+  const derivedWhen = derivedDef?.when;
+  return {
+    ...(visibleWhen !== undefined && {
+      isHiddenInRow: (row) => !evalFieldCondition(visibleWhen, row),
+    }),
+    ...((visibleWhen !== undefined || requiredWhen !== undefined) && {
+      isRequiredInRow: (row) =>
+        isFieldRequired({ required: cell.required, visibleWhen, requiredWhen }, row),
+    }),
+    ...(derivedDef !== undefined &&
+      derivedWhen !== undefined && {
+        isDerivedInRow: (row) => evalFieldCondition(derivedWhen, row),
+      }),
+  };
+}
 
 function storedCellIds(rows: readonly EmbeddedRow[], cellField: string): string[] {
   const ids = new Set<string>();
@@ -48,99 +76,9 @@ function withRecomputedDerived(
   cells: readonly EmbeddedListCellViewModel[],
 ): EmbeddedRow {
   if (derived === undefined) return row;
-  // Read sources from an unchanged snapshot, never from `result` (which this
-  // loop mutates) — mirrors withDerivedCells server-side so chained derived
-  // cells (e.g. net=qty*price, then gross=sum(net,tax)) can't drift between
-  // client preview and server depending on Object.entries(derived) order.
-  const source = { ...row };
-  const result: Record<string, unknown> = { ...row };
-  for (const [derivedField, def] of Object.entries(derived)) {
-    const values = def.from.map((src) => {
-      const v = source[src];
-      return typeof v === "number" ? v : undefined;
-    });
-    const computed = computeDerivedCellValue(def.op, values);
-    const target = cells.find((c) => c.field === derivedField);
-    result[derivedField] =
-      computed !== undefined && target !== undefined
-        ? roundDerivedCellValue(computed, target)
-        : computed;
-  }
-  return result;
-}
-
-// Locale-aware decimal parse for pasted text: strips space/NBSP thousands
-// separators outright, then treats whichever of "," or "." appears LAST in
-// the string as the decimal separator and strips the other one — handles
-// both "1.234,56" (de) and "1,234.56" (en-US) pastes. Returns undefined for
-// anything that still doesn't parse as a finite number.
-function parseLocaleAwareDecimal(raw: string): number | undefined {
-  const stripped = raw.replace(/[\s ]/g, "");
-  if (stripped === "") return undefined;
-  const lastComma = stripped.lastIndexOf(",");
-  const lastDot = stripped.lastIndexOf(".");
-  const decimalIndex = Math.max(lastComma, lastDot);
-  if (decimalIndex === -1) {
-    const n = Number(stripped);
-    return Number.isFinite(n) ? n : undefined;
-  }
-  const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
-  const fractionPart = stripped.slice(decimalIndex + 1);
-  if (!/^\d*$/.test(integerPart) || !/^\d*$/.test(fractionPart)) return undefined;
-  const n = Number(
-    `${integerPart === "" ? "0" : integerPart}.${fractionPart === "" ? "0" : fractionPart}`,
-  );
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function coerceCellValue(column: EmbeddedListColumn, text: string, currency: string): unknown {
-  switch (column.type) {
-    case "text":
-      return text;
-    case "number":
-    case "decimal": {
-      if (text.trim() === "") return undefined;
-      const n = Number(text);
-      return Number.isFinite(n) ? n : undefined;
-    }
-    case "money": {
-      // Money cells are minor-unit integers (cents) in storage — paste
-      // arrives as a major-unit decimal string ("12,99"/"12.99"), so scale
-      // by the currency's decimal places. Must agree with the typed-in path
-      // (renderCellControl's MoneyInput, which scales by the same
-      // currencyDecimals) — a hardcoded ×100 here diverged for zero-/three-
-      // decimal currencies (JPY, BHD, ...), landing a pasted value 100x off
-      // from the same value typed by hand.
-      // parseLocaleAwareDecimal handles both "1.234,56" (de) and
-      // "1,234.56" (en-US) thousands/decimal conventions — a naive
-      // `replace(",", ".")` mangled German-locale pastes with thousands
-      // separators into NaN.
-      if (text.trim() === "") return undefined;
-      const n = parseLocaleAwareDecimal(text);
-      return n === undefined ? undefined : Math.round(n * 10 ** currencyDecimals(currency));
-    }
-    case "boolean":
-      return ["true", "1", "yes", "y", "ja"].includes(text.trim().toLowerCase());
-    case "date":
-    case "timestamp":
-      return text.trim();
-    case "select": {
-      const match = (column.options ?? []).find(
-        (opt) => opt === text || column.optionLabels?.[opt] === text,
-      );
-      return match;
-    }
-    case "reference": {
-      const match = (column.referenceOptions ?? []).find(
-        (o) => o.label === text || o.value === text,
-      );
-      return match?.value;
-    }
-    default: {
-      const exhaustiveCheck: never = column.type;
-      return exhaustiveCheck;
-    }
-  }
+  const targets = Object.fromEntries(cells.map((cell) => [cell.field, cell]));
+  const recomputed = withDerivedCells(row, derived, targets);
+  return isPlainObject(recomputed) ? recomputed : row;
 }
 
 // The reference-column queries are hooks called in a loop, so their count must
@@ -214,6 +152,7 @@ function EmbeddedListFieldInner({
         type: cell.type,
         required: cell.required,
         derived: isDerived,
+        ...rowStateCallbacks(cell, derived?.[cell.field]),
         ...(cell.readOnly === true && { readOnly: true }),
         referenceOptions,
         referenceLoading: query?.loading ?? false,
@@ -225,10 +164,15 @@ function EmbeddedListFieldInner({
       type: cell.type,
       required: cell.required,
       derived: isDerived,
+      ...rowStateCallbacks(cell, derived?.[cell.field]),
       ...(cell.readOnly === true && { readOnly: true }),
       ...(cell.options !== undefined && { options: cell.options }),
       ...(cell.optionLabels !== undefined && { optionLabels: cell.optionLabels }),
       ...(cell.display !== undefined && { display: cell.display }),
+      ...(cell.optionTones !== undefined && { optionTones: cell.optionTones }),
+      ...(cell.capture !== undefined && { capture: cell.capture }),
+      ...(cell.maxCount !== undefined && { maxCount: cell.maxCount }),
+      ...(cell.accept !== undefined && { accept: cell.accept }),
     };
   });
 
@@ -346,6 +290,7 @@ function EmbeddedListFieldInner({
       gridRow.forEach((text, gridColOffset) => {
         const column = columns[columnIndex + gridColOffset];
         if (column === undefined || column.readOnly === true) return;
+        if (column.type === "images" || column.type === "files") return;
         const coerced = coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR");
         // Also covers an unparseable money paste (e.g. mangled thousands
         // separators) — the cell must stay unchanged instead of silently
@@ -383,6 +328,7 @@ function EmbeddedListFieldInner({
       fixedRows={field.embeddedListFixedRows}
       minItems={field.embeddedListMinItems}
       maxItems={field.embeddedListMaxItems}
+      uploadTarget={field.embeddedListUploadTarget}
       listIssues={combinedListIssues}
       rowIssues={rowIssues}
       cellIssues={cellIssues}

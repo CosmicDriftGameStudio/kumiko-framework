@@ -10,11 +10,7 @@ import { checkWriteFieldOwnership } from "../engine/field-access.ts";
 import { instructionFieldNames } from "../engine/instruction-fields.ts";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.ts";
-import {
-  findUnavailableSelectOptions,
-  isRecordLocked,
-  isUnchangedValue,
-} from "../engine/screen-helpers.ts";
+import { isRecordLocked, isUnchangedValue } from "../engine/screen-helpers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import {
   IdempotentReplayError,
@@ -61,11 +57,11 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context.ts";
 import {
+  fieldStateFailure,
   optimisticLockFailure,
   ownershipDeniedFailure,
   projectEntityEvent,
   runPreSave,
-  selectOptionNotAvailableFailure,
 } from "./event-store-executor-write-steps.ts";
 import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
 import { runInSavepointIfSupported } from "./query.ts";
@@ -422,11 +418,8 @@ export function createWriteVerbs(
     // reference) and must not be blocked by the select rule — same exemption as the lock.
     const isStatutorySystemWrite =
       options?.writePurpose !== undefined && isFrameworkSystemUser(user);
-    return isStatutorySystemWrite
-      ? undefined
-      : selectOptionNotAvailableFailure(
-          findUnavailableSelectOptions(entity.fields, mergedNew, previous),
-        );
+    if (isStatutorySystemWrite) return undefined;
+    return fieldStateFailure(entity.fields, mergedNew, previous);
   }
 
   async function appendCreatedEvent(
@@ -714,10 +707,8 @@ export function createWriteVerbs(
       const ownershipDenied = createOwnershipFailure(user, streamTenantId, payloadWithoutId, data);
       if (ownershipDenied) return ownershipDenied;
 
-      const unavailableOnCreate = selectOptionNotAvailableFailure(
-        findUnavailableSelectOptions(entity.fields, data),
-      );
-      if (unavailableOnCreate) return unavailableOnCreate;
+      const invalidFieldState = fieldStateFailure(entity.fields, data);
+      if (invalidFieldState) return invalidFieldState;
 
       // All compound types (locatedTimestamp, money, ...) use the same pipeline: the
       // caller sends the combined API form, the framework stores the flat DB form (see

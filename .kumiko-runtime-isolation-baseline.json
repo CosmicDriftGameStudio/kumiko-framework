@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-19",
-  "total": 19,
+  "generated": "2026-10-29",
+  "total": 16,
   "perFile": {
     "packages/bundled-features/src/delivery/index.ts::./testing.ts": 1,
     "packages/bundled-features/src/ledger/web/index.ts::../recurring.ts": 1,
@@ -11,11 +11,8 @@
     "packages/bundled-features/src/page-render/web.ts::./layout.ts": 1,
     "packages/bundled-features/src/page-render/web.ts::./markdown.ts": 1,
     "packages/bundled-features/src/page-render/web.ts::./security-headers.ts": 1,
-    "packages/framework/src/engine/types/index.ts::../field-helpers.ts": 1,
-    "packages/framework/src/engine/types/index.ts::../handler-helpers.ts": 1,
-    "packages/framework/src/engine/types/index.ts::../hook-helpers.ts": 1,
-    "packages/framework/src/engine/types/index.ts::../screen-helpers.ts": 1,
     "packages/framework/src/ui-types/index.ts::../engine/embedded-derived.ts": 1,
+    "packages/framework/src/ui-types/index.ts::../engine/field-state.ts": 1,
     "packages/framework/src/ui-types/index.ts::../engine/form-derivations.ts": 1,
     "packages/framework/src/ui-types/index.ts::../engine/parse-ref-target.ts": 1,
     "packages/framework/src/ui-types/index.ts::../engine/screen-helpers.ts": 1,

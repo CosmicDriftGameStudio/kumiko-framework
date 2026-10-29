@@ -634,6 +634,9 @@ const FORWARDED_FIELD_PROPERTIES: readonly (readonly [
   ["optionsAvailabilityQuery", isStringValue],
   // Select: options only offered while a sibling-field condition holds; the renderer filters, the write path enforces.
   ["conditionalOptions", Array.isArray],
+  // Conditional field state: the renderer evaluates it per row/form, the write path enforces requiredWhen.
+  ["visibleWhen", isJsonSafeObject],
+  ["requiredWhen", isJsonSafeObject],
   ["multiple", isBooleanValue],
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer
@@ -670,6 +673,7 @@ const FORWARDED_FIELD_PROPERTIES: readonly (readonly [
   // the preview variant.
   ["accept", isJsonSafeArray],
   ["maxSize", isStringValue],
+  ["maxCount", isNumberValue],
   ["variants", isJsonSafeObject],
   // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
   ["scale", isNumberValue],

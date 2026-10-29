@@ -194,17 +194,9 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
     ]);
   });
 
-  // Regression: withRecomputedDerived used to read source values from
-  // `result` (mutated in-place during the loop), so a chained derived cell
-  // (gross depends on net, net depends on raw qty/price) got the FRESH net
-  // when "net" happened to iterate before "gross" in embeddedListDerived's
-  // key order, but the STALE pre-edit net otherwise — the client preview
-  // drifted from the server (withDerivedCells always reads the untouched
-  // source row) purely based on object-key order. Fixed by reading from a
-  // frozen `source` snapshot, same as the server. Two field configs with
-  // "net"/"gross" declared in opposite key order must therefore produce the
-  // identical, order-independent result.
-  test("chained derived cells (gross depends on net) recompute the same value regardless of the derived-map's key order", async () => {
+  // The client preview uses the shared withDerivedCells, so a chain resolves in declaration
+  // order exactly like the server: net is listed before gross, so gross reads the fresh net.
+  test("chained derived cells recompute in declaration order, like the server", async () => {
     const cells: EditFieldViewModel["embeddedListCells"] = [
       { field: "qty", label: "Qty", type: "number", required: true },
       { field: "price", label: "Price", type: "number", required: true },
@@ -212,15 +204,8 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
       { field: "net", label: "Net", type: "number", required: false },
       { field: "gross", label: "Gross", type: "number", required: false },
     ];
-    // Pre-edit, already-settled row: net = 2*3 = 6, gross = 6+1 = 7.
     const rows = [{ qty: 2, price: 3, tax: 1, net: 6, gross: 7 }];
-    // A fixed reference calculation for "qty changes from 2 to 4": net
-    // recomputes from the fresh raw inputs (qty=4, price=3) to 12; gross
-    // reads net from the row as it was BEFORE this edit (still 6, same as
-    // the server would), giving 6+1=7 — not 12+1=13.
-    const expected = { qty: 4, price: 3, tax: 1, net: 12, gross: 7 };
-
-    let netFirstResult: unknown;
+    let result: unknown;
     await renderEmbeddedListField(
       {
         ...invoiceLinesField({ value: rows }),
@@ -231,29 +216,84 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
         },
       },
       (v) => {
-        netFirstResult = v;
+        result = v;
       },
     );
     captured?.onCellChange(0, "qty", 4);
+    expect(result).toEqual([{ qty: 4, price: 3, tax: 1, net: 12, gross: 13 }]);
+  });
+});
 
-    let grossFirstResult: unknown;
+describe("EmbeddedListField — per-row cell state", () => {
+  const isNotOk = { field: "result", eq: "not_ok" } as const;
+  const isMeasurement = { field: "kind", eq: "measurement" } as const;
+  const checklist: EditFieldViewModel["embeddedListCells"] = [
+    { field: "kind", label: "Kind", type: "text", required: true },
+    {
+      field: "measured",
+      label: "Measured",
+      type: "number",
+      required: false,
+      visibleWhen: isMeasurement,
+    },
+    {
+      field: "result",
+      label: "Result",
+      type: "select",
+      required: false,
+      options: ["ok", "not_ok"],
+    },
+    {
+      field: "finding",
+      label: "Finding",
+      type: "text",
+      required: false,
+      visibleWhen: isNotOk,
+      requiredWhen: isNotOk,
+    },
+  ];
+  const column = (field: string) => captured?.columns.find((c) => c.field === field);
+
+  test("hidden, required and derived are evaluated per row", async () => {
     await renderEmbeddedListField(
       {
-        ...invoiceLinesField({ value: rows }),
-        embeddedListCells: cells,
+        ...invoiceLinesField({ value: [{ kind: "check" }] }),
+        embeddedListCells: checklist,
         embeddedListDerived: {
-          gross: { op: "sum", from: ["net", "tax"] },
-          net: { op: "multiply", from: ["qty", "price"] },
+          result: {
+            op: "inRange",
+            from: ["measured", "min", "max"],
+            inside: "ok",
+            outside: "not_ok",
+            when: isMeasurement,
+          },
         },
       },
+      () => {},
+    );
+    expect(column("measured")?.isHiddenInRow?.({ kind: "check" })).toBe(true);
+    expect(column("measured")?.isHiddenInRow?.({ kind: "measurement" })).toBe(false);
+    expect(column("finding")?.isHiddenInRow?.({ result: "ok" })).toBe(true);
+    expect(column("finding")?.isRequiredInRow?.({ result: "not_ok" })).toBe(true);
+    expect(column("finding")?.isRequiredInRow?.({ result: "ok" })).toBe(false);
+    expect(column("result")?.isDerivedInRow?.({ kind: "measurement" })).toBe(true);
+    expect(column("result")?.isDerivedInRow?.({ kind: "check" })).toBe(false);
+  });
+
+  test("a hidden cell keeps its value when another cell changes", async () => {
+    let result: unknown;
+    await renderEmbeddedListField(
+      {
+        ...invoiceLinesField({ value: [{ kind: "check", result: "ok", finding: "old note" }] }),
+        embeddedListCells: checklist,
+        embeddedListDerived: undefined,
+      },
       (v) => {
-        grossFirstResult = v;
+        result = v;
       },
     );
-    captured?.onCellChange(0, "qty", 4);
-
-    expect(netFirstResult).toEqual([expected]);
-    expect(grossFirstResult).toEqual([expected]);
+    captured?.onCellChange(0, "result", "ok");
+    expect(result).toEqual([{ kind: "check", result: "ok", finding: "old note" }]);
   });
 });
 

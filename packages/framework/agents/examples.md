@@ -45,6 +45,7 @@
 | `i18n` | Feature-scoped translations. 'Hallo' and 'Hello' in the same app. | `examples/i18n.md` |
 | `idempotency` | Same request, same result. Dedupes on request ID. | `examples/idempotency.md` |
 | `inbound-mail-triage` | Inbound-mail consumer pattern: inbound-mail-foundation + in-memory provider, a worker-lane triage job attached to the ingest handler, verified end-to-end through createAllInOneEntrypoint. | `examples/inbound-mail-triage.md` |
+| `inspection-checklist` | Embedded list as a phone inspection checklist: conditional fields, derived pass/fail, photos per row. | `examples/inspection-checklist.md` |
 | `lane-routing` | runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.events.append, verified end-to-end through createAllInOneEntrypoint. | `examples/lane-routing.md` |
 | `ledger-banking` | Bank accounts + transfers on the ledger primitive — balances are pure queries, never stored. | `examples/ledger-banking.md` |
 | `ledger-invoicing` | Accrual invoicing on the ledger primitive — revenue at invoice time, VAT as a liability, receivable cleared on payment. | `examples/ledger-invoicing.md` |

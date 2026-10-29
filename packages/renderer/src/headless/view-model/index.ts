@@ -10,6 +10,7 @@ export {
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
+  withDerivedCells,
 } from "./embedded-list.ts";
 export type { ComputeListViewModelInput } from "./list.ts";
 export {

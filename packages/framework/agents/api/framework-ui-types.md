@@ -10,13 +10,17 @@ Import from `@cosmicdrift/kumiko-framework/ui-types`. Types used here but not ex
 function applyFormDerivations(values: unknown, screen: FormDerivationScreen): unknown; // Recomputes every derived head field of an action form from its inputs.
 function availableSelectOptions(field: SelectOptionRules, values: Record<string, unknown>): string[]; // Options of a select field that are offered for the given row values, in declaration order.
 function cardColumnRoles<C extends CardRoleColumn>(columns: C[]): CardColumnRoles<C>;
-function computeDerivedCellValue(op: EmbeddedDerivedCellDef["op"], values: (number | undefined)[]): number | undefined; // Computes a derived cell from its source values.
+function computeDerivedCellValue(op: NumericDerivedOp, values: (number | undefined)[]): number | undefined; // Computes a derived cell from its source values.
 function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean; // Evaluates a declarative FieldCondition against the current row/form values.
+function findMissingConditionalRequirements(fields: Readonly<Record<string, FieldDefinition>>, values: Record<string, unknown>, previous?: Record<string, unknown>): string[]; // Paths of fields (and embedded sub-fields) whose `requiredWhen` holds while the value is missing.
 function findUnavailableSelectOptions(fields: Readonly<Record<string, FieldDefinition>>, values: Record<string, unknown>, previous?: Record<string, unknown>): UnavailableSelectOption[]; // Select values that violate a `conditionalOptions` rule.
 function formalLocaleTag<Locale extends string>(locale: Locale): `${Locale}-x-formal`;
 function isExtensionEditSection(section: EditSectionSpec): section is EditExtensionSection;
+function isFieldRequired(def: RequiredState, values: Record<string, unknown>): boolean;
+function isFieldVisible(def: FieldStateConditions, values: Record<string, unknown>): boolean;
 function isFormDerivationInputMode(screen: FormDerivationScreen, values: unknown, field: string): boolean; // True when `field` is a `listSum` without `whenEmpty` whose list has no rows: the sum has nothing to add up, so the user types the value.
 function isFormatSpec(r: unknown): r is FormatSpec;
+function isMissingRequiredValue(value: unknown): boolean;
 function isRecordLocked(lockedWhen: FieldCondition | undefined, row: Readonly<Record<string, unknown>>): boolean;
 function isUiAccessGranted(access: AccessRule | undefined, userRoles: string[] | undefined): boolean;
 function isUnchangedValue(a: unknown, b: unknown): boolean;
@@ -26,6 +30,7 @@ function resolveNavParentScreen(screens: ScreenDefinition[], detail: ScreenDefin
 function resolveTranslationValue(value: TranslationValue, locale: string, params?: Readonly<Record<string, unknown>>): string; // Resolve a TranslationValue to display text: a plural entry picks its CLDR category via `Intl.PluralRules` from `params.count`, falling back to `other` when `count` is missing, non-finite, or `locale` is invalid.
 function roundDerivedCellValue(value: number, target: DerivedCellRoundingTarget): number; // Rounds a derived cell's computed value to the precision its target sub-field declares — commercial rounding (round-half-away-from-zero, correct for signed minor-unit money).
 function translationValueOtherText(value: TranslationValue): string; // Text-only reading of a TranslationValue — the CLDR `other` form for a plural entry, or the string as-is.
+function withDerivedCells(row: unknown, derived: Readonly<Record<string, EmbeddedDerivedCellDef>>, targets: Readonly<Record<string, DerivedCellRoundingTarget>>): unknown; // Recomputes every derived cell of an embedded-list row from its raw values, overwriting whatever the client sent instead of merely checking it — the server is the authority for derived cells.
 ```
 
 ## Constants
@@ -331,9 +336,8 @@ type EditWriteFormSection = {
   submitLabel?: string; // i18n-key for the submit button.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
-type EmbeddedDerivedCellDef = { // A cell computed from other cells of the same row.
-  op: "multiply" | "sum" | "subtract" | "percent"; // `percent` = `from[0] * from[1] / 100` (exactly two sources, e.g. amount and rate).
-  from: string[];
+type EmbeddedDerivedCellDef = ({ op: "multiply" | "sum" | "subtract" | "percent"; from: string[]; } | { op: "inRange"; from: string[]; inside: string; outside: string; }) & { // A cell computed from other cells of the same row.
+  when?: Exclude<FieldCondition, boolean>; // Row-level condition on a sibling sub-field.
 };
 type EmbeddedListEditSpec = {
   readOnlyCells?: string[]; // Sub-fields shown as read-only cells; every other cell stays editable.
@@ -507,7 +511,7 @@ type SecretsEditScreenDefinition = {
   access?: AccessRule;
 };
 type SelectOptionTone = (typeof SELECT_OPTION_TONES)[number];
-type TextFieldDef = ResolvedPiiFlags & {
+type TextFieldDef = PiiAndFieldState & {
   type: "text";
   description?: string; // Optional free-text semantics for the AI agent manifest — never rendered; the i18n label is what users see.
   maxLength?: number;

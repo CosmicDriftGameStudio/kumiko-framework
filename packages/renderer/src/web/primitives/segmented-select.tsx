@@ -1,5 +1,8 @@
+import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
+import { statusToneForOptionTone } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { TONE_PILL } from "../widgets/status-badge.tsx";
 
 const EQUAL_WIDTH_MAX_SEGMENTS = 4;
 
@@ -16,6 +19,8 @@ export function SegmentedControl({
   required,
   hasError,
   labelProps,
+  tones,
+  size,
 }: {
   readonly id: string;
   readonly name: string;
@@ -31,6 +36,10 @@ export function SegmentedControl({
   readonly hasError?: boolean;
   /** Accessible name: `aria-labelledby` into a Field label, or a plain `aria-label`. */
   readonly labelProps: { "aria-labelledby": string } | { "aria-label": string };
+  /** Status tone per option value; the selected segment takes the tone's colors. */
+  readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+  /** `"touch"` makes every segment at least 44px high for fingers. */
+  readonly size?: "touch";
 }): ReactNode {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   // An unknown/legacy value checks no segment; the first one must still be tabbable.
@@ -76,13 +85,18 @@ export function SegmentedControl({
         options.length <= EQUAL_WIDTH_MAX_SEGMENTS
           ? "inline-grid max-w-full grid-flow-col auto-cols-fr"
           : "inline-flex w-fit flex-wrap",
-        "min-h-9 overflow-hidden rounded-md border",
+        size === "touch" ? "min-h-11" : "min-h-9",
+        "overflow-hidden rounded-md border",
         hasError === true ? "border-destructive" : "border-input",
       )}
     >
       <input type="hidden" name={name} value={value} />
       {options.map((opt, index) => {
         const checked = opt.value === value;
+        const declaredTone =
+          tones !== undefined && Object.hasOwn(tones, opt.value) ? tones[opt.value] : undefined;
+        const badgeTone =
+          declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined;
         return (
           // biome-ignore lint/a11y/useSemanticElements: a native <input type="radio"> can't render the segment's label as content — button+role="radio" is the standard WAI-ARIA composite-widget substitute.
           <button
@@ -118,8 +132,12 @@ export function SegmentedControl({
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",
+              size === "touch" && "min-h-11",
               checked
-                ? "bg-primary/10 font-semibold text-primary"
+                ? cn(
+                    "font-semibold",
+                    badgeTone !== undefined ? TONE_PILL[badgeTone] : "bg-primary/10 text-primary",
+                  )
                 : "bg-transparent font-medium text-foreground hover:bg-accent",
             )}
           >

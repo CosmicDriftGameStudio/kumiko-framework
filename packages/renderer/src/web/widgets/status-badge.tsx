@@ -19,7 +19,7 @@ export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
 export type StatusBadgeTone = StatusTone | "accent";
 
 // `muted` maps to the neutral tokens, not a status-* palette.
-const TONE_PILL: Record<StatusBadgeTone, string> = {
+export const TONE_PILL: Record<StatusBadgeTone, string> = {
   accent: "bg-primary/10 text-primary",
   ok: "bg-status-ok-surface text-status-ok",
   warn: "bg-status-warn-surface text-status-warn",

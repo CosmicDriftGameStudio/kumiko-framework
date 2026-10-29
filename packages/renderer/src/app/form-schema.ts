@@ -6,7 +6,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
+  findMissingConditionalRequirements,
   findUnavailableSelectOptions,
+  isFieldRequired,
   isUnchangedValue,
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -41,9 +43,10 @@ function isRequiredValueMissing(
   // Screen-spec `required` overrides the entity default, mirroring
   // `view-model/edit.ts` — the rendered form is the reference, and a
   // presence check stricter than the form blocks the user for nothing.
-  const entityRequired = "required" in field && field.required === true;
   const isRequired =
-    spec.required === undefined ? entityRequired : evalFieldCondition(spec.required, record);
+    spec.required === undefined
+      ? isFieldRequired(field, record)
+      : evalFieldCondition(spec.required, record);
   if (!isRequired) return false;
   // Embedded LIST fields get their own EmbeddedListField grid widget
   // — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
@@ -55,6 +58,62 @@ function isRequiredValueMissing(
   return !(
     unchangedFrom !== undefined && isUnchangedValue(record[spec.field], unchangedFrom[spec.field])
   );
+}
+
+type FormRefinementCtx = z.core.$RefinementCtx;
+
+// Embedded sub-field `requiredWhen` (e.g. checkpoints.0.finding) — the top-level
+// conditions are already covered by isRequiredValueMissing.
+function addEmbeddedRequirementIssues(
+  ctx: FormRefinementCtx,
+  entity: EntityDefinition,
+  record: Record<string, unknown>,
+  unchangedFrom: Readonly<Record<string, unknown>> | undefined,
+  checkedFields: Readonly<Record<string, FieldDefinition>>,
+): void {
+  for (const path of findMissingConditionalRequirements(entity.fields, record, unchangedFrom)) {
+    const segments = path.split(".");
+    const root = segments[0];
+    if (segments.length < 2 || root === undefined || !Object.hasOwn(checkedFields, root)) {
+      continue;
+    }
+    ctx.addIssue({
+      code: "custom",
+      path: segments.map((segment) => (/^\d+$/.test(segment) ? Number(segment) : segment)),
+      message: `"${path}" is required.`,
+      params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
+    });
+  }
+}
+
+function addUnavailableOptionIssues(
+  ctx: FormRefinementCtx,
+  record: Record<string, unknown>,
+  unchangedFrom: Readonly<Record<string, unknown>> | undefined,
+  lockedSelectFields: Readonly<Record<string, FieldDefinition>>,
+  selectFieldsToCheck: Readonly<Record<string, FieldDefinition>>,
+): void {
+  // Against `unchangedFrom` the helper still checks a stored value whose
+  // discriminator changed — the server validates the merged row.
+  for (const issue of findUnavailableSelectOptions(
+    { ...lockedSelectFields, ...selectFieldsToCheck },
+    record,
+    unchangedFrom,
+  )) {
+    const lockedDef = lockedSelectFields[issue.field];
+    const blamedField =
+      lockedDef !== undefined && lockedDef.type === "select"
+        ? (lockedDef.conditionalOptions?.find(
+            (rule) => rule.options.includes(issue.value) && !evalFieldCondition(rule.when, record),
+          )?.when.field ?? issue.field)
+        : issue.field;
+    ctx.addIssue({
+      code: "custom",
+      path: [blamedField],
+      message: `"${blamedField}" is not available for the current selection.`,
+      params: { [I18N_KEY_PARAM]: OPTION_NOT_AVAILABLE_I18N_KEY, allowed: issue.allowed },
+    });
+  }
 }
 
 // Client-side presence validation for the auto-wired entityEdit path —
@@ -131,27 +190,13 @@ export function buildFormSchema(
           params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
         });
       }
-      // Against `unchangedFrom` the helper still checks a stored value whose
-      // discriminator changed — the server validates the merged row.
-      for (const issue of findUnavailableSelectOptions(
-        { ...lockedSelectFields, ...selectFieldsToCheck },
+      addEmbeddedRequirementIssues(ctx, entity, record, unchangedFrom, selectFieldsToCheck);
+      addUnavailableOptionIssues(
+        ctx,
         record,
         unchangedFrom,
-      )) {
-        const lockedDef = lockedSelectFields[issue.field];
-        const blamedField =
-          lockedDef !== undefined && lockedDef.type === "select"
-            ? (lockedDef.conditionalOptions?.find(
-                (rule) =>
-                  rule.options.includes(issue.value) && !evalFieldCondition(rule.when, record),
-              )?.when.field ?? issue.field)
-            : issue.field;
-        ctx.addIssue({
-          code: "custom",
-          path: [blamedField],
-          message: `"${blamedField}" is not available for the current selection.`,
-          params: { [I18N_KEY_PARAM]: OPTION_NOT_AVAILABLE_I18N_KEY, allowed: issue.allowed },
-        });
-      }
+        lockedSelectFields,
+        selectFieldsToCheck,
+      );
     });
 }

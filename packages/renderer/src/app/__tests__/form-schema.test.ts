@@ -454,3 +454,49 @@ describe("buildFormSchema", () => {
     });
   });
 });
+
+describe("buildFormSchema — conditional requirements", () => {
+  const isNotOk = { field: "result", eq: "not_ok" } as const;
+  const entity = entityWith({
+    checkpoints: {
+      type: "embedded",
+      multiple: true,
+      schema: {
+        result: { type: "select", options: ["ok", "not_ok"] },
+        finding: { type: "text", visibleWhen: isNotOk, requiredWhen: isNotOk },
+      },
+    },
+    condition: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      visibleWhen: { field: "operation", eq: "with_condition" },
+      requiredWhen: { field: "operation", eq: "with_condition" },
+    },
+    operation: { type: "select", options: ["yes", "with_condition"] },
+  } as EntityDefinition["fields"]);
+  const screen = screenWith(["checkpoints", "operation", "condition"]);
+
+  test("reports the embedded cell path when requiredWhen holds and the value is missing", () => {
+    const result = buildFormSchema(entity, screen, "create").safeParse({
+      checkpoints: [{ result: "ok" }, { result: "not_ok" }],
+      operation: "yes",
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((issue) => issue.path)).toEqual([["checkpoints", 1, "finding"]]);
+  });
+
+  test("a filled finding passes; a top-level requiredWhen reports the field", () => {
+    const schema = buildFormSchema(entity, screen, "create");
+    expect(
+      schema.safeParse({
+        checkpoints: [{ result: "not_ok", finding: "worn" }],
+        operation: "yes",
+      }).success,
+    ).toBe(true);
+    const result = schema.safeParse({ checkpoints: [], operation: "with_condition" });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((issue) => issue.path)).toEqual([["condition"]]);
+  });
+});

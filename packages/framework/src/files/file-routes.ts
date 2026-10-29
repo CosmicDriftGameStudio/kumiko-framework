@@ -25,6 +25,7 @@ import { createDerivativesContext, resolveRenderer } from "../derivatives/deriva
 import { resolveFieldVariant } from "../derivatives/index.ts";
 import { isFileField } from "../engine/field-helpers.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
+import type { FieldDefinition } from "../engine/types/fields.ts";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
 
 import { createFailOpenReporter, respondRateLimited } from "../rate-limit/middleware.ts";
@@ -36,6 +37,7 @@ import {
   storeFileAsFileRef,
 } from "./create-file-ref.ts";
 import { createDefaultGuard, DEFAULT_PRIVILEGED_ROLES } from "./default-file-guard.ts";
+import { isFileSubField } from "./file-field-slots.ts";
 import { createFileContext, createTenantFileContext } from "./file-handle.ts";
 import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
@@ -159,6 +161,15 @@ type FileMeta = Pick<
 // riding alongside the file.
 const MULTIPART_OVERHEAD_MARGIN_BYTES = 64 * 1024;
 
+function fileFieldMaxSizes(field: FieldDefinition): readonly string[] {
+  if (field.type === "embedded") {
+    return Object.values(field.schema).flatMap((sub) =>
+      isFileSubField(sub) && sub.maxSize ? [sub.maxSize] : [],
+    );
+  }
+  return isFileField(field) && field.maxSize ? [field.maxSize] : [];
+}
+
 // entityType/fieldName (and therefore the field's own maxSize) are only
 // known after the body is parsed, so this covers the largest configured
 // field, not just the global default.
@@ -168,8 +179,8 @@ export function resolveMaxUploadBodyBytes(
   let maxBytes = parseMaxSize(options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE);
   for (const entity of options.registry?.getAllEntities().values() ?? []) {
     for (const field of Object.values(entity.fields)) {
-      if (isFileField(field) && field.maxSize) {
-        maxBytes = Math.max(maxBytes, parseMaxSize(field.maxSize));
+      for (const maxSize of fileFieldMaxSizes(field)) {
+        maxBytes = Math.max(maxBytes, parseMaxSize(maxSize));
       }
     }
   }
@@ -303,6 +314,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // store it in the text entityId column.
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
+    const subField = typeof body["subField"] === "string" ? body["subField"] : undefined;
     const actionForm = typeof body["actionForm"] === "string" ? body["actionForm"] : undefined;
 
     if (
@@ -351,7 +363,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         options.registry !== undefined && options.registry.getEntity(entityType) === undefined
           ? RecordWriteDecisions.writable
           : options.canWriteRecord
-            ? await options.canWriteRecord({ entityType, entityId, fieldName, user })
+            ? await options.canWriteRecord({ entityType, entityId, fieldName, subField, user })
             : RecordWriteDecisions.forbidden;
       switch (decision) {
         case RecordWriteDecisions.writable:
@@ -393,6 +405,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         entityType,
         entityId,
         fieldName,
+        subField,
         actionForm,
       },
     );

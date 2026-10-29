@@ -1,6 +1,6 @@
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
+import { holdsFileRefs } from "../files/file-field-slots.ts";
 
 import type { createFallbackLogger } from "../logging/index.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.ts";
@@ -171,7 +171,7 @@ function registryDeclaresFileFields(registry: Registry): boolean {
   for (const feature of registry.features.values()) {
     for (const entity of Object.values(feature.entities ?? {})) {
       for (const field of Object.values(entity.fields)) {
-        if (isFileField(field)) return true;
+        if (holdsFileRefs(field)) return true;
       }
     }
   }

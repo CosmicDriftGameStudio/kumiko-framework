@@ -37,6 +37,7 @@ import {
   validateSearchableFieldReadAccess,
   validateTransitions,
 } from "./entity-handler.ts";
+import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
@@ -137,6 +138,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   },
   { check: "validateTransitions", run: (f) => validateTransitions(f) },
   { check: "validateLockedWhen", run: (f) => validateLockedWhen(f) },
+  { check: "validateFieldConditions", run: (f) => validateFieldConditions(f) },
   { check: "validateExtendSchemaCollisions", run: (f) => validateExtendSchemaCollisions(f) },
   { check: "validateDerivedFieldCollisions", run: (f) => validateDerivedFieldCollisions(f) },
   { check: "validateHandlerAccess", run: (f) => validateHandlerAccess(f) },

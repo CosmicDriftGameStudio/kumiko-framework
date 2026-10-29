@@ -1,7 +1,9 @@
 import type {
   EditFieldSpec,
   EditSectionSpec,
+  EmbeddedDerivedCellDef,
   FieldAffix,
+  FieldCondition,
   FieldFillAction,
   FieldIconKey,
   FieldRenderer,
@@ -154,10 +156,21 @@ export type EmbeddedListCellViewModel = {
     | "decimal"
     | "select"
     | "reference"
-    | "timestamp";
+    | "timestamp"
+    | "images"
+    | "files";
   readonly required: boolean;
+  /** Per-row state: hidden / required for a row where the condition holds. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
+  readonly requiredWhen?: Exclude<FieldCondition, boolean>;
   /** Only for `type: "select"`. */
   readonly options?: readonly string[];
+  /** Only for `type: "select"`; tone of each option's badge or selected segment. */
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+  /** Only for `type: "images" | "files"`. */
+  readonly capture?: "user" | "environment";
+  readonly maxCount?: number;
+  readonly accept?: readonly string[];
   readonly optionLabels?: Readonly<Record<string, string>>;
   /** Only for `type: "select"`; `"radio"` renders segmented buttons instead of a dropdown. */
   readonly display?: "radio" | "dropdown";
@@ -225,6 +238,8 @@ export type EditFieldViewModel = {
    *  `type: "select"` when SelectFieldDef.display is "radio" or "dropdown" —
    *  the renderer then skips its own radio-vs-dropdown heuristic. */
   readonly display?: "checkboxes" | "dropdown" | "radio";
+  /** `type: "select"` only: tone per option, shown on the selected radio segment. */
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is
    *  defined — column count for the checkbox grid at the widest breakpoint.
    *  Ignored unless `display` is "checkboxes". */
@@ -332,12 +347,7 @@ export type EditFieldViewModel = {
   readonly embeddedListMaxItems?: number;
   /** Sub-field name → how to compute its cell from other sub-fields of the
    *  same row. From EmbeddedFieldDef.derived. */
-  readonly embeddedListDerived?: Readonly<
-    Record<
-      string,
-      { readonly op: "multiply" | "sum" | "subtract" | "percent"; readonly from: readonly string[] }
-    >
-  >;
+  readonly embeddedListDerived?: Readonly<Record<string, EmbeddedDerivedCellDef>>;
   /** Footer totals: a sub-field name, or a labelled sum of several. From EmbeddedFieldDef.totals. */
   readonly embeddedListTotals?: readonly (
     | string
@@ -346,6 +356,13 @@ export type EditFieldViewModel = {
   /** No add, remove, duplicate or move; cells stay editable. From
    *  EditFieldSpec.embeddedList.fixedRows. */
   readonly embeddedListFixedRows?: boolean;
+  /** Where photos of a row's file cells are uploaded: the entity and the top-level list field;
+   *  the cell name travels as `subField`. Set when the list has a file cell. */
+  readonly embeddedListUploadTarget?: {
+    readonly entityType: string;
+    readonly fieldName: string;
+    readonly entityId?: string;
+  };
   /** Currency for the whole embedded list's money cells and totals row —
    *  currency lives on the head aggregate (EntityDefinition.defaultCurrency),
    *  not per row. Falls back to "EUR" when the entity has no defaultCurrency. */

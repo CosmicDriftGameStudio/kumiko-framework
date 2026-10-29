@@ -966,6 +966,16 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/inspection-checklist": {
+      "name": "@cosmicdrift/kumiko-sample-inspection-checklist",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/lane-routing": {
       "name": "@cosmicdrift/kumiko-sample-lane-routing",
       "dependencies": {
@@ -1542,6 +1552,8 @@
     "@cosmicdrift/kumiko-sample-idempotency": ["@cosmicdrift/kumiko-sample-idempotency@workspace:samples/recipes/idempotency"],
 
     "@cosmicdrift/kumiko-sample-inbound-mail-triage": ["@cosmicdrift/kumiko-sample-inbound-mail-triage@workspace:samples/recipes/inbound-mail-triage"],
+
+    "@cosmicdrift/kumiko-sample-inspection-checklist": ["@cosmicdrift/kumiko-sample-inspection-checklist@workspace:samples/recipes/inspection-checklist"],
 
     "@cosmicdrift/kumiko-sample-lane-routing": ["@cosmicdrift/kumiko-sample-lane-routing@workspace:samples/recipes/lane-routing"],
 

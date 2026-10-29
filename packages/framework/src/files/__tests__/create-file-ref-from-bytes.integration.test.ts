@@ -12,6 +12,7 @@ import { entityEventName } from "../../db/index.ts";
 import { selectMany } from "../../db/query.ts";
 import type { WriteResult } from "../../engine/index.ts";
 import {
+  createEmbeddedListField,
   createEntity,
   createFileField,
   defineFeature,
@@ -48,6 +49,10 @@ const reportEntity = createEntity({
   fields: {
     // accept + maxSize are enforced exactly like on POST /files
     scan: createFileField({ maxSize: "1kb", accept: ["png"] }),
+    checks: createEmbeddedListField(
+      { photos: { type: "images", accept: ["png"] } },
+      { personal: false, reason: "is_business_data" },
+    ),
   },
 });
 
@@ -76,6 +81,7 @@ const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
         .object({
           entityType: z.string(),
           fieldName: z.string(),
+          subField: z.string().optional(),
           entityId: z.string().optional(),
         })
         .optional(),
@@ -201,7 +207,7 @@ function store(
     fileName: string;
     mimeType: string;
     bytes: Uint8Array;
-    attachTo?: { entityType: string; fieldName: string; entityId?: string };
+    attachTo?: { entityType: string; fieldName: string; subField?: string; entityId?: string };
   },
 ): Promise<Stored> {
   return stack.http.writeOk<Stored>(
@@ -281,6 +287,32 @@ describe("createFileRefFromBytes from a write handler", () => {
     });
 
     expect((await download(userB, pdf.id)).status).toBe(404);
+  });
+
+  test("attachTo.subField attaches to an embedded file sub-field and keeps the top-level fieldName", async () => {
+    const stored = await store(userA, {
+      fileName: "photo.png",
+      mimeType: "image/png",
+      bytes: PNG_BYTES,
+      attachTo: { entityType: "report", fieldName: "checks", subField: "photos" },
+    });
+
+    const row = (await selectMany(stack.db, fileRefsTable, { tenantId: tenantA })).find(
+      (ref) => ref.id === stored.id,
+    );
+    expect(row?.fieldName).toBe("checks");
+  });
+
+  test("a subField that is no file sub-field of the embedded field is rejected", async () => {
+    const err = await storeErr({
+      fileName: "photo.png",
+      mimeType: "image/png",
+      bytes: PNG_BYTES,
+      attachTo: { entityType: "report", fieldName: "checks", subField: "nope" },
+    });
+
+    expect(err.httpStatus).toBe(422);
+    await expectNothingStored();
   });
 
   test("oversized file for a field with maxSize is rejected with 422 and leaves nothing behind", async () => {

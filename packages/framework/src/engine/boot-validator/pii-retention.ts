@@ -1,3 +1,4 @@
+import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -22,13 +23,6 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
 // The cleanup job performs the actual parsing; the boot validator only checks
 // the format so typos ("30days") become visible before the first cleanup run.
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
-
-const FILE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
-  "file",
-  "image",
-  "files",
-  "images",
-]);
 
 // Excludes subjectRef: its `personal: "ref"` union member structurally
 // forbids `anonymize` (packages/types/src/fields.ts).
@@ -392,7 +386,7 @@ type UnannotatedNameWarning = {
 // with { personal: false, reason: "is_business_data" }.
 const UNANNOTATED_NAME_WARNINGS: readonly UnannotatedNameWarning[] = [
   {
-    applies: (input) => FILE_FIELD_TYPES.has(input.field.type),
+    applies: (input) => holdsFileRefs(input.field),
     message: (input) =>
       `[Feature ${input.featureName}] File field "${input.fieldName}" on entity "${input.entityName}" has no personal annotation. A forget with strategy "delete" then only severs the uploader link and keeps the binary. If the file holds personal data, mark it { personal: "self" } or { personal: { of: "<ownerField>" } }. If it is business data, set { personal: false, reason: "is_business_data" } to silence.`,
   },

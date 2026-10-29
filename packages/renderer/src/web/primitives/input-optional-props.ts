@@ -15,6 +15,7 @@ type UploadTargetInput = {
   readonly uploadActionForm?: string;
   readonly entityId?: string;
   readonly fieldName?: string;
+  readonly subField?: string;
 };
 
 // The inputs below take optional props that must be absent, not `undefined`,
@@ -40,11 +41,13 @@ export function uploadTargetProps({
   uploadActionForm,
   entityId,
   fieldName,
+  subField,
 }: UploadTargetInput): UploadTargetInput {
   return {
     ...(entityType !== undefined && { entityType }),
     ...(uploadActionForm !== undefined && { uploadActionForm }),
     ...(entityId !== undefined && { entityId }),
     ...(fieldName !== undefined && { fieldName }),
+    ...(subField !== undefined && { subField }),
   };
 }

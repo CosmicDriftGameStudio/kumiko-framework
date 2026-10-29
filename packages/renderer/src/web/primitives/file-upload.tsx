@@ -25,6 +25,7 @@ export type FileUploadInputProps = {
   readonly uploadActionForm?: string;
   readonly entityId?: string;
   readonly fieldName?: string;
+  readonly subField?: string;
   readonly imageVariant?: string;
   readonly capture?: "environment" | "user";
   /** Folder picker (web-only, `webkitdirectory`): hands the picked files with
@@ -49,6 +50,7 @@ export function FileUploadInput({
   uploadActionForm,
   entityId,
   fieldName,
+  subField,
   imageVariant,
   capture,
   directory,
@@ -79,6 +81,7 @@ export function FileUploadInput({
           entityType,
           entityId,
           fieldName,
+          subField,
           actionForm: uploadActionForm,
         }),
       );

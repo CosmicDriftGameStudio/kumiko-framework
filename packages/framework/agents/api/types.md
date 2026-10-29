@@ -897,6 +897,12 @@ type WorkflowTrigger = // Trigger configuration for a workflow.
 ;
 ```
 
+## packages/framework/src/engine/embedded-derived.ts
+
+```ts
+type NumericDerivedOp = Exclude<EmbeddedDerivedCellDef["op"], "inRange">;
+```
+
 ## packages/framework/src/engine/event-helpers.ts
 
 ```ts
@@ -979,6 +985,14 @@ type BuildManifestOptions = {
   source: string; // Description of the manifest's origin, included unchanged in the JSON.
   featureNames?: ReadonlySet<string>; // Emit only these features (e.g. the 16 enterprise features from a Registry that also mounted their bundled requirements).
   tier?: string; // Tags each feature and the top-level manifest (e.g. "enterprise").
+};
+```
+
+## packages/framework/src/engine/field-state.ts
+
+```ts
+type RequiredState = FieldStateConditions & {
+  required?: boolean;
 };
 ```
 
@@ -1768,6 +1782,72 @@ type DataTableViewOptions = {
 };
 ```
 
+## packages/renderer/src/embedded-list-types.ts
+
+```ts
+type EmbeddedListCellType = "text" | "number" | "boolean" | "date" | "money" | "decimal" | "select" | "reference" | "timestamp" | "images" | "files"; // Cell type for one column of an embedded-list field.
+type EmbeddedListColumn = { // One column of an embedded-list table (one entry per key of the source EmbeddedFieldDef's `schema`).
+  field: string;
+  label: string;
+  type: EmbeddedListCellType;
+  required: boolean;
+  derived: boolean; // Read-only, value supplied by the caller (already computed from sibling cells) — not directly user-editable.
+  readOnly?: boolean; // Shown but not editable by the user; unlike `derived` it is not computed.
+  options?: string[]; // Only for `type: "select"`.
+  optionLabels?: Readonly<Record<string, string>>;
+  display?: "radio" | "dropdown"; // Only for `type: "select"`; `"radio"` renders segmented buttons, the default is a dropdown.
+  referenceOptions?: { value: string; label: string; }[]; // Only for `type: "reference"` — pre-fetched by the caller, ONE query per column shared across every row (not one query per cell).
+  referenceLoading?: boolean;
+  optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // Only for `type: "select"`; tone per option (selected segment, derived badge).
+  capture?: "user" | "environment"; // Only for `type: "images" | "files"`.
+  maxCount?: number;
+  accept?: string[];
+  isHiddenInRow?: (row: Readonly<Record<string, unknown>>) => boolean; // Per-row state, evaluated by the caller (conditions are engine logic the primitive must not import).
+  isRequiredInRow?: (row: Readonly<Record<string, unknown>>) => boolean;
+  isDerivedInRow?: (row: Readonly<Record<string, unknown>>) => boolean; // Overrides `derived` per row: a conditional derived cell is editable on rows where it does not apply.
+};
+type EmbeddedListInputProps = { // Row-array + totals table for a `createEmbeddedListField` (invoice- positions-style) field — structurally too different from `Input`'s value/onChange union to fit there, so it's its own primitive, same as `DataTable`.
+  id: string;
+  columns: EmbeddedListColumn[];
+  rows: Readonly<Record<string, unknown>>[];
+  totals?: EmbeddedListTotal[];
+  currency?: string; // Currency for money cells and the totals row — one value for the whole list (currency lives on the head aggregate, not the row).
+  disabled?: boolean; // Whole-list read-only (e.g. a released invoice) — hides row-mutation affordances and disables every cell.
+  fixedRows?: boolean; // Rows are fixed: no add, remove, duplicate or move; cells stay editable.
+  minItems?: number;
+  maxItems?: number;
+  uploadTarget?: {
+    entityType: string;
+    fieldName: string;
+    entityId?: string;
+  }; // Upload target of file cells: `entityType`/`entityId`/`fieldName` of the list, the column name is the `subField`.
+  listIssues?: FieldIssue[]; // Shown under the whole list (e.g. under the totals row).
+  rowIssues?: Readonly<Record<number, FieldIssue[]>>; // Keyed by row index.
+  cellIssues?: Readonly<Record<string, FieldIssue[]>>; // Keyed `${rowIndex}.${field}`.
+  onCellChange: (rowIndex: number, field: string, value: unknown) => void;
+  onAddRow: () => void;
+  onRemoveRow: (rowIndex: number) => void;
+  onDuplicateRow: (rowIndex: number) => void;
+  onMoveRow: (fromIndex: number, toIndex: number) => void;
+  onPasteCells?: (rowIndex: number, columnIndex: number, grid: (string[])[]) => void; // Tab/newline-delimited clipboard paste starting at (rowIndex, columnIndex) — parsed to a 2D string grid by the Web impl (paste events are a browser-only concept); undefined caller = no paste handling wired up.
+  addLabel: string;
+  actionsLabel: string; // Accessible name of the (otherwise headerless) row-actions column.
+  removeLabel: string;
+  duplicateLabel: string;
+  moveUpLabel: string;
+  moveDownLabel: string;
+  emptyLabel: string;
+  emptyCtaLabel: string;
+  testId?: string;
+};
+type EmbeddedListTotal = { // One entry of an embedded-list totals row (e.g. an invoice's total amount, summed across all rows by the caller).
+  field: string;
+  label: string;
+  value: number;
+  money?: boolean; // Set for labelled multi-column totals, which have no single column to read the money type from.
+};
+```
+
 ## packages/renderer/src/headless/contracts/locale.ts
 
 ```ts
@@ -1987,6 +2067,7 @@ type EditFieldViewModel = {
     payload: OptionsQueryPayload;
   }; // Set for `type: "select"` / `"multiSelect"` when optionsAvailabilityQuery is set: the renderer loads `{ rows: { value, disabled?, hint?
   display?: "checkboxes" | "dropdown" | "radio"; // Set for `type: "multiSelect"` when MultiSelectFieldDef.display is "checkboxes" — the renderer shows a checkbox grid with a select-all toggle instead of the default combobox dropdown.
+  optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // `type: "select"` only: tone per option, shown on the selected radio segment.
   columns?: 1 | 2 | 3 | 4; // Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is defined — column count for the checkbox grid at the widest breakpoint.
   maxRows?: number; // Set for `type: "multiSelect"` when MultiSelectFieldDef.maxRows is defined — grid rows visible before the checkbox grid becomes scrollable.
   multiline?: boolean | { rows?: number; }; // For `type: "text"`, set when TextFieldDef.multiline is true — the renderer then renders a textarea instead of a single-line input.
@@ -2022,9 +2103,14 @@ type EditFieldViewModel = {
   embeddedListCells?: EmbeddedListCellViewModel[]; // Only set for an embedded-LIST field (`multiple: true`) — the per-cell metadata the renderer needs to draw each column/cell.
   embeddedListMinItems?: number; // Minimum row count for the embedded list.
   embeddedListMaxItems?: number; // Maximum row count for the embedded list.
-  embeddedListDerived?: Readonly<Record<string, { op: "multiply" | "sum" | "subtract" | "percent"; from: string[]; }>>; // Sub-field name → how to compute its cell from other sub-fields of the same row.
+  embeddedListDerived?: Readonly<Record<string, EmbeddedDerivedCellDef>>; // Sub-field name → how to compute its cell from other sub-fields of the same row.
   embeddedListTotals?: (string | { label: string; from: string[]; })[]; // Footer totals: a sub-field name, or a labelled sum of several.
   embeddedListFixedRows?: boolean; // No add, remove, duplicate or move; cells stay editable.
+  embeddedListUploadTarget?: {
+    entityType: string;
+    fieldName: string;
+    entityId?: string;
+  }; // Where photos of a row's file cells are uploaded: the entity and the top-level list field; the cell name travels as `subField`.
   embeddedListCurrency?: string; // Currency for the whole embedded list's money cells and totals row — currency lives on the head aggregate (EntityDefinition.defaultCurrency), not per row.
   currency?: string; // Only set for a plain (non-list, non-embedded) `type: "money"` field — same source as embeddedListCurrency (EntityDefinition.defaultCurrency, falls back to "EUR").
   unit?: string | { field: string; }; // Only set for `type: "number"` when NumberFieldDef.unit is set — a static suffix string, or a sibling-field reference the renderer resolves against the live row values.
@@ -2032,9 +2118,15 @@ type EditFieldViewModel = {
 type EmbeddedListCellViewModel = {
   field: string;
   label: string;
-  type: "text" | "number" | "boolean" | "date" | "money" | "decimal" | "select" | "reference" | "timestamp";
+  type: "text" | "number" | "boolean" | "date" | "money" | "decimal" | "select" | "reference" | "timestamp" | "images" | "files";
   required: boolean;
+  visibleWhen?: Exclude<FieldCondition, boolean>; // Per-row state: hidden / required for a row where the condition holds.
+  requiredWhen?: Exclude<FieldCondition, boolean>;
   options?: string[]; // Only for `type: "select"`.
+  optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // Only for `type: "select"`; tone of each option's badge or selected segment.
+  capture?: "user" | "environment"; // Only for `type: "images" | "files"`.
+  maxCount?: number;
+  accept?: string[];
   optionLabels?: Readonly<Record<string, string>>;
   display?: "radio" | "dropdown"; // Only for `type: "select"`; `"radio"` renders segmented buttons instead of a dropdown.
   readOnly?: boolean; // Cell is shown but not editable (`EditFieldSpec.embeddedList.readOnlyCells`).
@@ -2222,55 +2314,6 @@ type DrawerProps = { // Side panel for hosting an existing self-contained form/w
   subtitle?: string; // Muted line under the title.
   children: ReactNode;
   testId?: string;
-};
-type EmbeddedListCellType = "text" | "number" | "boolean" | "date" | "money" | "decimal" | "select" | "reference" | "timestamp"; // Cell type for one column of an embedded-list field.
-type EmbeddedListColumn = { // One column of an embedded-list table (one entry per key of the source EmbeddedFieldDef's `schema`).
-  field: string;
-  label: string;
-  type: EmbeddedListCellType;
-  required: boolean;
-  derived: boolean; // Read-only, value supplied by the caller (already computed from sibling cells) — not directly user-editable.
-  readOnly?: boolean; // Shown but not editable by the user; unlike `derived` it is not computed.
-  options?: string[]; // Only for `type: "select"`.
-  optionLabels?: Readonly<Record<string, string>>;
-  display?: "radio" | "dropdown"; // Only for `type: "select"`; `"radio"` renders segmented buttons, the default is a dropdown.
-  referenceOptions?: { value: string; label: string; }[]; // Only for `type: "reference"` — pre-fetched by the caller, ONE query per column shared across every row (not one query per cell).
-  referenceLoading?: boolean;
-};
-type EmbeddedListInputProps = { // Row-array + totals table for a `createEmbeddedListField` (invoice- positions-style) field — structurally too different from `Input`'s value/onChange union to fit there, so it's its own primitive, same as `DataTable`.
-  id: string;
-  columns: EmbeddedListColumn[];
-  rows: Readonly<Record<string, unknown>>[];
-  totals?: EmbeddedListTotal[];
-  currency?: string; // Currency for money cells and the totals row — one value for the whole list (currency lives on the head aggregate, not the row).
-  disabled?: boolean; // Whole-list read-only (e.g. a released invoice) — hides row-mutation affordances and disables every cell.
-  fixedRows?: boolean; // Rows are fixed: no add, remove, duplicate or move; cells stay editable.
-  minItems?: number;
-  maxItems?: number;
-  listIssues?: FieldIssue[]; // Shown under the whole list (e.g. under the totals row).
-  rowIssues?: Readonly<Record<number, FieldIssue[]>>; // Keyed by row index.
-  cellIssues?: Readonly<Record<string, FieldIssue[]>>; // Keyed `${rowIndex}.${field}`.
-  onCellChange: (rowIndex: number, field: string, value: unknown) => void;
-  onAddRow: () => void;
-  onRemoveRow: (rowIndex: number) => void;
-  onDuplicateRow: (rowIndex: number) => void;
-  onMoveRow: (fromIndex: number, toIndex: number) => void;
-  onPasteCells?: (rowIndex: number, columnIndex: number, grid: (string[])[]) => void; // Tab/newline-delimited clipboard paste starting at (rowIndex, columnIndex) — parsed to a 2D string grid by the Web impl (paste events are a browser-only concept); undefined caller = no paste handling wired up.
-  addLabel: string;
-  actionsLabel: string; // Accessible name of the (otherwise headerless) row-actions column.
-  removeLabel: string;
-  duplicateLabel: string;
-  moveUpLabel: string;
-  moveDownLabel: string;
-  emptyLabel: string;
-  emptyCtaLabel: string;
-  testId?: string;
-};
-type EmbeddedListTotal = { // One entry of an embedded-list totals row (e.g. an invoice's total amount, summed across all rows by the caller).
-  field: string;
-  label: string;
-  value: number;
-  money?: boolean; // Set for labelled multi-column totals, which have no single column to read the money type from.
 };
 type FieldCellWidth = "text" | "number" | "money" | "date" | "timestamp" | "select" | "full" | "toggle"; // Width class of a field cell inside a `flow` grid: sized by what the field holds.
 type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
@@ -2501,6 +2544,7 @@ type FileUploadFormDataInput = {
   entityType?: string | undefined;
   entityId?: string | undefined;
   fieldName?: string | undefined;
+  subField?: string | undefined; // File sub-field of the embedded `fieldName`.
   actionForm?: string | undefined; // Screen QN of an actionForm: the upload is pending for that form's field, not for an entity.
 };
 ```
@@ -3323,6 +3367,23 @@ type UiHints = {
 };
 ```
 
+## packages/types/src/field-state-conditions.ts
+
+```ts
+type EmbeddedFilesSubFieldProps = { // Value is an array of FileRef ids; `file_refs.fieldName` stays the top-level embedded field name.
+  maxSize?: string;
+  accept?: string[];
+  maxCount?: number;
+};
+type EmbeddedImagesSubFieldProps = EmbeddedFilesSubFieldProps & {
+  capture?: "environment" | "user";
+};
+type FieldStateConditions = {
+  visibleWhen?: Exclude<FieldCondition, boolean>; // Field is shown only while the condition holds on the record values.
+  requiredWhen?: Exclude<FieldCondition, boolean>; // Field is required while the condition holds (and the field is visible).
+};
+```
+
 ## packages/types/src/fields-derived.ts
 
 ```ts
@@ -3402,7 +3463,7 @@ type SqlDerivedFieldDef = {
 ## packages/types/src/fields.ts
 
 ```ts
-type BigIntFieldDef = ResolvedPiiFlags & { // 64-bit integer field for audit counters, byte sizes, event IDs, and other values that can exceed 2^31 (~2.1 billion).
+type BigIntFieldDef = PiiAndFieldState & { // 64-bit integer field for audit counters, byte sizes, event IDs, and other values that can exceed 2^31 (~2.1 billion).
   type: "bigInt";
   description?: string;
   required?: boolean;
@@ -3413,7 +3474,7 @@ type BigIntFieldDef = ResolvedPiiFlags & { // 64-bit integer field for audit cou
   default?: number;
   access?: FieldAccess;
 };
-type BooleanFieldDef = {
+type BooleanFieldDef = FieldStateConditions & {
   type: "boolean";
   description?: string;
   required?: boolean;
@@ -3424,7 +3485,7 @@ type BooleanFieldDef = {
   default?: boolean;
   access?: FieldAccess;
 };
-type DateFieldDef = ResolvedPiiFlags & {
+type DateFieldDef = PiiAndFieldState & {
   type: "date";
   description?: string;
   required?: boolean;
@@ -3437,7 +3498,7 @@ type DateFieldDef = ResolvedPiiFlags & {
   max?: string;
   locale?: string; // Format/locale override for display and input parsing (for example, "de-DE").
 };
-type DecimalFieldDef = ResolvedPiiFlags & { // Exact decimal — Postgres `numeric(precision, scale)`.
+type DecimalFieldDef = PiiAndFieldState & { // Exact decimal — Postgres `numeric(precision, scale)`.
   type: "decimal";
   description?: string;
   precision: number;
@@ -3450,7 +3511,7 @@ type DecimalFieldDef = ResolvedPiiFlags & { // Exact decimal — Postgres `numer
   default?: number;
   access?: FieldAccess;
 };
-type EmbeddedFieldDef = ResolvedPiiFlags & {
+type EmbeddedFieldDef = PiiAndFieldState & {
   type: "embedded";
   description?: string;
   required?: boolean;
@@ -3464,12 +3525,12 @@ type EmbeddedFieldDef = ResolvedPiiFlags & {
   totals?: EmbeddedTotalDef[]; // Renderer metadata: footer totals.
   totalsMatch?: Readonly<Record<string, string>>; // Maps an embedded-list subfield name to a sibling top-level money field name — the sum of that subfield across all rows must equal the sibling field's amount.
 };
-type EmbeddedSubFieldBase = {
+type EmbeddedSubFieldBase = FieldStateConditions & {
   required?: boolean;
   searchable?: boolean;
   access?: FieldAccess;
 };
-type EmbeddedSubFieldDef = (EmbeddedSubFieldBase & { type: "text" | "number" | "boolean" | "date" | "money" | "timestamp"; }) | (EmbeddedSubFieldBase & { type: "decimal"; scale: number; }) | (EmbeddedSubFieldBase & { type: "select"; options: string[]; display?: "radio" | "dropdown"; }) | (EmbeddedSubFieldBase & { type: "reference"; entity: string; labelField?: string; optionsQuery?: string; }); // `money` is a signed integer amount in minor units (cents); which currency it means is defined by the owning aggregate (a head-level field or tenant config), not per row.
+type EmbeddedSubFieldDef = (EmbeddedSubFieldBase & { type: "text" | "number" | "boolean" | "date" | "money" | "timestamp"; }) | (EmbeddedSubFieldBase & { type: "decimal"; scale: number; }) | (EmbeddedSubFieldBase & { type: "select"; options: string[]; display?: "radio" | "dropdown"; optionTones?: { [option: string]: SelectOptionTone; }; }) | (EmbeddedSubFieldBase & { type: "reference"; entity: string; labelField?: string; optionsQuery?: string; }) | (EmbeddedSubFieldBase & EmbeddedImagesSubFieldProps …; // `money` is a signed integer amount in minor units (cents); which currency it means is defined by the owning aggregate (a head-level field or tenant config), not per row.
 type EmbeddedTotalDef =
   | string
   | {
@@ -3497,7 +3558,7 @@ type FieldAccess = {
   write?: OwnershipMap | string[];
 };
 type FieldsMap = Readonly<Record<string, EntityFieldDefinition>>;
-type FileFieldDef = ResolvedPiiFlags & {
+type FileFieldDef = PiiAndFieldState & {
   type: "file";
   description?: string;
   required?: boolean;
@@ -3506,7 +3567,7 @@ type FileFieldDef = ResolvedPiiFlags & {
   accept?: string[];
   access?: FieldAccess;
 };
-type FilesFieldDef = ResolvedPiiFlags & {
+type FilesFieldDef = PiiAndFieldState & {
   type: "files";
   description?: string;
   maxSize?: string;
@@ -3518,7 +3579,7 @@ type FilesFieldDef = ResolvedPiiFlags & {
 };
 type Findability = "exact" | "fuzzy" | "none" | "secret";
 type FormFieldDefinition = Exclude<FieldDefinition, MoneyFieldDef> | (MoneyFieldDef & { currency: MoneyCurrencySource; }); // FieldDefinition as an entity-less inline form screen (actionForm, secretMint) may declare it: a `money` field there has no entity to borrow `defaultCurrency` from, so it must name its own currency source, or the form seeds a bare `0` that the handler's zod schema then rejects .
-type ImageFieldDef = ResolvedPiiFlags & {
+type ImageFieldDef = PiiAndFieldState & {
   type: "image";
   description?: string;
   required?: boolean;
@@ -3529,7 +3590,7 @@ type ImageFieldDef = ResolvedPiiFlags & {
   capture?: "environment" | "user"; // Forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker.
   access?: FieldAccess;
 };
-type ImagesFieldDef = ResolvedPiiFlags & {
+type ImagesFieldDef = PiiAndFieldState & {
   type: "images";
   description?: string;
   maxSize?: string;
@@ -3542,7 +3603,7 @@ type ImagesFieldDef = ResolvedPiiFlags & {
   access?: FieldAccess;
 };
 type JsonbEmptyValue = "object" | "array";
-type LocatedTimestampFieldDef = ResolvedPiiFlags & {
+type LocatedTimestampFieldDef = PiiAndFieldState & {
   type: "locatedTimestamp";
   description?: string;
   required?: boolean;
@@ -3555,7 +3616,7 @@ type LocatedTimestampFieldDef = ResolvedPiiFlags & {
   max?: string;
   locale?: string; // Format/locale override for display and input parsing.
 };
-type LongTextFieldDef = ResolvedPiiFlags & { // Long-form text content — source code, markdown, blog posts, email templates, and anything that can be megabytes large.
+type LongTextFieldDef = PiiAndFieldState & { // Long-form text content — source code, markdown, blog posts, email templates, and anything that can be megabytes large.
   type: "longText";
   description?: string;
   maxLength?: number; // Optional soft cap.
@@ -3577,7 +3638,7 @@ type MoneyCurrencySource = // Where a money field's currency comes from.
     code: string;
   }
 ;
-type MoneyFieldDef = {
+type MoneyFieldDef = FieldStateConditions & {
   type: "money";
   description?: string;
   required?: boolean;
@@ -3588,7 +3649,7 @@ type MoneyFieldDef = {
   access?: FieldAccess;
   currency?: MoneyCurrencySource; // Declares where this field's currency comes from for a currently-empty value in an entityEdit form.
 };
-type MultiSelectFieldDef<TOptions extends string[] = string[]> = ResolvedPiiFlags & {
+type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldState & {
   type: "multiSelect";
   description?: string;
   options: TOptions;
@@ -3608,7 +3669,7 @@ type NoPersonalAnnotation = {
   reason?: never;
   anonymize?: never;
 };
-type NumberFieldDef = ResolvedPiiFlags & { // Storage: `integer` flag decides the Postgres column type, not just Zod validation.
+type NumberFieldDef = PiiAndFieldState & { // Storage: `integer` flag decides the Postgres column type, not just Zod validation.
   type: "number";
   description?: string;
   required?: boolean;
@@ -3685,7 +3746,8 @@ type PersonalSubject =
   }
   | "tenant"
 ;
-type ReferenceFieldDef = ResolvedPiiFlags & {
+type PiiAndFieldState = ResolvedPiiFlags & FieldStateConditions;
+type ReferenceFieldDef = PiiAndFieldState & {
   type: "reference";
   description?: string;
   entity: string;
@@ -3725,7 +3787,7 @@ type SelectConditionalOptions<TOption extends string = string> = { // Options of
   options: TOption[];
   when: Exclude<FieldCondition, boolean>;
 };
-type SelectFieldDef<TOptions extends string[] = string[]> = ResolvedPiiFlags & {
+type SelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldState & {
   type: "select";
   description?: string;
   options: TOptions;
@@ -3744,7 +3806,7 @@ type SelectFieldDef<TOptions extends string[] = string[]> = ResolvedPiiFlags & {
   conditionalOptions?: SelectConditionalOptions<TOptions[number]>[]; // Options that are only available while `when` holds for the row values; options in no rule are always available.
 };
 type SortNulls = "first" | "last"; // Where rows without a value sort in a list, in both directions.
-type TimestampFieldDef = ResolvedPiiFlags & {
+type TimestampFieldDef = PiiAndFieldState & {
   type: "timestamp";
   description?: string;
   required?: boolean;
@@ -3759,7 +3821,7 @@ type TimestampFieldDef = ResolvedPiiFlags & {
   locale?: string; // Format/locale override for display and input parsing.
 };
 type TransitionMap = Readonly<Record<string, string[]>>;
-type TzFieldDef = ResolvedPiiFlags & {
+type TzFieldDef = PiiAndFieldState & {
   type: "tz";
   description?: string;
   required?: boolean;

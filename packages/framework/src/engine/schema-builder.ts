@@ -89,6 +89,9 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
     }
     case "reference":
       return z.uuid();
+    case "images":
+    case "files":
+      return fileListFieldToZod(subField);
     default:
       assertUnreachable(subField, "embedded sub-field type");
   }
@@ -288,7 +291,7 @@ function locatedTimestampToZod(): z.ZodTypeAny {
   ]);
 }
 
-function fileListFieldToZod(field: FieldOf<"files" | "images">): z.ZodTypeAny {
+function fileListFieldToZod(field: { readonly maxCount?: number }): z.ZodTypeAny {
   // Multi file: array of fileRef UUIDs. Same story as the singular
   // variant — the element type has to match the UUID column on
   // fileRefsTable.id.

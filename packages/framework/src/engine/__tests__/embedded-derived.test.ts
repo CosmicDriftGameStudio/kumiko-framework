@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { roundDerivedCellValue } from "../embedded-derived.ts";
+import type { EmbeddedDerivedCellDef } from "@cosmicdrift/kumiko-types/fields";
+import { roundDerivedCellValue, withDerivedCells } from "../embedded-derived.ts";
 
 describe("roundDerivedCellValue — float-noise vs. genuine near-half values", () => {
   test("money: float-multiplication noise just below a half-step still rounds up (deliberate)", () => {
@@ -31,5 +32,59 @@ describe("roundDerivedCellValue — float-noise vs. genuine near-half values", (
 
   test("decimal with no scale: passes the value through unrounded instead of truncating to 0 decimals", () => {
     expect(roundDerivedCellValue(1.2345, { type: "decimal", scale: undefined })).toBe(1.2345);
+  });
+});
+
+describe("withDerivedCells — inRange", () => {
+  const derived: Record<string, EmbeddedDerivedCellDef> = {
+    result: { op: "inRange", from: ["measured", "min", "max"], inside: "ok", outside: "not_ok" },
+  };
+  const targets = { result: { type: "select" as const } };
+  const run = (row: Record<string, unknown>) => withDerivedCells(row, derived, targets);
+
+  test("inside and outside the bounds", () => {
+    expect(run({ measured: 190, min: 180, max: 200 })).toMatchObject({ result: "ok" });
+    expect(run({ measured: 210, min: 180, max: 200 })).toMatchObject({ result: "not_ok" });
+    expect(run({ measured: 170, min: 180, max: 200 })).toMatchObject({ result: "not_ok" });
+  });
+
+  test("bounds are inclusive", () => {
+    expect(run({ measured: 180, min: 180, max: 200 })).toMatchObject({ result: "ok" });
+    expect(run({ measured: 200, min: 180, max: 200 })).toMatchObject({ result: "ok" });
+  });
+
+  test("a missing bound leaves that side open", () => {
+    expect(run({ measured: 5, max: 10 })).toMatchObject({ result: "ok" });
+    expect(run({ measured: 50, max: 10 })).toMatchObject({ result: "not_ok" });
+    expect(run({ measured: 50, min: 10 })).toMatchObject({ result: "ok" });
+    expect(run({ measured: 5, min: 10 })).toMatchObject({ result: "not_ok" });
+  });
+
+  test("missing value or both bounds missing clears the cell", () => {
+    expect(run({ min: 1, max: 2, result: "ok" })).not.toHaveProperty("result");
+    expect(run({ measured: 5, result: "ok" })).not.toHaveProperty("result");
+  });
+});
+
+describe("withDerivedCells — when", () => {
+  const derived: Record<string, EmbeddedDerivedCellDef> = {
+    total: { op: "multiply", from: ["qty", "price"], when: { field: "kind", eq: "calc" } },
+  };
+  const targets = { total: { type: "number" as const } };
+
+  test("when false keeps the manual value", () => {
+    const row = { kind: "manual", qty: 2, price: 3, total: 99 };
+    expect(withDerivedCells(row, derived, targets)).toEqual(row);
+  });
+
+  test("when true overwrites a client-sent value", () => {
+    expect(
+      withDerivedCells({ kind: "calc", qty: 2, price: 3, total: 99 }, derived, targets),
+    ).toEqual({
+      kind: "calc",
+      qty: 2,
+      price: 3,
+      total: 6,
+    });
   });
 });

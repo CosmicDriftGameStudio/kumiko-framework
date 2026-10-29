@@ -22,7 +22,7 @@ import { aiTextDemoFeature } from "../features/widgets/ai-text-demo";
 import { widgetsFeature } from "../features/widgets/feature";
 import { workboardFeature } from "../features/workboard/feature";
 import { seedWorkboardTasks } from "../features/workboard/seed";
-import { seedStyleguideItems } from "./seed";
+import { seedStyleguideInspection, seedStyleguideItems } from "./seed";
 
 const configResolver = createConfigResolver();
 
@@ -46,7 +46,7 @@ await runDevApp({
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
-  seeds: [seedStyleguideItems, seedAiConnections, seedWorkboardTasks],
+  seeds: [seedStyleguideItems, seedStyleguideInspection, seedAiConnections, seedWorkboardTasks],
   extraContext: ({ registry }) => ({
     configResolver,
     configAccessorFactory: createConfigAccessorFactory(registry, configResolver),

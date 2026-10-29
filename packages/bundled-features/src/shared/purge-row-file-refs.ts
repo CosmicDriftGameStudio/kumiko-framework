@@ -1,6 +1,6 @@
 import { type DbRunner, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type { EntityDefinition, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefsTable, holdsFileRefs } from "@cosmicdrift/kumiko-framework/files";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 type EntityFields = EntityDefinition["fields"];
@@ -23,8 +23,9 @@ export type FileRefPurgeOutcome = "purged" | "missing_file_storage" | "file_dele
 
 const NO_FILE_FIELDS: FileFieldPlan = { singleFields: [], multiFields: [] };
 
-// Same set as boot-validator/entity-handler.ts FILE_FIELD_TYPES; the single/multi split
-// matters here because only plural fields resolve through file_refs.
+// Same set as boot-validator/entity-handler.ts FILE_FIELD_TYPES plus embedded fields with file
+// sub-fields; the single/multi split matters here because only plural fields resolve through
+// file_refs, bound under the top-level field name.
 export function planFileFields(
   fields: EntityFields,
   fieldNames?: readonly string[],
@@ -34,7 +35,7 @@ export function planFileFields(
   for (const [name, field] of Object.entries(fields)) {
     if (fieldNames !== undefined && !fieldNames.includes(name)) continue;
     if (field.type === "file" || field.type === "image") singleFields.push(name);
-    else if (field.type === "files" || field.type === "images") multiFields.push(name);
+    else if (holdsFileRefs(field)) multiFields.push(name);
   }
   return singleFields.length > 0 || multiFields.length > 0
     ? { singleFields, multiFields }
