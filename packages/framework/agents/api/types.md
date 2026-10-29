@@ -374,6 +374,7 @@ type EagerLoadEntityResolver = (entityName: string) => EntityDefinition | undefi
 type EagerLoadViewer = {
   user: SessionUser;
   parentVisibility: ParentVisibilityOption;
+  resolveTable?: (entityName: string) => ReturnType<typeof buildEntityTable>;
 };
 ```
 
@@ -3155,14 +3156,18 @@ type ListRuntimeOptions = {
   referenceSearch?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable?: (entityName: string) => SchemaTable;
   };
   referenceSort?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable?: (entityName: string) => SchemaTable;
   };
   parentVisibility?: ParentVisibilityOption;
   derivedSql?: {
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
+    resolveTable: (entityName: string) => SchemaTable;
+    canReadEntity: (entityName: string) => boolean;
     today: string;
     now: string;
   };
@@ -3359,7 +3364,7 @@ type DerivedSqlSpec =
     where?: DerivedCondition[]; // AND-ed.
   }
 ;
-type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
+type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp" | "money"; // Display type a derived value formats as — drives the column's renderer choice in the view-model, parallel to FieldDefinition["type"].
 type JsDerivedFieldDef = {
   valueType: DerivedValueType;
   derive: (row: Readonly<Record<string, unknown>>, ctx: DeriveContext) => unknown; // Pure function of the stored row + clock.

@@ -28,13 +28,20 @@ const childFields = {
   plainRef: { type: "reference", entity: "unit" },
 } as const;
 
-function validateWith(derivedFields: Record<string, DerivedFieldDef>): void {
+function validateWith(
+  derivedFields: Record<string, DerivedFieldDef>,
+  childIndexes: EntityDefinition["indexes"] = [],
+): void {
   const unit: EntityDefinition = createEntity({
     table: "units",
     fields: { name: text(), nickname: text(), floor: createNumberField() },
     derivedFields,
   });
-  const child: EntityDefinition = createEntity({ table: "children", fields: childFields });
+  const child: EntityDefinition = createEntity({
+    table: "children",
+    fields: childFields,
+    indexes: childIndexes,
+  });
   const feature = defineFeature("demo", (r) => {
     r.entity({ name: "unit", ...unit });
     r.entity({ name: "child", ...child });
@@ -53,7 +60,7 @@ const related = (
       : never;
     where: never[];
   }>,
-  valueType: "number" | "text" | "date" = "number",
+  valueType: "number" | "text" | "date" | "money" = "number",
 ): DerivedFieldDef =>
   createDerivedField({
     valueType,
@@ -120,6 +127,63 @@ describe("validateSqlDerivedFields", () => {
         n: related({ measure: { kind: "countDistinct", field: "amount" } }),
       }),
     ).toThrow(/measure field "amount".*money/);
+  });
+
+  describe("money", () => {
+    const firstAmount = {
+      kind: "first",
+      field: "amount",
+      orderBy: "rank",
+      direction: "desc",
+    } as const;
+
+    test("accepts related first on a money field with valueType money", () => {
+      expect(() =>
+        validateWith({ rent: related({ measure: firstAmount }, "money") }),
+      ).not.toThrow();
+    });
+
+    test("rejects a money field with another valueType", () => {
+      expect(() => validateWith({ rent: related({ measure: firstAmount }, "number") })).toThrow(
+        /valueType must be "money", got "number"/,
+      );
+    });
+
+    test("rejects valueType money on a non-money measure", () => {
+      expect(() =>
+        validateWith({
+          n: related(
+            { measure: { kind: "first", field: "title", orderBy: "rank", direction: "asc" } },
+            "money",
+          ),
+        }),
+      ).toThrow(/valueType must be "text", got "money"/);
+      expect(() => validateWith({ n: related({}, "money") })).toThrow(
+        /valueType must be "number", got "money"/,
+      );
+    });
+
+    test("rejects label on a money field", () => {
+      expect(() =>
+        validateWith({
+          rent: related({ measure: { ...firstAmount, label: true } }, "money"),
+        }),
+      ).toThrow(/label: true needs a reference field, not money/);
+    });
+
+    test("rejects money in coalesce and valueType money on a JS derive", () => {
+      expect(() =>
+        validateWith({
+          n: createDerivedField({
+            valueType: "money",
+            sql: { kind: "coalesce", fields: ["name"] },
+          }),
+        }),
+      ).toThrow(/valueType must be "text", got "money"/);
+      expect(() =>
+        validateWith({ n: createDerivedField({ valueType: "money", derive: () => 1 }) }),
+      ).toThrow(/needs a sql derived field/);
+    });
   });
 
   test("rejects an encrypted field", () => {
@@ -209,10 +273,47 @@ describe("validateSqlDerivedFields", () => {
     );
   });
 
-  test("rejects an entity deriving from itself", () => {
-    expect(() => validateWith({ n: related({ entity: "unit", on: { field: "floor" } }) })).toThrow(
-      /cannot derive from itself/,
-    );
+  describe("sortable join index", () => {
+    const sortableCount = (): Record<string, DerivedFieldDef> => ({
+      n: createDerivedField({
+        valueType: "number",
+        sortable: true,
+        sql: {
+          kind: "related",
+          entity: "child",
+          on: { field: "unitId" },
+          measure: { kind: "count" },
+        },
+      }),
+    });
+
+    test("rejects sortable without an index on the join column", () => {
+      expect(() => validateWith(sortableCount())).toThrow(
+        /sortable needs an index on the related table's "unitId"/,
+      );
+      expect(() => validateWith(sortableCount(), [{ columns: ["status"] }])).toThrow(
+        /needs an index/,
+      );
+    });
+
+    test("accepts an index that starts with the join column, or tenantId then it", () => {
+      expect(() =>
+        validateWith(sortableCount(), [{ columns: ["unitId", "status"] }]),
+      ).not.toThrow();
+      expect(() =>
+        validateWith(sortableCount(), [{ columns: ["tenantId", "unitId"] }]),
+      ).not.toThrow();
+    });
+
+    test("does not ask for an index when the column is not sortable", () => {
+      expect(() => validateWith({ n: related({}) })).not.toThrow();
+    });
+  });
+
+  test("accepts an entity deriving from itself", () => {
+    expect(() =>
+      validateWith({ n: related({ entity: "unit", on: { field: "floor" } }) }),
+    ).not.toThrow();
   });
 
   test("rejects sortable on a JS derive", () => {

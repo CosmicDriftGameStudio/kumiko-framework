@@ -800,6 +800,15 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/derived-fields-sql": {
+      "name": "@cosmicdrift/kumiko-sample-derived-fields-sql",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/designer-demo": {
       "name": "@cosmicdrift/kumiko-sample-designer-demo",
       "dependencies": {
@@ -1487,6 +1496,8 @@
     "@cosmicdrift/kumiko-sample-dashboard-stats": ["@cosmicdrift/kumiko-sample-dashboard-stats@workspace:samples/recipes/dashboard-stats"],
 
     "@cosmicdrift/kumiko-sample-delivery-notifications": ["@cosmicdrift/kumiko-sample-delivery-notifications@workspace:samples/recipes/delivery-notifications"],
+
+    "@cosmicdrift/kumiko-sample-derived-fields-sql": ["@cosmicdrift/kumiko-sample-derived-fields-sql@workspace:samples/recipes/derived-fields-sql"],
 
     "@cosmicdrift/kumiko-sample-designer-demo": ["@cosmicdrift/kumiko-sample-designer-demo@workspace:samples/recipes/designer-demo"],
 

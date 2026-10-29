@@ -37,7 +37,7 @@ import { DEFAULT_CURRENCIES } from "../engine/field-helpers.ts";
 
 import { MINOR_UNIT_SCALE, toMinorUnits } from "../engine/minor-units.ts";
 
-const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
+export const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 
 export { toMinorUnits };
 
@@ -169,40 +169,51 @@ export function rehydrateMoney(
       continue;
     }
 
-    let amountScaled: number;
-    if (typeof amountRaw === "number") {
-      amountScaled = amountRaw;
-    } else if (typeof amountRaw === "bigint") {
-      amountScaled = Number(amountRaw);
-      if (!Number.isSafeInteger(amountScaled)) {
-        throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a safe integer`);
-      }
-    } else if (typeof amountRaw === "string" && amountRaw !== "") {
-      // The PG driver sometimes returns BIGINT as a string (when it exceeds the
-      // safe integer range of 2^53).
-      amountScaled = Number(amountRaw);
-      if (!Number.isSafeInteger(amountScaled)) {
-        throw new Error(
-          `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a safe integer — DB corruption?`,
-        );
-      }
-    } else {
-      throw new Error(
-        `rehydrateMoney: field "${name}" amount has unexpected type ${typeof amountRaw}`,
-      );
-    }
-
-    const currency =
-      typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
-
-    // amountMinor: deprecated alias, same value as amountScaled — see MoneyRead.
-    result[name] = {
-      amount: toMajorUnits(amountScaled),
-      currency,
-      amountScaled,
-      amountMinor: amountScaled,
-    };
+    result[name] = readMoney(name, amountRaw, currencyRaw, fallbackCurrency);
   }
 
   return result;
+}
+
+/** One money value from its raw amount/currency columns; shared with SQL derived money so both
+ *  produce the identical read shape. Throws on a corrupt amount. */
+export function readMoney(
+  name: string,
+  amountRaw: unknown,
+  currencyRaw: unknown,
+  fallbackCurrency: string,
+): MoneyRead {
+  let amountScaled: number;
+  if (typeof amountRaw === "number") {
+    amountScaled = amountRaw;
+  } else if (typeof amountRaw === "bigint") {
+    amountScaled = Number(amountRaw);
+    if (!Number.isSafeInteger(amountScaled)) {
+      throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a safe integer`);
+    }
+  } else if (typeof amountRaw === "string" && amountRaw !== "") {
+    // The PG driver sometimes returns BIGINT as a string (when it exceeds the
+    // safe integer range of 2^53).
+    amountScaled = Number(amountRaw);
+    if (!Number.isSafeInteger(amountScaled)) {
+      throw new Error(
+        `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a safe integer — DB corruption?`,
+      );
+    }
+  } else {
+    throw new Error(
+      `rehydrateMoney: field "${name}" amount has unexpected type ${typeof amountRaw}`,
+    );
+  }
+
+  const currency =
+    typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
+
+  // amountMinor: deprecated alias, same value as amountScaled — see MoneyRead.
+  return {
+    amount: toMajorUnits(amountScaled),
+    currency,
+    amountScaled,
+    amountMinor: amountScaled,
+  };
 }

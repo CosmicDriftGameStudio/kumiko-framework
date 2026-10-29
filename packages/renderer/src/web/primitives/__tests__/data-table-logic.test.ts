@@ -125,6 +125,14 @@ describe("applyFormatSpec", () => {
 });
 
 describe("defaultCellRender", () => {
+  test("a money cell formats amount and currency from the row value", () => {
+    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050, amountMinor: 120050 };
+    const shown = defaultCellRender(rent, "money", undefined, "de-DE");
+
+    expect(shown).toContain("1.200,50");
+    expect(shown).toContain("€");
+  });
+
   test("null/undefined/empty string → empty string", () => {
     expect(defaultCellRender(null, "text")).toBe("");
     expect(defaultCellRender(undefined, "text")).toBe("");

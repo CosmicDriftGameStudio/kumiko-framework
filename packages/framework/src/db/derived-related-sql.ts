@@ -15,15 +15,21 @@ import { isSoftDeletedTargetHidden } from "./event-store-executor-read-search.ts
 import { buildReferenceSortExpr } from "./event-store-executor-read-sort.ts";
 import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
-import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import { physicalColumnName } from "./table-builder.ts";
 import { extractTableInfo } from "./table-info.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 
 export type RelatedDerivedSpec = Extract<DerivedSqlSpec, { readonly kind: "related" }>;
 
+// Own alias for the related table: a where-rule qualifies columns with the table name it is
+// given, and the physical name could bind to an outer row of the same table (self-relation).
+const RELATED_ALIAS = "__kumiko_rel";
+
 export type DerivedSqlRuntime = {
   readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+  readonly resolveTable: (entityName: string) => Table;
+  readonly canReadEntity: (entityName: string) => boolean;
   readonly today: string;
   readonly now: string;
 };
@@ -64,7 +70,7 @@ function isRelatedFieldReadable(
 ): boolean {
   if (!Object.hasOwn(table, field) || holdsCiphertextOrSecret(entity, field)) return false;
   const access = normalizeAccessEntry(entity.fields[field]?.access?.read);
-  return buildOwnershipClause(user, access, table).kind === "pass";
+  return buildOwnershipClause(user, access, table, 1, RELATED_ALIAS).kind === "pass";
 }
 
 function isPlaceholderValue(
@@ -111,15 +117,16 @@ export function buildRelatedSubquery(input: {
   readonly db: TenantDb;
   readonly runtime: DerivedSqlRuntime;
   readonly parentVisibility: ParentVisibilityOption | undefined;
+  /** Select the measured money field's currency column instead of its amount. */
+  readonly currency?: boolean;
 }): ((params: unknown[]) => string) | undefined {
   const { spec, outer, user, db, runtime } = input;
   const relatedName = parseRefTargetEntityName(spec.entity);
   const related = runtime.resolveEntity(relatedName);
   if (related === undefined) return undefined;
-  const relatedTable = buildEntityTable(relatedName, related);
+  if (!runtime.canReadEntity(relatedName)) return undefined;
+  const relatedTable = runtime.resolveTable(relatedName);
   const relatedTableName = String(schemaTableName(relatedTable));
-  // Self-reference would shadow the outer table name inside the subquery.
-  if (relatedTableName === outer.tableName) return undefined;
 
   const outerField = spec.on.outer ?? "id";
   const fieldsReadable =
@@ -130,7 +137,7 @@ export function buildRelatedSubquery(input: {
 
   const ownership = resolveReadOwnership(
     { entity: related, table: relatedTable },
-    relatedTableName,
+    RELATED_ALIAS,
     user,
     db,
     input.parentVisibility,
@@ -139,7 +146,7 @@ export function buildRelatedSubquery(input: {
   if (ownership.kind === "empty") return undefined;
 
   const column = (field: string): string =>
-    `"${relatedTableName}"."${physicalColumnName(relatedTable, field)}"`;
+    `"${RELATED_ALIAS}"."${physicalColumnName(relatedTable, field)}"`;
   const selectSql = relatedSelect(spec.measure, column, related, input);
   if (selectSql === undefined) return undefined;
 
@@ -171,7 +178,7 @@ export function buildRelatedSubquery(input: {
       spec.measure.kind === "first"
         ? ` ORDER BY ${column(spec.measure.orderBy)} ${spec.measure.direction === "desc" ? "DESC" : "ASC"} NULLS LAST, ${column("id")} ASC LIMIT 1`
         : "";
-    return `(SELECT ${selectSql(params)} FROM "${relatedTableName}" WHERE ${clauses.join(" AND ")}${order})`;
+    return `(SELECT ${selectSql(params)} FROM "${relatedTableName}" AS "${RELATED_ALIAS}" WHERE ${clauses.join(" AND ")}${order})`;
   };
 }
 
@@ -183,19 +190,26 @@ function relatedSelect(
     readonly runtime: DerivedSqlRuntime;
     readonly db: TenantDb;
     readonly user: SessionUser;
+    readonly currency?: boolean;
   },
 ): ((params: unknown[]) => string) | undefined {
   if (measure.kind === "count") return () => "COUNT(*)::int";
   if (measure.kind === "countDistinct")
     return () => `COUNT(DISTINCT ${column(measure.field)})::int`;
-  if (measure.label !== true) return () => column(measure.field);
+  if (measure.label !== true) {
+    const selected = input.currency === true ? `${measure.field}Currency` : measure.field;
+    return () => column(selected);
+  }
   const def = related.fields[measure.field];
   if (def?.type !== "reference" || def.labelField === undefined) return undefined;
+  const labelTarget = parseRefTargetEntityName(def.entity);
+  if (!input.runtime.canReadEntity(labelTarget)) return undefined;
   return buildReferenceSortExpr(
     column(measure.field),
-    { targetEntityName: parseRefTargetEntityName(def.entity), labelField: def.labelField },
+    { targetEntityName: labelTarget, labelField: def.labelField },
     input.runtime.resolveEntity,
     input.db,
     input.user,
+    input.runtime.resolveTable,
   );
 }

@@ -10,11 +10,18 @@
 // read-time; neither kind enters the entity cache.
 
 /** Display type a derived value formats as — drives the column's renderer
- *  choice in the view-model, parallel to FieldDefinition["type"]. Single-column
- *  types only: `money` is excluded because it needs a `<name>Currency`
- *  companion column a derived field has no place to put — use `number`/
- *  `decimal` plus a `{ format: "currency" }` column renderer instead. */
-export type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp";
+ *  choice in the view-model, parallel to FieldDefinition["type"]. `money` is
+ *  SQL-only and only for a `related` + `first` measure of a money field: the
+ *  value is the stored money read shape (`{ amount, currency, ... }`), the
+ *  currency read next to the amount. A JS `derive` cannot return money. */
+export type DerivedValueType =
+  | "text"
+  | "number"
+  | "decimal"
+  | "boolean"
+  | "date"
+  | "timestamp"
+  | "money";
 
 /** Clock injected into `derive` — never read `Temporal.Now`/`Date` inside a
  *  derive body (no-date-api guard + testability). The list-query handler passes
