@@ -815,6 +815,16 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/documents": {
+      "name": "@cosmicdrift/kumiko-sample-documents",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/e2e-generator": {
       "name": "@cosmicdrift/kumiko-sample-e2e-generator",
       "dependencies": {
@@ -1500,6 +1510,8 @@
     "@cosmicdrift/kumiko-sample-derived-fields-sql": ["@cosmicdrift/kumiko-sample-derived-fields-sql@workspace:samples/recipes/derived-fields-sql"],
 
     "@cosmicdrift/kumiko-sample-designer-demo": ["@cosmicdrift/kumiko-sample-designer-demo@workspace:samples/recipes/designer-demo"],
+
+    "@cosmicdrift/kumiko-sample-documents": ["@cosmicdrift/kumiko-sample-documents@workspace:samples/recipes/documents"],
 
     "@cosmicdrift/kumiko-sample-e2e-generator": ["@cosmicdrift/kumiko-sample-e2e-generator@workspace:samples/recipes/e2e-generator"],
 

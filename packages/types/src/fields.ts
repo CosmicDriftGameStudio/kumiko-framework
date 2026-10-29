@@ -2,14 +2,14 @@
 // --- Field Types ---
 
 import type { VariantSpec } from "./derivatives-types.ts";
-import type { DerivedFieldsMap } from "./fields-derived.ts";
-import type { EventUpcastCtx } from "./handlers.ts";
-
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
+import type { ParentRefDef, ReadGateDef } from "./entity-row-visibility.ts";
+import type { DerivedFieldsMap } from "./fields-derived.ts";
+import type { EventUpcastCtx } from "./handlers.ts";
 import type { OwnershipMap } from "./ownership.ts";
 import type { EntityTenancy } from "./tenancy-brand.ts";
 
@@ -1161,15 +1161,7 @@ export type EntityFieldDefinition =
 
 export type FieldsMap = Readonly<Record<string, EntityFieldDefinition>>;
 
-export type ParentRefDef = {
-  /** Field holding the name of the host entity this row hangs off. */
-  readonly entityTypeField: string;
-  /** Field holding the host row's id. */
-  readonly entityIdField: string;
-  /** Narrow which registered entities may act as host. Omitted means every
-   *  registered entity is a candidate, which also widens the read-gate's SQL. */
-  readonly allowedTypes?: readonly string[];
-};
+export type { ParentRefDef, ReadGateDef } from "./entity-row-visibility.ts";
 
 export type EntityEventMigration = {
   readonly fromVersion: number;
@@ -1252,6 +1244,13 @@ export type EntityDefinition<
    * registered entity is denied.
    */
   readonly parentRef?: ParentRefDef;
+  /**
+   * Declarative read gate for rows readable only through other rows (a link to a visible host,
+   * a file whose owner is readable). AND-ed with `access.read` and `parentRef` in list, detail,
+   * count, aggregate, live signals and the writers' readability check. Without the request-time
+   * registry the gate denies every non-system caller.
+   */
+  readonly readGate?: ReadGateDef;
   /**
    * Default retention policy for this entity. Tenant administrators can
    *   override it through compliance profiles and tenant overrides.

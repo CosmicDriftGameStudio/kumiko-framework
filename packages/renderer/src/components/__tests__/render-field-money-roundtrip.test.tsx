@@ -116,17 +116,17 @@ describe("RenderField money round-trip", () => {
     expect(result.success).toBe(true);
   });
 
-  test("create: buildInitialValues default renders as 0.00 in the widget, not empty", () => {
+  test("create: buildInitialValues default renders an empty widget, not 0.00", () => {
     // Regression: the widget was tested with `values: {}` (no field.value at
     // all), which produces "" — but the real entityEdit create path always
     // feeds buildInitialValues(fields, defaultCurrency), which yields
-    // {amount: 0, currency} (kumiko-screen.tsx buildInitialValues).
+    // {currency} without an amount, so the widget stays empty until typed into.
     const entity = buildEntity("USD");
     const initialValues = buildInitialValues(entity.fields, "USD");
     const field = renderMoneyField(entity, initialValues, () => {});
     expect(field.kind).toBe("money");
     if (field.kind !== "money") return;
-    expect(field.value).toBe(0);
+    expect(field.value).toBe("");
   });
 
   test("create: user-entered amount becomes a payload that validates against buildInsertSchema", () => {

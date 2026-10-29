@@ -1,8 +1,11 @@
 import type { AggregateKey } from "@cosmicdrift/kumiko-types/aggregate-types";
-import type { ListRuntimeOptions } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type {
+  ListRuntimeOptions,
+  ParentVisibilityOption,
+} from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
-import { collectEntityReadAccess } from "../api/entity-read-access.ts";
+import { collectEntityDetailAccess, collectEntityReadAccess } from "../api/entity-read-access.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
@@ -15,6 +18,17 @@ import type { HandlerContext, Registry, SessionUser } from "./types/index.ts";
 
 // The rules only change with the registry, so they are collected once, not per request.
 const readAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, readonly AccessRule[]>>();
+
+const detailAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, AccessRule>>();
+
+function detailAccessOf(registry: Registry): ReadonlyMap<string, AccessRule> {
+  let rules = detailAccessByRegistry.get(registry);
+  if (rules === undefined) {
+    rules = collectEntityDetailAccess(registry);
+    detailAccessByRegistry.set(registry, rules);
+  }
+  return rules;
+}
 
 function readAccessOf(registry: Registry): ReadonlyMap<string, readonly AccessRule[]> {
   let rules = readAccessByRegistry.get(registry);
@@ -35,6 +49,27 @@ function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefi
   return implicit?.table ?? buildEntityTable(entityName, entity);
 }
 
+// The join-row and read gates resolve hosts and file owners against the registry, which only
+// exists at request time; the handler check is the one live signals use too.
+export function parentVisibilityFor(
+  ctx: HandlerContext,
+  user: SessionUser,
+): ParentVisibilityOption {
+  const detailRules = detailAccessOf(ctx.registry);
+  return {
+    entities: ctx.registry.getAllEntities(),
+    canReadEntity: (name) => {
+      const rule = detailRules.get(name);
+      return rule !== undefined && hasAccess(user, rule);
+    },
+    resolveTable: (name) => {
+      const entity = ctx.registry.getEntity(name);
+      if (entity === undefined) throw new Error(`parentVisibility: unknown entity "${name}"`);
+      return readTableOf(ctx, name, entity);
+    },
+  };
+}
+
 // Registry access only exists at request time, so the searchable/sortable-reference
 // caches, the entity resolver and the join-row read gate travel through the
 // runtime-override extension point of the executor verbs.
@@ -47,7 +82,7 @@ export function entityListRuntime(
   readonly eagerLoadViewer: EagerLoadViewer;
   readonly resolveEntity: EagerLoadEntityResolver;
 } {
-  const parentVisibility = { entities: ctx.registry.getAllEntities() };
+  const parentVisibility = parentVisibilityFor(ctx, user);
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
   const resolveTable = (name: string) => {
     const entity = ctx.registry.getEntity(name);

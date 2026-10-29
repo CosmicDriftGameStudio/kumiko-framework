@@ -1,3 +1,4 @@
+import { isLifecycleResult } from "../pipeline/dispatcher-utils.ts";
 import type { NameOrRef, WriteResult } from "./types/handlers.ts";
 
 /**
@@ -12,13 +13,18 @@ import type { NameOrRef, WriteResult } from "./types/handlers.ts";
  * return withResponseData(result, { userId, tenantId });
  * ```
  *
+ * When the executor result is a save/delete, it rides along as `lifecycle`, so postSave/postDelete
+ * hooks and projections still run; the dispatcher keeps it out of the response.
+ *
  * On failure the same WriteFailure instance is returned — the error
  * object round-trips without any wrapping, so the dispatcher / HTTP layer
  * still read the original error code + httpStatus + i18nKey.
  */
 export function withResponseData<T>(result: WriteResult<unknown>, data: T): WriteResult<T> {
   if (!result.isSuccess) return result;
-  return { isSuccess: true, data };
+  return isLifecycleResult(result.data)
+    ? { isSuccess: true, data, lifecycle: result.data }
+    : { isSuccess: true, data };
 }
 
 export function resolveName(ref: NameOrRef): string {

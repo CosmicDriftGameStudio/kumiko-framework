@@ -6,6 +6,7 @@ import { createAuditFeature } from "../audit/index.ts";
 import { createCapCounterFeature } from "../cap-counter/index.ts";
 import { createCapOverviewFeature } from "../cap-overview/index.ts";
 import { createDeliveryFeature } from "../delivery/index.ts";
+import { createDocumentsFeature } from "../documents/index.ts";
 import { createFeatureTogglesFeature } from "../feature-toggles/index.ts";
 import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/index.ts";
 import { createJobsFeature } from "../jobs/index.ts";
@@ -33,6 +34,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
       caps: [{ id: "widgets", label: "test.cap.widgets", limit: () => 5, usage: async () => 0 }],
     }),
   delivery: () => createDeliveryFeature(),
+  documents: () => createDocumentsFeature({ categories: ["contract"], linkTargets: ["property"] }),
   "feature-toggles": () => createFeatureTogglesFeature(),
   "inbound-mail-foundation": () => createInboundMailFoundationFeature(),
   jobs: () => createJobsFeature(),

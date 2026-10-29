@@ -252,6 +252,10 @@ export type EditRelatedListSection = {
   readonly id?: string;
   readonly kind: "relatedList";
   readonly title: string;
+  /** Rows are aggregates or other values with no record of their own, so they lead nowhere on
+   *  purpose. Declares that to the screen-conventions guard; with `rowClick`/`rowActions` it is a
+   *  boot error. */
+  readonly readOnly?: boolean;
   /** Fully qualified query QN. Same paged envelope as projectionList.query:
    *  `{ rows, nextCursor, total? }`. */
   readonly query: string;

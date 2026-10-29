@@ -399,6 +399,8 @@ jobs:
           STRIPE_API_KEY: sk_test_smoke
           STRIPE_WEBHOOK_SECRET: whsec_smoke
           MOLLIE_API_KEY: test_smoke
+          # documents mounts a file field; the boot gate only checks that a provider is named.
+          FILE_STORAGE_PROVIDER: inmemory
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Boot smoke (no DB)" -- bun samples/apps/use-all-bundled/bin/main.ts
 
       - name: Bundle smoke (Empfehlung 4)
@@ -414,6 +416,7 @@ jobs:
           STRIPE_API_KEY: sk_test_smoke
           STRIPE_WEBHOOK_SECRET: whsec_smoke
           MOLLIE_API_KEY: test_smoke
+          FILE_STORAGE_PROVIDER: inmemory
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Bundle smoke (Empfehlung 4)" -- bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
   # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr

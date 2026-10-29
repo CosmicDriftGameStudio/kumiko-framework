@@ -116,6 +116,7 @@
     "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
     "./shared/mail-template-body": "./src/shared/mail-template-body.ts",
     "./delivery": "./src/delivery/index.ts",
+    "./documents": "./src/documents/index.ts",
     "./delivery/web": "./src/delivery/web/index.ts",
     "./channel-in-app": "./src/channel-in-app/index.ts",
     "./channel-email": "./src/channel-email/index.ts",
@@ -569,6 +570,10 @@
       "./delivery": {
         "types": "./dist/delivery/index.d.ts",
         "default": "./dist/delivery/index.js"
+      },
+      "./documents": {
+        "types": "./dist/documents/index.d.ts",
+        "default": "./dist/documents/index.js"
       },
       "./delivery/web": {
         "types": "./dist/delivery/web/index.d.ts",

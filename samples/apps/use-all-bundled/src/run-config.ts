@@ -43,6 +43,7 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
+import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
   createFeatureTogglesFeature,
   FEATURE_TOGGLES_FEATURE,
@@ -406,6 +407,12 @@ export const APP_FEATURES = [
   // user-data-rights — both mounted here.
   createFormDraftUserDataFeature(),
   createFoldersFeature(),
+  // documents: filed files visible through the records they link to; folder stands in for a host.
+  createDocumentsFeature({
+    categories: ["contract", "other"],
+    linkTargets: ["folder"],
+    adminRoles: ["TenantAdmin", "SystemAdmin"],
+  }),
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.
   createFoldersUserDataFeature(),

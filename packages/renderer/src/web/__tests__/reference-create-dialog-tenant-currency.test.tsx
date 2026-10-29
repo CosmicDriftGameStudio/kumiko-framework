@@ -29,7 +29,7 @@ const createScreen: EntityEditScreenDefinition = {
 };
 
 describe("ReferenceCreateDialog — tenant-declared money currency", () => {
-  test("untouched tenant-declared field submits with the tenant currency, not EUR", async () => {
+  test("typed tenant-declared field submits with the tenant currency, not EUR", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (type: string) =>
@@ -73,13 +73,17 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
     const costInput = screen.getByTestId("field-cost").querySelector("input");
     if (!costInput) throw new Error("expected an <input> inside field-cost");
     const user = userEvent.setup();
+    const priceInput = screen.getByTestId("field-price").querySelector("input");
+    if (!priceInput) throw new Error("expected an <input> inside field-price");
+    await user.clear(priceInput);
+    await user.type(priceInput, "10.00");
     await user.clear(costInput);
     await user.type(costInput, "20.00");
     await user.click(screen.getByTestId("render-edit-submit"));
 
     await waitFor(() => expect(writeCalls.length).toBe(1));
     const payload = writeCalls[0]?.payload as { price?: unknown; cost?: unknown };
-    expect(payload.price).toEqual({ amount: 0, currency: "GBP" });
+    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
     expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
   });
 });

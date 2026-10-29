@@ -1,22 +1,11 @@
 import { spawnSync } from "node:child_process";
 
-const GIT_LOCATION_ENV = [
-  "GIT_DIR",
-  "GIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-  "GIT_NAMESPACE",
-  "GIT_PREFIX",
-  "GIT_CEILING_DIRECTORIES",
-] as const;
+import { envWithoutGitOverrides } from "./commands/_spawn";
 
-/** Env copy with git's location vars removed (config pinned to /dev/null).
- *  Bun ignores `delete process.env[...]` for inherited children — #197/#185. */
-export function cleanGitEnv(): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...process.env };
-  for (const key of GIT_LOCATION_ENV) delete env[key];
+/** Env copy with git's location vars removed (config pinned to /dev/null), so a test never
+ *  lands on the enclosing repo — #197/#185. */
+export function cleanGitEnv(base: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = envWithoutGitOverrides(base);
   env["GIT_CONFIG_GLOBAL"] = "/dev/null";
   env["GIT_CONFIG_SYSTEM"] = "/dev/null";
   return env;

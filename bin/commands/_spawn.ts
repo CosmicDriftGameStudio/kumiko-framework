@@ -4,7 +4,19 @@ import { constants } from "node:os";
 /** Shared docker-compose probe budget — cold Docker Desktop often exceeds this. */
 export const DOCKER_PROBE_TIMEOUT_MS = 2000;
 
-const GIT_ENV_VARS_TO_STRIP = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"];
+// A worktree hook also exports GIT_COMMON_DIR; left in place it points a temp repo's refs and
+// objects at the hook's repo.
+export const GIT_LOCATION_ENV = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+  "GIT_CEILING_DIRECTORIES",
+] as const;
 
 /** A killed child reports `code: null` — map signal-kills to the shell's
  *  128+n convention so a caller checking `=== 0` never sees a false success. */
@@ -32,9 +44,9 @@ export function isProbeTimeout(result: RunResult): boolean {
  *  (e.g. pre-push) sets these for itself, and without stripping them any
  *  `git` subprocess spawned from here (incl. inside a temp-repo test)
  *  silently targets the hook's repo instead of its own `cwd`. */
-export function envWithoutGitOverrides(): NodeJS.ProcessEnv {
-  const env = { ...process.env };
-  for (const key of GIT_ENV_VARS_TO_STRIP) delete env[key];
+export function envWithoutGitOverrides(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = { ...base };
+  for (const key of GIT_LOCATION_ENV) delete env[key];
   return env;
 }
 

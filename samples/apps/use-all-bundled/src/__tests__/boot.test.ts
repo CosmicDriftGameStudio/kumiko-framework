@@ -18,7 +18,11 @@ import {
   enumerateFeatureTableSources,
   extractTableInfo,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createRegistry,
+  FILE_STORAGE_PROVIDER_ENV,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
@@ -30,6 +34,9 @@ const composedFeatures = composeFeatures([...APP_FEATURES], {
   includeBundled: true,
   authOptions: AUTH_COMPOSE_OPTIONS,
 });
+
+// The documents feature has a file field; the guard only checks that a provider is named.
+const BOOT_ENV = { env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" } };
 
 // use-all-bundled mounts encrypted entity fields (auth-mfa's totpSecret,
 // config's encrypted values, ...). validateBoot() checks a cipher is
@@ -72,7 +79,7 @@ describe("use-all-bundled boot", () => {
   });
 
   test("validateBoot — every r.requires resolves", () => {
-    expect(() => validateBoot(composedFeatures)).not.toThrow();
+    expect(() => validateBoot(composedFeatures, BOOT_ENV)).not.toThrow();
   });
 
   // The dev/e2e server mounts app-owned features (custom screens, notes) on
@@ -82,7 +89,7 @@ describe("use-all-bundled boot", () => {
       includeBundled: true,
       authOptions: AUTH_COMPOSE_OPTIONS,
     });
-    expect(() => validateBoot(devFeatures)).not.toThrow();
+    expect(() => validateBoot(devFeatures, BOOT_ENV)).not.toThrow();
   });
 
   test("createRegistry succeeds + every mounted feature is queryable", () => {

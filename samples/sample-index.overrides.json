@@ -77,6 +77,12 @@
     "sampleBlurb": "FileRef entities on domain records in the user-data-rights demo — metadata, signed URLs, and GDPR export inclusion.",
     "screenshot": null
   },
+  "documents": {
+    "primarySample": "recipes-documents",
+    "whenToUse": "Files must be filed as documents with category and expiry, visible only to whoever can read the linked records and the owner of the file.",
+    "sampleBlurb": "Capture contract files as documents linked to contract and property; visibility follows the linked records without a host column.",
+    "screenshot": null
+  },
   "folders": {
     "primarySample": "recipes-tags-basic",
     "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",

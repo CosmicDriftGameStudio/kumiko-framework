@@ -183,10 +183,10 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["price"]).toEqual({ amount: 19.99, currency: "USD" });
   });
 
-  test("money-type field WITH a defaultCurrency but no matching searchParam still defaults to the object shape", () => {
+  test("optional money-type field WITH a defaultCurrency but no matching searchParam seeds only its currency, so a typed 0 stays distinguishable", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeWithAllFieldsUrlPrefillable(fields, {}, undefined, "USD");
-    expect(result["price"]).toEqual({ amount: 0, currency: "USD" });
+    expect(result["price"]).toEqual({ currency: "USD" });
   });
 
   test("renderableFields set given: searchParam for a non-rendered field is ignored", () => {
@@ -274,6 +274,18 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       price: JSON.stringify({ amount: 19.99, currency: "CHF" }),
     });
     expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
+  });
+
+  test("money-type field keeps a prefilled 0 as 0, JSON and bare", () => {
+    const fields: Record<string, FieldDef> = { price: { type: "money" } };
+    expect(
+      mergeWithAllFieldsUrlPrefillable(fields, {
+        price: JSON.stringify({ amount: 0, currency: "CHF" }),
+      })["price"],
+    ).toEqual({ amount: 0, currency: "CHF" });
+    expect(
+      mergeWithAllFieldsUrlPrefillable(fields, { price: "0" }, undefined, "CHF")["price"],
+    ).toEqual({ amount: 0, currency: "CHF" });
   });
 
   test("money-type field: explicit JSON currency wins over defaultCurrency", () => {
@@ -564,14 +576,20 @@ describe("money currency sources on an entity-less form", () => {
     amount: { type: "money", ...(currency !== undefined && { currency }) } as FieldDef,
   });
 
-  test("a literal source seeds { amount: 0, currency } without any defaultCurrency", () => {
-    const fields = amountField({ kind: "literal", code: "CHF" });
+  test("a required money field seeds only the literal currency, never an amount, without any defaultCurrency", () => {
+    const fields: Record<string, FieldDef> = {
+      amount: {
+        type: "money",
+        required: true,
+        currency: { kind: "literal", code: "CHF" },
+      } as FieldDef,
+    };
     const result = mergeSearchParamsIntoInitial(fields, {
       searchParams: {},
       urlPrefillFields: [],
       moneyCurrencyOverrides: literalCurrencyOverrides(fields),
     });
-    expect(result["amount"]).toEqual({ amount: 0, currency: "CHF" });
+    expect(result["amount"]).toEqual({ currency: "CHF" });
   });
 
   test("a literal source also carries into a URL-prefilled amount", () => {
@@ -590,14 +608,21 @@ describe("money currency sources on an entity-less form", () => {
   });
 
   test("configEdit stays on the plain-number contract: no overrides, no currency wrapper", () => {
-    const fields = amountField({ kind: "literal", code: "CHF" });
+    const fields: Record<string, FieldDef> = {
+      amount: {
+        type: "money",
+        required: true,
+        currency: { kind: "literal", code: "CHF" },
+      } as FieldDef,
+    };
     expect(buildInitialValues(fields)["amount"]).toBe(0);
   });
 
-  test("entityEdit is unchanged: defaultCurrency still wins where no source is declared", () => {
-    expect(buildInitialValues(amountField(), "USD")["amount"]).toEqual({
-      amount: 0,
-      currency: "USD",
-    });
+  test("entityEdit: defaultCurrency seeds only the currency, for required and optional fields alike", () => {
+    const required: Record<string, FieldDef> = {
+      amount: { type: "money", required: true } as FieldDef,
+    };
+    expect(buildInitialValues(required, "USD")["amount"]).toEqual({ currency: "USD" });
+    expect(buildInitialValues(amountField(), "USD")["amount"]).toEqual({ currency: "USD" });
   });
 });

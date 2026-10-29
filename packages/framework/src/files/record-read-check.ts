@@ -1,4 +1,4 @@
-import { toKebab } from "../engine/qualified-name.ts";
+import { collectEntityDetailQueries } from "../api/entity-read-access.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 import { isKumikoError } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/index.ts";
@@ -13,33 +13,6 @@ type QueryAsUser = (type: string, payload: unknown, user: SessionUser) => Promis
 
 const log = createFallbackLogger("files");
 
-// Only the "<entity>:detail" handler counts: other "<entity>:...:detail"
-// queries map to the same entity but may return a different shape or scope.
-// Entity names are globally unique and only the owning feature maps handlers
-// to its entity, so at most one QN matches per entity.
-function isEntityDetailQuery(qn: string, entityName: string): boolean {
-  return qn.endsWith(`:query:${toKebab(entityName)}:detail`);
-}
-
-function buildDetailQueryIndex(registry: Registry): ReadonlyMap<string, string> {
-  const detailQueryByEntity = new Map<string, string>();
-  for (const qn of registry.getAllQueryHandlers().keys()) {
-    const entityName = registry.getHandlerEntity(qn);
-    if (entityName !== undefined && isEntityDetailQuery(qn, entityName)) {
-      detailQueryByEntity.set(entityName, qn);
-    }
-  }
-  for (const projection of registry.getAllProjections().values()) {
-    const entityName = projection.source;
-    if (typeof entityName !== "string") continue;
-    const owner = registry.getReadModelEntityOwner(entityName);
-    if (owner === undefined) continue;
-    const qn = `${owner}:query:${toKebab(entityName)}:detail`;
-    if (registry.getAllQueryHandlers().has(qn)) detailQueryByEntity.set(entityName, qn);
-  }
-  return detailQueryByEntity;
-}
-
 // "May this user read the record?" is answered by the entity's own detail
 // query run as that user: handler access, row ownership and parent visibility
 // all apply, exactly as when the record is opened. null (not found or not
@@ -48,7 +21,7 @@ function buildDetailQueryIndex(registry: Registry): ReadonlyMap<string, string> 
 export function createRecordReadCheck(registry: Registry, query: QueryAsUser): RecordReadCheck {
   let detailQueryByEntity: ReadonlyMap<string, string> | undefined;
   return async ({ entityType, entityId, user }) => {
-    detailQueryByEntity ??= buildDetailQueryIndex(registry);
+    detailQueryByEntity ??= collectEntityDetailQueries(registry);
     const detailQuery = detailQueryByEntity.get(entityType);
     if (detailQuery === undefined) return false;
     try {

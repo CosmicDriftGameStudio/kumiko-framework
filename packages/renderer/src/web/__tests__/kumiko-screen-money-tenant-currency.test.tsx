@@ -118,7 +118,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
     });
   });
 
-  test("create: untouched tenant-declared field submits with the tenant currency, not EUR", async () => {
+  test("create: a typed tenant-declared field submits with the tenant currency, not EUR; untouched money stays out of the payload", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       write: (async (type: string, payload: unknown) => {
@@ -136,10 +136,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
       timeout: 3000,
     });
-    // The submit button stays disabled while the form is pristine — touch an
-    // unrelated field so the click below actually fires; `price` itself is
-    // deliberately left untouched to prove its initial value already carries
-    // the tenant currency.
+    await typeMoney("field-price", "10.00");
     await typeMoney("field-cost", "20.00");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
@@ -147,9 +144,9 @@ describe("money field currency: { kind: 'tenant' }", () => {
     const [call] = writeCalls;
     expect(call?.type).toBe("billing:write:invoice:create");
     const payload = call?.payload as { price?: unknown; cost?: unknown; fee?: unknown };
-    expect(payload.price).toEqual({ amount: 0, currency: "GBP" });
+    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
     expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
-    expect(payload.fee).toEqual({ amount: 0, currency: "EUR" });
+    expect(payload.fee).toBeUndefined();
   });
 
   // Both degradation paths must release the form (not hang on the loading
@@ -190,12 +187,12 @@ describe("money field currency: { kind: 'tenant' }", () => {
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
         timeout: 3000,
       });
-      await typeMoney("field-cost", "20.00");
+      await typeMoney("field-price", "7.00");
       await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
       await waitFor(() => expect(writeCalls.length).toBe(1));
       const payload = writeCalls[0]?.payload as { price?: unknown };
-      expect(payload.price).toEqual({ amount: 0, currency: "EUR" });
+      expect(payload.price).toEqual({ amount: 7, currency: "EUR" });
     });
   }
 

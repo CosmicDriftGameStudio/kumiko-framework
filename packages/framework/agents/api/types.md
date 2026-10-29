@@ -3098,6 +3098,26 @@ type RegisterEntityCrudOptions = {
 };
 ```
 
+## packages/types/src/entity-row-visibility.ts
+
+```ts
+type ParentRefDef = {
+  entityTypeField: string; // Field holding the name of the host entity this row hangs off.
+  entityIdField: string; // Field holding the host row's id.
+  allowedTypes?: string[]; // Narrow which registered entities may act as host.
+};
+type ReadGateDef = {
+  anyLink?: {
+    entity: string;
+    field: string;
+  }; // Row readable only if at least one live row of `entity` with `field` = row.id is readable through that entity's own parentRef gate (host visibility).
+  fileOwner?: {
+    field: string;
+  }; // Row readable only if the file_ref in `field` is live and readable through its owner: owner row readable (ownership, parentRef, handler gate) and the field read access on the file_ref's fieldName passes.
+  linkExemptRoles?: string[]; // Roles that skip `anyLink` (they also see unlinked rows).
+};
+```
+
 ## packages/types/src/entity-table-meta-types.ts
 
 ```ts
@@ -3181,6 +3201,8 @@ type ParentVisibilityGateOption = {
 };
 type ParentVisibilityOption = {
   entities: ReadonlyMap<string, EntityDefinition>;
+  canReadEntity?: (entityName: string) => boolean;
+  resolveTable?: (entityName: string) => SchemaTable;
 };
 type PreSaveRunner = (changes: Record<string, unknown>, previous: Readonly<Record<string, unknown>>, isNew: boolean) => Promise<Record<string, unknown>>;
 type StreamTenantOption = {
@@ -3610,11 +3632,6 @@ type OptionsQueryPayloadValue = // One `optionsQueryPayload` entry: a literal, o
     field: string;
   }
 ;
-type ParentRefDef = {
-  entityTypeField: string; // Field holding the name of the host entity this row hangs off.
-  entityIdField: string; // Field holding the host row's id.
-  allowedTypes?: string[]; // Narrow which registered entities may act as host.
-};
 type PersonalAnnotations =
   | {
     personal: PersonalSubject;
@@ -4135,6 +4152,7 @@ type HookMap = {
 type HookOwner = {
   featureName?: string;
 };
+type LifecycleResult = SaveContext | DeleteContext;
 type OwnedFn<TFn> = HookOwner & {
   fn: TFn;
 };

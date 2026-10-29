@@ -34,10 +34,11 @@ export function maskWriteResultForClient(
   result: WriteResult,
 ): WriteResult {
   if (!result.isSuccess) return result;
+  const { lifecycle, ...clientResult } = result;
   const entityName = registry.getHandlerEntity(handlerType);
   const entity = entityName ? registry.getEntity(entityName) : undefined;
   const data = maskLifecycleOrRow(entity, result.data);
-  return data === result.data ? result : { ...result, data };
+  return data === result.data && lifecycle === undefined ? result : { ...clientResult, data };
 }
 
 export function maskBatchResultForClient(

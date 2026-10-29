@@ -19,6 +19,8 @@ import { layoutEditFields } from "./layout-fields.ts";
 export function isPresent(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
   if (Array.isArray(value) && value.length === 0) return false;
+  // A money field seeded with its currency only has no amount yet.
+  if (typeof value === "object" && "currency" in value && !("amount" in value)) return false;
   return true;
 }
 

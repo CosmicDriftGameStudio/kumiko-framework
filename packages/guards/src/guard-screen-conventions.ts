@@ -48,6 +48,14 @@ function stringLiteralValue(obj: ObjectLiteralExpression, name: string): string 
   return init?.isKind(SyntaxKind.StringLiteral) ? init.getLiteralValue() : undefined;
 }
 
+function booleanLiteralValue(obj: ObjectLiteralExpression, name: string): boolean | undefined {
+  const prop = obj.getProperty(name);
+  if (!prop?.isKind(SyntaxKind.PropertyAssignment)) return undefined;
+  const init = prop.getInitializer();
+  if (init?.isKind(SyntaxKind.TrueKeyword)) return true;
+  return init?.isKind(SyntaxKind.FalseKeyword) ? false : undefined;
+}
+
 function hasDeclaredProperty(obj: ObjectLiteralExpression, name: string): boolean {
   const prop = obj.getProperty(name);
   if (!prop?.isKind(SyntaxKind.PropertyAssignment)) return false;
@@ -55,7 +63,7 @@ function hasDeclaredProperty(obj: ObjectLiteralExpression, name: string): boolea
   return init !== undefined && init.getKind() !== SyntaxKind.UndefinedKeyword;
 }
 
-// R2: a relatedList section with neither rowClick nor rowActions renders a
+// R2: a relatedList section with neither rowClick, rowActions nor readOnly renders a
 // list nobody can act on.
 function checkRelatedListSections(
   root: ObjectLiteralExpression,
@@ -65,6 +73,7 @@ function checkRelatedListSections(
   for (const obj of root.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
     if (stringLiteralValue(obj, "kind") !== "relatedList") continue;
     if (hasIgnoreTag(obj, IGNORE_TAG)) continue;
+    if (booleanLiteralValue(obj, "readOnly") === true) continue;
     if (hasDeclaredProperty(obj, "rowClick") || hasDeclaredProperty(obj, "rowActions")) continue;
     violations.push({
       file: sf.getFilePath(),
@@ -107,7 +116,7 @@ export const guard: AstGuard = {
   name: "Screen-Conventions Guard",
   scan: SCAN,
   hint:
-    "relatedList sections need `rowClick` or `rowActions`; a rowAction label " +
+    "relatedList sections need `rowClick`, `rowActions` or `readOnly: true`; a rowAction label " +
     'must not end in ".action.edit" ' +
     'when the `id` is not "edit". ' +
     `Justified exception: // ${IGNORE_TAG} <reason>`,

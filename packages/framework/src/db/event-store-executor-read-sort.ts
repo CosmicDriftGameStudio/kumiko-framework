@@ -12,7 +12,11 @@ import { isListSortAllowed, isSensitiveLabelField } from "./entity-field-encrypt
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import type { ListWhere } from "./event-store-executor-read-filter.ts";
-import { isSoftDeletedTargetHidden } from "./event-store-executor-read-search.ts";
+import {
+  isSoftDeletedTargetHidden,
+  referenceTargetOwnership,
+} from "./event-store-executor-read-search.ts";
+import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -74,7 +78,8 @@ export function buildReferenceSortExpr(
   resolveEntity: (entityName: string) => EntityDefinition | undefined,
   db: TenantDb,
   user: SessionUser,
-  resolveTable?: (entityName: string) => Table,
+  resolveTable: ((entityName: string) => Table) | undefined,
+  parentVisibility: ParentVisibilityOption | undefined,
 ): ((params: unknown[]) => string) | undefined {
   const targetEntity = resolveEntity(descriptor.targetEntityName);
   if (targetEntity === undefined) {
@@ -104,15 +109,16 @@ export function buildReferenceSortExpr(
     TARGET_ALIAS,
   );
   if (labelAccess.kind !== "pass") return undefined;
-  const ownership = buildOwnershipClause(
-    user,
-    targetEntity.access?.read,
+  const targetTableName = String(schemaTableName(targetTable));
+  const ownership = referenceTargetOwnership(
+    targetEntity,
     targetTable,
-    1,
     TARGET_ALIAS,
+    user,
+    db,
+    parentVisibility,
   );
   if (ownership.kind === "empty") return undefined;
-  const targetTableName = String(schemaTableName(targetTable));
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
   const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
   const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
@@ -157,6 +163,7 @@ export function resolveListSort(request: {
   readonly derivedSortExpr?: (field: string) => ((params: unknown[]) => string) | undefined;
   readonly db: TenantDb;
   readonly user: SessionUser;
+  readonly parentVisibility: ParentVisibilityOption | undefined;
 }): ListSort {
   const { payload, table, entity, referenceSort } = request;
   const derivedSql = payload.sort ? request.derivedSortExpr?.(payload.sort) : undefined;
@@ -198,6 +205,7 @@ export function resolveListSort(request: {
           request.db,
           request.user,
           referenceSort.resolveTable,
+          request.parentVisibility,
         )
       : undefined;
   return sql === undefined
