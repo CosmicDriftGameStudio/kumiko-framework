@@ -20,7 +20,7 @@ export type DocumentEntityOptions = {
 // readable too (see EntityDefinition.readGate); readAccess narrows further.
 export function createDocumentEntity(options: DocumentEntityOptions) {
   return createEntity({
-    table: "read_documents",
+    table: "read_filed_documents",
     softDelete: true,
     description:
       "A filed document: title, category, issue and expiry dates and one file. It is visible only through its links to other records and the owner of its file; the file may stay owned by the record it came from.",
@@ -56,7 +56,7 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
       {
         columns: ["tenantId", "file"],
         unique: true,
-        name: "read_documents_file_unique",
+        name: "read_filed_documents_file_unique",
         where: sql`"is_deleted" = false`,
       },
     ],
@@ -65,7 +65,7 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
 
 export function createDocumentLinkEntity(linkTargets: readonly string[]) {
   return createEntity({
-    table: "read_document_links",
+    table: "read_filed_document_links",
     softDelete: true,
     description:
       "The join row recording that one document belongs to one record, addressed by documentId, entityType and entityId, with exactly one row per triple. A document is visible to whoever can read at least one of its linked records.",

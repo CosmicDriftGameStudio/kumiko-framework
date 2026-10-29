@@ -144,7 +144,7 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
         fileName: "imported.pdf",
         mimeType: "application/pdf",
         data: PDF,
-        attachTo: { entityType: "document", entityId: id, fieldName: "file" },
+        attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
       },
     );
     if (!stored.isSuccess) throw new Error(stored.error.message);
@@ -313,7 +313,7 @@ export function visibleDocuments(
   payload: Record<string, unknown> = {},
 ): Promise<DocumentPage> {
   return stack.http.queryOk<DocumentPage>(
-    "documents:query:document:list",
+    "documents:query:filed-document:list",
     { limit: 100, totalCount: true, ...payload },
     as,
   );

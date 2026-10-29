@@ -2,7 +2,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DocumentsQueries } from "../constants.ts";
 
-const LINK_LIST = "documents:query:document-link:list";
+const LINK_LIST = "documents:query:filed-document-link:list";
 const LINK_PAGE_SIZE = 200;
 
 const pageSchema = z.object({

@@ -930,9 +930,9 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
-        "documents:write:document:create",
-        "documents:write:document:delete",
-        "documents:write:document:update",
+        "documents:write:filed-document:create",
+        "documents:write:filed-document:delete",
+        "documents:write:filed-document:update",
         "documents:write:import",
         "documents:write:link",
         "documents:write:unlink"

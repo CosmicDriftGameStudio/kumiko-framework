@@ -2,8 +2,8 @@ import type { AccessRule } from "@cosmicdrift/kumiko-framework/engine";
 
 export const DOCUMENTS_FEATURE_NAME = "documents";
 
-export const DOCUMENT_ENTITY = "document";
-export const DOCUMENT_LINK_ENTITY = "document-link";
+export const DOCUMENT_ENTITY = "filed-document";
+export const DOCUMENT_LINK_ENTITY = "filed-document-link";
 
 export const DEFAULT_DOCUMENT_ACCESS: AccessRule = { roles: ["TenantAdmin", "TenantMember"] };
 export const DEFAULT_ADMIN_ROLES: readonly string[] = ["TenantAdmin", "SystemAdmin"];
@@ -18,8 +18,8 @@ export const DocumentsHandlers = {
 } as const;
 
 export const DocumentsQueries = {
-  list: "documents:query:document:list",
-  detail: "documents:query:document:detail",
+  list: "documents:query:filed-document:list",
+  detail: "documents:query:filed-document:detail",
   forRecord: "documents:query:for-record",
   expiryOverview: "documents:query:expiry-overview",
   overview: "documents:query:overview",

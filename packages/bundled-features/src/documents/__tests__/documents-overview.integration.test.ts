@@ -79,14 +79,14 @@ describe("documents overview", () => {
     await seedLease(stack, propertyId, { name: "Hidden" });
     const hidden = (
       await stack.http.queryOk<{ rows: readonly { id: string; version: number }[] }>(
-        "documents:query:document:list",
+        "documents:query:filed-document:list",
         { filters: [{ field: "title", op: "eq", value: "Lease Hidden" }] },
         users.admin,
       )
     ).rows[0];
     if (hidden === undefined) throw new Error("expected the captured lease document");
     await stack.http.writeOk(
-      "documents:write:document:update",
+      "documents:write:filed-document:update",
       { id: hidden.id, version: hidden.version, changes: { validUntil: "2026-06-01" } },
       users.admin,
     );

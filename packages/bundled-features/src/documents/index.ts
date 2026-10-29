@@ -12,7 +12,11 @@ export {
   EXPIRY_STATES,
   type ExpiryState,
 } from "./constants.ts";
-export { createDocumentsFeature, type DocumentsFeatureOptions } from "./feature.ts";
+export {
+  createDocumentsFeature,
+  type DocumentsAccess,
+  type DocumentsFeatureOptions,
+} from "./feature.ts";
 export { forTypeQueryQn } from "./queries/for-record.query.ts";
 export { DOCUMENT_COLUMNS } from "./screens.ts";
 export { documentExpiryPanels, documentsTab } from "./tab.ts";

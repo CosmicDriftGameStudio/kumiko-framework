@@ -9,7 +9,7 @@ import { type ForRecordPayload, forRecordPayloadSchema } from "../schemas.ts";
 import { linkedDocumentIds, listDocuments } from "./list-page.ts";
 
 const EMPTY_PAGE = { rows: [], nextCursor: null, total: 0 };
-const LIVE_ENTITIES = ["document", "document-link"];
+const LIVE_ENTITIES = ["filed-document", "filed-document-link"];
 
 type Dispatching = Pick<HandlerContext, "dispatch">;
 

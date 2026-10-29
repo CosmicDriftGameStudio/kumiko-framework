@@ -44,9 +44,9 @@ describe("documents visibility", () => {
   });
 
   test("a directly uploaded document is visible through its linked record only", async () => {
-    const file = await uploadFile(stack, users.admin, "document", "file");
+    const file = await uploadFile(stack, users.admin, "filed-document", "file");
     const created = await stack.http.writeOk<{ id: string }>(
-      "documents:write:document:create",
+      "documents:write:filed-document:create",
       { title: "Insurance", category: "id", file },
       users.admin,
     );

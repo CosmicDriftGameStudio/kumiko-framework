@@ -1,4 +1,4 @@
 {
   "version": 1,
-  "tables": ["read_document_links", "read_documents"]
+  "tables": ["read_filed_document_links", "read_filed_documents"]
 }
