@@ -450,6 +450,7 @@ type ContentCollectionDefinition = {
   variableSchema?: Readonly<Record<string, string>>;
   nav: {
     label: string;
+    entryLabel?: string;
     icon?: NavIconKey;
     parent?: string;
     order?: number;
