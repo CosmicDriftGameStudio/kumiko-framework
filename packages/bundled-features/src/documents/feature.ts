@@ -42,8 +42,10 @@ import { createDocumentWriteGuard } from "./write-guard.ts";
 export type DocumentsFeatureOptions = {
   /** Allowed document categories; they become the options of the category field. */
   readonly categories: readonly [string, ...string[]];
-  /** Entities a document can be linked to. Each needs an update handler, which linking requires. */
+  /** Entities a document can be linked to. Linking needs write access to the target: its update handler, or its entity write roles when it has none. */
   readonly linkTargets: readonly [string, ...string[]];
+  /** Display label per category (de, en); a category without one shows its raw value. */
+  readonly categoryLabels?: Readonly<Record<string, { readonly de: string; readonly en: string }>>;
   /** Files saved into these fields become documents automatically. */
   readonly capture?: readonly DocumentCaptureRule[];
   /** Retention of the document rows, in the entity's own retention vocabulary. */
@@ -95,11 +97,14 @@ function resolveAccess(access: AccessRule | DocumentsAccess | undefined): Resolv
   return { read: access.read ?? DEFAULT_DOCUMENT_ACCESS, write, delete: access.delete ?? write };
 }
 
-function categoryOptionLabels(categories: readonly string[]) {
+function categoryOptionLabels(
+  categories: readonly string[],
+  labels: DocumentsFeatureOptions["categoryLabels"],
+) {
   return Object.fromEntries(
     categories.map((category) => [
       `documents:entity:filed-document:field:category:option:${category}`,
-      { en: category, de: category },
+      labels?.[category] ?? { en: category, de: category },
     ]),
   );
 }
@@ -199,13 +204,23 @@ function registerDocuments(
 
   r.screen(createDocumentListScreen(access.read, opts.categories));
   r.translations({
-    keys: { ...DOCUMENTS_FEATURE_I18N, ...categoryOptionLabels(opts.categories) },
+    keys: {
+      ...DOCUMENTS_FEATURE_I18N,
+      ...categoryOptionLabels(opts.categories, opts.categoryLabels),
+    },
   });
 }
 
 export function createDocumentsFeature(opts: DocumentsFeatureOptions) {
   if (opts.expiringWithinDays !== undefined && opts.expiringWithinDays < 0) {
     throw new Error("createDocumentsFeature({ expiringWithinDays }) must not be negative.");
+  }
+  for (const category of Object.keys(opts.categoryLabels ?? {})) {
+    if (!opts.categories.includes(category)) {
+      throw new Error(
+        `createDocumentsFeature({ categoryLabels }) names "${category}", which is not in categories.`,
+      );
+    }
   }
   return defineFeature(DOCUMENTS_FEATURE_NAME, (r) => registerDocuments(r, opts));
 }

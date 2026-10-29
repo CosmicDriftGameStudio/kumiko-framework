@@ -245,28 +245,34 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
 export const documentsFeature = createFixtureDocumentsFeature();
 
 export function createFixtureDocumentsFeature(
-  options: Pick<DocumentsFeatureOptions, "linkReadMode"> = {},
+  options: Pick<DocumentsFeatureOptions, "linkReadMode"> & {
+    readonly readAccessOverride?: NonNullable<DocumentsFeatureOptions["readAccess"]>;
+  } = {},
 ) {
+  const { readAccessOverride, ...featureOptions } = options;
   return createDocumentsFeature({
-    ...options,
+    ...featureOptions,
     categories: ["contract", "id"],
     linkTargets: ["property", "lease", "ledger", "crate"],
     access: openToAll,
     // Every test role reads all the gate allows; the system role is left out on purpose, so
     // capture and import must work without it.
-    readAccess: Object.fromEntries(
-      [
-        "TenantAdmin",
-        "PropertyReader",
-        "LeaseReader",
-        "PropertyEditor",
-        "Nobody",
-        "MemoReader",
-        "SecretReader",
-        "LedgerReader",
-        "LedgerEditor",
-      ].map((role) => [role, "all" as const]),
-    ),
+    readAccess: {
+      ...Object.fromEntries(
+        [
+          "TenantAdmin",
+          "PropertyReader",
+          "LeaseReader",
+          "PropertyEditor",
+          "Nobody",
+          "MemoReader",
+          "SecretReader",
+          "LedgerReader",
+          "LedgerEditor",
+        ].map((role) => [role, "all" as const]),
+      ),
+      ...readAccessOverride,
+    },
     capture: [
       {
         entity: "lease",
