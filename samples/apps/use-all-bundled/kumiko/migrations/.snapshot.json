@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-27T17:35:07.337Z",
+  "generatedAt": "2026-10-29T11:12:57.464Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -491,6 +491,190 @@
       ],
       "source": "managed",
       "piiSubjectFields": ["pages"]
+    },
+    {
+      "tableName": "read_document_links",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_deleted",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "deleted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "deleted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "document_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "entity_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "entity_id",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_document_links_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_documents",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_deleted",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "deleted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "deleted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "category",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "issued_at",
+          "pgType": "date",
+          "notNull": false
+        },
+        {
+          "name": "valid_until",
+          "pgType": "date",
+          "notNull": false
+        },
+        {
+          "name": "file",
+          "pgType": "uuid",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_documents_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_documents_file_idx",
+          "columns": ["file"]
+        },
+        {
+          "name": "read_documents_file_unique",
+          "columns": ["tenant_id", "file"],
+          "unique": true,
+          "whereSql": "\"is_deleted\" = false"
+        }
+      ],
+      "source": "managed"
     },
     {
       "tableName": "read_download_attempts",
@@ -4843,6 +5027,44 @@
       ]
     },
     "read_document_extracts": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_document_links": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_documents": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",
