@@ -2,13 +2,23 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-27
+verified: 2026-10-29
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.400.0
+
+### framework-core
+
+**An untouched money field is no longer submitted as 0**
+
+Forms seed a money field with its currency only and drop that currency-only value on submit, so a handler can tell a deliberately typed 0 from an untouched field. A currency-only value counts as missing for required checks, and the input shows empty instead of 0.00; config forms keep their plain-number contract.
+
+**Migration:** A form that left a required money field untouched used to submit 0 and now fails validation; type the amount (also in e2e and DOM tests) or give the field a value through `load` or the record. Handlers that read an absent optional money field as 0 must default it themselves.
 
 ## 0.396.0
 
