@@ -7,17 +7,22 @@
 // would already be covered by r.requires and wouldn't justify this API.
 
 import { describe, expect, test } from "bun:test";
-import { validateFeatureBootChecks } from "../boot-validator/boot-check.ts";
+import { BootValidationError } from "../boot-validator/boot-rule.ts";
+import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
-function catchMessage(fn: () => void): string {
+// Messages of the r.bootCheck violations only: the fixtures here are not meant to satisfy every other boot rule.
+function bootCheckMessages(features: Parameters<typeof validateBoot>[0]): string[] {
   try {
-    fn();
+    validateBoot(features);
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    if (e instanceof BootValidationError) {
+      return e.violations.filter((v) => v.check === "runFeatureBootCheck").map((v) => v.message);
+    }
+    throw e;
   }
-  throw new Error("expected function to throw, but it did not");
+  return [];
 }
 
 const requiresUserDataHook = (features: readonly { readonly name: string }[]) =>
@@ -45,16 +50,17 @@ const promptStore = () =>
 describe("r.bootCheck / validateFeatureBootChecks", () => {
   test("no bootChecks registered → no-op", () => {
     const noop = defineFeature("noop", () => {});
-    expect(() => validateFeatureBootChecks([noop])).not.toThrow();
+    expect(bootCheckMessages([noop])).toEqual([]);
   });
 
   test("conditional invariant satisfied (companion mounted) → boot succeeds", () => {
     const userDataHook = defineFeature("user-data-hook", () => {});
-    expect(() => validateFeatureBootChecks([userDataHook, promptStore()])).not.toThrow();
+    expect(bootCheckMessages([userDataHook, promptStore()])).toEqual([]);
   });
 
   test("conditional invariant violated (PII field, no companion) → boot fails with feature-prefixed message", () => {
-    const message = catchMessage(() => validateFeatureBootChecks([promptStore()]));
+    const [message, ...rest] = bootCheckMessages([promptStore()]);
+    expect(rest).toEqual([]);
     expect(message).toContain("[Feature prompt-store]");
     expect(message).toContain(
       "prompt-store has PII fields but no user-data-hook feature is mounted",
@@ -67,9 +73,9 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
         throw new Error("X is missing.");
       });
     });
-    expect(catchMessage(() => validateFeatureBootChecks([feature]))).toBe(
+    expect(bootCheckMessages([feature])).toEqual([
       "[Feature period-check] r.bootCheck failed: X is missing.",
-    );
+    ]);
   });
 
   test("no PII field → boot succeeds even without the companion", () => {
@@ -83,22 +89,29 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
         }
       });
     });
-    expect(() => validateFeatureBootChecks([noPii])).not.toThrow();
+    expect(bootCheckMessages([noPii])).toEqual([]);
   });
 
-  test("multiple bootChecks on one feature all run in order until one throws", () => {
+  test("every failing bootCheck of a feature is reported, in order", () => {
     const calls: string[] = [];
     const feature = defineFeature("multi-check", (r) => {
       r.bootCheck(() => {
         calls.push("first");
+        throw new Error("first check failed");
       });
       r.bootCheck(() => {
         calls.push("second");
-        throw new Error("second check failed");
+      });
+      r.bootCheck(() => {
+        calls.push("third");
+        throw new Error("third check failed");
       });
     });
-    expect(() => validateFeatureBootChecks([feature])).toThrow("second check failed");
-    expect(calls).toEqual(["first", "second"]);
+    expect(bootCheckMessages([feature])).toEqual([
+      "[Feature multi-check] r.bootCheck failed: first check failed",
+      "[Feature multi-check] r.bootCheck failed: third check failed",
+    ]);
+    expect(calls).toEqual(["first", "second", "third"]);
   });
 
   test("ctx.features exposes every mounted feature, not just the declaring one", () => {
@@ -109,7 +122,7 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
         seenNames = features.map((f) => f.name);
       });
     });
-    validateFeatureBootChecks([a, b]);
+    bootCheckMessages([a, b]);
     expect(seenNames).toEqual(["feature-a", "feature-b"]);
   });
 });

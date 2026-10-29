@@ -3,6 +3,7 @@ import * as z from "zod";
 import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 describe("validateBoot — action wiring (no function values)", () => {
   test("rowAction writeHandler payload as function → Throw", () => {
@@ -145,6 +146,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionDetail action payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "order:detail");
       r.screen({
         id: "order-detail",
         type: "projectionDetail",
@@ -167,6 +169,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionDetail writeHandler action redirect to an unknown screen → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "order:detail");
       r.screen({
         id: "order-detail",
         type: "projectionDetail",
@@ -190,6 +193,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionDetail writeHandler action redirect to a registered screen does not trip the redirect check", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "order:detail");
       r.screen({
         id: "order-overview",
         type: "custom",
@@ -243,6 +247,7 @@ describe("validateBoot — action wiring (no function values)", () => {
         redirect,
       };
       return defineFeature("shop", (r) => {
+        registerStubQueryHandler(r, "order:detail");
         r.entity({
           name: "product",
           ...createEntity({
@@ -367,6 +372,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionList rowAction writeHandler with redirect → Throw (ignored on list rows)", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "order:list");
       r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
       r.screen({
         id: "order-list",
@@ -531,6 +537,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "sales");
       r.screen({
         id: "sales-list",
         type: "projectionList",
@@ -546,6 +553,8 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionDetail relatedList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "order:detail");
+      registerStubQueryHandler(r, "order:payments");
       r.screen({
         id: "order-detail",
         type: "projectionDetail",
@@ -570,6 +579,7 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("projectionList rowAction payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
+      registerStubQueryHandler(r, "sales");
       r.screen({
         id: "sales-list",
         type: "projectionList",

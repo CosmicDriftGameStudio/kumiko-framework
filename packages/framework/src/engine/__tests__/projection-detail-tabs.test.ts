@@ -4,6 +4,7 @@ import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
+import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -13,6 +14,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   test("mode: tabs with only one section throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -28,6 +30,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("tabs section without a title throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -46,6 +49,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("tabs section without an id throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -64,6 +68,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("tabs section id that is not kebab-case throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -82,6 +87,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("duplicate tab ids throw", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -222,6 +228,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("metric with an empty label throws — no fallback to the raw column name", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -235,6 +242,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("metric navigate.tab with no screen/entity — unknown section id throws", () => {
     const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
