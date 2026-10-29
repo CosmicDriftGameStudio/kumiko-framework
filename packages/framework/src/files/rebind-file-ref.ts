@@ -3,7 +3,12 @@ import { isFrameworkSystemUser } from "../db/lock-guard.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 import { RecordLockedError } from "../errors/classes.ts";
-import { AccessDeniedError, InternalError, reraiseAsKumikoError } from "../errors/index.ts";
+import {
+  AccessDeniedError,
+  InternalError,
+  NotFoundError,
+  reraiseAsKumikoError,
+} from "../errors/index.ts";
 import { assertRowFitsBindTarget } from "./bind-pending-file-refs.ts";
 import { type CanReadFileRefContext, canCallerReadFileRef } from "./can-caller-read-file-ref.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
@@ -12,6 +17,7 @@ import { loadFileRefRows } from "./load-save-file-refs.ts";
 import { createRecordReadCheck } from "./record-read-check.ts";
 import {
   createRecordWriteCheck,
+  findImplicitEntityTable,
   isStoredRecordLocked,
   RecordWriteDecisions,
 } from "./record-write-check.ts";
@@ -127,6 +133,24 @@ async function assertCallerMayMove(
   }
 }
 
+// The caller checks find the target as a side effect; the system path needs its own lookup so a
+// job cannot point a file at a record that does not exist in its tenant.
+async function assertTargetRecordExists(
+  ctx: RebindFileRefContext,
+  to: FileRefOwner,
+): Promise<void> {
+  const entity = ctx.registry.getEntity(to.entityType);
+  const table = findImplicitEntityTable(ctx.registry, to.entityType);
+  const row =
+    entity === undefined || table === undefined
+      ? undefined
+      : await ctx.db.fetchOne<Record<string, unknown>>(table, {
+          id: to.entityId,
+          ...(entity.softDelete === true && { isDeleted: false }),
+        });
+  if (row === undefined) throw new NotFoundError(to.entityType, to.entityId);
+}
+
 /**
  * Moves a bound file from one record's file field to another's, for a record that takes over a
  * file uploaded elsewhere (an upload record, a mail attachment). Server code only; pending uploads
@@ -138,8 +162,12 @@ async function assertCallerMayMove(
  * target must be a registered file field whose accept/maxSize the file fits (InternalError /
  * UnprocessableError). Unless the caller is the framework system user, the caller must be able
  * to read the file, `from` must not be locked, and the caller must be able to write the target
- * record and field (AccessDeniedError, RecordLockedError). The update is checked against the
- * stream version read here, so a bind committing in between returns "version-conflict".
+ * record and field (AccessDeniedError, RecordLockedError); the system user skips these checks,
+ * and only the target record has to exist (NotFoundError). The update is checked against the
+ * file's stream version read here, so a bind committing in between returns "version-conflict";
+ * a lock set on `from` in between is not part of that check. Rebind first, then save the id into
+ * the target field: the save accepts a file already bound to that record, and the source record
+ * no longer disposes of it when its field is cleared or the record is deleted.
  * A handler passes its ctx; a job passes `{ db, registry, user: ctx.systemUser }`.
  */
 export async function rebindFileRef(
@@ -158,7 +186,9 @@ export async function rebindFileRef(
     { entityName: to.entityType, fieldName: to.fieldName },
     fileRef,
   );
-  if (!isFrameworkSystemUser(ctx.user)) {
+  if (isFrameworkSystemUser(ctx.user)) {
+    await assertTargetRecordExists(ctx, to);
+  } else {
     const { dispatch } = ctx;
     if (dispatch === undefined) {
       throw new InternalError({

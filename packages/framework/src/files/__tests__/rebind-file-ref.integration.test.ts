@@ -15,6 +15,7 @@ import {
   createFileField,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
@@ -62,6 +63,12 @@ const probeFeature = defineFeature("rebind-probe", (r) => {
   r.writeHandler(defineEntityCreateHandler("upload", uploadEntity, { access: openToAll }));
   r.queryHandler(
     defineEntityDetailHandler("upload", uploadEntity, { access: { roles: ["Clerk", "Viewer"] } }),
+  );
+  r.writeHandler(
+    defineEntityUpdateHandler("upload", uploadEntity, { access: { roles: ["Clerk"] } }),
+  );
+  r.writeHandler(
+    defineEntityDeleteHandler("upload", uploadEntity, { access: { roles: ["Clerk"] } }),
   );
   r.writeHandler(defineEntityCreateHandler("contact", contactEntity, { access: openToAll }));
   r.queryHandler(defineEntityDetailHandler("contact", contactEntity, { access: openToAll }));
@@ -154,6 +161,13 @@ async function rebindAs(
   return outcome;
 }
 
+async function fileStatusFor(reader: typeof clerk, fileRefId: string): Promise<number> {
+  const res = await stack.app.request(`/api/files/${fileRefId}`, {
+    headers: { Authorization: `Bearer ${await stack.jwt.sign(reader)}` },
+  });
+  return res.status;
+}
+
 async function ownerOf(fileRefId: string) {
   const [row] = await selectMany(stack.db, fileRefsTable, { id: fileRefId });
   return {
@@ -195,6 +209,64 @@ describe("rebindFileRef", () => {
     await stack.drainJobs();
 
     expect((await ownerOf(fileRefId)).entityId).toBe(contactId);
+  });
+
+  test("the contact takes the file over: it saves the ref, its readers get the file, and the upload no longer disposes of it", async () => {
+    const { fileRefId, uploadId } = await uploadBoundFile();
+    const contactId = await createContact();
+    expect(await fileStatusFor(contactEditor, fileRefId)).toBe(404);
+
+    expect(await rebindAs(clerk, { fileRefId, uploadId, contactId })).toBe("rebound");
+    const contact = await stack.http.queryOk<{ version: number }>(
+      "rebind-probe:query:contact:detail",
+      { id: contactId },
+      clerk,
+    );
+    await stack.http.writeOk(
+      "rebind-probe:write:contact:update",
+      { id: contactId, version: contact.version, changes: { doc: fileRefId } },
+      clerk,
+    );
+    expect(
+      await stack.http.queryOk<{ doc: string }>(
+        "rebind-probe:query:contact:detail",
+        { id: contactId },
+        clerk,
+      ),
+    ).toMatchObject({ doc: fileRefId });
+    expect(await fileStatusFor(contactEditor, fileRefId)).toBe(200);
+
+    const upload = await stack.http.queryOk<{ version: number }>(
+      "rebind-probe:query:upload:detail",
+      { id: uploadId },
+      clerk,
+    );
+    const cleared = await stack.http.writeOk<{ version: number }>(
+      "rebind-probe:write:upload:update",
+      { id: uploadId, version: upload.version, changes: { file: null } },
+      clerk,
+    );
+    await stack.http.writeOk(
+      "rebind-probe:write:upload:delete",
+      { id: uploadId, version: cleared.version },
+      clerk,
+    );
+    expect((await ownerOf(fileRefId)).entityId).toBe(contactId);
+    expect(await fileStatusFor(contactEditor, fileRefId)).toBe(200);
+  });
+
+  test("a system job cannot point the file at a record that does not exist", async () => {
+    const { fileRefId, uploadId } = await uploadBoundFile();
+
+    await stack.jobRunner?.dispatch("rebind-probe:job:rebind-as-system", {
+      tenantId: tenant,
+      fileRefId,
+      uploadId,
+      contactId: crypto.randomUUID(),
+    });
+    await expect(stack.drainJobs()).rejects.toThrow(/rebind-as-system/);
+
+    expect((await ownerOf(fileRefId)).entityId).toBe(uploadId);
   });
 
   test("another tenant's file is not found and stays where it is", async () => {

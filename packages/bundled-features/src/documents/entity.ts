@@ -23,6 +23,7 @@ export type DocumentEntityOptions = {
 // Readable only through a link to a host the viewer can read, and only when the file's owner is
 // readable too (see EntityDefinition.readGate); readAccess narrows further.
 export function createDocumentEntity(options: DocumentEntityOptions) {
+  const documentLink = { entity: DOCUMENT_LINK_ENTITY, field: "documentId" };
   return createEntity({
     table: "read_filed_documents",
     softDelete: true,
@@ -35,7 +36,9 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
     }),
     ...(options.retention !== undefined && { retention: options.retention }),
     readGate: {
-      [options.linkReadMode ?? "anyLink"]: { entity: DOCUMENT_LINK_ENTITY, field: "documentId" },
+      ...(options.linkReadMode === "allLinks"
+        ? { allLinks: documentLink }
+        : { anyLink: documentLink }),
       fileOwner: { field: "file" },
       linkExemptRoles: options.adminRoles,
     },
