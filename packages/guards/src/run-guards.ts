@@ -25,6 +25,7 @@ import { guard as complexity } from "./check-complexity";
 import { guard as predicateExtraction } from "./check-predicates";
 import { guard as adminApi } from "./guard-admin-api";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
+import { guard as bootRawThrows } from "./guard-boot-raw-throws";
 import { guard as commentIssueRefOnly } from "./guard-comment-issue-ref-only";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
@@ -96,6 +97,7 @@ export const GUARDS = [
   commentIssueRefOnly,
   testTitle,
   ignoreTagReason,
+  bootRawThrows,
 ];
 
 export const GUARD_FLAGS = [

@@ -11,6 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import { type ExportedDeclarations, type JSDocableNode, Node, type Project } from "ts-morph";
 import { renderApiDocs } from "./agent-docs-api";
+import { renderBootRules } from "./agent-docs-boot-rules";
 import { renderFeatureDocs } from "./agent-docs-features";
 import {
   compareCodepoint,
@@ -197,6 +198,7 @@ export function renderAgentDocs(repoRoot: string): ReadonlyMap<string, string> {
   files.set("features-index.md", featureDocs.featuresIndex);
   files.set("features.md", featureDocs.features);
   files.set("widgets.md", renderWidgets(repoRoot, project));
+  files.set("boot-rules.md", renderBootRules(repoRoot, project));
   for (const [rel, content] of renderApiDocs(repoRoot, project)) files.set(rel, content);
   files.set("examples.md", renderExamplesIndex(recipes));
   for (const recipe of recipes) files.set(`examples/${recipe.slug}.md`, renderRecipe(recipe));
