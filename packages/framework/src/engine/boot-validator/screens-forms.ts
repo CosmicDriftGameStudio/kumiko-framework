@@ -47,6 +47,21 @@ function assertKnownSubFields(
   }
 }
 
+function assertCardHiddenCellsReadOnly(
+  where: string,
+  cardHiddenCells: readonly string[] | undefined,
+  readOnlyCells: readonly string[] | undefined,
+): void {
+  for (const cell of cardHiddenCells ?? []) {
+    if (readOnlyCells?.includes(cell) !== true) {
+      throw new Error(
+        `${where} embeddedList.cardHiddenCells names "${cell}", which is editable; ` +
+          `only read-only cells (readOnlyCells) can be hidden on cards, otherwise phone users cannot fill it.`,
+      );
+    }
+  }
+}
+
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
 // entityEdit path — a required field the user can never fill would
 // block every save. Only the statically-resolvable case is caught here: a
@@ -75,6 +90,7 @@ export function validateEditFieldExtras(
     }
     assertKnownSubFields(where, "readOnlyCells", listSpec.readOnlyCells, fieldDef.schema);
     assertKnownSubFields(where, "cardHiddenCells", listSpec.cardHiddenCells, fieldDef.schema);
+    assertCardHiddenCellsReadOnly(where, listSpec.cardHiddenCells, listSpec.readOnlyCells);
   }
   const prefill = fieldSpec.prefill;
   // skip: no prefill declared

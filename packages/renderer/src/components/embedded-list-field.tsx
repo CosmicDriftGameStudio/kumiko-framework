@@ -66,18 +66,26 @@ type CardPlacement = Pick<EmbeddedListColumn, "cardLimits" | "cardAttachedTo"> &
 };
 
 // An inRange derived cell (value, min, max → result) reads as one measurement on a phone card:
-// the limits become a hint under the value and the result sits beside it.
+// the limits become a hint under the value and the result sits beside it. Editable limits stay
+// their own rows: hiding them would leave phone users no way to fill them.
 function cardPlacementByField(
   derived: EditFieldViewModel["embeddedListDerived"],
+  cells: readonly EmbeddedListCellViewModel[],
 ): ReadonlyMap<string, CardPlacement> {
   const placement = new Map<string, CardPlacement>();
+  const isNotEditable = (field: string): boolean => {
+    const cell = cells.find((c) => c.field === field);
+    return cell !== undefined && (cell.readOnly === true || derived?.[field] !== undefined);
+  };
   for (const [target, def] of Object.entries(derived ?? {})) {
     if (def.op !== "inRange") continue;
     const [value, min, max] = def.from;
     if (value === undefined || min === undefined || max === undefined) continue;
-    placement.set(value, { cardLimits: { min, max } });
-    placement.set(min, { hiddenInCard: true });
-    placement.set(max, { hiddenInCard: true });
+    if (isNotEditable(min) && isNotEditable(max)) {
+      placement.set(value, { cardLimits: { min, max } });
+      placement.set(min, { hiddenInCard: true });
+      placement.set(max, { hiddenInCard: true });
+    }
     placement.set(target, { cardAttachedTo: value });
   }
   return placement;
@@ -168,7 +176,7 @@ function EmbeddedListFieldInner({
 
   if (EmbeddedListInput === undefined) return null;
 
-  const cardPlacement = cardPlacementByField(derived);
+  const cardPlacement = cardPlacementByField(derived, cells);
 
   const columns: EmbeddedListColumn[] = cells.map((cell) => {
     const isDerived = derived?.[cell.field] !== undefined;

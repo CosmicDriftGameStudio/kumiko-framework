@@ -211,4 +211,31 @@ describe("EmbeddedListInput — measurement phone cards", () => {
       ).toBe(false);
     });
   });
+
+  test("editable limits stay labelled rows and show no hint", () => {
+    withMobile(() => {
+      const editableLimits: readonly EmbeddedListColumn[] = [
+        {
+          field: "label",
+          label: "Checkpoint",
+          type: "text",
+          required: true,
+          derived: false,
+          readOnly: true,
+        },
+        { field: "min", label: "Min", type: "number", required: false, derived: false },
+        { field: "max", label: "Max", type: "number", required: false, derived: false },
+        { field: "measured", label: "Measured", type: "number", required: false, derived: false },
+      ];
+      renderWithLocale(
+        <EmbeddedListInput {...props([MEASUREMENT_ROW], { columns: editableLimits })} />,
+      );
+      const labels = [...screen.getByTestId("cp-mobile").querySelectorAll("span")].map(
+        (span) => span.textContent,
+      );
+      expect(labels).toContain("Min");
+      expect(labels).toContain("Max");
+      expect(screen.queryByTestId("cp-cell-0-measured-limits")).toBeNull();
+    });
+  });
 });
