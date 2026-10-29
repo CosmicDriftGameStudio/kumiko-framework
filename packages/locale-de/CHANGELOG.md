@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.400.0
+
+### Patch Changes
+
+- 4bf242b: Embedded-list phone cards show only the checkpoint and its controls, and number cells format the same way in display and input.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Slimmer checklist cards and locale numbers in embedded lists
+  detail: On narrow screens an embedded list with an `inRange` derived cell no longer shows the min and max sub-fields as their own rows. The card shows them as a hint under the measured value ("Limit 0.05 to 0.2", "At least …", "At most …"; new keys `kumiko.field.embedded-list.limit-range`, `limit-min`, `limit-max`). The result badge sits next to the measured value without a label. The new `embeddedList.cardHiddenCells` on an entityEdit field hides sub-fields that only steer a row (such as the kind of a checkpoint) on phone cards; boot rejects names that are not sub-fields. The desktop table is unchanged. Number and decimal cells now use the locale text input (`NumberInput`) instead of a native `type="number"`, so input and read-only cells share one locale format ("0,31" in de, "0.31" in en). Tests that located these cells by role `spinbutton` must use `textbox`.
+  -->
+- 10ee71d: documents: the entities are named `filed-document` and `filed-document-link`, the import refuses a foreign id, and access splits into read, write and delete.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: documents entities are filed-document and filed-document-link; safe import; split access
+  detail: The documents feature registers its entities as `filed-document` (table `read_filed_documents`) and `filed-document-link` (table `read_filed_document_links`), so an app that has its own `document` entity keeps its events and tables; handler and query names follow (`documents:write:filed-document:create`, `documents:query:filed-document:list`, `documents:query:filed-document-link:list`), and so do the field label keys `documents:entity:filed-document:field:*`. `documents:write:import` now fails with a conflict (`documents.errors.import-id-taken`) and links nothing when the id is already used by a stream that is not a document; a repeat import of the same document, deleted or not, still changes nothing; the check reads the stream, so a row-level `readAccess` cannot turn a retry into a refusal. With `readAccess` set, the system user keeps reading every document, so capture and import still find the ones the rule hides. An imported document's createdAt is the time of the import, because the event store does not backdate events; issuedAt carries the business date. `createDocumentsFeature({ access })` takes either one rule for everything, as before, or `{ read, write, delete }` (type `DocumentsAccess`): read covers the lists, detail, for-record, the overviews and the list screen, write covers create, update, link and unlink; a missing read or write keeps the TenantAdmin and TenantMember default and a missing delete follows write. The readGate on the document is unchanged.
+  -->
+- Updated dependencies [5e5fa91]
+- Updated dependencies [4bf242b]
+- Updated dependencies [fa62e07]
+- Updated dependencies [d8c43e7]
+- Updated dependencies [10ee71d]
+- Updated dependencies [e742383]
+- Updated dependencies [10ee71d]
+  - @cosmicdrift/kumiko-framework@0.400.0
+
 ## 0.399.0
 
 ### Patch Changes

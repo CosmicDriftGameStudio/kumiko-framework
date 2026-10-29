@@ -1,5 +1,71 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.400.0
+
+### Minor Changes
+
+- fa62e07: Derived fields can be computed in SQL and sorted, relatedList tabs follow query access and can count from their own query.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: SQL derived fields, query-gated relatedList tabs, count badge
+  detail: A derived field with `sql` (coalesce over fields, or a related-table count, countDistinct or first with optional label and conditions incl. activeOn/today/now) is computed inside the list SELECT and may set `sortable: true`, also as entityList defaultSort; JS `derive` fields stay display-only and read the SQL values. Related rows and measured fields respect the viewer's read access, a gated value is NULL. GET /api/schema removes relatedList sections (tabs, entityEdit sections, expandableRow) whose query the caller's roles cannot run, and metrics linking to a removed tab lose their navigate. `count: true` on a relatedList tab shows the tab badge from the section's own query total. A metric only becomes clickable when its entityId target resolves, and groupBy labels now also resolve for entities with a backingTable. `valueType: "money"` is allowed for a SQL derived `related` + `first` on a money field: amount and currency are read together and the row carries the stored money shape (no key when unset), sorting is by minor units. Ownership where-rules of a label target or related table are qualified with the subquery's own alias (a label of a row the viewer cannot read no longer leaks when the target is the outer entity), the related entity and label target must also be readable through a query handler of the viewer's roles, backingTable entities are read from their real table (also for reference labels, reference search and label sort, which returned a 500 before), an entity may derive from itself, and a sortable related derived field needs an index on the join column.
+  -->
+- d8c43e7: New `documents` bundled feature and an entity `readGate` so a record can be visible only through links to other records and the owner of its file.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Entity readGate and the documents feature
+  detail: `createEntity({ readGate: { anyLink, fileOwner, linkExemptRoles } })` hides a row unless the viewer can read at least one linked host (join rows with a parentRef) and the owner of the referenced file; it is applied in list, detail, eager-load and relation reads, fail-closed without the registry, and the framework system user passes. Hand-written list/detail handlers for a gated entity are rejected at boot, live signals for gated entities stay anonymous. `ParentVisibilityOption` gains `canReadEntity` and `resolveTable`. The new `documents` feature (`createDocumentsFeature({ categories, linkTargets, capture?, retention? })`) files documents with category, issue and expiry date, links them to records (link, unlink, for-record and per-type queries, expiry overview), lists them on the `documents:screen:list` projection list through `documents:query:overview` (an `expiry` state per row and an "expiring" filter that returns expired and soon-expiring documents), captures files saved into configured entity fields via a postSave hook, and offers an idempotent SYSTEM-only import for jobs. Updating or deleting a document needs write access to one of its linked hosts (admin roles and the system user are exempt). Reference search and sort on a readGate target now apply the gate, and `parentVisibilityFor` decides `canReadEntity` by the entity's own detail query, the same rule the file route uses, so a `liveEntities` query no longer widens what a file owner shows. A document cannot claim another user's unbound upload. A document never defaults its title to the file name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Hooks run for handlers that return response data; readOnly related lists
+  detail: A write handler wrapped by `withResponseData` (for example `tenant:write:remove-member`) lost its lifecycle result, so postSave/postDelete hooks and projections were skipped. `WriteResult` now carries an optional `lifecycle` that the dispatcher and batch flush use and that is stripped from client responses. `EditRelatedListSection` gains `readOnly: true` for plain tables without an entity; the boot validator rejects it together with rowClick/rowActions and guard R2 skips it. The bin test helpers and `envWithoutGitOverrides` now also strip GIT_COMMON_DIR and the other git location variables.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: An untouched money field is no longer submitted as 0
+  detail: Forms seed a money field with its currency only and drop that currency-only value on submit, so a handler can tell a deliberately typed 0 from an untouched field. A currency-only value counts as missing for required checks, and the input shows empty instead of 0.00; config forms keep their plain-number contract.
+  migration: A form that left a required money field untouched used to submit 0 and now fails validation; type the amount (also in e2e and DOM tests) or give the field a value through `load` or the record. Handlers that read an absent optional money field as 0 must default it themselves.
+  -->
+- 10ee71d: documents: the entities are named `filed-document` and `filed-document-link`, the import refuses a foreign id, and access splits into read, write and delete.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: documents entities are filed-document and filed-document-link; safe import; split access
+  detail: The documents feature registers its entities as `filed-document` (table `read_filed_documents`) and `filed-document-link` (table `read_filed_document_links`), so an app that has its own `document` entity keeps its events and tables; handler and query names follow (`documents:write:filed-document:create`, `documents:query:filed-document:list`, `documents:query:filed-document-link:list`), and so do the field label keys `documents:entity:filed-document:field:*`. `documents:write:import` now fails with a conflict (`documents.errors.import-id-taken`) and links nothing when the id is already used by a stream that is not a document; a repeat import of the same document, deleted or not, still changes nothing; the check reads the stream, so a row-level `readAccess` cannot turn a retry into a refusal. With `readAccess` set, the system user keeps reading every document, so capture and import still find the ones the rule hides. An imported document's createdAt is the time of the import, because the event store does not backdate events; issuedAt carries the business date. `createDocumentsFeature({ access })` takes either one rule for everything, as before, or `{ read, write, delete }` (type `DocumentsAccess`): read covers the lists, detail, for-record, the overviews and the list screen, write covers create, update, link and unlink; a missing read or write keeps the TenantAdmin and TenantMember default and a missing delete follows write. The readGate on the document is unchanged.
+  -->
+- e742383: Embedded lists work as phone inspection checklists: photos per row, limit checks, conditional fields and touch-friendly cards.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Embedded list as inspection checklist
+  detail: Every entity field and every embedded sub-field takes `visibleWhen` and `requiredWhen` (FieldCondition). The executor enforces `requiredWhen` on create and update; it returns `validation_error` with paths like `checkpoints.0.finding`, and on update it only checks fields whose value or condition field changed. A field is required only while it is visible, and hidden values are kept. Embedded sub-fields can be `images` (with `capture`) or `files` (`maxSize`, `accept`, `maxCount`). Uploads send `subField` next to `fieldName`, and `file_refs.fieldName` stays the embedded field, so binding, tenant check, disposal, read access, GDPR forget and retention work as for top-level file fields. The new derived op `inRange` (`from: [value, min, max]`, `inside`, `outside`) writes into a select sub-field. Any derived cell can carry a row-level `when`, and server and client compute through the same `withDerivedCells`. Select sub-fields take `optionTones`; segments show the tone of the selected option, and narrow screens render cards with 44px controls and the read-only label as the card title. Boot validates the condition fields and rejects `required: true` combined with `visibleWhen`/`requiredWhen`. Saving now enforces `access.write` on embedded sub-fields per row (`ownership_denied`, path `field.subField`); before, only the read side honored sub-field access. Saving also checks each newly placed file id against the `accept`/`maxSize` of the sub-field it lands in (`file_violates_bind_target`). Boot also rejects a numeric derived op whose target is not numeric, which can break an app that derived into a text or select cell. Recipe: `samples/recipes/inspection-checklist`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [5e5fa91]
+- Updated dependencies [4bf242b]
+- Updated dependencies [fa62e07]
+- Updated dependencies [d8c43e7]
+- Updated dependencies [10ee71d]
+- Updated dependencies [e742383]
+- Updated dependencies [10ee71d]
+  - @cosmicdrift/kumiko-framework@0.400.0
+  - @cosmicdrift/kumiko-types@0.400.0
+  - @cosmicdrift/kumiko-renderer@0.400.0
+  - @cosmicdrift/kumiko-testing@0.400.0
+
 ## 0.399.0
 
 ### Minor Changes
