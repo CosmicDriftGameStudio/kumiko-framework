@@ -5,6 +5,7 @@ import {
   ZodIntersection,
   ZodLazy,
   ZodMap,
+  ZodNever,
   ZodNonOptional,
   ZodNullable,
   ZodObject,
@@ -56,7 +57,9 @@ export function getZodObjectShape(
   const unwrapped = unwrapZodType(schema);
   // loose()/catchall() objects accept keys beyond the declared shape, so the
   // declared keys are not the full set callers may legitimately reference.
-  const hasOpenKeys = unwrapped instanceof ZodObject && unwrapped.def.catchall !== undefined;
+  // .strict() also sets a catchall, ZodNever, which closes the keys instead.
+  const catchall = unwrapped instanceof ZodObject ? unwrapped.def.catchall : undefined;
+  const hasOpenKeys = catchall !== undefined && !(catchall instanceof ZodNever);
   return unwrapped instanceof ZodObject && !hasOpenKeys ? unwrapped.shape : undefined;
 }
 
