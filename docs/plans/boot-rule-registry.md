@@ -1,8 +1,8 @@
 ---
 status: in-progress
-verified: 2026-10-28
+verified: 2026-10-29
 issue: kumiko-framework#4124
-next: Runde 1 (S1 Sammler und Phasen, S3 validate-Ausgabe) in fw-next bauen, dann alle Apps messen
+next: S2 (Regel-Tabellen) und S4 (boot-rules.md, Drift- und Ratchet-Guard) sind in Arbeit (PR feat/boot-rules-s2-s4); danach S-Studio (validate --json) und S5 bis S8
 ---
 
 # Boot-Regel-Registry: alle Boot-Fehler in einem Lauf, mit stabiler Regel-ID
