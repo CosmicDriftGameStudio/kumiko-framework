@@ -8,6 +8,7 @@ import type {
   FieldStateConditions,
 } from "../../types/fields.ts";
 import { validateFieldConditions } from "../field-conditions.ts";
+import { validateBoot } from "../index.ts";
 
 function text(extra: FieldStateConditions & { required?: boolean }): EntityFieldDefinition {
   return createTextField({ personal: false, reason: "test_fixture", ...extra });
@@ -40,6 +41,16 @@ describe("top-level visibleWhen / requiredWhen", () => {
     expect(() => validate({ note: text({ visibleWhen: { field: "nope", eq: "a" } }) })).toThrow(
       /not a field of the entity/,
     );
+  });
+
+  test("validateBoot runs the condition check", () => {
+    const feature = defineFeature("t", (r) => {
+      r.entity({
+        name: "thing",
+        fields: { note: text({ visibleWhen: { field: "nope", eq: "a" } }) },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/not a field of the entity/);
   });
 
   test("rejects a condition on its own field", () => {
