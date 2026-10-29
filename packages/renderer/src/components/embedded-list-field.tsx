@@ -7,7 +7,6 @@ import type {
   FieldIssue,
 } from "../headless/index.ts";
 import {
-  currencyDecimals,
   groupEmbeddedListIssues,
   sumEmbeddedListColumn,
   withDerivedCells,
@@ -23,6 +22,7 @@ import {
 import { useTranslation } from "../i18n.tsx";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.tsx";
 import { usePrimitives } from "../primitives.tsx";
+import { coerceCellValue } from "./embedded-list-paste.ts";
 
 export type EmbeddedListFieldProps = {
   readonly field: EditFieldViewModel;
@@ -79,83 +79,6 @@ function withRecomputedDerived(
   const targets = Object.fromEntries(cells.map((cell) => [cell.field, cell]));
   const recomputed = withDerivedCells(row, derived, targets);
   return isPlainObject(recomputed) ? recomputed : row;
-}
-
-// Locale-aware decimal parse for pasted text: strips space/NBSP thousands
-// separators outright, then treats whichever of "," or "." appears LAST in
-// the string as the decimal separator and strips the other one — handles
-// both "1.234,56" (de) and "1,234.56" (en-US) pastes. Returns undefined for
-// anything that still doesn't parse as a finite number.
-function parseLocaleAwareDecimal(raw: string): number | undefined {
-  const stripped = raw.replace(/[\s ]/g, "");
-  if (stripped === "") return undefined;
-  const lastComma = stripped.lastIndexOf(",");
-  const lastDot = stripped.lastIndexOf(".");
-  const decimalIndex = Math.max(lastComma, lastDot);
-  if (decimalIndex === -1) {
-    const n = Number(stripped);
-    return Number.isFinite(n) ? n : undefined;
-  }
-  const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
-  const fractionPart = stripped.slice(decimalIndex + 1);
-  if (!/^\d*$/.test(integerPart) || !/^\d*$/.test(fractionPart)) return undefined;
-  const n = Number(
-    `${integerPart === "" ? "0" : integerPart}.${fractionPart === "" ? "0" : fractionPart}`,
-  );
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function coerceCellValue(column: EmbeddedListColumn, text: string, currency: string): unknown {
-  switch (column.type) {
-    case "text":
-      return text;
-    case "number":
-    case "decimal": {
-      if (text.trim() === "") return undefined;
-      const n = Number(text);
-      return Number.isFinite(n) ? n : undefined;
-    }
-    case "money": {
-      // Money cells are minor-unit integers (cents) in storage — paste
-      // arrives as a major-unit decimal string ("12,99"/"12.99"), so scale
-      // by the currency's decimal places. Must agree with the typed-in path
-      // (renderCellControl's MoneyInput, which scales by the same
-      // currencyDecimals) — a hardcoded ×100 here diverged for zero-/three-
-      // decimal currencies (JPY, BHD, ...), landing a pasted value 100x off
-      // from the same value typed by hand.
-      // parseLocaleAwareDecimal handles both "1.234,56" (de) and
-      // "1,234.56" (en-US) thousands/decimal conventions — a naive
-      // `replace(",", ".")` mangled German-locale pastes with thousands
-      // separators into NaN.
-      if (text.trim() === "") return undefined;
-      const n = parseLocaleAwareDecimal(text);
-      return n === undefined ? undefined : Math.round(n * 10 ** currencyDecimals(currency));
-    }
-    case "boolean":
-      return ["true", "1", "yes", "y", "ja"].includes(text.trim().toLowerCase());
-    case "date":
-    case "timestamp":
-      return text.trim();
-    case "select": {
-      const match = (column.options ?? []).find(
-        (opt) => opt === text || column.optionLabels?.[opt] === text,
-      );
-      return match;
-    }
-    case "reference": {
-      const match = (column.referenceOptions ?? []).find(
-        (o) => o.label === text || o.value === text,
-      );
-      return match?.value;
-    }
-    case "images":
-    case "files":
-      return undefined;
-    default: {
-      const exhaustiveCheck: never = column.type;
-      return exhaustiveCheck;
-    }
-  }
 }
 
 // The reference-column queries are hooks called in a loop, so their count must

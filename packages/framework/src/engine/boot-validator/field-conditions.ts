@@ -33,6 +33,7 @@ function assertNoRequiredConflict(
   def: FieldStateConditions,
   required: boolean,
 ): void {
+  // skip: a field that is not statically required cannot conflict with requiredWhen
   if (!required) return;
   if (def.requiredWhen !== undefined) {
     throw new Error(
@@ -138,6 +139,7 @@ function assertFileSubField(where: string, sub: EmbeddedFileSubFieldDef): void {
 }
 
 function assertSelectSubFieldTones(where: string, sub: EmbeddedSubFieldDef): void {
+  // skip: only select sub-fields with declared tones have tones to check
   if (sub.type !== "select" || sub.optionTones === undefined) return;
   for (const option of Object.keys(sub.optionTones)) {
     if (!sub.options.includes(option)) {
@@ -217,6 +219,7 @@ function assertFileSubFieldsAreNotWired(where: string, embedded: EmbeddedFieldDe
   const fileSubs = new Set(
     Object.entries(embedded.schema).flatMap(([name, sub]) => (isFileSubField(sub) ? [name] : [])),
   );
+  // skip: without file sub-fields there is nothing that could be wired into derived or conditions
   if (fileSubs.size === 0) return;
   const wired = [
     ...Object.entries(embedded.derived ?? {}).flatMap(([name, cell]) => [name, ...cell.from]),

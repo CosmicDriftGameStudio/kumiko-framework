@@ -31,9 +31,12 @@ export const inspectionProtocolEntity = createEntity({
           type: "images",
           capture: "environment",
           maxCount: 5,
+          accept: ["jpg", "jpeg", "png"],
           visibleWhen: isNotOk,
           requiredWhen: isNotOk,
         },
+        documents: { type: "files", maxCount: 3 },
+        approvedBy: { type: "text", access: { write: ["Admin"] } },
       },
       {
         personal: false,

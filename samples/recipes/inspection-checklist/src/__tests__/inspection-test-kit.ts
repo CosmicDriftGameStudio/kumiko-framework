@@ -26,9 +26,16 @@ export const PLAN_CREATE = "inspection-checklist:write:inspection-plan:create";
 export const CREATE_FROM_PLAN = "inspection-checklist:write:inspection-protocol:create-from-plan";
 
 const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n%test\n");
+
+export const UploadFiles = {
+  jpeg: { name: "pump.jpg", type: "image/jpeg", bytes: JPEG_BYTES },
+  pdf: { name: "report.pdf", type: "application/pdf", bytes: PDF_BYTES },
+} as const;
 
 const tenantId = testTenantId(1);
 export const admin = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
+export const inspector = createTestUser({ id: 4, tenantId, roles: ["Inspector"] });
 export const viewer = createTestUser({ id: 2, tenantId, roles: ["Viewer"] });
 export const otherTenantAdmin = createTestUser({
   id: 3,
@@ -66,7 +73,12 @@ export function useInspectionStack() {
     await stack.cleanup();
   });
 
-  type UploadTarget = { entityId?: string; fieldName?: string; subField?: string };
+  type UploadTarget = {
+    entityId?: string;
+    fieldName?: string;
+    subField?: string;
+    file?: (typeof UploadFiles)[keyof typeof UploadFiles];
+  };
 
   async function upload(
     asUser: User,
@@ -77,7 +89,8 @@ export function useInspectionStack() {
     if (target.fieldName !== undefined) fd.append("fieldName", target.fieldName);
     if (target.subField !== undefined) fd.append("subField", target.subField);
     if (target.entityId !== undefined) fd.append("entityId", target.entityId);
-    fd.append("file", new File([Buffer.from(JPEG_BYTES)], "pump.jpg", { type: "image/jpeg" }));
+    const file = target.file ?? UploadFiles.jpeg;
+    fd.append("file", new File([Buffer.from(file.bytes)], file.name, { type: file.type }));
     const { body, contentType } = await buildMultipartBody(fd);
     const token = await stack.jwt.sign(asUser);
     const res = await stack.app.request("/api/files", {
@@ -91,6 +104,16 @@ export function useInspectionStack() {
 
   async function pendingPhoto(asUser: User = admin): Promise<string> {
     const { status, id } = await upload(asUser);
+    expect(status).toBe(201);
+    return id;
+  }
+
+  async function pendingDocument(asUser: User = admin): Promise<string> {
+    const { status, id } = await upload(asUser, {
+      fieldName: "checkpoints",
+      subField: "documents",
+      file: UploadFiles.pdf,
+    });
     expect(status).toBe(201);
     return id;
   }
@@ -123,6 +146,7 @@ export function useInspectionStack() {
     },
     upload,
     pendingPhoto,
+    pendingDocument,
     fileStatus,
     createProtocol,
     checkpointsOf,

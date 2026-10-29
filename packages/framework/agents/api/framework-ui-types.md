@@ -511,7 +511,7 @@ type SecretsEditScreenDefinition = {
   access?: AccessRule;
 };
 type SelectOptionTone = (typeof SELECT_OPTION_TONES)[number];
-type TextFieldDef = ResolvedPiiFlags & FieldStateConditions & {
+type TextFieldDef = PiiAndFieldState & {
   type: "text";
   description?: string; // Optional free-text semantics for the AI agent manifest — never rendered; the i18n label is what users see.
   maxLength?: number;

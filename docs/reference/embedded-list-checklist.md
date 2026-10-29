@@ -65,8 +65,15 @@ Sub-Felder vom Typ `images` (mit `capture`) und `files` mit `maxSize`, `accept`,
 Wert ist ein Array von FileRef-IDs.
 
 - Upload: `POST /files` mit `entityType`, `fieldName` = das Embedded-Feld und zusätzlich
-  `subField` = das Datei-Sub-Feld. `accept`/`maxSize` kommen vom Sub-Feld; `access.write` von
-  Feld und Sub-Feld wird geprüft.
+  `subField` = das Datei-Sub-Feld. `accept`/`maxSize` kommen vom Sub-Feld. Beim Upload prüft der
+  Server die Rollen aus `access.write` von Feld und Sub-Feld.
+- Beim Speichern prüft der Server jede neu eingetragene ID gegen `accept`/`maxSize` des
+  Sub-Felds, in dem sie landet (422 `file_violates_bind_target`). Eine Datei aus einem lockeren
+  `files`-Sub-Feld lässt sich so nicht in ein strengeres `images`-Sub-Feld verschieben.
+- `access.write` an einem Sub-Feld (jeder Typ) gilt beim Speichern pro Zeile: Zeilen werden per
+  Index verglichen, eine geänderte, geleerte oder entfernte Zelle ohne Recht ergibt
+  `ownership_denied` mit dem Feldpfad `checkpoints.approvedBy`. Besitzregeln werden gegen die
+  Zeile ausgewertet, wie beim Lesefilter.
 - `file_refs.fieldName` bleibt der Name des Embedded-Felds. Bindung beim Speichern,
   Mandanten-Check, Aufräumen entfernter Fotos, Lesezugriff über das Recht am Datensatz,
   DSGVO-Löschung (PII-Angabe des Embedded-Felds) und Retention laufen dadurch wie bei einem

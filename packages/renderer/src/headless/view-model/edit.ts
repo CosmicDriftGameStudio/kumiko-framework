@@ -284,6 +284,22 @@ function selectableOptions(
   return fieldDef.options.filter((option) => available.includes(option) || option === current);
 }
 
+function deriveSelectDisplay(
+  fieldDef: EntityFieldDef,
+): Pick<EditFieldViewModel, "display" | "optionTones"> {
+  const declaredDisplay =
+    fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
+  // The renderer's heuristic counts options, so a filtered list would switch widgets with the discriminator.
+  const display =
+    declaredDisplay ??
+    (fieldDef.type === "select" && fieldDef.conditionalOptions ? "dropdown" : undefined);
+  return {
+    ...(display !== undefined && { display }),
+    ...(fieldDef.type === "select" &&
+      fieldDef.optionTones !== undefined && { optionTones: fieldDef.optionTones }),
+  };
+}
+
 function deriveSelectFieldHints(
   fieldDef: EntityFieldDef,
   translate: Translate,
@@ -301,13 +317,6 @@ function deriveSelectFieldHints(
           options,
         )
       : undefined;
-  const declaredDisplay =
-    fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
-  // The renderer's heuristic counts options, so a filtered list would switch widgets with the discriminator.
-  const display =
-    declaredDisplay ??
-    (fieldDef.type === "select" && fieldDef.conditionalOptions ? "dropdown" : undefined);
-  const optionTones = fieldDef.type === "select" ? fieldDef.optionTones : undefined;
   const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
   const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
   return {
@@ -315,8 +324,7 @@ function deriveSelectFieldHints(
     ...deriveSelectOptionsAvailabilityQuery(fieldDef),
     ...(options !== undefined && { options }),
     ...(optionLabels !== undefined && { optionLabels }),
-    ...(display !== undefined && { display }),
-    ...(optionTones !== undefined && { optionTones }),
+    ...deriveSelectDisplay(fieldDef),
     ...(columns !== undefined && { columns }),
     ...(maxRows !== undefined && { maxRows }),
   };
@@ -591,6 +599,27 @@ function isLockedByDerivation(
   return isDerivedAndLocked || isUnusedFallbackOperand(derivation, values, field);
 }
 
+// A screen-spec condition overrides the entity's own visibleWhen / required / requiredWhen.
+function isEditFieldVisible(
+  normalized: NormalizedEditField,
+  fieldDef: EntityFieldDef,
+  values: Readonly<Record<string, unknown>>,
+): boolean {
+  return normalized.visible !== undefined
+    ? evalFieldCondition(normalized.visible, values)
+    : isFieldVisible(fieldDef, values);
+}
+
+function isEditFieldRequired(
+  normalized: NormalizedEditField,
+  fieldDef: EntityFieldDef,
+  values: Readonly<Record<string, unknown>>,
+): boolean {
+  return normalized.required !== undefined
+    ? evalFieldCondition(normalized.required, values)
+    : isFieldRequired(fieldDef, values);
+}
+
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
@@ -657,10 +686,7 @@ export function computeEditViewModel<
           screen.fieldLabels?.[normalized.field] ??
             fieldLabelKey(featureName, screen.entity, normalized.field),
         );
-        const visible =
-          normalized.visible !== undefined
-            ? evalFieldCondition(normalized.visible, values)
-            : isFieldVisible(fieldDef, values);
+        const visible = isEditFieldVisible(normalized, fieldDef, values);
         // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
         // in the engine, and the view-model emitted here. One convention
         // through the stack beats translating at the boundary.
@@ -673,11 +699,7 @@ export function computeEditViewModel<
         // field that's required at the entity-level but marked required:
         // false on the screen (e.g. a soft-onboarding wizard that
         // collects less up-front) respects the screen override.
-        const required =
-          !lockedByDerivation &&
-          (normalized.required !== undefined
-            ? evalFieldCondition(normalized.required, values)
-            : isFieldRequired(fieldDef, values));
+        const required = !lockedByDerivation && isEditFieldRequired(normalized, fieldDef, values);
         // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
         // framework/src/engine/field-helpers.ts — headless has no dependency
         // on that module, so the literal is duplicated here instead of

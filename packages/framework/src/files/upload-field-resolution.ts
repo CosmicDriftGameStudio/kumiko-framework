@@ -19,6 +19,19 @@ type AttachedFieldResolution =
   | { readonly kind: "resolved"; readonly fieldDef: AnyFileFieldDef }
   | { readonly kind: "unresolvable" };
 
+function findAttachEntity(
+  registry: Registry | undefined,
+  entityType: string,
+  attachTargets: AttachTargets,
+) {
+  return (
+    registry?.getEntity(entityType) ??
+    (attachTargets === "entities-and-read-models"
+      ? registry?.getReadModelEntity(entityType)
+      : undefined)
+  );
+}
+
 // entityType/fieldName drive the GDPR-forget decision downstream
 // (fileRefDeleteHook resolves the field's PII annotation from exactly this
 // pairing) — attaching to a field nobody can resolve would leave that
@@ -35,15 +48,9 @@ export function resolveAttachedField(
   subField?: string,
 ): AttachedFieldResolution {
   if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
-  const entity =
-    entityType !== undefined
-      ? (registry?.getEntity(entityType) ??
-        (attachTargets === "entities-and-read-models"
-          ? registry?.getReadModelEntity(entityType)
-          : undefined))
-      : undefined;
-  const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
-  if (!entityType || !fieldName || !entity || !fieldDef) return { kind: "unresolvable" };
+  if (!entityType || !fieldName) return { kind: "unresolvable" };
+  const fieldDef = findAttachEntity(registry, entityType, attachTargets)?.fields[fieldName];
+  if (!fieldDef) return { kind: "unresolvable" };
   if (subField !== undefined) {
     const subFieldDef = resolveFileSubField(fieldDef, subField);
     return subFieldDef === undefined

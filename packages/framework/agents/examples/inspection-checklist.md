@@ -25,7 +25,9 @@ enters a measurement or a result, and documents deviations with a finding and ph
   embedded list and `subField` of the photo cell; files are bound, tenant-checked and
   disposed like a top-level images field, always under the embedded list's field name.
 - **Fixed rows**: `inspection-protocol:create-from-plan` copies label, kind and limits from
-  a plan; the edit screen keeps those cells read-only and the row count fixed.
+  a plan; the edit screen keeps those cells read-only and the row count fixed. It sets
+  `layout.width: "full"` because the default form width pushes result, finding and photos
+  behind horizontal scroll.
 
 ## Source
 
@@ -189,9 +191,16 @@ export const PLAN_CREATE = "inspection-checklist:write:inspection-plan:create";
 export const CREATE_FROM_PLAN = "inspection-checklist:write:inspection-protocol:create-from-plan";
 
 const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n%test\n");
+
+export const UploadFiles = {
+  jpeg: { name: "pump.jpg", type: "image/jpeg", bytes: JPEG_BYTES },
+  pdf: { name: "report.pdf", type: "application/pdf", bytes: PDF_BYTES },
+} as const;
 
 const tenantId = testTenantId(1);
 export const admin = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
+export const inspector = createTestUser({ id: 4, tenantId, roles: ["Inspector"] });
 export const viewer = createTestUser({ id: 2, tenantId, roles: ["Viewer"] });
 export const otherTenantAdmin = createTestUser({
   id: 3,
@@ -229,7 +238,12 @@ export function useInspectionStack() {
     await stack.cleanup();
   });
 
-  type UploadTarget = { entityId?: string; fieldName?: string; subField?: string };
+  type UploadTarget = {
+    entityId?: string;
+    fieldName?: string;
+    subField?: string;
+    file?: (typeof UploadFiles)[keyof typeof UploadFiles];
+  };
 
   async function upload(
     asUser: User,
@@ -240,7 +254,8 @@ export function useInspectionStack() {
     if (target.fieldName !== undefined) fd.append("fieldName", target.fieldName);
     if (target.subField !== undefined) fd.append("subField", target.subField);
     if (target.entityId !== undefined) fd.append("entityId", target.entityId);
-    fd.append("file", new File([Buffer.from(JPEG_BYTES)], "pump.jpg", { type: "image/jpeg" }));
+    const file = target.file ?? UploadFiles.jpeg;
+    fd.append("file", new File([Buffer.from(file.bytes)], file.name, { type: file.type }));
     const { body, contentType } = await buildMultipartBody(fd);
     const token = await stack.jwt.sign(asUser);
     const res = await stack.app.request("/api/files", {
@@ -254,6 +269,16 @@ export function useInspectionStack() {
 
   async function pendingPhoto(asUser: User = admin): Promise<string> {
     const { status, id } = await upload(asUser);
+    expect(status).toBe(201);
+    return id;
+  }
+
+  async function pendingDocument(asUser: User = admin): Promise<string> {
+    const { status, id } = await upload(asUser, {
+      fieldName: "checkpoints",
+      subField: "documents",
+      file: UploadFiles.pdf,
+    });
     expect(status).toBe(201);
     return id;
   }
@@ -286,6 +311,7 @@ export function useInspectionStack() {
     },
     upload,
     pendingPhoto,
+    pendingDocument,
     fileStatus,
     createProtocol,
     checkpointsOf,
@@ -444,6 +470,123 @@ describe("create-from-plan", () => {
 });
 ```
 
+### src/__tests__/sub-field-rules.integration.test.ts
+
+```ts
+// Inspection Checklist Sample: Integration Test (rules of single cells on save)
+// Proves, through real HTTP: a cell's write access is enforced when the record is saved, and a
+// file only lands in a file cell whose accept list it fits.
+
+import { describe, expect, test } from "bun:test";
+import {
+  admin,
+  inspector,
+  PROTOCOL_CREATE,
+  PROTOCOL_UPDATE,
+  type Row,
+  useInspectionStack,
+} from "./inspection-test-kit";
+
+const kit = useInspectionStack();
+
+// The same denial a top-level field with a write rule gets.
+const OWNERSHIP_DENIED = [422, "errors.ownershipDenied"];
+
+const check = (extra: Row = {}): Row => ({ label: "Guard", kind: "check", ...extra });
+
+describe("write access of a single cell", () => {
+  test("a user without the role cannot set the cell, on create or update", async () => {
+    const created = await kit.stack.http.writeErr(
+      PROTOCOL_CREATE,
+      { checkpoints: [check({ approvedBy: "Me" })] },
+      inspector,
+    );
+    expect([created.httpStatus, created.i18nKey]).toEqual(OWNERSHIP_DENIED);
+
+    const protocol = await kit.createProtocol({ checkpoints: [check()] }, inspector);
+    const updated = await kit.stack.http.writeErr(
+      PROTOCOL_UPDATE,
+      { id: protocol.id, version: 1, changes: { checkpoints: [check({ approvedBy: "Me" })] } },
+      inspector,
+    );
+    expect([updated.httpStatus, updated.i18nKey]).toEqual(OWNERSHIP_DENIED);
+    expect(await kit.checkpointsOf(protocol.id)).toEqual([check()]);
+  });
+
+  test("the same user may save rows that leave the cell as it is", async () => {
+    const protocol = await kit.createProtocol({ checkpoints: [check({ approvedBy: "Boss" })] });
+    await kit.stack.http.writeOk(
+      PROTOCOL_UPDATE,
+      {
+        id: protocol.id,
+        version: 1,
+        changes: { checkpoints: [check({ approvedBy: "Boss", label: "Guard fitted" })] },
+      },
+      inspector,
+    );
+    expect(await kit.checkpointsOf(protocol.id)).toEqual([
+      check({ approvedBy: "Boss", label: "Guard fitted" }),
+    ]);
+  });
+
+  test("changing or clearing the cell on an existing row is denied, removing the row too", async () => {
+    const protocol = await kit.createProtocol({ checkpoints: [check({ approvedBy: "Boss" })] });
+    for (const checkpoints of [[check({ approvedBy: "Me" })], [check()], []]) {
+      const denied = await kit.stack.http.writeErr(
+        PROTOCOL_UPDATE,
+        { id: protocol.id, version: 1, changes: { checkpoints } },
+        inspector,
+      );
+      expect([denied.httpStatus, denied.i18nKey]).toEqual(OWNERSHIP_DENIED);
+    }
+    await kit.stack.http.writeOk(
+      PROTOCOL_UPDATE,
+      { id: protocol.id, version: 1, changes: { checkpoints: [check({ approvedBy: "Me" })] } },
+      admin,
+    );
+  });
+});
+
+describe("a file only lands in a cell it fits", () => {
+  test("a pdf uploaded to the loose cell is rejected in the photos cell", async () => {
+    const pdf = await kit.pendingDocument();
+    const denied = await kit.stack.http.writeErr(
+      PROTOCOL_CREATE,
+      {
+        checkpoints: [
+          check({ result: "not_ok", finding: "Cracked", photos: [pdf], documents: [pdf] }),
+        ],
+      },
+      admin,
+    );
+    expect([denied.httpStatus, denied.code]).toEqual([422, "unprocessable"]);
+  });
+
+  test("the same pdf is accepted where it was uploaded", async () => {
+    const pdf = await kit.pendingDocument();
+    const created = await kit.createProtocol({ checkpoints: [check({ documents: [pdf] })] });
+    expect(await kit.checkpointsOf(created.id)).toEqual([check({ documents: [pdf] })]);
+  });
+
+  test("moving a stored pdf from the documents cell to the photos cell is rejected", async () => {
+    const pdf = await kit.pendingDocument();
+    const created = await kit.createProtocol({ checkpoints: [check({ documents: [pdf] })] });
+    const denied = await kit.stack.http.writeErr(
+      PROTOCOL_UPDATE,
+      {
+        id: created.id,
+        version: 1,
+        changes: {
+          checkpoints: [check({ result: "not_ok", finding: "Cracked", photos: [pdf] })],
+        },
+      },
+      admin,
+    );
+    expect([denied.httpStatus, denied.code]).toEqual([422, "unprocessable"]);
+  });
+});
+```
+
 ### src/entities/inspection-plan.ts
 
 ```ts
@@ -509,9 +652,12 @@ export const inspectionProtocolEntity = createEntity({
           type: "images",
           capture: "environment",
           maxCount: 5,
+          accept: ["jpg", "jpeg", "png"],
           visibleWhen: isNotOk,
           requiredWhen: isNotOk,
         },
+        documents: { type: "files", maxCount: 3 },
+        approvedBy: { type: "text", access: { write: ["Admin"] } },
       },
       {
         personal: false,

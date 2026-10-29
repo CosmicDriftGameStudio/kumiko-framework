@@ -947,7 +947,7 @@ type JobTrigger =
     manual: true;
   }
 ;
-type JsonbFieldDef = ResolvedPiiFlags & FieldStateConditions & {
+type JsonbFieldDef = PiiAndFieldState & {
   type: "jsonb";
   description?: string;
   emptyValue?: JsonbEmptyValue; // `"array"`: the field holds a JSON array, so a row that never wrote it reads `[]` and writes take an array.

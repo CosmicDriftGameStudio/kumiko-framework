@@ -1,5 +1,7 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { hasAccess } from "../engine/access.ts";
+import { userHasWriteRole } from "../engine/field-access.ts";
 import { normalizeAccessEntry, userCanWriteFieldRow } from "../engine/ownership.ts";
 import { toKebab } from "../engine/qualified-name.ts";
 import { isRecordLocked } from "../engine/screen-helpers.ts";
@@ -35,6 +37,28 @@ export function findImplicitEntityTable(registry: Registry, entityType: string) 
 
 function isEntityUpdateWrite(qn: string, entityName: string): boolean {
   return qn.endsWith(`:write:${toKebab(entityName)}:update`);
+}
+
+// The named field's own write rules against the stored row. The upload names no embedded row,
+// so a sub-field only gets the role gate; its row-level rules run when the record is saved.
+function mayWriteNamedField(args: {
+  readonly entity: EntityDefinition;
+  readonly fieldName: string | undefined;
+  readonly subField: string | undefined;
+  readonly user: SessionUser;
+  readonly row: Readonly<Record<string, unknown>>;
+}): boolean {
+  const { entity, fieldName, subField, user, row } = args;
+  if (fieldName === undefined) return true;
+  const fieldRules = normalizeAccessEntry(entity.fields[fieldName]?.access?.write);
+  if (!userCanWriteFieldRow(user, fieldRules, row, row)) return false;
+  const subFieldRules =
+    subField === undefined
+      ? undefined
+      : normalizeAccessEntry(
+          resolveFileSubField(entity.fields[fieldName], subField)?.access?.write,
+        );
+  return subFieldRules === undefined || userHasWriteRole(user, subFieldRules);
 }
 
 // "May this user attach a file to the record?" asks what saving the record would ask: the
@@ -77,16 +101,7 @@ export function createRecordWriteCheck(args: {
     if (!userCanWriteFieldRow(user, entity.access?.write, row, row)) {
       return RecordWriteDecisions.forbidden;
     }
-    const fieldWriteRules =
-      fieldName === undefined ? undefined : entity.fields[fieldName]?.access?.write;
-    if (!userCanWriteFieldRow(user, normalizeAccessEntry(fieldWriteRules), row, row)) {
-      return RecordWriteDecisions.forbidden;
-    }
-    const subFieldWriteRules =
-      fieldName === undefined || subField === undefined
-        ? undefined
-        : resolveFileSubField(entity.fields[fieldName], subField)?.access?.write;
-    if (!userCanWriteFieldRow(user, normalizeAccessEntry(subFieldWriteRules), row, row)) {
+    if (!mayWriteNamedField({ entity, fieldName, subField, user, row })) {
       return RecordWriteDecisions.forbidden;
     }
     if (isRecordLocked(entity.lockedWhen, row)) return RecordWriteDecisions.locked;

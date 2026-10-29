@@ -1,3 +1,4 @@
+import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "../db/tenant-db.ts";
@@ -183,16 +184,22 @@ export function assertRowFitsBindTarget(
       message: `bindPendingFileRef: bindTo ${bindTo.entityName}.${bindTo.fieldName} is not a registered file field (pass the handler's ctx.registry)`,
     });
   }
+  assertRowFitsFileField(row, target.fieldDef);
+}
+
+// Same metadata check for any file slot a stored row lands in (a bind target, or an embedded
+// file sub-field a save names).
+export function assertRowFitsFileField(row: FileRefRow, fieldDef: AnyFileFieldDef): void {
   const { storageKey, mimeType, size } = row;
   if (typeof storageKey !== "string" || typeof mimeType !== "string" || typeof size !== "number") {
     // A row without these can only come from corruption; letting it through would skip the check.
     throw new InternalError({
-      message: `bindPendingFileRef: pending file_ref ${String(row["id"])} lacks storageKey, mimeType or size`,
+      message: `file_ref ${String(row["id"])} lacks storageKey, mimeType or size`,
     });
   }
   const error = validateFile(
     { fileName: storageKey, mimeType, size },
-    { maxSize: target.fieldDef.maxSize, accept: target.fieldDef.accept },
+    { maxSize: fieldDef.maxSize, accept: fieldDef.accept },
   );
   if (error !== null) {
     throw new UnprocessableError(FrameworkReasons.fileViolatesBindTarget, {

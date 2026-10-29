@@ -41,6 +41,23 @@ export function fileRefIdsInField(def: FieldDefinition | undefined, value: unkno
   );
 }
 
+/** FileRef ids per file sub-field of an embedded field value, pooled over all rows. */
+export function fileRefIdsBySubField(
+  def: FieldDefinition | undefined,
+  value: unknown,
+): ReadonlyMap<string, readonly string[]> {
+  const bySubField = new Map<string, readonly string[]>();
+  if (def?.type !== "embedded") return bySubField;
+  const rows = Array.isArray(value) ? value : [value];
+  for (const name of fileSubFieldNames(def)) {
+    bySubField.set(
+      name,
+      rows.flatMap((row) => (isPlainObject(row) ? fileRefIdsOf(row[name]) : [])),
+    );
+  }
+  return bySubField;
+}
+
 export function resolveFileSubField(
   def: FieldDefinition | undefined,
   subField: string,

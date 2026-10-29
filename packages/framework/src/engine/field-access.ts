@@ -1,6 +1,11 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EmbeddedFieldDef, EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { DbRow } from "../db/connection.ts";
-import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.ts";
+import {
+  normalizeAccessEntry,
+  type OwnershipMap,
+  userCanReadFieldRow,
+  userCanWriteFieldRow,
+} from "./ownership.ts";
 import type { SessionUser } from "./types/index.ts";
 
 function writeOnlyFieldNames(entity: EntityDefinition): readonly string[] {
@@ -180,6 +185,16 @@ export function checkWriteFieldOwnership(
     const field = entity.fields[key];
     if (!field) continue;
 
+    if (field.type === "embedded") {
+      const deniedSubField = deniedEmbeddedSubField(
+        field,
+        submittedChanges[key],
+        oldRow?.[key],
+        user,
+      );
+      if (deniedSubField) return `${key}.${deniedSubField}`;
+    }
+
     const accessMap = normalizeAccessEntry(field.access?.write);
     if (!accessMap) continue;
 
@@ -195,6 +210,56 @@ export function checkWriteFieldOwnership(
 
     if (!userCanWriteFieldRow(user, accessMap, effectiveOld, newRow)) {
       return key;
+    }
+  }
+  return null;
+}
+
+// Role gate without a row: the user holds at least one role the map grants.
+export function userHasWriteRole(
+  user: Pick<SessionUser, "roles">,
+  accessMap: OwnershipMap,
+): boolean {
+  return user.roles.some((role) => accessMap[role] !== undefined);
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function embeddedRows(value: unknown): readonly (Readonly<Record<string, unknown>> | undefined)[] {
+  if (Array.isArray(value)) return value.map((row) => (isRecord(row) ? row : undefined));
+  return isRecord(value) ? [value] : [];
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, nested: unknown) => {
+    if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
+    return Object.fromEntries(Object.entries(nested).sort(([a], [b]) => a.localeCompare(b)));
+  });
+}
+
+// Sub-field write rules of an embedded field, enforced on save. Rows are paired by index;
+// a sub-field counts as written when its value differs between old and new row (an added or
+// removed row that carries a value counts too). The rule is evaluated against the embedded
+// row, as the read filter does. Returns the denied sub-field name or null.
+function deniedEmbeddedSubField(
+  field: EmbeddedFieldDef,
+  newValue: unknown,
+  oldValue: unknown,
+  user: SessionUser,
+): string | null {
+  const newRows = embeddedRows(newValue);
+  const oldRows = embeddedRows(oldValue);
+  for (const [subKey, subField] of Object.entries(field.schema)) {
+    const accessMap = normalizeAccessEntry(subField.access?.write);
+    if (!accessMap) continue;
+    for (let i = 0; i < Math.max(newRows.length, oldRows.length); i++) {
+      const newRow = newRows[i];
+      const oldRow = oldRows[i];
+      if (stableJson(newRow?.[subKey]) === stableJson(oldRow?.[subKey])) continue;
+      const rowAfter = newRow ?? oldRow ?? {};
+      if (!userCanWriteFieldRow(user, accessMap, oldRow ?? rowAfter, rowAfter)) return subKey;
     }
   }
   return null;

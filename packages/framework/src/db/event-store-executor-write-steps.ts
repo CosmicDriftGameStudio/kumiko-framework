@@ -1,7 +1,12 @@
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
-import type { UnavailableSelectOption } from "../engine/screen-helpers.ts";
+import { findMissingConditionalRequirements } from "../engine/field-state.ts";
+import {
+  findUnavailableSelectOptions,
+  type UnavailableSelectOption,
+} from "../engine/screen-helpers.ts";
+import type { FieldDefinition } from "../engine/types/fields.ts";
 import type { UnprocessableOpts } from "../errors/classes.ts";
 import {
   VersionConflictError as FrameworkVersionConflict,
@@ -68,6 +73,21 @@ export function missingConditionalRequirementFailure(paths: readonly string[]) {
         i18nKey: "kumiko.validation.required",
       })),
     }),
+  );
+}
+
+/** Value-consistency checks on the merged row (create: no `previous`): options a
+ *  conditionalOptions rule no longer allows, and requiredWhen values still missing. */
+export function fieldStateFailure(
+  fields: Readonly<Record<string, FieldDefinition>>,
+  values: Record<string, unknown>,
+  previous?: Record<string, unknown>,
+) {
+  return (
+    selectOptionNotAvailableFailure(findUnavailableSelectOptions(fields, values, previous)) ??
+    missingConditionalRequirementFailure(
+      findMissingConditionalRequirements(fields, values, previous),
+    )
   );
 }
 
