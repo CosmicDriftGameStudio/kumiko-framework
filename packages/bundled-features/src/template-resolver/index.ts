@@ -160,6 +160,7 @@ export {
   DocumentVariable,
   documentExtensions,
   isAllowedDocumentLinkHref,
+  isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,

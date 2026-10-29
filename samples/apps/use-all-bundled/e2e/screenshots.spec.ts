@@ -160,6 +160,36 @@ const collectionEditor = () => async (page: Page) => {
   await page.getByTestId("text-block-editor").waitFor();
 };
 
+// Pasted long content must scroll inside the panel with the save bar pinned;
+// a second scrollbar on the page itself would push the bar out of view.
+const collectionEditorLongContent = () => async (page: Page) => {
+  await collectionEditor()(page);
+  const scroll = page.getByTestId("text-block-editor-scroll");
+  await page.locator('[data-testid="text-block-editor"] [contenteditable="true"]').first().click();
+  await page.keyboard.press("ControlOrMeta+End");
+  for (let paragraph = 1; paragraph <= 80; paragraph++) {
+    await page.keyboard.press("Enter");
+    await page.keyboard.insertText(
+      `Paragraph ${paragraph}: the payment is overdue since last month.`,
+    );
+  }
+  const layout = await scroll.evaluate((element) => ({
+    scrolls: element.scrollHeight > element.clientHeight,
+    pageOverflow: document.documentElement.scrollHeight - window.innerHeight,
+  }));
+  if (!layout.scrolls) throw new Error("long content does not scroll inside the panel");
+  if (layout.pageOverflow > 1)
+    throw new Error(`page scrolls too (${layout.pageOverflow}px overflow)`);
+  await scroll.evaluate((element) => {
+    element.scrollTop = (element.scrollHeight - element.clientHeight) / 2;
+  });
+  const footerBottom = await page
+    .getByTestId("text-block-editor-actions")
+    .evaluate((element) => element.getBoundingClientRect().bottom);
+  const viewportHeight = page.viewportSize()?.height ?? 0;
+  if (footerBottom > viewportHeight) throw new Error("save bar is pushed below the viewport");
+};
+
 // managed-pages edit — the seeded "About Acme" page (Markdown body with
 // heading, paragraph, list and link) opened from the page list.
 const managedPageEditFlow = () => async (page: Page) => {
@@ -324,6 +354,7 @@ const SCENARIOS: readonly Scenario[] = [
   // open on one entry, showing the variable chips its variableSchema declares.
   { name: "template-resolver", flow: collectionEditor() },
   { name: "template-resolver-create", flow: collectionCreateForm() },
+  { name: "template-resolver-long", flow: collectionEditorLongContent() },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens") },
   // secrets — mask-derived secretsEdit under the tenant-admin workspace nav.

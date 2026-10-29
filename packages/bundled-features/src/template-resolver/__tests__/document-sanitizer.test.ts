@@ -34,12 +34,53 @@ describe("sanitizeDocumentHtml", () => {
     expect(violationCodes(html)).toContain("disallowed_link_href");
   });
 
+  test.each([
+    "/impressum",
+    "/a/b?x=1#y",
+    "./x",
+    "../x",
+    "#top",
+    "?page=2",
+    "https://example.com/a",
+    "mailto:team@example.com",
+  ])("keeps the link target %s", (href) => {
+    expect(sanitizeDocumentHtml(`<p><a href="${href}">x</a></p>`)).toEqual({
+      ok: true,
+      html: `<p><a href="${href}">x</a></p>`,
+    });
+  });
+
+  test.each([
+    "javascript:alert(1)",
+    "JaVaScRiPt:alert(1)",
+    " javascript:alert(1)",
+    "java\tscript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "//evil.com",
+    "/\\evil.com",
+    "\\\\evil",
+    "x:y/z",
+  ])("rejects the link target %j", (href) => {
+    const escaped = href.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+    expect(violationCodes(`<p><a href="${escaped}">x</a></p>`)).toContain("disallowed_link_href");
+  });
+
+  test.each([
+    '<form action="/x"><p>a</p></form>',
+    '<p><button formaction="/x">a</button></p>',
+    '<svg><use xlink:href="/x"></use></svg>',
+    '<base href="/x">',
+  ])("relative paths are only for anchors: %s", (html) => {
+    expect(sanitizeDocumentHtml(html).ok).toBe(false);
+  });
+
   test("reports the offending href in the message", () => {
     const result = sanitizeDocumentHtml('<a href="javascript:alert(1)">x</a>');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.violations[0]?.message).toBe(
-        'Link target "javascript:alert(1)" is not allowed; use https, http, mailto, tel or a {{placeholder}}',
+        'Link target "javascript:alert(1)" is not allowed; use https, http, mailto, tel, a relative path or a {{placeholder}}',
       );
     }
   });

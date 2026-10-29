@@ -11,6 +11,7 @@ import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   documentExtensions,
   isAllowedDocumentLinkHref,
+  isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
@@ -101,7 +102,7 @@ function scanAnchor(element: ScanElement, out: DocumentViolation[]): void {
       violation(
         "disallowed_link_href",
         href,
-        `Link target "${href}" is not allowed; use https, http, mailto, tel or a {{placeholder}}`,
+        `Link target "${href}" is not allowed; use https, http, mailto, tel, a relative path or a {{placeholder}}`,
       ),
     );
   }
@@ -197,7 +198,7 @@ function scanUrlAttributes(tag: string, element: ScanElement, out: DocumentViola
           `Images must reference an uploaded resource via data-resource; image source "${value}" is not allowed`,
         ),
       );
-    } else if (tag === "base" || !isAllowedDocumentLinkHref(value)) {
+    } else if (tag === "base" || !isAllowedDocumentUrlHref(value)) {
       out.push(
         violation(
           "disallowed_link_href",

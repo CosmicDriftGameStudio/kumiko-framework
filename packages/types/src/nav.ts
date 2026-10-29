@@ -121,6 +121,9 @@ export type ContentCollectionDefinition = {
   readonly variableSchema?: Readonly<Record<string, string>>;
   readonly nav: {
     readonly label: string;
+    // Singular i18n key for one entry ("Snippet"): `label` is the plural node name, so the
+    // create screen cannot derive "New Snippet" from it. Unset falls back to a neutral title.
+    readonly entryLabel?: string;
     readonly icon?: NavIconKey;
     readonly parent?: string;
     readonly order?: number;

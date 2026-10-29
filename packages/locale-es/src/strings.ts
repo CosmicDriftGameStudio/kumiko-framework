@@ -1018,11 +1018,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El contenido incluye elementos no permitidos: {detail}",
   "managed-pages:body.lossy.warning":
     "Esta página se escribió en Markdown. Al convertirla al editor se pierden: {features}. Revisa el resultado antes de guardar.",
-  "managed-pages:body.lossy.image": "imágenes",
+  "managed-pages:body.lossy.image": "imágenes externas",
   "managed-pages:body.lossy.blockquote": "citas",
   "managed-pages:body.lossy.code": "código",
   "managed-pages:body.lossy.deepHeading": "títulos por debajo del nivel 3",
-  "managed-pages:body.lossy.relativeLink": "enlaces relativos",
   "managed-pages:branding.section.custom-css": "CSS personalizado",
   "managed-pages:branding.section.identity": "Identidad",
   "managed-pages:confirms.page-delete": "¿Seguro que quieres eliminar esta página?",
@@ -1291,7 +1290,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.invalidImageAlt":
     "El texto alternativo no debe contener < ni >.",
   "template-resolver.documentEditor.invalidLink":
-    "Este destino de enlace no está permitido. Usa https, http, mailto, tel o un marcador.",
+    "Este destino de enlace no está permitido. Usa https, http, mailto, tel, una ruta relativa o un marcador.",
   "template-resolver.documentEditor.invalidResourceKey": "Esta clave de recurso no es válida.",
   "template-resolver.documentEditor.link": "Enlace",
   "template-resolver.documentEditor.linkHref": "Destino del enlace",
@@ -1344,7 +1343,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "El destino del botón «{detail}» debe ser un marcador.",
   "templateResolver.errors.document.disallowedLinkHref":
-    "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel o un marcador.",
+    "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel, una ruta relativa o un marcador.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

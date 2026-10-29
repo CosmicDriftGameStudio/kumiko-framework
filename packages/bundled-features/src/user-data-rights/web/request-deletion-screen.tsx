@@ -77,24 +77,26 @@ export function RequestAccountDeletionScreen({
           <p className="text-sm text-muted-foreground">
             {t("userDataRights.deletion.request.intro")}
           </p>
-          <Form onSubmit={onSubmit}>
-            <Field id="delete-email" label={t("userDataRights.deletion.request.email")} required>
-              <Input
-                kind="text"
-                id="delete-email"
-                name="delete-email"
-                value={email}
-                onChange={setEmail}
-                disabled={submitting}
-                required
-              />
-            </Field>
-            {error !== null && <Banner variant="error">{error}</Banner>}
-            <Button type="submit" loading={submitting} disabled={submitting}>
-              {submitting
-                ? t("userDataRights.deletion.request.submitting")
-                : t("userDataRights.deletion.request.submit")}
-            </Button>
+          <Form chromeless onSubmit={onSubmit}>
+            <div className="flex flex-col gap-4">
+              <Field id="delete-email" label={t("userDataRights.deletion.request.email")} required>
+                <Input
+                  kind="text"
+                  id="delete-email"
+                  name="delete-email"
+                  value={email}
+                  onChange={setEmail}
+                  disabled={submitting}
+                  required
+                />
+              </Field>
+              {error !== null && <Banner variant="error">{error}</Banner>}
+              <Button type="submit" loading={submitting} disabled={submitting}>
+                {submitting
+                  ? t("userDataRights.deletion.request.submitting")
+                  : t("userDataRights.deletion.request.submit")}
+              </Button>
+            </div>
           </Form>
         </div>
       )}

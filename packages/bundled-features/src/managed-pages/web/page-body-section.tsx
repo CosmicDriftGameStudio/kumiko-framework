@@ -14,7 +14,6 @@ const LOSSY_LABEL_KEYS: Readonly<Record<LossyMarkdownFeature, string>> = {
   blockquote: "managed-pages:body.lossy.blockquote",
   code: "managed-pages:body.lossy.code",
   deepHeading: "managed-pages:body.lossy.deepHeading",
-  relativeLink: "managed-pages:body.lossy.relativeLink",
 };
 
 const BODY_EDITOR_ID = "managed-pages-page-body";

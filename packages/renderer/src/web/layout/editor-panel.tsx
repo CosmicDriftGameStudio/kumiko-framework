@@ -90,7 +90,9 @@ export function EditorPanel({ resolvers }: EditorPanelProps): ReactNode {
   }, [nav]);
 
   return (
-    <div data-kumiko-layout="editor-main" className="flex-1 overflow-y-auto">
+    // h-full min-h-0: `main` is not a flex container, so `flex-1` here would leave this wrapper
+    // content-sized and a FormScreenLayout editor (h-full) could not pin its footer to the viewport.
+    <div data-kumiko-layout="editor-main" className="h-full min-h-0 overflow-y-auto">
       {target === undefined ? (
         <EditorEmptyState />
       ) : (

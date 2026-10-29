@@ -18,11 +18,12 @@ test("TenantAdmin edits the Markdown about page and the public page serves the n
   const form = page.getByTestId("render-edit-form");
   await expect(form).toBeVisible();
 
-  // The seeded body links to a relative path, which the editor cannot keep.
-  await expect(form.getByText(/relative links/)).toBeVisible();
+  // The seeded body only uses a relative link, which the conversion keeps, so no lossy warning shows.
+  await expect(form.getByText(/Converting it to the editor drops/)).toHaveCount(0);
 
   const editor = form.locator('[contenteditable="true"]').first();
   await expect(editor).toBeVisible();
+  await expect(editor.locator('a[href="/legal/privacy"]')).toHaveText("privacy policy");
   await expect(editor).toContainText("We build calm software");
   await editor.click();
   await page.keyboard.press("Control+End");

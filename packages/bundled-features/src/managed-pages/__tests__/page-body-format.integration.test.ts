@@ -423,3 +423,91 @@ describe("managed-pages :: pages written before bodyFormat existed", () => {
     expect(bySlug.bodyFormat).toBe("markdown");
   });
 });
+
+describe("managed-pages :: unsafe document markup never reaches the public page", () => {
+  test.each([
+    ["a script element", "<p>ok</p><script>alert(1)</script>"],
+    ["an inline event handler", '<p onclick="steal()">ok</p>'],
+    ["a javascript link", '<p><a href="javascript:steal()">x</a></p>'],
+    ["a protocol-relative link", '<p><a href="//evil.example/x">x</a></p>'],
+  ])("%s is rejected at write time and nothing is served", async (_name, body) => {
+    const slug = `unsafe-${_name.replaceAll(" ", "-")}`;
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug, lang: "en", title: "Unsafe", body, bodyFormat: "document", published: true },
+      adminA,
+    );
+    expectErrorIncludes(error, BODY_REJECTED_I18N_KEY);
+    expect((await publicHtml(slug)).status).toBe(404);
+  });
+
+  test("a relative link survives into the rendered page, also on the cached second request", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "rel-link",
+        lang: "en",
+        title: "Rel",
+        body: '<p>See the <a href="/impressum">imprint</a></p>',
+        bodyFormat: "document",
+        published: true,
+      },
+      adminA,
+    );
+    const first = await publicHtml("rel-link");
+    const second = await publicHtml("rel-link");
+    expect(first.html).toContain('<a href="/impressum">imprint</a>');
+    expect(second.html).toBe(first.html);
+  });
+
+  test("constructs the document model drops never appear, on the miss or the cached hit", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "dropped-constructs",
+        lang: "en",
+        title: "Dropped",
+        body: '<style>body{display:none}</style><div style="color:red" class="x"><span data-foo="1">kept text</span> <a href="/contact">contact</a></div>',
+        bodyFormat: "document",
+        published: true,
+      },
+      adminA,
+    );
+    const first = await publicHtml("dropped-constructs");
+    const second = await publicHtml("dropped-constructs");
+    expect(first.status).toBe(200);
+    expect(second.html).toBe(first.html);
+    for (const page of [first.html, second.html]) {
+      const html = page.slice(page.indexOf("<main data-tenant-content>"), page.indexOf("</main>"));
+      expect(html).toContain("kept text");
+      expect(html).toContain('href="/contact"');
+      expect(html).not.toMatch(/<style|display:none|style="|class="x"|data-foo/);
+    }
+  });
+
+  test("an update is rendered, not the cached previous version", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "cache-bump",
+        lang: "en",
+        title: "Bump",
+        body: "<p>first body</p>",
+        bodyFormat: "document",
+        published: true,
+      },
+      adminA,
+    );
+    expect((await publicHtml("cache-bump")).html).toContain("first body");
+    const row = await pageBySlug("cache-bump");
+    if (row === null) throw new Error("page missing");
+    await stack.http.writeOk(
+      "managed-pages:write:page:update",
+      { id: row.id, version: row.version, changes: { body: "<p>second body</p>" } },
+      adminA,
+    );
+    const { html } = await publicHtml("cache-bump");
+    expect(html).toContain("second body");
+    expect(html).not.toContain("first body");
+  });
+});

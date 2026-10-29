@@ -22,7 +22,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.documentEditor.insertPlaceholder": "Placeholder",
     "template-resolver.documentEditor.invalidImageAlt": "The alt text must not contain < or >.",
     "template-resolver.documentEditor.invalidLink":
-      "This link target is not allowed. Use https, http, mailto, tel or a placeholder.",
+      "This link target is not allowed. Use https, http, mailto, tel, a relative path or a placeholder.",
     "template-resolver.documentEditor.invalidResourceKey": "This resource key is not valid.",
     "template-resolver.documentEditor.link": "Link",
     "template-resolver.documentEditor.linkHref": "Link target",
@@ -64,7 +64,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.document.buttonHrefNotPlaceholder":
       "The button target “{detail}” must be a placeholder.",
     "templateResolver.errors.document.disallowedLinkHref":
-      "Link target “{detail}” is not allowed; use https, http, mailto, tel or a placeholder.",
+      "Link target “{detail}” is not allowed; use https, http, mailto, tel, a relative path or a placeholder.",
     "templateResolver.errors.document.documentRequiresHtmlFormat":
       "This template kind requires the html format, got “{detail}”.",
     "templateResolver.errors.document.layoutRequiresMjmlFormat":

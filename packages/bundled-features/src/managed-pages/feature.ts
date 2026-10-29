@@ -263,7 +263,15 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
         const html = wrapLayout({
           title: data.title,
-          bodyHtml: renderPageBody({ slug, body: data.body, bodyFormat: data.bodyFormat }),
+          bodyHtml: renderPageBody({
+            tenantId,
+            slug,
+            lang,
+            version: data.version,
+            updatedAt: data.updatedAt,
+            body: data.body,
+            bodyFormat: data.bodyFormat,
+          }),
           lang: data.lang,
           slug,
           description: data.description,

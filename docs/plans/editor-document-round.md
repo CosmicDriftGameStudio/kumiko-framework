@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-10-27
-next: Runde in einem PR auf main mergen (fw-next-Lane, ohne Release); danach Consumer lokal bumpen (solon reply-composer, managed-pages in publicstatus, money-horse, show-pony), Release erst wenn alle Apps grün sind.
+next: PR #4090 auf main mergen (fw-next-Lane, ohne Release); danach Consumer lokal bumpen (solon reply-composer, managed-pages in publicstatus, money-horse, show-pony), Release erst wenn alle Apps grün sind.
 ---
 
 # Editor-Runde: nur noch `plain` und `document`, managed-pages im Document-Editor
@@ -70,3 +70,12 @@ In dieser Runde nicht angefasst, nur im Changeset beschrieben:
 | show-pony | managed-pages gemountet | wie publicstatus |
 | kumiko-enterprise, offlot-app, phronexsis, studio, platform | laut Grep vom 2026-10-27 nichts betroffen | nur Bump |
 | alle | Collections mit `contentFormat: "rich"`/`"markdown"` | `bun kumiko-upgrade --apply` (Codemod) |
+
+## Nachträge aus der Abnahme
+
+1. **Relative Links.** `isAllowedDocumentLinkHref` erlaubt zusätzlich `/pfad`, `./`, `../`, `#` und `?` (nicht `//`, nie mit Backslash); die Markdown-Umwandlung behält sie, die Lossy-Warnung nennt nur noch externe Bilder.
+2. **request-deletion.** Das Formular im Karten-Screen ist `chromeless`, es gibt genau eine Karte.
+3. **Sticky Speicherleiste.** Ursache: der Wrapper des `EditorPanel` war `flex-1` in einem Nicht-Flex-`main`, also inhaltshoch, sodass `h-full` des FormScreenLayout nie die Viewport-Höhe sah. Der Wrapper ist jetzt `h-full min-h-0`.
+4. **Titel beim Anlegen.** `nav.entryLabel` (Singular-Key) an der Collection-Deklaration; ohne ihn steht der neutrale Titel „Neuer Eintrag“ da.
+5. **Render-Cache.** `renderPageBody` hält einen LRU-Cache (500 Einträge) je Mandant, Slug, Sprache, Version und Format; saniert wird nur beim Miss.
+6. **Consumer.** Apps mit eigener Collection setzen `nav.entryLabel` und liefern den Singular-Key in ihren Übersetzungen mit.

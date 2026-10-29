@@ -32,8 +32,6 @@ describe("detectLossyMarkdown", () => {
     ["an indented code block", "    indented", "code"],
     ["inline code", "use `npm`", "code"],
     ["a level 4 heading", "#### Deep", "deepHeading"],
-    ["a relative link", "[privacy](/legal/privacy)", "relativeLink"],
-    ["a javascript link", "[x](javascript:alert(1))", "relativeLink"],
   ];
 
   test.each(cases)("%s is reported", (_name, markdown, expected) => {
@@ -45,8 +43,8 @@ describe("detectLossyMarkdown", () => {
   });
 
   test("features inside lists and quotes are found", () => {
-    const found = detectLossyMarkdown("- item with [rel](/x) and `code`\n\n> - nested ![i](a.png)");
-    expect(found).toEqual(expect.arrayContaining(["image", "blockquote", "code", "relativeLink"]));
+    const found = detectLossyMarkdown("- item with `code`\n\n> - nested ![i](a.png)");
+    expect(found).toEqual(["image", "blockquote", "code"]);
   });
 
   test("each feature is reported once, in a stable order", () => {
@@ -71,8 +69,14 @@ describe("markdownToDocumentHtml", () => {
 });
 
 describe("markdownToDocumentHtml drops what the sanitizer would reject", () => {
-  test("a relative link keeps its text without the link", () => {
-    expect(markdownToDocumentHtml("[Contact](/contact)")).toBe("<p>Contact</p>\n");
+  test("a relative link stays a link", () => {
+    expect(markdownToDocumentHtml("[Contact](/contact)")).toBe(
+      '<p><a href="/contact">Contact</a></p>\n',
+    );
+  });
+
+  test("a javascript link keeps its text without the link", () => {
+    expect(markdownToDocumentHtml("[x](javascript:alert(1))")).toBe("<p>x</p>\n");
   });
 
   test("an allowed link stays a link", () => {

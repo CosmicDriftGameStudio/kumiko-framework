@@ -1020,11 +1020,10 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Il contenuto include elementi non consentiti: {detail}",
   "managed-pages:body.lossy.warning":
     "Questa pagina è stata scritta in Markdown. La conversione nell'editor elimina: {features}. Controlla il risultato prima di salvare.",
-  "managed-pages:body.lossy.image": "immagini",
+  "managed-pages:body.lossy.image": "immagini esterne",
   "managed-pages:body.lossy.blockquote": "citazioni",
   "managed-pages:body.lossy.code": "codice",
   "managed-pages:body.lossy.deepHeading": "titoli oltre il livello 3",
-  "managed-pages:body.lossy.relativeLink": "link relativi",
   "managed-pages:branding.section.custom-css": "CSS personalizzato",
   "managed-pages:branding.section.identity": "Identità",
   "managed-pages:confirms.page-delete": "Eliminare questa pagina?",
@@ -1293,7 +1292,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.invalidImageAlt":
     "Il testo alternativo non deve contenere < né >.",
   "template-resolver.documentEditor.invalidLink":
-    "Questa destinazione del link non è consentita. Usa https, http, mailto, tel o un segnaposto.",
+    "Questa destinazione del link non è consentita. Usa https, http, mailto, tel, un percorso relativo o un segnaposto.",
   "template-resolver.documentEditor.invalidResourceKey": "Questa chiave di risorsa non è valida.",
   "template-resolver.documentEditor.link": "Link",
   "template-resolver.documentEditor.linkHref": "Destinazione del link",
@@ -1347,7 +1346,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":
-    "La destinazione del link «{detail}» non è consentita; usa https, http, mailto, tel o un segnaposto.",
+    "La destinazione del link «{detail}» non è consentita; usa https, http, mailto, tel, un percorso relativo o un segnaposto.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Questo tipo di modello richiede il formato html, ma è stato fornito «{detail}».",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":
