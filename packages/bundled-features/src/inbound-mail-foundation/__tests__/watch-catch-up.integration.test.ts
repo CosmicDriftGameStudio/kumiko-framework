@@ -11,7 +11,10 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createDistributedLock,
+  type DistributedLock,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -122,7 +125,9 @@ async function connectProbeAccount(tenantNumber: number): Promise<string> {
   return accountId;
 }
 
-function createSupervisor(lock?: DistributedLock) {
+function createSupervisor(
+  lock: DistributedLock = createDistributedLock(stack.redis.redis, "test-watch-lease:"),
+) {
   return createInboundMailSupervisor({
     providerCtx: { registry: stack.registry },
     db,
@@ -133,7 +138,7 @@ function createSupervisor(lock?: DistributedLock) {
         createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
       ),
     pollIntervalMs: 60 * 60 * 1000,
-    ...(lock && { lock }),
+    lock,
   });
 }
 

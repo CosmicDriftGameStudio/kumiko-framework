@@ -25,6 +25,7 @@ import {
   asRawClient,
   createTenantDb,
   type DbConnection,
+  insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -43,6 +44,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -54,7 +56,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
-import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
@@ -377,6 +379,52 @@ describe("ingest-message — concurrent thread-rollup race", () => {
       // messageCount succeed without ever surfacing as a version conflict.
       expect(threadRows[0]?.["messageCount"]).toBe(CONCURRENCY);
     }
+  });
+});
+
+describe("ingest-message — concurrent ingests of the same message", () => {
+  test("two simultaneous ingests of one providerMessageId store one message and one anchor, both succeed", async () => {
+    const admin = adminFor(4031);
+    const accountId = await connectSharedAccount(admin);
+    const providerMessageId = "same-uid-race";
+
+    const responses = await Promise.all(
+      [0, 1].map(() =>
+        stack.http.write(
+          InboundMailFoundationHandlers.ingestMessage,
+          ingestPayload(accountId, { providerMessageId, messageIdHeader: "same@example.com" }),
+          admin,
+        ),
+      ),
+    );
+
+    const bodies = await Promise.all(
+      responses.map(async (res) => {
+        expect(res.status).toBe(200);
+        return (await res.json()) as { isSuccess: boolean; data: { duplicate: boolean } };
+      }),
+    );
+    for (const body of bodies) expect(body.isSuccess).toBe(true);
+    expect(bodies.filter((body) => body.data.duplicate)).toHaveLength(1);
+
+    expect(await selectMany(db, inboundMessagesProjectionTable, { accountId })).toHaveLength(1);
+    expect(await selectMany(db, seenMessageTable, { accountId, providerMessageId })).toHaveLength(
+      1,
+    );
+  });
+
+  test("the database refuses a second anchor for the same account and message", async () => {
+    const admin = adminFor(4032);
+    const accountId = await connectSharedAccount(admin);
+    const anchor = {
+      tenantId: admin.tenantId,
+      accountId,
+      providerMessageId: "anchor-twice",
+      seenAt: Temporal.Now.instant().toString(),
+    };
+    await insertOne(db, seenMessageTable, anchor);
+
+    await expect(insertOne(db, seenMessageTable, anchor)).rejects.toThrow(/duplicate key/);
   });
 });
 

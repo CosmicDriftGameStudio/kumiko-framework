@@ -11,6 +11,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -149,6 +150,7 @@ async function connectProbeAccount(tenantNumber: number): Promise<string> {
 
 function createSupervisor(providerCtx: InboundMailContext = { registry: stack.registry }) {
   return createInboundMailSupervisor({
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     providerCtx,
     db,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>

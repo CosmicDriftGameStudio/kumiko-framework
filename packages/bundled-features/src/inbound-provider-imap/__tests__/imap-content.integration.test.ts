@@ -16,6 +16,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -206,6 +207,7 @@ async function storeCredential(admin: Admin, accountId: string): Promise<void> {
 
 function createSupervisor(maxMessagesPerPoll?: number) {
   return createInboundMailSupervisor({
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     ...(maxMessagesPerPoll === undefined ? {} : { maxMessagesPerPoll }),
     providerCtx: { registry: stack.registry, secrets },
     db: stack.unscopedDb,

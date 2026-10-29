@@ -21,6 +21,7 @@ import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { createE2eSeedRoutes } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { isSeedModeEnabled } from "@cosmicdrift/kumiko-framework/event-store";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import type * as z from "zod";
 import { devAppOptions } from "../src/app/dev-app-options";
 import { INBOUND_MAIL_E2E_ROUTE, inboundMailScriptSchema } from "./_helpers/inbound-mail-script";
@@ -65,6 +66,7 @@ await runDevApp({
       providerCtx: { registry: deps.registry },
       db: deps.db,
       dispatchWrite: deps.dispatchSystemWrite,
+      lock: createDistributedLock(deps.redis, "kumiko:lock:inbound-mail:watch:"),
     });
   },
 });

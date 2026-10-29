@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-29T14:00:57.582Z",
+  "generatedAt": "2026-10-29T23:39:23.780Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -4545,6 +4545,11 @@
         {
           "name": "store_mail_seen_messages_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_mail_seen_messages_account_id_provider_message_id_unique",
+          "columns": ["account_id", "provider_message_id"],
+          "unique": true
         }
       ],
       "source": "unmanaged"

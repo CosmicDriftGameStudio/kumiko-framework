@@ -22,6 +22,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -174,6 +175,7 @@ async function sendTestMail(subject: string, text: string): Promise<void> {
 
 function createSupervisor() {
   return createInboundMailSupervisor({
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     providerCtx: {
       registry: stack.registry,
       secrets,

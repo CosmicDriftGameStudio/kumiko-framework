@@ -42,6 +42,7 @@ import {
   createPrometheusMeter,
 } from "@cosmicdrift/kumiko-framework/observability";
 import {
+  createDistributedLock,
   createEventConsumerStateTable,
   createProjectionStateTable,
   getConsumerState,
@@ -325,6 +326,7 @@ describe("runWorkerApp", () => {
           )?.reveal();
 
           const supervisor = createInboundMailSupervisor({
+            lock: createDistributedLock(deps.redis, "test-watch-lease:"),
             providerCtx,
             db: deps.db,
             dispatchWrite: ({ handlerQn, payload, tenantId }) =>

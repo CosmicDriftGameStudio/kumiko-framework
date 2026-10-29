@@ -142,6 +142,7 @@ async function connectSharedAccount(admin: ReturnType<typeof adminFor>): Promise
 
 function createSupervisor() {
   return createInboundMailSupervisor({
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     providerCtx: { registry: stack.registry },
     db: stack.unscopedDb,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
@@ -211,6 +212,7 @@ describe("watch-supervisor — undecryptable account", () => {
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-1" }));
     const lines: string[] = [];
     const supervisor = createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
       providerCtx: { registry: stack.registry },
       db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
@@ -254,6 +256,7 @@ describe("watch-supervisor — undecryptable account", () => {
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-2" }));
     const lines: string[] = [];
     const supervisor = createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
       providerCtx: { registry: stack.registry },
       db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
@@ -434,6 +437,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     const accountId = await connectSharedAccount(admin);
     let ingestCalls = 0;
     const supervisor = createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
       providerCtx: { registry: stack.registry },
       db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) => {
@@ -482,6 +486,7 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     const accountId = await connectSharedAccount(admin);
     const stored: string[] = [];
     const supervisor = createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
       providerCtx: { registry: stack.registry },
       db: stack.unscopedDb,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>
