@@ -136,7 +136,7 @@ describe("rebindFileRef", () => {
       users.uploadEditor,
     );
     expect(notWritable.code).toBe("access_denied");
-    expect(notWritable.message).toContain("is not writable");
+    expect(notWritable.message).toContain("contact.doc of");
 
     const notReadable = await stack.http.writeErr(
       REBIND,
