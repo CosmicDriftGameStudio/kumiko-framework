@@ -176,6 +176,8 @@ export type EmbeddedListCellViewModel = {
   readonly display?: "radio" | "dropdown";
   /** Cell is shown but not editable (`EditFieldSpec.embeddedList.readOnlyCells`). */
   readonly readOnly?: boolean;
+  /** Not shown on phone cards (`EditFieldSpec.embeddedList.cardHiddenCells`). */
+  readonly hiddenInCard?: boolean;
   /** Only for `type: "reference"`. */
   readonly refEntity?: string;
   readonly refFeature?: string;

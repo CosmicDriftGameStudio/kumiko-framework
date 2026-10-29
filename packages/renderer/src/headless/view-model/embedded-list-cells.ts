@@ -80,5 +80,6 @@ export function buildEmbeddedListCell(
     ...(subField.type === "decimal" && subField.scale !== undefined && { scale: subField.scale }),
     ...fileHints(subField),
     ...(ctx.listSpec?.readOnlyCells?.includes(subFieldName) === true && { readOnly: true }),
+    ...(ctx.listSpec?.cardHiddenCells?.includes(subFieldName) === true && { hiddenInCard: true }),
   };
 }

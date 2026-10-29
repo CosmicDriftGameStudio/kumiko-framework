@@ -270,7 +270,11 @@ export const examplesFeature = defineFeature("examples", (r) => {
             "measuringDevice",
             {
               field: "checkpoints",
-              embeddedList: { readOnlyCells: ["label", "kind", "min", "max"], fixedRows: true },
+              embeddedList: {
+                readOnlyCells: ["label", "kind", "min", "max"],
+                cardHiddenCells: ["kind"],
+                fixedRows: true,
+              },
             },
           ],
         },

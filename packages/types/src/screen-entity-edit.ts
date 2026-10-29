@@ -97,6 +97,9 @@ export type FieldFillAction = {
 export type EmbeddedListEditSpec = {
   /** Sub-fields shown as read-only cells; every other cell stays editable. */
   readonly readOnlyCells?: readonly string[];
+  /** Sub-fields that only steer a row (e.g. the kind that decides which controls
+   *  appear) and are not shown on phone cards; the desktop table still shows them. */
+  readonly cardHiddenCells?: readonly string[];
   /** `true` keeps the rows as they are: no add, remove, duplicate, move or
    *  paste-appended rows. Cells stay editable (unless in `readOnlyCells`). */
   readonly fixedRows?: boolean;
