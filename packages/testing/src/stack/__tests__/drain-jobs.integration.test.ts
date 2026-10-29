@@ -42,6 +42,33 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     access: { roles: [SYSTEM_ROLE] },
   });
 
+  const filler = r.defineEvent("filler", z.object({ index: z.number() }), {
+    piiFields: "none",
+  });
+
+  r.writeHandler({
+    name: "emit-backlog",
+    schema: z.object({ value: z.string(), fillerCount: z.number() }),
+    handler: async (event, ctx) => {
+      for (let index = 0; index < event.payload.fillerCount; index++) {
+        await ctx.events.unsafeAppend({
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "draintestchain",
+          type: filler.name,
+          payload: { index },
+        });
+      }
+      await ctx.events.unsafeAppend({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "draintestchain",
+        type: relayed.name,
+        payload: { value: event.payload.value },
+      });
+      return { isSuccess: true as const, data: {} };
+    },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+
   r.job(
     "job-a",
     { trigger: { on: "draintestchain:write:start" }, retries: 0 },
@@ -120,6 +147,30 @@ describe("stack.drainJobs() waits for a job's async event-trigger cascade", () =
     await stack.drainJobs();
 
     expect(chainResults).toEqual([{ value: "race" }]);
+  });
+});
+
+describe("stack.drainJobs() under row-level security", () => {
+  // The event high-water mark is read across tenants. Read through the enforced
+  // pool it was 0, so every consumer counted as caught up and the drain stopped
+  // after two dispatcher batches.
+  test("a backlog longer than two dispatcher batches is drained before drainJobs() resolves", async () => {
+    chainResults.length = 0;
+    stack = await setupTestStack({
+      features: [chainFeature],
+      jobs: { consumerLane: "worker" },
+      rowLevelSecurity: "on",
+    });
+    await stack.eventDispatcher?.stop();
+
+    await stack.http.writeOk(
+      "draintestchain:write:emit-backlog",
+      { value: "behind-the-backlog", fillerCount: 450 },
+      TestUsers.admin,
+    );
+    await stack.drainJobs();
+
+    expect(chainResults).toEqual([{ value: "behind-the-backlog" }]);
   });
 });
 

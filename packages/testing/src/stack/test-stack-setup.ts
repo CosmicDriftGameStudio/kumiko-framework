@@ -623,12 +623,13 @@ function assembleTestStack(
       sessionCreator: options.authConfig.sessionCreator,
     }),
   });
+  // Test code and the drain see every tenant's rows; the services keep the enforced pool.
+  const crossTenantDb = testCodeDb(options, testDb.db);
   return {
     app: server.app,
     jwt: server.jwt,
     registry: services.registry,
-    // Test code sees every tenant's rows; the services keep the enforced pool.
-    db: testCodeDb(options, testDb.db),
+    db: crossTenantDb,
     unscopedDb: testDb.db,
     dbPoolMax: testDb.poolMax,
     redis: testRedis,
@@ -643,7 +644,8 @@ function assembleTestStack(
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
     ...(jobRunner ? { jobRunner } : {}),
-    drainJobs: () => drainJobs({ db: testDb.db, eventDispatcher, jobRunner }, jobFailureTracker),
+    drainJobs: () =>
+      drainJobs({ db: crossTenantDb, eventDispatcher, jobRunner }, jobFailureTracker),
     cleanup: async () => {
       if (jobRunner) await jobRunner.stop();
       if (eventDispatcher) await eventDispatcher.stop();
