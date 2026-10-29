@@ -1,4 +1,4 @@
-// A money field whose record value is not 0: typing 0 must reach the handler as a deliberate 0.
+// A handler must tell a deliberately typed 0 from an untouched money field, which stays out of the payload.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -23,6 +23,46 @@ const correctForm: ActionFormScreenDefinition = {
   layout: { sections: [{ fields: [{ field: "id", visible: false }, "note", "total", "fee"] }] },
   load: { query: "billing:query:invoice:detail" },
 };
+
+// Prefilled only through URL params (params.map), no load query: amounts have no string form,
+// so a blank amount must mean "unchanged" to the handler.
+const correctFromParamsForm: ActionFormScreenDefinition = {
+  ...correctForm,
+  id: "correct-from-params",
+  load: undefined,
+  // buildAppSchema derives this from the params.map of the actions that open the form.
+  urlPrefillFields: ["id", "note"],
+};
+
+function renderParamsForm(searchParams: Record<string, string>): unknown[] {
+  const writes: unknown[] = [];
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: (async (_type: string, payload: unknown) => {
+      writes.push(payload);
+      return { isSuccess: true, data: {} };
+    }) as unknown as Dispatcher["write"],
+  });
+  render(
+    <DispatcherProvider dispatcher={dispatcher}>
+      <NavProvider
+        value={{
+          route: { screenId: "billing:screen:correct-from-params" },
+          navigate: () => {},
+          replace: () => {},
+          hrefFor: () => "",
+          searchParams,
+          setSearchParams: () => {},
+        }}
+      >
+        <KumikoScreen
+          schema={{ featureName: "billing", entities: {}, screens: [correctFromParamsForm] }}
+          qn="billing:screen:correct-from-params"
+        />
+      </NavProvider>
+    </DispatcherProvider>,
+  );
+  return writes;
+}
 
 function renderForm(record: Record<string, unknown>): unknown[] {
   const writes: unknown[] = [];
@@ -98,5 +138,18 @@ describe("actionForm money 0", () => {
     await user.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(writes).toHaveLength(1));
     expect((writes[0] as Record<string, unknown>)["total"]).toBeUndefined();
+  });
+
+  test("a form prefilled only through URL params leaves untouched amounts out", async () => {
+    const writes = renderParamsForm({ id: "i1", note: "n" });
+    await waitFor(() => expect(input("note").value).toBe("n"));
+    const user = userEvent.setup();
+    await user.type(input("note"), "x");
+    await user.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    const payload = writes[0] as Record<string, unknown>;
+    expect(payload["note"]).toBe("nx");
+    expect(payload["total"]).toBeUndefined();
+    expect(payload["fee"]).toBeUndefined();
   });
 });

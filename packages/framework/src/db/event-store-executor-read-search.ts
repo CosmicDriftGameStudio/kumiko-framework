@@ -16,7 +16,9 @@ import { hasSearchablePlaintext, isSensitiveLabelField } from "./entity-field-en
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { bindPlaceholders, type ListWhere } from "./event-store-executor-read-filter.ts";
+import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
@@ -71,6 +73,27 @@ function collectReferenceSearchDescriptors(
   return descriptors;
 }
 
+// The target of a reference is gated like a direct read of it (access rule, parent-ref and
+// readGate): a label of a row the viewer cannot open must not be findable by searching or
+// readable by ordering.
+export function referenceTargetOwnership(
+  targetEntity: EntityDefinition,
+  targetTable: Table,
+  targetTableName: string,
+  user: SessionUser,
+  db: TenantDb,
+  parentVisibility: ParentVisibilityOption | undefined,
+): OwnershipClause {
+  return resolveReadOwnership(
+    { entity: targetEntity, table: targetTable },
+    targetTableName,
+    user,
+    db,
+    parentVisibility,
+    { includeDeleted: false, narrowTypes: undefined },
+  );
+}
+
 // Matches the main list's own default: soft-deleted rows are invisible, so a
 // deleted target must neither match a search nor influence an ordering.
 export function isSoftDeletedTargetHidden(
@@ -92,6 +115,7 @@ async function resolveReferenceMatchesViaIlike(
   targetTableName: string,
   user: SessionUser,
   db: TenantDb,
+  parentVisibility: ParentVisibilityOption | undefined,
 ): Promise<ReferenceMatch | undefined> {
   // The label must not leak through match counts: a viewer who cannot read the
   // target row or its label field would otherwise probe names by searching.
@@ -101,7 +125,14 @@ async function resolveReferenceMatchesViaIlike(
     targetTable,
   );
   if (labelAccess.kind !== "pass") return undefined;
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  const ownership = referenceTargetOwnership(
+    targetEntity,
+    targetTable,
+    targetTableName,
+    user,
+    db,
+    parentVisibility,
+  );
   if (ownership.kind === "empty") return undefined;
 
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
@@ -148,6 +179,7 @@ async function resolveReferenceMatchesViaSearchIndex(
   user: SessionUser,
   db: TenantDb,
   searchAdapter: SearchAdapter,
+  parentVisibility: ParentVisibilityOption | undefined,
 ): Promise<ReferenceMatch | undefined> {
   const searchTenantId = targetEntity.systemStream ? SYSTEM_TENANT_ID : user.tenantId;
   const results = await searchAdapter.search(searchTenantId, searchTerm, {
@@ -159,7 +191,14 @@ async function resolveReferenceMatchesViaSearchIndex(
     return undefined;
   }
 
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  const ownership = referenceTargetOwnership(
+    targetEntity,
+    targetTable,
+    targetTableName,
+    user,
+    db,
+    parentVisibility,
+  );
   if (ownership.kind === "empty") return undefined;
 
   const candidateIds = results.map((r) => String(r.entityId));
@@ -202,6 +241,7 @@ async function resolveReferenceMatches(
   user: SessionUser,
   searchAdapter: SearchAdapter,
   resolveTable: ((entityName: string) => Table) | undefined,
+  parentVisibility: ParentVisibilityOption | undefined,
 ): Promise<ReferenceMatch | undefined> {
   const targetEntity = resolveEntity(descriptor.targetEntityName);
   if (targetEntity === undefined) {
@@ -230,6 +270,7 @@ async function resolveReferenceMatches(
       targetTableName,
       user,
       db,
+      parentVisibility,
     );
   }
   if (!hasSearchablePlaintext(targetEntity, descriptor.labelField)) {
@@ -246,6 +287,7 @@ async function resolveReferenceMatches(
     user,
     db,
     searchAdapter,
+    parentVisibility,
   );
 }
 
@@ -267,6 +309,7 @@ export type ListSearchRequest = {
   readonly entityName: string;
   readonly table: Table;
   readonly referenceSearch: ReferenceSearchOption;
+  readonly parentVisibility: ParentVisibilityOption | undefined;
   readonly fieldReadClause: (field: string) => OwnershipClause;
   readonly streamTenantFor: (user: SessionUser) => TenantId;
   readonly user: SessionUser;
@@ -347,6 +390,7 @@ async function resolveSearchableReferenceMatches(
         request.user,
         searchAdapter,
         referenceSearch.resolveTable,
+        request.parentVisibility,
       ),
     ),
   );

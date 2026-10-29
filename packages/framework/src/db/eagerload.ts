@@ -39,10 +39,10 @@ import {
   decryptEntityFieldValues,
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
-import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";

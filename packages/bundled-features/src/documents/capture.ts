@@ -12,6 +12,8 @@ import type { DocumentExecutors } from "./executor.ts";
 
 // Files saved into `entity.field` become documents of `category`, linked to the saved record
 // itself (when it is a link target) and to `links(row)`.
+// `links()` derives targets from the saved row, whose reference values the save handler has
+// already checked, so its output is trusted app config and needs no write check of its own.
 export type DocumentCaptureRule = {
   readonly entity: string;
   readonly field: string;
@@ -53,6 +55,7 @@ async function captureFile(
 
   const targets: LinkTarget[] = [
     { entityType: rule.entity, entityId: saved.id },
+    // Trusted: derived from the saved row, see DocumentCaptureRule.links.
     ...(rule.links?.(saved.data) ?? []),
   ].filter((target) => linkTargets.includes(target.entityType));
   for (const target of targets) {

@@ -13,8 +13,8 @@ import type { Table } from "./event-store-executor-context.ts";
 import { bindPlaceholders, bindShiftedClause } from "./event-store-executor-read-filter.ts";
 import { isSoftDeletedTargetHidden } from "./event-store-executor-read-search.ts";
 import { buildReferenceSortExpr } from "./event-store-executor-read-sort.ts";
-import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { physicalColumnName } from "./table-builder.ts";
 import { extractTableInfo } from "./table-info.ts";
 import { schemaTableName } from "./table-introspection.ts";
@@ -190,6 +190,7 @@ function relatedSelect(
     readonly runtime: DerivedSqlRuntime;
     readonly db: TenantDb;
     readonly user: SessionUser;
+    readonly parentVisibility: ParentVisibilityOption | undefined;
     readonly currency?: boolean;
   },
 ): ((params: unknown[]) => string) | undefined {
@@ -211,5 +212,6 @@ function relatedSelect(
     input.db,
     input.user,
     input.runtime.resolveTable,
+    input.parentVisibility,
   );
 }

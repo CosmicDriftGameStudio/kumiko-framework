@@ -28,9 +28,12 @@ import { createDocumentExecutors } from "./executor.ts";
 import { createImportDocumentHandler } from "./handlers/import.write.ts";
 import { createLinkDocumentHandler, createUnlinkDocumentHandler } from "./handlers/link.write.ts";
 import { DOCUMENTS_FEATURE_I18N } from "./i18n.ts";
+import { rejectForeignPendingFile } from "./pending-file-guard.ts";
 import { createExpiryOverviewQuery } from "./queries/expiry-overview.query.ts";
 import { createForRecordQuery, createForTypeQuery } from "./queries/for-record.query.ts";
+import { createOverviewQuery } from "./queries/overview.query.ts";
 import { createDocumentListScreen } from "./screens.ts";
+import { createDocumentWriteGuard } from "./write-guard.ts";
 
 export type DocumentsFeatureOptions = {
   /** Allowed document categories; they become the options of the category field. */
@@ -76,8 +79,9 @@ function registerDocuments(
   const executors = createDocumentExecutors(documentEntity, linkEntity);
 
   r.requires({ features: ["files"] });
+  r.adoptsBundledLists();
   r.describe(
-    "Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations; users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, and add the documents tab to a record screen with documentsTab().",
+    "Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations; users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, list them with an expiry state and an expiring filter with overview (the documents list screen), and add the documents tab to a record screen with documentsTab().",
   );
   r.uiHints({ displayLabel: "Documents", category: "data", recommended: false });
 
@@ -91,6 +95,7 @@ function registerDocuments(
         "Files a new document from an uploaded file; it stays invisible to everyone but the admin roles until it is linked to a record.",
     }),
   );
+  const writeGuard = createDocumentWriteGuard(executors, opts.adminRoles ?? DEFAULT_ADMIN_ROLES);
   r.writeHandler(
     defineEntityUpdateHandler(DOCUMENT_ENTITY, documentEntity, {
       access,
@@ -106,6 +111,10 @@ function registerDocuments(
       agent: { risk: "high" },
     }),
   );
+  r.hook({ type: "preSave", target: "document:create", handler: rejectForeignPendingFile });
+  r.hook({ type: "preSave", target: "document:update", handler: rejectForeignPendingFile });
+  r.hook({ type: "preSave", target: "document:update", handler: writeGuard.beforeUpdate });
+  r.hook({ type: "preDelete", target: "document:delete", handler: writeGuard.beforeDelete });
   r.writeHandler(createLinkDocumentHandler({ access, executors, linkTargets }));
   r.writeHandler(createUnlinkDocumentHandler({ access, executors, linkTargets }));
   r.writeHandler(
@@ -136,15 +145,15 @@ function registerDocuments(
   for (const entityType of linkTargets) {
     r.queryHandler(createForTypeQuery(access, linkTargets, entityType));
   }
-  r.queryHandler(
-    createExpiryOverviewQuery(access, opts.expiringWithinDays ?? DEFAULT_EXPIRING_WITHIN_DAYS),
-  );
+  const expiringWithinDays = opts.expiringWithinDays ?? DEFAULT_EXPIRING_WITHIN_DAYS;
+  r.queryHandler(createExpiryOverviewQuery(access, expiringWithinDays));
+  r.queryHandler(createOverviewQuery(access, expiringWithinDays));
 
   const capture = opts.capture ?? [];
   registerCapture(r, executors, capture, linkTargets);
   r.bootCheck((ctx) => validateCaptureRules(ctx, capture, opts.categories, linkTargets));
 
-  r.screen(createDocumentListScreen(access));
+  r.screen(createDocumentListScreen(access, opts.categories));
   r.translations({
     keys: { ...DOCUMENTS_FEATURE_I18N, ...categoryOptionLabels(opts.categories) },
   });

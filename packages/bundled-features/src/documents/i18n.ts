@@ -11,6 +11,15 @@ export const DOCUMENTS_FEATURE_I18N: Readonly<Record<string, LocalizedString>> =
   "documents:entity:document:field:issuedAt": { en: "Issued", de: "Ausgestellt" },
   "documents:entity:document:field:validUntil": { en: "Valid until", de: "Gültig bis" },
   "documents:entity:document:field:file": { en: "File", de: "Datei" },
+  "documents:list.facet.expiry": { en: "Expiry", de: "Ablauf" },
+  "documents:list.facet.expiring": {
+    en: "Expired or expiring soon",
+    de: "Abgelaufen oder bald ablaufend",
+  },
+  "documents:list.expiry.expired": { en: "Expired", de: "Abgelaufen" },
+  "documents:list.expiry.expiring": { en: "Expiring soon", de: "Läuft bald ab" },
+  "documents:list.expiry.valid": { en: "Valid", de: "Gültig" },
+  "documents:list.expiry.none": { en: "No expiry date", de: "Ohne Ablaufdatum" },
   "documents.errors.unknown-category": {
     en: "Unknown document category",
     de: "Unbekannte Dokumentenkategorie",

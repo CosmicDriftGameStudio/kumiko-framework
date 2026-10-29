@@ -24,6 +24,7 @@ const BUNDLED_ROOT = join(import.meta.dir, "../..");
 // A new factory that throws without options fails the test until it is listed here on purpose.
 const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "billing-foundation/createBillingFoundationFeature",
+  "documents/createDocumentsFeature",
   "personal-access-tokens/createPersonalAccessTokensFeature",
   "channel-email/createChannelEmailFeature",
   "channel-push/createChannelPushFeature",

@@ -24,7 +24,8 @@ import {
   resolveListSort,
   takeLastSortLabel,
 } from "./event-store-executor-read-sort.ts";
-import { buildListWhere, resolveReadOwnership } from "./event-store-executor-read-where.ts";
+import { buildListWhere } from "./event-store-executor-read-where.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
 
@@ -87,6 +88,7 @@ export function createReadVerbs(
         derivedSortExpr: derived?.sortExpr,
         db,
         user,
+        parentVisibility: runtimeOptions?.parentVisibility,
       });
       if (payload.cursor) appendCursorBoundary(where, payload.cursor, sort);
 

@@ -1,6 +1,5 @@
 import {
   buildOwnershipClause,
-  combineClauses,
   normalizeAccessEntry,
   type OwnershipClause,
 } from "../engine/ownership.ts";
@@ -16,8 +15,7 @@ import {
   type ListWhere,
 } from "./event-store-executor-read-filter.ts";
 import { applyListSearch } from "./event-store-executor-read-search.ts";
-import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
-import { buildReadGateClause } from "./read-gate-clause.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -28,35 +26,6 @@ export type ListWherePayload = Pick<
   "search" | "filter" | "filters"
 >;
 export type FieldReadClause = (field: string) => OwnershipClause;
-
-// H.2 — entity-level read ownership, AND-ed with the parent-ref read-gate
-// (join-row entities derive their visibility from a host row's own read path —
-// see db/parent-ref-clause.ts) and the declarative readGate (db/read-gate-clause.ts). `empty` means there's no row the user could ever see.
-export function resolveReadOwnership(
-  ctx: Pick<ExecutorContext, "entity" | "table">,
-  tableName: string,
-  user: SessionUser,
-  db: TenantDb,
-  parentVisibility: ParentVisibilityOption | undefined,
-  gate: { readonly includeDeleted: boolean; readonly narrowTypes: ReadonlySet<string> | undefined },
-): OwnershipClause {
-  const parentClause = buildParentRefClause(
-    ctx.entity,
-    ctx.table,
-    tableName,
-    user,
-    db,
-    parentVisibility,
-    gate,
-  );
-  return combineClauses(
-    combineClauses(
-      buildOwnershipClause(user, ctx.entity.access?.read, ctx.table, 1, tableName),
-      parentClause,
-    ),
-    buildReadGateClause(ctx.entity, ctx.table, tableName, user, db, parentVisibility),
-  );
-}
 
 // Replicates TenantDb's readWhere semantics for the raw list SQL.
 function appendTenantAndSoftDeleteScope(
@@ -151,6 +120,7 @@ export async function buildListWhere(
         entityName,
         table,
         referenceSearch: runtimeOptions?.referenceSearch,
+        parentVisibility: runtimeOptions?.parentVisibility,
         fieldReadClause,
         streamTenantFor,
         user,

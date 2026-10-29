@@ -22,7 +22,10 @@ export const DocumentsQueries = {
   detail: "documents:query:document:detail",
   forRecord: "documents:query:for-record",
   expiryOverview: "documents:query:expiry-overview",
+  overview: "documents:query:overview",
 } as const;
 
 export const EXPIRY_STATES = ["expired", "expiring", "valid", "none"] as const;
 export type ExpiryState = (typeof EXPIRY_STATES)[number];
+
+export const EXPIRING_FACET_VALUE = "expiring";

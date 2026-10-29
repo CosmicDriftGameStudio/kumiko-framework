@@ -1,5 +1,5 @@
 import type { EditRelatedListSection } from "@cosmicdrift/kumiko-framework/engine";
-import type { DashboardStatPanel } from "@cosmicdrift/kumiko-types/screen-dashboard";
+import type { DashboardStatPanel } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DocumentsQueries } from "./constants.ts";
 import { forTypeQueryQn } from "./queries/for-record.query.ts";
 

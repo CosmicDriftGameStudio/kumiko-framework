@@ -12,7 +12,11 @@
 
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
-import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  FILE_STORAGE_PROVIDER_ENV,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { BUNDLED_LISTS } from "../bundled-lists";
 import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES, VALIDATE_BOOT_OPTIONS } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
@@ -31,7 +35,12 @@ export const devAppOptions = {
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
   features: [...BOOT_FEATURES, appScreensFeature, notesFeature, invoiceReportsFeature],
   featureToggles: true,
-  validateBootOptions: VALIDATE_BOOT_OPTIONS,
+  // documents has a file field, so the boot gate wants a storage provider; the seeded
+  // file-foundation config selects the real one, so only the validation env names it.
+  validateBootOptions: {
+    ...VALIDATE_BOOT_OPTIONS,
+    env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory", ...process.env },
+  },
   bundledLists: BUNDLED_LISTS,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",

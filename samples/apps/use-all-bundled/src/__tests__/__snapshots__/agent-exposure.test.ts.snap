@@ -89,6 +89,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "documents:query:expiry-overview expose=true risk=low",
   "documents:query:for-folder expose=true risk=low",
   "documents:query:for-record expose=true risk=low",
+  "documents:query:overview expose=true risk=low",
   "documents:write:document:create expose=true risk=mid",
   "documents:write:document:delete expose=true risk=high",
   "documents:write:document:update expose=true risk=mid",

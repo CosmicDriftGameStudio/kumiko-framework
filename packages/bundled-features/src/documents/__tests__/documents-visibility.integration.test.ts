@@ -94,6 +94,21 @@ describe("documents visibility", () => {
     expect(titles(await visibleDocuments(stack, users.admin))).not.toContain("Memo");
   });
 
+  test("an open liveEntities query does not make a file owner readable: only its detail query counts", async () => {
+    const file = await uploadFile(stack, users.admin, "vault", "file");
+    await stack.http.writeOk(
+      "doc-fixtures:write:vault:create",
+      { name: "V", propertyId, file },
+      users.admin,
+    );
+
+    expect(
+      titles(await documentsOf(stack, users.propertyReader, "property", propertyId)),
+    ).not.toContain("Vault");
+    expect(titles(await visibleDocuments(stack, users.propertyReader))).not.toContain("Vault");
+    expect(titles(await visibleDocuments(stack, users.admin))).toContain("Vault");
+  });
+
   test("deleting the owner record removes its document from every list", async () => {
     const leaseId = await seedLease(stack, propertyId, { name: "L3" });
     expect(titles(await visibleDocuments(stack, users.leaseReader))).toContain("Lease L3");

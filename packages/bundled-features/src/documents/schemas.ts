@@ -52,6 +52,13 @@ export const forRecordPayloadSchema = z.object({
 });
 export type ForRecordPayload = z.infer<typeof forRecordPayloadSchema>;
 
+export const overviewPayloadSchema = forRecordPayloadSchema.omit({
+  entityType: true,
+  entityId: true,
+  filter: true,
+});
+export type OverviewPayload = z.infer<typeof overviewPayloadSchema>;
+
 export const expiryOverviewPayloadSchema = z.object({
   entityType: z.string().min(1).max(64).optional(),
   entityId: z.string().min(1).max(128).optional(),

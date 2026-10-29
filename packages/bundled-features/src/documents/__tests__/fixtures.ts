@@ -9,6 +9,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  defineQueryHandler,
   SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -74,12 +75,20 @@ export const memoEntity = createEntity({
   access: { read: { MemoReader: "all", TenantAdmin: "all" } },
 });
 
+// Its detail query is TenantAdmin-only, while an open query names it in liveEntities: only the
+// detail query decides who may open a vault record, and with it the documents it owns.
+export const vaultEntity = createEntity({
+  table: "doc_t_vaults",
+  fields: { name: text(64), propertyId: text(64), file: createFileField() },
+});
+
 const PDF = new TextEncoder().encode("%PDF-1.4 fixture");
 
 export const hostFeature = defineFeature("doc-fixtures", (r) => {
   r.entity({ name: "property", ...propertyEntity });
   r.entity({ name: "lease", ...leaseEntity });
   r.entity({ name: "memo", ...memoEntity });
+  r.entity({ name: "vault", ...vaultEntity });
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["lease", leaseEntity],
@@ -89,6 +98,20 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
     r.queryHandler(defineEntityDetailHandler(name, entity, { access: openToAll }));
   }
   r.writeHandler(defineEntityCreateHandler("memo", memoEntity, { access: openToAll }));
+  r.writeHandler(defineEntityCreateHandler("vault", vaultEntity, { access: openToAll }));
+  r.queryHandler(
+    defineEntityDetailHandler("vault", vaultEntity, { access: { roles: ["TenantAdmin"] } }),
+  );
+  r.queryHandler(
+    defineQueryHandler({
+      name: "vault-signal",
+      schema: z.object({}),
+      access: openToAll,
+      liveEntities: ["vault"],
+      description: "Test query that names the vault entity in liveEntities without reading it.",
+      handler: async () => ({}),
+    }),
+  );
   r.writeHandler(
     defineEntityUpdateHandler("property", propertyEntity, {
       access: { roles: ["PropertyEditor", "TenantAdmin"] },
@@ -202,6 +225,13 @@ export const documentsFeature = createDocumentsFeature({
       links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
     },
     { entity: "lease", field: "secret", category: "id", title: () => "Secret" },
+    {
+      entity: "vault",
+      field: "file",
+      category: "contract",
+      title: () => "Vault",
+      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+    },
     {
       entity: "memo",
       field: "file",

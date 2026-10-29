@@ -14,6 +14,7 @@ import {
 } from "./fixtures.ts";
 
 const LINKS = "documents:query:document-link:list";
+const FIRST_VERSION = 1;
 
 let stack: TestStack;
 let propertyId: string;
@@ -48,6 +49,52 @@ async function linkRows(documentId: string) {
   );
   return page.rows;
 }
+
+describe("update and delete", () => {
+  test("need write access to a linked host; admin roles may also change unlinked documents", async () => {
+    const doc = await fileDirectlyUploadedDocument("Warranty");
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: doc.id, entityType: "property", entityId: propertyId },
+      users.admin,
+    );
+    const changes = { id: doc.id, version: FIRST_VERSION, changes: { title: "Warranty 2" } };
+
+    // reads the host, cannot edit it
+    // a throwing preSave hook surfaces as 422, a throwing preDelete hook as the error itself
+    const refusedUpdate = await stack.http.writeErr(
+      "documents:write:document:update",
+      changes,
+      users.propertyReader,
+    );
+    expect(refusedUpdate.httpStatus).toBe(422);
+    const refusedDelete = await stack.http.writeErr(
+      "documents:write:document:delete",
+      { id: doc.id, version: FIRST_VERSION },
+      users.propertyReader,
+    );
+    expect(refusedDelete.httpStatus).toBe(404);
+    expect(
+      (await documentsOf(stack, users.propertyReader, "property", propertyId)).rows.map(
+        (row) => row.title,
+      ),
+    ).toContain("Warranty");
+
+    await stack.http.writeOk("documents:write:document:update", changes, users.editor);
+    await stack.http.writeOk(
+      "documents:write:document:delete",
+      { id: doc.id, version: FIRST_VERSION + 1 },
+      users.editor,
+    );
+
+    const unlinked = await fileDirectlyUploadedDocument("Unlinked");
+    await stack.http.writeOk(
+      "documents:write:document:update",
+      { id: unlinked.id, version: FIRST_VERSION, changes: { title: "Unlinked 2" } },
+      users.admin,
+    );
+  });
+});
 
 describe("link and unlink", () => {
   test("need write access to the target; a foreign file id cannot be set", async () => {
@@ -94,16 +141,37 @@ describe("link and unlink", () => {
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(400);
     expect((await visibleDocuments(stack, users.admin)).total).toBe(before);
+  });
+});
 
-    // somebody else's pending upload is not pulled into the document: nothing binds it, so the
-    // document stays invisible to everyone, its uploader included
-    const pending = await uploadFile(stack, users.admin, "document", "file");
-    await stack.http.writeOk(
+describe("a colleague's pending upload", () => {
+  test("cannot be filed as a document, so the uploader's own save and capture still work", async () => {
+    const pending = await uploadFile(stack, users.admin, "lease", "file");
+    const before = (await visibleDocuments(stack, users.admin)).total;
+    const err = await stack.http.writeErr(
       "documents:write:document:create",
-      { title: "Pending", category: "id", file: pending },
+      { title: "Squatted", category: "id", file: pending },
       users.propertyReader,
     );
+    expect(err.httpStatus).toBe(422);
     expect((await visibleDocuments(stack, users.admin)).total).toBe(before);
+
+    await stack.http.writeOk(
+      "doc-fixtures:write:lease:create",
+      { name: "Mine", propertyId, file: pending },
+      users.admin,
+    );
+    const captured = await visibleDocuments(stack, users.admin, {
+      filters: [{ field: "title", op: "eq", value: "Lease Mine" }],
+    });
+    expect(captured.rows).toHaveLength(1);
+
+    const own = await uploadFile(stack, users.admin, "document", "file");
+    await stack.http.writeOk(
+      "documents:write:document:create",
+      { title: "Own", category: "id", file: own },
+      users.admin,
+    );
   });
 });
 

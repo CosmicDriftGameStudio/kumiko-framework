@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
-import { collectEntityReadAccess } from "../api/entity-read-access.ts";
+import { collectEntityDetailAccess, collectEntityReadAccess } from "../api/entity-read-access.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
@@ -18,6 +18,17 @@ import type { HandlerContext, Registry, SessionUser } from "./types/index.ts";
 
 // The rules only change with the registry, so they are collected once, not per request.
 const readAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, readonly AccessRule[]>>();
+
+const detailAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, AccessRule>>();
+
+function detailAccessOf(registry: Registry): ReadonlyMap<string, AccessRule> {
+  let rules = detailAccessByRegistry.get(registry);
+  if (rules === undefined) {
+    rules = collectEntityDetailAccess(registry);
+    detailAccessByRegistry.set(registry, rules);
+  }
+  return rules;
+}
 
 function readAccessOf(registry: Registry): ReadonlyMap<string, readonly AccessRule[]> {
   let rules = readAccessByRegistry.get(registry);
@@ -44,10 +55,13 @@ export function parentVisibilityFor(
   ctx: HandlerContext,
   user: SessionUser,
 ): ParentVisibilityOption {
-  const readRules = readAccessOf(ctx.registry);
+  const detailRules = detailAccessOf(ctx.registry);
   return {
     entities: ctx.registry.getAllEntities(),
-    canReadEntity: (name) => (readRules.get(name) ?? []).some((rule) => hasAccess(user, rule)),
+    canReadEntity: (name) => {
+      const rule = detailRules.get(name);
+      return rule !== undefined && hasAccess(user, rule);
+    },
     resolveTable: (name) => {
       const entity = ctx.registry.getEntity(name);
       if (entity === undefined) throw new Error(`parentVisibility: unknown entity "${name}"`);

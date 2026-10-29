@@ -1,4 +1,5 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { expiryWindow } from "../expiry.ts";
 import { expiryOverviewPayloadSchema } from "../schemas.ts";
 import { linkedDocumentIds, listDocuments } from "./list-page.ts";
 
@@ -16,8 +17,7 @@ export function createExpiryOverviewQuery(access: AccessRule, expiringWithinDays
       "Counts the documents the caller can read by validity: expired, expiring within the configured window, valid beyond it and without an expiry date; optionally for one record only.",
     handler: async (query, ctx) => {
       const payload = query.payload;
-      const today = ctx.tz.today(ctx.tz.tenant);
-      const horizon = today.add({ days: expiringWithinDays });
+      const { today, horizon } = expiryWindow(ctx, expiringWithinDays);
       const scope: Filter[] = [];
       if (payload.entityType !== undefined && payload.entityId !== undefined) {
         const ids = await linkedDocumentIds(ctx, {
@@ -33,12 +33,12 @@ export function createExpiryOverviewQuery(access: AccessRule, expiringWithinDays
 
       const [all, expired, expiring, valid] = await Promise.all([
         count([]),
-        count([{ field: "validUntil", op: "lt", value: today.toString() }]),
+        count([{ field: "validUntil", op: "lt", value: today }]),
         count([
-          { field: "validUntil", op: "gte", value: today.toString() },
-          { field: "validUntil", op: "lte", value: horizon.toString() },
+          { field: "validUntil", op: "gte", value: today },
+          { field: "validUntil", op: "lte", value: horizon },
         ]),
-        count([{ field: "validUntil", op: "gt", value: horizon.toString() }]),
+        count([{ field: "validUntil", op: "gt", value: horizon }]),
       ]);
       return { expired, expiring, valid, none: all - expired - expiring - valid };
     },

@@ -46,8 +46,8 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
 import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
-import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
+import { resolveReadOwnership } from "./read-ownership.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";

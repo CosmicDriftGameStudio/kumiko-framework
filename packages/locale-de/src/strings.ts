@@ -2359,6 +2359,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documents:entity:document:field:validUntil": "Gültig bis",
   "documents:entity:document:field:file": "Datei",
   "documents.errors.unknown-category": "Unbekannte Dokumentenkategorie",
+  "documents:list.facet.expiry": "Ablauf",
+  "documents:list.facet.expiring": "Abgelaufen oder bald ablaufend",
+  "documents:list.expiry.expired": "Abgelaufen",
+  "documents:list.expiry.expiring": "Läuft bald ab",
+  "documents:list.expiry.valid": "Gültig",
+  "documents:list.expiry.none": "Ohne Ablaufdatum",
   "documents.errors.unknown-link-target":
     "Diesem Datensatztyp lassen sich keine Dokumente zuordnen",
   "documents:entity:document:field:category:option:contract": "contract",
