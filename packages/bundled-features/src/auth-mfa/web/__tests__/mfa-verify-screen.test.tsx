@@ -85,7 +85,11 @@ describe("MfaVerifyScreen", () => {
     });
     const input = screen.getByLabelText(/^Code/);
     expect(input).toHaveProperty("value", "");
-    expect(document.activeElement).toBe(input);
+    // useFocusOnMount focuses in a passive effect, which can run after the
+    // banner commit that ended the waitFor above.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+    });
   });
 
   test("the sixth digit triggers exactly one submit, non-digits are discarded", async () => {
