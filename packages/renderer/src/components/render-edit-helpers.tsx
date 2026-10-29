@@ -122,8 +122,8 @@ export function wizardStepKey(section: EditSectionViewModel, index: number): str
   return declaredId ?? section.title ?? `step-${index}`;
 }
 
-function isMoneyValue(value: unknown): value is { readonly amount: unknown } {
-  return typeof value === "object" && value !== null && "amount" in value;
+function isMoneyValue(value: unknown): value is { readonly amount?: unknown } {
+  return typeof value === "object" && value !== null && ("amount" in value || "currency" in value);
 }
 
 // The seeds buildInitialValues writes for NULL columns of an existing record.
@@ -132,7 +132,7 @@ function isEmptyFormValue(value: unknown): boolean {
     return true;
   }
   if (Array.isArray(value)) return value.length === 0;
-  return isMoneyValue(value) && value.amount === 0;
+  return isMoneyValue(value) && (value.amount === 0 || value.amount === undefined);
 }
 
 // select/boolean are excluded from the "holds user data" check: they are

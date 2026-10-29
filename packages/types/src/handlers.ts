@@ -353,10 +353,17 @@ export type QueryEvent<TPayload = unknown> = {
 
 // --- Handler Results ---
 
+import type { LifecycleResult } from "./hooks.ts";
 import type { WriteFailure } from "./write-error-info-types.ts";
 
 export type WriteResult<TData = unknown> =
-  | { readonly isSuccess: true; readonly data: TData }
+  | {
+      readonly isSuccess: true;
+      readonly data: TData;
+      /** The executor result behind a handler that answers with its own `data`. Hooks and
+       *  projections run on it; the dispatcher removes it from what leaves the pipeline. */
+      readonly lifecycle?: LifecycleResult;
+    }
   | WriteFailure;
 
 // --- Context Types ---

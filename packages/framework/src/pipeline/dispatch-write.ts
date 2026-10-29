@@ -769,7 +769,7 @@ async function runWriteLifecycle(
     await runLifecycle(
       ctx,
       args.type,
-      args.result.data,
+      args.result.lifecycle ?? args.result.data,
       args.handlerContext,
       args.user,
       args.origin,
@@ -881,5 +881,6 @@ async function executeWriteInner(
   // data / previous / changes). Feature code that fed a plaintext through
   // to the return payload fails here instead of hitting the client.
   assertNoSecretLeak(result.data);
+  assertNoSecretLeak(result.lifecycle);
   return result;
 }

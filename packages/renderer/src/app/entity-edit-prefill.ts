@@ -17,6 +17,13 @@ export function versionOf(record: Readonly<Record<string, unknown>>): number {
   return typeof version === "number" ? version : 1;
 }
 
+// An untouched amount carries only its currency (the input needs it for display), so a typed 0
+// stays distinguishable from the seed; required-ness is enforced on the typed amount, and the
+// submit drops a currency-only value.
+function moneySeed(currency: string): { currency: string } {
+  return { currency };
+}
+
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
   defaultCurrency?: string,
@@ -42,7 +49,7 @@ export function buildInitialValues(
     if (type === "money") {
       const currency = moneyCurrencyOverrides?.[name] ?? defaultCurrency;
       if (currency !== undefined) {
-        out[name] = { amount: 0, currency };
+        out[name] = moneySeed(currency);
         continue;
       }
     }

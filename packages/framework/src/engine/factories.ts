@@ -564,6 +564,8 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   readonly access?: EntityDefinition["access"];
   /** Join-row carrier reference — see EntityDefinition.parentRef. */
   readonly parentRef?: EntityDefinition["parentRef"];
+  /** See EntityDefinition.readGate. */
+  readonly readGate?: EntityDefinition["readGate"];
   readonly retention?: RetentionDef;
   readonly derivedFields?: EntityDefinition["derivedFields"];
   readonly tenancy?: T;

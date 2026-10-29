@@ -277,9 +277,10 @@ async function runBatchBody(
       const deletes: DeleteContext[] = [];
       for (const r of results) {
         if (!r.isSuccess) continue;
-        if (!isLifecycleResult(r.data)) continue;
-        if (r.data.kind === "save") saves.push(r.data);
-        else if (r.data.kind === "delete") deletes.push(r.data);
+        const lifecycleResult = r.lifecycle ?? r.data;
+        if (!isLifecycleResult(lifecycleResult)) continue;
+        if (lifecycleResult.kind === "save") saves.push(lifecycleResult);
+        else if (lifecycleResult.kind === "delete") deletes.push(lifecycleResult);
       }
       // skip: nothing to flush when there are no lifecycle hooks or no successful save/delete
       if (!lifecycle || (saves.length === 0 && deletes.length === 0)) return;

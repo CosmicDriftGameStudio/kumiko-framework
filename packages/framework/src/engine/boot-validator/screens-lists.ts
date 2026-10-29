@@ -160,6 +160,16 @@ function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): vo
   );
 }
 
+function assertReadOnlyHasNoRowInteraction(args: RelatedListSectionValidation): void {
+  const { section } = args;
+  const interactive = section.rowClick !== undefined || (section.rowActions?.length ?? 0) > 0;
+  if (section.readOnly === true && interactive) {
+    throw new Error(
+      `[Feature ${args.featureName}] ${args.where} is readOnly but declares rowClick/rowActions. Remove readOnly or the row interaction.`,
+    );
+  }
+}
+
 export function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
@@ -167,6 +177,7 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
       `[Feature ${featureName}] ${where} has empty or non-string query. Set query to a registered query name.`,
     );
   }
+  assertReadOnlyHasNoRowInteraction(args);
   if (section.entity !== undefined) {
     assertRefTargetRegistered(
       `[Feature ${featureName}] ${where}`,

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { cleanGitEnv, runGit } from "../../_git-test-helpers";
+import { envWithoutGitOverrides, GIT_LOCATION_ENV } from "../_spawn";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -17,16 +18,6 @@ function tempDir(prefix: string): string {
   return dir;
 }
 
-function commitCount(dir: string): number {
-  // Read with a cleaned env too: a hostile ambient GIT_DIR would otherwise make
-  // `git -C <dir>` report the victim's count instead of <dir>'s.
-  const result = spawnSync("git", ["-C", dir, "rev-list", "--count", "HEAD"], {
-    env: cleanGitEnv(),
-    encoding: "utf-8",
-  });
-  return Number.parseInt(result.stdout.trim(), 10);
-}
-
 function initRepoWithBaseCommit(dir: string): void {
   runGit(["init", "-b", "main"], dir);
   runGit(["config", "user.email", "base@base"], dir);
@@ -34,48 +25,52 @@ function initRepoWithBaseCommit(dir: string): void {
   runGit(["commit", "--allow-empty", "-m", "base"], dir);
 }
 
+// The hostile location lives only in the child's OS environment; mutating process.env here would
+// leak into whatever test shares this process under --no-isolate.
+function runChildWithHostileEnv(victim: string): {
+  victimBefore: number;
+  victimAfter: number;
+  workCommits: number;
+  status: string;
+} {
+  const hostile: Record<string, string> = {};
+  for (const key of GIT_LOCATION_ENV) hostile[key] = join(victim, ".git");
+  hostile["GIT_WORK_TREE"] = victim;
+  const result = spawnSync(
+    process.execPath,
+    [join(import.meta.dir, "git-env-isolation.child.ts"), victim],
+    { env: { ...process.env, ...hostile }, encoding: "utf-8" },
+  );
+  if (result.status !== 0) throw new Error(`child failed: ${result.stderr}`);
+  return JSON.parse(result.stdout.trim().split("\n").at(-1) ?? "");
+}
+
 describe("git env isolation", () => {
-  test("runGit cannot be redirected by a hostile inherited GIT_DIR", () => {
+  test("neither runGit nor the productive run() can be redirected by an inherited git location", () => {
     const victim = tempDir("kumiko-victim-");
     initRepoWithBaseCommit(victim);
-    const victimBaseline = commitCount(victim);
 
-    const savedGitDir = process.env["GIT_DIR"];
-    const savedWorkTree = process.env["GIT_WORK_TREE"];
-    try {
-      // Simulate the pre-push hook env: git is pointed at the "real" repo.
-      process.env["GIT_DIR"] = join(victim, ".git");
-      process.env["GIT_WORK_TREE"] = victim;
+    const seen = runChildWithHostileEnv(victim);
 
-      const work = tempDir("kumiko-work-");
-      runGit(["init", "-b", "main"], work);
-      runGit(["config", "user.email", "test@test"], work);
-      runGit(["config", "user.name", "Test"], work);
-      runGit(["commit", "--allow-empty", "-m", "init"], work);
-
-      expect(commitCount(victim)).toBe(victimBaseline); // real repo untouched
-      expect(commitCount(work)).toBe(1); // write landed in the temp cwd
-    } finally {
-      if (savedGitDir === undefined) delete process.env["GIT_DIR"];
-      else process.env["GIT_DIR"] = savedGitDir;
-      if (savedWorkTree === undefined) delete process.env["GIT_WORK_TREE"];
-      else process.env["GIT_WORK_TREE"] = savedWorkTree;
-    }
+    expect(seen.victimAfter).toBe(seen.victimBefore); // real repo untouched
+    expect(seen.workCommits).toBe(1); // write landed in the temp cwd
+    expect(seen.status).toBe("?? file.txt"); // run() saw the temp repo, not the victim
   });
 
-  test("cleanGitEnv removes inherited git-location vars and pins config", () => {
-    const savedGitDir = process.env["GIT_DIR"];
-    try {
-      process.env["GIT_DIR"] = "/some/hostile/.git";
-      const env = cleanGitEnv();
-      expect(env["GIT_DIR"]).toBeUndefined();
-      expect(env["GIT_CONFIG_GLOBAL"]).toBe("/dev/null");
-      expect(env["GIT_CONFIG_SYSTEM"]).toBe("/dev/null");
-      // The real process.env is left untouched.
-      expect(process.env["GIT_DIR"]).toBe("/some/hostile/.git");
-    } finally {
-      if (savedGitDir === undefined) delete process.env["GIT_DIR"];
-      else process.env["GIT_DIR"] = savedGitDir;
-    }
+  test("cleanGitEnv removes every git-location var and pins config, leaving the input alone", () => {
+    const input: Record<string, string> = { KEEP: "1" };
+    for (const key of GIT_LOCATION_ENV) input[key] = "/some/hostile/.git";
+    const env = cleanGitEnv(input);
+    for (const key of GIT_LOCATION_ENV) expect(env[key]).toBeUndefined();
+    expect(env["KEEP"]).toBe("1");
+    expect(env["GIT_CONFIG_GLOBAL"]).toBe("/dev/null");
+    expect(env["GIT_CONFIG_SYSTEM"]).toBe("/dev/null");
+    expect(input["GIT_DIR"]).toBe("/some/hostile/.git");
+  });
+
+  test("envWithoutGitOverrides strips GIT_COMMON_DIR as well", () => {
+    const env = envWithoutGitOverrides({ GIT_COMMON_DIR: "/x/.git", PATH: "/bin" });
+    expect(env["GIT_COMMON_DIR"]).toBeUndefined();
+    expect(env["PATH"]).toBe("/bin");
   });
 });

@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-documents",
+  "description": "A document register on top of existing records: captured files, expiry dates and per-record visibility.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

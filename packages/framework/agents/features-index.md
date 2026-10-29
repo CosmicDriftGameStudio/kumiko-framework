@@ -62,6 +62,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer"`; requires `template-resolver`
 - `document-ingest-foundation`: Shared PDF/Scan/Image → normalized-text ingest primitive.
   `import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation"`; requires `config`, `tenant-lifecycle`
+- `documents`: Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to.
+  `import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents"`; requires `files`
 - `feature-toggles`: Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying.
   `import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles"`
 - `file-derivatives`: Declares the `derivativeRenderer` extension point.

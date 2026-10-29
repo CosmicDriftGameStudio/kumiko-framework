@@ -1,5 +1,8 @@
 import type { AggregateKey } from "@cosmicdrift/kumiko-types/aggregate-types";
-import type { ListRuntimeOptions } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type {
+  ListRuntimeOptions,
+  ParentVisibilityOption,
+} from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import { collectEntityReadAccess } from "../api/entity-read-access.ts";
@@ -35,6 +38,24 @@ function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefi
   return implicit?.table ?? buildEntityTable(entityName, entity);
 }
 
+// The join-row and read gates resolve hosts and file owners against the registry, which only
+// exists at request time; the handler check is the one live signals use too.
+export function parentVisibilityFor(
+  ctx: HandlerContext,
+  user: SessionUser,
+): ParentVisibilityOption {
+  const readRules = readAccessOf(ctx.registry);
+  return {
+    entities: ctx.registry.getAllEntities(),
+    canReadEntity: (name) => (readRules.get(name) ?? []).some((rule) => hasAccess(user, rule)),
+    resolveTable: (name) => {
+      const entity = ctx.registry.getEntity(name);
+      if (entity === undefined) throw new Error(`parentVisibility: unknown entity "${name}"`);
+      return readTableOf(ctx, name, entity);
+    },
+  };
+}
+
 // Registry access only exists at request time, so the searchable/sortable-reference
 // caches, the entity resolver and the join-row read gate travel through the
 // runtime-override extension point of the executor verbs.
@@ -47,7 +68,7 @@ export function entityListRuntime(
   readonly eagerLoadViewer: EagerLoadViewer;
   readonly resolveEntity: EagerLoadEntityResolver;
 } {
-  const parentVisibility = { entities: ctx.registry.getAllEntities() };
+  const parentVisibility = parentVisibilityFor(ctx, user);
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
   const resolveTable = (name: string) => {
     const entity = ctx.registry.getEntity(name);

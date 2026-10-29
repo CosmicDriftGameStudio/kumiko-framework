@@ -29,6 +29,7 @@
 | `delivery-notifications` | Delivery flows plus notifications. Package tracking, minus the tracking. | `examples/delivery-notifications.md` |
 | `derived-fields-sql` | SQL derived fields on a list: coalesce, related count with a where, related first (text and money), sortable columns and a defaultSort on a derived value. | `examples/derived-fields-sql.md` |
 | `designer-demo` | Kumiko sample feature — scaffolded by `bun kumiko create` | `examples/designer-demo.md` |
+| `documents` | A document register on top of existing records: captured files, expiry dates and per-record visibility. | `examples/documents.md` |
 | `e2e-generator` | generateE2ESpec + withBootValidatorFixture — Registry → JSON-Specs für externen Playwright-Worker. Zeigt die 4 Test-Kinds, Feldtyp→Interaktion-Mapping und welche Feldtypen heute noch nicht generisch unterstützt sind. | `examples/e2e-generator.md` |
 | `embedded` | Embedded fields on entities. Structured JSON without the JSON part. | `examples/embedded.md` |
 | `embedded-entity-form` | RenderEdit hosted in a Drawer, no screen or route — externally-sourced prefill, controlled mode, and a custom write handler instead of the built-in CRUD create. | `examples/embedded-entity-form.md` |

@@ -91,6 +91,16 @@ function valuesDiff<TValues extends FormValues>(
 // of being omitted — no validation error surfaces it, unlike the "" case.
 // Fixing that needs real per-field seed-tracking (which value was actually
 // user-set vs. defaulted), not just a wider strip predicate here.
+// The seed of an untouched optional money field (buildInitialValues); never a valid payload value.
+function isCurrencyOnlyMoney(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "currency" in value &&
+    !("amount" in value && value.amount !== undefined)
+  );
+}
+
 function stripUntouchedEmptyStrings<TValues extends FormValues>(
   values: TValues,
   initial: TValues,
@@ -102,7 +112,8 @@ function stripUntouchedEmptyStrings<TValues extends FormValues>(
   for (const key of Object.keys(v)) {
     // Value-based seed strip, except keys previously submitted as "" after a
     // real clear — those must survive post-rebase submits.
-    if (!forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "") {
+    const untouchedEmptyString = !forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "";
+    if (untouchedEmptyString || isCurrencyOnlyMoney(v[key])) {
       out ??= { ...v };
       delete out[key];
     }

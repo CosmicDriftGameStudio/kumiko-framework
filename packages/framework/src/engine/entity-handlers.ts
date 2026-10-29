@@ -35,7 +35,7 @@ import { InternalError } from "../errors/index.ts";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.ts";
-import { entityListRuntime } from "./entity-list-runtime-options.ts";
+import { entityListRuntime, parentVisibilityFor } from "./entity-list-runtime-options.ts";
 import { assertReason } from "./escape-hatch-reason.ts";
 import { dropEmptyWriteOnlyValues } from "./field-access.ts";
 import { instructionFieldNames } from "./instruction-fields.ts";
@@ -454,7 +454,7 @@ export function defineEntityWriteHandler(
         // they rely on to intentionally force a fresh event/ciphertext.
         return executor.update(payload, event.user, db, {
           streamTenantId,
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
+          parentVisibility: parentVisibilityFor(ctx, event.user),
           skipUnchanged: true,
           preSave:
             runPreSave &&
@@ -470,7 +470,7 @@ export function defineEntityWriteHandler(
         const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
         return executor.delete(payload, event.user, db, {
           streamTenantId,
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
+          parentVisibility: parentVisibilityFor(ctx, event.user),
         });
       };
       break;
@@ -482,7 +482,7 @@ export function defineEntityWriteHandler(
         const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
         return executor.restore(payload, event.user, db, {
           streamTenantId,
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
+          parentVisibility: parentVisibilityFor(ctx, event.user),
         });
       };
       break;
@@ -610,12 +610,12 @@ export function defineEntityQueryHandler(
       handler = async (query, ctx) => {
         const db = dbFor(ctx);
         const row = await executor.detail(query.payload as IdPayload, query.user, db, {
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
+          parentVisibility: parentVisibilityFor(ctx, query.user),
         }); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
         return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), db, {
           user: query.user,
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
+          parentVisibility: parentVisibilityFor(ctx, query.user),
         });
       };
       break;

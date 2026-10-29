@@ -61,7 +61,7 @@ async function typeText(testId: string, value: string): Promise<void> {
 }
 
 describe("actionForm money field currency source", () => {
-  test("untouched literal-declared money field submits { amount: 0, currency }, not a bare 0", async () => {
+  test("literal-declared money field submits { amount, currency } with the declared currency", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     render(
       <DispatcherProvider dispatcher={makeDispatcher(writeCalls)}>
@@ -73,8 +73,7 @@ describe("actionForm money field currency source", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
-    // `amount` is deliberately left untouched — touching `note` only makes the
-    // pristine-form submit button clickable.
+    await typeText("field-amount", "12.50");
     await typeText("field-note", "paid");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
@@ -83,7 +82,7 @@ describe("actionForm money field currency source", () => {
     if (call === undefined) throw new Error("expected one write call");
     expect(call.type).toBe("billing:write:invoice:pay");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 0,
+      amount: 12.5,
       currency: "CHF",
     });
   });
@@ -103,6 +102,7 @@ describe("actionForm money field currency source", () => {
       timeout: 3000,
     });
 
+    await typeText("field-amount", "7");
     await typeText("field-note", "paid");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
@@ -110,7 +110,7 @@ describe("actionForm money field currency source", () => {
     const call = writeCalls[0];
     if (call === undefined) throw new Error("expected one write call");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 0,
+      amount: 7,
       currency: "GBP",
     });
   });
@@ -211,7 +211,7 @@ describe("secretMint money field currency source", () => {
     },
   } as unknown as SecretMintScreenDefinition;
 
-  test("untouched literal money fields in the mint step and the confirm step both submit { amount: 0, currency }", async () => {
+  test("literal money fields in the mint step and the confirm step both submit { amount, currency }", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
       write: (async (type: string, payload: unknown) => {
@@ -231,6 +231,7 @@ describe("secretMint money field currency source", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await typeText("field-amount", "3");
     await typeText("field-note", "mint it");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
@@ -239,11 +240,12 @@ describe("secretMint money field currency source", () => {
     if (mintCall === undefined) throw new Error("expected a mint write call");
     expect(mintCall.type).toBe("billing:write:credit:mint");
     expect((mintCall.payload as { amount?: unknown }).amount).toEqual({
-      amount: 0,
+      amount: 3,
       currency: "CHF",
     });
 
     await waitFor(() => screen.getByTestId("kumiko-screen-secret-mint-reveal"));
+    await typeText("field-fee", "4.25");
     await typeText("field-code", "123456");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
 
@@ -252,7 +254,7 @@ describe("secretMint money field currency source", () => {
     if (confirmCall === undefined) throw new Error("expected a confirm write call");
     expect(confirmCall.type).toBe("billing:write:credit:confirm");
     expect((confirmCall.payload as { fee?: unknown }).fee).toEqual({
-      amount: 0,
+      amount: 4.25,
       currency: "GBP",
     });
   });

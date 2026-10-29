@@ -54,8 +54,10 @@ export function collectEntityRowReadMaps(registry: Registry): ReadonlyMap<string
   assertNoAggregateTypeKeyCollisions(registry);
   const mapsByEntity = new Map<string, OwnershipMap>();
   for (const [entityName, entity] of registry.getAllEntities()) {
-    const readMap = entity.access?.read;
-    if (readMap === undefined || Object.keys(readMap).length === 0) continue;
+    // A read gate narrows rows for every role, so no role reads every row: signals stay anonymous.
+    const readMap = entity.readGate !== undefined ? {} : entity.access?.read;
+    if (readMap === undefined) continue;
+    if (entity.readGate === undefined && Object.keys(readMap).length === 0) continue;
     for (const aggregateType of new Set([entityName, toKebab(entityName)])) {
       mapsByEntity.set(aggregateType, readMap);
     }

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 89,
+  "featureCount": 90,
   "features": [
     {
       "name": "account-security",
@@ -911,6 +911,34 @@
       "uiHints": {
         "displayLabel": "Document Ingest Foundation",
         "category": "storage",
+        "recommended": false
+      }
+    },
+    {
+      "name": "documents",
+      "description": "Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations; users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, and add the documents tab to a record screen with documentsTab().",
+      "toggleableDefault": null,
+      "requires": [
+        "files"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "documents:write:document:create",
+        "documents:write:document:delete",
+        "documents:write:document:update",
+        "documents:write:import",
+        "documents:write:link",
+        "documents:write:unlink"
+      ],
+      "uiHints": {
+        "displayLabel": "Documents",
+        "category": "data",
         "recommended": false
       }
     },

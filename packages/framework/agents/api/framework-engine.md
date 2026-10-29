@@ -33,7 +33,7 @@ function createDecimalField<R extends true | false = false>(config: { precision:
 function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef; // Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
 function createEmbeddedField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef;
 function createEmbeddedListField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef & { multiple: true; };
-function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
+function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
 function createEntityExecutor<E extends EntityDefinition>(entityName: string, entity: E): { table: EntityTable; executor: EventStoreExecutor<EntityRow<E>>; };
 function createFileField(overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FileFieldDef;
 function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FilesFieldDef;
@@ -120,6 +120,7 @@ function normalizeEditField(f: EditFieldSpec): Exclude<EditFieldSpec, string>;
 function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, string>;
 function pageRows<TRow extends Readonly<Record<TSortField, PagedListRowValue>> & { id: string; }, TSortField extends string>(rows: TRow[], request: PagedListRequest<TSortField>, options: { searchFields: TSortField[]; defaultSort: TSortField; }): CursorResult<TRow>;
 function pagedListSchema<const TSortField extends string>(sortableFields: [ TSortField, ...TSortField[] ]): …;
+function parentVisibilityFor(ctx: HandlerContext, user: SessionUser): ParentVisibilityOption;
 function parseChangesetChanges(markdown: string, source: string): PendingChange[]; // Parse structured upgrade metadata embedded in a Changeset body.
 function parseFeatureChangelog(raw: string, featureName: string): FeatureChangelog | null; // Parse a changes.json body.
 function parseQn(value: string): ParsedQn;
@@ -145,6 +146,7 @@ function tenantChannel(tenantId: TenantId): string;
 function toKebab(input: string): string;
 function typedPayload<TPayload>(event: { type: string; payload: Record<string, unknown>; }, eventDef: EventDef<TPayload>): TPayload;
 function unwrapWorkflowStepError(error: unknown): unknown;
+function userCanWriteFieldRow(user: SessionUser, accessMap: OwnershipMap | undefined, oldRow: Readonly<Record<string, unknown>>, newRow: Readonly<Record<string, unknown>>): boolean;
 function validateAppCustomScreenWriteQns(appRoot: string, knownQns: ReadonlySet<string>): void; // Boot-time scan of app `src/**` for `dispatcher.write("…")` string literals.
 function validateBoot(rawFeatures: FeatureDefinition[], options?: ValidateBootOptions): void; // Validates all feature configurations at boot time.
 function validateBundledListsOptions(options: unknown): void;
@@ -482,6 +484,7 @@ type EditRelatedListSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   kind: "relatedList";
   title: string;
+  readOnly?: boolean; // Rows are aggregates or other values with no record of their own, so they lead nowhere on purpose.
   query: string; // Fully qualified query QN.
   parentParam?: string; // Query-payload key the parent record's id is passed under.
   parentFilter?: {
@@ -533,6 +536,7 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
     write?: OwnershipMap;
   }; // Row-level ownership rules (H.2).
   parentRef?: ParentRefDef; // Join-row carrier reference.
+  readGate?: ReadGateDef; // Declarative read gate for rows readable only through other rows (a link to a visible host, a file whose owner is readable).
   retention?: RetentionDef; // Default retention policy for this entity.
   derivedFields?: DerivedFieldsMap; // Read-time computed fields, keyed by name.
   description?: string; // Optional free-text semantics for the AI agent manifest — see TextFieldDef.description.
@@ -1799,6 +1803,7 @@ type WriteResult<TData = unknown> =
   | {
     isSuccess: true;
     data: TData;
+    lifecycle?: LifecycleResult; // The executor result behind a handler that answers with its own `data`.
   }
   | WriteFailure
 ;

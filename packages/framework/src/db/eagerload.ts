@@ -27,12 +27,7 @@ import {
 } from "../crypto/index.ts";
 import { selectMany } from "../db/query.ts";
 import { filterReadFields } from "../engine/field-access.ts";
-import {
-  buildOwnershipClause,
-  combineClauses,
-  shiftParams,
-  tableNameOf,
-} from "../engine/ownership.ts";
+import { shiftParams, tableNameOf } from "../engine/ownership.ts";
 import { parseRefTargetEntityName } from "../engine/parse-ref-target.ts";
 import { isUuid, SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { ReferenceFieldDef, SessionUser } from "../engine/types/index.ts";
@@ -44,7 +39,8 @@ import {
   decryptEntityFieldValues,
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
-import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { resolveReadOwnership } from "./event-store-executor-read-where.ts";
+import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
@@ -144,19 +140,13 @@ async function resolveRefAccessScope(
   db: TenantDb,
   viewer: EagerLoadViewer,
 ): Promise<RefAccessScope> {
-  const access = combineClauses(
-    buildOwnershipClause(viewer.user, refEntity.access?.read, refTable),
-    buildParentRefClause(
-      refEntity,
-      refTable,
-      refTableName,
-      viewer.user,
-      db,
-      viewer.parentVisibility,
-      {
-        includeDeleted: false,
-      },
-    ),
+  const access = resolveReadOwnership(
+    { entity: refEntity, table: refTable },
+    refTableName,
+    viewer.user,
+    db,
+    viewer.parentVisibility,
+    { includeDeleted: false, narrowTypes: undefined },
   );
   if (access.kind === "empty") return { kind: "none" };
   if (access.kind === "pass") return { kind: "unrestricted" };

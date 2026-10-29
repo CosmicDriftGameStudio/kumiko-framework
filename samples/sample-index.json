@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 46,
+  "featureCount": 47,
   "features": {
     "account-security": {
       "samples": [
@@ -185,6 +185,16 @@
       "sampleBlurb": "Declarative r.notification() after CRUD — fans out to InApp, email, and push with per-channel templates and delivery-log assertions.",
       "screenshot": "/screenshots/features/delivery-log.png"
     },
+    "documents": {
+      "samples": [
+        "recipes-documents"
+      ],
+      "hasVisualOutput": true,
+      "primarySample": "recipes-documents",
+      "whenToUse": "Files must be filed as documents with category and expiry, visible only to whoever can read the linked records and the owner of the file.",
+      "sampleBlurb": "Capture contract files as documents linked to contract and property; visibility follows the linked records without a host column.",
+      "screenshot": null
+    },
     "file-derivatives": {
       "samples": [
         "recipes-files-post-processing"
@@ -218,6 +228,7 @@
       "samples": [
         "apps-ui-walkthrough",
         "apps-user-data-rights-demo",
+        "recipes-documents",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,

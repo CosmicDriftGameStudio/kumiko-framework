@@ -253,6 +253,14 @@ Config keys:
 | `max-pages-per-file` | number | tenant | `50` |
 | `ocr-language` | text | tenant | `deu+eng` |
 
+## documents
+
+Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations; users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, and add the documents tab to a record screen with documentsTab().
+
+Category: data
+
+Requires: `files`
+
 ## feature-toggles
 
 Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: "shared"` syncs the snapshot across instances whenever a `toggle-set` event is appended.

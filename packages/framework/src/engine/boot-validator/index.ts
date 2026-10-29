@@ -76,6 +76,7 @@ import {
 } from "./projection-list-screens.ts";
 import { validateQueryOutputColumns } from "./query-output-columns.ts";
 import { validateQueryRefs } from "./query-refs.ts";
+import { validateReadGates } from "./read-gate.ts";
 import { validateRecordOwnedSubjects } from "./record-owned.ts";
 import {
   collectScreenQns,
@@ -315,6 +316,7 @@ export function validateBoot(
     validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateParentRefs(feature, featureMap);
+    validateReadGates(feature, featureMap);
     validateTransferGraph(feature, featureMap);
     validateMultiStreamProjections(feature);
     // Before validateScreens: its visible/entityId field-reference checks throw

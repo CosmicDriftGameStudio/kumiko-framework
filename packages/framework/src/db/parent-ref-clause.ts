@@ -24,12 +24,22 @@ type CandidateStatics = {
 
 const candidateStaticsCache = new WeakMap<EntityDefinition, CandidateStatics>();
 
-function candidateStaticsFor(candidateName: string, candidate: EntityDefinition): CandidateStatics {
+function candidateStaticsFor(
+  candidateName: string,
+  candidate: EntityDefinition,
+  resolveTable: ParentVisibilityOption["resolveTable"],
+): CandidateStatics {
+  if (resolveTable !== undefined) return staticsOf(resolveTable(candidateName));
   const cached = candidateStaticsCache.get(candidate);
   if (cached) return cached;
-  const table = buildEntityTable(candidateName, candidate);
+  const statics = staticsOf(buildEntityTable(candidateName, candidate));
+  candidateStaticsCache.set(candidate, statics);
+  return statics;
+}
+
+function staticsOf(table: Table): CandidateStatics {
   const tableName = String(schemaTableName(table));
-  const statics: CandidateStatics = {
+  return {
     table,
     tableName,
     tenantIdCol:
@@ -37,8 +47,6 @@ function candidateStaticsFor(candidateName: string, candidate: EntityDefinition)
     isDeletedCol:
       table["isDeleted"] !== undefined ? physicalColumnName(table, "isDeleted") : undefined,
   };
-  candidateStaticsCache.set(candidate, statics);
-  return statics;
 }
 
 // Candidate order follows `option.entities` (Registry insertion order) —
@@ -47,6 +55,7 @@ function selectCandidates(
   parentRef: NonNullable<EntityDefinition["parentRef"]>,
   option: ParentVisibilityOption,
   narrowTypes: ReadonlySet<string> | undefined,
+  requireReadHandler: boolean,
 ): ReadonlyArray<readonly [string, EntityDefinition]> {
   const candidates: Array<readonly [string, EntityDefinition]> = [];
   for (const [name, candidate] of option.entities) {
@@ -55,6 +64,9 @@ function selectCandidates(
     // No recursive gating — a host that is itself a join-row entity would
     // need its own visibility resolved first, which this function doesn't do.
     if (candidate.parentRef !== undefined) continue;
+    // A readGate host would need its own gate resolved first; unreadable beats a widened read.
+    if (candidate.readGate !== undefined) continue;
+    if (requireReadHandler && option.canReadEntity?.(name) !== true) continue;
     // event-store-executor-context.ts rejects non-uuid idType at executor
     // build time, so there is no read path to check such a candidate against.
     if (candidate.idType !== undefined && candidate.idType !== "uuid") continue;
@@ -73,6 +85,7 @@ export function buildParentRefClause(
   opts: {
     readonly includeDeleted?: boolean;
     readonly narrowTypes?: ReadonlySet<string>;
+    readonly requireReadHandler?: boolean;
   },
 ): OwnershipClause {
   const parentRef = entity.parentRef;
@@ -95,7 +108,12 @@ export function buildParentRefClause(
   const typeCol = physicalColumnName(table, parentRef.entityTypeField);
   const idCol = physicalColumnName(table, parentRef.entityIdField);
 
-  const candidates = selectCandidates(parentRef, option, opts.narrowTypes);
+  const candidates = selectCandidates(
+    parentRef,
+    option,
+    opts.narrowTypes,
+    opts.requireReadHandler === true,
+  );
   if (candidates.length === 0) return { kind: "empty" };
 
   // The uuid shape and the tenant ids are bound once and shared by every
@@ -123,6 +141,7 @@ export function buildParentRefClause(
       // kept, so a dropped branch reserves no index and can't shift the
       // positional binding of the branches after it.
       typeParamIdx: params.length + 1,
+      resolveTable: option.resolveTable,
     });
     if (branch === undefined) continue;
     params.push(candidateName, ...branch.params);
@@ -141,6 +160,7 @@ type BranchContext = {
   readonly tenantIdx: readonly [number, number] | undefined;
   readonly includeDeleted: boolean;
   readonly typeParamIdx: number;
+  readonly resolveTable: ParentVisibilityOption["resolveTable"];
 };
 
 // One `entity_type = $n AND EXISTS (...)` arm, or undefined when the host's own
@@ -152,7 +172,7 @@ function buildCandidateBranch(
   user: SessionUser,
   ctx: BranchContext,
 ): { readonly sqlText: string; readonly params: readonly unknown[] } | undefined {
-  const statics = candidateStaticsFor(candidateName, candidate);
+  const statics = candidateStaticsFor(candidateName, candidate, ctx.resolveTable);
   const ownership = buildOwnershipClause(
     user,
     candidate.access?.read,
