@@ -179,6 +179,17 @@ export type {
   PrincipalStatusPlugin,
   TenantLifecycleStatusPlugin,
 } from "./active-membership.ts";
+export { collectBootRuleViolations } from "./boot-validator/boot-report.ts";
+export {
+  type BootRule,
+  BootRuleFailures,
+  type BootRuleTable,
+  BootRuleViolation,
+  BootValidationError,
+  type BootViolation,
+  bootRuleDocLink,
+  bootRuleError,
+} from "./boot-validator/boot-rule.ts";
 export { validateBundledListsOptions } from "./boot-validator/bundled-lists-table.ts";
 export {
   PII_DIRECT_NAME_HINTS,

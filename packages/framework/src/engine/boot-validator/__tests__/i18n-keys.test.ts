@@ -9,10 +9,12 @@ import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.ts";
 import { buildConfigFeatureSchema } from "../../build-config-feature-schema.ts";
 import { access, createTenantConfig } from "../../config-helpers.ts";
 import { defineFeature } from "../../define-feature.ts";
+import { createEntity, createTextField } from "../../factories.ts";
 import { i18nKey } from "../../i18n-key.ts";
 import { createRegistry } from "../../registry.ts";
 import { isFieldsEditSection } from "../../screen-helpers.ts";
 
+import { BootValidationError } from "../boot-rule.ts";
 import { validateBoot } from "../index.ts";
 
 // Mirrors packages/bundled-features/src/config/i18n.ts — the audience-parent
@@ -68,6 +70,43 @@ describe("validateI18nSurfaceKeys — generated dot-form label for the Settings 
     expect(() => validateBoot([configHub, billing])).toThrow(
       /Settings-Hub: required translation key missing: "billing\.settings"/,
     );
+  });
+
+  test("a missing feature key does not hide a missing settings-hub key", () => {
+    const billing = defineFeature("billing", (r) => {
+      r.entity({
+        name: "invoice",
+        ...createEntity({
+          table: "Invoices",
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.screen({
+        id: "invoice-list",
+        type: "entityList",
+        entity: "invoice",
+        columns: ["title"],
+        defaultSort: { field: "title", dir: "asc" },
+      });
+      r.config({
+        keys: {
+          apiKey: createTenantConfig("text", {
+            write: access.roles("TenantAdmin"),
+            mask: { title: "billing.api-key" },
+          }),
+        },
+      });
+      r.translations({ keys: { "billing.api-key": { en: "API Key" } } });
+    });
+    let ruleIds: readonly string[] = [];
+    try {
+      validateBoot([configHub, billing]);
+    } catch (e) {
+      if (!(e instanceof BootValidationError)) throw e;
+      ruleIds = e.violations.map((v) => v.ruleId);
+    }
+    expect(ruleIds).toContain("i18n/missing-feature-key");
+    expect(ruleIds).toContain("i18n/missing-settings-hub-key");
   });
 
   test("translating the generated dot-form label lets boot pass", () => {

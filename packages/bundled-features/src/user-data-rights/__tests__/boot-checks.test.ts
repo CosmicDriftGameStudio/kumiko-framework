@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { integer, type SchemaTable, table, uuid } from "@cosmicdrift/kumiko-framework/db";
 import {
+  BootValidationError,
   createEntity,
   createTextField,
   defineFeature,
@@ -305,5 +306,46 @@ describe("nav-area boot check — bundled dormant screens survive a real app nav
       });
     });
     expect(() => validateBoot([...baseFeatures(), appShell])).not.toThrow();
+  });
+});
+
+describe("one validateBoot pass reports independent violations of different rule areas", () => {
+  test("pii, i18n, entity-list and user-data-rights violations arrive together", () => {
+    const mixed = defineFeature("crm", (r) => {
+      r.entity({
+        name: "contact",
+        ...createEntity({
+          table: "Contacts",
+          fields: {
+            email: createTextField({
+              personal: "self",
+              sortable: true,
+              filterable: true,
+              find: "none",
+            }),
+          },
+        }),
+      });
+      r.screen({
+        id: "contact-list",
+        type: "entityList",
+        entity: "contact",
+        columns: ["email"],
+        searchable: false,
+      });
+    });
+    let violations: readonly { readonly ruleId: string }[] = [];
+    try {
+      validateBoot([...baseFeatures(), mixed]);
+    } catch (e) {
+      if (!(e instanceof BootValidationError)) throw e;
+      violations = e.violations;
+    }
+    const ruleIds = new Set(violations.map((v) => v.ruleId));
+    expect(ruleIds).toContain("pii/subject-key-sortable");
+    expect(ruleIds).toContain("i18n/missing-feature-key");
+    expect(ruleIds).toContain("entity-list/default-sort-required");
+    expect(ruleIds).toContain("entity-list/searchable-false");
+    expect(ruleIds).toContain("user-data-rights/missing-hook");
   });
 });

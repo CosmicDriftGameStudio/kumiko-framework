@@ -3,11 +3,14 @@ import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { isUserEntityReference } from "../user-entity-reference.ts";
+import { collectBootRuleViolations } from "./boot-report.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
 } from "./entity-handler.ts";
+import { PII_RULES } from "./pii-retention-rules.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 
@@ -63,9 +66,9 @@ function validateWriteOnlyField(input: FieldRuleInput): void {
     for (const [subName, subField] of Object.entries(field.schema)) {
       if ("writeOnly" in subField && subField.writeOnly === true) {
         // @cast-boundary schema-walk
-        throw new Error(
-          `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields. Remove writeOnly from the sub-field or declare it on a top-level text field.`,
-        );
+        throw bootRuleError(PII_RULES.writeOnlyEmbeddedSubField, {
+          message: `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields. Remove writeOnly from the sub-field or declare it on a top-level text field.`,
+        });
       }
     }
     // skip: embedded fields carry no writeOnly of their own; sub-fields are checked above
@@ -75,21 +78,21 @@ function validateWriteOnlyField(input: FieldRuleInput): void {
   // skip: only writeOnly fields have constraints to validate
   if (flags.writeOnly !== true) return;
   if (field.type !== "text") {
-    throw new Error(
-      `${where} declares { writeOnly: true } but has type "${field.type}" — writeOnly only applies to text fields. Use a text field or remove writeOnly.`,
-    );
+    throw bootRuleError(PII_RULES.writeOnlyNonText, {
+      message: `${where} declares { writeOnly: true } but has type "${field.type}" — writeOnly only applies to text fields. Use a text field or remove writeOnly.`,
+    });
   }
   if (field.sensitive !== true) {
-    throw new Error(
-      `${where} declares { writeOnly: true } without { sensitive: true } — add find: "secret" (ciphertext at rest, stripped from event echoes).`,
-    );
+    throw bootRuleError(PII_RULES.writeOnlyWithoutSensitive, {
+      message: `${where} declares { writeOnly: true } without { sensitive: true } — add find: "secret" (ciphertext at rest, stripped from event echoes).`,
+    });
   }
   for (const flag of WRITE_ONLY_FORBIDDEN_FLAGS) {
     const value = flags[flag];
     if (value !== undefined && value !== false) {
-      throw new Error(
-        `${where} combines { writeOnly: true } with { ${flag} } — a value that is never returned cannot be defaulted, searched, sorted, filtered or looked up. Remove either writeOnly or the conflicting flag.`,
-      );
+      throw bootRuleError(PII_RULES.writeOnlyConflictingFlag, {
+        message: `${where} combines { writeOnly: true } with { ${flag} } — a value that is never returned cannot be defaulted, searched, sorted, filtered or looked up. Remove either writeOnly or the conflicting flag.`,
+      });
     }
   }
 }
@@ -115,21 +118,21 @@ function validatePersonalJsonbField(input: FieldRuleInput): void {
   const flags = field as Record<string, unknown>; // @cast-boundary schema-walk
   for (const flag of JSONB_PERSONAL_FORBIDDEN_FLAGS) {
     if (flags[flag] !== undefined && flags[flag] !== false) {
-      throw new Error(
-        `${where} combines a personal annotation on a jsonb field with { ${flag} } — ${reason}. Remove the ${flag} flag or the personal annotation.`,
-      );
+      throw bootRuleError(PII_RULES.personalJsonbFlag, {
+        message: `${where} combines a personal annotation on a jsonb field with { ${flag} } — ${reason}. Remove the ${flag} flag or the personal annotation.`,
+      });
     }
   }
   const index = entity.indexes?.find((def) => def.columns.includes(fieldName));
   if (index) {
-    throw new Error(
-      `${where} is a personal jsonb field used in an entity index — ${reason}. Drop the index or the personal annotation.`,
-    );
+    throw bootRuleError(PII_RULES.personalJsonbIndex, {
+      message: `${where} is a personal jsonb field used in an entity index — ${reason}. Drop the index or the personal annotation.`,
+    });
   }
   if (fieldName === CUSTOM_FIELDS_COLUMN) {
-    throw new Error(
-      `${where} is the custom-fields jsonb column — its values are merged and searched per key, which ciphertext cannot support. Drop the personal annotation.`,
-    );
+    throw bootRuleError(PII_RULES.personalJsonbCustomFields, {
+      message: `${where} is the custom-fields jsonb column — its values are merged and searched per key, which ciphertext cannot support. Drop the personal annotation.`,
+    });
   }
 }
 
@@ -158,10 +161,10 @@ function validatePersonalJsonbField(input: FieldRuleInput): void {
 // Encryption and decryption are handled elsewhere; this validation runs early
 // so schema drift is detected during boot.
 export function validatePiiAndRetention(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-    validateFieldAnnotations(feature.name, entityName, entity);
-    validateEntityRetention(feature.name, entityName, entity);
-  }
+  collectBootRuleViolations(Object.entries(feature.entities ?? {}), ([entityName, entity]) => {
+    const entityChecks = [validateFieldAnnotations, validateEntityRetention];
+    collectBootRuleViolations(entityChecks, (check) => check(feature.name, entityName, entity));
+  });
 }
 
 // ResolvedPiiFlags and the storage flags are type-level optional. On field defs
@@ -186,8 +189,8 @@ type FieldRuleInput = {
   readonly personalOfOwnerFieldNames: ReadonlySet<string>;
 };
 
-// Order matters: the first failing rule decides the boot error, and warnings
-// are emitted in this order.
+// Every rule runs on every field; order only decides the order of the reported
+// violations and warnings.
 const FIELD_RULES: readonly ((input: FieldRuleInput) => void)[] = [
   rejectMultipleSubjectAnnotations,
   rejectTextWithoutPersonalStance,
@@ -207,7 +210,7 @@ function validateFieldAnnotations(
   entity: EntityDefinition,
 ): void {
   const personalOfOwnerFieldNames = ownerFieldNamesReferencedByPersonalOf(entity.fields);
-  for (const [fieldName, field] of Object.entries(entity.fields)) {
+  collectBootRuleViolations(Object.entries(entity.fields), ([fieldName, field]) => {
     const flags = field as PiiCheckedFieldFlags; // @cast-boundary schema-walk
     const input: FieldRuleInput = {
       featureName,
@@ -219,8 +222,8 @@ function validateFieldAnnotations(
       subjectAnnotationCount: countSubjectAnnotations(flags),
       personalOfOwnerFieldNames,
     };
-    for (const rule of FIELD_RULES) rule(input);
-  }
+    collectBootRuleViolations(FIELD_RULES, (rule) => rule(input));
+  });
 }
 
 function countSubjectAnnotations(flags: ResolvedPiiFlags): number {
@@ -233,9 +236,9 @@ function fieldLocation(input: FieldRuleInput): string {
 
 function rejectMultipleSubjectAnnotations(input: FieldRuleInput): void {
   if (input.subjectAnnotationCount > 1) {
-    throw new Error(
-      `${fieldLocation(input)} has multiple subject-key annotations (personal: "self" / "tenant" / { of: "<field>" }). Pick one — each field belongs to exactly one subject.`,
-    );
+    throw bootRuleError(PII_RULES.multipleSubjectAnnotations, {
+      message: `${fieldLocation(input)} has multiple subject-key annotations (personal: "self" / "tenant" / { of: "<field>" }). Pick one — each field belongs to exactly one subject.`,
+    });
   }
 }
 
@@ -247,9 +250,9 @@ function rejectTextWithoutPersonalStance(input: FieldRuleInput): void {
     !flags.allowPlaintext &&
     !flags.subjectRef
   ) {
-    throw new Error(
-      `${fieldLocation(input)} (type "${field.type}") declares no personal stance. Build it with createTextField / createLongTextField and { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false }; false additionally needs { reason: "..." } stating why the value is not personal data.`,
-    );
+    throw bootRuleError(PII_RULES.textWithoutPersonalStance, {
+      message: `${fieldLocation(input)} (type "${field.type}") declares no personal stance. Build it with createTextField / createLongTextField and { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false }; false additionally needs { reason: "..." } stating why the value is not personal data.`,
+    });
   }
 }
 
@@ -259,9 +262,9 @@ function rejectPlaintextUserReference(input: FieldRuleInput): void {
   if (field.type !== "reference" || !flags.allowPlaintext) return;
   // skip: references to other entities may stay plaintext
   if (!isUserEntityReference(field.entity)) return;
-  throw new Error(
-    `${fieldLocation(input)} references the user entity "${field.entity}" with { personal: false } — a user id is a pseudonym that falls under Art.17 forget. Use createReferenceField({ entity: "${field.entity}" }) or { personal: "ref" }.`,
-  );
+  throw bootRuleError(PII_RULES.plaintextUserReference, {
+    message: `${fieldLocation(input)} references the user entity "${field.entity}" with { personal: false } — a user id is a pseudonym that falls under Art.17 forget. Use createReferenceField({ entity: "${field.entity}" }) or { personal: "ref" }.`,
+  });
 }
 
 // lookupable: only text fields with a subject annotation are supported. Without
@@ -271,14 +274,14 @@ function rejectInvalidLookupable(input: FieldRuleInput): void {
   // skip: only lookupable fields carry a blind index to validate
   if (input.flags.lookupable !== true) return;
   if (input.field.type !== "text") {
-    throw new Error(
-      `${fieldLocation(input)} declares find: "exact" (or "fuzzy") but has type "${input.field.type}" — blind-index equality lookups only apply to text fields. Use a text field or set find: "none".`,
-    );
+    throw bootRuleError(PII_RULES.lookupableNonText, {
+      message: `${fieldLocation(input)} declares find: "exact" (or "fuzzy") but has type "${input.field.type}" — blind-index equality lookups only apply to text fields. Use a text field or set find: "none".`,
+    });
   }
   if (input.subjectAnnotationCount === 0) {
-    throw new Error(
-      `${fieldLocation(input)} declares find: "exact" (or "fuzzy") without a subject annotation (personal: "self" / "tenant" / { of: "<field>" }). Plaintext fields don't need a blind index — add personal or set find: "none".`,
-    );
+    throw bootRuleError(PII_RULES.lookupableWithoutSubject, {
+      message: `${fieldLocation(input)} declares find: "exact" (or "fuzzy") without a subject annotation (personal: "self" / "tenant" / { of: "<field>" }). Plaintext fields don't need a blind index — add personal or set find: "none".`,
+    });
   }
 }
 
@@ -288,9 +291,9 @@ function rejectInvalidLookupable(input: FieldRuleInput): void {
 function rejectSensitiveWithoutCiphertextAtRest(input: FieldRuleInput): void {
   const { flags } = input;
   if (flags.sensitive === true && input.subjectAnnotationCount === 0 && flags.encrypted !== true) {
-    throw new Error(
-      `${fieldLocation(input)} declares { sensitive: true } without ciphertext-at-rest. Since #967 the event log stores sensitive fields as table ciphertext — add a subject annotation (personal: "self" / "tenant" / { of: "<field>" }) or { encrypted: true }.`,
-    );
+    throw bootRuleError(PII_RULES.sensitiveWithoutCiphertext, {
+      message: `${fieldLocation(input)} declares { sensitive: true } without ciphertext-at-rest. Since #967 the event log stores sensitive fields as table ciphertext — add a subject annotation (personal: "self" / "tenant" / { of: "<field>" }) or { encrypted: true }.`,
+    });
   }
 }
 
@@ -302,14 +305,14 @@ function rejectSensitiveWithoutCiphertextAtRest(input: FieldRuleInput): void {
 function rejectCiphertextSortOrSensitiveSearch(input: FieldRuleInput): void {
   const { flags } = input;
   if (input.subjectAnnotationCount > 0 && flags.sortable === true) {
-    throw new Error(
-      `${fieldLocation(input)} combines a subject-key annotation with { sortable: true } — sorting reads the projection column, which is ciphertext at rest. For equality lookups use find: "exact"; drop sortable or keep the field plaintext (personal: false).`,
-    );
+    throw bootRuleError(PII_RULES.subjectKeySortable, {
+      message: `${fieldLocation(input)} combines a subject-key annotation with { sortable: true } — sorting reads the projection column, which is ciphertext at rest. For equality lookups use find: "exact"; drop sortable or keep the field plaintext (personal: false).`,
+    });
   }
   if (flags.sensitive === true && flags.searchable === true) {
-    throw new Error(
-      `${fieldLocation(input)} combines { sensitive: true } with { searchable: true } — sensitive means ciphertext at rest, never searchable, stripped from event echoes — authorized readers can still read it back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not. To never return the value at all, add { writeOnly: true }.`,
-    );
+    throw bootRuleError(PII_RULES.sensitiveSearchable, {
+      message: `${fieldLocation(input)} combines { sensitive: true } with { searchable: true } — sensitive means ciphertext at rest, never searchable, stripped from event echoes — authorized readers can still read it back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not. To never return the value at all, add { writeOnly: true }.`,
+    });
   }
 }
 
@@ -319,9 +322,9 @@ function validatePersonalOfOwner(input: FieldRuleInput): void {
   if (!personalOf) return;
   const ownerName = personalOf.ownerField;
   if (!ownerName || typeof ownerName !== "string") {
-    throw new Error(
-      `${fieldLocation(input)} has personal: { of: ... } without an owner field name. Pass the name of the owner field: personal: { of: "<ownerField>" }.`,
-    );
+    throw bootRuleError(PII_RULES.personalOfMissingOwnerName, {
+      message: `${fieldLocation(input)} has personal: { of: ... } without an owner field name. Pass the name of the owner field: personal: { of: "<ownerField>" }.`,
+    });
   }
   const ownerField = requireOwnerField(input, ownerName);
   rejectOwnerWithoutRowFallback(input, ownerName, ownerField, personalOf);
@@ -335,9 +338,9 @@ function requireOwnerField(input: FieldRuleInput, ownerName: string): PersonalOf
   const ownerField = fieldsByName[ownerName];
   if (!ownerField) {
     const known = Object.keys(fieldsByName).sort().join(", ");
-    throw new Error(
-      `${fieldLocation(input)} references personal.of "${ownerName}" but no such field exists. Known fields: ${known}`,
-    );
+    throw bootRuleError(PII_RULES.personalOfUnknownOwner, {
+      message: `${fieldLocation(input)} references personal.of "${ownerName}" but no such field exists. Known fields: ${known}`,
+    });
   }
   // Text is accepted alongside reference: the ES-framework carries
   // user ids as plain text columns throughout the bundled features
@@ -345,9 +348,9 @@ function requireOwnerField(input: FieldRuleInput, ownerName: string): PersonalOf
   // relational FK to point a reference at. Self-referencing
   // ownerField (the field's own value IS the owner id) rides on this.
   if (ownerField.type !== "reference" && ownerField.type !== "text") {
-    throw new Error(
-      `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
-    );
+    throw bootRuleError(PII_RULES.personalOfOwnerType, {
+      message: `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
+    });
   }
   return ownerField;
 }
@@ -360,14 +363,14 @@ function rejectOwnerWithoutRowFallback(
 ): void {
   const { whenAbsent } = personalOf;
   if (whenAbsent !== undefined && whenAbsent !== "tenant" && whenAbsent !== "self") {
-    throw new Error(
-      `${fieldLocation(input)} declares personal.whenAbsent "${String(whenAbsent)}" — entity fields only support whenAbsent: "tenant" or "self" (no plaintext fallback for stored PII). Remove whenAbsent or set it to "tenant" (tenant key) or "self" (the row's own record key).`,
-    );
+    throw bootRuleError(PII_RULES.personalOfInvalidWhenAbsent, {
+      message: `${fieldLocation(input)} declares personal.whenAbsent "${String(whenAbsent)}" — entity fields only support whenAbsent: "tenant" or "self" (no plaintext fallback for stored PII). Remove whenAbsent or set it to "tenant" (tenant key) or "self" (the row's own record key).`,
+    });
   }
   if (ownerField.required !== true && whenAbsent === undefined) {
-    throw new Error(
-      `${fieldLocation(input)} is personal: { of: "${ownerName}" }, but "${ownerName}" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "${ownerName}", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, whenAbsent: "self" to encrypt them under the row's own record key (shreddable per record), or make "${ownerName}" required: true. Entity fields have no plaintext fallback (fw#3654).`,
-    );
+    throw bootRuleError(PII_RULES.personalOfOptionalOwner, {
+      message: `${fieldLocation(input)} is personal: { of: "${ownerName}" }, but "${ownerName}" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "${ownerName}", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, whenAbsent: "self" to encrypt them under the row's own record key (shreddable per record), or make "${ownerName}" required: true. Entity fields have no plaintext fallback (fw#3654).`,
+    });
   }
 }
 
@@ -459,7 +462,7 @@ function validateEntityRetention(
     fieldsByName: entity.fields,
     retention,
   };
-  for (const rule of RETENTION_RULES) rule(input);
+  collectBootRuleViolations(RETENTION_RULES, (rule) => rule(input));
 }
 
 function warnOnInvalidKeepFor({ featureName, entityName, retention }: RetentionRuleInput): void {
@@ -478,9 +481,9 @@ function rejectUnknownRetentionReference(input: RetentionRuleInput): void {
   if (!fieldsByName[refName] && !FRAMEWORK_TIMESTAMP_FIELDS.has(refName)) {
     const known = Object.keys(fieldsByName).sort().join(", ");
     const framework = [...FRAMEWORK_TIMESTAMP_FIELDS].sort().join(", ");
-    throw new Error(
-      `[Feature ${featureName}] Entity "${entityName}" retention.reference "${refName}" does not exist. Known fields: ${known} — framework-managed timestamps also accepted: ${framework}`,
-    );
+    throw bootRuleError(PII_RULES.retentionUnknownReference, {
+      message: `[Feature ${featureName}] Entity "${entityName}" retention.reference "${refName}" does not exist. Known fields: ${known} — framework-managed timestamps also accepted: ${framework}`,
+    });
   }
 }
 

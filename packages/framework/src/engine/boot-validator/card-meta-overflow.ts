@@ -9,6 +9,8 @@ import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
 
 export type CardMetaOverflow = {
   readonly feature: string;
@@ -154,7 +156,7 @@ export function validateCardMetaOverflow(features: readonly FeatureDefinition[])
     (o) =>
       `  - Feature "${o.feature}" screen "${o.screen}"${o.location !== undefined ? ` ${o.location}` : ""}: ${o.count} meta columns (${o.fields.join(", ")})`,
   );
-  throw new Error(
-    `List cards show at most ${CARD_META_MAX} meta columns (all columns except title, status select and hideOnNarrow ones); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} columns or mark the others hideOnNarrow: true.`,
-  );
+  throw bootRuleError(CARD_META_OVERFLOW_RULES.overflow, {
+    message: `List cards show at most ${CARD_META_MAX} meta columns (all columns except title, status select and hideOnNarrow ones); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} columns or mark the others hideOnNarrow: true.`,
+  });
 }
