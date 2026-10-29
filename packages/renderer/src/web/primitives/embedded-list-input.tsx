@@ -31,6 +31,7 @@ import {
   useState,
 } from "react";
 import { fieldIssueText } from "../../field-issue-text.ts";
+import { fileIdsOf } from "../../file-ids-of.ts";
 import { applyFormatSpec, type FieldIssue } from "../../headless/index.ts";
 import type {
   EmbeddedListCellType,
@@ -45,7 +46,9 @@ import { Checkbox } from "../ui/checkbox.tsx";
 import { Input as UiInput } from "../ui/input.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.tsx";
 import { ComboboxInput } from "./combobox.tsx";
+import { selectPill } from "./data-table-cell.tsx";
 import { DateInput } from "./date-input.tsx";
+import { EmbeddedFileCell } from "./embedded-file-cell.tsx";
 import { formatMoney, MoneyInput } from "./money-input.tsx";
 import { SegmentedControl } from "./segmented-select.tsx";
 import { TimestampInput } from "./timestamp-input.tsx";
@@ -77,6 +80,9 @@ function fixedColumnRem(type: EmbeddedListCellType): number | undefined {
       return 4;
     case "select":
       return 12;
+    case "images":
+    case "files":
+      return 14;
     case "text":
     case "reference":
       return undefined;
@@ -117,6 +123,8 @@ function columnAlignClass(type: EmbeddedListCellType): string {
     case "text":
     case "select":
     case "reference":
+    case "images":
+    case "files":
       return "text-left";
     default: {
       const exhaustiveCheck: never = type;
@@ -228,11 +236,21 @@ function readOnlyCellText(
         : String(value);
     case "text":
       return String(value);
+    case "images":
+    case "files":
+      return String(fileIdsOf(value).length);
     default: {
       const exhaustiveCheck: never = column.type;
       return exhaustiveCheck;
     }
   }
+}
+
+function isDerivedCell(
+  column: EmbeddedListColumn,
+  row: Readonly<Record<string, unknown>>,
+): boolean {
+  return column.isDerivedInRow?.(row) ?? column.derived;
 }
 
 function renderCellControl({
@@ -244,7 +262,13 @@ function renderCellControl({
   onChange,
   currency,
   locale,
+  derived,
+  touch,
+  uploadTarget,
 }: {
+  readonly derived: boolean;
+  readonly touch: boolean;
+  readonly uploadTarget: EmbeddedListInputProps["uploadTarget"];
   readonly cellId: string;
   readonly label: string;
   readonly column: EmbeddedListColumn;
@@ -254,7 +278,7 @@ function renderCellControl({
   readonly currency: string;
   readonly locale: string;
 }): ReactNode {
-  if (column.readOnly === true && !column.derived) {
+  if (column.readOnly === true && !derived) {
     return (
       <div
         data-cell-id={cellId}
@@ -268,7 +292,8 @@ function renderCellControl({
       </div>
     );
   }
-  const isDisabled = disabled || column.derived;
+  const isDisabled = disabled || derived;
+  const controlHeight = touch ? "h-11" : undefined;
 
   switch (column.type) {
     case "text":
@@ -277,7 +302,7 @@ function renderCellControl({
           data-cell-id={cellId}
           type="text"
           aria-label={label}
-          className="min-w-0"
+          className={cn("min-w-0", controlHeight)}
           disabled={isDisabled}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -291,7 +316,7 @@ function renderCellControl({
           type="number"
           aria-label={label}
           disabled={isDisabled}
-          className="min-w-0 text-right tabular-nums"
+          className={cn("min-w-0 text-right tabular-nums", controlHeight)}
           value={typeof value === "number" ? value : ""}
           onChange={(e) => {
             const raw = e.target.value;
@@ -356,7 +381,27 @@ function renderCellControl({
           />
         </div>
       );
+    case "images":
+    case "files":
+      return (
+        <EmbeddedFileCell
+          cellId={cellId}
+          label={label}
+          column={column}
+          value={value}
+          readOnly={isDisabled}
+          uploadTarget={uploadTarget}
+          onChange={onChange}
+        />
+      );
     case "select": {
+      if (derived) {
+        return (
+          <div data-cell-id={cellId} className="min-w-0 py-1.5">
+            {selectPill(value, column.optionLabels, column.optionTones, locale, undefined)}
+          </div>
+        );
+      }
       const options = (column.options ?? []).map((opt) => ({
         value: opt,
         label: column.optionLabels?.[opt] ?? opt,
@@ -372,6 +417,8 @@ function renderCellControl({
               onChange={(v) => onChange(v)}
               options={options}
               disabled={isDisabled}
+              {...(column.optionTones !== undefined && { tones: column.optionTones })}
+              {...(touch && { size: "touch" as const })}
             />
           </div>
         );
@@ -527,6 +574,7 @@ export function EmbeddedListInput({
   emptyLabel,
   emptyCtaLabel,
   testId,
+  uploadTarget,
 }: EmbeddedListInputProps): ReactNode {
   // Callers that don't wire up the field-currency plumbing (or direct
   // callers/tests) keep getting the same "EUR" this
@@ -691,6 +739,11 @@ export function EmbeddedListInput({
   }
 
   const hasTotals = totals !== undefined && totals.length > 0;
+  const firstColumn = columns[0];
+  const titleColumn =
+    firstColumn?.type === "text" && firstColumn.readOnly === true && firstColumn.derived !== true
+      ? firstColumn
+      : undefined;
 
   return (
     <div ref={containerRef} data-testid={testId} className="min-w-0">
@@ -757,6 +810,7 @@ export function EmbeddedListInput({
                             {columns.map((column, columnIndex) => {
                               const isLastCell = isLastRow && columnIndex === lastEditableIndex;
                               const issues = cellIssues?.[`${rowIndex}.${column.field}`];
+                              const hidden = column.isHiddenInRow?.(row) === true;
                               return (
                                 <TableCell
                                   key={column.field}
@@ -768,22 +822,31 @@ export function EmbeddedListInput({
                                   }
                                   onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
                                 >
-                                  {renderCellControl({
-                                    cellId: cellId(rowIndex, column.field),
-                                    label: cellLabel(column, rowIndex),
-                                    column,
-                                    value: row[column.field],
-                                    disabled: disabled === true,
-                                    onChange: (value) =>
-                                      onCellChange(rowIndex, column.field, value),
-                                    currency: effectiveCurrency,
-                                    locale: resolvedLocale,
-                                  })}
-                                  <IssueMessages
-                                    issues={issues}
-                                    testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
-                                    constrainWidth
-                                  />
+                                  {!hidden && (
+                                    <>
+                                      {renderCellControl({
+                                        cellId: cellId(rowIndex, column.field),
+                                        label: cellLabel(column, rowIndex),
+                                        column,
+                                        value: row[column.field],
+                                        disabled: disabled === true,
+                                        onChange: (value) =>
+                                          onCellChange(rowIndex, column.field, value),
+                                        currency: effectiveCurrency,
+                                        locale: resolvedLocale,
+                                        derived: isDerivedCell(column, row),
+                                        touch: false,
+                                        uploadTarget,
+                                      })}
+                                      <IssueMessages
+                                        issues={issues}
+                                        testId={testIdFor(
+                                          `cell-${rowIndex}-${column.field}-errors`,
+                                        )}
+                                        constrainWidth
+                                      />
+                                    </>
+                                  )}
                                 </TableCell>
                               );
                             })}
@@ -889,7 +952,19 @@ export function EmbeddedListInput({
                 data-testid={testIdFor(`row-${rowIndex}`)}
                 className="flex flex-col gap-3 rounded-lg border bg-card p-4"
               >
+                {titleColumn !== undefined && (
+                  <div data-testid={testIdFor(`row-${rowIndex}-title`)} className="font-medium">
+                    {rowIndex + 1}{" "}
+                    {readOnlyCellText(
+                      titleColumn,
+                      row[titleColumn.field],
+                      effectiveCurrency,
+                      resolvedLocale,
+                    )}
+                  </div>
+                )}
                 {columns.map((column, columnIndex) => {
+                  if (column === titleColumn || column.isHiddenInRow?.(row) === true) return null;
                   const isLastCell = isLastRow && columnIndex === lastEditableIndex;
                   const issues = cellIssues?.[`${rowIndex}.${column.field}`];
                   return (
@@ -904,6 +979,7 @@ export function EmbeddedListInput({
                     >
                       <span className="text-xs font-medium text-muted-foreground">
                         {column.label}
+                        {column.isRequiredInRow?.(row) === true && " *"}
                       </span>
                       {renderCellControl({
                         cellId: cellId(rowIndex, column.field),
@@ -914,6 +990,9 @@ export function EmbeddedListInput({
                         onChange: (value) => onCellChange(rowIndex, column.field, value),
                         currency: effectiveCurrency,
                         locale: resolvedLocale,
+                        derived: isDerivedCell(column, row),
+                        touch: true,
+                        uploadTarget,
                       })}
                       <IssueMessages
                         issues={issues}

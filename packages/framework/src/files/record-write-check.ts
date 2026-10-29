@@ -4,6 +4,7 @@ import { normalizeAccessEntry, userCanWriteFieldRow } from "../engine/ownership.
 import { toKebab } from "../engine/qualified-name.ts";
 import { isRecordLocked } from "../engine/screen-helpers.ts";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
+import { resolveFileSubField } from "./file-field-slots.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
 
 export const RecordWriteDecisions = {
@@ -18,6 +19,8 @@ export type RecordWriteCheck = (args: {
   readonly entityType: string;
   readonly entityId: string;
   readonly fieldName: string | undefined;
+  /** Embedded file sub-field of `fieldName` the upload is meant for. */
+  readonly subField?: string | undefined;
   readonly user: SessionUser;
 }) => Promise<RecordWriteDecision>;
 
@@ -54,7 +57,7 @@ export function createRecordWriteCheck(args: {
     return undefined;
   }
 
-  return async ({ entityType, entityId, fieldName, user }) => {
+  return async ({ entityType, entityId, fieldName, subField, user }) => {
     if (!(await canReadRecord({ entityType, entityId, user }))) {
       return RecordWriteDecisions.notFound;
     }
@@ -77,6 +80,13 @@ export function createRecordWriteCheck(args: {
     const fieldWriteRules =
       fieldName === undefined ? undefined : entity.fields[fieldName]?.access?.write;
     if (!userCanWriteFieldRow(user, normalizeAccessEntry(fieldWriteRules), row, row)) {
+      return RecordWriteDecisions.forbidden;
+    }
+    const subFieldWriteRules =
+      fieldName === undefined || subField === undefined
+        ? undefined
+        : resolveFileSubField(entity.fields[fieldName], subField)?.access?.write;
+    if (!userCanWriteFieldRow(user, normalizeAccessEntry(subFieldWriteRules), row, row)) {
       return RecordWriteDecisions.forbidden;
     }
     if (isRecordLocked(entity.lockedWhen, row)) return RecordWriteDecisions.locked;

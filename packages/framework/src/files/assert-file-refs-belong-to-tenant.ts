@@ -1,9 +1,8 @@
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry } from "../engine/types/index.ts";
 
 import { ValidationError } from "../errors/index.ts";
-import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
+import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import type { FileRefRows } from "./load-save-file-refs.ts";
 
@@ -49,13 +48,15 @@ export function assertFileRefsBelongToTenant(args: {
   const recordId = String(result.id);
   const alreadyHeld = new Set<string>();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(result.previous[fieldName])) alreadyHeld.add(fileRefId);
+    if (!holdsFileRefs(fieldDef)) continue;
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.previous[fieldName])) {
+      alreadyHeld.add(fileRefId);
+    }
   }
 
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
+    if (!holdsFileRefs(fieldDef)) continue;
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.changes[fieldName])) {
       // A value the record already holds is no new binding; its file_refs row may be gone
       // (forget purged the file), and sending the unchanged field back must still save.
       if (alreadyHeld.has(fileRefId)) continue;

@@ -1177,7 +1177,9 @@ describe("EmbeddedListInput — readOnly cells as plain text", () => {
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
       const mobile = within(screen.getByTestId("lines-mobile"));
-      expect(mobile.getByText(longText).tagName).toBe("DIV");
+      // The read-only first text column becomes the card title: "<row number> <value>".
+      expect(mobile.getByTestId("lines-row-0-title").textContent).toBe(`1 ${longText}`);
+      expect(mobile.getByText("Beta").tagName).toBe("DIV");
       expect(mobile.queryByDisplayValue(longText)).toBeNull();
     } finally {
       setViewportWidth(originalWidth);

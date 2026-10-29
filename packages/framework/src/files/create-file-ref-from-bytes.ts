@@ -41,6 +41,8 @@ export type CreateFileRefInput = {
   readonly attachTo?: {
     readonly entityType: string;
     readonly fieldName: string;
+    /** File sub-field of the embedded `fieldName`, like POST /files' `subField` part. */
+    readonly subField?: string;
     readonly entityId?: string;
   };
   /** Byte limit replacing the configured default upload limit; a file field's own maxSize still applies first. */
@@ -93,6 +95,7 @@ export async function createFileRefFromBytes(
       entityType: input.attachTo?.entityType,
       entityId: input.attachTo?.entityId,
       fieldName: input.attachTo?.fieldName,
+      subField: input.attachTo?.subField,
     },
   );
   switch (outcome.kind) {
@@ -152,6 +155,7 @@ export async function uploadFileBytesBeforeTransaction(
       entityType: input.attachTo?.entityType,
       entityId: input.attachTo?.entityId,
       fieldName: input.attachTo?.fieldName,
+      subField: input.attachTo?.subField,
     },
   );
   if (outcome.kind === "rejected") return fileRejectedFailure(outcome.error);

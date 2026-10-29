@@ -137,4 +137,5 @@ export {
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
+  withDerivedCells,
 } from "./view-model/index.ts";

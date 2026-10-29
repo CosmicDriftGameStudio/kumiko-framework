@@ -82,6 +82,7 @@ export const renderSelectKind: KindRenderer<"select"> = (props) => {
         value={props.value}
         onChange={props.onChange}
         options={radioGroupOptions}
+        {...(props.optionTones !== undefined && { tones: props.optionTones })}
         {...stateProps(props)}
       />
     );

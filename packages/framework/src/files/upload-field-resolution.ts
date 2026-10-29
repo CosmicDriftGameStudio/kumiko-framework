@@ -2,11 +2,13 @@ import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry } from "../engine/types/index.ts";
 import { isActionFormScreenQn, resolveActionFormFileField } from "./action-form-upload.ts";
+import { resolveFileSubField } from "./file-field-slots.ts";
 
 type UploadTarget = {
   readonly entityType?: string | undefined;
   readonly entityId?: string | undefined;
   readonly fieldName?: string | undefined;
+  readonly subField?: string | undefined;
   readonly actionForm?: string | undefined;
 };
 
@@ -20,7 +22,8 @@ type AttachedFieldResolution =
 // entityType/fieldName drive the GDPR-forget decision downstream
 // (fileRefDeleteHook resolves the field's PII annotation from exactly this
 // pairing) — attaching to a field nobody can resolve would leave that
-// decision hanging on an unverified client string. Either both are omitted
+// decision hanging on an unverified client string. `subField` names a file sub-field of an
+// embedded `fieldName`; the binding stays on the top-level field. Either both are omitted
 // (unattached upload, allowed) or both must resolve to a real registered
 // field. "entities-and-read-models" is for server-side callers only: a client upload must
 // never name a projection entity, whose rows nobody can write-check.
@@ -29,6 +32,7 @@ export function resolveAttachedField(
   entityType: string | undefined,
   fieldName: string | undefined,
   attachTargets: AttachTargets = "entities",
+  subField?: string,
 ): AttachedFieldResolution {
   if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
   const entity =
@@ -39,8 +43,14 @@ export function resolveAttachedField(
           : undefined))
       : undefined;
   const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
-  if (!entityType || !fieldName || !entity || !fieldDef || !isFileField(fieldDef))
-    return { kind: "unresolvable" };
+  if (!entityType || !fieldName || !entity || !fieldDef) return { kind: "unresolvable" };
+  if (subField !== undefined) {
+    const subFieldDef = resolveFileSubField(fieldDef, subField);
+    return subFieldDef === undefined
+      ? { kind: "unresolvable" }
+      : { kind: "resolved", fieldDef: subFieldDef };
+  }
+  if (!isFileField(fieldDef)) return { kind: "unresolvable" };
   return { kind: "resolved", fieldDef };
 }
 
@@ -53,9 +63,15 @@ export function resolveUploadField(
   input: UploadTarget,
   attachTargets: AttachTargets | undefined,
 ): UploadFieldResolution {
-  const { entityType, entityId, fieldName, actionForm } = input;
+  const { entityType, entityId, fieldName, subField, actionForm } = input;
   if (actionForm === undefined) {
-    return resolveAttachedField(registry, entityType, fieldName, attachTargets);
+    return resolveAttachedField(registry, entityType, fieldName, attachTargets, subField);
+  }
+  if (subField !== undefined) {
+    return {
+      kind: "rejected",
+      error: "invalid_action_form: actionForm cannot be combined with subField",
+    };
   }
   if (entityType !== undefined || entityId !== undefined) {
     return {
@@ -107,5 +123,9 @@ export function isAnonymousPendingUploadAllowed(
 ): boolean {
   if (target.entityId !== undefined || target.actionForm !== undefined) return false;
   const resolution = resolveAttachedField(registry, target.entityType, target.fieldName);
-  return resolution.kind === "resolved" && resolution.fieldDef.anonymousUpload === true;
+  return (
+    resolution.kind === "resolved" &&
+    isFileField(resolution.fieldDef) &&
+    resolution.fieldDef.anonymousUpload === true
+  );
 }

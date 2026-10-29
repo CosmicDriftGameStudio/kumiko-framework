@@ -229,6 +229,7 @@
         "apps-ui-walkthrough",
         "apps-user-data-rights-demo",
         "recipes-documents",
+        "recipes-inspection-checklist",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,

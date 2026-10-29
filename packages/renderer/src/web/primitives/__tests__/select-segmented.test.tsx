@@ -8,6 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { render, screen } from "../../__tests__/test-utils.tsx";
 import { defaultPrimitives } from "../index.tsx";
+import { SegmentedControl } from "../segmented-select.tsx";
 
 const { Field, Input } = defaultPrimitives;
 
@@ -289,5 +290,38 @@ describe("explicit display=radio keeps the empty option as a segment", () => {
     renderRadio(undefined, "a");
     expect(screen.getAllByRole("radio")).toHaveLength(2);
     expect(screen.queryByRole("radio", { name: "Any" })).toBeNull();
+  });
+});
+
+describe("SegmentedControl tones and touch size", () => {
+  function renderToned(value: string, size?: "touch") {
+    render(
+      <SegmentedControl
+        id="result"
+        name="result"
+        labelProps={{ "aria-label": "Result" }}
+        value={value}
+        onChange={() => {}}
+        options={[
+          { value: "ok", label: "OK" },
+          { value: "not_ok", label: "Not OK" },
+        ]}
+        tones={{ ok: "ok", not_ok: "bad" }}
+        {...(size !== undefined && { size })}
+      />,
+    );
+  }
+
+  test("the selected segment takes its option tone, the unselected ones stay neutral", () => {
+    renderToned("not_ok");
+    expect(screen.getByRole("radio", { name: "Not OK" }).className).toContain("text-status-bad");
+    expect(screen.getByRole("radio", { name: "OK" }).className).not.toContain("text-status-ok");
+  });
+
+  test("size touch gives every segment a 44px minimum height", () => {
+    renderToned("ok", "touch");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.className).toContain("min-h-11");
+    }
   });
 });

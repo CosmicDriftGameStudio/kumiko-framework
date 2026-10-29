@@ -9,6 +9,7 @@ export type { DerivedCellRoundingTarget } from "@cosmicdrift/kumiko-framework/ui
 export {
   computeDerivedCellValue,
   roundDerivedCellValue,
+  withDerivedCells,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 /** Sums a numeric/money/decimal column across all rows. Non-numeric or

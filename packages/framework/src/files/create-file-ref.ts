@@ -47,6 +47,8 @@ export type StoreFileInput = {
   readonly entityType?: string | undefined;
   readonly entityId?: string | undefined;
   readonly fieldName?: string | undefined;
+  /** File sub-field of the embedded `fieldName`; the stored row keeps the top-level `fieldName`. */
+  readonly subField?: string | undefined;
   /** Qualified name of a registered actionForm screen; `fieldName` then names one of its files
    *  fields and the upload is stored as pending (entityType = the screen QN, no entityId). */
   readonly actionForm?: string | undefined;
@@ -107,7 +109,7 @@ function acceptFile(
   deps: Pick<StoreFileDeps, "registry" | "attachTargets" | "defaultMaxUploadSize">,
   input: StoreFileInput,
 ): AcceptedFile {
-  const { fileName, declaredMimeType, data, entityType, entityId, fieldName } = input;
+  const { fileName, declaredMimeType, data, entityType, entityId, fieldName, subField } = input;
   const rejected = (error: string): AcceptedFile => ({ kind: "rejected", error });
 
   // These interpolate directly into the storage key (buildStorageKey) —
@@ -117,10 +119,14 @@ function acceptFile(
     ["entityType", entityType],
     ["entityId", entityId],
     ["fieldName", fieldName],
+    ["subField", subField],
   ] as const) {
     if (value !== undefined && !SAFE_IDENTIFIER.test(value)) {
       return rejected(`invalid_${field}: must match /^[A-Za-z0-9_-]+$/`);
     }
+  }
+  if (subField !== undefined && (entityType === undefined || fieldName === undefined)) {
+    return rejected("invalid_sub_field: subField requires entityType and fieldName");
   }
 
   const field = resolveUploadField(deps.registry, input, deps.attachTargets);

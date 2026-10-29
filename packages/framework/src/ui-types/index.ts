@@ -22,7 +22,17 @@
 
 export { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.ts";
-export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.ts";
+export {
+  computeDerivedCellValue,
+  roundDerivedCellValue,
+  withDerivedCells,
+} from "../engine/embedded-derived.ts";
+export {
+  findMissingConditionalRequirements,
+  isFieldRequired,
+  isFieldVisible,
+  isMissingRequiredValue,
+} from "../engine/field-state.ts";
 export type { FormDerivationScreen } from "../engine/form-derivations.ts";
 export {
   applyFormDerivations,

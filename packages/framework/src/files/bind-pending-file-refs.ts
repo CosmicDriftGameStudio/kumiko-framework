@@ -1,7 +1,6 @@
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "../db/tenant-db.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 
@@ -13,16 +12,13 @@ import {
   type WriteErrorInfo,
 } from "../errors/index.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
+import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { type FileRefRows, loadFileRefRows } from "./load-save-file-refs.ts";
 import { validateFile } from "./types.ts";
 import { resolveAttachedField } from "./upload-field-resolution.ts";
 
-export function fileRefIdsOf(value: unknown): readonly string[] {
-  if (typeof value === "string") return isUuid(value) ? [value] : [];
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && isUuid(item));
-}
+export { fileRefIdsOf } from "./file-field-slots.ts";
 
 function isPendingUploadFor(
   row: Readonly<Record<string, unknown>>,
@@ -103,10 +99,10 @@ export async function bindPendingFileRefs(args: {
   if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) return;
 
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    if (!isFileField(fieldDef)) continue;
+    if (!holdsFileRefs(fieldDef)) continue;
     // changes, not data: an update's row carries every stored file id, including
     // ones bound earlier; only the ids this save names can be pending uploads.
-    for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
+    for (const fileRefId of fileRefIdsInField(fieldDef, result.changes[fieldName])) {
       const row = fileRefRows.get(fileRefId);
       if (row === undefined) continue;
       const outcome = await bindPendingRow({

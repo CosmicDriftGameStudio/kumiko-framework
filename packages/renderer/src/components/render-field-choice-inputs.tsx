@@ -77,6 +77,7 @@ export function renderSelectInput(
       onChange={(v) => onChange(v)}
       options={selectOptions}
       {...(display !== undefined && { display })}
+      {...(field.optionTones !== undefined && { optionTones: field.optionTones })}
     />
   );
 }

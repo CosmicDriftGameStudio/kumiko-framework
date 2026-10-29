@@ -16,6 +16,7 @@ export {
 export { createDefaultGuard } from "./default-file-guard.ts";
 export { deleteFileRefsBoundToRecord } from "./delete-record-file-refs.ts";
 export { createFilesFeature, FILES_FEATURE } from "./feature.ts";
+export { holdsFileRefs } from "./file-field-slots.ts";
 export type { FileContext } from "./file-handle.ts";
 // `createFileHandle` is an implementation detail — construct handles via
 // `createFileContext(provider).ref(key)`, which is the AppContext surface.

@@ -548,6 +548,8 @@ export type InputProps =
        *  decides; the web impl keeps its short-option-set heuristic. Custom
        *  impls may ignore it — it is a request, not a contract. */
       readonly display?: "radio" | "dropdown";
+      /** Tone per option value; the selected segment of a radio presentation takes its colors. */
+      readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
     }
   | ({
       // Combobox / searchable select. Single mode (`multiple` false or omitted)
@@ -932,7 +934,9 @@ export type EmbeddedListCellType =
   | "decimal"
   | "select"
   | "reference"
-  | "timestamp";
+  | "timestamp"
+  | "images"
+  | "files";
 
 /** One column of an embedded-list table (one entry per key of the source
  *  EmbeddedFieldDef's `schema`). */
@@ -956,6 +960,18 @@ export type EmbeddedListColumn = {
    *  per column shared across every row (not one query per cell). */
   readonly referenceOptions?: readonly { readonly value: string; readonly label: string }[];
   readonly referenceLoading?: boolean;
+  /** Only for `type: "select"`; tone per option (selected segment, derived badge). */
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+  /** Only for `type: "images" | "files"`. */
+  readonly capture?: "user" | "environment";
+  readonly maxCount?: number;
+  readonly accept?: readonly string[];
+  /** Per-row state, evaluated by the caller (conditions are engine logic the primitive must not import).
+   *  A hidden cell keeps its value but shows no control. */
+  readonly isHiddenInRow?: (row: Readonly<Record<string, unknown>>) => boolean;
+  readonly isRequiredInRow?: (row: Readonly<Record<string, unknown>>) => boolean;
+  /** Overrides `derived` per row: a conditional derived cell is editable on rows where it does not apply. */
+  readonly isDerivedInRow?: (row: Readonly<Record<string, unknown>>) => boolean;
 };
 
 /** One entry of an embedded-list totals row (e.g. an invoice's total
@@ -991,6 +1007,12 @@ export type EmbeddedListInputProps = {
   readonly fixedRows?: boolean;
   readonly minItems?: number;
   readonly maxItems?: number;
+  /** Upload target of file cells: `entityType`/`entityId`/`fieldName` of the list, the column name is the `subField`. */
+  readonly uploadTarget?: {
+    readonly entityType: string;
+    readonly fieldName: string;
+    readonly entityId?: string;
+  };
   /** Shown under the whole list (e.g. under the totals row). */
   readonly listIssues?: readonly FieldIssue[];
   /** Keyed by row index. */

@@ -6,6 +6,7 @@ import type { UnprocessableOpts } from "../errors/classes.ts";
 import {
   VersionConflictError as FrameworkVersionConflict,
   UnprocessableError,
+  ValidationError,
   type WriteFailure,
   writeFailure,
 } from "../errors/index.ts";
@@ -53,6 +54,19 @@ export function selectOptionNotAvailableFailure(entries: readonly UnavailableSel
           params: { allowed: entry.allowed },
         })),
       },
+    }),
+  );
+}
+
+export function missingConditionalRequirementFailure(paths: readonly string[]) {
+  if (paths.length === 0) return undefined;
+  return writeFailure(
+    new ValidationError({
+      fields: paths.map((path) => ({
+        path,
+        code: "required",
+        i18nKey: "kumiko.validation.required",
+      })),
     }),
   );
 }

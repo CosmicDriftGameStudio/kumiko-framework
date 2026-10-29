@@ -517,6 +517,8 @@ describe("buildAppSchema", () => {
       // isJsonSafeValue() now recurses into arrays/plain
       // objects instead of only string/number/boolean/null.
       "sensitive", // write-response redaction server-side AND the renderer's prefill block
+      "visibleWhen",
+      "requiredWhen",
     ] as const;
 
     const SERVER_ONLY_KEYS = [
@@ -550,6 +552,8 @@ describe("buildAppSchema", () => {
           maxRows: 4,
           optionsAvailabilityQuery: "ent:query:tag-availability",
           sensitive: true,
+          visibleWhen: { field: "kind", eq: "a" },
+          requiredWhen: { field: "kind", eq: "a" },
           access: { read: ["admin"] },
           pii: true,
           userOwned: { ownerField: "authorId" },
@@ -1440,5 +1444,82 @@ describe("findNonJsonSafePath", () => {
     expect(
       findNonJsonSafePath({ features: [{ name: "x", count: 3, on: true, opt: null }] }, "schema"),
     ).toBeNull();
+  });
+});
+
+describe("buildAppSchema: conditional state and file sub-fields of embedded lists", () => {
+  test("visibleWhen, requiredWhen, optionTones, file sub-field props and derived inRange reach the client schema", () => {
+    const condition = { field: "result", eq: "not_ok" } as const;
+    const f = defineFeature("ent", (r) => {
+      r.entity({
+        name: "protocol",
+        fields: {
+          note: createTextField({
+            personal: false,
+            reason: "test_fixture",
+            visibleWhen: condition,
+            requiredWhen: condition,
+          }),
+          checkpoints: {
+            type: "embedded",
+            multiple: true,
+            schema: {
+              measured: { type: "number" },
+              min: { type: "number" },
+              max: { type: "number" },
+              kind: { type: "select", options: ["check", "measurement"] },
+              result: {
+                type: "select",
+                options: ["ok", "not_ok"],
+                optionTones: { ok: "ok", not_ok: "bad" },
+              },
+              finding: { type: "text", visibleWhen: condition, requiredWhen: condition },
+              photos: {
+                type: "images",
+                capture: "environment",
+                maxCount: 5,
+                maxSize: "5mb",
+                accept: ["jpg"],
+                visibleWhen: condition,
+              },
+            },
+            derived: {
+              result: {
+                op: "inRange",
+                from: ["measured", "min", "max"],
+                inside: "ok",
+                outside: "not_ok",
+                when: { field: "kind", eq: "measurement" },
+              },
+            },
+          },
+        },
+      });
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const entity = app.features[0]?.entities["protocol"];
+    const fields = JSON.parse(JSON.stringify(entity)).fields;
+
+    expect(fields.note.visibleWhen).toEqual(condition);
+    expect(fields.note.requiredWhen).toEqual(condition);
+    const sub = fields.checkpoints.schema;
+    expect(sub.finding.visibleWhen).toEqual(condition);
+    expect(sub.finding.requiredWhen).toEqual(condition);
+    expect(sub.result.optionTones).toEqual({ ok: "ok", not_ok: "bad" });
+    expect(sub.photos).toMatchObject({
+      type: "images",
+      capture: "environment",
+      maxCount: 5,
+      maxSize: "5mb",
+      accept: ["jpg"],
+      visibleWhen: condition,
+    });
+    expect(fields.checkpoints.derived.result).toEqual({
+      op: "inRange",
+      from: ["measured", "min", "max"],
+      inside: "ok",
+      outside: "not_ok",
+      when: { field: "kind", eq: "measurement" },
+    });
   });
 });

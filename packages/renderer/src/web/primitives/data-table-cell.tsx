@@ -288,7 +288,7 @@ export function cellTitle(value: unknown): string | undefined {
   return undefined;
 }
 
-function selectPill(
+export function selectPill(
   value: unknown,
   optionLabels: Readonly<Record<string, string>> | undefined,
   optionTones: Readonly<Partial<Record<string, SelectOptionTone>>> | undefined,

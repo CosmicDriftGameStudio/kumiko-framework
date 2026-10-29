@@ -7,6 +7,7 @@ import {
   ErasedSubjectHandlings,
 } from "../crypto/pii-field-encryption.ts";
 import { checkWriteFieldOwnership } from "../engine/field-access.ts";
+import { findMissingConditionalRequirements } from "../engine/field-state.ts";
 import { instructionFieldNames } from "../engine/instruction-fields.ts";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.ts";
@@ -61,6 +62,7 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context.ts";
 import {
+  missingConditionalRequirementFailure,
   optimisticLockFailure,
   ownershipDeniedFailure,
   projectEntityEvent,
@@ -422,11 +424,15 @@ export function createWriteVerbs(
     // reference) and must not be blocked by the select rule — same exemption as the lock.
     const isStatutorySystemWrite =
       options?.writePurpose !== undefined && isFrameworkSystemUser(user);
-    return isStatutorySystemWrite
-      ? undefined
-      : selectOptionNotAvailableFailure(
-          findUnavailableSelectOptions(entity.fields, mergedNew, previous),
-        );
+    if (isStatutorySystemWrite) return undefined;
+    return (
+      selectOptionNotAvailableFailure(
+        findUnavailableSelectOptions(entity.fields, mergedNew, previous),
+      ) ??
+      missingConditionalRequirementFailure(
+        findMissingConditionalRequirements(entity.fields, mergedNew, previous),
+      )
+    );
   }
 
   async function appendCreatedEvent(
@@ -718,6 +724,11 @@ export function createWriteVerbs(
         findUnavailableSelectOptions(entity.fields, data),
       );
       if (unavailableOnCreate) return unavailableOnCreate;
+
+      const missingOnCreate = missingConditionalRequirementFailure(
+        findMissingConditionalRequirements(entity.fields, data),
+      );
+      if (missingOnCreate) return missingOnCreate;
 
       // All compound types (locatedTimestamp, money, ...) use the same pipeline: the
       // caller sends the combined API form, the framework stores the flat DB form (see

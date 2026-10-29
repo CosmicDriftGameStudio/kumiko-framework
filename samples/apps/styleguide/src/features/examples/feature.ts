@@ -6,6 +6,7 @@
 import {
   createBooleanField,
   createDateField,
+  createEmbeddedListField,
   createEntity,
   createImageField,
   createLocatedTimestampField,
@@ -67,6 +68,65 @@ export const deliveryEntity = createEntity({
     dropoffOn: createDateField(),
     bookedAt: createTimestampField(),
     homeZone: createTzField(),
+  },
+});
+
+// Inspection — the inspection-checklist recipe's protocol (sub-fields, derived result,
+// conditions), rendered as the phone checklist in the auto-form.
+const isMeasurement = { field: "kind", eq: "measurement" } as const;
+const isNotOk = { field: "result", eq: "not_ok" } as const;
+
+export const inspectionEntity = createEntity({
+  table: "read_examples_inspection",
+  fields: {
+    measuringDevice: createTextField({ personal: false, reason: "is_business_data" }),
+    checkpoints: createEmbeddedListField(
+      {
+        label: { type: "text", required: true },
+        kind: { type: "select", options: ["check", "measurement"], required: true },
+        min: { type: "number", visibleWhen: isMeasurement },
+        max: { type: "number", visibleWhen: isMeasurement },
+        measured: { type: "number", visibleWhen: isMeasurement },
+        result: {
+          type: "select",
+          options: ["ok", "not_ok"],
+          display: "radio",
+          optionTones: { ok: "ok", not_ok: "bad" },
+        },
+        finding: { type: "text", visibleWhen: isNotOk, requiredWhen: isNotOk },
+        photos: {
+          type: "images",
+          capture: "environment",
+          maxCount: 5,
+          visibleWhen: isNotOk,
+          requiredWhen: isNotOk,
+        },
+      },
+      {
+        personal: false,
+        reason: "is_business_data",
+        derived: {
+          result: {
+            op: "inRange",
+            from: ["measured", "min", "max"],
+            inside: "ok",
+            outside: "not_ok",
+            when: isMeasurement,
+          },
+        },
+      },
+    ),
+    continuedOperation: createSelectField({
+      options: ["yes", "with_condition", "no"],
+      display: "radio",
+      optionTones: { yes: "ok", with_condition: "warn", no: "bad" },
+    }),
+    condition: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      visibleWhen: { field: "continuedOperation", eq: "with_condition" },
+      requiredWhen: { field: "continuedOperation", eq: "with_condition" },
+    }),
   },
 });
 
@@ -194,6 +254,31 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
+  r.crud("inspection", inspectionEntity, editFormOnly);
+
+  r.screen({
+    id: "inspection-edit",
+    type: "entityEdit",
+    entity: "inspection",
+    submitLabel: "examples:inspection:submit",
+    layout: {
+      width: "full",
+      sections: [
+        {
+          columns: 1,
+          fields: [
+            "measuringDevice",
+            {
+              field: "checkpoints",
+              embeddedList: { readOnlyCells: ["label", "kind", "min", "max"], fixedRows: true },
+            },
+          ],
+        },
+        { columns: 1, fields: ["continuedOperation", "condition"] },
+      ],
+    },
+  });
+
   r.nav({ id: "examples", label: "examples:nav.examples", icon: "folder", order: 30 });
   r.nav({
     id: "shipping",
@@ -218,5 +303,13 @@ export const examplesFeature = defineFeature("examples", (r) => {
     screen: "examples:screen:delivery-edit",
     icon: "calendar",
     order: 30,
+  });
+  r.nav({
+    id: "inspection",
+    label: "examples:nav.inspection",
+    parent: "examples:nav:examples",
+    screen: "examples:screen:inspection-edit",
+    icon: "file",
+    order: 40,
   });
 });

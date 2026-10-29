@@ -21,6 +21,7 @@ an open-source statuspage clone built with Kumiko.
 | Custom handlers with business logic | [recipes/custom-handlers](recipes/custom-handlers/) | Integration |
 | Parent-child relations + cascade/restrict | [recipes/relations](recipes/relations/) | Integration |
 | Embedded objects (1:1 sub-shapes inside a parent row) | [recipes/embedded](recipes/embedded/) | Integration |
+| Inspection checklist (embedded list with conditional cells, derived pass/fail, photos per row) | [recipes/inspection-checklist](recipes/inspection-checklist/) | Integration |
 | Hide/protect fields per role | [recipes/field-access](recipes/field-access/) | Integration |
 | Hooks (validation, preSave, postSave) | [recipes/lifecycle-hooks](recipes/lifecycle-hooks/) | Integration |
 | Seed reference data (`r.referenceData`) | [recipes/reference-data](recipes/reference-data/) | Integration |

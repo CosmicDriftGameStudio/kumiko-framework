@@ -5,7 +5,7 @@ import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-up
 
 export type FileRefTarget = Pick<
   FileUploadFormDataInput,
-  "entityType" | "entityId" | "fieldName" | "actionForm"
+  "entityType" | "entityId" | "fieldName" | "subField" | "actionForm"
 >;
 
 /** Carries the server's own `error` message when the upload endpoint sent one. */

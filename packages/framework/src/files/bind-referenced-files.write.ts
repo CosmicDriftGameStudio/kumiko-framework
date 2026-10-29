@@ -1,13 +1,12 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import type { TenantDb } from "../db/tenant-db.ts";
-import { isFileField } from "../engine/field-helpers.ts";
 import { defineWriteHandler, SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/index.ts";
 import type { Registry } from "../engine/types/index.ts";
 
 import { ValidationError } from "../errors/index.ts";
-import { fileRefIdsOf } from "./bind-pending-file-refs.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
+import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { loadFileRefRows } from "./load-save-file-refs.ts";
 import { findImplicitEntityTable } from "./record-write-check.ts";
@@ -55,7 +54,7 @@ function resolveFileBearingEntity(
   if (entity === undefined || table === undefined) throw invalidEntityType();
   if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) throw invalidEntityType();
   const fileFieldNames = Object.entries(entity.fields)
-    .filter(([, fieldDef]) => isFileField(fieldDef))
+    .filter(([, fieldDef]) => holdsFileRefs(fieldDef))
     .map(([fieldName]) => fieldName);
   if (fileFieldNames.length === 0) throw invalidEntityType();
   return { entity, table, fileFieldNames };
@@ -126,8 +125,10 @@ export const bindReferencedFilesWrite = defineWriteHandler({
     const { fileFieldNames, ...source } = resolveFileBearingEntity(ctx.registry, entityType);
     const records = await loadRecordPage(ctx.db, source, event.payload);
 
+    const fileRefIdsOfRecordField = (record: Record<string, unknown>, fieldName: string) =>
+      fileRefIdsInField(source.entity.fields[fieldName], record[fieldName]);
     const referencedIds = records.flatMap((record) =>
-      fileFieldNames.flatMap((fieldName) => fileRefIdsOf(record[fieldName])),
+      fileFieldNames.flatMap((fieldName) => fileRefIdsOfRecordField(record, fieldName)),
     );
     const fileRefRows = await loadFileRefRows(ctx.db, referencedIds, event.user.tenantId);
 
@@ -136,7 +137,7 @@ export const bindReferencedFilesWrite = defineWriteHandler({
     let skipped = 0;
     for (const record of records) {
       for (const fieldName of fileFieldNames) {
-        for (const fileRefId of fileRefIdsOf(record[fieldName])) {
+        for (const fileRefId of fileRefIdsOfRecordField(record, fieldName)) {
           const row = fileRefRows.get(fileRefId);
           if (
             row === undefined ||

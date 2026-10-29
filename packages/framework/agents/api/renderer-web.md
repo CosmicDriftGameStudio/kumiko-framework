@@ -499,7 +499,7 @@ interface FileFieldProps extends FieldBase {
   entityType?: string; // Binds the upload to a specific entity field; the `/api/files` endpoint then validates `accept`/`maxSize` server-side against that field's definition.
   fieldName?: string;
 }
-type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName" | "actionForm">;
+type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName" | "subField" | "actionForm">;
 type FloatingPanelGeometry = {
   x: number;
   y: number;
@@ -776,6 +776,7 @@ type InputProps =
     hasError?: boolean;
     radioVariant?: "list" | "card"; // `"card"` renders the radio group as bordered cards with label plus optional description per option and always uses the radio group, regardless of option count or `display`.
     display?: "radio" | "dropdown"; // Requested presentation.
+    optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // Tone per option value; the selected segment of a radio presentation takes its colors.
   }
   | ({ kind: "combobox"; id: string; name: string; options: { value: string; label: string; }[]; disabled?: boolean; required?: boolean; hasError?: boolean; placeholder?: string; searchPlaceholder?: string; emptyText?: string; onSearchChange?: (q: string) => void; loading?: boolean; onCreate?: () => void; createLabel?: string; } & ({ multiple?: false; value: string; onChange: (v: string) => void; } | { multiple: true; value: string[]; onChange: (v: string[]) => void; }))
   | {

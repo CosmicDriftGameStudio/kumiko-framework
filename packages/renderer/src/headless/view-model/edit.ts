@@ -16,7 +16,9 @@ import {
   availableSelectOptions,
   evalFieldCondition,
   isExtensionEditSection,
+  isFieldRequired,
   isFieldsEditSection,
+  isFieldVisible,
   isFormDerivationInputMode,
   isUnusedFallbackOperand,
   isWriteFormEditSection,
@@ -26,13 +28,8 @@ import {
   WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
-import {
-  buildOptionLabels,
-  embeddedCellLabelKey,
-  embeddedCellOptionLabelKey,
-  fieldLabelKey,
-  fieldOptionLabelKey,
-} from "./list.ts";
+import { buildEmbeddedListCell } from "./embedded-list-cells.ts";
+import { buildOptionLabels, fieldLabelKey, fieldOptionLabelKey } from "./list.ts";
 import type {
   EditFieldViewModel,
   EditRelatedListSectionViewModel,
@@ -42,31 +39,6 @@ import type {
   EmbeddedListCellViewModel,
   Translate,
 } from "./types.ts";
-
-// Sub-field shape read off an EmbeddedFieldDef.schema entry. Mirrors
-// EmbeddedSubFieldDef from packages/types/src/fields.ts — headless only
-// depends on @cosmicdrift/kumiko-framework/ui-types (client-safe subset),
-// which doesn't re-export the embedded types, so this stays a local cast
-// shape like every other field-type narrowing in this file.
-type EmbeddedSubFieldShape = {
-  readonly type:
-    | "text"
-    | "number"
-    | "boolean"
-    | "date"
-    | "money"
-    | "decimal"
-    | "select"
-    | "reference"
-    | "timestamp";
-  readonly required?: boolean;
-  readonly options?: readonly string[];
-  readonly entity?: string;
-  readonly labelField?: string;
-  readonly optionsQuery?: string;
-  readonly scale?: number;
-  readonly display?: "radio" | "dropdown";
-};
 
 export type ComputeEditViewModelInput<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
@@ -257,6 +229,7 @@ type SelectFieldHints = Pick<
   | "options"
   | "optionLabels"
   | "display"
+  | "optionTones"
   | "columns"
   | "maxRows"
   | "selectOptionsQuery"
@@ -334,6 +307,7 @@ function deriveSelectFieldHints(
   const display =
     declaredDisplay ??
     (fieldDef.type === "select" && fieldDef.conditionalOptions ? "dropdown" : undefined);
+  const optionTones = fieldDef.type === "select" ? fieldDef.optionTones : undefined;
   const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
   const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
   return {
@@ -342,6 +316,7 @@ function deriveSelectFieldHints(
     ...(options !== undefined && { options }),
     ...(optionLabels !== undefined && { optionLabels }),
     ...(display !== undefined && { display }),
+    ...(optionTones !== undefined && { optionTones }),
     ...(columns !== undefined && { columns }),
     ...(maxRows !== undefined && { maxRows }),
   };
@@ -368,10 +343,6 @@ function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
 }
 
 // files/images field defs carry no `required` property.
-function isRequiredByEntity(fieldDef: EntityFieldDef): boolean {
-  return "required" in fieldDef && fieldDef.required === true;
-}
-
 type DateFieldHints = Pick<EditFieldViewModel, "wallClock" | "min" | "max" | "dateLocale">;
 
 function deriveDateFieldHints(fieldDef: EntityFieldDef): DateFieldHints {
@@ -527,78 +498,8 @@ type EmbeddedListHints = Pick<
   | "embeddedListTotals"
   | "embeddedListCurrency"
   | "embeddedListFixedRows"
+  | "embeddedListUploadTarget"
 >;
-
-type EmbeddedCellSelectHints = Pick<EmbeddedListCellViewModel, "options" | "optionLabels">;
-type EmbeddedCellReferenceHints = Pick<
-  EmbeddedListCellViewModel,
-  "refEntity" | "refFeature" | "refLabelField" | "refOptionsQuery"
->;
-
-function deriveEmbeddedCellSelectHints(
-  subField: EmbeddedSubFieldShape,
-  translate: Translate,
-  featureName: string,
-  entityName: string,
-  fieldName: string,
-  subFieldName: string,
-): EmbeddedCellSelectHints {
-  if (subField.type !== "select") return {};
-  const options = subField.options ?? [];
-  return {
-    options,
-    optionLabels: buildOptionLabels(
-      translate,
-      (value) =>
-        embeddedCellOptionLabelKey(featureName, entityName, fieldName, subFieldName, value),
-      options,
-    ),
-  };
-}
-
-function deriveEmbeddedCellReferenceHints(
-  subField: EmbeddedSubFieldShape,
-  featureName: string,
-): EmbeddedCellReferenceHints {
-  if (subField.type !== "reference") return {};
-  const target =
-    subField.entity !== undefined ? parseRefTarget(subField.entity, featureName) : undefined;
-  return {
-    ...(target !== undefined && { refEntity: target.entityName, refFeature: target.featureName }),
-    ...(subField.labelField !== undefined && { refLabelField: subField.labelField }),
-    ...(subField.optionsQuery !== undefined && { refOptionsQuery: subField.optionsQuery }),
-  };
-}
-
-function buildEmbeddedListCell(
-  subFieldName: string,
-  subField: EmbeddedSubFieldShape,
-  translate: Translate,
-  featureName: string,
-  entityName: string,
-  fieldName: string,
-  listSpec: EmbeddedListEditSpec | undefined,
-): EmbeddedListCellViewModel {
-  return {
-    field: subFieldName,
-    label: translate(embeddedCellLabelKey(featureName, entityName, fieldName, subFieldName)),
-    type: subField.type,
-    required: subField.required === true,
-    ...deriveEmbeddedCellSelectHints(
-      subField,
-      translate,
-      featureName,
-      entityName,
-      fieldName,
-      subFieldName,
-    ),
-    ...deriveEmbeddedCellReferenceHints(subField, featureName),
-    ...(subField.type === "decimal" && subField.scale !== undefined && { scale: subField.scale }),
-    ...(subField.type === "select" &&
-      subField.display !== undefined && { display: subField.display }),
-    ...(listSpec?.readOnlyCells?.includes(subFieldName) === true && { readOnly: true }),
-  };
-}
 
 // Embedded-LIST field (`multiple: true`) — per-cell metadata for a renderer
 // to draw one row per array item (invoice-positions-style table). A plain
@@ -613,21 +514,15 @@ function deriveEmbeddedListHints(
   fieldName: string,
   resolvedCurrency: string,
   listSpec: EmbeddedListEditSpec | undefined,
+  entityId: string | undefined,
 ): EmbeddedListHints {
   const embeddedListDef =
     fieldDef.type === "embedded" && fieldDef.multiple === true ? fieldDef : undefined;
+  const cellContext = { translate, featureName, entityName, fieldName, listSpec };
   const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
     embeddedListDef !== undefined
       ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) =>
-          buildEmbeddedListCell(
-            subFieldName,
-            subField,
-            translate,
-            featureName,
-            entityName,
-            fieldName,
-            listSpec,
-          ),
+          buildEmbeddedListCell(subFieldName, subField, cellContext),
         )
       : undefined;
   return {
@@ -649,6 +544,14 @@ function deriveEmbeddedListHints(
     ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
     ...(embeddedListDef !== undefined &&
       listSpec?.fixedRows === true && { embeddedListFixedRows: true }),
+    ...(embeddedListCells?.some((cell) => cell.type === "images" || cell.type === "files") ===
+      true && {
+      embeddedListUploadTarget: {
+        entityType: entityName,
+        fieldName,
+        ...(entityId !== undefined && { entityId }),
+      },
+    }),
   };
 }
 
@@ -754,7 +657,10 @@ export function computeEditViewModel<
           screen.fieldLabels?.[normalized.field] ??
             fieldLabelKey(featureName, screen.entity, normalized.field),
         );
-        const visible = evalCondition(normalized.visible, true, values);
+        const visible =
+          normalized.visible !== undefined
+            ? evalFieldCondition(normalized.visible, values)
+            : isFieldVisible(fieldDef, values);
         // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
         // in the engine, and the view-model emitted here. One convention
         // through the stack beats translating at the boundary.
@@ -767,9 +673,11 @@ export function computeEditViewModel<
         // field that's required at the entity-level but marked required:
         // false on the screen (e.g. a soft-onboarding wizard that
         // collects less up-front) respects the screen override.
-        const entityRequired = isRequiredByEntity(fieldDef);
         const required =
-          !lockedByDerivation && evalCondition(normalized.required, entityRequired, values);
+          !lockedByDerivation &&
+          (normalized.required !== undefined
+            ? evalFieldCondition(normalized.required, values)
+            : isFieldRequired(fieldDef, values));
         // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
         // framework/src/engine/field-helpers.ts — headless has no dependency
         // on that module, so the literal is duplicated here instead of
@@ -807,6 +715,7 @@ export function computeEditViewModel<
           normalized.field,
           resolvedCurrency,
           normalized.embeddedList,
+          entityId,
         );
         const view: EditFieldViewModel = {
           field: normalized.field,

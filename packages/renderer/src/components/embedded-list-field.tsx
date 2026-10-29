@@ -1,3 +1,5 @@
+import { evalFieldCondition, isFieldRequired } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import type {
   EditFieldViewModel,
@@ -5,11 +7,10 @@ import type {
   FieldIssue,
 } from "../headless/index.ts";
 import {
-  computeDerivedCellValue,
   currencyDecimals,
   groupEmbeddedListIssues,
-  roundDerivedCellValue,
   sumEmbeddedListColumn,
+  withDerivedCells,
 } from "../headless/index.ts";
 import { pluralKey } from "../headless/plural-key.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
@@ -33,6 +34,33 @@ export type EmbeddedListFieldProps = {
 
 type EmbeddedRow = Readonly<Record<string, unknown>>;
 
+type RowStateCallbacks = Pick<
+  EmbeddedListColumn,
+  "isHiddenInRow" | "isRequiredInRow" | "isDerivedInRow"
+>;
+
+// The primitive never imports condition logic, so the per-row state is evaluated here.
+function rowStateCallbacks(
+  cell: EmbeddedListCellViewModel,
+  derivedDef: NonNullable<EditFieldViewModel["embeddedListDerived"]>[string] | undefined,
+): RowStateCallbacks {
+  const { visibleWhen, requiredWhen } = cell;
+  const derivedWhen = derivedDef?.when;
+  return {
+    ...(visibleWhen !== undefined && {
+      isHiddenInRow: (row) => !evalFieldCondition(visibleWhen, row),
+    }),
+    ...((visibleWhen !== undefined || requiredWhen !== undefined) && {
+      isRequiredInRow: (row) =>
+        isFieldRequired({ required: cell.required, visibleWhen, requiredWhen }, row),
+    }),
+    ...(derivedDef !== undefined &&
+      derivedWhen !== undefined && {
+        isDerivedInRow: (row) => evalFieldCondition(derivedWhen, row),
+      }),
+  };
+}
+
 function storedCellIds(rows: readonly EmbeddedRow[], cellField: string): string[] {
   const ids = new Set<string>();
   for (const row of rows) {
@@ -48,25 +76,9 @@ function withRecomputedDerived(
   cells: readonly EmbeddedListCellViewModel[],
 ): EmbeddedRow {
   if (derived === undefined) return row;
-  // Read sources from an unchanged snapshot, never from `result` (which this
-  // loop mutates) — mirrors withDerivedCells server-side so chained derived
-  // cells (e.g. net=qty*price, then gross=sum(net,tax)) can't drift between
-  // client preview and server depending on Object.entries(derived) order.
-  const source = { ...row };
-  const result: Record<string, unknown> = { ...row };
-  for (const [derivedField, def] of Object.entries(derived)) {
-    const values = def.from.map((src) => {
-      const v = source[src];
-      return typeof v === "number" ? v : undefined;
-    });
-    const computed = computeDerivedCellValue(def.op, values);
-    const target = cells.find((c) => c.field === derivedField);
-    result[derivedField] =
-      computed !== undefined && target !== undefined
-        ? roundDerivedCellValue(computed, target)
-        : computed;
-  }
-  return result;
+  const targets = Object.fromEntries(cells.map((cell) => [cell.field, cell]));
+  const recomputed = withDerivedCells(row, derived, targets);
+  return isPlainObject(recomputed) ? recomputed : row;
 }
 
 // Locale-aware decimal parse for pasted text: strips space/NBSP thousands
@@ -136,6 +148,9 @@ function coerceCellValue(column: EmbeddedListColumn, text: string, currency: str
       );
       return match?.value;
     }
+    case "images":
+    case "files":
+      return undefined;
     default: {
       const exhaustiveCheck: never = column.type;
       return exhaustiveCheck;
@@ -214,6 +229,7 @@ function EmbeddedListFieldInner({
         type: cell.type,
         required: cell.required,
         derived: isDerived,
+        ...rowStateCallbacks(cell, derived?.[cell.field]),
         ...(cell.readOnly === true && { readOnly: true }),
         referenceOptions,
         referenceLoading: query?.loading ?? false,
@@ -225,10 +241,15 @@ function EmbeddedListFieldInner({
       type: cell.type,
       required: cell.required,
       derived: isDerived,
+      ...rowStateCallbacks(cell, derived?.[cell.field]),
       ...(cell.readOnly === true && { readOnly: true }),
       ...(cell.options !== undefined && { options: cell.options }),
       ...(cell.optionLabels !== undefined && { optionLabels: cell.optionLabels }),
       ...(cell.display !== undefined && { display: cell.display }),
+      ...(cell.optionTones !== undefined && { optionTones: cell.optionTones }),
+      ...(cell.capture !== undefined && { capture: cell.capture }),
+      ...(cell.maxCount !== undefined && { maxCount: cell.maxCount }),
+      ...(cell.accept !== undefined && { accept: cell.accept }),
     };
   });
 
@@ -346,6 +367,7 @@ function EmbeddedListFieldInner({
       gridRow.forEach((text, gridColOffset) => {
         const column = columns[columnIndex + gridColOffset];
         if (column === undefined || column.readOnly === true) return;
+        if (column.type === "images" || column.type === "files") return;
         const coerced = coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR");
         // Also covers an unparseable money paste (e.g. mangled thousands
         // separators) — the cell must stay unchanged instead of silently
@@ -383,6 +405,7 @@ function EmbeddedListFieldInner({
       fixedRows={field.embeddedListFixedRows}
       minItems={field.embeddedListMinItems}
       maxItems={field.embeddedListMaxItems}
+      uploadTarget={field.embeddedListUploadTarget}
       listIssues={combinedListIssues}
       rowIssues={rowIssues}
       cellIssues={cellIssues}

@@ -12,6 +12,7 @@ import { declaredRateLimitOptions, isRateLimitDisabled } from "@cosmicdrift/kumi
 import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
 import { ZodObject } from "zod";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.ts";
+import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -597,7 +598,7 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
 export function validateFileFields(feature: FeatureDefinition): boolean {
   for (const entity of Object.values(feature.entities ?? {})) {
     for (const field of Object.values(entity.fields)) {
-      if (FILE_FIELD_TYPES.has(field.type)) return true;
+      if (holdsFileRefs(field)) return true;
     }
   }
   return false;
@@ -615,6 +616,8 @@ const VALID_EMBEDDED_SUB_TYPES = new Set([
   "select",
   "reference",
   "timestamp",
+  "images",
+  "files",
 ]);
 
 const NUMERIC_EMBEDDED_SUB_TYPES = new Set(["number", "money", "decimal"]);
@@ -1084,7 +1087,9 @@ export function validateEntitySelectAvailabilityQuery(
   }
 }
 
-function conditionComparisonValues(when: Exclude<FieldCondition, boolean>): readonly unknown[] {
+export function conditionComparisonValues(
+  when: Exclude<FieldCondition, boolean>,
+): readonly unknown[] {
   if ("eq" in when) return [when.eq];
   if ("ne" in when) return [when.ne];
   if ("in" in when) return when.in;
@@ -1296,7 +1301,7 @@ function isCiphertextAtRest(field: FieldDefinition): boolean {
 // Types whose stored value is a plain scalar that the condition's `===` can match.
 // Compound, temporal, array and bigint columns come back in another shape than the
 // literal an author writes, so such a lock would silently never hold.
-const LOCKABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
+export const LOCKABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
   "text",
   "longText",
   "boolean",

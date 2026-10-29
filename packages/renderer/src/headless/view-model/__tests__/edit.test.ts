@@ -1600,3 +1600,66 @@ describe("computeEditViewModel — entityId on file fields", () => {
     }
   });
 });
+
+describe("computeEditViewModel — conditional fields and file cells", () => {
+  const isNotOk = { field: "result", eq: "not_ok" } as const;
+  const entity = {
+    fields: {
+      checkpoints: {
+        type: "embedded",
+        multiple: true,
+        schema: {
+          result: {
+            type: "select",
+            options: ["ok", "not_ok"],
+            optionTones: { ok: "ok", not_ok: "bad" },
+          },
+          finding: { type: "text", visibleWhen: isNotOk, requiredWhen: isNotOk },
+          photos: { type: "images", capture: "environment", maxCount: 3, accept: ["jpg"] },
+        },
+      },
+      operation: { type: "select", options: ["yes", "with_condition"] },
+      condition: {
+        type: "text",
+        visibleWhen: { field: "operation", eq: "with_condition" },
+        requiredWhen: { field: "operation", eq: "with_condition" },
+      },
+    },
+  } as unknown as EntityDefinition;
+
+  function build(values: Record<string, unknown>) {
+    return computeEditViewModel({
+      screen: editScreen({
+        sections: [{ title: "x", fields: ["checkpoints", "operation", "condition"] }],
+      }),
+      entity,
+      values,
+      translate,
+      featureName: "insp",
+      entityId: "e1",
+    });
+  }
+
+  test("entity visibleWhen/requiredWhen drive the top-level field state", () => {
+    const hidden = asFields(build({ operation: "yes" }).sections[0]).fields;
+    expect(hidden.find((f) => f.field === "condition")?.visible).toBe(false);
+    const shown = asFields(build({ operation: "with_condition" }).sections[0]).fields;
+    const condition = shown.find((f) => f.field === "condition");
+    expect(condition?.visible).toBe(true);
+    expect(condition?.required).toBe(true);
+  });
+
+  test("embedded cells carry conditions, tones, file hints and the upload target", () => {
+    const field = asFields(build({ checkpoints: [] }).sections[0]).fields[0];
+    const byField = Object.fromEntries((field?.embeddedListCells ?? []).map((c) => [c.field, c]));
+    expect(byField["finding"]).toMatchObject({ visibleWhen: isNotOk, requiredWhen: isNotOk });
+    expect(byField["result"]?.optionTones).toEqual({ ok: "ok", not_ok: "bad" });
+    expect(byField["photos"]).toMatchObject({
+      type: "images",
+      capture: "environment",
+      maxCount: 3,
+      accept: ["jpg"],
+    });
+    expect(field?.embeddedListUploadTarget).toMatchObject({ fieldName: "checkpoints" });
+  });
+});

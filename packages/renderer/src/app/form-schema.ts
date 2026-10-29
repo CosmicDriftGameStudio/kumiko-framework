@@ -6,7 +6,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
+  findMissingConditionalRequirements,
   findUnavailableSelectOptions,
+  isFieldRequired,
   isUnchangedValue,
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -41,9 +43,10 @@ function isRequiredValueMissing(
   // Screen-spec `required` overrides the entity default, mirroring
   // `view-model/edit.ts` — the rendered form is the reference, and a
   // presence check stricter than the form blocks the user for nothing.
-  const entityRequired = "required" in field && field.required === true;
   const isRequired =
-    spec.required === undefined ? entityRequired : evalFieldCondition(spec.required, record);
+    spec.required === undefined
+      ? isFieldRequired(field, record)
+      : evalFieldCondition(spec.required, record);
   if (!isRequired) return false;
   // Embedded LIST fields get their own EmbeddedListField grid widget
   // — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
@@ -128,6 +131,25 @@ export function buildFormSchema(
           path: [spec.field],
           message: `"${spec.field}" is required.`,
           // I18N_KEY_PARAM override, see packages/renderer/src/headless/form/zod-bridge.ts.
+          params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
+        });
+      }
+      // Embedded sub-field `requiredWhen` (e.g. checkpoints.0.finding) — the top-level
+      // conditions are already covered by isRequiredValueMissing above.
+      for (const path of findMissingConditionalRequirements(entity.fields, record, unchangedFrom)) {
+        const segments = path.split(".");
+        const root = segments[0];
+        if (
+          segments.length < 2 ||
+          root === undefined ||
+          !Object.hasOwn(selectFieldsToCheck, root)
+        ) {
+          continue;
+        }
+        ctx.addIssue({
+          code: "custom",
+          path: segments.map((segment) => (/^\d+$/.test(segment) ? Number(segment) : segment)),
+          message: `"${path}" is required.`,
           params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
         });
       }
