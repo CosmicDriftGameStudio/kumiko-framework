@@ -1,6 +1,9 @@
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { isFrameworkSystemUser } from "../db/lock-guard.ts";
+import { selectRowForUpdateById } from "../db/queries/entity-read.ts";
+import { asEntityTableMeta } from "../db/table-introspection.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
+import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 import { RecordLockedError } from "../errors/classes.ts";
 import {
@@ -18,7 +21,6 @@ import { createRecordReadCheck } from "./record-read-check.ts";
 import {
   createRecordWriteCheck,
   findImplicitEntityTable,
-  isStoredRecordLocked,
   RecordWriteDecisions,
 } from "./record-write-check.ts";
 
@@ -97,8 +99,20 @@ function isOwnedBy(fileRef: FileRef, owner: FileRefOwner): boolean {
   );
 }
 
-// A caller other than the system job must be able to read the file today, may not pull it off a
-// locked record, and must be able to write the target field as a save of that record would.
+// Holds the source row until commit, so a lock or ownership change committed by another
+// transaction is either seen by the write check below or waits for this rebind to finish.
+async function lockSourceRow(ctx: CallerCheckContext, from: FileRefOwner): Promise<void> {
+  const table = findImplicitEntityTable(ctx.registry, from.entityType);
+  const tableName = asEntityTableMeta(table)?.tableName;
+  // skip: no stored row to lock; the write check below answers not_found for it
+  if (tableName === undefined) return;
+  await selectRowForUpdateById(tenantDbRunner(ctx.db), tableName, from.entityId);
+}
+
+// A caller other than the system job must be able to read the file today and must be able to
+// write both records as a save of them would: the source it takes the file from (unlocked, and
+// with an update handler the caller passes; without one only the system job may move the file),
+// and the target field it puts the file into.
 async function assertCallerMayMove(
   ctx: CallerCheckContext,
   fileRef: FileRef,
@@ -108,15 +122,6 @@ async function assertCallerMayMove(
   if (!(await canCallerReadFileRef(ctx, fileRef))) {
     throw new AccessDeniedError({ message: `rebindFileRef: file ${fileRef.id} is not readable` });
   }
-  const sourceLocked = await isStoredRecordLocked({
-    registry: ctx.registry,
-    db: ctx.db,
-    entityType: from.entityType,
-    entityId: from.entityId,
-  });
-  if (sourceLocked) {
-    throw new RecordLockedError({ entityName: from.entityType, entityId: from.entityId });
-  }
   const canWriteRecord = createRecordWriteCheck({
     registry: ctx.registry,
     canReadRecord: createRecordReadCheck(ctx.registry, (qn, payload) =>
@@ -124,6 +129,17 @@ async function assertCallerMayMove(
     ),
     tenantDbFor: () => ctx.db,
   });
+  await lockSourceRow(ctx, from);
+  const sourceDecision = await canWriteRecord({ ...from, user: ctx.user });
+  if (sourceDecision === RecordWriteDecisions.locked) {
+    throw new RecordLockedError({ entityName: from.entityType, entityId: from.entityId });
+  }
+  if (sourceDecision !== RecordWriteDecisions.writable) {
+    throw new AccessDeniedError({
+      message: `rebindFileRef: source ${from.entityType}.${from.fieldName} of ${from.entityId} is not writable`,
+      details: { decision: sourceDecision },
+    });
+  }
   const decision = await canWriteRecord({ ...to, user: ctx.user });
   if (decision !== RecordWriteDecisions.writable) {
     throw new AccessDeniedError({
@@ -161,11 +177,13 @@ async function assertTargetRecordExists(
  * parallel rebind took it first. A file already at `to` answers "rebound" without a write. The
  * target must be a registered file field whose accept/maxSize the file fits (InternalError /
  * UnprocessableError). Unless the caller is the framework system user, the caller must be able
- * to read the file, `from` must not be locked, and the caller must be able to write the target
- * record and field (AccessDeniedError, RecordLockedError); the system user skips these checks,
- * and only the target record has to exist (NotFoundError). The update is checked against the
- * file's stream version read here, so a bind committing in between returns "version-conflict";
- * a lock set on `from` in between is not part of that check. Rebind first, then save the id into
+ * to read the file and to write both the source record and field (it must not be locked, and an
+ * entity without update handler leaves the move to the system user) and the target record and
+ * field (AccessDeniedError, RecordLockedError); the system user skips these checks, and only the
+ * target record has to exist (NotFoundError). The update is checked against the file's stream
+ * version read here, so a bind committing in between returns "version-conflict"; the source row
+ * stays locked until the surrounding transaction commits, so a lock set on `from` in between is
+ * either seen or waits. Rebind first, then save the id into
  * the target field: the save accepts a file already bound to that record, and the source record
  * no longer disposes of it when its field is cleared or the record is deleted.
  * A handler passes its ctx; a job passes `{ db, registry, user: ctx.systemUser }`.

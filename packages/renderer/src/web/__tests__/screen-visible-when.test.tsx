@@ -346,6 +346,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
   test("the standard notice leaves no breadcrumb for the locked screen", async () => {
     renderInShell(false);
     await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
-    expect(crumbCount()).toBe(0);
+    // The shell drops the locked screen's crumb in an effect after the notice renders.
+    await waitFor(() => expect(crumbCount()).toBe(0));
   });
 });
