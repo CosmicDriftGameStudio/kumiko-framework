@@ -255,7 +255,7 @@ Config keys:
 
 ## documents
 
-Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations; users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, list them with an expiry state and an expiring filter with overview (the documents list screen), and add the documents tab to a record screen with documentsTab().
+Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations, which keeps the caller's id, refuses an id another record already uses, and stamps createdAt with the import time (issuedAt carries the business date; the event store does not backdate); users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, list them with an expiry state and an expiring filter with overview (the documents list screen), and add the documents tab to a record screen with documentsTab().
 
 Category: data
 
