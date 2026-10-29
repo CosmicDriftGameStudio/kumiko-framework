@@ -11,6 +11,7 @@ import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   documentExtensions,
   isAllowedDocumentLinkHref,
+  isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
@@ -197,12 +198,12 @@ function scanUrlAttributes(tag: string, element: ScanElement, out: DocumentViola
           `Images must reference an uploaded resource via data-resource; image source "${value}" is not allowed`,
         ),
       );
-    } else if (tag === "base" || !isAllowedDocumentLinkHref(value)) {
+    } else if (tag === "base" || !isAllowedDocumentUrlHref(value)) {
       out.push(
         violation(
           "disallowed_link_href",
           value,
-          `Link target "${value}" is not allowed; use https, http, mailto, tel, a relative path or a {{placeholder}}`,
+          `Link target "${value}" is not allowed; use https, http, mailto, tel or a {{placeholder}}`,
         ),
       );
     }

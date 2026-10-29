@@ -60,9 +60,15 @@ function isRelativeHref(href: string): boolean {
 // "JaVaScRiPt:", "HTTPS://" or a leading tab can never slip through as a
 // scheme variant. Markup and control characters are refused outright because
 // downstream parsers (MJML, PDF renderer) re-read the serialized attribute.
-export function isAllowedDocumentLinkHref(href: string): boolean {
+export function isAllowedDocumentUrlHref(href: string): boolean {
   if (hasUnsafeUrlCharacter(href)) return false;
-  return hasAllowedLinkScheme(href) || isRelativeHref(href) || isDocumentPlaceholderHref(href);
+  return hasAllowedLinkScheme(href) || isDocumentPlaceholderHref(href);
+}
+
+// Anchors only: other URL attributes (form action, svg href) resolve against the
+// page and must stay on explicit schemes or placeholders.
+export function isAllowedDocumentLinkHref(href: string): boolean {
+  return isAllowedDocumentUrlHref(href) || (!hasUnsafeUrlCharacter(href) && isRelativeHref(href));
 }
 
 export function isDocumentResourceKey(value: string): boolean {

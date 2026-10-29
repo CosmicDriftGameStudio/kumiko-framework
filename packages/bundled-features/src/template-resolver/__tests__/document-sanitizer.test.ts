@@ -66,6 +66,15 @@ describe("sanitizeDocumentHtml", () => {
     expect(violationCodes(`<p><a href="${escaped}">x</a></p>`)).toContain("disallowed_link_href");
   });
 
+  test.each([
+    '<form action="/x"><p>a</p></form>',
+    '<p><button formaction="/x">a</button></p>',
+    '<svg><use xlink:href="/x"></use></svg>',
+    '<base href="/x">',
+  ])("relative paths are only for anchors: %s", (html) => {
+    expect(sanitizeDocumentHtml(html).ok).toBe(false);
+  });
+
   test("reports the offending href in the message", () => {
     const result = sanitizeDocumentHtml('<a href="javascript:alert(1)">x</a>');
     expect(result.ok).toBe(false);

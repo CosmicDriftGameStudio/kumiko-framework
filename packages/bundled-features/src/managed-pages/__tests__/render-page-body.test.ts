@@ -141,4 +141,38 @@ describe("renderPageBody cache", () => {
     render(second);
     expect(calls.sanitize).toBe(4);
   });
+
+  test("a body above 256 KiB is returned but not cached", () => {
+    let calls = 0;
+    const huge = `<p>${"x".repeat(256 * 1024)}</p>`;
+    const render = createPageBodyRenderer({
+      sanitizeDocument: () => {
+        calls += 1;
+        return { ok: true, html: huge };
+      },
+    });
+    const page = pageOf({ body: "<p>x</p>" });
+    expect(render(page)).toBe(huge);
+    expect(render(page)).toBe(huge);
+    expect(calls).toBe(2);
+  });
+
+  test("the real sanitizer output is free of unsafe markup on the miss and on the hit", () => {
+    const render = createPageBodyRenderer();
+    const page = pageOf({
+      slug: "real",
+      body: '<p>Hi <a href="/contact">contact</a></p><script>alert(1)</script>',
+    });
+    const safe = pageOf({
+      slug: "real-safe",
+      body: '<p>Hi <a href="/contact">contact</a> <span style="x" data-foo="1">t</span></p>',
+    });
+    expect(render(page)).toBe("");
+    expect(render(page)).toBe("");
+    const first = render(safe);
+    const second = render(safe);
+    expect(second).toBe(first);
+    expect(first).toContain('href="/contact"');
+    expect(first).not.toMatch(/<script|style=|data-foo|onclick/i);
+  });
 });

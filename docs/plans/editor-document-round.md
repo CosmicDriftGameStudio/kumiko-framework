@@ -1,8 +1,7 @@
 ---
 status: in-progress
-pr: 4090
 verified: 2026-10-27
-next: Runde in einem PR auf main mergen (fw-next-Lane, ohne Release); danach Consumer lokal bumpen (solon reply-composer, managed-pages in publicstatus, money-horse, show-pony), Release erst wenn alle Apps grün sind.
+next: PR #4090 auf main mergen (fw-next-Lane, ohne Release); danach Consumer lokal bumpen (solon reply-composer, managed-pages in publicstatus, money-horse, show-pony), Release erst wenn alle Apps grün sind.
 ---
 
 # Editor-Runde: nur noch `plain` und `document`, managed-pages im Document-Editor

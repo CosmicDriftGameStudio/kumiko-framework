@@ -7,7 +7,7 @@ import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_TEXT_ALIGNMENTS,
-  isAllowedDocumentLinkHref,
+  isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
@@ -170,7 +170,7 @@ function rewriteLink(element: ScanElement, state: CompileState): void {
     } else {
       element.setAttribute("href", "#");
     }
-  } else if (!isAllowedDocumentLinkHref(href)) {
+  } else if (!isAllowedDocumentUrlHref(href)) {
     element.setAttribute("href", "#");
   }
 }

@@ -460,6 +460,31 @@ describe("managed-pages :: unsafe document markup never reaches the public page"
     expect(second.html).toBe(first.html);
   });
 
+  test("constructs the document model drops never appear, on the miss or the cached hit", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "dropped-constructs",
+        lang: "en",
+        title: "Dropped",
+        body: '<style>body{display:none}</style><div style="color:red" class="x"><span data-foo="1">kept text</span> <a href="/contact">contact</a></div>',
+        bodyFormat: "document",
+        published: true,
+      },
+      adminA,
+    );
+    const first = await publicHtml("dropped-constructs");
+    const second = await publicHtml("dropped-constructs");
+    expect(first.status).toBe(200);
+    expect(second.html).toBe(first.html);
+    for (const page of [first.html, second.html]) {
+      const html = page.slice(page.indexOf("<main data-tenant-content>"), page.indexOf("</main>"));
+      expect(html).toContain("kept text");
+      expect(html).toContain('href="/contact"');
+      expect(html).not.toMatch(/<style|display:none|style="|class="x"|data-foo/);
+    }
+  });
+
   test("an update is rendered, not the cached previous version", async () => {
     await stack.http.writeOk(
       "managed-pages:write:page:create",

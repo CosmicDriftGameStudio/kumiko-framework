@@ -2,7 +2,7 @@ import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headles
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Marked } from "marked";
 import {
-  isAllowedDocumentLinkHref,
+  isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
 } from "../../template-resolver/index.ts";
 import type { CheckoutConsentRecordedPayload } from "../events.ts";
@@ -149,7 +149,7 @@ function formatDate(iso: string, locale: ConsentLocale, timeZone: string): strin
 const ROW_END = "\n\n";
 
 function isMailLinkHref(href: string): boolean {
-  return isAllowedDocumentLinkHref(href) && !isDocumentPlaceholderHref(href);
+  return isAllowedDocumentUrlHref(href) && !isDocumentPlaceholderHref(href);
 }
 
 const inlineHtmlMarkdown = new Marked({ gfm: false, breaks: false });

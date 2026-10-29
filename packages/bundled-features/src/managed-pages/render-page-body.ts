@@ -8,6 +8,9 @@ type WarnLogger = Pick<Logger, "warn">;
 const defaultLog = createFallbackLogger("managed-pages");
 
 const MAX_CACHED_BODIES = 500;
+// Bounds the cache memory: 500 entries of arbitrary size could otherwise pin
+// hundreds of MB. A bigger body is still served, just re-rendered per request.
+const MAX_CACHED_BODY_LENGTH = 256 * 1024;
 
 export type RenderablePageBody = {
   readonly tenantId: string;
@@ -66,6 +69,7 @@ export function createPageBodyRenderer(
       return cached;
     }
     const html = renderUncached(page, log);
+    if (html.length > MAX_CACHED_BODY_LENGTH) return html;
     cache.set(key, html);
     if (cache.size > maxEntries) {
       const oldest = cache.keys().next();

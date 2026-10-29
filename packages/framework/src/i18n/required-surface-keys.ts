@@ -622,6 +622,9 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
   for (const nav of Object.values(feature.navs)) {
     for (const key of requiredKeysFromNav(nav)) out.add(key);
   }
+  for (const collection of Object.values(feature.contentCollections ?? {})) {
+    pushKey(out, collection.nav.entryLabel);
+  }
   for (const ws of Object.values(feature.workspaces)) {
     for (const key of requiredKeysFromWorkspace(ws)) out.add(key);
   }

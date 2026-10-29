@@ -9,12 +9,14 @@ import {
   CONFIG_EDIT_ENTITY,
   fieldLabelKey,
   PROJECTION_DETAIL_ENTITY,
+  requiredKeysFromFeature,
   requiredKeysFromNav,
   requiredKeysFromScreen,
   requiredKeysFromWorkspace,
   screenTitleKey,
   WRITE_FORM_SECTION_ENTITY,
 } from "../../i18n/required-surface-keys.ts";
+import { defineFeature } from "../define-feature.ts";
 import { i18nKey } from "../i18n-key.ts";
 
 describe("requiredKeysFromScreen", () => {
@@ -180,6 +182,19 @@ describe("requiredKeysFromNav / requiredKeysFromWorkspace", () => {
     expect(requiredKeysFromNav({ id: "catalog", label: "shop:nav.catalog" })).toEqual([
       "shop:nav.catalog",
     ]);
+  });
+
+  test("content collection entryLabel is a required key next to its nav label", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.contentCollection({
+        id: "snippets",
+        kind: "text-block",
+        nav: { label: "shop:nav.snippets", entryLabel: "shop:nav.snippet" },
+      });
+    });
+    const keys = requiredKeysFromFeature(feature);
+    expect(keys).toContain("shop:nav.snippets");
+    expect(keys).toContain("shop:nav.snippet");
   });
 
   test("workspace label is a required key", () => {
