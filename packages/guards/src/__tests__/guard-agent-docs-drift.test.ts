@@ -84,7 +84,7 @@ describe("agent-docs-drift guard", () => {
       const outcome = await runCheck(root);
       expect(outcome.violations).toEqual([]);
       expect(outcome.notApplicable).toBe(false);
-      expect(outcome.matchedFiles).toBe(17);
+      expect(outcome.matchedFiles).toBe(18);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

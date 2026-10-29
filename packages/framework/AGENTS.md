@@ -15,6 +15,7 @@ not exist in your version:
 | `agents/api/<entry>.md` | Signatures of one entry point; options and screen types as property lists |
 | `agents/api/types.md` | Types the entry points use but do not export, such as nested option shapes |
 | `agents/widgets.md` | Every value export of `@cosmicdrift/kumiko-renderer/web` with its short description |
+| `agents/boot-rules.md` | Every boot rule by id: summary, fix and source file; a boot violation links its entry |
 | `agents/examples.md` | Index of the worked examples, one per concept |
 | `agents/examples/<name>.md` | One tested sample app: README plus every source and test file |
 
@@ -33,7 +34,7 @@ Order of work for a new feature:
    `agents/api.md` instead of `dist/*.d.ts`.
 4. Build the feature with the declarative building blocks below.
 5. Write an integration test against the real stack.
-6. Run boot validation and the tests. Boot errors name the fix; apply it.
+6. Run boot validation and the tests. Boot errors name the fix; apply it. Each violation carries a rule id whose entry is in `agents/boot-rules.md`.
 
 ## Mental model
 
@@ -293,7 +294,8 @@ produces code that compiles and then fails in production.
   unknown field in a column, a nav pointing at a missing screen, an
   encrypted field marked searchable. The message names the
   feature, the place and the fix. Apply the fix the message names instead
-  of working around the check.
+  of working around the check. Each violation shows a rule id and, for
+  classified rules, a `Rule:` link to its entry in `agents/boot-rules.md`.
 
 ## I need X, use Y
 

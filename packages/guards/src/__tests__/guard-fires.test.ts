@@ -310,6 +310,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "// kumiko-lint-ignore raw-sql legacy\nexport const value = 1;\n",
     expectedMessage: /ignore tag\(s\) without a real reason over baseline/,
   },
+  "boot-raw-throws": {
+    path: `${PKG}/engine/boot-validator/raw.ts`,
+    code: 'export function check() {\n\tthrow new Error("boom");\n}\n',
+    expectedMessage: /raw throw new Error in boot validation over baseline/,
+  },
   "test-title": {
     path: `${PKG}/features/x/__tests__/title.test.ts`,
     code: 'declare const test: (title: string, fn: () => void) => void;\ntest("lehnt ab, wenn der Wert nicht gesetzt ist", () => {});\n',
