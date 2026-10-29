@@ -144,7 +144,7 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
         fileName: "imported.pdf",
         mimeType: "application/pdf",
         data: PDF,
-        attachTo: { entityType: "document", entityId: id, fieldName: "file" },
+        attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
       },
     );
     if (!stored.isSuccess) throw new Error(stored.error.message);
@@ -216,6 +216,19 @@ export const documentsFeature = createDocumentsFeature({
   categories: ["contract", "id"],
   linkTargets: ["property", "lease"],
   access: openToAll,
+  // Every test role reads all the gate allows; the system role is left out on purpose, so
+  // capture and import must work without it.
+  readAccess: Object.fromEntries(
+    [
+      "TenantAdmin",
+      "PropertyReader",
+      "LeaseReader",
+      "PropertyEditor",
+      "Nobody",
+      "MemoReader",
+      "SecretReader",
+    ].map((role) => [role, "all" as const]),
+  ),
   capture: [
     {
       entity: "lease",
@@ -313,7 +326,7 @@ export function visibleDocuments(
   payload: Record<string, unknown> = {},
 ): Promise<DocumentPage> {
   return stack.http.queryOk<DocumentPage>(
-    "documents:query:document:list",
+    "documents:query:filed-document:list",
     { limit: 100, totalCount: true, ...payload },
     as,
   );

@@ -23,7 +23,7 @@ export function createOverviewQuery(access: AccessRule, expiringWithinDays: numb
     name: "overview",
     schema: overviewPayloadSchema,
     access,
-    liveEntities: ["document", "document-link"],
+    liveEntities: ["filed-document", "filed-document-link"],
     description:
       "Lists the documents the caller can read with an expiry state per row (expired, expiring, valid, none); the expiring filter returns expired and soon-expiring documents. Powers the documents list screen.",
     handler: async (query, ctx) => {

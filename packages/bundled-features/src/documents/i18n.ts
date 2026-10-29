@@ -6,11 +6,11 @@ export const DOCUMENTS_FEATURE_I18N: Readonly<Record<string, LocalizedString>> =
   "documents:tab.title": { en: "Documents", de: "Dokumente" },
   "documents:overview.expired": { en: "Expired documents", de: "Abgelaufene Dokumente" },
   "documents:overview.expiring": { en: "Documents expiring soon", de: "Bald ablaufende Dokumente" },
-  "documents:entity:document:field:title": { en: "Title", de: "Titel" },
-  "documents:entity:document:field:category": { en: "Category", de: "Kategorie" },
-  "documents:entity:document:field:issuedAt": { en: "Issued", de: "Ausgestellt" },
-  "documents:entity:document:field:validUntil": { en: "Valid until", de: "Gültig bis" },
-  "documents:entity:document:field:file": { en: "File", de: "Datei" },
+  "documents:entity:filed-document:field:title": { en: "Title", de: "Titel" },
+  "documents:entity:filed-document:field:category": { en: "Category", de: "Kategorie" },
+  "documents:entity:filed-document:field:issuedAt": { en: "Issued", de: "Ausgestellt" },
+  "documents:entity:filed-document:field:validUntil": { en: "Valid until", de: "Gültig bis" },
+  "documents:entity:filed-document:field:file": { en: "File", de: "Datei" },
   "documents:list.facet.expiry": { en: "Expiry", de: "Ablauf" },
   "documents:list.facet.expiring": {
     en: "Expired or expiring soon",
@@ -27,5 +27,9 @@ export const DOCUMENTS_FEATURE_I18N: Readonly<Record<string, LocalizedString>> =
   "documents.errors.unknown-link-target": {
     en: "This record type takes no documents",
     de: "Diesem Datensatztyp lassen sich keine Dokumente zuordnen",
+  },
+  "documents.errors.import-id-taken": {
+    en: "This id already belongs to another record",
+    de: "Diese ID gehört bereits zu einem anderen Datensatz",
   },
 };

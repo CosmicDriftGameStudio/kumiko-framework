@@ -64,6 +64,18 @@ describe("relatedList count badge", () => {
     expect(() => validateBoot([featureWith({ section: { count: true } })])).not.toThrow();
   });
 
+  test("count: true on a strict query that accepts limit and totalCount passes", () => {
+    expect(() =>
+      validateBoot([featureWith({ section: { count: true }, schema: countableSchema.strict() })]),
+    ).not.toThrow();
+  });
+
+  test("count: true on a loose query throws, its declared keys are not the full set", () => {
+    expect(() =>
+      validateBoot([featureWith({ section: { count: true }, schema: countableSchema.loose() })]),
+    ).toThrow(/to accept "totalCount"/);
+  });
+
   test("count together with countField throws", () => {
     expect(() =>
       validateBoot([featureWith({ section: { count: true, countField: "openCount" } })]),

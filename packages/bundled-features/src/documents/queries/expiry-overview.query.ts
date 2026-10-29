@@ -12,7 +12,7 @@ export function createExpiryOverviewQuery(access: AccessRule, expiringWithinDays
     name: "expiry-overview",
     schema: expiryOverviewPayloadSchema,
     access,
-    liveEntities: ["document", "document-link"],
+    liveEntities: ["filed-document", "filed-document-link"],
     description:
       "Counts the documents the caller can read by validity: expired, expiring within the configured window, valid beyond it and without an expiry date; optionally for one record only.",
     handler: async (query, ctx) => {

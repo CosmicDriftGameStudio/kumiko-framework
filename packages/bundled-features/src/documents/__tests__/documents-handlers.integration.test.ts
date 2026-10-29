@@ -13,7 +13,7 @@ import {
   visibleDocuments,
 } from "./fixtures.ts";
 
-const LINKS = "documents:query:document-link:list";
+const LINKS = "documents:query:filed-document-link:list";
 const FIRST_VERSION = 1;
 
 let stack: TestStack;
@@ -33,9 +33,9 @@ async function runImport(payload: Record<string, unknown>): Promise<void> {
 async function fileDirectlyUploadedDocument(
   title: string,
 ): Promise<{ id: string; version: number }> {
-  const file = await uploadFile(stack, users.admin, "document", "file");
+  const file = await uploadFile(stack, users.admin, "filed-document", "file");
   return stack.http.writeOk(
-    "documents:write:document:create",
+    "documents:write:filed-document:create",
     { title, category: "id", file },
     users.admin,
   );
@@ -63,13 +63,13 @@ describe("update and delete", () => {
     // reads the host, cannot edit it
     // a throwing preSave hook surfaces as 422, a throwing preDelete hook as the error itself
     const refusedUpdate = await stack.http.writeErr(
-      "documents:write:document:update",
+      "documents:write:filed-document:update",
       changes,
       users.propertyReader,
     );
     expect(refusedUpdate.httpStatus).toBe(422);
     const refusedDelete = await stack.http.writeErr(
-      "documents:write:document:delete",
+      "documents:write:filed-document:delete",
       { id: doc.id, version: FIRST_VERSION },
       users.propertyReader,
     );
@@ -80,16 +80,16 @@ describe("update and delete", () => {
       ),
     ).toContain("Warranty");
 
-    await stack.http.writeOk("documents:write:document:update", changes, users.editor);
+    await stack.http.writeOk("documents:write:filed-document:update", changes, users.editor);
     await stack.http.writeOk(
-      "documents:write:document:delete",
+      "documents:write:filed-document:delete",
       { id: doc.id, version: FIRST_VERSION + 1 },
       users.editor,
     );
 
     const unlinked = await fileDirectlyUploadedDocument("Unlinked");
     await stack.http.writeOk(
-      "documents:write:document:update",
+      "documents:write:filed-document:update",
       { id: unlinked.id, version: FIRST_VERSION, changes: { title: "Unlinked 2" } },
       users.admin,
     );
@@ -135,7 +135,7 @@ describe("link and unlink", () => {
     );
     const before = (await visibleDocuments(stack, users.admin)).total;
     const err = await stack.http.writeErr(
-      "documents:write:document:create",
+      "documents:write:filed-document:create",
       { title: "Stolen", category: "id", file: lease.file },
       users.admin,
     );
@@ -149,7 +149,7 @@ describe("a colleague's pending upload", () => {
     const pending = await uploadFile(stack, users.admin, "lease", "file");
     const before = (await visibleDocuments(stack, users.admin)).total;
     const err = await stack.http.writeErr(
-      "documents:write:document:create",
+      "documents:write:filed-document:create",
       { title: "Squatted", category: "id", file: pending },
       users.propertyReader,
     );
@@ -166,9 +166,9 @@ describe("a colleague's pending upload", () => {
     });
     expect(captured.rows).toHaveLength(1);
 
-    const own = await uploadFile(stack, users.admin, "document", "file");
+    const own = await uploadFile(stack, users.admin, "filed-document", "file");
     await stack.http.writeOk(
-      "documents:write:document:create",
+      "documents:write:filed-document:create",
       { title: "Own", category: "id", file: own },
       users.admin,
     );
@@ -280,6 +280,17 @@ describe("import", () => {
     );
     const trash = await visibleDocuments(stack, users.admin, { includeDeleted: true });
     expect(trash.rows.map((row) => row.id)).toContain(goneId);
+    await runImport({ id: goneId, deleted: true });
+    expect(await linkRows(goneId)).toHaveLength(1);
+  });
+
+  test("refuses an id that belongs to another record and links nothing", async () => {
+    const foreignId = await seedProperty(stack, "Taken street 2");
+    await expect(runImport({ id: foreignId })).rejects.toThrow("belongs to another record");
+
+    expect(await linkRows(foreignId)).toEqual([]);
+    const trash = await visibleDocuments(stack, users.admin, { includeDeleted: true });
+    expect(trash.rows.map((row) => row.id)).not.toContain(foreignId);
   });
 });
 
@@ -293,12 +304,12 @@ describe("deleting a document", () => {
     ).rows[0];
     expect(doc).toBeDefined();
     const detail = await stack.http.queryOk<{ version: number }>(
-      "documents:query:document:detail",
+      "documents:query:filed-document:detail",
       { id: doc?.id },
       users.admin,
     );
     await stack.http.writeOk(
-      "documents:write:document:delete",
+      "documents:write:filed-document:delete",
       { id: doc?.id, version: detail.version },
       users.admin,
     );

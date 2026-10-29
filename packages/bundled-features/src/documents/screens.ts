@@ -8,7 +8,7 @@ import { DOCUMENTS_LIST_SCREEN_ID, DocumentsQueries, EXPIRING_FACET_VALUE } from
 // The columns every document list shows; the tab and the standalone screen stay alike.
 export const DOCUMENT_COLUMNS = ["title", "category", "validUntil", "file"] as const;
 
-const FIELD_PREFIX = "documents:entity:document:field:";
+const FIELD_PREFIX = "documents:entity:filed-document:field:";
 const CATEGORY_OPTION_PREFIX = `${FIELD_PREFIX}category:option:`;
 
 // A projectionList, not an entityList: the expiry state and its "expiring" filter are computed
@@ -73,7 +73,7 @@ export function createDocumentListScreen(
         kind: "writeHandler",
         id: "delete",
         label: i18nKey("kumiko.actions.delete"),
-        handler: "documents:write:document:delete",
+        handler: "documents:write:filed-document:delete",
         payload: { pick: ["id"] },
         confirm: i18nKey("kumiko.actions.delete-confirm"),
         style: "danger",
