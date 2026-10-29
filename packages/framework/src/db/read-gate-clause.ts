@@ -73,7 +73,11 @@ function isRoleExempt(gate: NonNullable<EntityDefinition["readGate"]>, user: Ses
   return user.roles.some((role) => gate.linkExemptRoles?.includes(role) === true);
 }
 
-function anyLinkClause(input: GateInput, link: { entity: string; field: string }): OwnershipClause {
+type GateLink = { readonly entity: string; readonly field: string };
+
+// "any": one readable live link suffices. "all": additionally no live link may be unreadable;
+// COALESCE keeps a NULL from the ownership SQL from counting as readable.
+function linkClause(input: GateInput, link: GateLink, mode: "any" | "all"): OwnershipClause {
   const { option, user, db, tableName } = input;
   const linkEntity = option.entities.get(link.entity);
   if (linkEntity?.parentRef === undefined) return EMPTY;
@@ -89,17 +93,25 @@ function anyLinkClause(input: GateInput, link: { entity: string; field: string }
   if (linkOwnership.kind === "empty") return EMPTY;
 
   const sql = new GateSql();
-  const conditions = [
+  const linkRowsOfThisRow = () => [
     `"${LINK_ALIAS}"."${physicalColumnName(linkTable, link.field)}"::text = "${tableName}"."${physicalColumnName(input.table, "id")}"::text`,
     ...tenantScopeSql(sql, db, linkTable, LINK_ALIAS),
     ...liveRowSql(linkEntity, linkTable, LINK_ALIAS),
   ];
-  if (linkOwnership.kind === "sql") conditions.push(sql.embed(linkOwnership));
-  return {
-    kind: "sql",
-    sqlText: `EXISTS (SELECT 1 FROM "${linkTableName}" AS "${LINK_ALIAS}" WHERE ${conditions.join(" AND ")})`,
-    params: sql.params,
-  };
+  const existsLink = (conditions: readonly string[]) =>
+    `EXISTS (SELECT 1 FROM "${linkTableName}" AS "${LINK_ALIAS}" WHERE ${conditions.join(" AND ")})`;
+
+  const readable = linkRowsOfThisRow();
+  if (linkOwnership.kind === "sql") readable.push(sql.embed(linkOwnership));
+  let sqlText = existsLink(readable);
+  if (mode === "all" && linkOwnership.kind === "sql") {
+    const unreadable = [
+      ...linkRowsOfThisRow(),
+      `NOT COALESCE((${sql.embed(linkOwnership)}), FALSE)`,
+    ];
+    sqlText = `(${sqlText} AND NOT ${existsLink(unreadable)})`;
+  }
+  return { kind: "sql", sqlText, params: sql.params };
 }
 
 type OwnerCandidate = {
@@ -237,8 +249,13 @@ export function buildReadGateClause(
   const input: GateInput = { entity, table, tableName, user, db, option };
 
   let clause: OwnershipClause = PASS;
-  if (gate.anyLink !== undefined && !isRoleExempt(gate, user)) {
-    clause = combineClauses(clause, anyLinkClause(input, gate.anyLink));
+  if (!isRoleExempt(gate, user)) {
+    if (gate.anyLink !== undefined) {
+      clause = combineClauses(clause, linkClause(input, gate.anyLink, "any"));
+    }
+    if (gate.allLinks !== undefined) {
+      clause = combineClauses(clause, linkClause(input, gate.allLinks, "all"));
+    }
   }
   if (gate.fileOwner !== undefined) {
     clause = combineClauses(clause, fileOwnerClause(input, gate.fileOwner.field));

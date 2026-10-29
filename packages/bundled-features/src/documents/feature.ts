@@ -23,7 +23,11 @@ import {
   DOCUMENT_LINK_ENTITY,
   DOCUMENTS_FEATURE_NAME,
 } from "./constants.ts";
-import { createDocumentEntity, createDocumentLinkEntity } from "./entity.ts";
+import {
+  createDocumentEntity,
+  createDocumentLinkEntity,
+  type DocumentLinkReadMode,
+} from "./entity.ts";
 import { createDocumentExecutors } from "./executor.ts";
 import { createImportDocumentHandler } from "./handlers/import.write.ts";
 import { createLinkDocumentHandler, createUnlinkDocumentHandler } from "./handlers/link.write.ts";
@@ -46,6 +50,13 @@ export type DocumentsFeatureOptions = {
   readonly retention?: EntityDefinition["retention"];
   /** Row-level read rule on the document, AND-ed with the link and file-owner gate. */
   readonly readAccess?: NonNullable<EntityDefinition["access"]>["read"];
+  /**
+   * "anyLink" (default): one readable linked record shows the document. "allLinks": the viewer
+   * must read every record it is linked to, so a link to a shared record (a contact) does not
+   * open a document that also hangs off a record of another team. The file-owner check applies
+   * either way.
+   */
+  readonly linkReadMode?: DocumentLinkReadMode;
   /**
    * Who may use the document handlers. One rule applies to read, write and delete; the split form
    * sets them apart. Default TenantAdmin and TenantMember; a missing delete follows write.
@@ -103,6 +114,7 @@ function registerDocuments(
     categories: opts.categories,
     adminRoles: opts.adminRoles ?? DEFAULT_ADMIN_ROLES,
     ...(opts.readAccess !== undefined && { readAccess: opts.readAccess }),
+    ...(opts.linkReadMode !== undefined && { linkReadMode: opts.linkReadMode }),
     ...(opts.retention !== undefined && { retention: opts.retention }),
   });
   const linkEntity = createDocumentLinkEntity(linkTargets);

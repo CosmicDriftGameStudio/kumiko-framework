@@ -12,6 +12,7 @@ export {
   EXPIRY_STATES,
   type ExpiryState,
 } from "./constants.ts";
+export type { DocumentLinkReadMode } from "./entity.ts";
 export {
   createDocumentsFeature,
   type DocumentsAccess,

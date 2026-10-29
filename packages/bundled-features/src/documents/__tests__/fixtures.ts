@@ -26,7 +26,7 @@ import {
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { documentIdForFile } from "../aggregate-id.ts";
-import { createDocumentsFeature } from "../feature.ts";
+import { createDocumentsFeature, type DocumentsFeatureOptions } from "../feature.ts";
 
 export const tenant = testTenantId(1);
 export const otherTenant = testTenantId(2);
@@ -212,48 +212,55 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
   });
 });
 
-export const documentsFeature = createDocumentsFeature({
-  categories: ["contract", "id"],
-  linkTargets: ["property", "lease"],
-  access: openToAll,
-  // Every test role reads all the gate allows; the system role is left out on purpose, so
-  // capture and import must work without it.
-  readAccess: Object.fromEntries(
-    [
-      "TenantAdmin",
-      "PropertyReader",
-      "LeaseReader",
-      "PropertyEditor",
-      "Nobody",
-      "MemoReader",
-      "SecretReader",
-    ].map((role) => [role, "all" as const]),
-  ),
-  capture: [
-    {
-      entity: "lease",
-      field: "file",
-      category: "contract",
-      title: (row) => `Lease ${String(row["name"])}`,
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
-    },
-    { entity: "lease", field: "secret", category: "id", title: () => "Secret" },
-    {
-      entity: "vault",
-      field: "file",
-      category: "contract",
-      title: () => "Vault",
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
-    },
-    {
-      entity: "memo",
-      field: "file",
-      category: "contract",
-      title: () => "Memo",
-      links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
-    },
-  ],
-});
+export const documentsFeature = createFixtureDocumentsFeature();
+
+export function createFixtureDocumentsFeature(
+  options: Pick<DocumentsFeatureOptions, "linkReadMode"> = {},
+) {
+  return createDocumentsFeature({
+    ...options,
+    categories: ["contract", "id"],
+    linkTargets: ["property", "lease"],
+    access: openToAll,
+    // Every test role reads all the gate allows; the system role is left out on purpose, so
+    // capture and import must work without it.
+    readAccess: Object.fromEntries(
+      [
+        "TenantAdmin",
+        "PropertyReader",
+        "LeaseReader",
+        "PropertyEditor",
+        "Nobody",
+        "MemoReader",
+        "SecretReader",
+      ].map((role) => [role, "all" as const]),
+    ),
+    capture: [
+      {
+        entity: "lease",
+        field: "file",
+        category: "contract",
+        title: (row) => `Lease ${String(row["name"])}`,
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+      { entity: "lease", field: "secret", category: "id", title: () => "Secret" },
+      {
+        entity: "vault",
+        field: "file",
+        category: "contract",
+        title: () => "Vault",
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+      {
+        entity: "memo",
+        field: "file",
+        category: "contract",
+        title: () => "Memo",
+        links: (row) => [{ entityType: "property", entityId: String(row["propertyId"]) }],
+      },
+    ],
+  });
+}
 
 export async function uploadFile(
   stack: TestStack,
@@ -281,10 +288,10 @@ export const IMPORT_JOB = "doc-fixtures:job:import-document";
 
 export const FIXED_NOW = "2026-06-15T10:00:00Z";
 
-export async function setupDocumentStack(): Promise<TestStack> {
+export async function setupDocumentStack(documents = documentsFeature): Promise<TestStack> {
   patchFileInstanceofForBunTest();
   return setupTestStack({
-    features: [createFilesFeature(), hostFeature, documentsFeature],
+    features: [createFilesFeature(), hostFeature, documents],
     files: { storageProvider: createInMemoryFileProvider() },
     jobs: { consumerLane: "worker" },
     extraContext: { clock: { now: () => Temporal.Instant.from(FIXED_NOW) } },

@@ -10,10 +10,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DOCUMENT_LINK_ENTITY } from "./constants.ts";
 
+export type DocumentLinkReadMode = "anyLink" | "allLinks";
+
 export type DocumentEntityOptions = {
   readonly categories: readonly [string, ...string[]];
   readonly adminRoles: readonly string[];
   readonly readAccess?: NonNullable<EntityDefinition["access"]>["read"];
+  readonly linkReadMode?: DocumentLinkReadMode;
   readonly retention?: EntityDefinition["retention"];
 };
 
@@ -32,7 +35,7 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
     }),
     ...(options.retention !== undefined && { retention: options.retention }),
     readGate: {
-      anyLink: { entity: DOCUMENT_LINK_ENTITY, field: "documentId" },
+      [options.linkReadMode ?? "anyLink"]: { entity: DOCUMENT_LINK_ENTITY, field: "documentId" },
       fileOwner: { field: "file" },
       linkExemptRoles: options.adminRoles,
     },
