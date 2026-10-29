@@ -1793,6 +1793,12 @@ type EmbeddedListColumn = { // One column of an embedded-list table (one entry p
   required: boolean;
   derived: boolean; // Read-only, value supplied by the caller (already computed from sibling cells) — not directly user-editable.
   readOnly?: boolean; // Shown but not editable by the user; unlike `derived` it is not computed.
+  hiddenInCard?: boolean; // Phone cards skip this column; the table still shows it.
+  cardLimits?: {
+    min: string;
+    max: string;
+  }; // Phone cards show the row's min/max (sub-field names) as a hint under this column's control.
+  cardAttachedTo?: string; // Phone cards render this column unlabeled beside the named column's control.
   options?: string[]; // Only for `type: "select"`.
   optionLabels?: Readonly<Record<string, string>>;
   display?: "radio" | "dropdown"; // Only for `type: "select"`; `"radio"` renders segmented buttons, the default is a dropdown.
@@ -2130,6 +2136,7 @@ type EmbeddedListCellViewModel = {
   optionLabels?: Readonly<Record<string, string>>;
   display?: "radio" | "dropdown"; // Only for `type: "select"`; `"radio"` renders segmented buttons instead of a dropdown.
   readOnly?: boolean; // Cell is shown but not editable (`EditFieldSpec.embeddedList.readOnlyCells`).
+  hiddenInCard?: boolean; // Not shown on phone cards (`EditFieldSpec.embeddedList.cardHiddenCells`).
   refEntity?: string; // Only for `type: "reference"`.
   refFeature?: string;
   refLabelField?: string;

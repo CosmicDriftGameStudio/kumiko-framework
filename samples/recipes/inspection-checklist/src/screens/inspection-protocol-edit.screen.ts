@@ -13,7 +13,11 @@ export const inspectionProtocolEditScreen: EntityEditScreenDefinition = {
           "measuringDevice",
           {
             field: "checkpoints",
-            embeddedList: { readOnlyCells: ["label", "kind", "min", "max"], fixedRows: true },
+            embeddedList: {
+              readOnlyCells: ["label", "kind", "min", "max"],
+              cardHiddenCells: ["kind"],
+              fixedRows: true,
+            },
           },
         ],
       },

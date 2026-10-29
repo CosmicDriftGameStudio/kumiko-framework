@@ -988,7 +988,7 @@ describe("EmbeddedListInput — accessible names", () => {
 
   function expectEveryCellControlNamed(container: HTMLElement): void {
     expect(within(container).getByRole("textbox", { name: "Description, row 1" })).toBeDefined();
-    expect(within(container).getByRole("spinbutton", { name: "Qty, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Qty, row 1" })).toBeDefined();
     expect(within(container).getByRole("checkbox", { name: "Billable, row 1" })).toBeDefined();
     expect(within(container).getByRole("textbox", { name: "Day, row 1" })).toBeDefined();
     expect(within(container).getByRole("textbox", { name: "Starts, row 1" })).toBeDefined();

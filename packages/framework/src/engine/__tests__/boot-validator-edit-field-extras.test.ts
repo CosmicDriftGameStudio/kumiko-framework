@@ -68,6 +68,32 @@ describe("validateBoot — entityEdit embeddedList / prefill / readOnly", () => 
     expect(() => validateBoot([feature])).toThrow(/readOnlyCells names "nope"/);
   });
 
+  test("cardHiddenCells naming an unknown sub-field fails", () => {
+    const feature = featureWith({
+      field: "checkpoints",
+      embeddedList: { cardHiddenCells: ["nope"] },
+    });
+    expect(() => validateBoot([feature])).toThrow(/cardHiddenCells names "nope"/);
+  });
+
+  test("cardHiddenCells naming a read-only sub-field passes", () => {
+    const feature = featureWith({
+      field: "checkpoints",
+      embeddedList: { readOnlyCells: ["text"], cardHiddenCells: ["text"] },
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("cardHiddenCells naming an editable sub-field fails", () => {
+    const feature = featureWith({
+      field: "checkpoints",
+      embeddedList: { cardHiddenCells: ["text"] },
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /cardHiddenCells names "text", which is editable/,
+    );
+  });
+
   test("prefill today needs a date field", () => {
     expect(() =>
       validateBoot([featureWith({ field: "day", prefill: { kind: "today" } })]),

@@ -1827,9 +1827,13 @@ describe("maxPerTenant defer", () => {
       // One run record per job: a deferred pickup leaves no run behind.
       expect(runStarts).toHaveLength(5);
       expect(new Set(runStarts).size).toBe(5);
-      const completedJobs = await rawQueue.getJobs(["completed"]);
-      expect(completedJobs).toHaveLength(5);
-      expect(completedJobs.map((job) => job.attemptsMade)).toEqual([1, 1, 1, 1, 1]);
+      // BullMQ moves a job to "completed" only after the handler returned, so the last
+      // handler's push into completedTenants can precede its queue state change.
+      await waitFor(async () => {
+        const completedJobs = await rawQueue.getJobs(["completed"]);
+        expect(completedJobs).toHaveLength(5);
+        expect(completedJobs.map((job) => job.attemptsMade)).toEqual([1, 1, 1, 1, 1]);
+      });
     } finally {
       releaseGate();
       await runner.stop();

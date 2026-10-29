@@ -341,6 +341,7 @@ type EmbeddedDerivedCellDef = ({ op: "multiply" | "sum" | "subtract" | "percent"
 };
 type EmbeddedListEditSpec = {
   readOnlyCells?: string[]; // Sub-fields shown as read-only cells; every other cell stays editable.
+  cardHiddenCells?: string[]; // Sub-fields that only steer a row (e.g. the kind that decides which controls appear) and are not shown on phone cards; the desktop table still shows them.
   fixedRows?: boolean; // `true` keeps the rows as they are: no add, remove, duplicate, move or paste-appended rows.
 };
 type EntityEditAction = RowAction & {

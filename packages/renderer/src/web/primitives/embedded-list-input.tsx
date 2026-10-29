@@ -19,7 +19,7 @@
 // for the single-mount-per-side fix above. Upgrade: lift per-cell draft
 // state into a `draftsByCellId` map here that survives the layout swap.
 
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   type ClipboardEvent,
   type CSSProperties,
@@ -30,9 +30,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { fieldIssueText } from "../../field-issue-text.ts";
-import { fileIdsOf } from "../../file-ids-of.ts";
-import { applyFormatSpec, type FieldIssue } from "../../headless/index.ts";
 import type {
   EmbeddedListCellType,
   EmbeddedListColumn,
@@ -42,16 +39,16 @@ import type {
 import { useLocale, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { Button as UiButton } from "../ui/button.tsx";
-import { Checkbox } from "../ui/checkbox.tsx";
-import { Input as UiInput } from "../ui/input.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.tsx";
-import { ComboboxInput } from "./combobox.tsx";
-import { selectPill } from "./data-table-cell.tsx";
-import { DateInput } from "./date-input.tsx";
-import { EmbeddedFileCell } from "./embedded-file-cell.tsx";
-import { formatMoney, MoneyInput } from "./money-input.tsx";
-import { SegmentedControl } from "./segmented-select.tsx";
-import { TimestampInput } from "./timestamp-input.tsx";
+import { EmbeddedListCards } from "./embedded-list-cards.tsx";
+import {
+  columnAlignClass,
+  IssueMessages,
+  isDerivedCell,
+  RowActions,
+  renderCellControl,
+} from "./embedded-list-cell.tsx";
+import { formatMoney } from "./money-input.tsx";
 import { useIsNarrowViewport } from "./use-narrow-viewport.ts";
 
 // `input[type=hidden]` excluded — ComboboxInput renders one as a plain
@@ -110,29 +107,6 @@ function tableMinWidthRem(columns: readonly EmbeddedListColumn[], hasActions: bo
   return columnsRem + (hasActions ? ACTIONS_COLUMN_REM : 0);
 }
 
-function columnAlignClass(type: EmbeddedListCellType): string {
-  switch (type) {
-    case "money":
-    case "number":
-    case "decimal":
-      return "text-right";
-    case "boolean":
-      return "text-center";
-    case "date":
-    case "timestamp":
-    case "text":
-    case "select":
-    case "reference":
-    case "images":
-    case "files":
-      return "text-left";
-    default: {
-      const exhaustiveCheck: never = type;
-      return exhaustiveCheck;
-    }
-  }
-}
-
 type ScrollAffordance = {
   readonly canScrollLeft: boolean;
   readonly canScrollRight: boolean;
@@ -175,375 +149,6 @@ function parsePasteGrid(text: string): readonly (readonly string[])[] {
     const withoutCr = line.endsWith("\r") ? line.slice(0, -1) : line;
     return withoutCr.split("\t");
   });
-}
-
-function IssueMessages({
-  issues,
-  testId,
-  constrainWidth,
-}: {
-  readonly issues: readonly FieldIssue[] | undefined;
-  readonly testId?: string;
-  // Table cells sit inside a table that scrolls horizontally (see
-  // EmbeddedListInput below): a long, unbounded message there widens the
-  // column instead of wrapping, forcing horizontal scroll. Only the desktop table-cell path
-  // needs this — mobile cards and full-width row/list issues wrap naturally.
-  readonly constrainWidth?: boolean;
-}): ReactNode {
-  const t = useTranslation();
-  if (issues === undefined || issues.length === 0) return null;
-  return (
-    <div
-      role="alert"
-      data-testid={testId}
-      className={cn(
-        "text-xs text-destructive",
-        constrainWidth === true && "max-w-[16rem] whitespace-normal break-words",
-      )}
-    >
-      {issues.map((issue) => (
-        <div key={`${issue.path}:${issue.code}`}>{fieldIssueText(t, issue)}</div>
-      ))}
-    </div>
-  );
-}
-
-function readOnlyCellText(
-  column: EmbeddedListColumn,
-  value: unknown,
-  currency: string,
-  locale: string,
-): string {
-  if (value === null || value === undefined || value === "") return "";
-  switch (column.type) {
-    case "boolean":
-      return value === true ? "✓" : "";
-    case "date":
-    case "timestamp":
-      return applyFormatSpec({ format: column.type, locale }, value);
-    case "number":
-    case "decimal":
-      return typeof value === "number"
-        ? applyFormatSpec({ format: column.type, locale }, value)
-        : String(value);
-    case "money":
-      return typeof value === "number" ? formatMoney(value, currency, locale) : String(value);
-    case "select":
-      return typeof value === "string" ? (column.optionLabels?.[value] ?? value) : String(value);
-    case "reference":
-      return typeof value === "string"
-        ? (column.referenceOptions?.find((o) => o.value === value)?.label ?? value)
-        : String(value);
-    case "text":
-      return String(value);
-    case "images":
-    case "files":
-      return String(fileIdsOf(value).length);
-    default: {
-      const exhaustiveCheck: never = column.type;
-      return exhaustiveCheck;
-    }
-  }
-}
-
-function isDerivedCell(
-  column: EmbeddedListColumn,
-  row: Readonly<Record<string, unknown>>,
-): boolean {
-  return column.isDerivedInRow?.(row) ?? column.derived;
-}
-
-function renderCellControl({
-  cellId,
-  column,
-  label,
-  value,
-  disabled,
-  onChange,
-  currency,
-  locale,
-  derived,
-  touch,
-  uploadTarget,
-}: {
-  readonly derived: boolean;
-  readonly touch: boolean;
-  readonly uploadTarget: EmbeddedListInputProps["uploadTarget"];
-  readonly cellId: string;
-  readonly label: string;
-  readonly column: EmbeddedListColumn;
-  readonly value: unknown;
-  readonly disabled: boolean;
-  readonly onChange: (value: unknown) => void;
-  readonly currency: string;
-  readonly locale: string;
-}): ReactNode {
-  if (column.readOnly === true && !derived) {
-    return (
-      <div
-        data-cell-id={cellId}
-        data-readonly-cell=""
-        className={cn(
-          "min-w-0 whitespace-normal break-words py-1.5 text-sm",
-          columnAlignClass(column.type),
-        )}
-      >
-        {readOnlyCellText(column, value, currency, locale)}
-      </div>
-    );
-  }
-  const isDisabled = disabled || derived;
-  const controlHeight = touch ? "h-11" : undefined;
-
-  switch (column.type) {
-    case "text":
-      return (
-        <UiInput
-          data-cell-id={cellId}
-          type="text"
-          aria-label={label}
-          className={cn("min-w-0", controlHeight)}
-          disabled={isDisabled}
-          value={typeof value === "string" ? value : ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case "number":
-    case "decimal":
-      return (
-        <UiInput
-          data-cell-id={cellId}
-          type="number"
-          aria-label={label}
-          disabled={isDisabled}
-          className={cn("min-w-0 text-right tabular-nums", controlHeight)}
-          value={typeof value === "number" ? value : ""}
-          onChange={(e) => {
-            const raw = e.target.value;
-            onChange(raw === "" ? undefined : Number(raw));
-          }}
-        />
-      );
-    case "boolean":
-      return (
-        <div className="flex justify-center">
-          <Checkbox
-            data-cell-id={cellId}
-            aria-label={label}
-            disabled={isDisabled}
-            checked={value === true}
-            onCheckedChange={(checked) => onChange(checked === true)}
-          />
-        </div>
-      );
-    case "date":
-      return (
-        // ponytail: DateInput has no passthrough props for data-cell-id;
-        // wrap it instead — the pendingFocusCellId effect walks into the
-        // wrapper for its focusable descendant, so auto-focus still works.
-        <div data-cell-id={cellId} className="w-full min-w-0">
-          <DateInput
-            id={cellId}
-            name={cellId}
-            ariaLabel={label}
-            value={typeof value === "string" ? value : ""}
-            onChange={(v) => onChange(v)}
-            disabled={isDisabled}
-          />
-        </div>
-      );
-    case "timestamp":
-      return (
-        // ponytail: same wrapper pattern as "date" — TimestampInput has no
-        // data-cell-id passthrough either.
-        <div data-cell-id={cellId} className="w-full min-w-0">
-          <TimestampInput
-            id={cellId}
-            name={cellId}
-            ariaLabel={label}
-            value={typeof value === "string" ? value : ""}
-            onChange={(v) => onChange(v)}
-            disabled={isDisabled}
-          />
-        </div>
-      );
-    case "money":
-      return (
-        <div data-cell-id={cellId} className="w-full min-w-0">
-          <MoneyInput
-            id={cellId}
-            name={cellId}
-            ariaLabel={label}
-            value={typeof value === "number" ? value : ""}
-            onChange={(v) => onChange(v)}
-            currency={currency}
-            disabled={isDisabled}
-          />
-        </div>
-      );
-    case "images":
-    case "files":
-      return (
-        <EmbeddedFileCell
-          cellId={cellId}
-          label={label}
-          column={column}
-          value={value}
-          readOnly={isDisabled}
-          uploadTarget={uploadTarget}
-          onChange={onChange}
-        />
-      );
-    case "select": {
-      if (derived) {
-        return (
-          <div data-cell-id={cellId} className="min-w-0 py-1.5">
-            {selectPill(value, column.optionLabels, column.optionTones, locale, undefined)}
-          </div>
-        );
-      }
-      const options = (column.options ?? []).map((opt) => ({
-        value: opt,
-        label: column.optionLabels?.[opt] ?? opt,
-      }));
-      if (column.display === "radio" && options.length > 0) {
-        return (
-          <div data-cell-id={cellId} className="w-full min-w-0">
-            <SegmentedControl
-              id={cellId}
-              name={cellId}
-              labelProps={{ "aria-label": label }}
-              value={typeof value === "string" ? value : ""}
-              onChange={(v) => onChange(v)}
-              options={options}
-              disabled={isDisabled}
-              {...(column.optionTones !== undefined && { tones: column.optionTones })}
-              {...(touch && { size: "touch" as const })}
-            />
-          </div>
-        );
-      }
-      return (
-        <div data-cell-id={cellId} className="w-full min-w-0">
-          <ComboboxInput
-            id={cellId}
-            name={cellId}
-            ariaLabel={label}
-            value={typeof value === "string" ? value : ""}
-            onChange={(v) => onChange(v)}
-            options={options}
-            disabled={isDisabled}
-          />
-        </div>
-      );
-    }
-    case "reference":
-      return (
-        <div data-cell-id={cellId} className="w-full min-w-0">
-          <ComboboxInput
-            id={cellId}
-            name={cellId}
-            ariaLabel={label}
-            value={typeof value === "string" ? value : ""}
-            onChange={(v) => onChange(v)}
-            options={column.referenceOptions ?? []}
-            disabled={isDisabled}
-            loading={column.referenceLoading}
-          />
-        </div>
-      );
-    default: {
-      const exhaustiveCheck: never = column.type;
-      return exhaustiveCheck;
-    }
-  }
-}
-
-type RowActionsProps = {
-  readonly rowIndex: number;
-  readonly rowsLength: number;
-  readonly minItems: number | undefined;
-  readonly maxItems: number | undefined;
-  readonly onDuplicateRow: (rowIndex: number) => void;
-  readonly onMoveRow: (fromIndex: number, toIndex: number) => void;
-  readonly onRemoveRow: (rowIndex: number) => void;
-  readonly duplicateLabel: string;
-  readonly moveUpLabel: string;
-  readonly moveDownLabel: string;
-  readonly removeLabel: string;
-  readonly testIdPrefix: string | undefined;
-  readonly buttonSizeClass?: string;
-};
-
-function RowActions({
-  rowIndex,
-  rowsLength,
-  minItems,
-  maxItems,
-  onDuplicateRow,
-  onMoveRow,
-  onRemoveRow,
-  duplicateLabel,
-  moveUpLabel,
-  moveDownLabel,
-  removeLabel,
-  testIdPrefix,
-  buttonSizeClass = "size-7",
-}: RowActionsProps): ReactNode {
-  const duplicateDisabled = maxItems !== undefined && rowsLength >= maxItems;
-  const removeDisabled = rowsLength <= (minItems ?? 0);
-  return (
-    <div className="inline-flex items-center">
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={buttonSizeClass}
-        aria-label={duplicateLabel}
-        disabled={duplicateDisabled}
-        onClick={() => onDuplicateRow(rowIndex)}
-        data-testid={testIdPrefix !== undefined ? `${testIdPrefix}-duplicate` : undefined}
-      >
-        <Copy className="size-4" aria-hidden="true" />
-      </UiButton>
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={buttonSizeClass}
-        aria-label={moveUpLabel}
-        disabled={rowIndex === 0}
-        onClick={() => onMoveRow(rowIndex, rowIndex - 1)}
-        data-testid={testIdPrefix !== undefined ? `${testIdPrefix}-move-up` : undefined}
-      >
-        <ArrowUp className="size-4" aria-hidden="true" />
-      </UiButton>
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={buttonSizeClass}
-        aria-label={moveDownLabel}
-        disabled={rowIndex === rowsLength - 1}
-        onClick={() => onMoveRow(rowIndex, rowIndex + 1)}
-        data-testid={testIdPrefix !== undefined ? `${testIdPrefix}-move-down` : undefined}
-      >
-        <ArrowDown className="size-4" aria-hidden="true" />
-      </UiButton>
-      <UiButton
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={buttonSizeClass}
-        aria-label={removeLabel}
-        disabled={removeDisabled}
-        onClick={() => onRemoveRow(rowIndex)}
-        data-testid={testIdPrefix !== undefined ? `${testIdPrefix}-remove` : undefined}
-      >
-        <Trash2 className="size-4" aria-hidden="true" />
-      </UiButton>
-    </div>
-  );
 }
 
 export function EmbeddedListInput({
@@ -941,123 +546,56 @@ export function EmbeddedListInput({
 
       {/* ---- Mobile: cards ---- */}
       {isMobile && (
-        <div data-testid={testIdFor("mobile")} className="md:hidden flex flex-col gap-3">
-          {rows.map((row, rowIndex) => {
-            const isLastRow = rowIndex === rows.length - 1;
-            const rowIssuesForRow = rowIssues?.[rowIndex];
-            return (
+        <EmbeddedListCards
+          columns={columns}
+          rows={rows}
+          titleColumn={titleColumn}
+          lastEditableIndex={lastEditableIndex}
+          rowIssues={rowIssues}
+          cellIssues={cellIssues}
+          listIssues={listIssues}
+          totalsNode={
+            hasTotals && (
               <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
-                key={rowIndex}
-                data-testid={testIdFor(`row-${rowIndex}`)}
-                className="flex flex-col gap-3 rounded-lg border bg-card p-4"
+                data-testid={testIdFor("totals")}
+                className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-sm"
               >
-                {titleColumn !== undefined && (
-                  <div data-testid={testIdFor(`row-${rowIndex}-title`)} className="font-medium">
-                    {rowIndex + 1}{" "}
-                    {readOnlyCellText(
-                      titleColumn,
-                      row[titleColumn.field],
-                      effectiveCurrency,
-                      resolvedLocale,
-                    )}
+                {totals.map((total) => (
+                  <div key={total.field} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{total.label}</span>
+                    <span className="font-medium tabular-nums">
+                      {formatTotalValue(total, columns, effectiveCurrency, resolvedLocale)}
+                    </span>
                   </div>
-                )}
-                {columns.map((column, columnIndex) => {
-                  if (column === titleColumn || column.isHiddenInRow?.(row) === true) return null;
-                  const isLastCell = isLastRow && columnIndex === lastEditableIndex;
-                  const issues = cellIssues?.[`${rowIndex}.${column.field}`];
-                  return (
-                    // biome-ignore lint/a11y/noStaticElementInteractions: paste/keydown are delegated from the focusable cell control rendered inside, not direct interaction on this wrapper div.
-                    <div
-                      key={column.field}
-                      className="flex flex-col gap-1"
-                      onPaste={
-                        onPasteCells !== undefined ? handlePaste(rowIndex, columnIndex) : undefined
-                      }
-                      onKeyDown={isLastCell ? handleLastCellKeyDown : undefined}
-                    >
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {column.label}
-                        {column.isRequiredInRow?.(row) === true && " *"}
-                      </span>
-                      {renderCellControl({
-                        cellId: cellId(rowIndex, column.field),
-                        label: cellLabel(column, rowIndex),
-                        column,
-                        value: row[column.field],
-                        disabled: disabled === true,
-                        onChange: (value) => onCellChange(rowIndex, column.field, value),
-                        currency: effectiveCurrency,
-                        locale: resolvedLocale,
-                        derived: isDerivedCell(column, row),
-                        touch: true,
-                        uploadTarget,
-                      })}
-                      <IssueMessages
-                        issues={issues}
-                        testId={testIdFor(`cell-${rowIndex}-${column.field}-errors`)}
-                      />
-                    </div>
-                  );
-                })}
-                {rowIssuesForRow !== undefined && rowIssuesForRow.length > 0 && (
-                  <IssueMessages
-                    issues={rowIssuesForRow}
-                    testId={testIdFor(`row-${rowIndex}-issues`)}
-                  />
-                )}
-                {showControls && (
-                  <div className="flex items-center justify-end gap-1 border-t pt-3">
-                    <RowActions
-                      rowIndex={rowIndex}
-                      rowsLength={rows.length}
-                      minItems={minItems}
-                      maxItems={maxItems}
-                      onDuplicateRow={onDuplicateRow}
-                      onMoveRow={onMoveRow}
-                      onRemoveRow={onRemoveRow}
-                      duplicateLabel={duplicateLabel}
-                      moveUpLabel={moveUpLabel}
-                      moveDownLabel={moveDownLabel}
-                      removeLabel={removeLabel}
-                      testIdPrefix={testIdFor(`row-${rowIndex}`)}
-                      buttonSizeClass="size-10"
-                    />
-                  </div>
-                )}
+                ))}
               </div>
-            );
-          })}
-          {showControls && (
-            <UiButton
-              type="button"
-              variant="outline"
-              onClick={onAddRow}
-              disabled={addDisabled}
-              data-testid={testIdFor("add")}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              {addLabel}
-            </UiButton>
-          )}
-          {hasTotals && (
-            <div
-              data-testid={testIdFor("totals")}
-              className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-sm"
-            >
-              {totals.map((total) => (
-                <div key={total.field} className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{total.label}</span>
-                  <span className="font-medium tabular-nums">
-                    {formatTotalValue(total, columns, effectiveCurrency, resolvedLocale)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
-        </div>
+            )
+          }
+          disabled={disabled === true}
+          showControls={showControls}
+          addDisabled={addDisabled}
+          minItems={minItems}
+          maxItems={maxItems}
+          currency={effectiveCurrency}
+          locale={resolvedLocale}
+          uploadTarget={uploadTarget}
+          onCellChange={onCellChange}
+          onAddRow={onAddRow}
+          onRemoveRow={onRemoveRow}
+          onDuplicateRow={onDuplicateRow}
+          onMoveRow={onMoveRow}
+          handlePaste={handlePaste}
+          handleLastCellKeyDown={handleLastCellKeyDown}
+          pasteEnabled={onPasteCells !== undefined}
+          cellId={cellId}
+          cellLabel={cellLabel}
+          testId={testId}
+          addLabel={addLabel}
+          duplicateLabel={duplicateLabel}
+          moveUpLabel={moveUpLabel}
+          moveDownLabel={moveDownLabel}
+          removeLabel={removeLabel}
+        />
       )}
     </div>
   );

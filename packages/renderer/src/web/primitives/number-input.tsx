@@ -9,7 +9,7 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.ts";
 import { Input as UiInput } from "../ui/input.tsx";
-import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
+import { formatLocaleNumber, parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
 
 export type NumberInputProps = {
   readonly id: string;
@@ -26,10 +26,8 @@ export type NumberInputProps = {
   readonly testId?: string;
   readonly className?: string;
   readonly ariaDescribedBy?: string;
+  readonly ariaLabel?: string;
 };
-
-// 20 is the Intl maximum: the display must never round a stored value.
-const MAX_FRACTION_DIGITS = 20;
 
 export function NumberInput({
   id,
@@ -46,6 +44,7 @@ export function NumberInput({
   testId,
   className,
   ariaDescribedBy,
+  ariaLabel,
 }: NumberInputProps): ReactNode {
   const resolvedLocale = resolveSafeLocale(locale);
   const [focused, setFocused] = useState(false);
@@ -61,12 +60,7 @@ export function NumberInput({
   }, [focused]);
 
   const format = (useGrouping: boolean): string =>
-    value === ""
-      ? ""
-      : new Intl.NumberFormat(resolvedLocale, {
-          maximumFractionDigits: MAX_FRACTION_DIGITS,
-          useGrouping,
-        }).format(value);
+    value === "" ? "" : formatLocaleNumber(value, resolvedLocale, { grouping: useGrouping });
 
   const handleChange = (raw: string): void => {
     setDraft(raw);
@@ -96,6 +90,7 @@ export function NumberInput({
       aria-required={required}
       aria-invalid={hasError === true ? true : undefined}
       aria-describedby={ariaDescribedBy}
+      aria-label={ariaLabel}
       data-testid={testId}
       value={focused ? draft : format(grouping)}
       onFocus={() => {

@@ -16,6 +16,20 @@ export function resolveSafeLocale(locale: string | undefined): string {
   }
 }
 
+// 20 is the Intl maximum: the display must never round a stored value.
+const MAX_FRACTION_DIGITS = 20;
+
+export function formatLocaleNumber(
+  value: number,
+  locale: string,
+  options: { readonly grouping: boolean },
+): string {
+  return new Intl.NumberFormat(resolveSafeLocale(locale), {
+    maximumFractionDigits: MAX_FRACTION_DIGITS,
+    useGrouping: options.grouping,
+  }).format(value);
+}
+
 // Separators come from Intl for the locale. A minus is only accepted at the
 // very start: "1-23" is invalid rather than -123, so a typo never turns into
 // a wrong amount. Anything besides digits and separators yields NaN so callers

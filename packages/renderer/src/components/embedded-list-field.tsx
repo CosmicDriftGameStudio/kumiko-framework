@@ -61,6 +61,49 @@ function rowStateCallbacks(
   };
 }
 
+type CardPlacement = Pick<EmbeddedListColumn, "cardLimits" | "cardAttachedTo"> & {
+  readonly hiddenInCard?: boolean;
+};
+
+// An inRange derived cell (value, min, max → result) reads as one measurement on a phone card:
+// the limits become a hint under the value and the result sits beside it. Editable limits stay
+// their own rows: hiding them would leave phone users no way to fill them.
+function cardPlacementByField(
+  derived: EditFieldViewModel["embeddedListDerived"],
+  cells: readonly EmbeddedListCellViewModel[],
+): ReadonlyMap<string, CardPlacement> {
+  const placement = new Map<string, CardPlacement>();
+  const isNotEditable = (field: string): boolean => {
+    const cell = cells.find((c) => c.field === field);
+    return cell !== undefined && (cell.readOnly === true || derived?.[field] !== undefined);
+  };
+  for (const [target, def] of Object.entries(derived ?? {})) {
+    if (def.op !== "inRange") continue;
+    const [value, min, max] = def.from;
+    if (value === undefined || min === undefined || max === undefined) continue;
+    if (isNotEditable(min) && isNotEditable(max)) {
+      placement.set(value, { cardLimits: { min, max } });
+      placement.set(min, { hiddenInCard: true });
+      placement.set(max, { hiddenInCard: true });
+    }
+    placement.set(target, { cardAttachedTo: value });
+  }
+  return placement;
+}
+
+function cardColumnProps(
+  cell: EmbeddedListCellViewModel,
+  placement: ReadonlyMap<string, CardPlacement>,
+): CardPlacement {
+  const fromDerived = placement.get(cell.field);
+  return {
+    ...fromDerived,
+    ...((cell.hiddenInCard === true || fromDerived?.hiddenInCard === true) && {
+      hiddenInCard: true,
+    }),
+  };
+}
+
 function storedCellIds(rows: readonly EmbeddedRow[], cellField: string): string[] {
   const ids = new Set<string>();
   for (const row of rows) {
@@ -133,6 +176,8 @@ function EmbeddedListFieldInner({
 
   if (EmbeddedListInput === undefined) return null;
 
+  const cardPlacement = cardPlacementByField(derived, cells);
+
   const columns: EmbeddedListColumn[] = cells.map((cell) => {
     const isDerived = derived?.[cell.field] !== undefined;
     if (cell.type === "reference") {
@@ -154,6 +199,7 @@ function EmbeddedListFieldInner({
         derived: isDerived,
         ...rowStateCallbacks(cell, derived?.[cell.field]),
         ...(cell.readOnly === true && { readOnly: true }),
+        ...cardColumnProps(cell, cardPlacement),
         referenceOptions,
         referenceLoading: query?.loading ?? false,
       };
@@ -166,6 +212,7 @@ function EmbeddedListFieldInner({
       derived: isDerived,
       ...rowStateCallbacks(cell, derived?.[cell.field]),
       ...(cell.readOnly === true && { readOnly: true }),
+      ...cardColumnProps(cell, cardPlacement),
       ...(cell.options !== undefined && { options: cell.options }),
       ...(cell.optionLabels !== undefined && { optionLabels: cell.optionLabels }),
       ...(cell.display !== undefined && { display: cell.display }),

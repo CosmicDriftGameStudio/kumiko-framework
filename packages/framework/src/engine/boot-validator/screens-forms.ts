@@ -31,6 +31,37 @@ import {
   validateScreenNavTarget,
 } from "./screens-actions.ts";
 
+function assertKnownSubFields(
+  where: string,
+  option: string,
+  cells: readonly string[] | undefined,
+  schema: Readonly<Record<string, unknown>>,
+): void {
+  for (const cell of cells ?? []) {
+    if (schema[cell] === undefined) {
+      throw new Error(
+        `${where} embeddedList.${option} names "${cell}", which is not a sub-field ` +
+          `(known: ${Object.keys(schema).sort().join(", ")}).`,
+      );
+    }
+  }
+}
+
+function assertCardHiddenCellsReadOnly(
+  where: string,
+  cardHiddenCells: readonly string[] | undefined,
+  readOnlyCells: readonly string[] | undefined,
+): void {
+  for (const cell of cardHiddenCells ?? []) {
+    if (readOnlyCells?.includes(cell) !== true) {
+      throw new Error(
+        `${where} embeddedList.cardHiddenCells names "${cell}", which is editable; ` +
+          `only read-only cells (readOnlyCells) can be hidden on cards, otherwise phone users cannot fill it.`,
+      );
+    }
+  }
+}
+
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
 // entityEdit path — a required field the user can never fill would
 // block every save. Only the statically-resolvable case is caught here: a
@@ -57,14 +88,9 @@ export function validateEditFieldExtras(
           `(createEmbeddedListField); the field is type "${fieldDef.type}". Remove embeddedList or point it at an embedded list field.`,
       );
     }
-    for (const cell of listSpec.readOnlyCells ?? []) {
-      if (fieldDef.schema[cell] === undefined) {
-        throw new Error(
-          `${where} embeddedList.readOnlyCells names "${cell}", which is not a sub-field ` +
-            `(known: ${Object.keys(fieldDef.schema).sort().join(", ")}).`,
-        );
-      }
-    }
+    assertKnownSubFields(where, "readOnlyCells", listSpec.readOnlyCells, fieldDef.schema);
+    assertKnownSubFields(where, "cardHiddenCells", listSpec.cardHiddenCells, fieldDef.schema);
+    assertCardHiddenCellsReadOnly(where, listSpec.cardHiddenCells, listSpec.readOnlyCells);
   }
   const prefill = fieldSpec.prefill;
   // skip: no prefill declared

@@ -140,7 +140,7 @@ describe("EmbeddedListInput — phone cards", () => {
       for (const radio of cell(0, "result")?.querySelectorAll("[role=radio]") ?? []) {
         expect(radio.className).toContain("min-h-11");
       }
-      expect(cell(1, "measured")?.className ?? "").toContain("h-11");
+      expect(cell(1, "measured")?.querySelector("input")?.className ?? "").toContain("h-11");
     } finally {
       setViewportWidth(originalWidth);
     }

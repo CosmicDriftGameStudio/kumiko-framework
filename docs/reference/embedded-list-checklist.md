@@ -84,6 +84,12 @@ Wert ist ein Array von FileRef-IDs.
 
 - Unter 640 px Breite rendert die Liste Karten statt einer Tabelle, mit Bedienelementen ab 44 px
   Höhe. Eine führende schreibgeschützte Textspalte (`readOnlyCells`) wird zum Kartentitel.
+- `cardHiddenCells` blendet Sub-Felder, die nur die Zeile steuern (etwa die Art, die über die
+  Bedienelemente entscheidet), auf Karten aus; die Tabelle zeigt sie weiterhin.
+- Mit einer `inRange`-Ableitung zeigt die Karte Min und Max nicht als eigene Felder, sondern als
+  Hinweis unter dem Messwert („Grenzwert 0,05 bis 0,2“). Das Ergebnis steht ohne Beschriftung neben dem Messwert.
+  Nur schreibgeschützte Zellen lassen sich auf Karten ausblenden, und Min und Max werden nur dann
+  zum Hinweis, wenn beide schreibgeschützt (oder abgeleitet) sind; editierbare Grenzen bleiben eigene Zeilen.
 - `display: "radio"` an einem Select-Sub-Feld rendert Segmente; `optionTones` färbt das gewählte
   Segment (`ok`, `warn`, `bad`). Eine abgeleitete Select-Zelle erscheint als farbiges Badge.
 - Pro Zeile ausgeblendete Zellen lassen in der Tabelle eine leere Zelle, in der Karte fehlen sie.

@@ -30,6 +30,12 @@ export type EmbeddedListColumn = {
   readonly derived: boolean;
   /** Shown but not editable by the user; unlike `derived` it is not computed. */
   readonly readOnly?: boolean;
+  /** Phone cards skip this column; the table still shows it. */
+  readonly hiddenInCard?: boolean;
+  /** Phone cards show the row's min/max (sub-field names) as a hint under this column's control. */
+  readonly cardLimits?: { readonly min: string; readonly max: string };
+  /** Phone cards render this column unlabeled beside the named column's control. */
+  readonly cardAttachedTo?: string;
   /** Only for `type: "select"`. */
   readonly options?: readonly string[];
   readonly optionLabels?: Readonly<Record<string, string>>;
