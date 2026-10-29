@@ -97,7 +97,7 @@ export function createImportDocumentHandler(args: ImportArgs) {
     name: "import",
     schema: importDocumentPayloadSchema,
     access: { roles: [SYSTEM_ROLE] },
-    agent: { expose: false },
+    agent: { expose: false, risk: "high" },
     description:
       "Creates a document with a caller-chosen id from an existing file, links it to the given records and optionally leaves it deleted; a repeat call with the same id changes nothing, and an id already used by another record fails. The document's createdAt is the time of the import; issuedAt carries the business date. Reserved for the system user, meant for data migrations.",
     handler: async (event, ctx) => {

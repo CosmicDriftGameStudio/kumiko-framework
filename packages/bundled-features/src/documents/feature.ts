@@ -135,6 +135,7 @@ function registerDocuments(
       access: access.write,
       description:
         "Files a new document from an uploaded file; it stays invisible to everyone but the admin roles until it is linked to a record.",
+      agent: { risk: "mid" },
     }),
   );
   const writeGuard = createDocumentWriteGuard(executors, opts.adminRoles ?? DEFAULT_ADMIN_ROLES);
@@ -143,6 +144,7 @@ function registerDocuments(
       access: access.write,
       description:
         "Edits a document's title, category and dates from the entity-edit envelope; it does not change what the document is linked to.",
+      agent: { risk: "mid" },
     }),
   );
   r.writeHandler(

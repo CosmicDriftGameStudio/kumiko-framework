@@ -46,6 +46,17 @@ export const users = {
   }),
   secretReader: createTestUser({ id: 7, tenantId: tenant, roles: ["LeaseReader", "SecretReader"] }),
   foreign: createTestUser({ id: 8, tenantId: otherTenant, roles: ["TenantAdmin"] }),
+  // read the property a document is first linked to, so they can open the document
+  ledgerEditor: createTestUser({
+    id: 9,
+    tenantId: tenant,
+    roles: ["PropertyReader", "LedgerReader", "LedgerEditor"],
+  }),
+  ledgerReader: createTestUser({
+    id: 10,
+    tenantId: tenant,
+    roles: ["PropertyReader", "LedgerReader"],
+  }),
 };
 export type TestUser = (typeof users)["admin"];
 
@@ -82,6 +93,21 @@ export const vaultEntity = createEntity({
   fields: { name: text(64), propertyId: text(64), file: createFileField() },
 });
 
+// Link targets without an update handler: ledger declares who writes it, crate declares nothing.
+export const ledgerEntity = createEntity({
+  table: "doc_t_ledgers",
+  fields: { name: text(64) },
+  access: {
+    read: { LedgerReader: "all", LedgerEditor: "all", TenantAdmin: "all" },
+    write: { LedgerEditor: "all" },
+  },
+});
+export const crateEntity = createEntity({
+  table: "doc_t_crates",
+  fields: { name: text(64) },
+  access: { read: { LedgerReader: "all", TenantAdmin: "all" } },
+});
+
 const PDF = new TextEncoder().encode("%PDF-1.4 fixture");
 
 export const hostFeature = defineFeature("doc-fixtures", (r) => {
@@ -89,9 +115,13 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
   r.entity({ name: "lease", ...leaseEntity });
   r.entity({ name: "memo", ...memoEntity });
   r.entity({ name: "vault", ...vaultEntity });
+  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity({ name: "crate", ...crateEntity });
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["lease", leaseEntity],
+    ["ledger", ledgerEntity],
+    ["crate", crateEntity],
   ] as const) {
     r.writeHandler(defineEntityCreateHandler(name, entity, { access: openToAll }));
     r.queryHandler(defineEntityListHandler(name, entity, { access: openToAll }));
@@ -220,7 +250,7 @@ export function createFixtureDocumentsFeature(
   return createDocumentsFeature({
     ...options,
     categories: ["contract", "id"],
-    linkTargets: ["property", "lease"],
+    linkTargets: ["property", "lease", "ledger", "crate"],
     access: openToAll,
     // Every test role reads all the gate allows; the system role is left out on purpose, so
     // capture and import must work without it.
@@ -233,6 +263,8 @@ export function createFixtureDocumentsFeature(
         "Nobody",
         "MemoReader",
         "SecretReader",
+        "LedgerReader",
+        "LedgerEditor",
       ].map((role) => [role, "all" as const]),
     ),
     capture: [

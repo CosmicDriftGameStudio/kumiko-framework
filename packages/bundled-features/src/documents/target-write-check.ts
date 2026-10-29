@@ -18,8 +18,10 @@ function updateHandlerAccessOf(registry: Registry, entityType: string) {
 }
 
 // Linking a document changes what readers of the target see, so it needs what saving the target
-// needs: read visibility, the entity's update handler and its row-level write rule. A target that
-// is not visible answers like a missing one.
+// needs: read visibility, a write gate and its row-level write rule. The gate is the entity's
+// update handler; an entity saved only through custom handlers has none, so its declared write
+// roles stand in, and without either the target stays unlinkable. A target that is not visible
+// answers like a missing one.
 export async function canWriteLinkTarget(
   registry: Registry,
   entityType: string,
@@ -31,7 +33,11 @@ export async function canWriteLinkTarget(
   const entity = registry.getEntity(entityType);
   if (entity === undefined) return false;
   const updateAccess = updateHandlerAccessOf(registry, entityType);
-  if (updateAccess === undefined || !hasAccess(user, updateAccess)) return false;
+  if (updateAccess !== undefined) {
+    if (!hasAccess(user, updateAccess)) return false;
+  } else if (!hasAccess(user, { roles: Object.keys(entity.access?.write ?? {}) })) {
+    return false;
+  }
   const row = await createEntityExecutor(entityType, entity).executor.detail(
     { id: entityId },
     user,

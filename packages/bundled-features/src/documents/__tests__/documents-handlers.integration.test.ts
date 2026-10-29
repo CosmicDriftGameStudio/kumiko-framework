@@ -144,6 +144,48 @@ describe("link and unlink", () => {
   });
 });
 
+describe("link target without an update handler", () => {
+  test("the entity's write roles decide; a target declaring none refuses everyone", async () => {
+    const doc = await fileDirectlyUploadedDocument("Ledger proof");
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: doc.id, entityType: "property", entityId: propertyId },
+      users.admin,
+    );
+    const ledger = await stack.http.writeOk<{ id: string }>(
+      "doc-fixtures:write:ledger:create",
+      { name: "Ledger" },
+      users.ledgerEditor,
+    );
+    const crate = await stack.http.writeOk<{ id: string }>(
+      "doc-fixtures:write:crate:create",
+      { name: "Crate" },
+      users.admin,
+    );
+    const toLedger = { documentId: doc.id, entityType: "ledger", entityId: ledger.id };
+    const toCrate = { documentId: doc.id, entityType: "crate", entityId: crate.id };
+
+    expect(
+      (await stack.http.writeErr("documents:write:link", toLedger, users.ledgerReader)).httpStatus,
+    ).toBe(404);
+    await stack.http.writeOk("documents:write:link", toLedger, users.ledgerEditor);
+    expect((await documentsOf(stack, users.ledgerReader, "ledger", ledger.id)).rows).toHaveLength(
+      1,
+    );
+
+    expect(
+      (await stack.http.writeErr("documents:write:link", toCrate, users.admin)).httpStatus,
+    ).toBe(404);
+
+    // later tests count the documents of the shared property
+    await stack.http.writeOk(
+      "documents:write:unlink",
+      { documentId: doc.id, entityType: "property", entityId: propertyId },
+      users.admin,
+    );
+  });
+});
+
 describe("a colleague's pending upload", () => {
   test("cannot be filed as a document, so the uploader's own save and capture still work", async () => {
     const pending = await uploadFile(stack, users.admin, "lease", "file");
