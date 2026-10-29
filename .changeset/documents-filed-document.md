@@ -1,5 +1,6 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-framework": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
 "@cosmicdrift/kumiko-locale-fr": patch
