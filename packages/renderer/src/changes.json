@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.401.0",
+    "type": "fix",
+    "title": "Dashboard list panels show the target's label for reference columns",
+    "detail": "A reference column in a dashboard list panel showed the stored id. It now resolves the target record's label and links to it, using the same lookup as entity lists."
+  },
+  {
     "version": "0.399.0",
     "type": "improvement",
     "title": "Notification bell in the shell header",

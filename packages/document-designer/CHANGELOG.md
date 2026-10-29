@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.401.0
+
+### Patch Changes
+
+- Updated dependencies [a11ae25]
+- Updated dependencies [2ee38e5]
+- Updated dependencies [2ee38e5]
+  - @cosmicdrift/kumiko-bundled-features@0.401.0
+  - @cosmicdrift/kumiko-framework@0.401.0
+  - @cosmicdrift/kumiko-types@0.401.0
+  - @cosmicdrift/kumiko-renderer@0.401.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.401.0
+
 ## 0.400.0
 
 ### Patch Changes
