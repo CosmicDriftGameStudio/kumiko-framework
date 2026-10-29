@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-locale-it",
-  "version": "0.400.0",
+  "version": "0.401.0",
   "description": "Italian UI and mail copy for Kumiko framework screens. Opt in by mounting localeIt() + localeItClient().",
   "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

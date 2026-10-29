@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.401.0
+
+### Patch Changes
+
+- 2ee38e5: renderer: dashboard list panels resolve reference columns.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Dashboard list panels show the target's label for reference columns
+  detail: A reference column in a dashboard list panel showed the stored id. It now resolves the target record's label and links to it, using the same lookup as entity lists.
+  -->
+- Updated dependencies [a11ae25]
+- Updated dependencies [2ee38e5]
+  - @cosmicdrift/kumiko-framework@0.401.0
+  - @cosmicdrift/kumiko-types@0.401.0
+
 ## 0.400.0
 
 ### Minor Changes

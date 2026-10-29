@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.401.0",
+    "type": "improvement",
+    "title": "Scaffolded apps show the user, speak German and seed demo data as the real admin",
+    "detail": "The scaffolded shell gets the signed-in user, the app mounts the German locale, and its kumiko.config.ts turns on requireFieldValueTranslations. A `SeedFn` receives `(stack, { admin })`: the seeded admin as a session user (first membership), undefined without auth. The scaffolded demo seed uses it instead of TestUsers.admin. `applyStandardBootSeeds` returns `{ adminUserId? }`."
+  },
+  {
+    "version": "0.401.0",
+    "type": "improvement",
+    "title": "New apps start on infra reusables v2.0.0",
+    "detail": "The managed ci.yml gives the test job `contents: read`, `packages: read` and `pull-requests: read`, which the v2 reusable test workflow asks for, and kumiko-create writes kumiko.deploy.infraRef reusables-v2.0.0. Existing apps set infraRef to reusables-v2.0.0 and run kumiko sync-managed --write."
+  },
+  {
     "version": "0.395.0",
     "type": "fix",
     "title": "Live updates from a separate worker process reach the dev-server browser",

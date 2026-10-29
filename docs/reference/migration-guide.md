@@ -10,6 +10,16 @@ verified: 2026-10-29
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.401.0
+
+### framework-core
+
+**Boot rejects a user reference with personal: false and file accept entries that never match**
+
+`createReferenceField({ entity, personal?, reason?, required? })` builds a foreign key; a target ending in `:user` defaults to `personal: "ref"` and throws on `personal: false`. The boot validator now rejects a reference field to the user entity that carries `personal: false`, and a file, files, image or images field (also inside embedded schemas) whose `accept` has an entry that is not a bare lower-case extension, because the upload check compares the file's extension only. The new boot option `requireFieldValueTranslations: true` (also readable from the schema CLI input) lists every missing translation of select/multiSelect options and embedded cell labels shown by entityList/entityEdit screens in one error. `defineEntityWriteHandler` and the create/update/delete/restore wrappers return a type whose `reserveBeforeTransaction`, `beforeTransaction` and `beforeTransactionWhenNested` are `undefined`, so a handler spread into `defineWriteHandler` can add its own. user-data-rights has the export-job status option labels (de, en, es, fr, it); managed-pages branding accepts `png, jpg, jpeg, webp` instead of MIME types.
+
+**Migration:** Replace `personal: false` on a reference to the user entity with `createReferenceField({ entity: "user:user" })` or `personal: "ref"`. Write `accept` entries as bare extensions (`"pdf"`, not `".pdf"` or `"application/pdf"`).
+
 ## 0.400.0
 
 ### framework-core
