@@ -11,7 +11,6 @@ function assertNotificationVariables(registry: Pick<Registry, "getAllNotificatio
 function assignableAppRolesFromUsages(usages: { entityName: string; options?: Record<string, unknown> | undefined; }[]): AssignableAppRoles;
 function assignableAppRolesOf(registry: Pick<Registry, "getExtensionUsages">): AssignableAppRoles;
 function attachOutsideTransaction<T extends object, O extends object | undefined>(db: T, outsideTransaction: O): T & { outsideTransaction: O; };
-function bootRuleDocLink(ruleId: string): string | undefined;
 function bootRuleError(rule: BootRule, details: { message: string; }): BootRuleViolation;
 function bridgeStub(opts?: { user?: SessionUser; log?: HandlerObservability["log"]; dispatch?: Partial<HandlerDispatch>; services?: Partial<ContextServices>; }): Pick<HandlerContext, "dispatch" | "events" | "auth" | "obs" | "hasFeature" | "tz" | "locale" | "user" | "services" | "lifecycle" | "tenants">;
 function buildAppSchema(registry: Registry, options?: BuildAppSchemaOptions): AppSchema;
@@ -228,10 +227,6 @@ const templateVariable: { text; link; richText; money; date; percent; images; li
 ## Classes
 
 ```ts
-class BootRuleFailures extends Error {
-  constructor(failures: Error[]);
-  name: unknown;
-}
 class BootRuleViolation extends Error {
   constructor(rule: BootRule, message: string);
   name: unknown;

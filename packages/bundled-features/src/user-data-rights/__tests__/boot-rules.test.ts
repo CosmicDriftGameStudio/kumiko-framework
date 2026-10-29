@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { bootRuleDocLink } from "@cosmicdrift/kumiko-framework/engine";
 import { USER_DATA_RIGHTS_BOOT_RULES } from "../boot-rules.ts";
 
 const RULE_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*\/[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -16,11 +15,10 @@ describe("USER_DATA_RIGHTS_BOOT_RULES", () => {
     }
   });
 
-  test("summary and fix are non-empty and every id has a doc anchor", () => {
+  test("summary and fix are non-empty", () => {
     for (const rule of rules) {
       expect(rule.summary.trim()).not.toBe("");
       expect(rule.fix.trim()).not.toBe("");
-      expect(bootRuleDocLink(rule.id)).toBeString();
     }
   });
 });
