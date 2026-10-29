@@ -10,7 +10,7 @@ export type WatchLease = {
 // The cross-worker claim on one account's watch: acquired before plugin.watch(), renewed by a
 // heartbeat for as long as the watcher state exists, and given up locally once it is lost.
 export function createWatchLease(deps: {
-  readonly lock: DistributedLock | undefined;
+  readonly lock: DistributedLock;
   readonly ttlSeconds: number;
   readonly renewIntervalMs: number;
   readonly watchers: ReadonlyMap<string, WatcherState>;
@@ -53,7 +53,7 @@ export function createWatchLease(deps: {
   ): Promise<void> {
     state.renewTimer = null;
     // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
-    if (!isRunning() || state.generation !== generation || !state.lockToken || !lock) return;
+    if (!isRunning() || state.generation !== generation || !state.lockToken) return;
     let renewed: boolean;
     try {
       renewed = await lock.renew(account.id, state.lockToken, ttlSeconds);
@@ -97,7 +97,7 @@ export function createWatchLease(deps: {
     account: MailAccountRecord,
     state: WatcherState,
   ): Promise<WatchLeaseResult> {
-    if (!lock || state.lockToken) return "acquired";
+    if (state.lockToken) return "acquired";
     // A throwing lock (Redis outage) reads as "not claimed": the next tick retries instead of leaving the start flag set.
     const token = await lock.acquire(account.id, { ttlSeconds: ttlSeconds }).catch((err) => {
       log(

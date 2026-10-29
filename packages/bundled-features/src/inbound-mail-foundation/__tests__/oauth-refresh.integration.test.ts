@@ -13,6 +13,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -270,6 +271,7 @@ function createSupervisor(opts: {
   pollIntervalMs?: number;
 }) {
   return createInboundMailSupervisor({
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     providerCtx: { registry: stack.registry, secrets },
     db,
     dispatchWrite: ({ handlerQn, payload, tenantId }) =>

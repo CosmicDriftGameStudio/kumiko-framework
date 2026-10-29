@@ -8,6 +8,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -162,6 +163,7 @@ describe("inbound-mail-foundation :: tenant destroy", () => {
     await seedInboundMessage(accountIdA, rawMessage("tenant-a-1"));
     await seedInboundMessage(accountIdB, rawMessage("tenant-b-1"));
     await createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
       providerCtx: { registry: stack.registry },
       db,
       dispatchWrite: ({ handlerQn, payload, tenantId }) =>

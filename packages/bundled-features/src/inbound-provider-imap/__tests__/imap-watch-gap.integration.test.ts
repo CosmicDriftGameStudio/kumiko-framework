@@ -3,6 +3,7 @@
 // Skips visibly when greenmail is down.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+
 import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -16,6 +17,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -212,6 +214,7 @@ describe("imap watch gap — greenmail + supervisor", () => {
 
       gapSubject = `watch-gap-${crypto.randomUUID()}`;
       const supervisor = createInboundMailSupervisor({
+        lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
         providerCtx: { registry: stack.registry, secrets },
         db,
         dispatchWrite: ({ handlerQn, payload, tenantId }) =>

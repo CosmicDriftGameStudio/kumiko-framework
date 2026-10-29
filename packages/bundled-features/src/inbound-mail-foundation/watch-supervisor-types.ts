@@ -41,15 +41,15 @@ export type InboundMailSupervisorDeps = {
   /** Coordinates the IMAP watch (not the poll) across worker processes:
    *  before `plugin.watch()`, ensureWatcher claims a TTL lease for the
    *  account via `lock.acquire` and renews it via `lock.renew` while the
-   *  watcher lives. Omit for single-process deployments — every active
-   *  account is watched locally, same as before. */
-  readonly lock?: DistributedLock;
+   *  watcher lives. Required: without it every worker would hold its own
+   *  IDLE connection per account. */
+  readonly lock: DistributedLock;
   /** Access-token lifecycle for OAuth accounts. Defaults to a manager built
    *  from `db` + `providerCtx.secrets`; pass the instance shared with
    *  `createInboundMailConnectRoutes` so a fresh connect primes this cache. */
   readonly oauthTokens?: OAuthAccessTokenManager;
   /** TTL (seconds) for the per-account watch lease. Default 90s, renewed
-   *  every ttl/3. Only used when `lock` is set. */
+   *  every ttl/3. */
   readonly watchLeaseTtlSeconds?: number;
   readonly log?: (line: string) => void;
 };
@@ -62,7 +62,7 @@ export type WatcherState = {
    *  an already stopped watcher. */
   generation: number;
   /** Token from `deps.lock.acquire` while this worker owns the account's
-   *  watch lease; null when unclaimed (no `deps.lock`, or claim lost). */
+   *  watch lease; null when unclaimed (claim lost). */
   lockToken: string | null;
   renewTimer: ReturnType<typeof setTimeout> | null;
   /** Consecutive renew() throws — tear down once failures span a full TTL. */

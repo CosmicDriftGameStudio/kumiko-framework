@@ -231,6 +231,7 @@ export const syncCursorEntity = createEntity({
 export const seenMessageEntity = createEntity({
   table: "store_mail_seen_messages",
   softDelete: false,
+  indexes: [{ unique: true, columns: ["accountId", "providerMessageId"] }],
   fields: {
     accountId: createTextField({
       required: true,

@@ -17,11 +17,9 @@
 //     db,
 //     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
 //       deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
-//     // Multi-worker deployments: share one DistributedLock (same Redis,
-//     // same key prefix) across every worker process so only one of them
-//     // holds the IMAP IDLE connection per account. Omit `lock`
-//     // for a single-process deployment — every active account gets
-//     // watched locally, as before.
+//     // One DistributedLock (same Redis, same key prefix) shared across
+//     // every worker process, so only one of them holds the IMAP IDLE
+//     // connection per account.
 //     lock: createDistributedLock(redis, `${RedisKeys.lock}inbound-mail:watch:`),
 //   });
 //   await supervisor.start();
@@ -34,7 +32,7 @@
 // **Multi-worker coordination:** the reconciliation poll remains deliberately
 // N-fold: every worker polls every active account, which is idempotent and
 // cheap. Only `plugin.watch()` holds a long-lived connection, and only one
-// worker may hold it per account. With `deps.lock`, `ensureWatcher` claims a
+// worker may hold it per account. `ensureWatcher` claims a
 // TTL lease (`lock.acquire`) before connecting; a worker that fails to claim
 // it leaves the account to its current holder, while the poll still covers
 // it. The holder renews the lease via heartbeat (`lock.renew`, every ttl/3)
@@ -435,7 +433,7 @@ export function createInboundMailSupervisor(
         log(`inbound-mail: stop watcher ${accountId} failed: ${describeError(err)}`);
       }
     }
-    if (deps.lock && lockToken) {
+    if (lockToken) {
       try {
         await deps.lock.release(accountId, lockToken);
       } catch (err) {

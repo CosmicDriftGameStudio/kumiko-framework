@@ -18,6 +18,7 @@ import {
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -292,6 +293,7 @@ export function createMailSupervisor(
     pollIntervalMs: SUPERVISOR_POLL_INTERVAL_MS,
     watchBackoffInitialMs: 50,
     watchBackoffMaxMs: 200,
+    lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
     ...rest,
   });
 }
