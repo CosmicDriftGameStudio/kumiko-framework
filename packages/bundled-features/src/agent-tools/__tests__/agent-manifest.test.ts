@@ -372,6 +372,13 @@ describe("buildAgentManifest", () => {
   test("entity and field labels resolve via suffix match, first registered key wins", () => {
     const feature = defineFeature("label-suffix-test", (r) => {
       r.entity({ name: "widget", ...gatedEntity });
+      r.queryHandler({
+        name: "widget:lookup",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({}),
+        access: { roles: ["admin"] },
+        description: "Look up a widget by id.",
+      });
       r.translations({
         keys: {
           "label-suffix-test:entity:widget": { en: "Widget" },
@@ -449,5 +456,76 @@ describe("buildAgentManifest: excludeFields of generic create/update handlers", 
     expect(entryFor("create")).toBeDefined();
     expect(entryFor("create")).not.toHaveProperty("excludedFields");
     expect(entryFor("delete")).not.toHaveProperty("excludedFields");
+  });
+});
+
+describe("buildAgentManifest features and entities follow the role", () => {
+  const textField = createTextField({
+    searchable: true,
+    personal: false,
+    reason: "technical_reference",
+  });
+  const customerEntity = createEntity({ fields: { name: textField } });
+  const invoiceEntity = createEntity({
+    fields: { number: textField, customerId: { type: "reference", entity: "rf-billing:customer" } },
+  });
+  const noteEntity = createEntity({ fields: { body: textField } });
+  const orphanEntity = createEntity({ fields: { label: textField } });
+
+  const lookup = (name: string, roles: string[]) => ({
+    name,
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
+    access: { roles },
+    description: `Look up via ${name}.`,
+  });
+
+  const billing = defineFeature("rf-billing", (r) => {
+    r.entity({ name: "customer", ...customerEntity });
+    r.entity({ name: "invoice", ...invoiceEntity });
+    r.entity({ name: "orphan", ...orphanEntity });
+    r.queryHandler(lookup("invoice:lookup", ["admin"]));
+  });
+  const notes = defineFeature("rf-notes", (r) => {
+    r.entity({ name: "note", ...noteEntity });
+    r.queryHandler(lookup("note:lookup", ["admin", "viewer"]));
+  });
+  const settings = defineFeature("rf-settings", (r) => {
+    r.screen({
+      id: "settings-board",
+      type: "custom",
+      renderer: { react: "stub" },
+      description: "Admin board.",
+      access: { roles: ["admin"] },
+    });
+  });
+  const registry = createRegistry([billing, notes, settings]);
+  const featureNames = (roles: string[]) =>
+    buildAgentManifest(registry, { locale: "en", roles }).features.map((f) => f.name);
+  const entityNames = (roles: string[]) =>
+    buildAgentManifest(registry, { locale: "en", roles }).entities.map((e) => e.name);
+
+  test("a full role keeps every feature and reachable entity, including reference targets", () => {
+    expect(featureNames(["admin"])).toEqual(["rf-billing", "rf-notes", "rf-settings"]);
+    expect(entityNames(["admin"])).toEqual(["customer", "invoice", "note"]);
+  });
+
+  test("a restricted role loses features and entities without a visible handler or screen", () => {
+    expect(featureNames(["viewer"])).toEqual(["rf-notes"]);
+    expect(entityNames(["viewer"])).toEqual(["note"]);
+  });
+
+  test("an entity nothing reaches stays out even for a full role", () => {
+    expect(entityNames(["admin"])).not.toContain("orphan");
+  });
+
+  test("a denied handler no longer keeps its entity or feature alive", () => {
+    const manifest = buildAgentManifest(registry, {
+      locale: "en",
+      roles: ["admin"],
+      denyQns: ["rf-notes:query:note:lookup"],
+    });
+    expect(manifest.features.map((f) => f.name)).not.toContain("rf-notes");
+    expect(manifest.entities.map((e) => e.name)).not.toContain("note");
   });
 });

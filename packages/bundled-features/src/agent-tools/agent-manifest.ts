@@ -21,6 +21,7 @@ import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-type
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { recordManifestDenyQns } from "./manifest-deny-qns.ts";
+import { isExplicitlyAgentHidden } from "./tool-catalog.ts";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -153,16 +154,17 @@ function buildField(
   };
 }
 
-/** Entity schemas are emitted unfiltered by design: roles gate handlers, screens,
- *  navs and workspaces, while the handler pipeline gates the values themselves.
- *  The manifest describes shape, never data. */
+/** Shape, never data. Only entities the role reaches are emitted: the manifest is
+ *  prompt payload, so every extra schema costs tokens on each turn. */
 function buildEntities(
   entities: ReadonlyMap<string, EntityDefinition>,
   translations: TranslationKeys,
   getSearchableFields: (entityName: string) => readonly string[],
+  visibleEntityNames: ReadonlySet<string>,
 ): readonly AgentManifestEntity[] {
   const result: AgentManifestEntity[] = [];
   for (const [entityName, entity] of entities) {
+    if (!visibleEntityNames.has(entityName)) continue;
     const searchableFields = new Set(getSearchableFields(entityName));
     const fields = Object.entries(entity.fields).map(([fieldName, field]) =>
       buildField(entityName, fieldName, field, translations, searchableFields),
@@ -179,9 +181,11 @@ function buildEntities(
 
 function buildFeatures(
   features: ReadonlyMap<string, FeatureDefinition>,
+  visibleFeatureNames: ReadonlySet<string>,
 ): readonly AgentManifestFeature[] {
   const result: AgentManifestFeature[] = [];
   for (const [, feature] of features) {
+    if (!visibleFeatureNames.has(feature.name)) continue;
     result.push({
       name: feature.name,
       ...(feature.description !== undefined && { description: feature.description }),
@@ -333,6 +337,70 @@ function withoutOrphanedNavs(navs: readonly AgentManifestNav[]): readonly AgentM
   }
 }
 
+// Qualified handler, screen and nav ids all start with the owning feature name.
+function featureNameOf(qualifiedId: string): string {
+  const idx = qualifiedId.indexOf(":");
+  return idx === -1 ? qualifiedId : qualifiedId.slice(0, idx);
+}
+
+function visibleFeatureNamesOf(
+  handlers: readonly AgentManifestHandler[],
+  screens: readonly AgentManifestScreen[],
+  navs: readonly AgentManifestNav[],
+): ReadonlySet<string> {
+  return new Set(
+    [...handlers.map((h) => h.qn), ...screens.map((s) => s.id), ...navs.map((n) => n.id)].map(
+      featureNameOf,
+    ),
+  );
+}
+
+function entitiesOfQueryToolsFor(
+  registry: RegistryManifestView,
+  roles: readonly string[],
+  denyQns: ReadonlySet<string>,
+): readonly string[] {
+  const names: string[] = [];
+  for (const [qn, def] of registry.getAllQueryHandlers()) {
+    const entityName = registry.getHandlerEntity(qn);
+    if (entityName === undefined || denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
+    if (hasAccess({ roles }, def.access)) names.push(entityName);
+  }
+  return names;
+}
+
+// A reference target is "entity" or "<feature>:entity"; registry entity keys are the bare name.
+function entityNameOfReference(target: string): string {
+  return target.slice(target.lastIndexOf(":") + 1);
+}
+
+function referenceTargetsOf(entity: EntityDefinition | undefined): readonly string[] {
+  return Object.values(entity?.fields ?? {}).flatMap((field) =>
+    field.type === "reference" ? [entityNameOfReference(field.entity)] : [],
+  );
+}
+
+/** Reachable = tagged on a manifest handler, shown by a manifest screen, or read by a
+ *  registry-derived `get_`/`list_` tool (which takes labels from the manifest entity). */
+function visibleEntityNamesOf(
+  registry: RegistryManifestView,
+  roles: readonly string[],
+  denyQns: ReadonlySet<string>,
+  handlers: readonly AgentManifestHandler[],
+  screens: readonly AgentManifestScreen[],
+): ReadonlySet<string> {
+  const reachable = new Set<string>([
+    ...handlers.flatMap((handler) => (handler.entity !== undefined ? [handler.entity] : [])),
+    ...screens.flatMap((screen) => [screen.entity ?? [], screen.detailFor ?? []].flat()),
+    ...entitiesOfQueryToolsFor(registry, roles, denyQns),
+  ]);
+  const entities = registry.getAllEntities();
+  return new Set([
+    ...reachable,
+    ...[...reachable].flatMap((n) => referenceTargetsOf(entities.get(n))),
+  ]);
+}
+
 function lastSegment(qualifiedId: string): string {
   const idx = qualifiedId.lastIndexOf(":");
   return idx === -1 ? qualifiedId : qualifiedId.slice(idx + 1);
@@ -439,16 +507,13 @@ export function buildAgentManifest(
   const { roles } = options;
   assertDenyQnsExist(options.denyQns ?? [], registry);
 
-  const features = buildFeatures(registry.features);
-  const entities = buildEntities(registry.getAllEntities(), translations, (name) =>
-    registry.getSearchableFields(name),
-  );
+  const denyQns = new Set(options.denyQns ?? []);
   const handlers = buildHandlers(
     registry.getAllQueryHandlers(),
     registry.getAllWriteHandlers(),
     roles,
     (qn) => registry.getHandlerEntity(qn),
-    new Set(options.denyQns ?? []),
+    denyQns,
   );
   const screenMap = registry.getAllScreens();
   const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap);
@@ -461,6 +526,13 @@ export function buildAgentManifest(
     new Set(navs.map((nav) => nav.id)),
   );
   const workspaces = buildWorkspaces(workspaceMap, translations, roles);
+  const features = buildFeatures(registry.features, visibleFeatureNamesOf(handlers, screens, navs));
+  const entities = buildEntities(
+    registry.getAllEntities(),
+    translations,
+    (name) => registry.getSearchableFields(name),
+    visibleEntityNamesOf(registry, roles, denyQns, handlers, screens),
+  );
 
   const manifest: AgentManifest = {
     builtForRoles: [...roles],
@@ -475,6 +547,6 @@ export function buildAgentManifest(
       ...(options.currency && { currency: options.currency }),
     },
   };
-  recordManifestDenyQns(manifest, new Set(options.denyQns ?? []));
+  recordManifestDenyQns(manifest, denyQns);
   return manifest;
 }
