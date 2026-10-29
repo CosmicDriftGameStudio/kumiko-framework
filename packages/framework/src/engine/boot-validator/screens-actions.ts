@@ -26,6 +26,8 @@ import type {
   SecretMintScreenDefinition,
   ToolbarAction,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 
 export function isRowClickAction(action: RowAction): boolean {
   return (action.kind === "navigate" || action.kind === "drawer") && action.rowClick === true;
@@ -199,11 +201,12 @@ export function validateActionHasIcon(
 ): void {
   const resolved = resolveActionIcon(action.id, action.icon);
   if (resolved === undefined || !isRegisteredIcon(resolved)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${context} "${action.id}" has no ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.actionIcon, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${context} "${action.id}" has no ` +
         `resolvable icon — set icon to a key registered in NAV_ICONS, or use an id that resolves one of ` +
         `its kebab segments via the default icon map (resolveActionIcon).`,
-    );
+    });
   }
 }
 

@@ -18,6 +18,9 @@ import {
 } from "../build-config-feature-schema.ts";
 import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins.ts";
 import type { FeatureDefinition, Registry } from "../types/index.ts";
+import { collectBootRuleViolations } from "./boot-report.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { I18N_RULES } from "./i18n-keys-rules.ts";
 
 function isDormantSecretsScreen(screen: ScreenDefinition): boolean {
   return screen.type === "secretsEdit" && screen.dormant === true;
@@ -85,26 +88,28 @@ export function validateI18nSurfaceKeys(
   // declared secret would fail boot on its own generated keys.
   for (const key of Object.keys(generatedConfigHub.translations ?? {})) defined.add(key);
 
-  for (const feature of features) {
-    if (!featureHasI18nSurface(feature)) continue;
-
-    for (const key of requiredKeysFromFeature(feature)) {
-      if (isFrameworkOwnedI18nKey(key)) continue;
+  const featureKeys = features.filter(featureHasI18nSurface).flatMap((feature) =>
+    requiredKeysFromFeature(feature)
+      .filter((key) => !isFrameworkOwnedI18nKey(key))
+      .map((key) => ({ featureName: feature.name, key })),
+  );
+  const checkFeatureKeys = (): void =>
+    collectBootRuleViolations(featureKeys, ({ featureName, key }) => {
       if (!hasDefinedTranslation(defined, key)) {
-        throw new Error(
-          `[i18n] Feature "${feature.name}": required translation key missing: "${key}". Add it via r.translations(...) in this feature.`,
-        );
+        throw bootRuleError(I18N_RULES.missingFeatureKey, {
+          message: `[i18n] Feature "${featureName}": required translation key missing: "${key}". Add it via r.translations(...) in this feature.`,
+        });
       }
-    }
-  }
-
-  for (const key of requiredKeysFromGeneratedConfigHub(generatedConfigHub)) {
-    if (!hasDefinedTranslation(defined, key)) {
-      throw new Error(
-        `[i18n] Settings-Hub: required translation key missing: "${key}". Add it via r.translations(...) in the owning feature.`,
-      );
-    }
-  }
+    });
+  const checkSettingsHubKeys = (): void =>
+    collectBootRuleViolations(requiredKeysFromGeneratedConfigHub(generatedConfigHub), (key) => {
+      if (!hasDefinedTranslation(defined, key)) {
+        throw bootRuleError(I18N_RULES.missingSettingsHubKey, {
+          message: `[i18n] Settings-Hub: required translation key missing: "${key}". Add it via r.translations(...) in the owning feature.`,
+        });
+      }
+    });
+  collectBootRuleViolations([checkFeatureKeys, checkSettingsHubKeys], (run) => run());
 }
 
 export function validateTranslationLocaleConsistency(features: readonly FeatureDefinition[]): void {
@@ -114,9 +119,9 @@ export function validateTranslationLocaleConsistency(features: readonly FeatureD
       (gap) =>
         `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing locale(s) ${gap.missingLocales.join(", ")}.`,
     );
-    throw new Error(
-      `${lines.join("\n")}\nEvery locale a feature uses must be maintained for every one of its translation keys; otherwise move that locale into a locale package.`,
-    );
+    throw bootRuleError(I18N_RULES.localeInconsistent, {
+      message: `${lines.join("\n")}\nEvery locale a feature uses must be maintained for every one of its translation keys; otherwise move that locale into a locale package.`,
+    });
   }
 }
 
@@ -133,9 +138,9 @@ export function validateRequiredLocales(
       (gap) =>
         `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing required locale(s) ${gap.missingLocales.join(", ")}.`,
     );
-    throw new Error(
-      `${lines.join("\n")}\nThe app requires locales [${requiredLocales.join(", ")}] for every translation key; load the matching locale package or add the missing translations.`,
-    );
+    throw bootRuleError(I18N_RULES.missingRequiredLocale, {
+      message: `${lines.join("\n")}\nThe app requires locales [${requiredLocales.join(", ")}] for every translation key; load the matching locale package or add the missing translations.`,
+    });
   }
 }
 
@@ -153,8 +158,8 @@ export function validateFieldValueTranslations(
     }
   }
   if (missing.length > 0) {
-    throw new Error(
-      `[i18n] ${missing.length} select option / embedded-cell translation key(s) missing (requireFieldValueTranslations):\n${missing.join("\n")}\nAdd them via r.translations(...) in the owning feature.`,
-    );
+    throw bootRuleError(I18N_RULES.missingFieldValueTranslation, {
+      message: `[i18n] ${missing.length} select option / embedded-cell translation key(s) missing (requireFieldValueTranslations):\n${missing.join("\n")}\nAdd them via r.translations(...) in the owning feature.`,
+    });
   }
 }

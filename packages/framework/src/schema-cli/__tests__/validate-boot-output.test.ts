@@ -17,6 +17,16 @@ const dangling = (name) =>
 export const FEATURES = [dangling("alpha"), dangling("beta")];
 `;
 
+const CLASSIFIED_SCHEMA_SOURCE = `
+import { defineFeature } from ${JSON.stringify(defineFeaturePath)};
+export const ENTITY_METAS = [];
+export const FEATURES = [
+  defineFeature("gamma", (r) => {
+    r.usesApi("gamma-missing-api");
+  }),
+];
+`;
+
 type Captured = { readonly stdout: string[]; readonly stderr: string[] };
 
 async function runValidate(appDir: string, args: readonly string[]) {
@@ -52,6 +62,27 @@ describe("kumiko-schema validate boot output", () => {
     expect(bootLines[0]).toContain("[unclassified/validateNavs]");
     expect(bootLines[0]).toContain("alpha:screen:missing");
     expect(bootLines[1]).toContain("beta:screen:missing");
+  });
+
+  test("a classified violation prints its fix and a rule link", async () => {
+    const classifiedDir = mkdtempSync(join(tmpdir(), "kumiko-validate-classified-"));
+    mkdirSync(join(classifiedDir, "kumiko", "migrations"), { recursive: true });
+    writeFileSync(join(classifiedDir, "kumiko", "schema.ts"), CLASSIFIED_SCHEMA_SOURCE);
+    try {
+      const { exitCode, stderr } = await runValidate(classifiedDir, []);
+      expect(exitCode).toBe(1);
+      const ruleLine = stderr.findIndex((line) => line.startsWith("  ✗ boot [api/unknown-api]"));
+      expect(ruleLine).toBeGreaterThanOrEqual(0);
+      expect(stderr[ruleLine + 1]).toStartWith("    Fix: ");
+      expect(stderr[ruleLine + 2]).toBe("    Rule: agents/boot-rules.md#api-unknown-api");
+    } finally {
+      rmSync(classifiedDir, { recursive: true, force: true });
+    }
+  });
+
+  test("an unclassified violation prints no rule link", async () => {
+    const { stderr } = await runValidate(appDir, []);
+    expect(stderr.some((line) => line.includes("Rule: "))).toBe(false);
   });
 
   test("--json prints exactly one parsable document on stdout and the human lines on stderr", async () => {

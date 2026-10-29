@@ -1,9 +1,12 @@
 import {
+  bootRuleError,
+  collectBootRuleViolations,
   EXT_USER_DATA,
   type FeatureDefinition,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { entitiesOf } from "../shared/index.ts";
+import { USER_DATA_RIGHTS_BOOT_RULES } from "./boot-rules.ts";
 
 // V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but
@@ -19,25 +22,27 @@ import { entitiesOf } from "../shared/index.ts";
 // fails otherwise); running this from user-data-rights' own bootCheck is
 // equivalent to the framework-internal call it replaces.
 export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
-  for (const feature of features) {
-    for (const usage of feature.extensionUsages) {
-      if (usage.extensionName !== EXT_USER_DATA) continue;
-      const hasExport = typeof usage.options?.["export"] === "function";
-      const hasDelete = typeof usage.options?.["delete"] === "function";
-      // The compile-time "at least one hook" type is bypassed by string-typed
-      // extension names and casts; without this an empty bag registers nothing.
-      if (!hasExport && !hasDelete) {
-        throw new Error(
-          `[kumiko:boot] Feature "${feature.name}" registers EXT_USER_DATA for entity "${usage.entityName}" with neither an export nor a delete hook — the entity silently stays out of the Art.15/17/20 pipeline. Register at least one hook.`,
-        );
-      }
-      if (hasExport && !hasDelete) {
-        throw new Error(
-          `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 violation). Add a delete hook. If erasure is intentionally handled elsewhere (e.g. crypto-shredding key-erase, parent cascade), register a no-op delete: async () => {} with a comment explaining why.`,
-        );
-      }
+  const usages = features.flatMap((feature) =>
+    feature.extensionUsages
+      .filter((usage) => usage.extensionName === EXT_USER_DATA)
+      .map((usage) => ({ feature, usage })),
+  );
+  collectBootRuleViolations(usages, ({ feature, usage }) => {
+    const hasExport = typeof usage.options?.["export"] === "function";
+    const hasDelete = typeof usage.options?.["delete"] === "function";
+    // The compile-time "at least one hook" type is bypassed by string-typed
+    // extension names and casts; without this an empty bag registers nothing.
+    if (!hasExport && !hasDelete) {
+      throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.emptyHook, {
+        message: `[kumiko:boot] Feature "${feature.name}" registers EXT_USER_DATA for entity "${usage.entityName}" with neither an export nor a delete hook — the entity silently stays out of the Art.15/17/20 pipeline. Register at least one hook.`,
+      });
     }
-  }
+    if (hasExport && !hasDelete) {
+      throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.exportWithoutDelete, {
+        message: `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 violation). Add a delete hook. If erasure is intentionally handled elsewhere (e.g. crypto-shredding key-erase, parent cascade), register a no-op delete: async () => {} with a comment explaining why.`,
+      });
+    }
+  });
 }
 
 // V3: PII-entity-without-hook gate. V2 checks registered hooks for
@@ -60,19 +65,22 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
     }
   }
 
-  for (const feature of features) {
-    for (const [entityName, entity] of entitiesOf(feature)) {
-      if (hookedEntities.has(entityName)) continue;
-      const subjectFields = Object.entries(entity.fields)
-        .filter(([, field]) => {
-          const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk
-          return Boolean(annot.pii) || Boolean(annot.userOwned) || Boolean(annot.subjectRef);
-        })
-        .map(([name]) => name);
-      if (subjectFields.length === 0) continue;
-      throw new Error(
-        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
-      );
-    }
-  }
+  const entities = features.flatMap((feature) =>
+    [...entitiesOf(feature)].map(([entityName, entity]) => ({ feature, entityName, entity })),
+  );
+  collectBootRuleViolations(entities, ({ feature, entityName, entity }) => {
+    // skip: an entity with a registered hook is covered
+    if (hookedEntities.has(entityName)) return;
+    const subjectFields = Object.entries(entity.fields)
+      .filter(([, field]) => {
+        const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk
+        return Boolean(annot.pii) || Boolean(annot.userOwned) || Boolean(annot.subjectRef);
+      })
+      .map(([name]) => name);
+    // skip: an entity without user-subject fields stays out of the pipeline by design
+    if (subjectFields.length === 0) return;
+    throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.missingHook, {
+      message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
+    });
+  });
 }

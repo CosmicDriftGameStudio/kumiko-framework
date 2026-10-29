@@ -62,7 +62,12 @@ describe("validateBoot collects violations", () => {
       ["runFeatureBootCheck", "gamma"],
       ["fileStorageProvider", undefined],
     ]);
-    expect(violations.every((v) => v.ruleId === `unclassified/${v.check}`)).toBe(true);
+    expect(violations.map((v) => v.ruleId)).toEqual([
+      "unclassified/validateNavs",
+      "unclassified/validateNavs",
+      "boot-check/failed",
+      "unclassified/fileStorageProvider",
+    ]);
     const message = messageOf(run);
     expect(message).toContain("Boot validation failed: 4 violations");
     for (const v of violations) expect(message).toContain(v.message);

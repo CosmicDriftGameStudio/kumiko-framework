@@ -11,6 +11,8 @@ function assertNotificationVariables(registry: Pick<Registry, "getAllNotificatio
 function assignableAppRolesFromUsages(usages: { entityName: string; options?: Record<string, unknown> | undefined; }[]): AssignableAppRoles;
 function assignableAppRolesOf(registry: Pick<Registry, "getExtensionUsages">): AssignableAppRoles;
 function attachOutsideTransaction<T extends object, O extends object | undefined>(db: T, outsideTransaction: O): T & { outsideTransaction: O; };
+function bootRuleDocLink(ruleId: string): string | undefined;
+function bootRuleError(rule: BootRule, details: { message: string; }): BootRuleViolation;
 function bridgeStub(opts?: { user?: SessionUser; log?: HandlerObservability["log"]; dispatch?: Partial<HandlerDispatch>; services?: Partial<ContextServices>; }): Pick<HandlerContext, "dispatch" | "events" | "auth" | "obs" | "hasFeature" | "tz" | "locale" | "user" | "services" | "lifecycle" | "tenants">;
 function buildAppSchema(registry: Registry, options?: BuildAppSchemaOptions): AppSchema;
 function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchema;
@@ -20,6 +22,7 @@ function buildPipelineSteps<TPayload, TAwaits extends Record<string, AwaitedEven
 function buildSessionRoles(globalRoles: string[], membershipRoles: string[]): string[];
 function buildUpdateSchema(entity: EntityDefinition, currencies?: string[], excludedFields?: string[]): z.ZodObject<Record<string, z.ZodTypeAny>>;
 function canActorAssignRole(actorRoles: string[], role: string, assignableAppRoles?: AssignableAppRoles): boolean;
+function collectBootRuleViolations<T>(items: Iterable<T>, run: (item: T) => void): void;
 function collectCardMetaOverflow(features: FeatureDefinition[]): CardMetaOverflow[];
 function collectWriteHandlerQns(features: FeatureDefinition[]): Set<string>;
 function compareVersions(a: string, b: string): number;
@@ -225,6 +228,18 @@ const templateVariable: { text; link; richText; money; date; percent; images; li
 ## Classes
 
 ```ts
+class BootRuleFailures extends Error {
+  constructor(failures: Error[]);
+  name: unknown;
+}
+class BootRuleViolation extends Error {
+  constructor(rule: BootRule, message: string);
+  name: unknown;
+}
+class BootValidationError extends Error {
+  constructor(violations: BootViolation[]);
+  name: unknown;
+}
 class ProbeFailure extends Error {
   constructor(text: ProbeText);
 }
@@ -315,6 +330,19 @@ type BeforeTransactionResult<TPrepared = unknown> = // Outcome of a write handle
   | WriteFailure
 ;
 type BootOptionName = "mail" | "kmsMode" | "fileStorage" | "billing" | "featureToggles" | "rateLimit"; // runProdApp options a stack can depend on; runProdApp checks the set at boot.
+type BootRule = {
+  id: string;
+  summary: string;
+  fix: string;
+};
+type BootRuleTable = Readonly<Record<string, BootRule>>;
+type BootViolation = {
+  ruleId: string;
+  check: string;
+  feature?: string;
+  message: string;
+  fix?: string;
+};
 type BundledListsOptions = { // One `table` block for every entityList, projectionList and relatedList of the bundled features.
   table: ListTableOptions;
   pinFirstColumn?: boolean; // Pins the first column left on every bundled list where no column is pinned.

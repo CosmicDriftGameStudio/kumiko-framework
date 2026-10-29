@@ -1,5 +1,7 @@
 import type { BootCheckContext } from "@cosmicdrift/kumiko-types/feature";
 import type { FeatureDefinition } from "../types/index.ts";
+import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
+import { BootRuleFailures, BootRuleViolation, bootRuleError } from "./boot-rule.ts";
 
 type FeatureBootCheck = FeatureDefinition["bootChecks"][number];
 
@@ -9,16 +11,26 @@ type FeatureBootCheck = FeatureDefinition["bootChecks"][number];
 // the full mounted-feature set and throws to fail the boot; we wrap the
 // message with the owning feature's name so the error text points back at
 // the feature that declared the check.
+function prefixFailure(failure: Error, prefix: string): BootRuleViolation {
+  const rule = failure instanceof BootRuleViolation ? failure.rule : BOOT_CHECK_RULES.failed;
+  return new BootRuleViolation(rule, prefix + failure.message);
+}
+
 export function runFeatureBootCheck(
   feature: FeatureDefinition,
   check: FeatureBootCheck,
   features: readonly FeatureDefinition[],
 ): void {
   const ctx: BootCheckContext = { features };
+  const prefix = `[Feature ${feature.name}] r.bootCheck failed: `;
   try {
     check(ctx);
   } catch (err) {
+    if (err instanceof BootRuleViolation) throw prefixFailure(err, prefix);
+    if (err instanceof BootRuleFailures) {
+      throw new BootRuleFailures(err.failures.map((failure) => prefixFailure(failure, prefix)));
+    }
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`[Feature ${feature.name}] r.bootCheck failed: ${message}`);
+    throw bootRuleError(BOOT_CHECK_RULES.failed, { message: prefix + message });
   }
 }

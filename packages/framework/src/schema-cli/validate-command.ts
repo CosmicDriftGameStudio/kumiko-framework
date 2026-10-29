@@ -8,7 +8,11 @@ import {
 import { isLiveFrameworkTable, type KnownTables } from "../db/known-table-names.ts";
 import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
 import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../db/replay-migration-sql.ts";
-import { BootValidationError, type BootViolation } from "../engine/boot-validator/boot-rule.ts";
+import {
+  BootValidationError,
+  type BootViolation,
+  bootRuleDocLink,
+} from "../engine/boot-validator/boot-rule.ts";
 import { validateBoot } from "../engine/boot-validator.ts";
 import {
   describeThrown,
@@ -77,6 +81,8 @@ function reportBootViolations(out: SchemaCliOut, violations: readonly BootViolat
   for (const v of violations) {
     out.err(`  ✗ boot [${v.ruleId}] ${v.message}`);
     if (v.fix !== undefined) out.err(`    Fix: ${v.fix}`);
+    const docLink = bootRuleDocLink(v.ruleId);
+    if (docLink !== undefined) out.err(`    Rule: ${docLink}`);
   }
 }
 
