@@ -14,6 +14,7 @@ import { validateEntityListScreens } from "./entity-list-screens.ts";
 import { validateGdprStoragePersistence } from "./gdpr-storage.ts";
 import { validateGlobalTenancyEntities } from "./global-tenancy.ts";
 import {
+  validateFieldValueTranslations,
   validateI18nSurfaceKeys,
   validateRequiredLocales,
   validateTranslationLocaleConsistency,
@@ -41,6 +42,11 @@ const APP_CHECKS_AFTER_I18N: readonly AppCheck[] = [
   {
     check: "validateRequiredLocales",
     run: (c) => validateRequiredLocales(c.features, c.options?.requiredLocales),
+  },
+  {
+    check: "validateFieldValueTranslations",
+    run: (c) =>
+      validateFieldValueTranslations(c.features, c.options?.requireFieldValueTranslations),
   },
   { check: "validateEntityListScreens", run: (c) => validateEntityListScreens(c.features) },
   {

@@ -13,6 +13,7 @@ function createRequestHelper(app: Hono, jwt: JwtHelper, options?: RequestHelperO
 function createTestDb(arg?: string | CreateTestDbOptions): Promise<TestDb>;
 function createTestRedis(opts?: CreateTestRedisOptions): Promise<TestRedis>;
 function drainEventConsumers(stack: Pick<TestStack, "db" | "eventDispatcher">, consumerNames: [ string, ...string[] ], options?: { maxPasses?: number; }): Promise<void>;
+function dropTestDb(baseUrl: string, dbName: string): Promise<void>;
 function pushEntityProjectionTables(stack: DbHolder, registry: Registry): Promise<void>; // Push all implicit-projection tables — one per `r.entity()` — that the registry knows about.
 function resetEventStore(stack: { db: unknown; eventDispatcher?: EventDispatcher; }, extraTables?: (unknown | string)[]): Promise<void>; // Wipes event store + framework-state + the given feature read-models in one TRUNCATE, then re-registers the event-consumer state rows.
 function setupTestStack(options: TestStackOptions): Promise<TestStack>;

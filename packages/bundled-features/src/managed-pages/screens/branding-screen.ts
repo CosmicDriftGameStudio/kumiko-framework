@@ -65,7 +65,7 @@ export function createBrandingSettingsScreen(opts: {
         reason: "is_business_data",
       }),
       logoFile: createImageField({
-        accept: ["image/png", "image/jpeg", "image/webp"],
+        accept: ["png", "jpg", "jpeg", "webp"],
         personal: false,
         reason: "is_business_data",
       }),

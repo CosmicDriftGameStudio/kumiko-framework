@@ -1,5 +1,10 @@
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createReferenceField,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
   table: "read_sample_teams",
@@ -12,7 +17,12 @@ export const memberEntity = createEntity({
   table: "read_sample_members",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
-    teamId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
+    teamId: createReferenceField({
+      entity: "team",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
     role: createTextField({ personal: false, reason: "is_business_data" }),
   },
 });
@@ -21,7 +31,7 @@ export const taskEntity = createEntity({
   table: "read_sample_member_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    memberId: createTextField({ personal: "ref", required: true }),
+    memberId: createReferenceField({ entity: "member", personal: "ref", required: true }),
   },
 });
 

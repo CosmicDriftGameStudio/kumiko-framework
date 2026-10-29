@@ -19,6 +19,10 @@ env:
 
 jobs:
   test:
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
     uses: cosmicdriftgamestudio/infra/.github/workflows/_app-test.yml@{{infraRef}}
     with:
       ui-guards: {{uiGuards}}

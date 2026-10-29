@@ -8,13 +8,13 @@ Format: one line per function or constant, object and options types as property 
 
 | Import path | File | Exports |
 | --- | --- | --- |
-| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 411 |
+| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 412 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 25 |
 | `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 154 |
 | `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 150 |
 | `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 38 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |
 | `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 298 |
-| `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 21 |
+| `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 22 |
 | `@cosmicdrift/kumiko-testing/helpers` | `api/testing-helpers.md` | 71 |
 | `@cosmicdrift/kumiko-dev-server/testing` | `api/dev-server-testing.md` | 5 |

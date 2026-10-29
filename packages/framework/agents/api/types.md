@@ -903,6 +903,16 @@ type WorkflowTrigger = // Trigger configuration for a workflow.
 type NumericDerivedOp = Exclude<EmbeddedDerivedCellDef["op"], "inRange">;
 ```
 
+## packages/framework/src/engine/entity-handlers.ts
+
+```ts
+type EntityWriteHandlerDef = WriteHandlerDef & { // The phase slots are always unset on entity handlers, so a consumer can spread one into its own handler and add typed phases without inheriting the slot types.
+  reserveBeforeTransaction?: undefined;
+  beforeTransaction?: undefined;
+  beforeTransactionWhenNested?: undefined;
+};
+```
+
 ## packages/framework/src/engine/event-helpers.ts
 
 ```ts

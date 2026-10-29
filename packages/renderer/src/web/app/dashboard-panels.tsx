@@ -43,7 +43,6 @@ import {
   TimeseriesChart,
   type TimeseriesPoint,
 } from "../widgets/charts.tsx";
-import { DashboardListTable } from "../widgets/dashboard-list.tsx";
 import { FeedList, type FeedRow } from "../widgets/feed-list.tsx";
 import { ModeSwitch } from "../widgets/mode-switch.tsx";
 import { ProgressList, type ProgressListRow } from "../widgets/progress-list.tsx";
@@ -56,6 +55,7 @@ import {
   type StatTone,
 } from "../widgets/stat.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
+import { DashboardReferenceListTable } from "./dashboard-reference-list-table.tsx";
 import {
   DAY_MS,
   type DashboardFormats,
@@ -546,11 +546,13 @@ type ListEnvelope = { readonly rows?: readonly Readonly<Record<string, unknown>>
 export function ListPanelBody({
   panel,
   label,
+  featureName,
   screenParams,
   translate,
 }: {
   readonly panel: DashboardListPanel;
   readonly label: string;
+  readonly featureName: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
@@ -564,6 +566,14 @@ export function ListPanelBody({
       ...(normalized.badgeToneField !== undefined && {
         badgeToneField: normalized.badgeToneField,
       }),
+      ...(normalized.refEntity !== undefined && {
+        reference: {
+          refEntity: normalized.refEntity,
+          ...(normalized.refLabelField !== undefined && {
+            refLabelField: normalized.refLabelField,
+          }),
+        },
+      }),
     };
   });
   return (
@@ -576,9 +586,10 @@ export function ListPanelBody({
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
       {(data) => (
-        <DashboardListTable
+        <DashboardReferenceListTable
           columns={columns}
           rows={data.rows ?? []}
+          featureName={featureName}
           formatPercent={formatPercent}
           formatNumber={formatNumber}
           formatDateTime={formatDateTime}

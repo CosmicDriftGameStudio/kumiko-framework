@@ -123,12 +123,14 @@ function panelSpanClassName(panel: DashboardPanelDefinition): string | undefined
 function PanelBody({
   panel,
   label,
+  featureName,
   screenId,
   screenParams,
   translate,
 }: {
   readonly panel: Exclude<DashboardPanelDefinition, DashboardScreenPanel>;
   readonly label: string | undefined;
+  readonly featureName: string;
   readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
@@ -183,7 +185,13 @@ function PanelBody({
   }
   if (panel.kind === "list") {
     return (
-      <ListPanelBody panel={panel} label={text} screenParams={screenParams} translate={translate} />
+      <ListPanelBody
+        panel={panel}
+        label={text}
+        featureName={featureName}
+        screenParams={screenParams}
+        translate={translate}
+      />
     );
   }
   if (panel.kind === "feed") {
@@ -235,6 +243,7 @@ function renderDashboardPanel(
       <PanelBody
         panel={panel}
         label={label}
+        featureName={featureName}
         screenId={screenId}
         screenParams={screenParams}
         translate={translate}

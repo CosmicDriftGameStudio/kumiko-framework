@@ -675,6 +675,40 @@ describe("dashboard list columns", () => {
     expect(screen.queryByText("not-a-date")).toBeNull();
   });
 
+  test("reference columns show the target's label instead of the stored id", async () => {
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "deadlines",
+            label: "demo:deadlines",
+            query: "demo:query:deadlines:list",
+            columns: [
+              { field: "title", label: "demo:col-title" },
+              {
+                field: "plantId",
+                label: "demo:col-plant",
+                refEntity: "plant",
+                refLabelField: "name",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        "demo:query:deadlines:list": () =>
+          ok({ rows: [{ id: "d1", title: "Inspection", plantId: "p-123" }], nextCursor: null }),
+        "demo:query:plant:list": () =>
+          ok({ rows: [{ id: "p-123", name: "Boiler house" }], nextCursor: null }),
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Boiler house")).toBeTruthy());
+    expect(screen.queryByText("p-123")).toBeNull();
+  });
+
   test("text cells translate i18n keys and leave other strings untouched", async () => {
     renderDashboard(
       {

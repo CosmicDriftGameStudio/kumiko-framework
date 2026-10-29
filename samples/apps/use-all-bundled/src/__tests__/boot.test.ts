@@ -78,6 +78,17 @@ describe("use-all-bundled boot", () => {
     expect(foreignGaps).toEqual([]);
   });
 
+  test("validateBoot — every select option and embedded cell shown by a bundled screen is translated", () => {
+    let message = "";
+    try {
+      validateBoot(composedFeatures, { ...BOOT_ENV, requireFieldValueTranslations: true });
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    const gaps = message.split("\n").filter((line) => line.startsWith("  - "));
+    expect(gaps).toEqual([]);
+  });
+
   test("validateBoot — every r.requires resolves", () => {
     expect(() => validateBoot(composedFeatures, BOOT_ENV)).not.toThrow();
   });

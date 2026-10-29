@@ -72,8 +72,15 @@ export function parseValidateBootOptions(raw: unknown): ValidateBootOptions {
     isNonEmptyStringArray,
     "an array of non-empty strings",
   );
+  const requireFieldValueTranslations = readOptionalOption(
+    raw,
+    "requireFieldValueTranslations",
+    isBoolean,
+    "a boolean",
+  );
   return {
     ...(requiredLocales !== undefined && { requiredLocales }),
+    ...(requireFieldValueTranslations !== undefined && { requireFieldValueTranslations }),
     ...(navAllowlist !== undefined && { navAllowlist }),
     ...(navAllowlistExempt !== undefined && { navAllowlistExempt }),
     ...(warnOnUniqueAccessRoles !== undefined && { warnOnUniqueAccessRoles }),

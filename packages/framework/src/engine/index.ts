@@ -330,6 +330,7 @@ export {
   createMoneyField,
   createMultiSelectField,
   createNumberField,
+  createReferenceField,
   createSelectField,
   createTextField,
   createTimestampField,

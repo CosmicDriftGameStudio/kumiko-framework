@@ -8,6 +8,8 @@ export type DashboardListColumn = {
   readonly label: string;
   readonly display?: "bar" | "badge" | "datetime";
   readonly badgeToneField?: string;
+  /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
+  readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
 };
 
 const BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
@@ -77,6 +79,7 @@ function Cell({
     if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
     return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
   }
+  if (column.renderValue !== undefined) return column.renderValue(raw, row);
   if (typeof raw === "number") return <span className="tabular-nums">{formatNumber(raw)}</span>;
   if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
   const text = String(raw);

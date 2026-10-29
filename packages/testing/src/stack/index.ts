@@ -19,6 +19,7 @@ export {
   type CreateTestDbOptions,
   createTestDb,
   DEFAULT_TEST_DB_POOL_MAX,
+  dropTestDb,
   TEST_APPLICATION_ROLE,
   type TestDb,
 } from "./db.ts";

@@ -25,6 +25,7 @@ import {
   sectionFieldSpecs,
 } from "../engine/screen-helpers.ts";
 import type { ScreenKind, ScreenOfKind } from "../engine/screen-kind.ts";
+import type { FieldDefinition } from "../engine/types/fields.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 
 import type { TranslationValue } from "../ui-types/plural.ts";
@@ -757,4 +758,82 @@ export function findRequiredLocaleGaps(
     }
   }
   return gaps;
+}
+
+export function embeddedCellLabelKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  subFieldName: string,
+): string {
+  return `${fieldLabelKey(featureName, entityName, fieldName)}:cell:${subFieldName}`;
+}
+
+export function embeddedCellOptionLabelKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  subFieldName: string,
+  value: string,
+): string {
+  return `${embeddedCellLabelKey(featureName, entityName, fieldName, subFieldName)}:option:${value}`;
+}
+
+function pushFieldValueTranslationKeys(
+  out: Set<string>,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  def: FieldDefinition,
+  includeEmbeddedCells: boolean,
+): void {
+  if (def.type === "select" || def.type === "multiSelect") {
+    for (const value of def.options) {
+      out.add(selectFacetOptionKey(featureName, entityName, fieldName, value));
+    }
+    // skip: option keys are complete, nothing else to collect for select fields
+    return;
+  }
+  // skip: only multi-row embedded fields render cell labels
+  if (!includeEmbeddedCells || def.type !== "embedded" || def.multiple !== true) return;
+  for (const [subName, sub] of Object.entries(def.schema)) {
+    out.add(embeddedCellLabelKey(featureName, entityName, fieldName, subName));
+    if (sub.type !== "select") continue;
+    for (const value of sub.options) {
+      out.add(embeddedCellOptionLabelKey(featureName, entityName, fieldName, subName, value));
+    }
+  }
+}
+
+/** Keys for select option labels and embedded-list cells that the screens of one feature
+ *  display. Opt-in via `requireFieldValueTranslations`: without them the renderer falls back
+ *  to the raw option value or sub-field name. */
+export function fieldValueTranslationKeysFromFeature(
+  feature: FeatureDefinition,
+): readonly string[] {
+  const out = new Set<string>();
+  for (const screen of Object.values(feature.screens)) {
+    if (screen.type === "entityList") {
+      const entity = feature.entities?.[screen.entity];
+      if (!entity) continue;
+      for (const col of screen.columns) {
+        const { field } = normalizeListColumn(col);
+        const def = entity.fields[field];
+        if (def) pushFieldValueTranslationKeys(out, feature.name, screen.entity, field, def, false);
+      }
+    } else if (screen.type === "entityEdit") {
+      const entity = feature.entities?.[screen.entity];
+      if (!entity) continue;
+      for (const section of screen.layout.sections) {
+        if (isExtensionEditSection(section) || section.kind === "relatedList") continue;
+        for (const spec of sectionFieldSpecs(section)) {
+          const field = editFieldName(spec);
+          const def = entity.fields[field];
+          if (def)
+            pushFieldValueTranslationKeys(out, feature.name, screen.entity, field, def, true);
+        }
+      }
+    }
+  }
+  return [...out];
 }

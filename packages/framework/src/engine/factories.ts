@@ -25,6 +25,7 @@ import type {
   PersonalAnnotationsLongText,
   PersonalAnnotationsNoFind,
   PersonalSubject,
+  ReferenceFieldDef,
   ResolvedPiiFlags,
   RetentionDef,
   SelectFieldDef,
@@ -34,6 +35,7 @@ import type {
 import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TextFieldDef } from "./types/index.ts";
+import { isUserEntityReference } from "./user-entity-reference.ts";
 
 type PersonalOverridesInput = {
   readonly personal?: PersonalSubject | "ref" | false;
@@ -253,6 +255,32 @@ export function createSelectField<
     required: false,
     ...expandPersonalAnnotations(opts),
   } as SelectFieldDef<TOptions> & { required: R }; // @cast-boundary engine-payload
+}
+
+/**
+ * Foreign key to another entity (`"customer"` or `"feature:entity"`), stored as a UUID.
+ * A reference to the user entity defaults to `personal: "ref"`; `personal: false` is
+ * rejected there because a user id is personal data.
+ */
+export function createReferenceField<R extends true | false = false>(
+  opts: { entity: string } & Partial<
+    Omit<ReferenceFieldDef, "type" | "entity" | "required" | keyof ResolvedPiiFlags>
+  > &
+    PersonalAnnotationsNoFind & { required?: R },
+): ReferenceFieldDef & { required: R } {
+  const targetsUser = isUserEntityReference(opts.entity);
+  if (targetsUser && opts.personal === false) {
+    throw new Error(
+      `createReferenceField({ entity: "${opts.entity}" }): personal: false is not allowed for a reference to the user entity — a user id is personal data. Drop the annotation or use { personal: "ref" }.`,
+    );
+  }
+  const withUserDefault =
+    targetsUser && opts.personal === undefined ? { ...opts, personal: "ref" as const } : opts;
+  return {
+    type: "reference",
+    required: false,
+    ...expandPersonalAnnotations(withUserDefault),
+  } as ReferenceFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**

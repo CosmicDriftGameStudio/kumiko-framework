@@ -2,6 +2,7 @@ import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { isUserEntityReference } from "../user-entity-reference.ts";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
@@ -190,6 +191,7 @@ type FieldRuleInput = {
 const FIELD_RULES: readonly ((input: FieldRuleInput) => void)[] = [
   rejectMultipleSubjectAnnotations,
   rejectTextWithoutPersonalStance,
+  rejectPlaintextUserReference,
   rejectInvalidLookupable,
   rejectSensitiveWithoutCiphertextAtRest,
   validateWriteOnlyField,
@@ -249,6 +251,17 @@ function rejectTextWithoutPersonalStance(input: FieldRuleInput): void {
       `${fieldLocation(input)} (type "${field.type}") declares no personal stance. Build it with createTextField / createLongTextField and { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false }; false additionally needs { reason: "..." } stating why the value is not personal data.`,
     );
   }
+}
+
+function rejectPlaintextUserReference(input: FieldRuleInput): void {
+  const { field, flags } = input;
+  // skip: only a plaintext reference to the user entity is a violation
+  if (field.type !== "reference" || !flags.allowPlaintext) return;
+  // skip: references to other entities may stay plaintext
+  if (!isUserEntityReference(field.entity)) return;
+  throw new Error(
+    `${fieldLocation(input)} references the user entity "${field.entity}" with { personal: false } — a user id is a pseudonym that falls under Art.17 forget. Use createReferenceField({ entity: "${field.entity}" }) or { personal: "ref" }.`,
+  );
 }
 
 // lookupable: only text fields with a subject annotation are supported. Without
@@ -368,8 +381,7 @@ function warnOnNonUserOwnerReference(
   // skip: text owner fields carry a user id by convention, there is no target to check
   if (ownerField.type !== "reference") return;
   const refTarget = ownerField.entity;
-  const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
-  if (targetEntity !== "user") {
+  if (!isUserEntityReference(refTarget)) {
     log.warn(
       `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
     );

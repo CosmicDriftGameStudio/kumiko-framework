@@ -417,6 +417,23 @@ describe("scaffoldApp", () => {
     expect(client).toContain("tasksClient");
   });
 
+  test("src/client.tsx passes the shell user to DefaultAppShell and mounts the German locale", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const client = readFileSync(join(dest, "src/client.tsx"), "utf-8");
+    expect(client).toContain("const user = useShellUser();");
+    expect(client).toContain("{...(user !== undefined && { user })}");
+    expect(client).toContain("localeDeClient()");
+
+    const runConfig = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
+    expect(runConfig).toContain("localeDe()");
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
+    expect(Object.keys(pkg.dependencies)).toContain("@cosmicdrift/kumiko-locale-de");
+    const config = readFileSync(join(dest, "kumiko.config.ts"), "utf-8");
+    expect(config).toContain("validateBootOptions: { requireFieldValueTranslations: true }");
+  });
+
   test(".env.example carries KUMIKO_DEV_DB_NAME default so reboots are persistent", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });

@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type BundledListsOptions,
   type FeatureDefinition,
@@ -150,8 +151,11 @@ export type RunDevAppAuthOptions = {
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
- *  admin (when auth is active) in declared order. */
-export type SeedFn = (stack: TestStack) => Promise<void>;
+ *  admin (when auth is active) in declared order. `context.admin` is the
+ *  seeded admin as a session user (first membership), undefined without one. */
+export type SeedFn = (stack: TestStack, context: SeedContext) => Promise<void>;
+
+export type SeedContext = { readonly admin?: SessionUser | undefined };
 
 /** Dev counterpart of `ProdSeedsConfig`: the declarative shortcuts plus free seeds that get the test stack. */
 export type RunDevAppSeedsConfig = Omit<ProdSeedsConfig, "run"> & {

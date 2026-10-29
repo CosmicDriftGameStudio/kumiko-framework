@@ -113,8 +113,9 @@ the field types reject a text field without that stance.
 `personal: false, reason: "is_business_data"` (a snake_case reason) for
 business data. For personal data name the subject, `personal: "self"`,
 `personal: { of: "<ownerField>" }` or `personal: "tenant"`, plus
-`find: "exact" | "fuzzy" | "none" | "secret"`. A plain foreign key to a user
-is `personal: "ref"`. `personal: "self"` is for the row that is the user.
+`find: "exact" | "fuzzy" | "none" | "secret"`. A foreign key to a user
+is `createReferenceField({ entity: "user:user" })`, which defaults to
+`personal: "ref"`; `personal: false` on it fails at boot. `personal: "self"` is for the row that is the user.
 When the record itself is the person, such as a contact or a customer that
 is not a user, use `personal: { of: "id" }`; the entity then needs a uuid
 `id`. The framework encrypts personal fields per subject and
@@ -306,7 +307,7 @@ as bundled features.
 | Business logic beyond CRUD | `r.writeHandler` / `r.queryHandler` with `createEntityExecutor` | `agents/examples/custom-handlers.md` |
 | Filtered lists and counts | Executor `list` with `filter` and `totalCount` | `agents/examples/custom-handlers.md` |
 | Key figures on a dashboard | `dashboard` screen with `stat` / `stat-group` panels and a query handler | `agents/examples/dashboard-stats.md` |
-| Relations between entities | `r.relation(entity, name, { type, target, foreignKey, onDelete })` | `agents/examples/relations.md` |
+| Relations between entities | `createReferenceField({ entity })` for the foreign key (user ids: `entity: "user:user"`), `r.relation(entity, name, { type, target, foreignKey, onDelete })` | `agents/examples/relations.md` |
 | Structured sub-objects in a field | Embedded fields | `agents/examples/embedded.md` |
 | List, edit, custom screens and navs | `r.screen`, `r.nav` | `agents/examples/screens-nav.md` |
 | A record page with header, metrics, tabs | `projectionDetail` with `header`, `metrics`, `layout.mode: "tabs"` | `agents/examples/record-detail-layout.md` |

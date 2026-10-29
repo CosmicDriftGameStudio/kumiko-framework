@@ -2,15 +2,15 @@
 // Idempotent: skips when the tenant already has tasks (persistent dev DB).
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 const DEMO_TASKS = [
   { title: "Welcome to Kumiko", status: "todo", priority: 1, isUrgent: false },
   { title: "Try editing me", status: "in progress", priority: 2, isUrgent: true },
 ] as const;
 
-export const seedDemoTasks: SeedFn = async (stack) => {
-  const admin = TestUsers.admin;
+export const seedDemoTasks: SeedFn = async (stack, { admin }) => {
+  // skip: no seeded admin (auth off) — nobody to own the demo tasks
+  if (admin === undefined) return;
   const existing = await stack.http.queryOk<{ rows: unknown[] }>(
     "tasks:query:task:list",
     {},
