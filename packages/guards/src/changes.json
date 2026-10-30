@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "Security check warns about unused repo exceptions",
+    "detail": "kumiko-guards security lists every exception from the repo's dependency-security-exceptions.json that suppressed no advisory in the run, with package, advisory and file. The warning does not block; exceptions bundled with the guards package never warn because they cover consumers that may not have the package. Remove the listed entries once the advisory is fixed or withdrawn."
+  },
+  {
     "version": "0.402.0",
     "type": "improvement",
     "title": "New guard boot-raw-throws",

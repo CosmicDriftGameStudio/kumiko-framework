@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "fix",
+    "title": "SSE client reconnects after a stalled stream",
+    "detail": "createEventSourceLiveEvents arms a 30 s watchdog (two missed server heartbeats) that is reset by open, ping and every entity or session-ended frame. On expiry it closes the connection and reconnects through the existing backoff path, which resyncs all listeners. The timer is cleared on close and error. The seam is the new stallTimers option."
+  },
+  {
     "version": "0.403.0",
     "type": "improvement",
     "title": "Lists and dashboard stats take named filters",

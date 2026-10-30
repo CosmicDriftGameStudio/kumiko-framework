@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "Maintenance trigger and KUMIKO_MAINTENANCE_WINDOW",
+    "detail": "The job runner registers maintenance jobs as a daily UTC scheduler at JobRunnerOptions.maintenanceWindow (default 03:00), set from KUMIKO_MAINTENANCE_WINDOW by runProdApp and runWorkerApp; an invalid value aborts the boot. maintenanceWindowFromEnv is exported from the jobs barrel. files sweep-orphaned-uploads (hourly before) and the soft-delete cleanup jobs (03:00 and 03:15 before) now run in the window. A schedule stored with the old time is replaced on the next start."
+  },
+  {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "KUMIKO_REDIS_PREFIX namespaces all Redis keys and channels",
+    "detail": "redisNamespaceFromEnv resolves keyPrefix, bullmqPrefix, channelPrefix and the subscribe pattern. Unset keeps today's layout (bull:*, unprefixed locks, rate limit, idempotency and cache keys). Set, the main ioredis client gets keyPrefix <P>:, the job runner passes prefix <P>:bull to every Queue and Worker (new JobRunnerOptions.redisNamespace, also on the entrypoint jobs block) and gives its lock client the keyPrefix, and the SSE broker, cache-sync bus and toggle signal use <P>: channels. Redis matches PSUBSCRIBE patterns literally against ACL channel rules, so with a prefix they subscribe to <P>:* and filter by channel. A value with \":\" or glob characters, or a KUMIKO_REDIS_CHANNEL_PREFIX that differs from it, aborts the boot. The cache-sync bus of runProdApp, runWorkerApp and createDefaultCacheSyncBus now also honours KUMIKO_REDIS_CHANNEL_PREFIX alone (before, only SSE and toggle channels did). JobRunner gains an optional stopConsuming(), which createJobRunner implements. The ACL rule set and the key layout for a wake-up service are in docs/reference/infra-requirements.md."
+  },
+  {
     "version": "0.403.0",
     "type": "improvement",
     "title": "Entities define named list filters",
