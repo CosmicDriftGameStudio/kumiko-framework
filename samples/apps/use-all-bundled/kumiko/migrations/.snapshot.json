@@ -1313,6 +1313,11 @@
           "defaultSql": "false"
         },
         {
+          "name": "body_html",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "attachment_file_ids",
           "pgType": "jsonb",
           "notNull": true,
