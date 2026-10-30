@@ -17,7 +17,7 @@ import { useDispatchTarget } from "./target-resolver-stub.tsx";
 const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
 
 const RAIL_TILE_CLASS =
-  "flex size-10 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-sidebar-foreground/70 outline-hidden transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground";
+  "flex size-10 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-sidebar-muted outline-hidden transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground";
 
 export type FocusRailProps = {
   readonly brand: ReactNode;
@@ -31,7 +31,7 @@ function RailGlyph({ node, label }: { readonly node: NavNode; readonly label: st
     node.icon !== undefined && Object.hasOwn(NAV_ICONS, node.icon)
       ? NAV_ICON_LOOKUP[node.icon]
       : undefined;
-  if (Icon !== undefined) return <Icon aria-hidden="true" className="size-5" />;
+  if (Icon !== undefined) return <Icon aria-hidden="true" className="size-[18px]" />;
   return (
     <span aria-hidden="true" className="text-sm font-semibold">
       {label.trim().charAt(0).toUpperCase()}
@@ -67,10 +67,10 @@ export function FocusRail({ brand, schema, user, allowedNavQns }: FocusRailProps
     <div
       data-kumiko-layout="focus-rail"
       data-focus-rail=""
-      className="group/focus-rail flex h-full flex-col items-center gap-3 px-2 py-3"
+      className="group/focus-rail flex h-full flex-col items-center px-2 py-3"
     >
       {brand}
-      <nav className="flex flex-col items-center gap-2">
+      <nav className="flex flex-col items-center gap-1">
         {tree.map((node) => {
           const label = node.label.includes(".") ? t(node.label) : node.label;
           const active = activeScreenId !== undefined && treeContainsScreen([node], activeScreenId);

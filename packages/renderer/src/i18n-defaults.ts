@@ -273,8 +273,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.message-thread.showLess": "Show less",
     "kumiko.widget.message-thread.showQuoted": "Show quoted text ({lines} lines)",
     "kumiko.widget.message-thread.hideQuoted": "Hide quoted text",
-    "kumiko.widget.message-thread.imagesBlocked": "External images are blocked.",
-    "kumiko.widget.message-thread.showImages": "Show images",
+    "kumiko.widget.message-thread.imagesBlocked":
+      "HTML mail, shown sanitized. External images blocked.",
+    "kumiko.widget.message-thread.showImages": "Load images",
     "kumiko.widget.message-reader.mail": "Mail",
     "kumiko.widget.step-list.progress": "{done} of {total} done",
     "kumiko.widget.step-list.progressLabel": "Progress",

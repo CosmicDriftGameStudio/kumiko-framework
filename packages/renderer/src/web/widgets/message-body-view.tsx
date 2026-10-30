@@ -70,7 +70,6 @@ function HtmlBody({
   readonly remoteImages: "blocked" | "allowed";
 }): ReactNode {
   const t = useTranslation();
-  const { Button } = usePrimitives();
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [imagesAllowed, setImagesAllowed] = useState(remoteImages === "allowed");
   const split = useMemo(() => splitQuotedHtml(html), [html]);
@@ -80,21 +79,25 @@ function HtmlBody({
   );
   return (
     <div className="flex flex-col items-start gap-3">
-      {showImageBar && (
-        <div
-          role="note"
-          data-testid="message-images-bar"
-          className="flex w-full items-center gap-3 rounded-md bg-status-neutral-surface px-3 py-2 text-[13px] text-status-neutral"
-        >
-          <span className="grow">{t("kumiko.widget.message-thread.imagesBlocked")}</span>
-          <Button variant="secondary" size="sm" onClick={() => setImagesAllowed(true)}>
-            {t("kumiko.widget.message-thread.showImages")}
-          </Button>
-        </div>
-      )}
       <div className="w-full">
         <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
       </div>
+      {showImageBar && (
+        <p
+          role="note"
+          data-testid="message-images-bar"
+          className="m-0 text-xs text-muted-foreground"
+        >
+          {t("kumiko.widget.message-thread.imagesBlocked")}{" "}
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-primary underline hover:text-primary/80"
+            onClick={() => setImagesAllowed(true)}
+          >
+            {t("kumiko.widget.message-thread.showImages")}
+          </button>
+        </p>
+      )}
       {split.quoted !== null && (
         <>
           <QuoteToggle

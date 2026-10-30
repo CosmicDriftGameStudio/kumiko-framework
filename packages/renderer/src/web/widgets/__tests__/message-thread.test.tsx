@@ -123,13 +123,53 @@ describe("MessageThread", () => {
       expect(srcdoc).not.toContain("blockquote");
     });
 
-    test("'Bilder anzeigen' reloads the frame with https images allowed", () => {
+    test("'Load images' reloads the frame with https images allowed", () => {
       render(<MessageThread messages={[htmlMessage]} />);
-      expect(screen.getByText("External images are blocked.")).toBeTruthy();
-      fireEvent.click(screen.getByText("Show images"));
+      const notice = screen.getByTestId("message-images-bar");
+      expect(notice.textContent).toContain("HTML mail, shown sanitized. External images blocked.");
+      const action = screen.getByText("Load images");
+      expect(action.tagName).toBe("BUTTON");
+      expect(action.className).toContain("text-primary");
+      expect(action.className).toContain("underline");
+      fireEvent.click(action);
       const frame = screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement;
       expect(frame.getAttribute("srcdoc")).toContain("img-src data: https: http:");
-      expect(screen.queryByText("External images are blocked.")).toBeNull();
+      expect(screen.queryByTestId("message-images-bar")).toBeNull();
+    });
+
+    test("blocked images are hidden instead of a broken frame; allowed images are not", () => {
+      const { unmount } = render(<MessageThread messages={[htmlMessage]} />);
+      const blocked = (screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement).getAttribute(
+        "srcdoc",
+      );
+      expect(blocked).toContain('img:not([src^="data:"]){display:none}');
+      unmount();
+      render(<MessageThread messages={[htmlMessage]} remoteImages="allowed" />);
+      const allowed = (screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement).getAttribute(
+        "srcdoc",
+      );
+      expect(allowed).not.toContain("display:none");
+    });
+
+    test("sanitized tables have no outer border and thin row dividers", () => {
+      render(
+        <MessageThread
+          messages={[
+            {
+              ...annaLast,
+              body: {
+                kind: "html",
+                html: '<table border="1"><tr><td>Heizung</td><td>468,00</td></tr></table>',
+              },
+            },
+          ]}
+        />,
+      );
+      const srcdoc =
+        (screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement).getAttribute("srcdoc") ??
+        "";
+      expect(srcdoc).toContain("table{border-collapse:collapse;border:0}");
+      expect(srcdoc).toContain("td,th{border:0;border-top:1px solid color-mix");
     });
 
     test("remoteImages=allowed skips the bar", () => {

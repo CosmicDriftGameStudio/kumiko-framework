@@ -1037,8 +1037,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.message-thread.showLess": "Afficher moins",
   "kumiko.widget.message-thread.showQuoted": "Afficher le texte cité ({lines} lignes)",
   "kumiko.widget.message-thread.hideQuoted": "Masquer le texte cité",
-  "kumiko.widget.message-thread.imagesBlocked": "Les images externes sont bloquées.",
-  "kumiko.widget.message-thread.showImages": "Afficher les images",
+  "kumiko.widget.message-thread.imagesBlocked":
+    "E-mail HTML, affiché nettoyé. Images externes bloquées.",
+  "kumiko.widget.message-thread.showImages": "Charger les images",
   "kumiko.widget.message-reader.mail": "E-mail",
   "kumiko.widget.step-list.progress": "{done} sur {total} terminés",
   "kumiko.widget.step-list.progressLabel": "Progression",
