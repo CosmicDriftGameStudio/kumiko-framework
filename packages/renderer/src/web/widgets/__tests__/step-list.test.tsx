@@ -1,0 +1,109 @@
+import { describe, expect, mock, test } from "bun:test";
+import { fireEvent } from "@testing-library/react";
+import { render, screen, within } from "../../__tests__/test-utils.tsx";
+import { StepList, type StepListItem } from "../step-list.tsx";
+
+const onReview = mock(() => {});
+const onReject = mock(() => {});
+
+const heatingSteps: readonly StepListItem[] = [
+  {
+    id: "case",
+    title: "Vorgang „Heizungsausfall Whg. 3“",
+    status: "done",
+    meta: "Angelegt von dir, Mo 09:05",
+    link: { label: "Öffnen", href: "/cases/heizungsausfall" },
+    actions: [{ id: "never", label: "Nie sichtbar", onClick: () => {} }],
+  },
+  {
+    id: "order",
+    title: "Neuer Auftrag an Heizung Schulz GmbH",
+    description: "Notdienst heute, Zugang über Hausmeister.",
+    status: "open",
+    tags: [{ label: "Sendet eine Mail", tone: "accent" }],
+    actions: [
+      { id: "review", label: "Prüfen", variant: "primary", onClick: onReview },
+      { id: "reject", label: "Ablehnen", variant: "ghost", onClick: onReject },
+    ],
+  },
+  {
+    id: "reply",
+    title: "Antwort an Anna Schneider",
+    status: "locked",
+    lockedReason: "Auftrag",
+  },
+  { id: "old", title: "Alter Auftrag stornieren", status: "rejected" },
+];
+
+describe("StepList", () => {
+  test("progress counts done steps and leaves rejected ones out of the total", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    expect(screen.getByText("1 of 3 done")).toBeTruthy();
+    const bar = screen.getByRole("progressbar");
+    expect(bar.getAttribute("aria-valuenow")).toBe("33");
+    expect(bar.getAttribute("aria-valuemin")).toBe("0");
+    expect(bar.getAttribute("aria-valuemax")).toBe("100");
+  });
+
+  test("actions render only for open steps and fire their handler", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    expect(screen.queryByText("Nie sichtbar")).toBeNull();
+    fireEvent.click(screen.getByText("Prüfen"));
+    expect(onReview).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Ablehnen")).toBeTruthy();
+  });
+
+  test("locked step shows the waiting tag and names its icon after the reason", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    const row = screen.getByTestId("step-reply");
+    expect(within(row).getAllByText("Waiting for: Auftrag").length).toBe(1);
+    expect(within(row).getByRole("img").getAttribute("aria-label")).toBe("Waiting for: Auftrag");
+  });
+
+  test("rejected step is struck through and muted", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    const title = screen.getByTestId("step-old-title");
+    expect(title.className).toContain("line-through");
+    expect(title.className).toContain("text-muted-foreground");
+  });
+
+  test("link with href renders an anchor, meta and tags show up", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    expect(screen.getByText("Öffnen").closest("a")?.getAttribute("href")).toBe(
+      "/cases/heizungsausfall",
+    );
+    expect(screen.getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
+    expect(screen.getByText("Sendet eine Mail")).toBeTruthy();
+  });
+
+  test("collapsedAfter hides the rest behind a 'more steps' button that expands", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} collapsedAfter={2} />);
+    expect(screen.queryByTestId("step-reply")).toBeNull();
+    fireEvent.click(screen.getByText("and 2 more steps"));
+    expect(screen.getByTestId("step-reply")).toBeTruthy();
+    expect(screen.queryByText("and 2 more steps")).toBeNull();
+  });
+
+  test("footer actions render and fire", () => {
+    const onRejectAll = mock(() => {});
+    render(
+      <StepList
+        title="Vorschlag der KI"
+        steps={heatingSteps}
+        footerActions={[
+          { id: "reject-all", label: "Alle ablehnen", variant: "ghost", onClick: onRejectAll },
+          { id: "next", label: "Nächsten prüfen", variant: "primary", onClick: () => {} },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("Alle ablehnen"));
+    expect(onRejectAll).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Nächsten prüfen")).toBeTruthy();
+  });
+
+  test("empty plan shows the empty content and 0 of 0", () => {
+    render(<StepList title="Vorschlag der KI" steps={[]} emptyContent={<p>Kein Vorschlag</p>} />);
+    expect(screen.getByText("Kein Vorschlag")).toBeTruthy();
+    expect(screen.getByText("0 of 0 done")).toBeTruthy();
+  });
+});

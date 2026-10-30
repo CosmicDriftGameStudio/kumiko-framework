@@ -8,14 +8,17 @@ Import from `@cosmicdrift/kumiko-renderer/web`. Types used here but not exported
 
 ```ts
 function ActionMenu(props: ActionMenuProps): ReactNode;
+function AiSurface(props: { children: ReactNode; title?: string; label?: string; testId?: string; as?: "section" | "aside" | "div"; }): ReactNode; // Light blue area that marks content as AI-generated.
 function AiTextArea(props: AiTextAreaProps): ReactNode; // Multi-line variant of {@link AiTextField}.
 function AiTextField(props: AiTextFieldProps): ReactNode; // Single-line AI text field — ghost-text completion + correct/translate/ rewrite toolbar.
 function AppLayout(props: AppLayoutProps): ReactNode;
+function AttachmentChip(props: MessageAttachment & { testId?: string; }): ReactNode; // File chip with icon, name and a second line; renders as link, button or plain box depending on href/onOpen.
 function Avatar(props: AvatarProps): ReactNode;
 function BareFormProvider(props: { children: ReactNode; }): ReactNode;
 function BooleanField(props: BooleanFieldProps): ReactNode; // Checkbox/Switch = Field(layout:"inline") + Input(kind:"boolean").
 function Card(props: CardProps): ReactNode;
 function ChoiceCards<T extends string>(props: { value: T | null; options: { value: T; title: string; description?: string; aside?: string; disabled?: boolean; }[]; onChange: (value: T) => void; ariaLabel?: string; testId?: string; }): ReactNode; // Card-styled radio group for mutually exclusive choices that need a description or price line.
+function ClampedText(props: { children: ReactNode; lines?: number; testId?: string; }): ReactNode; // Clamps content to `lines`; the toggle shows only while the content actually overflows.
 function CollapsibleSection(props: { title: string; defaultOpen?: boolean; children: ReactNode; testId?: string; }): ReactNode; // Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render.
 function ComparisonTable<Col>(props: { columns: Col[]; columnHeader: (col: Col, index: number) => string; columnKey: (col: Col, index: number) => string; metrics: ComparisonMetric<Col>[]; metricLabel: string; testId?: string; className?: string; card?: boolean; }): ReactNode; // Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric.
 function DateField(props: DateFieldProps): ReactNode; // Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd.
@@ -45,13 +48,15 @@ function LanguageSwitcher(props: LanguageSwitcherProps): ReactNode;
 function LiveEventsProvider(props: LiveEventsProviderProps): ReactNode;
 function LoadingState(props: { rows?: number; className?: string; testId?: string; }): ReactNode; // Loading state with skeleton rows styled like cards; `rows` controls the height.
 function LocaleProvider(props: LocaleProviderProps): ReactNode;
+function MessageReader(props: MessageReaderProps): ReactNode; // Mail thread with an optional tab per attachment; the tab bar only exists when there are attachment tabs.
+function MessageThread(props: MessageThreadProps): ReactNode; // Mail conversation, oldest first: older messages fold to one line, the last one is open on a sheet.
 function MiniStat(props: { label: string; value: string; tone?: StatTone; emphasize?: boolean; testId?: string; labelTestId?: string; valueTestId?: string; }): ReactNode; // Compact metric tile (without an icon) — for dense KPI grids.
 function ModeSwitch<T extends string>(props: { value: T | null; options: { value: T; label: string; count?: number; }[]; onChange: (value: T) => void; ariaLabel?: string; variant?: ModeSwitchVariant; className?: string; testId?: string; }): ReactNode; // Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>.
 function NavProvider(props: NavProviderProps): ReactNode;
 function NavTree(props: NavTreeProps): ReactNode;
 function NumberField(props: NumberFieldProps): ReactNode; // Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen.
 function PageSection(props: PageSectionProps): ReactNode;
-function PdfPreview(props: { source: PdfPreviewSource; testId?: string; }): ReactNode;
+function PdfPreview(props: PdfPreviewProps): ReactNode; // PDF pages rendered with pdf.js; pages render lazily as they scroll into view.
 function PhotoSlots(props: PhotoSlotsProps): ReactNode; // Guided photo capture: one tile per requested shot in a two-column grid, each its own camera/gallery picker, filled tiles show the thumbnail.
 function PlainContentEditor(props: ContentEditorProps): ReactNode;
 function PlanCard(props: PlanCardProps): ReactNode;
@@ -74,6 +79,8 @@ function ResultTable<Row>(props: { columns: ResultColumn<Row>[]; rows: Row[]; ro
 function ScreenWidthProvider(props: { width: FormWidth | undefined; children: ReactNode; }): ReactNode;
 function SectionCard(props: { title: string; subtitle?: string; action?: ReactNode; footer?: ReactNode; children: ReactNode; testId?: string; }): ReactNode; // Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens.
 function SelectField(props: SelectFieldProps): ReactNode; // Select field = Field + Input(kind:"select").
+function SenderFrame(props: { children: ReactNode; label?: string; testId?: string; }): ReactNode; // Sand frame with one white sheet inside, for content that mimics a letter or mail.
+function SenderSheet(props: { children: ReactNode; testId?: string; }): ReactNode; // The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails).
 function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
 function Sidebar(props: SidebarProps): ReactNode;
 function SidebarBrand(props: SidebarBrandProps): ReactNode;
@@ -89,6 +96,7 @@ function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?:
 function StatusBadge(props: { tone: StatusBadgeTone; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
 function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
+function StepList(props: StepListProps): ReactNode; // Ordered plan of steps with status icons, progress header and per-step actions.
 function TextField(props: TextFieldProps): ReactNode; // Text field = Field + Input(kind:"text").
 function TextareaField(props: TextareaFieldProps): ReactNode; // Multi-line text field = Field + Input(kind:"textarea").
 function ThemeMenuItem(props: ThemeMenuItemProps): ReactNode; // Theme toggle as a dropdown entry, for a user menu that carries the shell controls.
@@ -917,6 +925,43 @@ type MenuItemDef =
     label: string;
   }
 ;
+type MessageAttachment = {
+  id: string;
+  name: string;
+  meta?: string; // Second line, e.g. "Foto, 1,2 MB" or "PDF, 4 Seiten".
+  kind?: "image" | "pdf" | "file"; // Icon only.
+  onOpen?: () => void;
+  href?: string;
+};
+type MessageBody =
+  | {
+    kind: "text";
+    text: string;
+  }
+  | {
+    kind: "html";
+    html: string;
+    fallbackText?: string;
+  }
+;
+type MessageReaderProps = {
+  thread: MessageThreadProps;
+  attachmentTabs?: MessageReaderTab[]; // One tab per attachment ("Anhang 1: Vertrag.pdf"); without tabs no tab bar is shown.
+  activeTabId?: string; // "mail" = the thread; default "mail".
+  onTabChange?: (id: string) => void;
+  testId?: string;
+};
+type MessageReaderTab = {
+  id: string;
+  label: string;
+  render: () => ReactNode;
+};
+type MessageThreadProps = {
+  messages: ThreadMessage[]; // Oldest first.
+  clampLines?: number; // Lines before "Mehr anzeigen" on a long text body.
+  remoteImages?: "blocked" | "allowed"; // External images in html bodies.
+  testId?: string;
+};
 type ModeSwitchVariant = "outline" | "pill";
 type NavApi = {
   route: NavRoute | undefined; // Current route — `undefined` when the URL is at the root / there's no route selected.
@@ -962,6 +1007,14 @@ interface NumberFieldProps {
   testId?: string;
   grouping?: boolean; // `false` renders without thousands separators (e.g. a year).
 }
+type PdfPreviewProps = {
+  source: PdfPreviewSource;
+  testId?: string;
+  variant?: "stacked" | "viewer"; // "stacked" = all pages under each other.
+  searchTerm?: string; // Highlights matches in the text layer; the viewer opens on the first hit and shows "Treffer n von m".
+  initialPage?: number; // 1-based page to open on.
+  onPageChange?: (page: number) => void;
+};
 type PdfPreviewSource =
   | {
     base64: string;
@@ -1293,6 +1346,43 @@ type StatusBarEntry = {
   label?: string; // Tooltip text (<title>), supplied translated by the caller.
 };
 type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
+type StepAction = {
+  id: string;
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary" | "ghost";
+  disabled?: boolean;
+  pending?: boolean;
+};
+type StepListItem = {
+  id: string;
+  title: string;
+  description?: string;
+  status: StepStatus;
+  lockedReason?: string; // Shown for "locked" as muted tag "Wartet auf: ..." and as the icon's accessible name.
+  tags?: StepTag[];
+  meta?: string;
+  link?: {
+    label: string;
+    href?: string;
+    onClick?: () => void;
+  };
+  actions?: StepAction[]; // Rendered only while status is "open".
+};
+type StepListProps = {
+  title: string;
+  steps: StepListItem[];
+  footerActions?: StepAction[]; // Footer row, e.g. "Alle ablehnen" (ghost) and "Nächsten prüfen" (primary).
+  collapsedAfter?: number; // Show only the first n steps plus "und k weitere Schritte" (expands on click).
+  surface?: "ai" | "plain"; // "ai" (default) = AiSurface background, "plain" = no background.
+  emptyContent?: ReactNode;
+  testId?: string;
+};
+type StepStatus = "done" | "open" | "locked" | "running" | "rejected" | "failed";
+type StepTag = {
+  label: string;
+  tone?: "accent" | "muted" | "warn" | "ok" | "bad";
+};
 interface TextFieldProps extends FieldBase {
   value: string;
   onChange: (v: string) => void;
@@ -1329,6 +1419,15 @@ type ThemeToggleProps = {
   titleInLight?: string; // Title/aria-label for the step to dark mode.
   titleForAuto?: string; // Title/aria-label for the step to auto mode.
   testId?: string;
+};
+type ThreadMessage = {
+  id: string;
+  author: string; // "Anna Schneider" or the caller's "Du".
+  address?: string;
+  direction: "incoming" | "outgoing"; // Outgoing messages get the reply icon in the collapsed row.
+  timeLabel: string; // Preformatted by the caller ("Heute 09:41").
+  body: MessageBody;
+  attachments?: MessageAttachment[];
 };
 type TimeseriesHeight = // Pixel height, or one height per viewport class.
   | number

@@ -9,6 +9,7 @@ export {
   AiTextField,
   type AiTextFieldProps,
 } from "./ai-text-field.tsx";
+export { AttachmentChip } from "./attachment-chip.tsx";
 export type {
   StackedAreaDateFormat,
   StackedAreaInitialWindow,
@@ -35,6 +36,7 @@ export {
   type TimeseriesYAxis,
 } from "./charts.tsx";
 export { ChoiceCards } from "./choice-cards.tsx";
+export { ClampedText } from "./clamped-text.tsx";
 export { CollapsibleSection } from "./collapsible-section.tsx";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.tsx";
 export { DetailList } from "./detail-list.tsx";
@@ -70,8 +72,18 @@ export {
   type InfinityListProps,
   type InfinityListSelection,
 } from "./infinity-list.tsx";
+export { MessageReader } from "./message-reader.tsx";
+export {
+  type MessageAttachment,
+  type MessageBody,
+  type MessageReaderProps,
+  type MessageReaderTab,
+  MessageThread,
+  type MessageThreadProps,
+  type ThreadMessage,
+} from "./message-thread.tsx";
 export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.tsx";
-export { PdfPreview, type PdfPreviewSource } from "./pdf-preview.tsx";
+export { PdfPreview, type PdfPreviewProps, type PdfPreviewSource } from "./pdf-preview.tsx";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.tsx";
 export {
   PlanCard,
@@ -116,5 +128,14 @@ export {
   type StatusTone,
 } from "./status-badge.tsx";
 export { StepBar } from "./step-bar.tsx";
+export {
+  type StepAction,
+  StepList,
+  type StepListItem,
+  type StepListProps,
+  type StepStatus,
+  type StepTag,
+} from "./step-list.tsx";
+export { AiSurface, SenderFrame, SenderSheet } from "./surfaces.tsx";
 export { UploadZone, type UploadZoneProps } from "./upload-zone.tsx";
 export { useDraft } from "./use-draft.ts";
