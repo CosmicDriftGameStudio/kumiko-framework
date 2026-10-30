@@ -1,4 +1,7 @@
-import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  DashboardPanelDefinition,
+  DashboardScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { type ErrorNotice, ErrorReference } from "../../app/error-reference.tsx";
 import type { DispatcherError, Translate } from "../../headless/index.ts";
@@ -136,7 +139,7 @@ export function renderTitleRow(
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {!usesPageHeaderSlot && headerActionsBar}
-        {screen.showUpdatedAt !== false && (
+        {screen.showUpdatedAt !== false && hasDataPanel(screen.panels) && (
           <span
             data-testid={`dashboard-${screen.id}-updated-at`}
             className="text-xs tabular-nums text-muted-foreground"
@@ -188,6 +191,13 @@ export function renderRecordError(
         </Button>
       </div>
     )
+  );
+}
+
+// A dashboard that only embeds screens loads no data of its own, so "Stand" would say nothing.
+function hasDataPanel(panels: readonly DashboardPanelDefinition[]): boolean {
+  return panels.some(
+    (panel) => panel.kind !== "screen" && panel.kind !== "text" && panel.kind !== "custom",
   );
 }
 

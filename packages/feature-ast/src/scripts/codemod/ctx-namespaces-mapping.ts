@@ -129,6 +129,7 @@ const CONTEXT_MEMBER_NAMES: ReadonlySet<string> = new Set([
   "lifecycle",
   "locale",
   "notify",
+  "onlyDeleted",
   "obs",
   "rateLimitDigest",
   "registry",

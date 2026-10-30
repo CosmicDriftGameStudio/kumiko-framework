@@ -411,15 +411,12 @@ export type EditFieldsSectionViewModel = {
   /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
   readonly subtitle?: string;
   readonly columns: number;
-  /** True when the author declared `columns`; false means the tabs/stacked default. */
-  readonly columnsDeclared?: boolean;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
    *  view-model objects as `fields` above, re-grouped (not recomputed). */
   readonly groups?: readonly {
     readonly title: string;
     readonly columns: number;
-    readonly columnsDeclared?: boolean;
     readonly fields: readonly EditFieldViewModel[];
   }[];
   /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders

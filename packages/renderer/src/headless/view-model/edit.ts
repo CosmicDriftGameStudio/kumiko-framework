@@ -774,7 +774,6 @@ export function computeEditViewModel<
       .map((group) => ({
         title: translate(group.title),
         columns: group.columns ?? 2,
-        columnsDeclared: group.columns !== undefined,
         fields: group.fields.map((fieldSpec) => {
           const fieldName = normalizeEditField(fieldSpec).field;
           const fieldView = fields.find((f) => f.field === fieldName);
@@ -799,7 +798,6 @@ export function computeEditViewModel<
       }),
       ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
       columns: sectionSpec.columns ?? defaultColumns,
-      columnsDeclared: sectionSpec.columns !== undefined,
       fields,
       ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),

@@ -9,6 +9,8 @@ export type EmbeddedScreenTarget = {
   readonly schema: FeatureSchema;
   readonly qn: string;
   readonly screenType: ScreenDefinition["type"];
+  readonly screenId: string;
+  readonly description: string | undefined;
 };
 
 // Undefined (not KumikoScreen's access-denied banner) so the host can drop the whole tile.
@@ -25,5 +27,11 @@ export function useEmbeddedScreen(
   const target = schema?.screens.find((s) => qualifyScreenId(targetFeatureName, s.id) === qn);
   if (schema === undefined || target === undefined) return undefined;
   if (!screenAccessAllows(target.access, userRoles)) return undefined;
-  return { schema, qn, screenType: target.type };
+  return {
+    schema,
+    qn,
+    screenType: target.type,
+    screenId: target.id,
+    description: target.description,
+  };
 }

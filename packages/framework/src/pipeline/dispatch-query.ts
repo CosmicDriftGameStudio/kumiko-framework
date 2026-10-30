@@ -7,7 +7,7 @@ import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
 import { filterReadFields } from "../engine/field-access.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 
-import { NotFoundError, validationErrorFromZod } from "../errors/index.ts";
+import { NotFoundError, ValidationError, validationErrorFromZod } from "../errors/index.ts";
 import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
 
 import { runInDispatchScope } from "./dispatch-scope.ts";
@@ -93,31 +93,36 @@ async function executeQueryInner(
   // so other handlers never see the flag. Visibility filters still apply
   // downstream (see HandlerContext.includeDeleted) — safe from raw input.
   const includeDeleted = propertyOf(parsed.data, "includeDeleted") === true;
+  const onlyDeleted = propertyOf(parsed.data, "onlyDeleted") === true;
+  if (includeDeleted && onlyDeleted) {
+    throw new ValidationError({
+      fields: [
+        {
+          path: "onlyDeleted",
+          code: "conflicts_with_include_deleted",
+          i18nKey: "errors.validation.onlyDeleted",
+        },
+      ],
+    });
+  }
+  const trash: TrashScope = { includeDeleted, onlyDeleted };
 
   // A resolved member (ctx.dispatch.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
   return isMemberResolutionPrincipal(user)
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
-        runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, readOnlyTx),
+        runQueryHandler(ctx, type, handler, parsed.data, trash, user, origin, readOnlyTx),
       )
-    : runQueryHandler(
-        ctx,
-        type,
-        handler,
-        parsed.data,
-        includeDeleted,
-        user,
-        origin,
-        tx,
-        outerNotifySink,
-      );
+    : runQueryHandler(ctx, type, handler, parsed.data, trash, user, origin, tx, outerNotifySink);
 }
+
+type TrashScope = { readonly includeDeleted: boolean; readonly onlyDeleted: boolean };
 
 async function runQueryHandler(
   ctx: DispatchContext,
   type: string,
   handler: QueryHandlerDef,
   payload: unknown,
-  includeDeleted: boolean,
+  trash: TrashScope,
   user: SessionUser,
   origin: WriteOrigin,
   tx: DbTx | undefined,
@@ -126,7 +131,7 @@ async function runQueryHandler(
   const { registry } = ctx;
   const handlerContext = await buildHandlerContext(ctx, type, user, origin, {
     tx,
-    includeDeleted,
+    ...trash,
     outerNotifySink,
   });
   let result = await handler.handler({ type, payload, user }, handlerContext);

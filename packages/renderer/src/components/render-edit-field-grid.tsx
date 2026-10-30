@@ -76,7 +76,6 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
   fields: readonly EditFieldViewModel[],
   columns: number,
   gridKey: string,
-  columnsDeclared: boolean | undefined,
 ): ReactNode {
   const { Grid } = model.engine.state.primitives;
   const { isSettingsList } = model.footer;
@@ -85,7 +84,7 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
   return (
     <Grid
       key={gridKey}
-      columns={usesFieldFlow && columnsDeclared !== true ? 1 : columns}
+      columns={columns}
       {...(isSettingsList ? { list: true } : usesFieldFlow && { flow: true })}
     >
       {fields.map((field: EditFieldViewModel) => renderCell(field))}
