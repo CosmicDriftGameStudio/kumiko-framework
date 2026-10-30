@@ -248,7 +248,8 @@ export function withParsedDocument<T>(html: string, read: (body: ScanElement) =>
     );
     return read(parsed.body);
   } finally {
-    // close() aborts pending tasks as well; the window is never reused, so this sync API need not await teardown.
+    // The window is never reused, so this sync API need not await the teardown promises.
+    void window.happyDOM.abort();
     void window.happyDOM.close();
   }
 }
