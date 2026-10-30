@@ -25,6 +25,11 @@ describe("MobileTopBar", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  test("label is not a heading, the screen owns the h1", () => {
+    render(<MobileTopBar label="Posteingang" />);
+    expect(screen.queryByRole("heading")).toBeNull();
+  });
+
   test("is hidden from md upwards", () => {
     render(<MobileTopBar label="Posteingang" />);
     expect(screen.getByTestId("mobile-top-bar").className).toContain("md:hidden");

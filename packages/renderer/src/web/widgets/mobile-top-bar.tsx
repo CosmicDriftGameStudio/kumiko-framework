@@ -39,14 +39,14 @@ export function MobileTopBar({
           <ChevronLeft className="size-5" aria-hidden="true" />
         </button>
       )}
-      <h1
+      <span
         className={cn(
-          "m-0 min-w-0 flex-1 truncate text-[15px] font-normal text-foreground-secondary",
+          "min-w-0 flex-1 truncate text-[15px] font-normal text-foreground-secondary",
           back === undefined && "pl-2",
         )}
       >
         {label}
-      </h1>
+      </span>
       {status !== undefined && (
         <StatusBadge tone={status.tone} testId={`${testId}-status`}>
           {status.label}

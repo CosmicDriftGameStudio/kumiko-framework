@@ -26,6 +26,8 @@ export type StepListProps = {
   readonly collapsedAfter?: number;
   /** "ai" (default) = AiSurface background, "plain" = no background. */
   readonly surface?: "ai" | "plain";
+  /** Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom. */
+  readonly fill?: boolean;
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 };
@@ -39,6 +41,7 @@ export function StepList({
   footerActions,
   collapsedAfter,
   surface = "ai",
+  fill = false,
   emptyContent,
   testId = "step-list",
 }: StepListProps): ReactNode {
@@ -59,7 +62,7 @@ export function StepList({
     <section
       aria-label={title}
       data-testid={testId}
-      className={cn("flex min-h-0 flex-col", surface === "ai" && "bg-ai-surface")}
+      className={cn("flex min-h-0 flex-col", fill && "h-full", surface === "ai" && "bg-ai-surface")}
     >
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
         <div className="flex items-baseline gap-2">

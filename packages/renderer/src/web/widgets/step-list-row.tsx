@@ -76,7 +76,7 @@ function StatusGlyph({ status }: { readonly status: StepStatus }): ReactNode {
 }
 
 const STATUS_ICON_CLASS: Record<StepStatus, string> = {
-  done: "bg-primary text-primary-foreground",
+  done: "bg-status-ok text-background",
   open: "box-border border-[1.5px] border-primary",
   locked: "text-muted-foreground",
   running: "text-primary",
