@@ -5,6 +5,7 @@ import {
   type LiveEventTimers,
   RECONNECT_MAX_DELAY_MS,
   reconnectDelayMs,
+  SSE_STALL_TIMEOUT_MS,
 } from "../live-events.ts";
 
 // happy-dom doesn't provide EventSource, and this module only needs
@@ -45,6 +46,10 @@ class FakeEventSource {
   fail(readyState: number): void {
     this.readyState = readyState;
     for (const listener of this.listeners.get("error") ?? []) listener({} as MessageEvent);
+  }
+
+  ping(): void {
+    for (const listener of this.listeners.get("ping") ?? []) listener({ data: "" } as MessageEvent);
   }
 
   dispatch(entityName: string, data: unknown): void {
@@ -468,5 +473,124 @@ describe("createEventSourceLiveEvents — reconnect", () => {
     await nextTick();
 
     expect(scheduled).toEqual([]);
+  });
+});
+
+describe("createEventSourceLiveEvents — stall watchdog", () => {
+  const noJitter = () => 0;
+  const SERVER_HEARTBEAT_INTERVAL_MS = 15_000;
+
+  // Fake clock: stall timers fire when advanced past their deadline, reconnect timers are manual.
+  function setup() {
+    const reconnect = createManualTimers();
+    let clock = 0;
+    type Stall = { callback: () => void; at: number; cleared: boolean };
+    const stalls: Stall[] = [];
+    const stallTimers: LiveEventTimers = {
+      set: (callback, delayMs) => {
+        const stall: Stall = { callback, at: clock + delayMs, cleared: false };
+        stalls.push(stall);
+        return () => {
+          stall.cleared = true;
+        };
+      },
+    };
+    const advance = (ms: number): void => {
+      const target = clock + ms;
+      for (;;) {
+        const due = stalls
+          .filter((t) => !t.cleared && t.at <= target)
+          .sort((a, b) => a.at - b.at)[0];
+        if (!due) break;
+        clock = due.at;
+        due.cleared = true;
+        due.callback();
+      }
+      clock = target;
+    };
+    const events: LiveEvent[] = [];
+    const liveEvents = createEventSourceLiveEvents({
+      timers: reconnect.timers,
+      stallTimers,
+      random: noJitter,
+    });
+    const unsubscribe = liveEvents("invoice", (e) => events.push(e));
+    return { reconnect, stalls, advance, events, unsubscribe };
+  }
+
+  test("the stall timeout is two server heartbeats (15 s, SSE_HEARTBEAT_INTERVAL_MS)", () => {
+    expect(SSE_STALL_TIMEOUT_MS).toBe(2 * SERVER_HEARTBEAT_INTERVAL_MS);
+  });
+
+  test("no frame for 30 s closes the stream and reconnects with a resync", () => {
+    const { reconnect, advance, events } = setup();
+    const first = FakeEventSource.instances.at(-1);
+    first?.open();
+    events.length = 0;
+
+    advance(SSE_STALL_TIMEOUT_MS);
+    expect(first?.closed).toBe(true);
+    expect(pendingTimers(reconnect.scheduled)).toHaveLength(1);
+
+    reconnect.scheduled[0]?.callback();
+    expect(FakeEventSource.instances).toHaveLength(2);
+    FakeEventSource.instances.at(-1)?.open();
+    expect(events.map((e) => e.data.eventType)).toEqual([LIVE_RESYNC_EVENT_TYPE]);
+  });
+
+  test("a ping every 15 s keeps the stream open", () => {
+    const { reconnect, advance } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    source?.open();
+    for (let elapsed = 0; elapsed < 120_000; elapsed += SERVER_HEARTBEAT_INTERVAL_MS) {
+      advance(SERVER_HEARTBEAT_INTERVAL_MS);
+      source?.ping();
+    }
+    expect(source?.closed).toBe(false);
+    expect(reconnect.scheduled).toHaveLength(0);
+  });
+
+  test("entity frames also reset the watchdog", () => {
+    const { advance } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    source?.open();
+    advance(25_000);
+    source?.dispatch("invoice", entityEvent());
+    advance(25_000);
+    expect(source?.closed).toBe(false);
+    advance(5_000);
+    expect(source?.closed).toBe(true);
+  });
+
+  test("the last unsubscribe leaves no watchdog timer running", () => {
+    const { stalls, advance, unsubscribe } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    source?.open();
+    unsubscribe();
+    expect(stalls.filter((t) => !t.cleared)).toHaveLength(0);
+    advance(120_000);
+    expect(source?.closed).toBe(true);
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  test("an error and the watchdog together schedule only one reconnect", async () => {
+    stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
+    const { reconnect, advance } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    source?.open();
+    advance(SSE_STALL_TIMEOUT_MS);
+    source?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+    expect(pendingTimers(reconnect.scheduled)).toHaveLength(1);
+  });
+
+  test("a session-ended frame disarms the watchdog instead of reconnecting", () => {
+    const { reconnect, advance } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    source?.open();
+    source?.dispatch("session-ended", { code: "invalid_token" });
+    advance(120_000);
+    expect(source?.closed).toBe(false);
+    expect(pendingTimers(reconnect.scheduled)).toHaveLength(0);
   });
 });

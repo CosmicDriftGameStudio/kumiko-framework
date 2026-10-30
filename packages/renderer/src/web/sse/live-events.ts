@@ -38,6 +38,8 @@ export type CreateEventSourceLiveEventsOptions = {
   readonly onSessionEnded?: () => void;
   /** Reconnect-timer seam; defaults to the global setTimeout/clearTimeout. */
   readonly timers?: LiveEventTimers;
+  /** Stall-watchdog timer seam; defaults to the global setTimeout/clearTimeout. */
+  readonly stallTimers?: LiveEventTimers;
   /** Jitter source in [0, 1); defaults to Math.random. */
   readonly random?: () => number;
   /** Clock for synthetic resync events; defaults to Date.now. */
@@ -51,6 +53,10 @@ export type LiveEventTimers = {
 
 export const RECONNECT_BASE_DELAY_MS = 1_000;
 export const RECONNECT_MAX_DELAY_MS = 30_000;
+
+// Two missed server heartbeats (15 s each, SSE_HEARTBEAT_INTERVAL_MS in framework sse-route.ts).
+// A KEDA interceptor can leave the stream hanging without an `error` event (kedacore/http-add-on#1803).
+export const SSE_STALL_TIMEOUT_MS = 30_000;
 
 const defaultTimers: LiveEventTimers = {
   set: (callback, delayMs) => {
@@ -120,6 +126,7 @@ export function createEventSourceLiveEvents(
 ): LiveEventSubscriber {
   const url = options.url ?? "/api/sse";
   const timers = options.timers ?? defaultTimers;
+  const stallTimers = options.stallTimers ?? defaultTimers;
   const random = options.random ?? Math.random;
   const now = options.now ?? Date.now;
 
@@ -128,6 +135,25 @@ export function createEventSourceLiveEvents(
   const wiredEntities = new Set<string>();
   let cancelReconnect: (() => void) | undefined;
   let reconnectAttempt = 0;
+  let cancelStallWatchdog: (() => void) | undefined;
+
+  const disarmStallWatchdog = (): void => {
+    cancelStallWatchdog?.();
+    cancelStallWatchdog = undefined;
+  };
+
+  const armStallWatchdog = (connection: EventSource): void => {
+    // skip: a frame from a connection that is no longer the current one
+    if (source !== connection) return;
+    disarmStallWatchdog();
+    cancelStallWatchdog = stallTimers.set(() => {
+      cancelStallWatchdog = undefined;
+      // skip: a late timer of a connection that was already replaced
+      if (source !== connection) return;
+      connection.close();
+      scheduleReconnect();
+    }, SSE_STALL_TIMEOUT_MS);
+  };
 
   // `subscribers` is a flat Set across all entities — the browser-side
   // addEventListener(entityName, ...) gate below only filters which frames
@@ -173,6 +199,7 @@ export function createEventSourceLiveEvents(
     if (wiredEntities.has(entityName)) return;
     connection.addEventListener(entityName, (e) => {
       const data = propertyOf(e, "data");
+      armStallWatchdog(connection);
       if (typeof data === "string") handleEvent(data, entityName);
     });
     wiredEntities.add(entityName);
@@ -193,14 +220,22 @@ export function createEventSourceLiveEvents(
       sessionEndedSignalled = true;
       onSessionEnded?.();
     };
+    armStallWatchdog(connection);
+    connection.addEventListener("ping", () => armStallWatchdog(connection));
     connection.addEventListener("open", () => {
+      armStallWatchdog(connection);
       reconnectAttempt = 0;
       emitResync();
     });
     connection.addEventListener(SESSION_ENDED_EVENT, (e) => {
       const code = sessionEndedFrameCode(e);
-      if (code !== undefined && isSessionEndedError({ code, httpStatus: 401 }))
+      if (code !== undefined && isSessionEndedError({ code, httpStatus: 401 })) {
+        disarmStallWatchdog();
         signalSessionEnded();
+        // skip: a reconnect after a session end would only be refused again
+        return;
+      }
+      armStallWatchdog(connection);
     });
     connection.addEventListener("error", () => {
       // skip: CONNECTING means a dropped stream the browser retries itself;
@@ -212,10 +247,12 @@ export function createEventSourceLiveEvents(
         // skip: closeIfEmpty or a newer connection took over while probing
         if (source !== connection) return;
         if (sessionEnded) {
+          disarmStallWatchdog();
           signalSessionEnded();
           // skip: the session ended, reconnecting would only be refused again
           return;
         }
+        disarmStallWatchdog();
         scheduleReconnect();
       });
     });
@@ -247,6 +284,7 @@ export function createEventSourceLiveEvents(
       cancelReconnect = undefined;
     }
     reconnectAttempt = 0;
+    disarmStallWatchdog();
     // skip: already closed, nothing to close
     if (source === undefined) return;
     source.close();
