@@ -83,6 +83,7 @@ export {
   type MessageThreadProps,
   type ThreadMessage,
 } from "./message-thread.tsx";
+export { MobileTopBar, type MobileTopBarProps } from "./mobile-top-bar.tsx";
 export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.tsx";
 export {
   type PdfMatchInfo,
