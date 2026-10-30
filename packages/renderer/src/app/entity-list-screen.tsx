@@ -657,7 +657,6 @@ function EntityListBody({
           isListNarrowed(urlState.q, urlState.filters, defaultFilters)
         }
         defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
-        // An embedding tile already shows the description in its section head.
         {...(toolbarDescription !== undefined && { description: toolbarDescription })}
         {...(emptyContent !== undefined && { emptyContent })}
         searchValue={urlState.q}

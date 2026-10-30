@@ -13,11 +13,14 @@ export function projectionLeadProps(
   screen: ProjectionListScreenDefinition,
   effectiveTranslate: Translate,
   emptyContent: ReturnType<typeof useProjectionListActions>["emptyContent"],
+  isEmbeddedScreen: boolean,
 ) {
   return {
-    ...(screen.description !== undefined && {
-      description: effectiveTranslate(screen.description),
-    }),
+    // An embedding tile already shows the description in its section head.
+    ...(screen.description !== undefined &&
+      !isEmbeddedScreen && {
+        description: effectiveTranslate(screen.description),
+      }),
     ...(emptyContent !== undefined && { emptyContent }),
   };
 }
