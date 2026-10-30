@@ -142,6 +142,26 @@ describe("readiness run-probes with injected clock", () => {
     expect(await stack.http.queryOk(ReadinessQueries.latestResults, {}, tenantAdmin)).toBeDefined();
   });
 
+  test("the history lists the newer of two runs in the same second first", async () => {
+    const { tenantAdmin } = freshUsers();
+    const nextWholeSecondMs = (Math.floor(clock.now().epochMilliseconds / 1000) + 1) * 1000;
+    clock.set(getTemporal().Instant.fromEpochMilliseconds(nextWholeSecondMs));
+    const older = await start(tenantAdmin);
+    await stack.drainJobs();
+
+    clock.advance({ milliseconds: 1 });
+    const newer = await start(tenantAdmin);
+    await stack.drainJobs();
+
+    expect(newer.isExisting).toBe(false);
+    const list = await stack.http.queryOk<{ rows: RunListRow[] }>(
+      ReadinessQueries.runList,
+      {},
+      tenantAdmin,
+    );
+    expect(list.rows.map((row) => row.id)).toEqual([newer.runId, older.runId]);
+  });
+
   test("the cache probe is skipped as not configured without Redis", async () => {
     const { systemAdmin } = freshUsers();
 
