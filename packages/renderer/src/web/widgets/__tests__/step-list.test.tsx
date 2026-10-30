@@ -181,4 +181,13 @@ describe("StepList source links and highlight", () => {
       "Abgeschlossen von dir am 27.10.",
     );
   });
+
+  test("showProgress false hides the count and the progress bar", () => {
+    const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
+    expect(screen.getByTestId("step-list-progress")).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).not.toBeNull();
+    rerender(<StepList title="Plan" steps={heatingSteps} showProgress={false} />);
+    expect(screen.queryByTestId("step-list-progress")).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
 });
