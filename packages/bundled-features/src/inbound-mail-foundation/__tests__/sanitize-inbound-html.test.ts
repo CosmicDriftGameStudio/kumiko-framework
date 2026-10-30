@@ -28,6 +28,32 @@ describe("sanitizeInboundHtml", () => {
     );
   });
 
+  test.each([
+    "/api/files/x",
+    "//evil.test/x.png",
+    "\\\\evil.test\\x.png",
+    "/\\evil.test/x.png",
+    "x.png",
+    "https:x.png",
+  ])("drops images with the non-absolute src %s", (src) => {
+    expect(sanitizeInboundHtml(`<p>a</p><img src="${src}">`)).toBe("<p>a</p>");
+  });
+
+  test.each(["/admin", "//evil.test/", "\\\\evil.test", "/\\evil.test", "page.html", "https:evil"])(
+    "drops the non-absolute href %s but keeps the link text",
+    (href) => {
+      const out = sanitizeInboundHtml(`<a href="${href}">text</a>`) ?? "";
+      expect(out).not.toContain("href=");
+      expect(out).toContain("text");
+    },
+  );
+
+  test("absolute, mailto and tel links keep their href", () => {
+    for (const href of ["https://a.test/x", "http://a.test", "mailto:a@b.test", "tel:+4930123"]) {
+      expect(sanitizeInboundHtml(`<a href="${href}">t</a>`)).toContain(`href="${href}"`);
+    }
+  });
+
   test("style keeps allowed properties and drops url() values", () => {
     const out =
       sanitizeInboundHtml(

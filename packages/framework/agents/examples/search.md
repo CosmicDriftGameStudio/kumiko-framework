@@ -14,6 +14,8 @@ Tenant-scoped full-text search (Meilisearch / in-memory adapter).
 
 - `searchable` / `searchWeight` on fields
 - Handler reads via `ctx.services.searchAdapter`
+- `createLongTextField({ find: "fuzzy" })`: a long body is searchable (Meilisearch splits it into pieces)
+- Trash list: `softDelete` entity, list with `onlyDeleted: true`, restore via `article:restore`
 
 ## Source
 
@@ -44,7 +46,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { productEntity, productFeature } from "../feature";
+import { articleEntity, productEntity, productFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -53,6 +55,7 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [productFeature] });
   await unsafeCreateEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, articleEntity, "article");
   await createEventsTable(stack.db);
 });
 
@@ -153,18 +156,60 @@ describe("search indexing", () => {
     expect(results).toHaveLength(0);
   });
 });
+
+describe("longText find: fuzzy and the trash list", () => {
+  type ArticleList = { rows: Record<string, unknown>[] };
+  const listArticles = (payload: Record<string, unknown>) =>
+    stack.http.queryOk<ArticleList>("shop:query:article:list", payload, admin);
+
+  test("a word deep inside a long body is found, and a deleted article moves to the trash and back", async () => {
+    const body = `${"filler ".repeat(5_000)}deepneedle`;
+    const created = await stack.http.writeOk<{ id: string }>(
+      "shop:write:article:create",
+      { title: "Handbook", body },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ search: "deepneedle" })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
+
+    await stack.http.writeOk("shop:write:article:delete", { id: created.id }, admin);
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ search: "deepneedle" })).rows).toEqual([]);
+    expect((await listArticles({})).rows.some((r) => r["id"] === created.id)).toBe(false);
+    expect((await listArticles({ onlyDeleted: true })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
+
+    await stack.http.writeOk("shop:write:article:restore", { id: created.id }, admin);
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ onlyDeleted: true })).rows).toEqual([]);
+    expect((await listArticles({ search: "deepneedle" })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
+  });
+});
 ```
 
 ### src/feature.ts
 
 ```ts
 // Search Sample
-// Shows: searchable fields, searchWeight, search via InMemory SearchAdapter.
+// Shows: searchable fields, searchWeight, search via InMemory SearchAdapter, a longText field
+// with find: "fuzzy" (chunked in Meilisearch) and a trash list (onlyDeleted) for restore.
 // Each handler builds its executor inline so `ctx.services.searchAdapter` is read fresh
 // per call — tests swap the adapter between runs.
 
 import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createLongTextField,
+  createTextField,
+  defineEntityQueryHandler,
+  defineEntityWriteHandler,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const productEntity = createEntity({
@@ -183,10 +228,27 @@ export const productEntity = createEntity({
   searchWeight: 10,
 });
 
+// A long body is searched like any text field; softDelete gives the trash list and restore.
+export const articleEntity = createEntity({
+  table: "read_sample_articles",
+  softDelete: true,
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    body: createLongTextField({ personal: false, reason: "is_business_data", find: "fuzzy" }),
+  },
+});
+
 const productTable = buildEntityTable("product", productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
   r.entity({ name: "product", ...productEntity });
+  r.entity({ name: "article", ...articleEntity });
+
+  const articleAccess = { access: { roles: ["Admin"] } };
+  for (const verb of ["create", "delete", "restore"] as const) {
+    r.writeHandler(defineEntityWriteHandler(`article:${verb}`, articleEntity, articleAccess));
+  }
+  r.queryHandler(defineEntityQueryHandler("article:list", articleEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

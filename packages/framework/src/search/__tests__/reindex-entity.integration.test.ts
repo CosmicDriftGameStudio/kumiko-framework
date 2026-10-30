@@ -193,6 +193,55 @@ describe("reindexEntity", () => {
     expect(result.failures).toHaveLength(0);
   });
 
+  test("a row soft-deleted between the batch read and the write leaves nothing in the index", async () => {
+    const executor = seedExecutor();
+    const created = await executor.create({ name: "Racedelete Widget" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("seed failed");
+
+    const result = await reindexEntity(
+      stack.db,
+      stack.registry,
+      stack.search,
+      "widget",
+      admin.tenantId,
+      {
+        afterBatchRead: async () => {
+          const deleted = await executor.delete({ id: created.data.id }, admin, tenantDb());
+          if (!deleted.isSuccess) throw new Error("delete failed");
+        },
+      },
+    );
+
+    expect(result.failures).toHaveLength(0);
+    const hits = await stack.search.search(admin.tenantId, "racedelete", { filterType: "widget" });
+    expect(hits.some((hit) => hit.entityId === created.data.id)).toBe(false);
+  });
+
+  test("a row edited between the batch read and the write is rewritten with the new text", async () => {
+    const executor = seedExecutor();
+    const created = await executor.create({ name: "Raceedit Before" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("seed failed");
+
+    await reindexEntity(stack.db, stack.registry, stack.search, "widget", admin.tenantId, {
+      afterBatchRead: async () => {
+        const updated = await executor.update(
+          { id: created.data.id, changes: { name: "Raceedit After" } },
+          admin,
+          tenantDb(),
+          { skipOptimisticLock: true },
+        );
+        if (!updated.isSuccess) throw new Error("update failed");
+      },
+    });
+
+    const find = async (term: string) =>
+      (await stack.search.search(admin.tenantId, term, { filterType: "widget" })).some(
+        (hit) => hit.entityId === created.data.id,
+      );
+    expect(await find("before")).toBe(false);
+    expect(await find("after")).toBe(true);
+  });
+
   test("dryRun scans without writing to the index", async () => {
     const executor = seedExecutor();
     await executor.create({ name: "DryRun Widget" }, admin, tenantDb());

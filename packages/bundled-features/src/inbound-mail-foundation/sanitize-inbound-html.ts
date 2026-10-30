@@ -82,6 +82,22 @@ const ALLOWED_STYLES: Record<string, RegExp[]> = Object.fromEntries(
   STYLE_PROPERTIES.map((property) => [property, [SAFE_STYLE_VALUE]]),
 );
 
+// Relative, protocol-relative and backslash URLs would resolve against the app origin in the srcdoc frame
+// and send a cookie-carrying same-origin request, so only absolute targets are kept.
+const ABSOLUTE_IMAGE_SRC = /^https?:\/\//i;
+const ABSOLUTE_LINK_HREF = /^(?:https?:\/\/|mailto:|tel:)/i;
+
+function withoutAttributeUnless(
+  attribs: Record<string, string>,
+  name: string,
+  allowed: RegExp,
+): Record<string, string> {
+  const value = attribs[name];
+  if (value === undefined || allowed.test(value.trim())) return attribs;
+  const { [name]: _dropped, ...rest } = attribs;
+  return rest;
+}
+
 export function sanitizeInboundHtml(html: string): string | null {
   const clean = sanitizeHtml(html, {
     allowedTags: ALLOWED_TAGS,
@@ -93,7 +109,15 @@ export function sanitizeInboundHtml(html: string): string | null {
     transformTags: {
       a: (tagName, attribs) => ({
         tagName,
-        attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer" },
+        attribs: {
+          ...withoutAttributeUnless(attribs, "href", ABSOLUTE_LINK_HREF),
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+      }),
+      img: (tagName, attribs) => ({
+        tagName,
+        attribs: withoutAttributeUnless(attribs, "src", ABSOLUTE_IMAGE_SRC),
       }),
     },
     // An image whose src was stripped (cid:, data:, other scheme) is only a broken placeholder.

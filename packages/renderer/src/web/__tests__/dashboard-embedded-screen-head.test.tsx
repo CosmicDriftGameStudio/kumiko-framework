@@ -192,6 +192,9 @@ describe("embedded list description", () => {
       expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe(
         "Open tasks",
       );
+      // No search, facets or actions here, so the description was the only reason for a toolbar and
+      // none is rendered; the embedded px-0 inset is covered in data-table-description-order.test.tsx.
+      expect(screen.queryByTestId(/(^render-list-toolbar$)|(-toolbar$)/)).toBeNull();
     },
   );
 });
