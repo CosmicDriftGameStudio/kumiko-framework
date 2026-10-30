@@ -108,7 +108,7 @@ function readExceptionEntries(source: ExceptionSource, filename: string): unknow
 export function loadExceptionEntries<T>(options: {
   readonly filename: string;
   readonly roots: readonly string[];
-  readonly parse: (field: (key: string) => string) => T;
+  readonly parse: (field: (key: string) => string, source: ExceptionSource) => T;
   readonly bundledDir?: string;
 }): T[] {
   const merged: T[] = [];
@@ -121,7 +121,7 @@ export function loadExceptionEntries<T>(options: {
             const value = entry[key];
             if (typeof value !== "string" || value.trim() === "") throw new MissingFieldError(key);
             return value;
-          }),
+          }, source),
         );
       } catch (err) {
         if (!(err instanceof MissingFieldError)) throw err;

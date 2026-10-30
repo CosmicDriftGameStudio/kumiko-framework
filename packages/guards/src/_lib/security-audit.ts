@@ -1,7 +1,11 @@
 /**
  * Parse and evaluate `bun audit --json` reports with exception support.
  */
-import { isExceptionValid, matchesPackageName } from "./dependency-exceptions";
+import {
+  type ExceptionSource,
+  isExceptionValid,
+  matchesPackageName,
+} from "./dependency-exceptions";
 
 export type Severity = "critical" | "high" | "moderate" | "low" | "info";
 
@@ -29,6 +33,7 @@ export type SecurityException = {
   readonly reason: string;
   readonly reviewedBy: string;
   readonly expires: string;
+  readonly source: ExceptionSource;
 };
 
 export type SecurityEvaluation = {
