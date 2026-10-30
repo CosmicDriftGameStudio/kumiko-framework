@@ -196,6 +196,11 @@ export const taskEntity = {
   },
 } as unknown as EntityDefinition;
 
+/** Typed-once stand-in for the generic `Dispatcher["query"]`: answers every query with `respond(type)`. */
+export function queryAnswering(respond: (type: string) => unknown): Dispatcher["query"] {
+  return (async (type: string) => respond(type)) as unknown as Dispatcher["query"];
+}
+
 /** Mock dispatcher whose default `query` returns an empty list page. */
 export function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
   const base = createMockDispatcher({
