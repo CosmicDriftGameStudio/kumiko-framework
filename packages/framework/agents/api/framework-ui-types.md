@@ -76,6 +76,7 @@ type ActionFormSuccessFact = { // One key figure of the success box, read from t
 };
 type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & { // A redirect target rendered as a link in the success box.
   idFrom?: string; // Success-payload field carrying the navigation id.
+  params?: Readonly<Record<string, string>>; // URL search params of the target, each read from a success-payload field (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`).
   label: string; // Link text (i18n key).
 };
 type AppSchema = {

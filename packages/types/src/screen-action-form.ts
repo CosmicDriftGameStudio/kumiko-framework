@@ -229,6 +229,10 @@ export type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & {
    *  target (`entityEdit`, `projectionDetail`); omit it for a list, dashboard
    *  or form target, which opens without an id. */
   readonly idFrom?: string;
+  /** URL search params of the target, each read from a success-payload field
+   *  (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`). The link is
+   *  hidden while one of these fields is not a string. */
+  readonly params?: Readonly<Record<string, string>>;
   /** Link text (i18n key). */
   readonly label: string;
 };

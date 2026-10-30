@@ -484,11 +484,19 @@ export function resolveSuccessLinks(
   (links ?? []).forEach((link, index) => {
     const target = resolveRedirectTarget(link, data, schema, appFeatures);
     if (target.entityId === undefined && redirectTargetsRecord(link, schema, appFeatures)) return;
+    const params = Object.entries(link.params ?? {}).map(
+      ([param, field]) => [param, propertyOf(data, field)] as const,
+    );
+    if (params.some(([, value]) => typeof value !== "string")) return;
     const navTarget = {
       screenId: target.screenId,
       ...(target.entityId !== undefined && { entityId: target.entityId }),
     };
-    const options = target.tab === undefined ? undefined : { searchParams: { tab: target.tab } };
+    const searchParams = {
+      ...Object.fromEntries(params),
+      ...(target.tab !== undefined && { tab: target.tab }),
+    };
+    const options = Object.keys(searchParams).length === 0 ? undefined : { searchParams };
     resolved.push({
       key: String(index),
       label: translate(link.label),
