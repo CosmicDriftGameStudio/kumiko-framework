@@ -4,12 +4,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type {
   DashboardScreenDefinition,
-  EntityDefinition,
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -21,7 +19,14 @@ import {
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
 import { defaultPrimitives, EmbeddedFormProvider } from "../primitives/index.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  queryAnswering,
+  render,
+  screen,
+  taskEntity,
+  waitFor,
+} from "./test-utils.tsx";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "site-detail",
@@ -49,10 +54,11 @@ function renderBoard(board: DashboardScreenDefinition): void {
     entities: {},
     screens: [detailScreen, board],
   };
-  const query = (async (type: string) =>
+  const query = queryAnswering((type) =>
     type === "sites:query:site:detail"
       ? { isSuccess: true, data: { id: "site-1", region: "EU-North" } }
-      : { isSuccess: true, data: { value: "1" } }) as unknown as Dispatcher["query"];
+      : { isSuccess: true, data: { value: "1" } },
+  );
   render(
     <BrowserNav>
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
@@ -132,7 +138,6 @@ describe("embedded form submit row", () => {
 
 describe("embedded entityList description", () => {
   test("appears once, in the panel head, not again in the list toolbar", async () => {
-    const entity = { fields: { title: { type: "text" } } } as unknown as EntityDefinition;
     const list: EntityListScreenDefinition = {
       id: "task-list",
       type: "entityList",
@@ -145,13 +150,13 @@ describe("embedded entityList description", () => {
     ]);
     const schema: FeatureSchema = {
       featureName: "sites",
-      entities: { task: entity },
+      entities: { task: taskEntity },
       screens: [list, board],
     };
-    const query = (async () => ({
+    const query = queryAnswering(() => ({
       isSuccess: true,
       data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-    })) as unknown as Dispatcher["query"];
+    }));
     render(
       <BrowserNav>
         <DispatcherProvider dispatcher={createMockDispatcher({ query })}>

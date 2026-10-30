@@ -1,5 +1,13 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { pageTextItemsFor } from "./pdf-document.ts";
 import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
 import { clampPage, findMatches, mostVisiblePage } from "./pdf-search.ts";
@@ -113,9 +121,18 @@ export function PdfViewer({
   useVisiblePageTracking(scrollerRef, commitPage);
 
   const activePage = activeMatch?.page;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the jump is keyed on which match is active, not on goToPage identity
+  // matchIndex and term are passed only so the effect refires when stepping between matches on one page or changing the term.
+  const jumpToMatch = useEffectEvent(
+    (target: {
+      readonly page: number | undefined;
+      readonly matchIndex: number;
+      readonly term: string;
+    }) => {
+      if (target.page !== undefined) goToPage(target.page);
+    },
+  );
   useEffect(() => {
-    if (activePage !== undefined) goToPage(activePage);
+    jumpToMatch({ page: activePage, matchIndex, term });
   }, [activePage, matchIndex, term]);
 
   useEffect(() => {
