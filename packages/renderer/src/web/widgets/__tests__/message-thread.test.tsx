@@ -154,6 +154,26 @@ describe("MessageThread", () => {
       fireEvent.click(screen.getByText("Show quoted text (1 lines)"));
       expect(screen.getAllByTitle("Anna Schneider").length).toBe(2);
     });
+
+    // Bodies as the inbound sanitizer leaves them: only the quote markers survive, no other class or type.
+    test.each([
+      [
+        "Gmail",
+        '<div>Danke!</div><div class="gmail_quote"><div>Am Mo schrieb Du:</div><blockquote class="gmail_quote"><p>Der Monteur kommt.</p></blockquote></div>',
+      ],
+      [
+        "Apple Mail",
+        '<div>Danke!</div><blockquote type="cite"><div>Am 12.03. schrieb Du:</div><div>Der Monteur kommt.</div></blockquote>',
+      ],
+      [
+        "Outlook",
+        '<div>Danke!</div><div id="appendonsend"></div><div id="divRplyFwdMsg">Von: Du</div><p>Der Monteur kommt.</p>',
+      ],
+    ])("folds the quote of a sanitized %s body", (_client, html) => {
+      render(<MessageThread messages={[{ ...annaLast, body: { kind: "html", html } }]} />);
+      expect(screen.getAllByTitle("Anna Schneider").length).toBe(1);
+      expect(screen.getByText(/^Show quoted text \(\d+ lines\)$/)).toBeTruthy();
+    });
   });
 });
 
