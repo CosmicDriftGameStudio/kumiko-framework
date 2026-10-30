@@ -34,12 +34,13 @@ export function loadSecurityExceptions(
     filename: SECURITY_EXCEPTIONS_FILE,
     roots,
     bundledDir,
-    parse: (field) => ({
+    parse: (field, source) => ({
       advisory: field("advisory"),
       package: field("package"),
       reason: field("reason"),
       reviewedBy: field("reviewedBy"),
       expires: field("expires"),
+      source,
     }),
   }).filter((exception) => {
     const hasDate = expiryEndMs(exception.expires) !== undefined;
@@ -65,6 +66,42 @@ export function shouldBlock(
   expiringUrgent: readonly SecurityException[],
 ): boolean {
   return evaluation.blocking.length > 0 || expiringUrgent.length > 0;
+}
+
+// Bundled exceptions apply to every consumer, including those without the package, so only repo-local ones can be stale.
+function findUnusedRepoExceptions(
+  exceptions: readonly SecurityException[],
+  used: readonly SecurityException[],
+): SecurityException[] {
+  return exceptions.filter((ex) => ex.source.origin === "repo" && !used.includes(ex));
+}
+
+function printExceptionWarnings(
+  evaluation: SecurityEvaluation,
+  exceptions: readonly SecurityException[],
+  expiringUrgent: readonly SecurityException[],
+  nowMs: number,
+): void {
+  const urgentKeys = new Set(expiringUrgent.map((ex) => `${ex.package}|${ex.advisory}`));
+  const expiringSoon = findExpiringSoon(exceptions, 30, nowMs).filter(
+    (ex) => !urgentKeys.has(`${ex.package}|${ex.advisory}`),
+  );
+  if (expiringSoon.length > 0) {
+    console.log("\n  WARN: security exceptions expire within 30 days — re-review:");
+    for (const ex of expiringSoon) {
+      console.log(`    ${ex.package}  ${ex.advisory}  expires=${ex.expires}`);
+    }
+  }
+
+  const unusedRepoExceptions = findUnusedRepoExceptions(exceptions, evaluation.usedExceptions);
+  if (unusedRepoExceptions.length > 0) {
+    console.log(
+      "\n  WARN: security exceptions suppressed no advisory in this run — remove the entry if it is obsolete:",
+    );
+    for (const ex of unusedRepoExceptions) {
+      console.log(`    ${ex.package}  ${ex.advisory}  (${ex.source.file})`);
+    }
+  }
 }
 
 function printReport(
@@ -112,16 +149,7 @@ function printReport(
     }
   }
 
-  const urgentKeys = new Set(expiringUrgent.map((ex) => `${ex.package}|${ex.advisory}`));
-  const expiringSoon = findExpiringSoon(exceptions, 30, nowMs).filter(
-    (ex) => !urgentKeys.has(`${ex.package}|${ex.advisory}`),
-  );
-  if (expiringSoon.length > 0) {
-    console.log("\n  WARN: security exceptions expire within 30 days — re-review:");
-    for (const ex of expiringSoon) {
-      console.log(`    ${ex.package}  ${ex.advisory}  expires=${ex.expires}`);
-    }
-  }
+  printExceptionWarnings(evaluation, exceptions, expiringUrgent, nowMs);
 
   if (shouldBlock(evaluation, expiringUrgent)) {
     console.error(

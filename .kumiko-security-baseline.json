@@ -3,5 +3,12 @@
   "repo": "kumiko-framework",
   "generated": "2026-09-27",
   "total": 0,
+  "hardFail": [
+    "Admin-API Guard",
+    "Direct-Entity-Writes Guard",
+    "Direct-Fetch Guard",
+    "No-Direct-Fs Guard",
+    "Tenant-Escalation Guard"
+  ],
   "findings": {}
 }
