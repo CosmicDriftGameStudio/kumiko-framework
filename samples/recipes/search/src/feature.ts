@@ -37,7 +37,7 @@ export const articleEntity = createEntity({
   softDelete: true,
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    body: createLongTextField({ personal: false, reason: "is_business_data", find: "fuzzy" }),
+    body: createLongTextField({ personal: "tenant", find: "fuzzy" }),
   },
 });
 
