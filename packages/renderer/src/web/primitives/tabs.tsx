@@ -119,7 +119,7 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
         ref={scrollerRef}
         data-scroll-start={scrollStart ? "" : undefined}
         data-scroll-end={scrollEnd ? "" : undefined}
-        className="relative min-w-0 overflow-x-auto border-b border-border px-2.5 [scrollbar-width:none] @lg:px-6 [&::-webkit-scrollbar]:hidden"
+        className="relative min-w-0 overflow-x-auto border-b border-border px-1.5 [scrollbar-width:none] @lg:px-6 [&::-webkit-scrollbar]:hidden"
         style={maskImage !== undefined ? { maskImage, WebkitMaskImage: maskImage } : undefined}
       >
         <TabsList variant="line" className="h-11 gap-2 p-0 @lg:gap-6">
