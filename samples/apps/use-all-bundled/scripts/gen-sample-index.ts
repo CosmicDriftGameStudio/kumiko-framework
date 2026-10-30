@@ -232,6 +232,19 @@ function scanSamples(): Map<string, MutableFeatureRow> {
   return byFeature;
 }
 
+// The docs site builds sample pages from READMEs only; a primarySample without one
+// makes feature-reference link to a page that does not exist.
+export function assertPrimarySampleHasReadme(
+  feature: string,
+  slug: string,
+  readmeExists: boolean,
+): void {
+  if (readmeExists) return;
+  throw new Error(
+    `sample-index.overrides.json: feature "${feature}" has primarySample "${slug}" but ${slug}/README.md does not exist. Add a README.md to that sample (the docs site only generates sample pages from READMEs) or point primarySample at a sample that has one.`,
+  );
+}
+
 export function loadOverrides(): SampleIndexOverrides {
   if (!existsSync(OVERRIDES_PATH)) return {};
   return JSON.parse(readFileSync(OVERRIDES_PATH, "utf-8")) as SampleIndexOverrides;
@@ -257,7 +270,11 @@ export function buildSampleIndex(): SampleIndex {
     const primarySample = override?.primarySample ?? dedicated[0];
     let readmeSummary: string | undefined;
     if (primarySample) {
-      readmeSummary = extractReadmeSummary(join(sampleDirFromSlug(primarySample), "README.md"));
+      const readmePath = join(sampleDirFromSlug(primarySample), "README.md");
+      if (override?.primarySample) {
+        assertPrimarySampleHasReadme(name, primarySample, existsSync(readmePath));
+      }
+      readmeSummary = extractReadmeSummary(readmePath);
     }
 
     features[name] = {
