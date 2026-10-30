@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 type MailFrameStyle = { readonly fontFamily: string; readonly color: string };
 
@@ -33,7 +33,7 @@ function pageStyle(): MailFrameStyle {
   return { fontFamily: computed.fontFamily || "sans-serif", color: computed.color || "inherit" };
 }
 
-/** Renders server-sanitized mail HTML in a script-free, origin-less sandboxed iframe. */
+/** Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content. */
 export function HtmlMailFrame({
   html,
   title,
@@ -45,19 +45,40 @@ export function HtmlMailFrame({
   readonly allowRemoteImages: boolean;
   readonly testId?: string;
 }): ReactNode {
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  const observerRef = useRef<ResizeObserver | null>(null);
   const srcDoc = useMemo(
     () => buildMailSrcDoc(html, { allowRemoteImages, style: pageStyle() }),
     [html, allowRemoteImages],
   );
+
+  const measureContent = useCallback((frame: HTMLIFrameElement) => {
+    observerRef.current?.disconnect();
+    const contentDocument = frame.contentDocument;
+    if (contentDocument === null) return;
+    const measure = () => setHeight(contentDocument.documentElement.scrollHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(contentDocument.body);
+    observerRef.current = observer;
+  }, []);
+
+  const releaseObserverOnUnmount = useCallback((frame: HTMLIFrameElement | null) => {
+    if (frame === null) return undefined;
+    return () => observerRef.current?.disconnect();
+  }, []);
+
   return (
     <iframe
+      ref={releaseObserverOnUnmount}
       title={title}
       data-testid={testId}
-      // No allow-scripts and no allow-same-origin: the frame runs nothing and has an opaque origin.
-      // That also means the parent cannot measure the content, so the frame has a fixed height and scrolls itself.
-      sandbox="allow-popups allow-popups-to-escape-sandbox"
+      // allow-same-origin only lets the parent measure the content height; without allow-scripts nothing in the frame runs.
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       srcDoc={srcDoc}
-      className="block h-[32rem] w-full border-0"
+      onLoad={(event) => measureContent(event.currentTarget)}
+      className="block w-full border-0"
+      style={height === undefined ? undefined : { height }}
     />
   );
 }
