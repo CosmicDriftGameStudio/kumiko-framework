@@ -84,7 +84,12 @@ export {
   type ThreadMessage,
 } from "./message-thread.tsx";
 export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.tsx";
-export { PdfPreview, type PdfPreviewProps, type PdfPreviewSource } from "./pdf-preview.tsx";
+export {
+  type PdfMatchInfo,
+  PdfPreview,
+  type PdfPreviewProps,
+  type PdfPreviewSource,
+} from "./pdf-preview.tsx";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.tsx";
 export {
   PlanCard,

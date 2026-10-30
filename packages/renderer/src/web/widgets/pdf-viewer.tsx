@@ -10,7 +10,7 @@ import {
 } from "react";
 import { pageTextItemsFor } from "./pdf-document.ts";
 import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
-import { clampPage, findMatches, mostVisiblePage } from "./pdf-search.ts";
+import { clampPage, findMatches, mostVisiblePage, type PdfMatchInfo } from "./pdf-search.ts";
 import { PdfThumbnails } from "./pdf-thumbnails.tsx";
 import { PdfViewerToolbar } from "./pdf-viewer-toolbar.tsx";
 
@@ -86,11 +86,19 @@ export function PdfViewer({
   searchTerm = "",
   initialPage = 1,
   onPageChange,
+  matchIndex: controlledMatchIndex,
+  onMatchesChange,
+  hideSearchBar = false,
 }: {
   readonly document: PDFDocumentProxy;
   readonly searchTerm?: string;
   readonly initialPage?: number;
   readonly onPageChange?: (page: number) => void;
+  /** 0-based active match; makes stepping host-controlled (the viewer scrolls to and marks that hit). */
+  readonly matchIndex?: number;
+  readonly onMatchesChange?: (info: PdfMatchInfo) => void;
+  /** Hides the toolbar's search toggle and controls, for hosts that render their own. */
+  readonly hideSearchBar?: boolean;
 }): ReactNode {
   const pageCount = document.numPages;
   const firstPageSize = useFirstPageSize(document);
@@ -99,7 +107,8 @@ export function PdfViewer({
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [searchOpen, setSearchOpen] = useState(searchTerm !== "");
   const [term, setTerm] = useState(searchTerm);
-  const [matchIndex, setMatchIndex] = useState(0);
+  const [internalMatchIndex, setMatchIndex] = useState(0);
+  const matchIndex = controlledMatchIndex ?? internalMatchIndex;
   const zoom = ZOOM_STEPS[zoomIndex] ?? 1;
 
   const pageTexts = usePageTexts(document, searchOpen && term.trim() !== "");
@@ -107,7 +116,14 @@ export function PdfViewer({
     () => (pageTexts === null || term.trim() === "" ? [] : findMatches(pageTexts, term)),
     [pageTexts, term],
   );
-  const activeMatch = matches[Math.min(matchIndex, Math.max(0, matches.length - 1))];
+  const clampedMatchIndex = Math.min(matchIndex, Math.max(0, matches.length - 1));
+  const activeMatch = matches[clampedMatchIndex];
+
+  const reportMatches = useEffectEvent((info: PdfMatchInfo) => onMatchesChange?.(info));
+  const matchCount = matches.length;
+  useEffect(() => {
+    reportMatches({ count: matchCount, index: clampedMatchIndex });
+  }, [matchCount, clampedMatchIndex]);
 
   const goToPage = useCallback(
     (page: number) => {
@@ -145,7 +161,7 @@ export function PdfViewer({
     setMatchIndex((index) => (index + direction + matches.length) % matches.length);
   };
 
-  const highlightTerm = searchOpen ? term.trim() : "";
+  const highlightTerm = searchOpen || hideSearchBar ? term.trim() : "";
   return (
     <div
       data-testid="pdf-viewer"
@@ -169,7 +185,7 @@ export function PdfViewer({
             open: searchOpen,
             term,
             matchCount: matches.length,
-            matchIndex: Math.min(matchIndex, Math.max(0, matches.length - 1)),
+            matchIndex: clampedMatchIndex,
           }}
           onToggleSearch={() => setSearchOpen((open) => !open)}
           onTermChange={(next) => {
@@ -177,6 +193,7 @@ export function PdfViewer({
             setMatchIndex(0);
           }}
           onStepMatch={stepMatch}
+          hideSearch={hideSearchBar}
         />
         <div ref={scrollerRef} className="min-h-0 grow overflow-auto p-5">
           <div className="mx-auto flex w-max min-w-full flex-col gap-3">

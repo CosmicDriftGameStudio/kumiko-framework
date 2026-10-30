@@ -4,9 +4,11 @@ import { type ReactNode, Suspense, use, useEffect } from "react";
 import { useTranslation } from "../../i18n.tsx";
 import { documentCache, documentFor, documentKey, type PdfPreviewSource } from "./pdf-document.ts";
 import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
+import type { PdfMatchInfo } from "./pdf-search.ts";
 import { PdfViewer } from "./pdf-viewer.tsx";
 
 export type { PdfPreviewSource } from "./pdf-document.ts";
+export type { PdfMatchInfo } from "./pdf-search.ts";
 
 export type PdfPreviewProps = {
   readonly source: PdfPreviewSource;
@@ -18,6 +20,12 @@ export type PdfPreviewProps = {
   /** 1-based page to open on. */
   readonly initialPage?: number;
   readonly onPageChange?: (page: number) => void;
+  /** Viewer only: 0-based active match, controlled by the host (e.g. its own "Treffer 1 von 3" stepper). */
+  readonly matchIndex?: number;
+  /** Viewer only: reports the match count and active index whenever either changes. */
+  readonly onMatchesChange?: (info: PdfMatchInfo) => void;
+  /** Viewer only: hides the toolbar's own search controls. */
+  readonly hideSearchBar?: boolean;
 };
 
 function StackedPages({ document }: { document: PDFDocumentProxy }): ReactNode {
@@ -43,9 +51,9 @@ function Pages({
   variant,
   searchTerm,
   initialPage,
-  onPageChange,
+  ...viewerProps
 }: Required<Pick<PdfPreviewProps, "variant">> &
-  Pick<PdfPreviewProps, "source" | "searchTerm" | "initialPage" | "onPageChange">): ReactNode {
+  Omit<PdfPreviewProps, "variant" | "testId">): ReactNode {
   const t = useTranslation();
   const loaded = use(documentFor(source));
   // A mounted preview keeps its document out of the eviction: destroying it blanks its pages.
@@ -60,7 +68,7 @@ function Pages({
         document={loaded.document}
         searchTerm={searchTerm}
         initialPage={initialPage}
-        onPageChange={onPageChange}
+        {...viewerProps}
       />
     );
   }
@@ -74,7 +82,7 @@ export function PdfPreview({
   variant = "stacked",
   searchTerm,
   initialPage,
-  onPageChange,
+  ...viewerProps
 }: PdfPreviewProps): ReactNode {
   const t = useTranslation();
   return (
@@ -96,7 +104,7 @@ export function PdfPreview({
           variant={variant}
           searchTerm={searchTerm}
           initialPage={initialPage}
-          onPageChange={onPageChange}
+          {...viewerProps}
         />
       </Suspense>
     </div>

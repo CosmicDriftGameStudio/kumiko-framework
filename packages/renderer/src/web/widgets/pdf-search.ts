@@ -4,6 +4,12 @@ export type PdfMatch = {
   readonly ordinalOnPage: number;
 };
 
+export type PdfMatchInfo = {
+  readonly count: number;
+  /** 0-based index of the active match. */
+  readonly index: number;
+};
+
 export const HIT_CLASS = "pdf-hit";
 export const ACTIVE_HIT_CLASS = "pdf-hit-active";
 

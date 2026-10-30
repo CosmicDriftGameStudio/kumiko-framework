@@ -224,6 +224,7 @@ export type {
   MessageThreadProps,
   ModeSwitchVariant,
   NumberFieldProps,
+  PdfMatchInfo,
   PdfPreviewProps,
   PdfPreviewSource,
   PhotoSlotSpec,
