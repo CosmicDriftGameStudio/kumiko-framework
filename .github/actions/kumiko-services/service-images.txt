@@ -1,9 +1,9 @@
 # Single place where CI service images are pinned: <key> <upstream-ref-with-tag> <index-digest>
 # Update = change the line (tag + multi-arch index digest from `docker buildx imagetools inspect <ref>`).
 # After merge, the "Mirror CI service images" workflow copies the new digest to GHCR.
-postgres docker.io/library/postgres:18.4-alpine sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
-redis docker.io/library/redis:8-alpine sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
-meilisearch docker.io/getmeili/meilisearch:v1.12 sha256:c9fac23131cca4db95173d41cc50fd5639121ee381795528fdd7522d7978a7b8
-rustfs docker.io/rustfs/rustfs:1.0.0 sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
-aws-cli docker.io/amazon/aws-cli:2.37.1 sha256:b0dd5a4d216a1786863541a201baa7b7b4c5032bec9c6e72c38d01cafd7e8db8
-greenmail docker.io/greenmail/standalone:2.1.0 sha256:308685b99ad840f05bd2dee43f47f7956f876adbf396523f68166f078300cd29
+postgres docker.io/library/postgres:18.6-alpine sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+redis docker.io/library/redis:8-alpine sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+meilisearch docker.io/getmeili/meilisearch:v1.56 sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
+rustfs docker.io/rustfs/rustfs:1.0.4 sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
+aws-cli docker.io/amazon/aws-cli:2.39.2 sha256:ed0f6b551cd77b6f34e240488739e4cb90b7534409d404a0c9a2be05c4690ca1
+greenmail docker.io/greenmail/standalone:2.1.15 sha256:309ba544ea482e5d4265d09921cdab07c8dad2cc4481d715c9b8ff5d3f0a149f
