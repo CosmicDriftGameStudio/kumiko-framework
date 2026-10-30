@@ -8,6 +8,10 @@ import {
   type Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import {
+  type MaintenanceWindow,
+  maintenanceWindowFromEnv,
+} from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { type RedisNamespace, redisNamespaceFromEnv } from "@cosmicdrift/kumiko-framework/redis";
 import { resolveBootCrypto } from "./boot/boot-crypto.ts";
@@ -60,6 +64,7 @@ export type ProdBootConfig = {
   readonly rowLevelSecurity: RowLevelSecurityMode;
   readonly redisUrl: string;
   readonly redisNamespace: RedisNamespace;
+  readonly maintenanceWindow: MaintenanceWindow;
   // Only the env value; the effective drain budget is resolveDrainTimeoutMs(signals option, this).
   readonly shutdownDrainTimeoutMs: number | undefined;
   readonly jwtSecret: string;
@@ -122,6 +127,7 @@ export async function resolveProdBootConfig(
   const databaseUrl = requireEnv("DATABASE_URL", envSource);
   const redisUrl = requireEnv("REDIS_URL", envSource);
   const redisNamespace = redisNamespaceFromEnv(envSource);
+  const maintenanceWindow = maintenanceWindowFromEnv(envSource);
   const shutdownDrainTimeoutMs = readShutdownDrainTimeoutMs(envSource);
   // JWT_SECRET stays mandatory (also the resolveAuthMail hmacSecret
   // fallback below — a separate, non-rotating HMAC token family, not the
@@ -170,6 +176,7 @@ export async function resolveProdBootConfig(
     rowLevelSecurity: options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE,
     redisUrl,
     redisNamespace,
+    maintenanceWindow,
     shutdownDrainTimeoutMs,
     jwtSecret,
     jwtSecretOrKeyring,

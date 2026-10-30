@@ -9,6 +9,7 @@ import type {
   TenantId,
 } from "../engine/types/index.ts";
 import type { RedisNamespace } from "../redis/client.ts";
+import type { MaintenanceWindow } from "./maintenance-window.ts";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -116,6 +117,9 @@ export type JobRunnerOptions = {
   // Key namespace on a shared Redis (see redisNamespaceFromEnv). Enqueuer and consumer must receive
   // the same value, otherwise they use different BullMQ key spaces and jobs are silently lost.
   redisNamespace?: Pick<RedisNamespace, "keyPrefix" | "bullmqPrefix"> | undefined;
+  // UTC time of day for `{ maintenance: true }` jobs (default 03:00). Read when the runner starts,
+  // so changing it re-registers the schedulers on the next boot.
+  maintenanceWindow?: MaintenanceWindow | undefined;
   // Override how long start() waits for the worker's Redis connection
   // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
   // to keep an unreachable-Redis assertion fast.

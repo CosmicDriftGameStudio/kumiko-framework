@@ -321,6 +321,7 @@ function buildJobRunnerWithHook(
     consumerLane,
     queueNamePrefix: jobs.queueNamePrefix,
     redisNamespace: jobs.redisNamespace,
+    maintenanceWindow: jobs.maintenanceWindow,
     getActiveTenantIds: jobs.getActiveTenantIds,
     onJobStart: jobs.onJobStart,
     onJobComplete: jobs.onJobComplete,

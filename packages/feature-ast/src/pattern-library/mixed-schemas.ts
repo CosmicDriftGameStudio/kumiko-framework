@@ -220,7 +220,7 @@ export const hookSchema: PatternFormSchema = {
 export const jobSchema: PatternFormSchema = {
   kind: "job",
   label: { en: "Job", de: "Job" },
-  summary: { en: "Scheduled background job (cron / interval)." },
+  summary: { en: "Background job (event, cron, daily maintenance window or manual)." },
   category: "background",
   editability: "mixed",
   fields: [

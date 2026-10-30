@@ -97,3 +97,22 @@ describe("cron trigger tz", () => {
     expect(() => featureWithTz(tz)).toThrow(/r\.job\("nightly"\) declares trigger/);
   });
 });
+
+describe("maintenance trigger", () => {
+  test("is kept on the registered job", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.job("tidy", { trigger: { maintenance: true } }, async () => {});
+    });
+    expect(createRegistry([feature]).getJob("shop:job:tidy")?.trigger).toEqual({
+      maintenance: true,
+    });
+  });
+
+  test.each([false, "03:00", 1])("value %p is rejected at declaration", (value) => {
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.job("tidy", { trigger: { maintenance: value as never } }, async () => {});
+      }),
+    ).toThrow(/r\.job\("tidy"\) declares trigger \{ maintenance/);
+  });
+});

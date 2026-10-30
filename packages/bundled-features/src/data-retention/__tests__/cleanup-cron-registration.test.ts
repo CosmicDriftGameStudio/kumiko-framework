@@ -17,7 +17,7 @@ describe("retention-cleanup cron registration", () => {
 
     expect(job).toBeDefined();
     expect(job?.perTenant).toBe(true);
-    expect(job?.trigger).toEqual({ cron: "0 3 * * *" });
+    expect(job?.trigger).toEqual({ maintenance: true });
     expect(job?.concurrency).toBe("skip");
   });
 });

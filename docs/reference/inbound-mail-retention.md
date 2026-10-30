@@ -11,7 +11,7 @@ und warum die tatsächliche PII-Löschung eine bewusste Grenze hat.
 
 ## Retention-Mechanismus
 
-Ein `perTenant`-Cron (`inbound-mail-retention`, täglich 03:00) räumt zwei
+Ein `perTenant`-Cron (`inbound-mail-retention`, täglich im Wartungsfenster, Standard 03:00 UTC, `KUMIKO_MAINTENANCE_WINDOW`) räumt zwei
 Stores. Beide Fristen sind Konstanten (`retention-sweep.ts`), Default
 365 Tage für Messages, 90 für Seen-Anker.
 

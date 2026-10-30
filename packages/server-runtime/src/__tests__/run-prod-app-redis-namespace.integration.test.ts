@@ -355,3 +355,11 @@ describe("runProdApp shutdown with a running job", () => {
     gate.release.resolve();
   });
 });
+
+describe("runProdApp maintenance window", () => {
+  test("an invalid KUMIKO_MAINTENANCE_WINDOW aborts the boot", async () => {
+    await expect(
+      boot(bootEnv({ KUMIKO_MAINTENANCE_WINDOW: "25:00" }), `nswin${uniqueSuffix()}`),
+    ).rejects.toThrow(/KUMIKO_MAINTENANCE_WINDOW/);
+  });
+});

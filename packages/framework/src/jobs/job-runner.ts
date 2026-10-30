@@ -29,7 +29,7 @@ import { attachOutsideTransaction } from "../pipeline/attach-outside-transaction
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
-import { cronRepeatOptions } from "./cron-repeat-options.ts";
+import { isScheduledTrigger, scheduleRepeatOptions } from "./cron-repeat-options.ts";
 import { createJobEventTriggers } from "./job-runner-event-triggers.ts";
 import { applyHandlerDeferral, executeJobInSpan } from "./job-runner-execution.ts";
 import {
@@ -402,7 +402,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   function cronSchedulerIdsForLane(lane: JobRunIn): Set<string> {
     const ids = new Set<string>();
     for (const [name, jobDef] of allJobs) {
-      if (laneForJob(jobDef) === lane && "cron" in jobDef.trigger) {
+      if (laneForJob(jobDef) === lane && isScheduledTrigger(jobDef.trigger)) {
         ids.add(schedulerIdForJobName(name));
       }
     }
@@ -412,10 +412,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   async function upsertCronSchedulers(queue: Queue, lane: JobRunIn): Promise<void> {
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
-      if ("cron" in jobDef.trigger) {
+      if (isScheduledTrigger(jobDef.trigger)) {
         await queue.upsertJobScheduler(
           schedulerIdForJobName(name),
-          cronRepeatOptions(jobDef.trigger),
+          scheduleRepeatOptions(jobDef.trigger, options.maintenanceWindow),
           {
             name: jobDef.perTenant ? `${PER_TENANT_PREFIX}${name}` : name,
             data: {},

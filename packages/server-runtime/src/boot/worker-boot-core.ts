@@ -28,6 +28,7 @@ import {
   type WorkerEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { maintenanceWindowFromEnv } from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
@@ -159,6 +160,7 @@ export async function bootWorkerProcess(
   const databaseUrl = requireEnv("DATABASE_URL", envSource, processName);
   const redisUrl = requireEnv("REDIS_URL", envSource, processName);
   const redisNamespace = redisNamespaceFromEnv(envSource);
+  const maintenanceWindow = maintenanceWindowFromEnv(envSource);
   const shutdownDrainTimeoutMs = readShutdownDrainTimeoutMs(envSource);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
   const rowLevelSecurity = options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE;
@@ -319,6 +321,7 @@ export async function bootWorkerProcess(
     ...(options.observability && { observability: options.observability }),
     redisUrl,
     redisNamespace,
+    maintenanceWindow,
     ...jobLogger,
     ...(options.jobs?.queueNamePrefix !== undefined && {
       queueNamePrefix: options.jobs.queueNamePrefix,

@@ -71,7 +71,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
     // retention rules are configured but never enforced.
     r.job({
       name: "retention-cleanup",
-      trigger: { cron: "0 3 * * *" },
+      trigger: { maintenance: true },
       perTenant: true,
       concurrency: "skip",
       escapeHatch: {

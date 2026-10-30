@@ -102,6 +102,22 @@ so the default queues are `kumiko-jobs-api` and `kumiko-jobs-worker`:
 
 Without `KUMIKO_REDIS_PREFIX` the keys are `bull:<queueName>:...`.
 
+### Maintenance window
+
+Cleanup jobs of the framework and the bundled features (orphaned uploads, stale job runs, soft-delete
+cleanup, data retention, GDPR export and forget, audit and mail retention, delivery attempt log,
+form drafts) use `trigger: { maintenance: true }`: one run a day, all at the same minute. Each
+run is a delayed BullMQ job in Redis, so a sleeping app that is woken by due delayed jobs wakes
+once a day for all of them instead of once per cron time.
+
+| Variable | Effect |
+|---|---|
+| `KUMIKO_MAINTENANCE_WINDOW` | `HH:MM` in UTC, for example `05:30`. Unset or empty means `03:00`. Anything else aborts the boot. Read at every start: a changed value replaces the scheduler with the new time on the next boot. |
+
+Set a different window per app to keep many apps on one host from starting at the same minute. Use
+the same value on every process of the app (API and worker). An app's own `{ cron }` jobs keep
+their own times and each of them is one more wake-up.
+
 ## + Meilisearch
 
 Only needed if a feature registers a search index

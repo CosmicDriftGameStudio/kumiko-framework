@@ -28,7 +28,7 @@ describe("registry soft-delete auto-wiring", () => {
     expect(registry.getAllJobs().has(SOFT_DELETE_CLEANUP_JOB)).toBe(true);
     expect(registry.getAllConfigKeys().has(SOFT_DELETE_GRACE_DAYS_KEY)).toBe(true);
     const job = registry.getJob(SOFT_DELETE_CLEANUP_JOB);
-    expect(job?.trigger).toEqual({ cron: "0 3 * * *" });
+    expect(job?.trigger).toEqual({ maintenance: true });
     expect(job?.perTenant).toBe(true);
     const key = registry.getConfigKey(SOFT_DELETE_GRACE_DAYS_KEY);
     expect(key?.type).toBe("number");

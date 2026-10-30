@@ -25,11 +25,11 @@ import { InternalError } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
 import { createMetricsForFactory } from "../observability/index.ts";
-
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { buildContextServices } from "../pipeline/context-services.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
+import { isScheduledTrigger } from "./cron-repeat-options.ts";
 import { createJobAppendEvent } from "./job-append-event.ts";
 import {
   attemptNumberOf,
@@ -151,7 +151,9 @@ function createJobEscapeHatchReporter(
   const { jobName, jobDef, tenantId, triggeredById } = input;
   // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
   const isSystemCronRun =
-    triggeredById === null && jobDef.escapeHatch !== undefined && "cron" in jobDef.trigger;
+    triggeredById === null &&
+    jobDef.escapeHatch !== undefined &&
+    isScheduledTrigger(jobDef.trigger);
   return createEscapeHatchReporter({
     handler: jobName,
     tenantId,

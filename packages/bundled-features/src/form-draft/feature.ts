@@ -43,7 +43,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   r.config({ keys: { retentionDays: formDraftRetentionDaysConfig } });
   r.job({
     name: "cleanup",
-    trigger: { cron: "0 3 * * *" },
+    trigger: { maintenance: true },
     concurrency: "skip",
     escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
     handler: (payload, ctx) =>

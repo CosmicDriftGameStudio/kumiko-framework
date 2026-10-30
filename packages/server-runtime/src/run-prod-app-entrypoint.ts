@@ -89,11 +89,13 @@ function prodJobOptions(
   options: RunProdAppOptions,
   composed: ProdComposedFeatures,
   connections: ProdConnections,
+  config: ProdBootConfig,
 ) {
   const queueNamePrefix = options.jobs?.queueNamePrefix;
   return {
     ...jobRunLoggerCallbacks(composed.registry, connections.db),
     redisNamespace: connections.redisNamespace,
+    maintenanceWindow: config.maintenanceWindow,
     ...(queueNamePrefix !== undefined && { queueNamePrefix }),
     ...(options.jobs?.getActiveTenantIds !== undefined && {
       getActiveTenantIds: options.jobs.getActiveTenantIds,
@@ -119,7 +121,7 @@ export function createProdEntrypoint(
 ): ProdEntrypoint {
   const runSingleInstance = options.runSingleInstance ?? options.eventDispatcher?.disabled !== true;
   const hasJobs = composed.registry.getAllJobs().size > 0;
-  const jobOptions = prodJobOptions(options, composed, connections);
+  const jobOptions = prodJobOptions(options, composed, connections, config);
   const dispatcherTunables =
     options.eventDispatcher?.pollIntervalMs !== undefined
       ? { pollIntervalMs: options.eventDispatcher.pollIntervalMs }

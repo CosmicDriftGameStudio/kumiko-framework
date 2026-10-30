@@ -45,6 +45,25 @@ import { requireArgument, splitNamedDefinition, unwrapArrayForm } from "./object
 import { QnTypes, qn, toKebab } from "./qualified-name.ts";
 import type { EventPiiStance } from "./types/index.ts";
 
+function assertScheduleTrigger(
+  featureName: string,
+  jobName: string,
+  trigger: JobDefinition["trigger"],
+): void {
+  if ("maintenance" in trigger && trigger.maintenance !== true) {
+    throw new Error(
+      `[Feature ${featureName}] r.job("${jobName}") declares trigger { maintenance: ${JSON.stringify(trigger.maintenance)} } — ` +
+        "the only valid value is true; the run time comes from KUMIKO_MAINTENANCE_WINDOW.",
+    );
+  }
+  if ("cron" in trigger && trigger.tz !== undefined && !isValidIanaTimeZone(trigger.tz)) {
+    throw new Error(
+      `[Feature ${featureName}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(trigger.tz)} } — ` +
+        'tz must be an IANA time zone name such as "Europe/Berlin".',
+    );
+  }
+}
+
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
@@ -178,15 +197,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
         );
       }
-      if ("cron" in jobOptions.trigger && jobOptions.trigger.tz !== undefined) {
-        const tz = jobOptions.trigger.tz;
-        if (!isValidIanaTimeZone(tz)) {
-          throw new Error(
-            `[Feature ${name}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(tz)} } — ` +
-              'tz must be an IANA time zone name such as "Europe/Berlin".',
-          );
-        }
-      }
+      assertScheduleTrigger(name, jobName, jobOptions.trigger);
       // Resolve NameOrRef(s) in trigger.on. For the multi-trigger form, arrays
       // become arrays of resolved strings while a single value remains a string;
       // the job runner distinguishes them with Array.isArray.

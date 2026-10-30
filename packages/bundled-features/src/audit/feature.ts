@@ -77,7 +77,7 @@ export function createAuditFeature(): FeatureDefinition {
 
       r.job({
         name: "escape-hatch-retention",
-        trigger: { cron: "30 3 * * *" },
+        trigger: { maintenance: true },
         concurrency: "skip",
         // pruneEvents needs a transaction-capable connection, which only unsafeRaw() hands a job.
         escapeHatch: {

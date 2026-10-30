@@ -30,7 +30,12 @@ import {
   type TestDb,
   type TestRedis,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
+import {
+  createLaneRoutingFeature,
+  pruneRuns,
+  renderedReceipts,
+  sentConfirmations,
+} from "../feature";
 
 const JWT = "lane-routing-sample-secret-minimum-32-chars!";
 const adminUser = TestUsers.admin;
@@ -52,6 +57,7 @@ afterAll(async () => {
 afterEach(() => {
   renderedReceipts.length = 0;
   sentConfirmations.length = 0;
+  pruneRuns.length = 0;
 });
 
 describe("lane-routing sample", () => {
@@ -93,6 +99,30 @@ describe("lane-routing sample", () => {
         expect(renderedReceipts[0]?.customerName).toBe("Acme GmbH");
         expect(sentConfirmations[0]?.amount).toBe(299);
       });
+    } finally {
+      await entry.stop();
+    }
+  });
+
+  test("a maintenance job is registered for the daily window and runs on the worker lane", async () => {
+    const registry = createRegistry([createLaneRoutingFeature()]);
+    expect(registry.getJob("orders:job:prune-old-receipts")?.trigger).toEqual({
+      maintenance: true,
+    });
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `lane-routing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      maintenanceWindow: { hour: 5, minute: 30 },
+    });
+    await entry.start();
+    try {
+      await entry.jobRunner.dispatch("orders:job:prune-old-receipts", {});
+      await waitFor(() => expect(pruneRuns).toHaveLength(1));
     } finally {
       await entry.stop();
     }

@@ -1261,6 +1261,7 @@ type JobRunnerOptions = {
   consumerLane?: JobRunIn | undefined;
   queueNamePrefix?: string | undefined;
   redisNamespace?: Pick<RedisNamespace, "keyPrefix" | "bullmqPrefix"> | undefined;
+  maintenanceWindow?: MaintenanceWindow | undefined;
   bootRedisTimeoutMs?: number | undefined;
   schedulerSeenRefreshMs?: number | undefined;
   jobRetention?: { completedAgeSec?: number | undefined; failedAgeSec?: number | undefined; } | undefined;
@@ -1271,6 +1272,15 @@ type JobRunnerOptions = {
   onJobDeferred?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
   onJobDropped?: (jobName: string, jobId: string, meta: JobDroppedMeta) => void;
+};
+```
+
+## packages/framework/src/jobs/maintenance-window.ts
+
+```ts
+type MaintenanceWindow = {
+  hour: number;
+  minute: number;
 };
 ```
 
