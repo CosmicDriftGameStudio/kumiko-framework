@@ -36,11 +36,15 @@ A typical app has two mounts sharing locale and primitives:
 
 ```tsx illustration
 import {
-  ForgotPasswordScreen, SignupScreen, createLoginRoute,
-  AuthShellProvider, emailPasswordClient,
+  ForgotPasswordScreen,
+  SignupScreen,
+  createLoginRoute,
+  AuthShellProvider,
+  emailPasswordClient,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
-  RequestAccountDeletionScreen, ConfirmAccountDeletionScreen,
+  RequestAccountDeletionScreen,
+  ConfirmAccountDeletionScreen,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 
@@ -51,7 +55,7 @@ import { createPublicSurface } from "@cosmicdrift/kumiko-renderer/web";
 const LoginRoute = createLoginRoute({ loginScreenProps: { signupHref: "/signup" } });
 
 createPublicSurface({
-  clientFeatures: [emailPasswordClient()],   // SessionProvider + i18n
+  clientFeatures: [emailPasswordClient()], // SessionProvider + i18n
   shell: ({ children }) => (
     <MarketingChrome>
       <AuthShellProvider shell={(card) => <div className="py-12 flex justify-center">{card}</div>}>
@@ -60,10 +64,10 @@ createPublicSurface({
     </MarketingChrome>
   ),
   routes: [
-    { path: "/login",           component: <LoginRoute /> },
-    { path: "/signup",          component: <SignupScreen loginHref="/login" /> },
+    { path: "/login", component: <LoginRoute /> },
+    { path: "/signup", component: <SignupScreen loginHref="/login" /> },
     { path: "/forgot-password", component: <ForgotPasswordScreen loginHref="/login" /> },
-    { path: "/delete-account",         component: <RequestAccountDeletionScreen /> },
+    { path: "/delete-account", component: <RequestAccountDeletionScreen /> },
     { path: "/delete-account/confirm", component: <ConfirmAccountDeletionScreen /> },
   ],
   fallback: <LoginRoute />,
@@ -98,8 +102,8 @@ runProdApp({
 
 GDPR Art. 17 applies when the user **cannot log in** (lockout). The flow is
 email-verified (magic link), not login-gated. The HMAC token carries `userId`
-+ expiry (no DB table); purpose `"deletion-request"` blocks replay on other
-token endpoints. Second confirm is idempotent (`user_not_in_active_state`).
+- expiry (no DB table); purpose `"deletion-request"` blocks replay on other
+  token endpoints. Second confirm is idempotent (`user_not_in_active_state`).
 
 ## Tests
 

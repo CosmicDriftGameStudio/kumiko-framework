@@ -64,12 +64,12 @@ role vocabulary overrides those instead of forking the feature.
 
 ## Why the schema needs a special case
 
-`buildInsertSchema` always makes `currency` required *inside* a money field's
+`buildInsertSchema` always makes `currency` required _inside_ a money field's
 value object, even when the field itself is optional — a caller literally
 cannot submit `{ amount: 1000 }` against the plain `defineEntityCreateHandler`.
 `defineCreateWithTenantDefaults` swaps in its own schema (`.extend()` over the
 same `buildInsertSchema` output, with just the declared `currencyFields`
-relaxed) so the caller *can* omit `currency`, then fills it from
+relaxed) so the caller _can_ omit `currency`, then fills it from
 `ctx.config(TenantSettingsConfig.currency)` before delegating to the same
 `executor.create()` the generic factory uses.
 
@@ -82,13 +82,13 @@ changes them from **Settings → Tenant → Default Currency / Default Locale**.
 
 ## Flow
 
-1. No tenant override yet → a new invoice gets the *feature's own* default
+1. No tenant override yet → a new invoice gets the _feature's own_ default
    (`"EUR"`/`"en"`, set via `createTenantSettingsFeature()`'s own defaults).
 2. Tenant sets `currency` to `"CHF"` and `locale` to `"de"` via the
    Settings-Hub (or `config:write:set` directly).
 3. A new invoice that doesn't specify `amount.currency`/`language` picks up
    `"CHF"`/`"de"` — no entity code changed, no second migration.
-4. A caller that *does* specify `amount.currency` still wins — the tenant
+4. A caller that _does_ specify `amount.currency` still wins — the tenant
    setting only fills gaps, it never overrides an explicit value.
 
 ## Tests

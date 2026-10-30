@@ -12,7 +12,7 @@ never mounted, and nothing caught it — until now.
   ctx exposing every mounted feature. Throw to fail the boot with a clear,
   feature-prefixed message.
 - **Conditional invariants `r.requires` can't express** — the check only
-  fails when *this* feature's own shape demands it (has a PII field), not
+  fails when _this_ feature's own shape demands it (has a PII field), not
   unconditionally. A plain `r.requires({ features: ["user-data-hook"] })` would fail even
   for a prompt-store variant with no PII fields at all.
 - **`validateBoot`** — the framework's boot-time validator, run directly
@@ -38,7 +38,7 @@ user-data-hook → companion feature the check requires when PII is present
 
 ## When to reach for it
 
-You're writing a feature whose validity depends on *another* feature being
+You're writing a feature whose validity depends on _another_ feature being
 mounted, but only under a condition your feature alone can evaluate (e.g.
 "only if I have PII fields", "only if I expose more than N screens"). If the
 requirement is unconditional, `r.requires`/`r.optionalRequires` is simpler

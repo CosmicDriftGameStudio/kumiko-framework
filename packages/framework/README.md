@@ -47,7 +47,9 @@ export const taskFeature = defineFeature("tasks", (r) => {
     write: { access: { roles: ["User"] } },
     read: {
       access: {
-        openToAll: { reason: "any signed-in user may list and view tasks; only writes are role-gated" },
+        openToAll: {
+          reason: "any signed-in user may list and view tasks; only writes are role-gated",
+        },
       },
     },
   });
@@ -80,22 +82,22 @@ export const taskFeature = defineFeature("tasks", (r) => {
 
 ## Package exports
 
-| Entry | What's in it |
-|---|---|
-| `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field helpers, access rules, registry |
-| `@cosmicdrift/kumiko-framework/db` | `deriveEntityTableMeta`, `createEventStoreExecutor`, migrations, tenant-db |
-| `@cosmicdrift/kumiko-framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf` |
-| `@cosmicdrift/kumiko-framework/pipeline` | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
-| `@cosmicdrift/kumiko-framework/api` | `buildServer`, auth middleware, SSE route, error contract |
-| `@cosmicdrift/kumiko-framework/auth` | JWT helper, password hashing, session users |
-| `@cosmicdrift/kumiko-framework/search` | `SearchAdapter` interface, in-memory adapter, Meili wrapper |
-| `@cosmicdrift/kumiko-framework/jobs` | BullMQ-backed job runner, cron scheduling |
-| `@cosmicdrift/kumiko-framework/files` | Signed-URL upload/download, tenant-scoped storage |
-| `@cosmicdrift/kumiko-framework/i18n` | i18next setup, per-feature translation registration |
-| `@cosmicdrift/kumiko-framework/ui` | React hooks (Zustand stores, SSE subscription, optimistic mutations) |
-| `@cosmicdrift/kumiko-testing/stack` | `setupTestStack`, `createTestDb`, request helpers |
-| `@cosmicdrift/kumiko-framework/utils` | Safe JSON, qualified-name helpers |
-| `@cosmicdrift/kumiko-framework/errors` | Error classes, `writeFailure`, reason contracts |
+| Entry                                       | What's in it                                                                           |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `@cosmicdrift/kumiko-framework/engine`      | `defineFeature`, `createEntity`, field helpers, access rules, registry                 |
+| `@cosmicdrift/kumiko-framework/db`          | `deriveEntityTableMeta`, `createEventStoreExecutor`, migrations, tenant-db             |
+| `@cosmicdrift/kumiko-framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf`                         |
+| `@cosmicdrift/kumiko-framework/pipeline`    | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
+| `@cosmicdrift/kumiko-framework/api`         | `buildServer`, auth middleware, SSE route, error contract                              |
+| `@cosmicdrift/kumiko-framework/auth`        | JWT helper, password hashing, session users                                            |
+| `@cosmicdrift/kumiko-framework/search`      | `SearchAdapter` interface, in-memory adapter, Meili wrapper                            |
+| `@cosmicdrift/kumiko-framework/jobs`        | BullMQ-backed job runner, cron scheduling                                              |
+| `@cosmicdrift/kumiko-framework/files`       | Signed-URL upload/download, tenant-scoped storage                                      |
+| `@cosmicdrift/kumiko-framework/i18n`        | i18next setup, per-feature translation registration                                    |
+| `@cosmicdrift/kumiko-framework/ui`          | React hooks (Zustand stores, SSE subscription, optimistic mutations)                   |
+| `@cosmicdrift/kumiko-testing/stack`         | `setupTestStack`, `createTestDb`, request helpers                                      |
+| `@cosmicdrift/kumiko-framework/utils`       | Safe JSON, qualified-name helpers                                                      |
+| `@cosmicdrift/kumiko-framework/errors`      | Error classes, `writeFailure`, reason contracts                                        |
 
 ## Core concepts
 

@@ -17,13 +17,13 @@ defineFeature("notes", (r) => {
   r.useExtension(EXT_USER_DATA, "note", {
     export: async (ctx) => ({
       entity: "note",
-      rows: await ctx.db.select().from(notesTable)
-        .where(and(eq(notesTable.tenantId, ctx.tenantId),
-                   eq(notesTable.authorId, ctx.userId))),
+      rows: await ctx.db
+        .select()
+        .from(notesTable)
+        .where(and(eq(notesTable.tenantId, ctx.tenantId), eq(notesTable.authorId, ctx.userId))),
     }),
     delete: async (ctx, strategy) => {
-      const where = and(eq(notesTable.tenantId, ctx.tenantId),
-                        eq(notesTable.authorId, ctx.userId));
+      const where = and(eq(notesTable.tenantId, ctx.tenantId), eq(notesTable.authorId, ctx.userId));
       if (strategy === "anonymize") {
         await ctx.db.update(notesTable).set({ authorId: null }).where(where);
       } else {
@@ -36,21 +36,21 @@ defineFeature("notes", (r) => {
 
 ## What runs automatically
 
-| Article | What happens | Trigger |
-|---|---|---|
+| Article      | What happens                                   | Trigger                                |
+| ------------ | ---------------------------------------------- | -------------------------------------- |
 | Art. 15 + 20 | Notes snippet in export ZIP + magic-link email | `runUserExport` (via `request-export`) |
-| Art. 17 | Notes deleted or anonymized after grace | `runForgetCleanup` cron |
-| Art. 18 | Restriction blocks login while active | Auth middleware |
-| Operator | Brute-force detection on magic-link endpoint | Edge rate-limit + audit log |
+| Art. 17      | Notes deleted or anonymized after grace        | `runForgetCleanup` cron                |
+| Art. 18      | Restriction blocks login while active          | Auth middleware                        |
+| Operator     | Brute-force detection on magic-link endpoint   | Edge rate-limit + audit log            |
 
 ## Strategy-aware delete
 
 `retention.policyFor("note")` resolves per entity:
 
-| Profile | Strategy | Effect |
-|---|---|---|
-| `eu-dsgvo` (default) | `delete` | Notes hard-deleted |
-| `de-hr-dsgvo-hgb` | `anonymize` for HR entities | `authorId=null`, row kept for multi-user refs |
+| Profile              | Strategy                    | Effect                                        |
+| -------------------- | --------------------------- | --------------------------------------------- |
+| `eu-dsgvo` (default) | `delete`                    | Notes hard-deleted                            |
+| `de-hr-dsgvo-hgb`    | `anonymize` for HR entities | `authorId=null`, row kept for multi-user refs |
 
 The integration test pins both paths.
 
@@ -91,7 +91,9 @@ const result = await runRetentionCleanup({
   registry: stack.registry,
   tenantId,
   preloadedTenantPreset: null,
-  now: getTemporal().Now.instant().add({ hours: 31 * 24 }), // keepFor 30d + 1 day
+  now: getTemporal()
+    .Now.instant()
+    .add({ hours: 31 * 24 }), // keepFor 30d + 1 day
   files: createFileContext(() => Promise.resolve(provider)), // the stack's storage provider
 });
 // result.hardDeleted === 1, bytes and file_refs row gone
@@ -99,10 +101,10 @@ const result = await runRetentionCleanup({
 
 ## Full app vs this recipe
 
-| | This recipe | [user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) |
-|---|---|---|
-| Scope | One hook pattern | Runnable app + todos + files |
-| Boot | Integration test only | `bun dev` on port 4291 |
+|       | This recipe           | [user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) |
+| ----- | --------------------- | ---------------------------------------------------------------- |
+| Scope | One hook pattern      | Runnable app + todos + files                                     |
+| Boot  | Integration test only | `bun dev` on port 4291                                           |
 
 ## Dependencies
 

@@ -11,7 +11,11 @@ const { pdfBytes, pageCount } = await renderTablePdf(
   {
     title: "Prüfprotokoll",
     meta: [{ label: "Anlage", value: "Kessel 3" }],
-    columns: [{ header: "Datum" }, { header: "Prüfer", weight: 2 }, { header: "Kosten", align: "right" }],
+    columns: [
+      { header: "Datum" },
+      { header: "Prüfer", weight: 2 },
+      { header: "Kosten", align: "right" },
+    ],
     rows: [["03.02.2026", "Müller", "120,00 €"]],
     footerText: "Kumiko GmbH",
     pageLabel: "Seite {page} von {pages}",

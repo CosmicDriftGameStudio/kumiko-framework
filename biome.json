@@ -17,6 +17,8 @@
       "!**/.kumiko",
       "!**/feature-manifest.json",
       "!**/sample-index.json",
+      "!**/CHANGELOG.md",
+      "!packages/framework/agents",
       "!**/renderer/src/web/ui",
       "!**/__tests__/fixtures/migrate-db-raw",
       "!**/__tests__/fixtures/migrate-open-to-all",
@@ -64,7 +66,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error"
@@ -95,7 +97,7 @@
             "useHookAtTopLevel": "error"
           },
           "a11y": {
-            "recommended": true,
+            "preset": "recommended",
             "useAltText": "error",
             "useKeyWithClickEvents": "error"
           }

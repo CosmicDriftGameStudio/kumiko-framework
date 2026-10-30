@@ -12,8 +12,8 @@ from any real app. This sample is the gate.
 
 The `use-all-bundled-smoke` job guards `release`. It boots the sample with `KUMIKO_DRY_RUN_ENV=boot` (no DB) so feature-wiring bugs surface before publish.
 
-| Job | What it catches |
-|---|---|
+| Job                     | What it catches                                                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `use-all-bundled-smoke` | feature-wiring bugs: `Object.entries(undefined)`, self-extension, missing-requires, schema-Validators, `composeFeatures` failures. **No DB**. Boot exits after `createRegistry`. |
 
 DB-backed boot (schema apply for every bundled feature against real Postgres + Redis, dispatcher round-trip) is gated by `src/__tests__/full-stack-boot.integration.test.ts` in the non-blocking `integration` CI-job. The prod-only paths (`assertSchemaCurrent`, `GET /health`) run in `packages/dev-server`'s `run-prod-app.integration.test.ts` — not against this sample's feature set.

@@ -28,11 +28,11 @@ the URL carries a share token).
 
 ## Handlers
 
-| QN | Access |
-|---|---|
+| QN                                     | Access                      |
+| -------------------------------------- | --------------------------- |
 | `public-share:write:share-link:create` | authenticated (`openToAll`) |
-| `public-share:write:share-link:revoke` | owner |
-| `public-share:query:share-by-token` | anonymous + authenticated |
+| `public-share:write:share-link:revoke` | owner                       |
+| `public-share:query:share-by-token`    | anonymous + authenticated   |
 
 ## Run tests
 

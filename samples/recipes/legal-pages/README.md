@@ -162,12 +162,12 @@ page in `createLegalPagesLayout({ siteName })`.
 
 After the seed these URLs are immediately live:
 
-| URL | Content |
-|---|---|
-| `https://your-app.example/legal/impressum` | Impressum (DE) |
-| `https://your-app.example/legal/datenschutz` | Datenschutzerklärung (DE) |
-| `https://your-app.example/legal/imprint` | Imprint (EN, if seeded) |
-| `https://your-app.example/legal/privacy` | Privacy Policy (EN, if seeded) |
+| URL                                          | Content                        |
+| -------------------------------------------- | ------------------------------ |
+| `https://your-app.example/legal/impressum`   | Impressum (DE)                 |
+| `https://your-app.example/legal/datenschutz` | Datenschutzerklärung (DE)      |
+| `https://your-app.example/legal/imprint`     | Imprint (EN, if seeded)        |
+| `https://your-app.example/legal/privacy`     | Privacy Policy (EN, if seeded) |
 
 → Footer links are set per app (legal-pages does not ship a footer
 component — deliberately, every app has its own layout).
@@ -195,22 +195,22 @@ ACL: `["TenantAdmin", "SystemAdmin"]`. Cache header `public, max-age=300`
 When the required blocks (`imprint/de` + `privacy/de`) are missing
 from SYSTEM_TENANT:
 
-| Mode | Behavior |
-|---|---|
+| Mode                  | Behavior                                                    |
+| --------------------- | ----------------------------------------------------------- |
 | `NODE_ENV=production` | App boot throws an error with a slug list — container exits |
-| otherwise (dev/test) | `console.warn` with a slug list, app starts anyway |
+| otherwise (dev/test)  | `console.warn` with a slug list, app starts anyway          |
 
 → Safety net: no production deploy without populated legal pages.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Route returns `503 legal page unavailable` | `anonymousAccess` not configured in `runProdApp` | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` |
-| Boot check throws `ctx.templateResolver missing` | `extraContext.templateResolver` not wired | Set `extraContext: ({ db, registry }) => ({ templateResolver: createTemplateResolverApi(db, registry) })` |
-| Route returns `404 not configured` | Required block doesn't exist or has `content=null` | `seedTextBlock` with a content string |
-| Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.test.ts` test "SYSTEM_TENANT routing" covers this — should be green |
-| `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives |
+| Symptom                                                 | Cause                                                                                                                                                                        | Fix                                                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Route returns `503 legal page unavailable`              | `anonymousAccess` not configured in `runProdApp`                                                                                                                             | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }`                                              |
+| Boot check throws `ctx.templateResolver missing`        | `extraContext.templateResolver` not wired                                                                                                                                    | Set `extraContext: ({ db, registry }) => ({ templateResolver: createTemplateResolverApi(db, registry) })` |
+| Route returns `404 not configured`                      | Required block doesn't exist or has `content=null`                                                                                                                           | `seedTextBlock` with a content string                                                                     |
+| Multi-tenant app: tenant subdomain shows an empty page  | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts                                                                                                              | The `legal-pages.integration.test.ts` test "SYSTEM_TENANT routing" covers this — should be green          |
+| `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives                                                  |
 
 ## Cross-refs
 

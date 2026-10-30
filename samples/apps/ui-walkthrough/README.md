@@ -31,14 +31,14 @@ bun kumiko dev
 cd samples/apps/ui-walkthrough && bun dev   # http://localhost:4173, admin@kumiko.dev / kumiko-admin
 ```
 
-| Mask | Route |
-| --- | --- |
-| Liste | `/lease-list` (pager check: `/lease-list-short`, 3 rows) |
-| Detail | click "Max Nachmieter" (`/lease-detail/00000000-0000-4000-8000-000000003103`), tab "Positionen" |
-| Drawer | Positionen tab, button "Miete anpassen" |
-| Formular | `/vehicle-list`, click "Octavia" (`/vehicle-edit`) |
-| Wizard | `/vehicle-list`, row menu "Schritt für Schritt" (`/vehicle-wizard`), 3x "Weiter" for step 4 |
-| Mobile | `/campaign-list` at 390 px width |
+| Mask     | Route                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------- |
+| Liste    | `/lease-list` (pager check: `/lease-list-short`, 3 rows)                                        |
+| Detail   | click "Max Nachmieter" (`/lease-detail/00000000-0000-4000-8000-000000003103`), tab "Positionen" |
+| Drawer   | Positionen tab, button "Miete anpassen"                                                         |
+| Formular | `/vehicle-list`, click "Octavia" (`/vehicle-edit`)                                              |
+| Wizard   | `/vehicle-list`, row menu "Schritt für Schritt" (`/vehicle-wizard`), 3x "Weiter" for step 4     |
+| Mobile   | `/campaign-list` at 390 px width                                                                |
 
 Screenshots (light 1440x900, mobile 390x844, dark for liste and detail):
 
@@ -102,4 +102,3 @@ bun kumiko test e2e samples/apps/ui-walkthrough
 
 Six Playwright specs: smoke + create flow + update flow + 4 generated
 specs (from the registry-driven E2E generator).
-

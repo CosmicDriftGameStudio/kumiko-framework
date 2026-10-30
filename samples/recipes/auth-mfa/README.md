@@ -22,9 +22,7 @@ const mfaFeature = createAuthMfaFeature({
   issuer: "Your App",
 });
 const sessionCallbacks = createSessionCallbacks({ db });
-bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
-  sessionCallbacks.sessionRevokeAllOthers,
-);
+bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
 const server = buildServer({
   registry: buildRegistry([
@@ -37,7 +35,7 @@ const server = buildServer({
     mfaFeature,
     // ... other features
   ]),
-  context: { db, /* ... */ },
+  context: { db /* ... */ },
   jwtSecret: process.env.JWT_SECRET,
   auth: {
     membershipQuery: "tenant:query:memberships",

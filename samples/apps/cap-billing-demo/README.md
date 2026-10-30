@@ -9,9 +9,9 @@ The sample doubles as **living documentation** for the pattern: read the code to
 A tiny newsletter app with two tiers:
 
 | Tier | Newsletters per month | Soft warning at | Hard block at |
-|------|-----------|-------------------|-----------------|
-| free | 10 | 11 (110%) | 12 (120%) |
-| pro | 100 | 110 (110%) | 120 (120%) |
+| ---- | --------------------- | --------------- | ------------- |
+| free | 10                    | 11 (110%)       | 12 (120%)     |
+| pro  | 100                   | 110 (110%)      | 120 (120%)    |
 
 Mails land in an **in-memory transport** (`mail-transport-inmemory`).
 There's no real SMTP server — perfect for the demo, no Mailpit/Mailcrab
@@ -87,12 +87,12 @@ cd samples/apps/cap-billing-demo
 bun dev             # → http://localhost:4290
 ```
 
-| Login | Value |
-|-------|------|
-| URL | `http://localhost:4290` |
-| Email | `admin@cap-demo.local` |
-| Password | `changeme` |
-| Tenant | "Cap-Billing-Demo" |
+| Login    | Value                   |
+| -------- | ----------------------- |
+| URL      | `http://localhost:4290` |
+| Email    | `admin@cap-demo.local`  |
+| Password | `changeme`              |
+| Tenant   | "Cap-Billing-Demo"      |
 
 In the browser, use the Designer/Admin UI to set the config key
 `newsletter:config:tier` to `"free"` or `"pro"` and trigger the
@@ -110,13 +110,13 @@ omitted to keep the focus on cap+tier.
 
 The sample is intentionally minimal. For a production app, swap:
 
-| Demo component | Production replacement |
-|-----------------|-------------------|
-| `mail-transport-inmemory` | `mail-transport-smtp` (BYOK) or a custom plugin |
-| Hardcoded `DEMO_TIER_MAP` | stays — tier definitions are static, the subscription row only writes the `tier` key |
+| Demo component                      | Production replacement                                                                                                      |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `mail-transport-inmemory`           | `mail-transport-smtp` (BYOK) or a custom plugin                                                                             |
+| Hardcoded `DEMO_TIER_MAP`           | stays — tier definitions are static, the subscription row only writes the `tier` key                                        |
 | Tier switch via webhook (test-only) | mount a real plugin: `createSubscriptionStripeFeature(...)` and/or `createSubscriptionMollieFeature(...)` in the run config |
-| 2 tiers (free/pro) | any number, see `samples/apps/platform/src/tier-map.ts` for a 4-tier example |
-| Newsletter domain | your own feature with `withCapEnforcement(handler, capResolver)` |
+| 2 tiers (free/pro)                  | any number, see `samples/apps/platform/src/tier-map.ts` for a 4-tier example                                                |
+| Newsletter domain                   | your own feature with `withCapEnforcement(handler, capResolver)`                                                            |
 
 The **plugin API switch** between demo and production is a single
 config value: `mail-foundation:config:provider` flips from
