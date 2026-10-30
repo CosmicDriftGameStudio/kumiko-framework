@@ -34,6 +34,7 @@ export interface TenantResourceHookCtx {
 export type TenantResourceDestroyHook = (
   tenantId: TenantId,
   ctx: TenantResourceHookCtx,
+  // biome-ignore lint/suspicious/noConfusingVoidType: public hook type, `| undefined` would reject app hooks declared as Promise<void>
 ) => Promise<TenantDestroyHookResult | void>;
 
 export interface TenantResourceExtensionHooks {

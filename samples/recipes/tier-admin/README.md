@@ -9,7 +9,7 @@ toggleable features unlock in the same request.
 ## What it shows
 
 - **`tier-engine:write:set-tenant-tier`** — a SystemAdmin assigns a tier
-  to *any* tenant, cross-tenant. Stamps `source: "manual"` so a future
+  to _any_ tenant, cross-tenant. Stamps `source: "manual"` so a future
   Stripe → tier sync won't overwrite the grant.
 - **`tier-engine:query:get-tenant-tier`** — SystemAdmin reads back which
   tier a tenant is on plus its source (`"manual"` vs `"billing"`).
@@ -50,7 +50,7 @@ notes-export → r.toggleable() domain feature unlocked by pro tier
 path bypasses the `postSave` entity-hook the resolver normally uses to
 invalidate the cache after a tier-assignment change. Without an explicit
 cache update the grant would persist (next request would see it) but
-*this* request still sees the old tier — surprising for an operator who
+_this_ request still sees the old tier — surprising for an operator who
 just clicked "set tier to pro".
 
 The feature wires `onAssigned` into `createSetTenantTierWrite` for

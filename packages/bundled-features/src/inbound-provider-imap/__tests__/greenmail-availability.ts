@@ -19,6 +19,7 @@ export async function greenmailAvailable(
       `${suite}: greenmail not reachable on ${where} but CI=true. Start the service (kumiko-services greenmail: true) and pass IMAP_LIVE_HOST/IMAP_LIVE_PORT/IMAP_LIVE_TLS_PORT/IMAP_LIVE_SMTP_PORT and IMAP_SEND_HOST/IMAP_SEND_TLS_PORT; SMTPS must answer on host port 465.`,
     );
   }
+  // biome-ignore lint/suspicious/noConsole: test helper, the only signal locally that a suite was skipped
   console.warn(`${suite}: no greenmail on ${where}, suite skipped (see docs for docker run)`);
   return false;
 }

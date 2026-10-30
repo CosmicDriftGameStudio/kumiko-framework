@@ -268,6 +268,84 @@ describe("leave guard", () => {
   });
 });
 
+function SelfSaver({ patch, markSaved }: ExtensionSectionProps): ReactNode {
+  const nav = useNav();
+  return (
+    <>
+      <button type="button" data-testid="patch-host" onClick={() => patch?.({ title: "changed" })}>
+        patch
+      </button>
+      <button
+        type="button"
+        data-testid="save-and-leave"
+        onClick={() => {
+          markSaved?.();
+          nav.navigate({ screenId: "list" });
+        }}
+      >
+        save
+      </button>
+      <button
+        type="button"
+        data-testid="save-title-and-leave"
+        onClick={() => {
+          markSaved?.(["title"]);
+          nav.navigate({ screenId: "list" });
+        }}
+      >
+        save title
+      </button>
+      <button
+        type="button"
+        data-testid="save-other-and-leave"
+        onClick={() => {
+          markSaved?.(["unrelated"]);
+          nav.navigate({ screenId: "list" });
+        }}
+      >
+        save other
+      </button>
+      <button
+        type="button"
+        data-testid="leave-without-mark"
+        onClick={() => nav.navigate({ screenId: "list" })}
+      >
+        leave
+      </button>
+    </>
+  );
+}
+
+function FooterSaver({ markSaved }: ExtensionSectionProps): ReactNode {
+  const nav = useNav();
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="footer-save-and-leave"
+        onClick={() => {
+          markSaved?.();
+          nav.navigate({ screenId: "list" });
+        }}
+      >
+        save
+      </button>
+      <button
+        type="button"
+        data-testid="footer-leave-without-mark"
+        onClick={() => nav.navigate({ screenId: "list" })}
+      >
+        leave
+      </button>
+    </>
+  );
+}
+
+function DirtySection(): ReactNode {
+  useExtensionFormSubmit({ dirty: true, onSubmit: async () => ({ isSuccess: true }) });
+  return null;
+}
+
 describe("leave guard with an extension section that saves host values itself", () => {
   const extensionScreen: EntityEditScreenDefinition = {
     id: "tasks:screen:task-edit-ext",
@@ -281,89 +359,12 @@ describe("leave guard with an extension section that saves host values itself", 
     },
   };
 
-  function SelfSaver({ patch, markSaved }: ExtensionSectionProps): ReactNode {
-    const nav = useNav();
-    return (
-      <>
-        <button
-          type="button"
-          data-testid="patch-host"
-          onClick={() => patch?.({ title: "changed" })}
-        >
-          patch
-        </button>
-        <button
-          type="button"
-          data-testid="save-and-leave"
-          onClick={() => {
-            markSaved?.();
-            nav.navigate({ screenId: "list" });
-          }}
-        >
-          save
-        </button>
-        <button
-          type="button"
-          data-testid="save-title-and-leave"
-          onClick={() => {
-            markSaved?.(["title"]);
-            nav.navigate({ screenId: "list" });
-          }}
-        >
-          save title
-        </button>
-        <button
-          type="button"
-          data-testid="save-other-and-leave"
-          onClick={() => {
-            markSaved?.(["unrelated"]);
-            nav.navigate({ screenId: "list" });
-          }}
-        >
-          save other
-        </button>
-        <button
-          type="button"
-          data-testid="leave-without-mark"
-          onClick={() => nav.navigate({ screenId: "list" })}
-        >
-          leave
-        </button>
-      </>
-    );
-  }
-
   const footerScreen: EntityEditScreenDefinition = {
     ...extensionScreen,
     id: "tasks:screen:task-edit-footer",
     layout: { sections: [{ title: "Basics", columns: 1, fields: ["title"] }] },
     slots: { footer: { react: { __component: "FooterSaver" } } },
   };
-
-  function FooterSaver({ markSaved }: ExtensionSectionProps): ReactNode {
-    const nav = useNav();
-    return (
-      <>
-        <button
-          type="button"
-          data-testid="footer-save-and-leave"
-          onClick={() => {
-            markSaved?.();
-            nav.navigate({ screenId: "list" });
-          }}
-        >
-          save
-        </button>
-        <button
-          type="button"
-          data-testid="footer-leave-without-mark"
-          onClick={() => nav.navigate({ screenId: "list" })}
-        >
-          leave
-        </button>
-      </>
-    );
-  }
 
   function renderFooterForm(): void {
     render(
@@ -433,10 +434,6 @@ describe("leave guard with an extension section that saves host values itself", 
   });
 
   test("markSaved from one section keeps another section's unsaved input guarded", async () => {
-    function DirtySection(): ReactNode {
-      useExtensionFormSubmit({ dirty: true, onSubmit: async () => ({ isSuccess: true }) });
-      return null;
-    }
     const twoSectionScreen: EntityEditScreenDefinition = {
       ...extensionScreen,
       layout: {
@@ -567,29 +564,29 @@ describe("leave guard on projectionDetail tabs", () => {
   });
 });
 
-describe("leave guard on setSearchParams-based navigation", () => {
-  function ReturnToButton(): ReactNode {
-    const nav = useNav();
-    return (
-      <button
-        type="button"
-        data-testid="go-with-return"
-        onClick={() =>
-          navigateWithReturnTo(
-            nav,
-            { screenId: "list" },
-            { screenId: "tasks:screen:task-edit" },
-            {
-              flag: "1",
-            },
-          )
-        }
-      >
-        go
-      </button>
-    );
-  }
+function ReturnToButton(): ReactNode {
+  const nav = useNav();
+  return (
+    <button
+      type="button"
+      data-testid="go-with-return"
+      onClick={() =>
+        navigateWithReturnTo(
+          nav,
+          { screenId: "list" },
+          { screenId: "tasks:screen:task-edit" },
+          {
+            flag: "1",
+          },
+        )
+      }
+    >
+      go
+    </button>
+  );
+}
 
+describe("leave guard on setSearchParams-based navigation", () => {
   function renderWithReturnButton(): void {
     render(
       <BrowserNav>

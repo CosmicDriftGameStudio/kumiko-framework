@@ -8,11 +8,11 @@ branches in your domain handlers.
 How a multi-tenant platform uses `compliance-profiles` to deliver different
 regulatory behaviour per tenant:
 
-| Tenant | Profile | Supervisory authority | Languages | Tenant-destroy grace |
-|---|---|---|---|---|
-| **A** (DACH) | `eu-dsgvo` | BlnBDI Berlin | de / en | 30 days |
-| **B** (Switzerland) | `swiss-dsg` | EDÖB Bern | de / fr / it / en | 30 days |
-| **C** (DACH-HR) | `de-hr-dsgvo-hgb` | State DPA | de | 60 days (HR override) |
+| Tenant              | Profile           | Supervisory authority | Languages         | Tenant-destroy grace  |
+| ------------------- | ----------------- | --------------------- | ----------------- | --------------------- |
+| **A** (DACH)        | `eu-dsgvo`        | BlnBDI Berlin         | de / en           | 30 days               |
+| **B** (Switzerland) | `swiss-dsg`       | EDÖB Bern             | de / fr / it / en | 30 days               |
+| **C** (DACH-HR)     | `de-hr-dsgvo-hgb` | State DPA             | de                | 60 days (HR override) |
 
 Plus tenant B with an override (`gracePeriod: { days: 90 }`) extending
 user-rights grace without losing other profile fields — deep-merge on the

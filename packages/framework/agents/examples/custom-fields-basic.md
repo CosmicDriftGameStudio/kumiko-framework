@@ -11,7 +11,7 @@ Tenant-defined extra fields on an entity without writing migrations.
 Let a tenant add their own fields to your entity at runtime — without
 writing a migration, without rebuilding your handler, without a code
 change. The recipe wires a `property` entity into the `custom-fields`
-bundle and drives a full *define → set → read* roundtrip.
+bundle and drives a full _define → set → read_ roundtrip.
 
 The result: the tenant defines `internalNumber: text`, sets it on a
 property, and reads it back flattened onto the row — looking exactly

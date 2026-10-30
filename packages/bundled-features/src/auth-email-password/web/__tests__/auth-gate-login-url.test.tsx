@@ -15,6 +15,7 @@ import {
 } from "../auth-gate.tsx";
 import { defaultTranslations } from "../i18n.ts";
 import { useSession } from "../session.tsx";
+import { clearCsrfCookie, setCsrfCookie } from "./test-utils.tsx";
 
 const originalFetch = globalThis.fetch;
 const originalReplace = window.location.replace;
@@ -78,7 +79,7 @@ function mockLoginBackend(loginBody: Record<string, unknown> = {}): void {
     if (url === "/api/auth/login") {
       loggedIn = true;
       // The server sets the csrf cookie with the session; the gate only refreshes when it is present.
-      document.cookie = "kumiko_csrf=login-mock-token; path=/";
+      setCsrfCookie("login-mock-token");
       if (Object.keys(loginBody).length > 0) {
         return new Response(JSON.stringify({ isSuccess: true, ...loginBody }), { status: 200 });
       }
@@ -109,7 +110,7 @@ afterEach(() => {
   window.location.assign = originalAssign;
   window.location.reload = originalReload;
   globalThis.fetch = originalFetch;
-  document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+  clearCsrfCookie();
 });
 
 describe("auth gate with loginUrl", () => {
@@ -152,7 +153,7 @@ describe("auth gate with loginUrl", () => {
   });
 
   test("authenticated session does not redirect", async () => {
-    document.cookie = "kumiko_csrf=login-url-test-token; path=/";
+    setCsrfCookie("login-url-test-token");
     mockBackend({ signedIn: true });
 
     renderGate({ loginUrl: "/login" });
@@ -165,6 +166,22 @@ describe("auth gate with loginUrl", () => {
     expect(() => makeSessionAuthGate({ loginUrl: "javascript:alert(1)" })).toThrow(/loginUrl/);
   });
 });
+
+function StubMfaVerify({ onSuccess }: MfaVerifyComponentProps): ReactNode {
+  return (
+    <button type="button" onClick={() => onSuccess?.()}>
+      verify-mfa
+    </button>
+  );
+}
+
+function StubMfaSetup({ onSuccess }: MfaSetupComponentProps): ReactNode {
+  return (
+    <button type="button" onClick={() => onSuccess?.()}>
+      setup-mfa
+    </button>
+  );
+}
 
 describe("auth gate login route and builder", () => {
   test("a function loginUrl gets the active locale and the current path", async () => {
@@ -226,22 +243,6 @@ describe("auth gate login route and builder", () => {
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
   }
 
-  function StubMfaVerify({ onSuccess }: MfaVerifyComponentProps): ReactNode {
-    return (
-      <button type="button" onClick={() => onSuccess?.()}>
-        verify-mfa
-      </button>
-    );
-  }
-
-  function StubMfaSetup({ onSuccess }: MfaSetupComponentProps): ReactNode {
-    return (
-      <button type="button" onClick={() => onSuccess?.()}>
-        setup-mfa
-      </button>
-    );
-  }
-
   test("a successful MFA verify follows a valid next", async () => {
     window.history.replaceState(null, "", "/login?next=%2Fa%2Fsettings%3Ftab%3D2");
     mockLoginBackend({ mfaRequired: true, challengeToken: "ch-1" });
@@ -295,7 +296,7 @@ describe("auth gate login route and builder", () => {
 
 describe("logout target", () => {
   async function signInAndLogout(options: SessionAuthGateOptions): Promise<void> {
-    document.cookie = "kumiko_csrf=logout-test-token; path=/";
+    setCsrfCookie("logout-test-token");
     mockBackend({ signedIn: true });
     renderGate(options);
     await waitFor(() => screen.getByTestId("protected"));

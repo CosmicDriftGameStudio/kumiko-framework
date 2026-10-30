@@ -28,14 +28,14 @@ the option.
 
 ## Boot requirements
 
-| Stack | Boot option | Also satisfied by |
-| --- | --- | --- |
-| `composeMailStack` | `mail` | a mounted `channel-email` |
-| `composeFileStack` without providers | `fileStorage` | a mounted file provider |
-| `composeGdprStack` | `kmsMode` | `kms` or `allowPlaintextPii` |
-| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail` | a mounted `channel-email` |
-| `composeSecurityStack` | `kmsMode`, `rateLimit` not `false` | `kms` or `allowPlaintextPii` |
-| `composeSaasStack({ billing: "stripe" })` | `billing` (warning only) | a mounted subscription provider |
+| Stack                                                             | Boot option                        | Also satisfied by               |
+| ----------------------------------------------------------------- | ---------------------------------- | ------------------------------- |
+| `composeMailStack`                                                | `mail`                             | a mounted `channel-email`       |
+| `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider         |
+| `composeGdprStack`                                                | `kmsMode`                          | `kms` or `allowPlaintextPii`    |
+| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`       |
+| `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms` or `allowPlaintextPii`    |
+| `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider |
 
 A missing option fails the boot with:
 

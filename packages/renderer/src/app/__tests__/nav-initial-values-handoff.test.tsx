@@ -20,6 +20,57 @@ type Harness = {
   showSecondForm: () => void;
 };
 
+function Opener({ harness }: { readonly harness: Harness }): ReactNode {
+  const navigateWithInitialValues = useNavigateWithInitialValues();
+  harness.offer = (values) => navigateWithInitialValues({ screenId: "unit-edit" }, values);
+  return null;
+}
+
+function Form({
+  label,
+  harness,
+}: {
+  readonly label: string;
+  readonly harness: Harness;
+}): ReactNode {
+  const values = useInitialValuesHandoff("unit-edit");
+  useState(() => {
+    harness.mounts.push({ label, values });
+    return null;
+  });
+  return null;
+}
+
+function App({
+  initialScreenId,
+  harness,
+}: {
+  readonly initialScreenId: string;
+  readonly harness: Harness;
+}): ReactNode {
+  const [screenId, setScreenId] = useState(initialScreenId);
+  const [second, setSecond] = useState(false);
+  harness.go = setScreenId;
+  harness.showSecondForm = () => setSecond(true);
+  const nav: NavApi = {
+    route: { screenId },
+    navigate: (target: NavTarget) => {
+      if ("screenId" in target) setScreenId(target.screenId);
+    },
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: {},
+    setSearchParams: () => {},
+  };
+  return (
+    <NavProvider value={nav}>
+      <Opener harness={harness} />
+      {screenId === "unit-edit" && <Form label="first" harness={harness} />}
+      {screenId === "unit-edit" && second && <Form label="second" harness={harness} />}
+    </NavProvider>
+  );
+}
+
 function mountHarness(initialScreenId: string): Harness {
   const harness: Harness = {
     mounts: [],
@@ -27,47 +78,7 @@ function mountHarness(initialScreenId: string): Harness {
     go: () => {},
     showSecondForm: () => {},
   };
-
-  function Opener(): ReactNode {
-    const navigateWithInitialValues = useNavigateWithInitialValues();
-    harness.offer = (values) => navigateWithInitialValues({ screenId: "unit-edit" }, values);
-    return null;
-  }
-
-  function Form({ label }: { readonly label: string }): ReactNode {
-    const values = useInitialValuesHandoff("unit-edit");
-    useState(() => {
-      harness.mounts.push({ label, values });
-      return null;
-    });
-    return null;
-  }
-
-  function App(): ReactNode {
-    const [screenId, setScreenId] = useState(initialScreenId);
-    const [second, setSecond] = useState(false);
-    harness.go = setScreenId;
-    harness.showSecondForm = () => setSecond(true);
-    const nav: NavApi = {
-      route: { screenId },
-      navigate: (target: NavTarget) => {
-        if ("screenId" in target) setScreenId(target.screenId);
-      },
-      replace: () => {},
-      hrefFor: () => "",
-      searchParams: {},
-      setSearchParams: () => {},
-    };
-    return (
-      <NavProvider value={nav}>
-        <Opener />
-        {screenId === "unit-edit" && <Form label="first" />}
-        {screenId === "unit-edit" && second && <Form label="second" />}
-      </NavProvider>
-    );
-  }
-
-  render(<App />);
+  render(<App initialScreenId={initialScreenId} harness={harness} />);
   return harness;
 }
 

@@ -160,17 +160,24 @@ describe("useTranslation — formality", () => {
   });
 });
 
+function LastTranslatorProbe(): ReactNode {
+  const t = useTranslation();
+  (LastTranslatorProbe as unknown as { lastT?: unknown }).lastT = t;
+  return null;
+}
+
+function GreetMessageProbe(): ReactNode {
+  const t = useTranslation();
+  return <span data-testid="msg">{t("greet")}</span>;
+}
+
 describe("useTranslation — re-render on locale change", () => {
   test("subscribe fires when setLocale runs, hook returns new value", () => {
     const resolver = makeStatefulResolver("de");
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
-    function Probe(): ReactNode {
-      const t = useTranslation();
-      return <span data-testid="msg">{t("greet")}</span>;
-    }
     const { getByTestId } = render(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
-        <Probe />
+        <GreetMessageProbe />
       </LocaleProvider>,
     );
     expect(getByTestId("msg").textContent).toBe("Hallo");
@@ -200,23 +207,18 @@ describe("useTranslation — referential stability", () => {
     // value when the effective props remain stable.
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" } }];
-    function Probe(): ReactNode {
-      const t = useTranslation();
-      (Probe as unknown as { lastT?: unknown }).lastT = t;
-      return null;
-    }
     const { rerender } = render(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
-        <Probe />
+        <LastTranslatorProbe />
       </LocaleProvider>,
     );
-    const firstT = (Probe as unknown as { lastT?: unknown }).lastT;
+    const firstT = (LastTranslatorProbe as unknown as { lastT?: unknown }).lastT;
     rerender(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
-        <Probe />
+        <LastTranslatorProbe />
       </LocaleProvider>,
     );
-    expect((Probe as unknown as { lastT?: unknown }).lastT).toBe(firstT);
+    expect((LastTranslatorProbe as unknown as { lastT?: unknown }).lastT).toBe(firstT);
   });
 });
 describe("translationsByLocaleFromKeys", () => {
@@ -252,6 +254,16 @@ describe("useLocale", () => {
     expect(result.current.locale()).toBe("de");
   });
 });
+function SpanGreetProbe(): ReactNode {
+  const t = useTranslation();
+  return <span>{t("greet")}</span>;
+}
+
+function OptionalGreetProbe(): ReactNode {
+  const t = useOptionalTranslation();
+  return <span>{t?.("greet")}</span>;
+}
+
 describe("useTranslation — SSR", () => {
   // getServerSnapshot hardcoded "en", so any
   // server render came out English regardless of the resolver's actual
@@ -260,13 +272,9 @@ describe("useTranslation — SSR", () => {
   test(`renderToStaticMarkup with a non-English resolver renders the resolver's locale, not "en"`, () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
-    function Probe(): ReactNode {
-      const t = useTranslation();
-      return <span>{t("greet")}</span>;
-    }
     const html = renderToStaticMarkup(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
-        <Probe />
+        <SpanGreetProbe />
       </LocaleProvider>,
     );
     expect(html).toContain("Hallo");
@@ -276,13 +284,9 @@ describe("useTranslation — SSR", () => {
   test(`renderToStaticMarkup via useOptionalTranslation resolves the resolver's locale, not "en"`, () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
-    function Probe(): ReactNode {
-      const t = useOptionalTranslation();
-      return <span>{t?.("greet")}</span>;
-    }
     const html = renderToStaticMarkup(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
-        <Probe />
+        <OptionalGreetProbe />
       </LocaleProvider>,
     );
     expect(html).toContain("Hallo");

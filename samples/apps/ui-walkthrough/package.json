@@ -16,8 +16,8 @@
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "zod": "^4.6.7",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*"

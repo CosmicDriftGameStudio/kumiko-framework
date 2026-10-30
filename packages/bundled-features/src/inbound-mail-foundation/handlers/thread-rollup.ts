@@ -107,6 +107,7 @@ export async function appendThreadRollup(
     // @cast-boundary engine-payload — eigene events, shape via defineEvent
     const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
     const previousLastAt = previousThread?.lastMessageAtIso ?? "";
+    // biome-ignore lint/complexity/useMathMinMax: ISO strings compare lexicographically; Math.max would coerce them to NaN
     const newLastAt = receivedAtIso > previousLastAt ? receivedAtIso : previousLastAt;
     const messageCount = await countWhere(threadRollupRunner, inboundMessagesProjectionTable, {
       tenantId,

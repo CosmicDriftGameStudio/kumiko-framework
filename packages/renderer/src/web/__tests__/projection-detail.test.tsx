@@ -575,19 +575,19 @@ describe("KumikoScreen / projectionDetail relatedList section", () => {
 // A hand-written NotesSection block had no declarative equivalent
 // on projectionDetail. Extension sections without contributesToFormSubmit
 // (self-persisting, e.g. via their own dispatcher writes) are now allowed.
-describe("KumikoScreen / projectionDetail extension section", () => {
-  const SessionNotes = ({
-    entityName,
-    entityId,
-  }: {
-    entityName: string;
-    entityId: string | null;
-  }) => (
-    <div data-testid="session-notes">
-      {entityName}:{entityId ?? "(none)"}
-    </div>
-  );
+const SessionNotes = ({
+  entityName,
+  entityId,
+}: {
+  entityName: string;
+  entityId: string | null;
+}) => (
+  <div data-testid="session-notes">
+    {entityName}:{entityId ?? "(none)"}
+  </div>
+);
 
+describe("KumikoScreen / projectionDetail extension section", () => {
   test("mounts and receives the route entityId and the section's declared entityName, no submit button", async () => {
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -681,6 +681,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
 
   test("a layout of only an extension section that registers with the form host still gets its Save, which runs the extension's submit", async () => {
     const submitted: string[] = [];
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local submitted array; defined once per test run, never during a render
     function RegisteringNotes({ entityId }: { entityId: string | null }): ReactNode {
       const [dirty, setDirty] = useState(false);
       useExtensionFormSubmit({
@@ -754,6 +755,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
   ])(
     "a failing extension submit shows the banner with %s",
     async (_label, errorKey, expectedText) => {
+      // biome-ignore lint/correctness/noComponentHookFactories: closes over the test.each errorKey parameter; defined once per test run, never during a render
       function RegisteringNotes({ entityId }: { entityId: string | null }): ReactNode {
         const [dirty, setDirty] = useState(false);
         useExtensionFormSubmit({
@@ -1525,33 +1527,33 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
 // <form>) and prove the degraded section's own submit still reaches its
 // dispatcher, without depending on the button-to-form association the
 // removed nested <form> used to rely on.
-describe("KumikoScreen / projectionDetail extension section with its own <form>", () => {
-  function FormExtensionSection({ entityId }: ExtensionSectionProps): ReactNode {
-    const dispatcher = useDispatcher();
-    const { Form, Button } = usePrimitives();
-    const onSubmit = (): void => {
-      void dispatcher.write("sessions:write:user-session:update", {
-        id: entityId,
-        note: "updated",
-      });
-    };
-    return (
-      <BareFormProvider>
-        <Form
-          testId="nested-section-form"
-          onSubmit={onSubmit}
-          actions={
-            <Button type="submit" testId="nested-section-submit">
-              Save note
-            </Button>
-          }
-        >
-          <div data-testid="nested-section-marker" />
-        </Form>
-      </BareFormProvider>
-    );
-  }
+function FormExtensionSection({ entityId }: ExtensionSectionProps): ReactNode {
+  const dispatcher = useDispatcher();
+  const { Form, Button } = usePrimitives();
+  const onSubmit = (): void => {
+    void dispatcher.write("sessions:write:user-session:update", {
+      id: entityId,
+      note: "updated",
+    });
+  };
+  return (
+    <BareFormProvider>
+      <Form
+        testId="nested-section-form"
+        onSubmit={onSubmit}
+        actions={
+          <Button type="submit" testId="nested-section-submit">
+            Save note
+          </Button>
+        }
+      >
+        <div data-testid="nested-section-marker" />
+      </Form>
+    </BareFormProvider>
+  );
+}
 
+describe("KumikoScreen / projectionDetail extension section with its own <form>", () => {
   function renderFormExtensionScreen(overrides: { write?: Dispatcher["write"] } = {}) {
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -1737,6 +1739,24 @@ describe("KumikoScreen / projectionDetail section actions", () => {
 // region (title/status/metrics), before any tab content, in both layout
 // modes — `single` gets the same treatment as `tabs` since the actions
 // belong to the header regardless of how the body is laid out.
+const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
+
+function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
+  const [tab, setTab] = useState<string | undefined>("overview");
+  const navApi: NavApi = {
+    route: undefined,
+    navigate: () => {},
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: tab !== undefined ? { tab } : {},
+    setSearchParams: (updates) => {
+      const next = updates["tab"];
+      setTab(next === null || next === undefined ? undefined : next);
+    },
+  };
+  return <NavProvider value={navApi}>{children}</NavProvider>;
+}
+
 describe("KumikoScreen / projectionDetail header actions placement", () => {
   const dispatcher: Dispatcher = createMockDispatcher({
     query: (async () => ({
@@ -1746,7 +1766,6 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
   });
 
   test("slots.header shares one card with the header actions", async () => {
-    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
     const screenWithSlot: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: { mode: "tabs", sections: detailScreen.layout.sections },
@@ -1817,8 +1836,6 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
   });
 
   describe("recordTitleField", () => {
-    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
-
     async function breadcrumbTitles(recordTitleField: string | undefined): Promise<string[]> {
       const titledSchema: FeatureSchema = {
         featureName: "sessions",
@@ -1888,7 +1905,6 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
   });
 
   describe("slots.header inside the shell page-header slot", () => {
-    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
     const screenWithSlot: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       header: { title: "userId" },
@@ -2120,21 +2136,6 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
         error: { code: "BOOM", httpStatus: 500, i18nKey: "errors.boom", message: "archive failed" },
       })) as unknown as Dispatcher["write"],
     });
-    function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
-      const [tab, setTab] = useState<string | undefined>("overview");
-      const navApi: NavApi = {
-        route: undefined,
-        navigate: () => {},
-        replace: () => {},
-        hrefFor: () => "",
-        searchParams: tab !== undefined ? { tab } : {},
-        setSearchParams: (updates) => {
-          const next = updates["tab"];
-          setTab(next === null || next === undefined ? undefined : next);
-        },
-      };
-      return <NavProvider value={navApi}>{children}</NavProvider>;
-    }
     const user = userEvent.setup();
 
     render(

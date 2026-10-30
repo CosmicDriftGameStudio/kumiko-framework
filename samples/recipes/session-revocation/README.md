@@ -25,7 +25,7 @@ const server = buildServer({
     }),
     // ... other features
   ]),
-  context: { db, /* ... */ },
+  context: { db /* ... */ },
   jwtSecret: process.env.JWT_SECRET,
   auth: {
     membershipQuery: "tenant:query:memberships",

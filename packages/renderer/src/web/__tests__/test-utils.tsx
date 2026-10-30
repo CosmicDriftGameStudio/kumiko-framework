@@ -124,6 +124,7 @@ export function renderWithPrimitivesOverride(
   primitivesOverride: Partial<typeof defaultPrimitives>,
   options?: Omit<RenderOptions, "wrapper">,
 ): RenderResult {
+  // biome-ignore lint/correctness/noComponentHookFactories: closes over the primitivesOverride parameter; defined once per renderWithPrimitivesOverride() call, never during a render
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <DefaultProviders>

@@ -19,6 +19,8 @@ import { RenderEdit } from "../render-edit.tsx";
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
+const passFormChildren = (props: FormProps): ReactNode => props.children;
+
 const entity: EntityDefinition = {
   fields: {
     name: {
@@ -53,7 +55,7 @@ function renderCapturingPageHeader(
     Field: passChildren,
     Input: noop,
     DataTable: noop,
-    Form: (props: FormProps) => props.children,
+    Form: passFormChildren,
     Section: passChildren,
     Card: passChildren,
     Grid: passChildren,
@@ -66,6 +68,7 @@ function renderCapturingPageHeader(
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderCapturingPageHeader-local captured variable; defined once per renderCapturingPageHeader call, never during a render
     PageHeader: (props: PageHeaderProps) => {
       captured = props;
       return null;

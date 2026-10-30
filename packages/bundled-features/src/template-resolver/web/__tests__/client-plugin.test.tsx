@@ -502,6 +502,12 @@ describe("textBlocksClient — a save refreshes the collection tree", () => {
   });
 });
 
+const localeResolver = createStaticLocaleResolver({ locale: "en" });
+
+const PageHeaderTitleProbe = ({ title }: { readonly title?: string }) => (
+  <div data-testid="page-header-title">{title}</div>
+);
+
 describe("textBlocksClient — the editor names the page after its entry", () => {
   test("the page header shows the entry title instead of the screen behind the editor", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
@@ -510,9 +516,7 @@ describe("textBlocksClient — the editor names the page after its entry", () =>
     if (Editor === undefined) throw new Error("Editor not registered");
     const primitivesWithHeaderProbe = {
       ...defaultPrimitives,
-      PageHeader: ({ title }: { readonly title?: string }) => (
-        <div data-testid="page-header-title">{title}</div>
-      ),
+      PageHeader: PageHeaderTitleProbe,
     };
     const target = {
       featureId: "template-resolver",
@@ -535,21 +539,19 @@ describe("textBlocksClient — the editor names the page after its entry", () =>
   });
 });
 
+function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+      <PrimitivesProvider value={defaultPrimitives}>
+        <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
+          {children}
+        </ContentEditorsProvider>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 describe("textBlocksClient — plain contentFormat editor wiring", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "en" });
-
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return (
-      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
-        <PrimitivesProvider value={defaultPrimitives}>
-          <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
-            {children}
-          </ContentEditorsProvider>
-        </PrimitivesProvider>
-      </LocaleProvider>
-    );
-  }
-
   test("contentEditors.plain is registered as PlainContentEditor", () => {
     expect(textBlocksClient().contentEditors?.["plain"]).toBe(PlainContentEditor);
   });
@@ -573,22 +575,21 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
   });
 });
 
+const DocumentStub: ContentEditorComponent = () => <div data-testid="document-stub-editor" />;
+
+function DocumentStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
+      <PrimitivesProvider value={defaultPrimitives}>
+        <ContentEditorsProvider value={{ document: DocumentStub }}>
+          {children}
+        </ContentEditorsProvider>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 describe("textBlocksClient — findContentFormat resolves collectionId to the registered editor", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "en" });
-  const DocumentStub: ContentEditorComponent = () => <div data-testid="document-stub-editor" />;
-
-  function DocumentStubWrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return (
-      <LocaleProvider resolver={localeResolver} fallbackBundles={[defaultTranslations]}>
-        <PrimitivesProvider value={defaultPrimitives}>
-          <ContentEditorsProvider value={{ document: DocumentStub }}>
-            {children}
-          </ContentEditorsProvider>
-        </PrimitivesProvider>
-      </LocaleProvider>
-    );
-  }
-
   test("a collection declared with contentFormat 'document' renders the registered document editor, not the textarea fallback", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
@@ -611,24 +612,22 @@ describe("textBlocksClient — findContentFormat resolves collectionId to the re
   });
 });
 
+function DocumentWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+    >
+      <PrimitivesProvider value={defaultPrimitives}>
+        <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
+          {children}
+        </ContentEditorsProvider>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 describe("textBlocksClient — document editor block set follows the collection kind", () => {
-  const localeResolver = createStaticLocaleResolver({ locale: "en" });
-
-  function DocumentWrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return (
-      <LocaleProvider
-        resolver={localeResolver}
-        fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
-      >
-        <PrimitivesProvider value={defaultPrimitives}>
-          <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
-            {children}
-          </ContentEditorsProvider>
-        </PrimitivesProvider>
-      </LocaleProvider>
-    );
-  }
-
   function renderEditorFor(collectionId: string): void {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });

@@ -50,26 +50,27 @@ const screen: EntityListScreenDefinition = {
   columns: [{ field: "name" }, { field: "owner" }],
 };
 
+function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
+  return (
+    <TokensProvider value={stubTokens}>
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={stubNav}>
+            <DispatcherProvider dispatcher={createMockDispatcher()}>
+              <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+            </DispatcherProvider>
+          </NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensProvider>
+  );
+}
+
 function renderRow(row: Record<string, unknown>): ReturnType<typeof render> {
   cleanup();
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
-    return (
-      <TokensProvider value={stubTokens}>
-        <LocaleProvider
-          resolver={createStaticLocaleResolver({ locale: "en" })}
-          fallbackBundles={[kumikoDefaultTranslations]}
-        >
-          <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={stubNav}>
-              <DispatcherProvider dispatcher={createMockDispatcher()}>
-                <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-              </DispatcherProvider>
-            </NavProvider>
-          </PrimitivesProvider>
-        </LocaleProvider>
-      </TokensProvider>
-    );
-  }
   return render(
     <RenderList
       screen={screen}

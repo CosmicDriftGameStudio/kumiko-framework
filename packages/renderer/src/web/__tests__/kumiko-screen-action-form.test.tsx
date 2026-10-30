@@ -24,6 +24,23 @@ import {
 } from "./_kumiko-screen-helpers.tsx";
 import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
+const TopBanner = () => <div data-testid="action-form-header-slot">top banner</div>;
+
+function OpenPayout(): ReactNode {
+  const navigateWithInitialValues = useNavigateWithInitialValues();
+  return (
+    <button
+      type="button"
+      data-testid="open-payout"
+      onClick={() =>
+        navigateWithInitialValues({ screenId: "payout" }, { iban: "DE-from-agent", secret: "leak" })
+      }
+    />
+  );
+}
+
+const BottomAction = () => <button type="button" data-testid="action-form-footer-slot" />;
+
 describe("KumikoScreen", () => {
   // --- actionForm (tier 2.7d) ---
   // Non-CRUD form driven by a write handler. The schema declares a handler QN +
@@ -72,9 +89,6 @@ describe("KumikoScreen", () => {
   // slots.header/footer on entityEdit are shared through action-form-shim's
   // synthesizeActionFormScreen — an actionForm mounts them the same way.
   test("actionForm: slots.header and slots.footer both render", async () => {
-    const TopBanner = () => <div data-testid="action-form-header-slot">top banner</div>;
-    const BottomAction = () => <button type="button" data-testid="action-form-footer-slot" />;
-
     const actionScreen: ActionFormScreenDefinition = {
       id: "quick-add-slots",
       type: "actionForm",
@@ -1001,6 +1015,7 @@ describe("KumikoScreen", () => {
 
   test("actionForm: useNavigateWithInitialValues hands values over without touching the query string", async () => {
     const searchParamWrites: unknown[] = [];
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local searchParamWrites and the describe-local payoutScreen; defined once per test run, never during a render
     function Harness(): ReactNode {
       const [route, setRoute] = useState<{ screenId: string }>({ screenId: "home" });
       const nav = {
@@ -1024,21 +1039,6 @@ describe("KumikoScreen", () => {
             <OpenPayout />
           )}
         </NavProvider>
-      );
-    }
-    function OpenPayout(): ReactNode {
-      const navigateWithInitialValues = useNavigateWithInitialValues();
-      return (
-        <button
-          type="button"
-          data-testid="open-payout"
-          onClick={() =>
-            navigateWithInitialValues(
-              { screenId: "payout" },
-              { iban: "DE-from-agent", secret: "leak" },
-            )
-          }
-        />
       );
     }
     render(
@@ -1284,6 +1284,12 @@ describe("KumikoScreen", () => {
 // (incl. searchParams prefill) as initialValues instead.
 // Without this pass-through a context section (e.g. update timeline that
 // reads ?incidentId) would stay blind.
+const UpdateTimeline = ({
+  initialValues,
+}: {
+  initialValues?: Readonly<Record<string, unknown>>;
+}) => <div data-testid="update-timeline">{String(initialValues?.["incidentId"] ?? "(none)")}</div>;
+
 describe("KumikoScreen: actionForm extension-section", () => {
   test("extension-section receives initialValues including searchParams prefill", async () => {
     const actionScreen: ActionFormScreenDefinition = {
@@ -1306,13 +1312,6 @@ describe("KumikoScreen: actionForm extension-section", () => {
       },
       urlPrefillFields: ["incidentId"],
     };
-    const UpdateTimeline = ({
-      initialValues,
-    }: {
-      initialValues?: Readonly<Record<string, unknown>>;
-    }) => (
-      <div data-testid="update-timeline">{String(initialValues?.["incidentId"] ?? "(none)")}</div>
-    );
     const memoryNav = {
       route: { screenId: "post-update" },
       navigate: () => undefined,

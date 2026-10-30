@@ -14,12 +14,12 @@ the integration test top-to-bottom and you've understood the contract.
 A tiny todo app where each user has private todos. The demo proves that
 DSGVO requests work end-to-end:
 
-| Article | Endpoint / Runner | What it does |
-|---------|-----------|----------------|
-| **Art. 15** | `user-data-rights:query:my-audit-log` | User sees own framework events (auth, deletion-request, restriction). Domain entities like todos appear in the **export bundle** (Art. 20), not the audit-log — only handlers using `ctx.events.append` show up here. |
-| **Art. 15+20** | `user-data-rights:write:request-export` | ZIP with user-profile + fileRefs + todos + signed download magic-link |
-| **Art. 17** | `user-data-rights:write:request-deletion` | Soft-delete with grace period; cron anonymizes user + deletes todos |
-| **Art. 18** | `user-data-rights:write:restrict-account` | Auth-middleware blocks logins until lift-restriction |
+| Article        | Endpoint / Runner                         | What it does                                                                                                                                                                                                          |
+| -------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Art. 15**    | `user-data-rights:query:my-audit-log`     | User sees own framework events (auth, deletion-request, restriction). Domain entities like todos appear in the **export bundle** (Art. 20), not the audit-log — only handlers using `ctx.events.append` show up here. |
+| **Art. 15+20** | `user-data-rights:write:request-export`   | ZIP with user-profile + fileRefs + todos + signed download magic-link                                                                                                                                                 |
+| **Art. 17**    | `user-data-rights:write:request-deletion` | Soft-delete with grace period; cron anonymizes user + deletes todos                                                                                                                                                   |
+| **Art. 18**    | `user-data-rights:write:restrict-account` | Auth-middleware blocks logins until lift-restriction                                                                                                                                                                  |
 
 ## Architecture in 3 layers
 
@@ -80,12 +80,12 @@ cd samples/apps/user-data-rights-demo
 bun dev             # → http://localhost:4291
 ```
 
-| Login | Value |
-|-------|------|
-| URL | `http://localhost:4291` |
-| Email | `admin@user-data-rights.local` |
-| Password | `changeme` |
-| Tenant | "User-Data-Rights Demo" |
+| Login    | Value                          |
+| -------- | ------------------------------ |
+| URL      | `http://localhost:4291`        |
+| Email    | `admin@user-data-rights.local` |
+| Password | `changeme`                     |
+| Tenant   | "User-Data-Rights Demo"        |
 
 In the browser, use the dispatcher to create a few todos, then call
 `user-data-rights:write:request-export` — the worker queues a job and

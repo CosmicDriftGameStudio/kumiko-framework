@@ -74,6 +74,7 @@ describe("RLS-Session-Settings Guard: session-level settings", () => {
 
   test("flags a plain string and a template with substitutions", () => {
     expect(run(TEST, sql("SET", "kumiko.x", "=", "1"), '"')).toHaveLength(1);
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: "${v}" is the substitution the guard must flag in the generated SQL template
     expect(run(TEST, sql("SET", "kumiko.x", "=", "${v}"))).toHaveLength(1);
   });
 });

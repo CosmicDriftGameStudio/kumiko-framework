@@ -88,3 +88,15 @@ export function renderWithProviders(
   );
   return { ...result, session };
 }
+
+// path=/ on both sides: without it the cookie takes the path of whatever URL an earlier test left
+// behind and survives into other files of the shared DOM run.
+export function setCsrfCookie(token: string): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: readCsrfToken reads document.cookie synchronously, so the test seeds it the same way
+  document.cookie = `kumiko_csrf=${token}; path=/`;
+}
+
+export function clearCsrfCookie(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: counterpart of setCsrfCookie
+  document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+}

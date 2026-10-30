@@ -435,26 +435,26 @@ describe("compact shell header with a projection detail", () => {
   });
 });
 
+function Screen({ renders }: { readonly renders: number }): ReactNode {
+  const { PageHeader } = usePrimitives();
+  // Fresh array identity on every render, like a screen building items inline.
+  const items: readonly ActionMenuItemSpec[] = [
+    { id: `item-${renders}`, label: "Item", onSelect: () => {} },
+  ];
+  return PageHeader !== undefined ? <PageHeader overflowItems={items} /> : null;
+}
+
+function Harness(): ReactNode {
+  const [renders, setRenders] = useState(0);
+  return (
+    <>
+      <button type="button" data-testid="rerender" onClick={() => setRenders((n) => n + 1)} />
+      <Screen renders={renders} />
+    </>
+  );
+}
+
 describe("PageHeader overflowItems", () => {
-  function Screen({ renders }: { readonly renders: number }): ReactNode {
-    const { PageHeader } = usePrimitives();
-    // Fresh array identity on every render, like a screen building items inline.
-    const items: readonly ActionMenuItemSpec[] = [
-      { id: `item-${renders}`, label: "Item", onSelect: () => {} },
-    ];
-    return PageHeader !== undefined ? <PageHeader overflowItems={items} /> : null;
-  }
-
-  function Harness(): ReactNode {
-    const [renders, setRenders] = useState(0);
-    return (
-      <>
-        <button type="button" data-testid="rerender" onClick={() => setRenders((n) => n + 1)} />
-        <Screen renders={renders} />
-      </>
-    );
-  }
-
   test("re-rendering with a new items array each time settles without an update loop", () => {
     setViewportWidth(PHONE);
     renderWithSidebar(

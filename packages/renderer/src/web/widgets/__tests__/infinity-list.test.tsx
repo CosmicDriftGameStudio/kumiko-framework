@@ -97,6 +97,20 @@ function list(query: string, live = false) {
   );
 }
 
+function SearchList({ search }: { readonly search: string }) {
+  return (
+    <InfinityList<Page, Row>
+      query="inbox:query:message:list"
+      payload={{ search }}
+      rows={(data) => data.rows}
+      nextCursor={(data) => data.nextCursor}
+      rowId={(row) => row.id}
+      renderRow={(row) => <span>{row.subject}</span>}
+      testId="inbox"
+    />
+  );
+}
+
 describe("InfinityList", () => {
   test("rendert die erste Seite", async () => {
     const dispatcher = createMockDispatcher({
@@ -229,20 +243,6 @@ describe("InfinityList", () => {
           resolvers.push(resolve);
         })) as unknown as Dispatcher["query"],
     });
-
-    function SearchList({ search }: { readonly search: string }) {
-      return (
-        <InfinityList<Page, Row>
-          query="inbox:query:message:list"
-          payload={{ search }}
-          rows={(data) => data.rows}
-          nextCursor={(data) => data.nextCursor}
-          rowId={(row) => row.id}
-          renderRow={(row) => <span>{row.subject}</span>}
-          testId="inbox"
-        />
-      );
-    }
 
     const { rerender } = renderWithDispatcher(<SearchList search="Bo" />, dispatcher);
     await waitFor(() => expect(resolvers.length).toBe(1));

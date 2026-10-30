@@ -44,12 +44,12 @@ export default {
 
 Rule of thumb: **if the target aggregate was created via a tenant user, you need the override.**
 
-| Aggregate type | Stream tenant | `tenantIdOverride` |
-|---|---|---|
-| config-values (system scope) | SYSTEM_TENANT | omit |
-| system text-content | SYSTEM_TENANT | omit |
-| tenant-membership | Payload tenant (after `backfillTenantStreamTenants`: `streamTenantId = tenantId`); older streams may still use the tenant of the creating admin | ✅ `m.streamTenantId` (NOT `m.tenantId` until the backfill has run) |
-| App entity (orders, tasks, …) | Tenant stream | ✅ Tenant ID from the lookup |
+| Aggregate type                | Stream tenant                                                                                                                                   | `tenantIdOverride`                                                  |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| config-values (system scope)  | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
+| system text-content           | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
+| tenant-membership             | Payload tenant (after `backfillTenantStreamTenants`: `streamTenantId = tenantId`); older streams may still use the tenant of the creating admin | ✅ `m.streamTenantId` (NOT `m.tenantId` until the backfill has run) |
+| App entity (orders, tasks, …) | Tenant stream                                                                                                                                   | ✅ Tenant ID from the lookup                                        |
 
 **Why not `m.tenantId`?** `read_tenant_memberships.tenant_id` is the payload tenant (logical membership target), while `kumiko_events.tenant_id` in the v1 row is the stream tenant (where the aggregate physically lives). Before the `backfillTenantStreamTenants` backfill, the two differed for memberships created by an admin from another tenant (`seedTenantMembership` now forces the stream tenant to the payload tenant). The `findMembershipsOfUser` helper returns both separately so seeds can choose the correct one.
 
@@ -108,14 +108,14 @@ bunx kumiko ops seed:apply [--dry-run]  # apply pending seeds (CLI path in Phase
 
 ## Guarantees
 
-| Guarantee | How |
-|---|---|
-| **Single-run** | Marker in `kumiko_es_operations` + `pg_advisory_xact_lock` serializes multi-replica boots |
+| Guarantee            | How                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| **Single-run**       | Marker in `kumiko_es_operations` + `pg_advisory_xact_lock` serializes multi-replica boots    |
 | **Marker atomicity** | Runner transaction + re-check inside the lock → marker reflects “run was actually attempted” |
-| **Order** | File name = chronological ID; failure stops all pending migrations |
-| **ES-compliant** | `systemWriteAs` calls the existing handler → events land in the store |
-| **Recovery** | `skippable: true` + `KUMIKO_SKIP_ES_OPS_<ID>=1` env flag for emergency skips |
-| **Boot skip** | `KUMIKO_SKIP_ES_OPS=1` env var skips all pending migrations (debug boots) |
+| **Order**            | File name = chronological ID; failure stops all pending migrations                           |
+| **ES-compliant**     | `systemWriteAs` calls the existing handler → events land in the store                        |
+| **Recovery**         | `skippable: true` + `KUMIKO_SKIP_ES_OPS_<ID>=1` env flag for emergency skips                 |
+| **Boot skip**        | `KUMIKO_SKIP_ES_OPS=1` env var skips all pending migrations (debug boots)                    |
 
 ### What is NOT guaranteed
 
@@ -140,13 +140,13 @@ Most real seeds are naturally idempotent (existing lookup → conditional write)
 
 `packages/framework/src/es-ops/` contains:
 
-| File | Purpose |
-|---|---|
+| File                   | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
 | `operations-schema.ts` | `kumiko_es_operations` table definition + `createEsOperationsTable` helper |
-| `types.ts` | `SeedMigration` + `SeedMigrationContext` public API |
-| `runner.ts` | `runPendingSeedMigrations`: diff + transaction + marker |
-| `context.ts` | `createSeedMigrationContext`: read helpers + `systemWriteAs` |
-| `index.ts` | barrel export |
+| `types.ts`             | `SeedMigration` + `SeedMigrationContext` public API                        |
+| `runner.ts`            | `runPendingSeedMigrations`: diff + transaction + marker                    |
+| `context.ts`           | `createSeedMigrationContext`: read helpers + `systemWriteAs`               |
+| `index.ts`             | barrel export                                                              |
 
 Table schema:
 

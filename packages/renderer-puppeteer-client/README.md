@@ -45,23 +45,23 @@ extraContext: ({ db, registry }) => ({
 
 App-wide, set via K8s Secret + ConfigMap:
 
-| Var | Default | Description |
-|---|---|---|
-| `PUPPETEER_SERVICE_URL` | `http://puppeteer-service:3000` | Internal cluster URL of the service |
-| `PUPPETEER_AUTH_TOKEN` | **required** | Shared secret (>=16 chars, matching the service) |
-| `PUPPETEER_CLIENT_TIMEOUT_MS` | `60000` | Per-request timeout (client side) |
-| `PUPPETEER_CLIENT_MAX_RETRIES` | `3` | Number of retries for 5xx/network errors |
+| Var                            | Default                         | Description                                      |
+| ------------------------------ | ------------------------------- | ------------------------------------------------ |
+| `PUPPETEER_SERVICE_URL`        | `http://puppeteer-service:3000` | Internal cluster URL of the service              |
+| `PUPPETEER_AUTH_TOKEN`         | **required**                    | Shared secret (>=16 chars, matching the service) |
+| `PUPPETEER_CLIENT_TIMEOUT_MS`  | `60000`                         | Per-request timeout (client side)                |
+| `PUPPETEER_CLIENT_MAX_RETRIES` | `3`                             | Number of retries for 5xx/network errors         |
 
 **Per tenant?** Currently **no**. All tenants use the same service. Per-tenant overrides via a config bundle will be added when there is a real need, for example a dedicated Puppeteer pool for enterprise tenants.
 
 ## Retry strategy
 
-| Response | Action |
-|---|---|
-| `2xx` | Success, return bytes |
-| `4xx` (validation, auth, 413) | **NO retry**. Return `RendererError("invalid_payload")` immediately |
-| `5xx` (render error, service crash) | Retry with exponential backoff (200ms × 2^attempt) + ±50% jitter |
-| Network-error (ECONNREFUSED, timeout) | Retry as for 5xx |
+| Response                              | Action                                                              |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| `2xx`                                 | Success, return bytes                                               |
+| `4xx` (validation, auth, 413)         | **NO retry**. Return `RendererError("invalid_payload")` immediately |
+| `5xx` (render error, service crash)   | Retry with exponential backoff (200ms × 2^attempt) + ±50% jitter    |
+| Network-error (ECONNREFUSED, timeout) | Retry as for 5xx                                                    |
 
 After `PUPPETEER_CLIENT_MAX_RETRIES` is exhausted: `RendererError("other")` with the original error message.
 

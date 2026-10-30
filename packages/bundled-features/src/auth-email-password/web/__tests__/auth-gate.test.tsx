@@ -10,13 +10,18 @@ import type { ReactNode } from "react";
 import { createLoginRoute, makeAuthGate } from "../auth-gate.tsx";
 import { defaultTranslations } from "../i18n.ts";
 import { SessionProvider } from "../session.tsx";
-import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
+import {
+  clearCsrfCookie,
+  makeSessionApi,
+  renderWithProviders,
+  setCsrfCookie,
+} from "./test-utils.tsx";
+
+function CustomLogin(): ReactNode {
+  return <div data-testid="custom-login">custom-login</div>;
+}
 
 describe("makeAuthGate", () => {
-  function CustomLogin(): ReactNode {
-    return <div data-testid="custom-login">custom-login</div>;
-  }
-
   test("loading → renders placeholder, not children, not login", () => {
     const Gate = makeAuthGate({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "loading", user: null });
@@ -57,64 +62,60 @@ describe("makeAuthGate", () => {
   });
 });
 
+function LoginWithMfaTrigger({
+  onMfaChallenge,
+}: {
+  readonly onMfaChallenge?: (challengeToken: string) => void;
+}): ReactNode {
+  return (
+    <button type="button" data-testid="trigger-mfa" onClick={() => onMfaChallenge?.("token-123")}>
+      trigger
+    </button>
+  );
+}
+
+function CustomMfaVerify({ challengeToken }: { readonly challengeToken: string }): ReactNode {
+  return <div data-testid="mfa-verify">{challengeToken}</div>;
+}
+
+function LoginWithMfaSetupTrigger({
+  onMfaSetupRequired,
+}: {
+  readonly onMfaSetupRequired?: (preauthSetupToken: string, accountLabel: string) => void;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      data-testid="trigger-mfa-setup"
+      onClick={() => onMfaSetupRequired?.("setup-token-123", "user@example.com")}
+    >
+      trigger
+    </button>
+  );
+}
+
+function CustomMfaSetup({
+  preauthSetupToken,
+  accountLabel,
+  onSuccess,
+}: {
+  readonly preauthSetupToken: string;
+  readonly accountLabel: string;
+  readonly onSuccess?: () => void;
+}): ReactNode {
+  return (
+    <div data-testid="mfa-setup">
+      <span data-testid="mfa-setup-info">
+        {preauthSetupToken}:{accountLabel}
+      </span>
+      <button type="button" data-testid="complete-mfa-setup" onClick={() => onSuccess?.()}>
+        complete
+      </button>
+    </div>
+  );
+}
+
 describe("createLoginRoute", () => {
-  function CustomLogin(): ReactNode {
-    return <div data-testid="custom-login">custom-login</div>;
-  }
-
-  function LoginWithMfaTrigger({
-    onMfaChallenge,
-  }: {
-    readonly onMfaChallenge?: (challengeToken: string) => void;
-  }): ReactNode {
-    return (
-      <button type="button" data-testid="trigger-mfa" onClick={() => onMfaChallenge?.("token-123")}>
-        trigger
-      </button>
-    );
-  }
-
-  function CustomMfaVerify({ challengeToken }: { readonly challengeToken: string }): ReactNode {
-    return <div data-testid="mfa-verify">{challengeToken}</div>;
-  }
-
-  function LoginWithMfaSetupTrigger({
-    onMfaSetupRequired,
-  }: {
-    readonly onMfaSetupRequired?: (preauthSetupToken: string, accountLabel: string) => void;
-  }): ReactNode {
-    return (
-      <button
-        type="button"
-        data-testid="trigger-mfa-setup"
-        onClick={() => onMfaSetupRequired?.("setup-token-123", "user@example.com")}
-      >
-        trigger
-      </button>
-    );
-  }
-
-  function CustomMfaSetup({
-    preauthSetupToken,
-    accountLabel,
-    onSuccess,
-  }: {
-    readonly preauthSetupToken: string;
-    readonly accountLabel: string;
-    readonly onSuccess?: () => void;
-  }): ReactNode {
-    return (
-      <div data-testid="mfa-setup">
-        <span data-testid="mfa-setup-info">
-          {preauthSetupToken}:{accountLabel}
-        </span>
-        <button type="button" data-testid="complete-mfa-setup" onClick={() => onSuccess?.()}>
-          complete
-        </button>
-      </div>
-    );
-  }
-
   test("authenticated + onAuthenticated → renders nothing, fires onAuthenticated exactly once", () => {
     const onAuthenticated = mock(() => {});
     const LoginRoute = createLoginRoute({ loginScreen: CustomLogin, onAuthenticated });
@@ -246,12 +247,11 @@ describe("makeSessionAuthGate — session bootstrap failure", () => {
   }
 
   beforeEach(() => {
-    // path=/ matches the afterEach delete; without it the cookie takes the path of whatever URL an earlier test left behind and survives into other files.
-    document.cookie = "kumiko_csrf=gate-test-token; path=/";
+    setCsrfCookie("gate-test-token");
   });
 
   afterEach(() => {
-    document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCsrfCookie();
     globalThis.fetch = originalFetch;
   });
 

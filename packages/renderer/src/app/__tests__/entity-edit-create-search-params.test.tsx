@@ -184,55 +184,56 @@ describe("EntityEditCreateBody — navigate params as initial values", () => {
   });
 });
 
+let openForm: (() => void) | undefined;
+
+function Opener({
+  initialValues,
+}: {
+  readonly initialValues: Readonly<Record<string, unknown>>;
+}): ReactNode {
+  const navigateWithInitialValues = useNavigateWithInitialValues();
+  openForm = () => navigateWithInitialValues({ screenId: "unit-edit" }, initialValues);
+  return null;
+}
+
+function HandoffApp({
+  schema,
+  initialValues,
+}: {
+  readonly schema: FeatureSchema;
+  readonly initialValues: Readonly<Record<string, unknown>>;
+}): ReactNode {
+  const [screenId, setScreenId] = useState("home");
+  const nav: NavApi = {
+    route: { screenId },
+    navigate: (target: NavTarget) => {
+      if ("screenId" in target) setScreenId(target.screenId);
+    },
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: {},
+    setSearchParams: () => {
+      throw new Error("the handoff must not write the query string");
+    },
+  };
+  return (
+    <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
+      <DispatcherProvider dispatcher={stubDispatcher()}>
+        <NavProvider value={nav}>
+          <PrimitivesProvider value={testPrimitives}>
+            {screenId === "unit-edit" ? (
+              <KumikoScreen schema={schema} qn="housing:screen:unit-edit" />
+            ) : (
+              <Opener initialValues={initialValues} />
+            )}
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>
+  );
+}
+
 describe("EntityEditCreateBody — useNavigateWithInitialValues", () => {
-  function HandoffApp({
-    schema,
-    initialValues,
-  }: {
-    readonly schema: FeatureSchema;
-    readonly initialValues: Readonly<Record<string, unknown>>;
-  }): ReactNode {
-    const [screenId, setScreenId] = useState("home");
-    const nav: NavApi = {
-      route: { screenId },
-      navigate: (target: NavTarget) => {
-        if ("screenId" in target) setScreenId(target.screenId);
-      },
-      replace: () => {},
-      hrefFor: () => "",
-      searchParams: {},
-      setSearchParams: () => {
-        throw new Error("the handoff must not write the query string");
-      },
-    };
-    return (
-      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
-        <DispatcherProvider dispatcher={stubDispatcher()}>
-          <NavProvider value={nav}>
-            <PrimitivesProvider value={testPrimitives}>
-              {screenId === "unit-edit" ? (
-                <KumikoScreen schema={schema} qn="housing:screen:unit-edit" />
-              ) : (
-                <Opener initialValues={initialValues} />
-              )}
-            </PrimitivesProvider>
-          </NavProvider>
-        </DispatcherProvider>
-      </LocaleProvider>
-    );
-  }
-
-  let openForm: (() => void) | undefined;
-  function Opener({
-    initialValues,
-  }: {
-    readonly initialValues: Readonly<Record<string, unknown>>;
-  }): ReactNode {
-    const navigateWithInitialValues = useNavigateWithInitialValues();
-    openForm = () => navigateWithInitialValues({ screenId: "unit-edit" }, initialValues);
-    return null;
-  }
-
   test("handed-off values prefill fields outside urlPrefillFields, but never a sensitive one", () => {
     resetCaptured();
     render(

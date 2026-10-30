@@ -76,6 +76,7 @@ The integration test pins three guarantees:
 ```bash
 bun kumiko test integration samples/cross-feature-events
 ```
+
 4. **Catch-up job** — `catch-up-job.integration.test.ts` places orders
    before the first dispatcher pass and checks that the `catchUp` job
    invoices each of them exactly once.

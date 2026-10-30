@@ -32,6 +32,7 @@ export type UploadZoneProps = {
   /** Uploads a single file (POST + optional follow-up mutation). Throws on
    *  failure — the message ends up in the row's error line. Runs in
    *  parallel per file within a batch (no sequential waiting). */
+  // biome-ignore lint/suspicious/noConfusingVoidType: public prop, `| undefined` would reject handlers declared as Promise<void>
   readonly onUpload: (file: File) => Promise<string | undefined | void>;
   readonly title: ReactNode;
   readonly hint?: ReactNode;

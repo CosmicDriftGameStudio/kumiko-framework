@@ -7,18 +7,18 @@ behaves end-to-end against the worktree's framework source.
 
 ## What's inside
 
-| Step | Where it shows up |
-|---|---|
-| `r.step.aggregate.create` | `product:create` |
-| `r.step.aggregate.update` | `product:rename`, `product:adjust-stock`, `product:bulk-adjust` |
-| `r.step.aggregate.appendEvent` | `product:adjust-stock`, `product:archive`, `report:archive-low-stock-products` |
-| `r.step.read.findOne` | `product:rename`, `product:adjust-stock`, `product:bulk-adjust` |
-| `r.step.read.findMany` | `report:archive-low-stock-products` |
-| `r.step.compute` | `product:adjust-stock`, `product:bulk-adjust` |
-| `r.step.branch` | `product:rename`, `product:adjust-stock` |
-| `r.step.forEach` | `product:bulk-adjust`, `report:archive-low-stock-products` |
-| `r.step.return` | every handler |
-| `r.step.unsafeProjectionUpsert` | `product:adjust-stock` |
+| Step                            | Where it shows up                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| `r.step.aggregate.create`       | `product:create`                                                               |
+| `r.step.aggregate.update`       | `product:rename`, `product:adjust-stock`, `product:bulk-adjust`                |
+| `r.step.aggregate.appendEvent`  | `product:adjust-stock`, `product:archive`, `report:archive-low-stock-products` |
+| `r.step.read.findOne`           | `product:rename`, `product:adjust-stock`, `product:bulk-adjust`                |
+| `r.step.read.findMany`          | `report:archive-low-stock-products`                                            |
+| `r.step.compute`                | `product:adjust-stock`, `product:bulk-adjust`                                  |
+| `r.step.branch`                 | `product:rename`, `product:adjust-stock`                                       |
+| `r.step.forEach`                | `product:bulk-adjust`, `report:archive-low-stock-products`                     |
+| `r.step.return`                 | every handler                                                                  |
+| `r.step.unsafeProjectionUpsert` | `product:adjust-stock`                                                         |
 | `r.step.unsafeProjectionDelete` | `product:adjust-stock`, `product:archive`, `report:archive-low-stock-products` |
 
 ## Domain
@@ -84,7 +84,7 @@ engine APIs land in a published release.
   in the pure event-sourcing shape — it appends a domain event
   (`product-stock-adjusted`) and lets the inline
   `product-stock-counter` projection update `currentStock`. The
-  alternative (calling `aggregate.update` *and* `appendEvent` in
+  alternative (calling `aggregate.update` _and_ `appendEvent` in
   one handler) inflates the stream-version mid-handler and trips
   optimistic-locking on the next call. The other handlers
   (`rename`, `bulk-adjust`) use `aggregate.update` directly

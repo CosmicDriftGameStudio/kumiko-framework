@@ -139,6 +139,7 @@ export async function pruneEvents(
         }
 
         const maxCandidateId = candidates.reduce(
+          // biome-ignore lint/complexity/useMathMinMax: ids are bigint, Math.max throws a TypeError on BigInt
           (acc, row) => (row.id > acc ? row.id : acc),
           candidates[0]?.id ?? 0n,
         );

@@ -7,7 +7,7 @@ import {
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer/web";
-import { type ComponentType, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { DEFAULT_TEMPLATE_LOCALES } from "./constants.ts";
 import { defaultLocaleOf } from "./editor-locale.ts";
 import { MailEditorBody } from "./mail-editor-body.tsx";
@@ -93,7 +93,7 @@ function MailEditorData({
   );
 }
 
-function MailEditorEntry({ appLocales }: { readonly appLocales: readonly string[] }): ReactNode {
+export function MailEditor({ appLocales }: { readonly appLocales: readonly string[] }): ReactNode {
   const nav = useNav();
   const roles = useUserRoles();
   const uiLocale = useLocale().locale();
@@ -117,10 +117,4 @@ function MailEditorEntry({ appLocales }: { readonly appLocales: readonly string[
       refreshOverview={overview.refetch}
     />
   );
-}
-
-export function createMailEditor(appLocales: readonly string[]): ComponentType {
-  return function MailEditor(): ReactNode {
-    return <MailEditorEntry appLocales={appLocales} />;
-  };
 }

@@ -443,6 +443,20 @@ describe("DefaultForm pinned footer (fillHeight + stickyActions)", () => {
   });
 });
 
+function RendersNothing(): ReactNode {
+  return null;
+}
+
+function ActionWithDialog(): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Löschen</Button>
+      {open && <div role="alertdialog">Wirklich löschen?</div>}
+    </>
+  );
+}
+
 describe("DefaultForm pinned footer below sm", () => {
   restoreViewportWidthAfterEach();
 
@@ -510,9 +524,6 @@ describe("DefaultForm pinned footer below sm", () => {
 
   test("an overflow node that renders nothing keeps the trigger hidden", () => {
     setViewportWidth(390);
-    function RendersNothing(): ReactNode {
-      return null;
-    }
     render(narrowForm(<RendersNothing />));
     expect(screen.getByTestId("f-overflow").className).toContain("hidden");
   });
@@ -545,15 +556,6 @@ describe("DefaultForm pinned footer below sm", () => {
 
   test("a dialog owned by an overflow action still opens and survives the popover closing", async () => {
     setViewportWidth(390);
-    function ActionWithDialog(): ReactNode {
-      const [open, setOpen] = useState(false);
-      return (
-        <>
-          <Button onClick={() => setOpen(true)}>Löschen</Button>
-          {open && <div role="alertdialog">Wirklich löschen?</div>}
-        </>
-      );
-    }
     render(narrowForm(<ActionWithDialog />));
     await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
     await userEvent.click(screen.getByTestId("f-overflow"));

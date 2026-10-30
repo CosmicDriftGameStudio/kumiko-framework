@@ -7,17 +7,17 @@ Next to it, under `agents/`, are generated files. They are rebuilt from the
 framework source on every release, so they never describe an API that does
 not exist in your version:
 
-| File | What it holds |
-| --- | --- |
-| `agents/features-index.md` | One entry per bundled feature: purpose, factory import, required features, config keys without a default, secrets |
-| `agents/features.md` | Every bundled feature in detail: purpose, config keys, secrets, dependencies, APIs |
-| `agents/api.md` | Index of the API reference: one file per entry point an app imports |
-| `agents/api/<entry>.md` | Signatures of one entry point; options and screen types as property lists |
-| `agents/api/types.md` | Types the entry points use but do not export, such as nested option shapes |
-| `agents/widgets.md` | Every value export of `@cosmicdrift/kumiko-renderer/web` with its short description |
-| `agents/boot-rules.md` | Every boot rule by id: summary, fix and source file; a boot violation links its entry |
-| `agents/examples.md` | Index of the worked examples, one per concept |
-| `agents/examples/<name>.md` | One tested sample app: README plus every source and test file |
+| File                        | What it holds                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `agents/features-index.md`  | One entry per bundled feature: purpose, factory import, required features, config keys without a default, secrets |
+| `agents/features.md`        | Every bundled feature in detail: purpose, config keys, secrets, dependencies, APIs                                |
+| `agents/api.md`             | Index of the API reference: one file per entry point an app imports                                               |
+| `agents/api/<entry>.md`     | Signatures of one entry point; options and screen types as property lists                                         |
+| `agents/api/types.md`       | Types the entry points use but do not export, such as nested option shapes                                        |
+| `agents/widgets.md`         | Every value export of `@cosmicdrift/kumiko-renderer/web` with its short description                               |
+| `agents/boot-rules.md`      | Every boot rule by id: summary, fix and source file; a boot violation links its entry                             |
+| `agents/examples.md`        | Index of the worked examples, one per concept                                                                     |
+| `agents/examples/<name>.md` | One tested sample app: README plus every source and test file                                                     |
 
 The paths are relative to this file. From an app root they live under
 `node_modules/@cosmicdrift/kumiko-framework/`. For signatures and option
@@ -131,14 +131,14 @@ is mounted in `src/client.tsx`. Declarative screens need no client code.
 Names are built from the feature name, a kind and an id. Use the QN wherever
 another feature or a test refers to something.
 
-| Thing | Pattern | Example from the scaffolded demo feature |
-| --- | --- | --- |
-| Write handler | `<feature>:write:<entity>:<verb>` | `tasks:write:task:create` |
-| Query handler | `<feature>:query:<entity>:<verb>` | `tasks:query:task:list` |
-| Screen | `<feature>:screen:<id>` | `tasks:screen:task-list` |
-| Nav entry | `<feature>:nav:<id>` | `tasks:nav:tasks` |
-| Translation key | `<feature>:<path>` | `tasks:nav.tasks` |
-| Entity field label | `<feature>:entity:<entity>:field:<field>` | `tasks:entity:task:field:title` |
+| Thing              | Pattern                                   | Example from the scaffolded demo feature |
+| ------------------ | ----------------------------------------- | ---------------------------------------- |
+| Write handler      | `<feature>:write:<entity>:<verb>`         | `tasks:write:task:create`                |
+| Query handler      | `<feature>:query:<entity>:<verb>`         | `tasks:query:task:list`                  |
+| Screen             | `<feature>:screen:<id>`                   | `tasks:screen:task-list`                 |
+| Nav entry          | `<feature>:nav:<id>`                      | `tasks:nav:tasks`                        |
+| Translation key    | `<feature>:<path>`                        | `tasks:nav.tasks`                        |
+| Entity field label | `<feature>:entity:<entity>:field:<field>` | `tasks:entity:task:field:title`          |
 
 Inside one feature, a screen id without prefix (`screen: "task-edit"`) refers
 to a screen of the same feature.
@@ -147,20 +147,20 @@ to a screen of the same feature.
 
 The scaffold (`bun create kumiko-app <name>`) produces this layout. Keep it.
 
-| Path | Content |
-| --- | --- |
-| `kumiko.config.ts` | `defineAppConfig({ features, prodFeatures?, client, ports })`: the one list the tooling reads |
-| `src/run-config.ts` | `APP_FEATURES`, the mounted feature list |
-| `src/features/<name>/feature.ts` | `defineFeature(...)` with entities, handlers, screens, navs |
-| `src/features/<name>/index.ts` | Public exports of the feature |
-| `src/features/<name>/web/index.ts` | Client feature definition |
-| `src/client.tsx` | Web entry, mounts the client features |
-| `src/__tests__/*.test.ts` | Unit tests, no services |
-| `src/__tests__/*.integration.test.ts` | Integration tests against Postgres and Redis |
-| `e2e/*.spec.ts` | Playwright tests against a booted app |
-| `kumiko/schema.ts`, `kumiko/migrations/` | Generated schema shim over `kumiko.config.ts`, and the migrations |
-| `bin/server.ts`, `bin/main.ts`, `bin/env-schema.ts` | Dev server, production boot, env contract |
-| `e2e/_helpers/`, `src/__tests__/_setup.ts` | Shared e2e helpers and the shared integration stack setup |
+| Path                                                | Content                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `kumiko.config.ts`                                  | `defineAppConfig({ features, prodFeatures?, client, ports })`: the one list the tooling reads |
+| `src/run-config.ts`                                 | `APP_FEATURES`, the mounted feature list                                                      |
+| `src/features/<name>/feature.ts`                    | `defineFeature(...)` with entities, handlers, screens, navs                                   |
+| `src/features/<name>/index.ts`                      | Public exports of the feature                                                                 |
+| `src/features/<name>/web/index.ts`                  | Client feature definition                                                                     |
+| `src/client.tsx`                                    | Web entry, mounts the client features                                                         |
+| `src/__tests__/*.test.ts`                           | Unit tests, no services                                                                       |
+| `src/__tests__/*.integration.test.ts`               | Integration tests against Postgres and Redis                                                  |
+| `e2e/*.spec.ts`                                     | Playwright tests against a booted app                                                         |
+| `kumiko/schema.ts`, `kumiko/migrations/`            | Generated schema shim over `kumiko.config.ts`, and the migrations                             |
+| `bin/server.ts`, `bin/main.ts`, `bin/env-schema.ts` | Dev server, production boot, env contract                                                     |
+| `e2e/_helpers/`, `src/__tests__/_setup.ts`          | Shared e2e helpers and the shared integration stack setup                                     |
 
 Files whose first line reads `kumiko-managed` (deploy/, `.github/workflows/`,
 `.husky/pre-push`, the bunfigs, `kumiko/schema.ts`) belong to the framework.
@@ -176,20 +176,20 @@ feature and test. Start from them.
 
 ## Commands in an app
 
-| Goal | Command |
-| --- | --- |
-| Run the app with demo data | `bun dev` |
-| Boot validation without serving | `bun run boot` |
-| Boot, guards, managed files and script standard | `bun run check` |
-| Restore framework-owned files | `bunx kumiko sync-managed --write` |
-| Types | `bun run typecheck` |
-| Lint | `bun run lint` |
-| Unit tests | `bun run test` |
-| Integration tests (needs `docker compose up -d`) | `bun run test:integration` |
-| Browser tests | `bun run e2e` |
-| New migration after an entity change or a newly mounted bundled feature | `bun run schema:generate <name>` |
-| Check migrations against the features, no database needed | `bun kumiko-schema validate` |
-| Apply migrations | `bun run schema:apply` |
+| Goal                                                                    | Command                            |
+| ----------------------------------------------------------------------- | ---------------------------------- |
+| Run the app with demo data                                              | `bun dev`                          |
+| Boot validation without serving                                         | `bun run boot`                     |
+| Boot, guards, managed files and script standard                         | `bun run check`                    |
+| Restore framework-owned files                                           | `bunx kumiko sync-managed --write` |
+| Types                                                                   | `bun run typecheck`                |
+| Lint                                                                    | `bun run lint`                     |
+| Unit tests                                                              | `bun run test`                     |
+| Integration tests (needs `docker compose up -d`)                        | `bun run test:integration`         |
+| Browser tests                                                           | `bun run e2e`                      |
+| New migration after an entity change or a newly mounted bundled feature | `bun run schema:generate <name>`   |
+| Check migrations against the features, no database needed               | `bun kumiko-schema validate`       |
+| Apply migrations                                                        | `bun run schema:apply`             |
 
 `<name>` is required and becomes part of the file name
 (`schema:generate add-invoice`). Mounting a bundled feature in
@@ -303,50 +303,50 @@ Before building anything here, search `agents/features-index.md`: auth, tenants,
 mail, files, jobs, billing, audit, notifications and GDPR flows already exist
 as bundled features.
 
-| I need | Use | Read |
-| --- | --- | --- |
-| A CRUD entity with list and edit | `createEntity` + `r.crud` + `entityList` / `entityEdit` screens | `agents/examples/basic-entity.md` |
-| Business logic beyond CRUD | `r.writeHandler` / `r.queryHandler` with `createEntityExecutor` | `agents/examples/custom-handlers.md` |
-| Filtered lists and counts | Executor `list` with `filter` and `totalCount` | `agents/examples/custom-handlers.md` |
-| Key figures on a dashboard | `dashboard` screen with `stat` / `stat-group` panels and a query handler | `agents/examples/dashboard-stats.md` |
-| Relations between entities | `createReferenceField({ entity })` for the foreign key (user ids: `entity: "user:user"`), `r.relation(entity, name, { type, target, foreignKey, onDelete })` | `agents/examples/relations.md` |
-| Structured sub-objects in a field | Embedded fields | `agents/examples/embedded.md` |
-| List, edit, custom screens and navs | `r.screen`, `r.nav` | `agents/examples/screens-nav.md` |
-| A record page with header, metrics, tabs | `projectionDetail` with `header`, `metrics`, `layout.mode: "tabs"` | `agents/examples/record-detail-layout.md` |
-| A multi-step form | `layout.mode: "wizard"` | `agents/examples/wizard-form.md` |
-| A form inside a drawer | `RenderEdit` in a `Drawer` | `agents/examples/embedded-entity-form.md` |
-| Role-based access | `access: { roles }`, `openToAll` | `agents/examples/access-control.md` |
-| Field-level access | Field access rules | `agents/examples/field-access.md` |
-| Row ownership | Ownership rules | `agents/examples/ownership.md` |
-| Tenant separation | Built in; see what it guarantees | `agents/examples/tenant-isolation.md` |
-| Public or anonymous endpoints | `anonymous` role | `agents/examples/anonymous-access.md` |
-| Allowed state changes | Entity transitions | `agents/examples/state-machine.md` |
-| React to a write in another feature | `r.defineEvent` + `emitEvent` + `r.multiStreamProjection` | `agents/examples/cross-feature-events.md` |
-| Projections, event versions, history | `r.projection`, `ctx.events.load`, `ctx.dispatch.queryProjection` | `agents/examples/event-sourcing.md` |
-| Before or after save logic | Lifecycle hooks | `agents/examples/lifecycle-hooks.md` |
-| Typed errors with reasons | `@cosmicdrift/kumiko-framework/errors` | `agents/examples/error-contract.md` |
-| Translations | `r.translations` + client translations | `agents/examples/i18n.md` |
-| Config per tenant or system | Managed config | `agents/examples/managed-config.md` |
-| Tenant defaults (currency, locale) | Tenant settings | `agents/examples/tenant-settings.md` |
-| Secrets such as API keys | Secrets with envelope encryption | `agents/examples/secrets-demo.md` |
-| Personal data and erasure | `personal` / `find` annotations, crypto shredding | `agents/examples/crypto-shredding-hr.md` |
-| GDPR export and forget for my data | `user-data-rights` extension | `agents/examples/user-data-rights.md` |
-| Full-text search | Search feature | `agents/examples/search.md` |
-| Live updates in the browser | Server-sent events, `useQuery({ live: true })` | `agents/examples/realtime-sse.md` |
-| Feature toggles | Toggleable features | `agents/examples/feature-toggles.md` |
-| Rate limits | Rate limiting | `agents/examples/rate-limiting.md` |
-| Idempotent writes | Request id dedupe | `agents/examples/idempotency.md` |
-| File variants and images | File fields, derivatives | `agents/examples/files-post-processing.md` |
-| Money fields | Currency fields | `agents/examples/currencies-per-tenant.md` |
-| Dates, times, time zones | Time-aware field types, `ctx.tz` | `agents/examples/timezones.md` |
-| Tags or notes on any entity | Tags, notes history | `agents/examples/tags-basic.md`, `agents/examples/notes-history-basic.md` |
-| Tenant-defined extra fields | Custom fields | `agents/examples/custom-fields-basic.md` |
-| Lookup tables and seeds | Upsert seeds | `agents/examples/reference-data.md` |
-| Multi-step background flows | Workflow engine | `agents/examples/workflow-engine.md` |
-| A mount invariant for my feature | `r.bootCheck` | `agents/examples/boot-check.md` |
-| A widget for a custom screen | Search by concern | `agents/widgets.md` |
-| A bundled feature and its config | Search by name or purpose | `agents/features-index.md`, then `agents/features.md` |
-| The options of a function, screen or field | Search by name | `agents/api.md` |
+| I need                                     | Use                                                                                                                                                          | Read                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| A CRUD entity with list and edit           | `createEntity` + `r.crud` + `entityList` / `entityEdit` screens                                                                                              | `agents/examples/basic-entity.md`                                         |
+| Business logic beyond CRUD                 | `r.writeHandler` / `r.queryHandler` with `createEntityExecutor`                                                                                              | `agents/examples/custom-handlers.md`                                      |
+| Filtered lists and counts                  | Executor `list` with `filter` and `totalCount`                                                                                                               | `agents/examples/custom-handlers.md`                                      |
+| Key figures on a dashboard                 | `dashboard` screen with `stat` / `stat-group` panels and a query handler                                                                                     | `agents/examples/dashboard-stats.md`                                      |
+| Relations between entities                 | `createReferenceField({ entity })` for the foreign key (user ids: `entity: "user:user"`), `r.relation(entity, name, { type, target, foreignKey, onDelete })` | `agents/examples/relations.md`                                            |
+| Structured sub-objects in a field          | Embedded fields                                                                                                                                              | `agents/examples/embedded.md`                                             |
+| List, edit, custom screens and navs        | `r.screen`, `r.nav`                                                                                                                                          | `agents/examples/screens-nav.md`                                          |
+| A record page with header, metrics, tabs   | `projectionDetail` with `header`, `metrics`, `layout.mode: "tabs"`                                                                                           | `agents/examples/record-detail-layout.md`                                 |
+| A multi-step form                          | `layout.mode: "wizard"`                                                                                                                                      | `agents/examples/wizard-form.md`                                          |
+| A form inside a drawer                     | `RenderEdit` in a `Drawer`                                                                                                                                   | `agents/examples/embedded-entity-form.md`                                 |
+| Role-based access                          | `access: { roles }`, `openToAll`                                                                                                                             | `agents/examples/access-control.md`                                       |
+| Field-level access                         | Field access rules                                                                                                                                           | `agents/examples/field-access.md`                                         |
+| Row ownership                              | Ownership rules                                                                                                                                              | `agents/examples/ownership.md`                                            |
+| Tenant separation                          | Built in; see what it guarantees                                                                                                                             | `agents/examples/tenant-isolation.md`                                     |
+| Public or anonymous endpoints              | `anonymous` role                                                                                                                                             | `agents/examples/anonymous-access.md`                                     |
+| Allowed state changes                      | Entity transitions                                                                                                                                           | `agents/examples/state-machine.md`                                        |
+| React to a write in another feature        | `r.defineEvent` + `emitEvent` + `r.multiStreamProjection`                                                                                                    | `agents/examples/cross-feature-events.md`                                 |
+| Projections, event versions, history       | `r.projection`, `ctx.events.load`, `ctx.dispatch.queryProjection`                                                                                            | `agents/examples/event-sourcing.md`                                       |
+| Before or after save logic                 | Lifecycle hooks                                                                                                                                              | `agents/examples/lifecycle-hooks.md`                                      |
+| Typed errors with reasons                  | `@cosmicdrift/kumiko-framework/errors`                                                                                                                       | `agents/examples/error-contract.md`                                       |
+| Translations                               | `r.translations` + client translations                                                                                                                       | `agents/examples/i18n.md`                                                 |
+| Config per tenant or system                | Managed config                                                                                                                                               | `agents/examples/managed-config.md`                                       |
+| Tenant defaults (currency, locale)         | Tenant settings                                                                                                                                              | `agents/examples/tenant-settings.md`                                      |
+| Secrets such as API keys                   | Secrets with envelope encryption                                                                                                                             | `agents/examples/secrets-demo.md`                                         |
+| Personal data and erasure                  | `personal` / `find` annotations, crypto shredding                                                                                                            | `agents/examples/crypto-shredding-hr.md`                                  |
+| GDPR export and forget for my data         | `user-data-rights` extension                                                                                                                                 | `agents/examples/user-data-rights.md`                                     |
+| Full-text search                           | Search feature                                                                                                                                               | `agents/examples/search.md`                                               |
+| Live updates in the browser                | Server-sent events, `useQuery({ live: true })`                                                                                                               | `agents/examples/realtime-sse.md`                                         |
+| Feature toggles                            | Toggleable features                                                                                                                                          | `agents/examples/feature-toggles.md`                                      |
+| Rate limits                                | Rate limiting                                                                                                                                                | `agents/examples/rate-limiting.md`                                        |
+| Idempotent writes                          | Request id dedupe                                                                                                                                            | `agents/examples/idempotency.md`                                          |
+| File variants and images                   | File fields, derivatives                                                                                                                                     | `agents/examples/files-post-processing.md`                                |
+| Money fields                               | Currency fields                                                                                                                                              | `agents/examples/currencies-per-tenant.md`                                |
+| Dates, times, time zones                   | Time-aware field types, `ctx.tz`                                                                                                                             | `agents/examples/timezones.md`                                            |
+| Tags or notes on any entity                | Tags, notes history                                                                                                                                          | `agents/examples/tags-basic.md`, `agents/examples/notes-history-basic.md` |
+| Tenant-defined extra fields                | Custom fields                                                                                                                                                | `agents/examples/custom-fields-basic.md`                                  |
+| Lookup tables and seeds                    | Upsert seeds                                                                                                                                                 | `agents/examples/reference-data.md`                                       |
+| Multi-step background flows                | Workflow engine                                                                                                                                              | `agents/examples/workflow-engine.md`                                      |
+| A mount invariant for my feature           | `r.bootCheck`                                                                                                                                                | `agents/examples/boot-check.md`                                           |
+| A widget for a custom screen               | Search by concern                                                                                                                                            | `agents/widgets.md`                                                       |
+| A bundled feature and its config           | Search by name or purpose                                                                                                                                    | `agents/features-index.md`, then `agents/features.md`                     |
+| The options of a function, screen or field | Search by name                                                                                                                                               | `agents/api.md`                                                           |
 
 ## Reading an example
 
@@ -367,15 +367,15 @@ Import only from these entry points. Deep imports into `src/` or `dist/`
 break on the next release. Each one has its signatures in the file named in
 `agents/api.md`.
 
-| Entry point | Use it for |
-| --- | --- |
-| `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field factories, handler helpers, executors, events |
-| `@cosmicdrift/kumiko-framework/errors` | Typed failures and error helpers |
-| `@cosmicdrift/kumiko-framework/ui-types` | Screen definition types (`EntityListScreenDefinition`, ...) |
-| `@cosmicdrift/kumiko-framework/db` | `buildEntityTable` and database helpers for tests and migrations |
-| `@cosmicdrift/kumiko-framework/event-store` | Event store helpers |
-| `@cosmicdrift/kumiko-framework/seeding` | `TestUsers`, `createTestUser`, seed helpers |
-| `@cosmicdrift/kumiko-renderer/web` | Widgets, hooks and the web app shell |
-| `@cosmicdrift/kumiko-dev-server/testing` | `setupAppTestStack`, `seedTenant` for app integration tests |
-| `@cosmicdrift/kumiko-testing/stack` | `setupTestStack`, the stack the samples use |
-| `@cosmicdrift/kumiko-testing/helpers` | Assertion helpers such as `expectErrorIncludes` |
+| Entry point                                 | Use it for                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `@cosmicdrift/kumiko-framework/engine`      | `defineFeature`, `createEntity`, field factories, handler helpers, executors, events |
+| `@cosmicdrift/kumiko-framework/errors`      | Typed failures and error helpers                                                     |
+| `@cosmicdrift/kumiko-framework/ui-types`    | Screen definition types (`EntityListScreenDefinition`, ...)                          |
+| `@cosmicdrift/kumiko-framework/db`          | `buildEntityTable` and database helpers for tests and migrations                     |
+| `@cosmicdrift/kumiko-framework/event-store` | Event store helpers                                                                  |
+| `@cosmicdrift/kumiko-framework/seeding`     | `TestUsers`, `createTestUser`, seed helpers                                          |
+| `@cosmicdrift/kumiko-renderer/web`          | Widgets, hooks and the web app shell                                                 |
+| `@cosmicdrift/kumiko-dev-server/testing`    | `setupAppTestStack`, `seedTenant` for app integration tests                          |
+| `@cosmicdrift/kumiko-testing/stack`         | `setupTestStack`, the stack the samples use                                          |
+| `@cosmicdrift/kumiko-testing/helpers`       | Assertion helpers such as `expectErrorIncludes`                                      |

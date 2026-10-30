@@ -25,13 +25,17 @@ const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNod
 const testDataTable: ComponentType<DataTableProps> = ({ rows, emptyState }) =>
   rows.length === 0 && emptyState !== undefined ? <div>{emptyState}</div> : <table />;
 
+const testButton = (props: ButtonProps) => (
+  <button type="button" data-testid={props.testId} onClick={() => void props.onClick?.()}>
+    {props.children}
+  </button>
+);
+
+const testText = ({ children }: TextProps) => <span>{children}</span>;
+
 function testPrimitives(): CorePrimitives {
   return {
-    Button: (props: ButtonProps) => (
-      <button type="button" data-testid={props.testId} onClick={() => void props.onClick?.()}>
-        {props.children}
-      </button>
-    ),
+    Button: testButton,
     Banner: passChildren,
     Field: passChildren,
     Input: noop,
@@ -41,7 +45,7 @@ function testPrimitives(): CorePrimitives {
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: ({ children }: TextProps) => <span>{children}</span>,
+    Text: testText,
     Heading: noop,
     Dialog: noop,
     Modal: noop,

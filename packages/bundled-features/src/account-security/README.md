@@ -15,17 +15,19 @@ import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sess
 
 const features = [
   createSessionsFeature(),
-  createAuthMfaFeature({ /* secrets, issuer */ }),
+  createAuthMfaFeature({
+    /* secrets, issuer */
+  }),
   createAccountSecurityFeature(),
 ];
 ```
 
 ## Options
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `access` | `openToAll` | Who may open the dashboard, e.g. `{ roles: ["Admin", "Editor"] }` |
-| `nav` | none | `{ order?, parent?, icon? }` (icon default `"user"`) adds a sidebar entry. Without it the screen is dormant and apps link it from the user menu |
+| Option   | Default     | Effect                                                                                                                                          |
+| -------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `access` | `openToAll` | Who may open the dashboard, e.g. `{ roles: ["Admin", "Editor"] }`                                                                               |
+| `nav`    | none        | `{ order?, parent?, icon? }` (icon default `"user"`) adds a sidebar entry. Without it the screen is dormant and apps link it from the user menu |
 
 The MFA panels switch on `auth-mfa:query:status` (`enabled`), exported as
 `accountSecurityMfaStatusVisibility`.

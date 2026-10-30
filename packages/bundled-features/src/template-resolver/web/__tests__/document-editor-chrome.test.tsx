@@ -236,39 +236,39 @@ describe("PlaceholderLineEditor", () => {
   });
 });
 
-describe("DocumentTiptapEditor value sync", () => {
-  function ExternalValue({
-    onChangeSpy,
-    onEditorReady,
-  }: {
-    readonly onChangeSpy: (html: string) => void;
-    readonly onEditorReady?: ExtraProps["onEditorReady"];
-  }) {
-    const [value, setValue] = useState("");
-    return (
-      <Providers>
-        <DocumentTiptapEditor
-          id={CONTENT_EDITOR_ELEMENT_ID}
-          value={value}
-          onChange={(html) => {
-            onChangeSpy(html);
-            setValue(html);
-          }}
-          variables={[]}
-          readOnly={false}
-          {...(onEditorReady && { onEditorReady })}
-        />
-        <button type="button" onClick={() => setValue("<p>loaded <strong>body</strong></p>")}>
-          load canonical
-        </button>
-        <button type="button" onClick={() => setValue("<b>loaded</b>")}>
-          load non-canonical
-        </button>
-        <output data-testid="html">{value}</output>
-      </Providers>
-    );
-  }
+function ExternalValue({
+  onChangeSpy,
+  onEditorReady,
+}: {
+  readonly onChangeSpy: (html: string) => void;
+  readonly onEditorReady?: ExtraProps["onEditorReady"];
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <Providers>
+      <DocumentTiptapEditor
+        id={CONTENT_EDITOR_ELEMENT_ID}
+        value={value}
+        onChange={(html) => {
+          onChangeSpy(html);
+          setValue(html);
+        }}
+        variables={[]}
+        readOnly={false}
+        {...(onEditorReady && { onEditorReady })}
+      />
+      <button type="button" onClick={() => setValue("<p>loaded <strong>body</strong></p>")}>
+        load canonical
+      </button>
+      <button type="button" onClick={() => setValue("<b>loaded</b>")}>
+        load non-canonical
+      </button>
+      <output data-testid="html">{value}</output>
+    </Providers>
+  );
+}
 
+describe("DocumentTiptapEditor value sync", () => {
   test("mounting with an empty value emits no onChange", async () => {
     const changes: string[] = [];
     render(<ExternalValue onChangeSpy={(html) => changes.push(html)} />);

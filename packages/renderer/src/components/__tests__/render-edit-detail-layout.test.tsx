@@ -45,6 +45,7 @@ function renderFormProps(screen: EntityEditScreenDefinition): FormProps[] {
     Field: passChildren,
     Input: noop,
     DataTable: noop,
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderFormProps-local formProps array; defined once per renderFormProps call, never during a render
     Form: (props: FormProps) => {
       formProps.push(props);
       return props.children;

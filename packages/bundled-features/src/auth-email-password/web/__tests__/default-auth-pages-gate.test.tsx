@@ -25,6 +25,14 @@ function renderAt(path: string, basePath?: string): ReturnType<typeof renderWith
   );
 }
 
+function AppForgotGate({ children }: { readonly children: ReactNode }): ReactNode {
+  return window.location.pathname === "/forgot-password" ? (
+    <div data-testid="app-forgot">APP FORGOT</div>
+  ) : (
+    children
+  );
+}
+
 describe("DefaultAuthPagesGate", () => {
   test("/forgot-password shows the framework screen", () => {
     const ui = renderAt("/forgot-password");
@@ -64,13 +72,6 @@ describe("DefaultAuthPagesGate", () => {
 
   test("an app gate listed before emailPasswordClient wins on the same path", () => {
     window.history.replaceState({}, "", "/forgot-password");
-    function AppForgotGate({ children }: { readonly children: ReactNode }): ReactNode {
-      return window.location.pathname === "/forgot-password" ? (
-        <div data-testid="app-forgot">APP FORGOT</div>
-      ) : (
-        <>{children}</>
-      );
-    }
     const frameworkGates = emailPasswordClient().gates;
     const [DefaultPages, SessionGate] = frameworkGates;
     if (!DefaultPages || !SessionGate) throw new Error("expected two gates");

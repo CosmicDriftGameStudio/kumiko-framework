@@ -45,7 +45,10 @@ mounts `sessions` as part of its own require-chain. Combine both directly;
 `dedupeFeatures()` collapses the two identical `sessions` instances at boot:
 
 ```ts illustration
-import { composeGdprStack, composeSecurityStack } from "@cosmicdrift/kumiko-dev-server/compose-stacks";
+import {
+  composeGdprStack,
+  composeSecurityStack,
+} from "@cosmicdrift/kumiko-dev-server/compose-stacks";
 
 export const APP_FEATURES = [
   // ...config, user, tenant, auth-foundation...

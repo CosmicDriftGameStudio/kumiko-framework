@@ -21,9 +21,7 @@ const features = [
 const app = createKumikoApp({
   features,
   extraContext: ({ registry }) => ({
-    rendererFoundation: createRendererFoundationApi(
-      collectRendererPlugins(registry),
-    ),
+    rendererFoundation: createRendererFoundationApi(collectRendererPlugins(registry)),
   }),
 });
 ```
@@ -39,7 +37,11 @@ async function sendMail(ctx, tenantId) {
   const result = await renderer.render(
     {
       kind: "mail",
-      payload: { slug: "billing:notify:invoice-ready", locale: "de", variables: { name: "Frau Schmidt" } },
+      payload: {
+        slug: "billing:notify:invoice-ready",
+        locale: "de",
+        variables: { name: "Frau Schmidt" },
+      },
     },
     { db: ctx.db, registry: ctx.registry, tenantId, config: ctx.config },
   );

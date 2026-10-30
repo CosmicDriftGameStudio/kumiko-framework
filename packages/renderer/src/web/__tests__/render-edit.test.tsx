@@ -25,6 +25,18 @@ import {
 } from "./_render-edit-helpers.tsx";
 import { act, fireEvent, render, screen, within } from "./test-utils.tsx";
 
+const MyCustomFieldsForm = ({
+  entityName,
+  entityId,
+}: {
+  entityName: string;
+  entityId: string | null;
+}) => (
+  <div data-testid="my-custom-fields-form">
+    {entityName}:{entityId ?? "(create)"}
+  </div>
+);
+
 describe("RenderEdit", () => {
   test("renders a field per visible section entry with its resolved label", () => {
     const dispatcher = makeDispatcher();
@@ -798,17 +810,6 @@ describe("RenderEdit", () => {
         ],
       },
     };
-    const MyCustomFieldsForm = ({
-      entityName,
-      entityId,
-    }: {
-      entityName: string;
-      entityId: string | null;
-    }) => (
-      <div data-testid="my-custom-fields-form">
-        {entityName}:{entityId ?? "(create)"}
-      </div>
-    );
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <ExtensionSectionsProvider value={{ MyCustomFieldsForm }}>
@@ -849,17 +850,6 @@ describe("RenderEdit", () => {
         ],
       },
     };
-    const MyCustomFieldsForm = ({
-      entityName,
-      entityId,
-    }: {
-      entityName: string;
-      entityId: string | null;
-    }) => (
-      <div data-testid="my-custom-fields-form">
-        {entityName}:{entityId ?? "(create)"}
-      </div>
-    );
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <ExtensionSectionsProvider value={{ MyCustomFieldsForm }}>
@@ -938,6 +928,7 @@ describe("RenderEdit", () => {
         ],
       },
     };
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local lastValidateResult; defined once per test run, never during a render
     const VinDecodeSection = ({
       values,
       patch,
@@ -1110,6 +1101,7 @@ describe("RenderEdit — composed extension save", () => {
     submitSpy: (ctx: ExtensionSubmitContext) => void,
     writeSpy: Dispatcher["write"],
   ): void {
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the submitSpy parameter; defined once per renderWith() call, never during a render
     const ComposedCF = (_: { entityName: string; entityId: string | null }) => {
       const [touched, setTouched] = useState(false);
       useExtensionFormSubmit({

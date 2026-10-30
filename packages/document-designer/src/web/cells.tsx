@@ -64,6 +64,7 @@ export function OriginCell({ row }: ColumnRendererProps): ReactNode {
 }
 
 export function createLocalesCell(appLocales: readonly string[]): ColumnRendererComponent {
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory, called once per documentDesignerClient(); the column-renderer slot only passes row props, so appLocales is bound here
   return function LocalesCell({ row }: ColumnRendererProps): ReactNode {
     return withRow(row, (r) => {
       if (r.kind === "mail-layout" || r.kind === "pdf-layout") return EMPTY_VALUE_PLACEHOLDER;

@@ -49,36 +49,31 @@ describe("timestamp Konvertierung (Helpers)", () => {
   });
 });
 
-describe("Input kind=timestamp (Primitive)", () => {
-  // Separate date input (editable, directly accepts ISO) and time input instead
-  // of native datetime-local. inputs[0] = date, inputs[1] = type=time. The
-  // wire conversion (UTC↔Wall-Clock) is unchanged and pinned above through the
-  // helpers. This controlled wrapper makes `value` flow back as it does in a
-  // real form.
-  function ControlledTimestamp({
-    wallClock,
-    onEmit,
-  }: {
-    readonly wallClock?: boolean;
-    readonly onEmit: (v: string | undefined) => void;
-  }) {
-    const { Input } = defaultPrimitives;
-    const [v, setV] = useState("");
-    return (
-      <Input
-        kind="timestamp"
-        id="ts"
-        name="ts"
-        value={v}
-        {...(wallClock === true && { wallClock: true })}
-        onChange={(nv) => {
-          onEmit(nv);
-          setV(nv ?? "");
-        }}
-      />
-    );
-  }
+function ControlledTimestamp({
+  wallClock,
+  onEmit,
+}: {
+  readonly wallClock?: boolean;
+  readonly onEmit: (v: string | undefined) => void;
+}) {
+  const { Input } = defaultPrimitives;
+  const [v, setV] = useState("");
+  return (
+    <Input
+      kind="timestamp"
+      id="ts"
+      name="ts"
+      value={v}
+      {...(wallClock === true && { wallClock: true })}
+      onChange={(nv) => {
+        onEmit(nv);
+        setV(nv ?? "");
+      }}
+    />
+  );
+}
 
+describe("Input kind=timestamp (Primitive)", () => {
   test("Datum + Uhrzeit tippen → valider Z-Instant (UTC-Variante)", () => {
     let last: string | undefined;
     const view = render(<ControlledTimestamp onEmit={(v) => (last = v)} />);

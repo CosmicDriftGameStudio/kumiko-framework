@@ -127,6 +127,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   if (panelBox === null) throw new Error("cap-cards-panel boundingBox() returned null");
   expect(firstCardBox.width).toBeLessThan(panelBox.width * 0.75);
 
+  // biome-ignore lint/performance/useDomNodeTextContent: Playwright Locator.innerText(), compares rendered text; textContent() would include hidden nodes
   const deepLinkedCardsText = await dashboardCards.innerText();
 
   await captureScreenshot(page, "e2e-cap-overview/platform-tenant-caps");
@@ -141,6 +142,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   // toHaveText() normalizes only the actual side, not a plain-string
   // expected — compare raw innerText on both sides instead.
   await expect(async () => {
+    // biome-ignore lint/performance/useDomNodeTextContent: same rendered-text comparison as deepLinkedCardsText above
     expect(await myCapsCards.innerText()).toBe(deepLinkedCardsText);
   }).toPass();
 

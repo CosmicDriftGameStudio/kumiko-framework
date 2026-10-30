@@ -24,11 +24,11 @@ Port 4177 is hardcoded in the `dev` script. The server reads the root
 All three log into the dev tenant "Admin Console Demo" (tenant key
 `demo`). Passwords are in `src/app/auth-constants.ts`.
 
-| Email | Role | Sees |
-|---|---|---|
-| `sysadmin@admin-console.local` | global `SystemAdmin`, tenant `Admin` | tenant-admin and platform workspaces |
-| `tenant-admin@admin-console.local` | tenant `TenantAdmin` | tenant-admin workspace only |
-| `regular@admin-console.local` | tenant `User` | no admin workspace |
+| Email                              | Role                                 | Sees                                 |
+| ---------------------------------- | ------------------------------------ | ------------------------------------ |
+| `sysadmin@admin-console.local`     | global `SystemAdmin`, tenant `Admin` | tenant-admin and platform workspaces |
+| `tenant-admin@admin-console.local` | tenant `TenantAdmin`                 | tenant-admin workspace only          |
+| `regular@admin-console.local`      | tenant `User`                        | no admin workspace                   |
 
 The SystemAdmin comes from the `auth.admin` bootstrap in
 `src/app/server.ts`; the other two are created by `seedRoleUsers` in

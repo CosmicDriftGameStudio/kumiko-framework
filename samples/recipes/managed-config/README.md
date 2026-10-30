@@ -6,15 +6,19 @@ backings and two scopes, without a hand-written screen, nav, or env-wiring map.
 
 Two keys, deliberately different:
 
-| Key | Scope | Backing | Story |
-|---|---|---|---|
+| Key               | Scope    | Backing   | Story                                                                                                                                                                                      |
+| ----------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `payment-api-key` | `system` | `secrets` | Platform-owned secret (one Stripe key bills all tenants). Stored envelope-encrypted in the secrets store, masked in every query, revealed only for the owning feature's `ctx.config` read. |
-| `smtp-host` | `tenant` | config | Platform default that a tenant admin overrides. Cascade resolves `tenant-row → system-row → default`; one tenant's override never leaks to another. |
+| `smtp-host`       | `tenant` | config    | Platform default that a tenant admin overrides. Cascade resolves `tenant-row → system-row → default`; one tenant's override never leaks to another.                                        |
 
 ## Pattern
 
 ```ts illustration
-import { access, createSystemConfig, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createSystemConfig,
+  createTenantConfig,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 r.config({
   keys: {
@@ -48,7 +52,7 @@ r.config({
   valid for `scope: "system"` — secrets are flat per `(tenant, key)` with no
   cascade, so a tenant override would be incoherent and is rejected at boot.
 - **`env: "SMTP_HOST"`** — at boot (`runProdApp`) the env var seeds the key's
-  default as an app-override, below any `system-row`. The env var *is* the
+  default as an app-override, below any `system-row`. The env var _is_ the
   default; no manual `AppConfigOverrides` map, no re-typing in the admin UI.
 - **`mask`** — the key surfaces automatically in the self-populating settings
   hub: `buildConfigFeatureSchema` derives a `configEdit` screen + a child nav
@@ -86,14 +90,14 @@ the config backing only needs the `ctx.services.secrets` context shown above.
 
 ## Vs. the neighbouring recipes
 
-| Pattern | Storage | Cascade | Use case |
-|---|---|---|---|
-| **`encrypted: true` config key** (`encrypted-tenant-config`) | `config_values`, AES ciphertext | system → tenant | Per-tenant customer secret, no KEK rotation/audit. |
-| **`backing: "secrets"` config key** (this recipe) | secrets envelope, system tenant | none (system-only) | Platform-owned secret needing rotation + audit-on-read, declared as a config key. |
-| **`r.secret`** (`secrets-demo`) | secrets envelope | none | Same storage, but addressed directly — no config key, no settings-hub entry. |
+| Pattern                                                      | Storage                         | Cascade            | Use case                                                                          |
+| ------------------------------------------------------------ | ------------------------------- | ------------------ | --------------------------------------------------------------------------------- |
+| **`encrypted: true` config key** (`encrypted-tenant-config`) | `config_values`, AES ciphertext | system → tenant    | Per-tenant customer secret, no KEK rotation/audit.                                |
+| **`backing: "secrets"` config key** (this recipe)            | secrets envelope, system tenant | none (system-only) | Platform-owned secret needing rotation + audit-on-read, declared as a config key. |
+| **`r.secret`** (`secrets-demo`)                              | secrets envelope                | none               | Same storage, but addressed directly — no config key, no settings-hub entry.      |
 
 `backing: "secrets"` is the bridge: you get the secrets store's guarantees
-*and* the config feature's declarative surface (masking, settings hub, the same
+_and_ the config feature's declarative surface (masking, settings hub, the same
 `config:write:set` write path).
 
 ## Flow

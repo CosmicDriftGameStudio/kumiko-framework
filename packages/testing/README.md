@@ -122,7 +122,7 @@ projects: [
   { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   { name: "tablet", use: { ...devices["iPad Pro 11"] } }, // portrait, WebKit
   { name: "mobile", use: { ...devices["iPhone 13"] } }, // portrait, WebKit
-]
+];
 ```
 
 A device project captures exactly `<name>.png` at the device's native size — no `setViewportSize`,

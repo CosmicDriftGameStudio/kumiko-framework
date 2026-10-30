@@ -167,12 +167,13 @@ describe("useBrowserNavApi — navigate with searchParams", () => {
   });
 });
 
+function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
+  return <NavProvider value={useBrowserNavApi()}>{children}</NavProvider>;
+}
+
 describe("navigate into a filtered list", () => {
   test("a filter passed as searchParams is the list's active filter", () => {
     setLocation("/orders", "");
-    function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
-      return <NavProvider value={useBrowserNavApi()}>{children}</NavProvider>;
-    }
     const { result } = renderHook(
       () => ({ nav: useBrowserNavApi(), list: useListUrlState("tasks") }),
       { wrapper: BrowserNav },

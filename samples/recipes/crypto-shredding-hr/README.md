@@ -7,7 +7,7 @@ unreadable forever, and reads render the `[[erased]]` sentinel.
 
 The recipe ships a mini HR feature: an `employee` entity whose name and email
 are the employee's own PII, and an `hr-comment` entity whose body is
-encrypted under the key of the employee the comment is *about* — so a
+encrypted under the key of the employee the comment is _about_ — so a
 manager's comment dies with the employee's key, not the manager's.
 
 ## What it shows
@@ -41,7 +41,7 @@ manager's comment dies with the employee's key, not the manager's.
   than an alphabetically paginated one — not a plaintext sort column beside
   the encrypted one, which would survive the key erase and quietly undo the
   shredding.
-- **Forget = `kms.eraseKey(subject)`** — afterwards detail *and* list render
+- **Forget = `kms.eraseKey(subject)`** — afterwards detail _and_ list render
   `[[erased]]` for every protected field while the stored ciphertext bytes
   stay untouched.
 
@@ -62,7 +62,7 @@ deletion grace period.
 
 1. Create an employee → the executor creates a subject key on first insert
    and stores `displayName`/`email` as ciphertext.
-2. A comment about the employee is encrypted under the *employee's* key via
+2. A comment about the employee is encrypted under the _employee's_ key via
    `userOwned: { ownerField: "employeeId" }`.
 3. `kms.eraseKey({ kind: "user", userId })` — idempotent, tombstone stays
    for the audit trail.

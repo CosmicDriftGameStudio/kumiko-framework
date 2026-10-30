@@ -38,12 +38,12 @@ invoicingFlow …`):
 Both recipes use the same primitive — accounts + balanced transactions — but
 record different things:
 
-| | [ledger-banking](../ledger-banking/) | ledger-invoicing |
-|---|---|---|
-| Accounts | all `asset` (bank accounts) | `asset` + `income` + `liability` |
-| A transaction is… | a transfer (cash moves) | an obligation (invoice) or its settlement |
-| Revenue recognised | n/a | at invoice time (accrual) |
-| Reports surfaced | balances | balances + P&L |
+|                    | [ledger-banking](../ledger-banking/) | ledger-invoicing                          |
+| ------------------ | ------------------------------------ | ----------------------------------------- |
+| Accounts           | all `asset` (bank accounts)          | `asset` + `income` + `liability`          |
+| A transaction is…  | a transfer (cash moves)              | an obligation (invoice) or its settlement |
+| Revenue recognised | n/a                                  | at invoice time (accrual)                 |
+| Reports surfaced   | balances                             | balances + P&L                            |
 
 ## Run
 

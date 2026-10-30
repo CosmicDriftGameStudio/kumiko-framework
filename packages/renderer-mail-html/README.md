@@ -33,9 +33,9 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
 const features = [
-  createTemplateResolverFeature(),    // Vorausgesetzt
-  createRendererFoundationFeature(),  // Vorausgesetzt
-  createRendererMailHtmlFeature(),    // Dieses Plugin
+  createTemplateResolverFeature(), // Vorausgesetzt
+  createRendererFoundationFeature(), // Vorausgesetzt
+  createRendererMailHtmlFeature(), // Dieses Plugin
 ];
 ```
 
@@ -59,7 +59,12 @@ const result = await renderer.render(
   { db: ctx.db, registry: ctx.registry, tenantId, config: ctx.config },
 );
 
-await ctx.mailTransport.send({ to: user.email, subject: result.subject, html: result.html, text: result.text });
+await ctx.mailTransport.send({
+  to: user.email,
+  subject: result.subject,
+  html: result.html,
+  text: result.text,
+});
 ```
 
 ## Tenant-Branding

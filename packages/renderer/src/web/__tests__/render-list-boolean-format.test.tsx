@@ -60,28 +60,29 @@ const typedBooleanScreen: EntityListScreenDefinition = {
   columns: [{ field: "current" }],
 };
 
+function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
+  return (
+    <TokensProvider value={stubTokens}>
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={stubNav}>
+            <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+          </NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensProvider>
+  );
+}
+
 function renderCurrentCell(
   current: boolean | null,
   screen: EntityListScreenDefinition = booleanScreen,
   entity: EntityDefinition = currentColumnEntity,
 ): HTMLElement {
   cleanup();
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
-    return (
-      <TokensProvider value={stubTokens}>
-        <LocaleProvider
-          resolver={createStaticLocaleResolver({ locale: "en" })}
-          fallbackBundles={[kumikoDefaultTranslations]}
-        >
-          <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={stubNav}>
-              <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-            </NavProvider>
-          </PrimitivesProvider>
-        </LocaleProvider>
-      </TokensProvider>
-    );
-  }
   const result = render(
     <RenderList
       screen={screen}

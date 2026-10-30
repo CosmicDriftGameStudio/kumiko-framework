@@ -55,16 +55,16 @@ the app sets it.
 
 ## Options
 
-| Option | Meaning |
-|---|---|
-| `tenantBy` | `"host"` (`<key>.<baseDomain>`) or `"path"` with `tenantPathPrefix` (`/t/<key>/...` on the apex) |
-| `baseDomain` | Apex hostname, lowercase, no port. `www.<baseDomain>` counts as apex |
-| `apex` | `{ file, csp?, localeFiles? }` for the apex |
-| `tenant` | `{ file, csp? }` for a known tenant and for the bare path prefix |
-| `unknownTenant` | `{ file, csp? }` served with 404; omit for a bare 404 |
-| `hosts` | Further fixed hostnames with their own surface, checked first |
-| `apexAnonymousTenantId` | Tenant for anonymous API calls on the apex (e.g. `SYSTEM_TENANT_ID` for public signup); omit and the apex has none |
-| `locales` | `{ default, prefixed }`: `/<default>/...` answers 301 to the unprefixed path, `/<prefixed>/...` serves `apex.localeFiles[locale]` |
+| Option                  | Meaning                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `tenantBy`              | `"host"` (`<key>.<baseDomain>`) or `"path"` with `tenantPathPrefix` (`/t/<key>/...` on the apex)                                  |
+| `baseDomain`            | Apex hostname, lowercase, no port. `www.<baseDomain>` counts as apex                                                              |
+| `apex`                  | `{ file, csp?, localeFiles? }` for the apex                                                                                       |
+| `tenant`                | `{ file, csp? }` for a known tenant and for the bare path prefix                                                                  |
+| `unknownTenant`         | `{ file, csp? }` served with 404; omit for a bare 404                                                                             |
+| `hosts`                 | Further fixed hostnames with their own surface, checked first                                                                     |
+| `apexAnonymousTenantId` | Tenant for anonymous API calls on the apex (e.g. `SYSTEM_TENANT_ID` for public signup); omit and the apex has none                |
+| `locales`               | `{ default, prefixed }`: `/<default>/...` answers 301 to the unprefixed path, `/<prefixed>/...` serves `apex.localeFiles[locale]` |
 
 A `csp` replaces runProdApp's default CSP for that surface; without it the
 default applies. Options are validated when the feature or dispatch is built.

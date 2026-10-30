@@ -52,16 +52,16 @@ function PlatformLayoutEditorScreen(): ReactNode {
   );
 }
 
-function createLazyMailEditor(appLocales: readonly string[]): () => ReactNode {
-  const LazyMailEditor = lazy(() =>
-    import("./mail-editor.tsx").then((module) => ({
-      default: module.createMailEditor(appLocales),
-    })),
-  );
+const LazyMailEditor = lazy(() =>
+  import("./mail-editor.tsx").then((module) => ({ default: module.MailEditor })),
+);
+
+function createMailEditorScreen(appLocales: readonly string[]): () => ReactNode {
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory, called once per documentDesignerClient(); custom screens receive no props, so appLocales is bound here
   return function MailEditorScreen(): ReactNode {
     return (
       <Suspense fallback={<LoadingState />}>
-        <LazyMailEditor />
+        <LazyMailEditor appLocales={appLocales} />
       </Suspense>
     );
   };
@@ -112,7 +112,9 @@ export function documentDesignerClient(
       [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditorScreen,
       [PLATFORM_LAYOUT_EDITOR_SCREEN_ID]: PlatformLayoutEditorScreen,
       [PDF_TEMPLATE_EDITOR_SCREEN_ID]: PdfTemplateEditorScreen,
-      [MAIL_EDITOR_SCREEN_ID]: createLazyMailEditor(options.appLocales ?? DEFAULT_TEMPLATE_LOCALES),
+      [MAIL_EDITOR_SCREEN_ID]: createMailEditorScreen(
+        options.appLocales ?? DEFAULT_TEMPLATE_LOCALES,
+      ),
     },
     translations: mergeTranslations(
       mergeTranslations(textBlocksClient().translations ?? {}, documentDesignerTranslations),

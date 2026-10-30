@@ -18,10 +18,10 @@ the platform operator being able to read the plaintext from the DB.
 import { access, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
 
 createTenantConfig("text", {
-  encrypted: true,        // ← ciphertext in the DB
-  write: access.admin,    // ← the tenant admin writes their own
-  read: access.admin,     // ← nobody else sees it
-  mask: { title: "billing.stripe-api-key", order: 1 },  // ← derives the edit screen + nav
+  encrypted: true, // ← ciphertext in the DB
+  write: access.admin, // ← the tenant admin writes their own
+  read: access.admin, // ← nobody else sees it
+  mask: { title: "billing.stripe-api-key", order: 1 }, // ← derives the edit screen + nav
 });
 ```
 
@@ -47,10 +47,10 @@ i18n key of the field label, `mask.order` its position.
 
 ## Vs. `r.secret` / `samples/recipes/secrets-demo`
 
-| Pattern | Scope | Use case |
-|---|---|---|
-| **`r.secret`** (envelope encryption, KEK rotation) | App-global | Platform-owned secrets (e.g. the master Stripe key that bills ALL customers). |
-| **`encrypted: true` config key** (this recipe) | Per-tenant | Customer-owned secrets. Customer sets, rotates, and never sees another customer's. Same envelope encryption + KEK keyring under the hood. |
+| Pattern                                            | Scope      | Use case                                                                                                                                  |
+| -------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **`r.secret`** (envelope encryption, KEK rotation) | App-global | Platform-owned secrets (e.g. the master Stripe key that bills ALL customers).                                                             |
+| **`encrypted: true` config key** (this recipe)     | Per-tenant | Customer-owned secrets. Customer sets, rotates, and never sees another customer's. Same envelope encryption + KEK keyring under the hood. |
 
 Combinable: the platform uses `r.secret` for its internal secrets,
 and in parallel customers have their tenant-owned `encrypted: true`

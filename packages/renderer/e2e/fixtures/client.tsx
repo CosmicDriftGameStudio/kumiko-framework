@@ -38,6 +38,22 @@ function CrashingProvider(): ReactNode {
   throw new Error("e2e-provider-boom");
 }
 
+const Brand = (): ReactNode => (
+  <strong className="text-foreground tracking-tight">Renderer-Web E2E</strong>
+);
+
+const AppShell = ({
+  children,
+  schema,
+}: {
+  readonly children: ReactNode;
+  readonly schema: typeof e2eSchema;
+}): ReactNode => (
+  <DefaultAppShell brand={<Brand />} schema={schema}>
+    {children}
+  </DefaultAppShell>
+);
+
 async function boot(): Promise<void> {
   const path = window.location.pathname;
 
@@ -82,22 +98,6 @@ async function boot(): Promise<void> {
 
   controlWindow.__E2E_WRITE_LOG__ = dispatcher.writeLog;
   controlWindow.__E2E_RELEASE_WRITES__ = dispatcher.releaseWrites;
-
-  const Brand = (): ReactNode => (
-    <strong className="text-foreground tracking-tight">Renderer-Web E2E</strong>
-  );
-
-  const AppShell = ({
-    children,
-    schema,
-  }: {
-    readonly children: ReactNode;
-    readonly schema: typeof e2eSchema;
-  }): ReactNode => (
-    <DefaultAppShell brand={<Brand />} schema={schema}>
-      {children}
-    </DefaultAppShell>
-  );
 
   createKumikoApp({
     schema: e2eSchema,

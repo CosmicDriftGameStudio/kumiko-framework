@@ -92,6 +92,7 @@ const tenantMembershipCrud = createEventStoreExecutor(
 // earlier hook that keeps reporting done:false can use up the budget, so later chunking
 // hooks time out with nothing processed until it finishes.
 function newOutcomeAccumulator(): {
+  // biome-ignore lint/suspicious/noConfusingVoidType: takes the awaited result of a destroy hook, whose public type allows void
   add: (result: TenantDestroyHookResult | void) => void;
   outcome: () => StageRunOutcome;
 } {

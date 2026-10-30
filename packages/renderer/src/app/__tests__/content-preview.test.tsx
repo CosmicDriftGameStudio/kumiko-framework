@@ -62,16 +62,20 @@ describe("substituteVariables", () => {
   });
 });
 
+function PlainEditor({ value, readOnly }: ContentEditorProps): ReactNode {
+  return (
+    <div data-testid="cp-plain" data-readonly={readOnly}>
+      {value}
+    </div>
+  );
+}
+
+function DocumentEditor({ value }: ContentEditorProps): ReactNode {
+  return <div data-testid="cp-document">{value}</div>;
+}
+
 describe("ContentPreview", () => {
   test("renders the format's registered editor read-only, with variables substituted", () => {
-    function PlainEditor({ value, readOnly }: ContentEditorProps): ReactNode {
-      return (
-        <div data-testid="cp-plain" data-readonly={readOnly}>
-          {value}
-        </div>
-      );
-    }
-
     render(
       <ContentEditorsProvider value={{ plain: PlainEditor }}>
         <ContentPreview
@@ -105,9 +109,6 @@ describe("ContentPreview", () => {
   });
 
   test("document format passes the content to the editor without substituting placeholders", () => {
-    function DocumentEditor({ value }: ContentEditorProps): ReactNode {
-      return <div data-testid="cp-document">{value}</div>;
-    }
     const body = '<a data-button="" href="{{url}}">Go</a><span data-variable="name"></span>';
 
     render(

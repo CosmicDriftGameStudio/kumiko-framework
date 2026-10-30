@@ -25,7 +25,7 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 runProdApp({
   envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
-    createTemplateResolverFeature(),  // legal-pages requires template-resolver
+    createTemplateResolverFeature(), // legal-pages requires template-resolver
     createLegalPagesFeature(),
     /* ... */
   ],
@@ -60,12 +60,12 @@ See [template-resolver/README.md](../template-resolver/README.md).
 
 **Default** (DACH: DE required, EN optional):
 
-| Path | Slug + locale | Title fallback (when block empty) |
-|---|---|---|
-| `GET /legal/impressum` | `imprint` / `de` | "Impressum" |
-| `GET /legal/datenschutz` | `privacy` / `de` | "Datenschutzerklärung" |
-| `GET /legal/imprint` | `imprint` / `en` | "Imprint" |
-| `GET /legal/privacy` | `privacy` / `en` | "Privacy Policy" |
+| Path                     | Slug + locale    | Title fallback (when block empty) |
+| ------------------------ | ---------------- | --------------------------------- |
+| `GET /legal/impressum`   | `imprint` / `de` | "Impressum"                       |
+| `GET /legal/datenschutz` | `privacy` / `de` | "Datenschutzerklärung"            |
+| `GET /legal/imprint`     | `imprint` / `en` | "Imprint"                         |
+| `GET /legal/privacy`     | `privacy` / `en` | "Privacy Policy"                  |
 
 Response:
 - `200 text/html` — block exists + has content. Cache header `public, max-age=300`.
@@ -112,11 +112,19 @@ that needs an additional page (terms/AGB), passes its own lists:
 createLegalPagesFeature({
   routes: [
     { path: "/legal/aviso-legal", slug: "imprint", lang: "es", titleFallback: "Aviso legal" },
-    { path: "/legal/privacidad", slug: "privacy", lang: "es", titleFallback: "Política de privacidad" },
+    {
+      path: "/legal/privacidad",
+      slug: "privacy",
+      lang: "es",
+      titleFallback: "Política de privacidad",
+    },
     { path: "/legal/terminos", slug: "terms", lang: "es", titleFallback: "Términos y condiciones" },
   ],
-  requiredBlocks: [{ slug: "imprint", lang: "es" }, { slug: "privacy", lang: "es" }],
-})
+  requiredBlocks: [
+    { slug: "imprint", lang: "es" },
+    { slug: "privacy", lang: "es" },
+  ],
+});
 ```
 
 `slug` is free-form — it only has to match the `slug` you seed the
@@ -162,10 +170,10 @@ starts and checks whether the required blocks exist in SYSTEM_TENANT.
 A throw rejects the boot, so the process never reports ready.
 **Default** (DACH):
 
-| Slug + locale | What happens when missing |
-|---|---|
+| Slug + locale    | What happens when missing                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------- |
 | `imprint` / `de` | **Production:** `throw new Error(...)` blocks app start. **Dev:** `ctx.obs.log.warn(...)` |
-| `privacy` / `de` | as above |
+| `privacy` / `de` | as above                                                                                  |
 
 EN versions are **not** boot-fail-relevant by default (`LEGAL_OPTIONAL_BLOCKS`).
 Routes return `404` if an EN block is missing.

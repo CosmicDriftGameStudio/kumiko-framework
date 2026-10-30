@@ -31,8 +31,8 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
-    "@inquirer/core": "^10.0.0",
-    "@inquirer/prompts": "^7.4.0"
+    "@inquirer/core": "^10.3.2",
+    "@inquirer/prompts": "^7.10.1"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

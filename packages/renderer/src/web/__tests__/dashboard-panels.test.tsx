@@ -1148,11 +1148,11 @@ describe("dashboard panel gates (visibleWhen)", () => {
   });
 });
 
-describe("dashboard stat-group subtitle, strip icons and progress sub line", () => {
-  function KpiIcon(): ReactNode {
-    return <svg data-testid="kpi-icon" aria-hidden="true" />;
-  }
+function KpiIcon(): ReactNode {
+  return <svg data-testid="kpi-icon" aria-hidden="true" />;
+}
 
+describe("dashboard stat-group subtitle, strip icons and progress sub line", () => {
   test("a labeled stat-group shows its subtitle under the title", async () => {
     renderDashboard(
       {

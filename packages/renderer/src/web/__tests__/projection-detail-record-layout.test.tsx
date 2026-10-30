@@ -932,6 +932,22 @@ describe("KumikoScreen / projectionDetail — metric tiles render through the Me
   });
 });
 
+function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
+  const [tab, setTab] = useState<string | undefined>(undefined);
+  const navApi: NavApi = {
+    route: undefined,
+    navigate: () => {},
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: tab !== undefined ? { tab } : {},
+    setSearchParams: (updates) => {
+      const next = updates["tab"];
+      setTab(next === null || next === undefined ? undefined : next);
+    },
+  };
+  return <NavProvider value={navApi}>{children}</NavProvider>;
+}
+
 describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
   const tabsScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
@@ -973,25 +989,6 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
       },
       setSearchParamsCalls,
     };
-  }
-
-  // Reactive nav stub — navWithTab's searchParams is fixed at mount, so it
-  // can't exercise a real "click a tab, watch the active section change"
-  // flow. Only used by the tab-switch test below.
-  function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
-    const [tab, setTab] = useState<string | undefined>(undefined);
-    const navApi: NavApi = {
-      route: undefined,
-      navigate: () => {},
-      replace: () => {},
-      hrefFor: () => "",
-      searchParams: tab !== undefined ? { tab } : {},
-      setSearchParams: (updates) => {
-        const next = updates["tab"];
-        setTab(next === null || next === undefined ? undefined : next);
-      },
-    };
-    return <NavProvider value={navApi}>{children}</NavProvider>;
   }
 
   test("switching tabs does not remount the body or refire the detail query", async () => {

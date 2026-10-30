@@ -26,13 +26,13 @@ The server reads the root `.env` (`--env-file=../../../.env`).
 
 `src/features/demo/feature.ts` declares five keys with `r.config()`:
 
-| Key | Scope | Type | Default | Write access |
-|---|---|---|---|---|
-| `siteName` | tenant | text | `My Site` | all |
-| `themeColor` | tenant | text | `#000000` | all |
-| `maxUploadSize` | tenant | number, bounds 1 to 1000 | `10` | all |
-| `emailNotifications` | user | boolean | `true` | all |
-| `autoApprove` | system | boolean | `false` | `access.systemAdmin` |
+| Key                  | Scope  | Type                     | Default   | Write access         |
+| -------------------- | ------ | ------------------------ | --------- | -------------------- |
+| `siteName`           | tenant | text                     | `My Site` | all                  |
+| `themeColor`         | tenant | text                     | `#000000` | all                  |
+| `maxUploadSize`      | tenant | number, bounds 1 to 1000 | `10`      | all                  |
+| `emailNotifications` | user   | boolean                  | `true`    | all                  |
+| `autoApprove`        | system | boolean                  | `false`   | `access.systemAdmin` |
 
 ### Seeds
 

@@ -25,6 +25,33 @@ import { act, fireEvent, render, screen } from "./test-utils.tsx";
 // Controlled mode. onChange reports values out, onControlsReady
 // hands the caller patch()/validate()/getValues() bound to this instance —
 // all without an entity-write and without remounting RenderEdit.
+function Host(): ReactNode {
+  const [ready, setReady] = useState(false);
+  const [received, setReceived] = useState<RenderEditControls<TestValues> | undefined>(undefined);
+  // Stable identity across renders, like a real caller's useCallback:
+  // an inline arrow here would change on every render and defeat the
+  // re-delivery guard's identity check, looping the effect.
+  const onControlsReady = useCallback((c: RenderEditControls<TestValues>) => {
+    setReceived(c);
+  }, []);
+  return (
+    <>
+      <button type="button" data-testid="make-ready" onClick={() => setReady(true)}>
+        ready
+      </button>
+      <div data-testid="received">{received !== undefined ? "yes" : "no"}</div>
+      <RenderEdit<TestValues>
+        screen={makeScreen()}
+        entity={orderEntity}
+        featureName="orders"
+        initial={{ title: "", count: 0, isUrgent: false }}
+        writeCommand="order:create"
+        {...(ready && { onControlsReady })}
+      />
+    </>
+  );
+}
+
 describe("RenderEdit — controlled mode", () => {
   test("onChange fires with the current values, the changes-delta, and dirty on typing", () => {
     const seen: RenderEditChangeState<TestValues>[] = [];
@@ -206,35 +233,6 @@ describe("RenderEdit — controlled mode", () => {
   // delivered to for THIS mount — the effect's deps previously excluded
   // onControlsReady itself, so it never re-ran once mounted without it.
   test("onControlsReady delivers to a handler supplied after mount, not just at mount time", () => {
-    function Host(): ReactNode {
-      const [ready, setReady] = useState(false);
-      const [received, setReceived] = useState<RenderEditControls<TestValues> | undefined>(
-        undefined,
-      );
-      // Stable identity across renders, like a real caller's useCallback:
-      // an inline arrow here would change on every render and defeat the
-      // re-delivery guard's identity check, looping the effect.
-      const onControlsReady = useCallback((c: RenderEditControls<TestValues>) => {
-        setReceived(c);
-      }, []);
-      return (
-        <>
-          <button type="button" data-testid="make-ready" onClick={() => setReady(true)}>
-            ready
-          </button>
-          <div data-testid="received">{received !== undefined ? "yes" : "no"}</div>
-          <RenderEdit<TestValues>
-            screen={makeScreen()}
-            entity={orderEntity}
-            featureName="orders"
-            initial={{ title: "", count: 0, isUrgent: false }}
-            writeCommand="order:create"
-            {...(ready && { onControlsReady })}
-          />
-        </>
-      );
-    }
-
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <Host />
@@ -349,6 +347,7 @@ describe("RenderEdit — controlled mode", () => {
   // actually changed, risking an infinite update loop.
   test("a parent re-rendering with a fresh schema object on every onChange does not loop", () => {
     let calls = 0;
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local calls counter; defined once per test run, never during a render
     function Wrapper() {
       const [, setTick] = useState(0);
       const schema = z.object({ title: z.string().min(1) });
@@ -388,6 +387,41 @@ describe("RenderEdit — controlled mode", () => {
 // coverage for the VIN-decode shape: a decode result reveals a different
 // set of follow-up fields per car, and a field a previous decode revealed
 // must fall back when a later decode clears it.
+function VinDecodeSection({
+  values,
+  patch,
+}: {
+  readonly values?: Readonly<Record<string, unknown>>;
+  readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
+}) {
+  return (
+    <div data-testid="vin-decode-section">
+      <span data-testid="decode-status">{String(values?.["decodeStatus"])}</span>
+      <button
+        type="button"
+        data-testid="decode-hit"
+        onClick={() => patch?.({ decodeStatus: "hit", trim: "Sport" })}
+      >
+        Decode (match found)
+      </button>
+      <button
+        type="button"
+        data-testid="decode-miss"
+        onClick={() => patch?.({ decodeStatus: "miss" })}
+      >
+        Decode (no match)
+      </button>
+      <button
+        type="button"
+        data-testid="decode-clear"
+        onClick={() => patch?.({ decodeStatus: undefined, trim: undefined })}
+      >
+        Clear decode
+      </button>
+    </div>
+  );
+}
+
 describe("RenderEdit — FieldConditions react to extension patch()", () => {
   type VehicleValues = {
     title: string;
@@ -435,41 +469,6 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
         ],
       },
     };
-  }
-
-  function VinDecodeSection({
-    values,
-    patch,
-  }: {
-    readonly values?: Readonly<Record<string, unknown>>;
-    readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
-  }) {
-    return (
-      <div data-testid="vin-decode-section">
-        <span data-testid="decode-status">{String(values?.["decodeStatus"])}</span>
-        <button
-          type="button"
-          data-testid="decode-hit"
-          onClick={() => patch?.({ decodeStatus: "hit", trim: "Sport" })}
-        >
-          Decode (match found)
-        </button>
-        <button
-          type="button"
-          data-testid="decode-miss"
-          onClick={() => patch?.({ decodeStatus: "miss" })}
-        >
-          Decode (no match)
-        </button>
-        <button
-          type="button"
-          data-testid="decode-clear"
-          onClick={() => patch?.({ decodeStatus: undefined, trim: undefined })}
-        >
-          Clear decode
-        </button>
-      </div>
-    );
   }
 
   function renderVehicleForm(writeFn?: Dispatcher["write"], schema?: z.ZodType): void {
@@ -1056,6 +1055,7 @@ describe("RenderEdit wizard mode", () => {
   // (hidden, not unmounted) so every step's handler survives to Finish.
   test("an extension section on an earlier wizard step still submits on Finish after navigating past it", async () => {
     const submitSpy = mock();
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local submitSpy; defined once per test run, never during a render
     const ComposedCF = (_: { entityName: string; entityId: string | null }) => {
       useExtensionFormSubmit({
         dirty: true,

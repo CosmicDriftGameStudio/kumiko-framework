@@ -32,6 +32,7 @@ export function makePublicDeletionGate(
   routes: PublicDeletionRoutes,
 ): ComponentType<{ children: ReactNode }> {
   const shell = routes.shell ?? centeredShell;
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory, called once per userDataRightsClient(); gates only receive children, so routes are bound here
   function PublicDeletionGate({ children }: { readonly children: ReactNode }): ReactNode {
     const path = window.location.pathname;
     if (path === routes.requestPath) return shell(<RequestAccountDeletionScreen />);

@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { makeAuthGate } from "../auth-gate.tsx";
 import { defaultTranslations } from "../i18n.ts";
 import { SessionProvider } from "../session.tsx";
+import { clearCsrfCookie, setCsrfCookie } from "./test-utils.tsx";
 
 const SESSION_ENDED_TEXT = "Your session has ended. Please sign in again.";
 
@@ -60,11 +61,11 @@ describe("session-ended signal through SessionProvider and auth gate", () => {
   }
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=session-ended-test-token; path=/";
+    setCsrfCookie("session-ended-test-token");
   });
 
   afterEach(() => {
-    document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCsrfCookie();
     globalThis.fetch = originalFetch;
   });
 

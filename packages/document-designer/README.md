@@ -12,9 +12,7 @@ createTemplateResolverFeature();
 createDocumentDesignerFeature();
 
 createKumikoApp({
-  clientFeatures: [
-    documentDesignerClient({ appLocales: ["de", "en"] }),
-  ],
+  clientFeatures: [documentDesignerClient({ appLocales: ["de", "en"] })],
 });
 ```
 

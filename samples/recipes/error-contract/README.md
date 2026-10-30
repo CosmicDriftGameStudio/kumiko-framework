@@ -14,15 +14,15 @@ Every Kumiko error class in a real handler context. A single feature `orders-lit
 
 ## The classes — when do I use which?
 
-| Class | HTTP | Use in handler |
-|---|---|---|
-| `ValidationError` | 400 | Automatic from Zod. Never throw manually, only for validation-hook errors. |
-| `AccessDeniedError` | 403 | "You're not allowed" — ownership, role check, field lock. |
-| `NotFoundError` | 404 | Entity doesn't exist. Automatic via `failNotFound(entity, id)`. |
-| `ConflictError` | 409 | State collision without a version (e.g. "paid orders can't be cancelled"). |
-| `VersionConflictError` | 409 | Optimistic lock — comes out of CrudExecutor automatically. You never throw it. |
-| `UnprocessableError` | 422 | Business rule violated. The reason string describes what. |
-| `InternalError` | 500 | You **don't throw it yourself**. The framework wraps unexpected throws automatically. |
+| Class                  | HTTP | Use in handler                                                                        |
+| ---------------------- | ---- | ------------------------------------------------------------------------------------- |
+| `ValidationError`      | 400  | Automatic from Zod. Never throw manually, only for validation-hook errors.            |
+| `AccessDeniedError`    | 403  | "You're not allowed" — ownership, role check, field lock.                             |
+| `NotFoundError`        | 404  | Entity doesn't exist. Automatic via `failNotFound(entity, id)`.                       |
+| `ConflictError`        | 409  | State collision without a version (e.g. "paid orders can't be cancelled").            |
+| `VersionConflictError` | 409  | Optimistic lock — comes out of CrudExecutor automatically. You never throw it.        |
+| `UnprocessableError`   | 422  | Business rule violated. The reason string describes what.                             |
+| `InternalError`        | 500  | You **don't throw it yourself**. The framework wraps unexpected throws automatically. |
 
 ## Convenience helpers
 
