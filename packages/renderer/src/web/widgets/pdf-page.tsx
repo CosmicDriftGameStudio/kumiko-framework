@@ -153,7 +153,8 @@ function PageSheet({
           ref={mountTextLayer}
           className={cn(
             "absolute inset-0 overflow-hidden leading-none [&_span]:absolute [&_span]:origin-top-left [&_span]:cursor-text [&_span]:whitespace-pre [&_span]:text-transparent [&_span::selection]:bg-primary/30",
-            "[&_.pdf-hit]:bg-status-warn/35 [&_.pdf-hit-active]:bg-status-warn/70",
+            // The sheet is always white, so the marker colors are theme-independent; alpha keeps the canvas glyphs readable.
+            "[&_mark]:rounded-[2px] [&_mark]:px-px [&_mark]:text-transparent [&_.pdf-hit]:bg-amber-200/70 [&_.pdf-hit-active]:bg-amber-400/80",
           )}
         />
       </div>

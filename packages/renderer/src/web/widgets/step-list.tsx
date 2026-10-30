@@ -67,34 +67,15 @@ export function StepList({
       data-testid={testId}
       className={cn("flex min-h-0 flex-col", fill && "h-full", surface === "ai" && "bg-ai-surface")}
     >
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
-        <div className="flex items-baseline gap-2">
-          <h3 className="m-0 text-[15px] font-semibold">{title}</h3>
-          {status !== undefined && (
-            <StatusBadge tone={status.tone} testId={`${testId}-status`}>
-              {status.label}
-            </StatusBadge>
-          )}
-          <span className="grow" />
-          {progress !== "none" && (
-            <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
-              {t("kumiko.widget.step-list.progress", { done, total })}
-            </span>
-          )}
-        </div>
-        {subtitle !== undefined && (
-          <p className="m-0 text-[13px] text-muted-foreground" data-testid={`${testId}-subtitle`}>
-            {subtitle}
-          </p>
-        )}
-        {progress === "full" && (
-          <ProgressBar
-            size="thin"
-            value={total === 0 ? 0 : done / total}
-            ariaLabel={t("kumiko.widget.step-list.progressLabel")}
-          />
-        )}
-      </div>
+      <StepListHeader
+        title={title}
+        subtitle={subtitle}
+        status={status}
+        progress={progress}
+        done={done}
+        total={total}
+        testId={testId}
+      />
       {steps.length === 0 ? (
         emptyContent
       ) : (
@@ -128,5 +109,52 @@ export function StepList({
         </div>
       )}
     </section>
+  );
+}
+
+function StepListHeader({
+  title,
+  subtitle,
+  status,
+  progress,
+  done,
+  total,
+  testId,
+}: Pick<StepListProps, "title" | "subtitle" | "status"> & {
+  readonly progress: NonNullable<StepListProps["progress"]>;
+  readonly done: number;
+  readonly total: number;
+  readonly testId: string;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
+      <div className="flex items-baseline gap-2">
+        <h3 className="m-0 text-[15px] font-semibold">{title}</h3>
+        {status !== undefined && (
+          <StatusBadge tone={status.tone} testId={`${testId}-status`}>
+            {status.label}
+          </StatusBadge>
+        )}
+        <span className="grow" />
+        {progress !== "none" && (
+          <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
+            {t("kumiko.widget.step-list.progress", { done, total })}
+          </span>
+        )}
+      </div>
+      {subtitle !== undefined && (
+        <p className="m-0 text-[13px] text-muted-foreground" data-testid={`${testId}-subtitle`}>
+          {subtitle}
+        </p>
+      )}
+      {progress === "full" && (
+        <ProgressBar
+          size="thin"
+          value={total === 0 ? 0 : done / total}
+          ariaLabel={t("kumiko.widget.step-list.progressLabel")}
+        />
+      )}
+    </div>
   );
 }

@@ -27,8 +27,8 @@ export function SidebarBrand({
   collapsible = false,
 }: SidebarBrandProps): ReactNode {
   return (
-    <div className="flex items-center gap-2.5 px-2 pt-1 pb-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground group-data-[focus-rail]/focus-rail:size-10 group-data-[focus-rail]/focus-rail:rounded-xl">
+    <div className="flex items-center gap-2.5 px-2 pt-1 pb-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[focus-rail]/focus-rail:pt-0">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground group-data-[focus-rail]/focus-rail:size-8 group-data-[focus-rail]/focus-rail:rounded-md">
         {logo ?? <span>{name.charAt(0)}</span>}
       </div>
       <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">

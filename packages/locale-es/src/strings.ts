@@ -1022,8 +1022,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.message-thread.showLess": "Mostrar menos",
   "kumiko.widget.message-thread.showQuoted": "Mostrar texto citado ({lines} líneas)",
   "kumiko.widget.message-thread.hideQuoted": "Ocultar texto citado",
-  "kumiko.widget.message-thread.imagesBlocked": "Las imágenes externas están bloqueadas.",
-  "kumiko.widget.message-thread.showImages": "Mostrar imágenes",
+  "kumiko.widget.message-thread.imagesBlocked":
+    "Correo HTML, mostrado depurado. Imágenes externas bloqueadas.",
+  "kumiko.widget.message-thread.showImages": "Cargar imágenes",
   "kumiko.widget.message-reader.mail": "Correo",
   "kumiko.widget.step-list.progress": "{done} de {total} completados",
   "kumiko.widget.step-list.progressLabel": "Progreso",

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { FeatureSchema } from "../../../index.ts";
 import { render, screen } from "../../__tests__/test-utils.tsx";
 import { useShellFocusMode } from "../shell-focus.tsx";
+import { SidebarBrand } from "../sidebar-brand.tsx";
 import { WorkspaceShell } from "../workspace-shell.tsx";
 
 const schema = {
@@ -57,5 +58,24 @@ describe("WorkspaceShell focus mode", () => {
     expect(screen.queryByText("Posteingang")).toBeNull();
     expect(document.querySelector('[data-kumiko-layout="sidebar-footer"]')).toBeNull();
     expect(screen.getByRole("banner").querySelector('button[data-sidebar="trigger"]')).toBeNull();
+  });
+
+  test("rail tiles and brand tile follow the design: 40px md tiles, muted icons, 32px md brand tile", () => {
+    render(
+      <WorkspaceShell brand={<SidebarBrand name="Vermieter" />} schema={schema}>
+        <FocusedScreen />
+      </WorkspaceShell>,
+    );
+    const tile = document.querySelector('[data-kumiko-layout="focus-rail"] nav > *');
+    expect(tile?.className).toContain("size-10");
+    expect(tile?.className).toContain("rounded-md");
+    expect(tile?.className).toContain("text-sidebar-muted");
+    const brandTile = screen.getByText("V");
+    expect(brandTile.parentElement?.className).toContain(
+      "group-data-[focus-rail]/focus-rail:size-8",
+    );
+    expect(brandTile.parentElement?.className).toContain(
+      "group-data-[focus-rail]/focus-rail:rounded-md",
+    );
   });
 });

@@ -1,15 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { clampPage, countMatches, findMatches, mostVisiblePage } from "../pdf-search.ts";
+import { clampPage, findMatches, findTextMatches, mostVisiblePage } from "../pdf-search.ts";
 
-describe("countMatches", () => {
-  test("counts case-insensitive, non-overlapping occurrences", () => {
-    expect(countMatches("Heizung kalt, heizung defekt, HEIZUNG", "heizung")).toBe(3);
-    expect(countMatches("aaaa", "aa")).toBe(2);
+describe("findTextMatches", () => {
+  test("finds case-insensitive, non-overlapping occurrences", () => {
+    expect(findTextMatches(["Heizung kalt, heizung defekt, HEIZUNG"], "heizung")).toHaveLength(3);
+    expect(findTextMatches(["aaaa"], "aa")).toHaveLength(2);
   });
 
-  test("empty term and missing text give zero", () => {
-    expect(countMatches("Heizung", "")).toBe(0);
-    expect(countMatches("Heizung", "Wasser")).toBe(0);
+  test("empty term and missing text give no match", () => {
+    expect(findTextMatches(["Heizung"], "")).toEqual([]);
+    expect(findTextMatches(["Heizung"], "  ")).toEqual([]);
+    expect(findTextMatches(["Heizung"], "Wasser")).toEqual([]);
+  });
+
+  test("a phrase spanning several items yields one segment per item", () => {
+    const items = ["(1) Die Kaution beträgt drei", "Nettokaltmieten, also", " ", "2.850,00 €."];
+    expect(findTextMatches(items, "Kaution beträgt drei Nettokaltmieten, also 2.850,00")).toEqual([
+      [
+        { item: 0, start: 8, end: 28 },
+        { item: 1, start: 0, end: 21 },
+        { item: 3, start: 0, end: 8 },
+      ],
+    ]);
   });
 });
 

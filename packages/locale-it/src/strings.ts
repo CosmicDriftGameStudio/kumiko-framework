@@ -1024,8 +1024,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.message-thread.showLess": "Mostra meno",
   "kumiko.widget.message-thread.showQuoted": "Mostra testo citato ({lines} righe)",
   "kumiko.widget.message-thread.hideQuoted": "Nascondi testo citato",
-  "kumiko.widget.message-thread.imagesBlocked": "Le immagini esterne sono bloccate.",
-  "kumiko.widget.message-thread.showImages": "Mostra immagini",
+  "kumiko.widget.message-thread.imagesBlocked":
+    "Mail HTML, mostrata ripulita. Immagini esterne bloccate.",
+  "kumiko.widget.message-thread.showImages": "Carica immagini",
   "kumiko.widget.message-reader.mail": "Mail",
   "kumiko.widget.step-list.progress": "{done} di {total} completati",
   "kumiko.widget.step-list.progressLabel": "Avanzamento",

@@ -67,7 +67,7 @@ function StatusGlyph({ status }: { readonly status: StepStatus }): ReactNode {
     case "running":
       return <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />;
     case "rejected":
-      return <X aria-hidden="true" className="size-3.5" />;
+      return <X aria-hidden="true" className="size-3" strokeWidth={2} />;
     case "failed":
       return <AlertTriangle aria-hidden="true" className="size-3.5" />;
     case "open":
@@ -80,7 +80,7 @@ const STATUS_ICON_CLASS: Record<StepStatus, string> = {
   open: "box-border border-[1.5px] border-primary",
   locked: "text-muted-foreground",
   running: "text-primary",
-  rejected: "text-muted-foreground",
+  rejected: "bg-border-row text-foreground-secondary",
   failed: "text-status-bad",
 };
 

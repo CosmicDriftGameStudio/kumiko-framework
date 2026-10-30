@@ -67,6 +67,14 @@ describe("StepList", () => {
     expect(title.className).toContain("text-muted-foreground");
   });
 
+  test("rejected step icon is a neutral grey disc with the secondary text tone", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    const icon = within(screen.getByTestId("step-old")).getByRole("img");
+    expect(icon.className).toContain("bg-border-row");
+    expect(icon.className).toContain("text-foreground-secondary");
+    expect(icon.className).not.toContain("text-status-bad");
+  });
+
   test("link with href renders an anchor, meta and tags show up", () => {
     render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
     expect(screen.getByText("Öffnen").closest("a")?.getAttribute("href")).toBe(
