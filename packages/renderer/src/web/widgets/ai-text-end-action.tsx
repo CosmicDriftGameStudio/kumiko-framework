@@ -1,13 +1,8 @@
 import type { ReactNode } from "react";
+import type { InputEndAction } from "../../primitives.tsx";
 import { cn } from "../lib/cn.ts";
 
-export type AiTextEndAction = {
-  readonly icon: ReactNode;
-  readonly ariaLabel: string;
-  readonly onClick: () => void;
-  /** Toggle state, e.g. a microphone that is currently recording. */
-  readonly pressed?: boolean;
-};
+export type AiTextEndAction = InputEndAction;
 
 /** Keeps typed text clear of the end action. */
 export const END_ACTION_PADDING_CLASS = "pr-11";
