@@ -7,6 +7,7 @@ import { type StepAction, StepActionButton, type StepListItem, StepRow } from ".
 export type {
   StepAction,
   StepListItem,
+  StepSource,
   StepStatus,
   StepTag,
 } from "./step-list-row.tsx";

@@ -1,3 +1,4 @@
+import { Mail } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "../../index.ts";
 import { DefaultTabs } from "../primitives/tabs.tsx";
@@ -29,9 +30,19 @@ export function MessageReader({
       {attachmentTabs.length > 0 && (
         <DefaultTabs
           items={[
-            { id: MAIL_TAB_ID, label: t("kumiko.widget.message-reader.mail") },
-            ...attachmentTabs.map((tab) => ({ id: tab.id, label: tab.label })),
+            {
+              id: MAIL_TAB_ID,
+              label: t("kumiko.widget.message-reader.mail"),
+              icon: <Mail />,
+            },
+            ...attachmentTabs.map((tab) => ({
+              id: tab.id,
+              label: tab.label,
+              ...(tab.icon !== undefined && { icon: tab.icon }),
+              ...(tab.detail !== undefined && { detail: tab.detail }),
+            })),
           ]}
+          appearance="plain"
           activeId={activeTab === undefined ? MAIL_TAB_ID : currentTabId}
           onSelect={selectTab}
         />

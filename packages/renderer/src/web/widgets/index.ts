@@ -3,6 +3,7 @@
 // Catalog: docs.kumiko.rocks → Guides → Widgets; visual overview in the
 // styleguide sample.
 
+export type { AiTextEndAction } from "./ai-text-end-action.tsx";
 export {
   AiTextArea,
   type AiTextAreaProps,
@@ -133,6 +134,7 @@ export {
   StepList,
   type StepListItem,
   type StepListProps,
+  type StepSource,
   type StepStatus,
   type StepTag,
 } from "./step-list.tsx";

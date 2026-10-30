@@ -34,8 +34,17 @@ export type StepListItem = {
     readonly href?: string;
     readonly onClick?: () => void;
   };
+  /** Where the step comes from, e.g. "Quelle: Seite 3, § 5" (caller-localized); each renders as a link under the description. */
+  readonly sources?: readonly StepSource[];
+  /** Marks the step the reader is looking at (warm background). */
+  readonly highlighted?: boolean;
   /** Rendered only while status is "open". */
   readonly actions?: readonly StepAction[];
+};
+
+export type StepSource = {
+  readonly label: string;
+  readonly onClick: () => void;
 };
 
 const STATUS_LABEL_KEY: Record<StepStatus, string> = {
@@ -150,6 +159,28 @@ function StepTags({ step }: { readonly step: StepListItem }): ReactNode {
   );
 }
 
+function StepSources({ step }: { readonly step: StepListItem }): ReactNode {
+  const { Button } = usePrimitives();
+  const sources = step.sources ?? [];
+  if (sources.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-x-3">
+      {sources.map((source) => (
+        <Button
+          key={source.label}
+          variant="link"
+          size="sm"
+          onClick={source.onClick}
+          className="h-auto p-0 text-[13px]"
+          testId={`step-${step.id}-source`}
+        >
+          {source.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 function StepActions({ step }: { readonly step: StepListItem }): ReactNode {
   const actions = step.status === "open" ? (step.actions ?? []) : [];
   if (actions.length === 0) return null;
@@ -170,7 +201,9 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
       className={cn(
         "flex gap-2.5 border-b border-border-row px-4 py-3",
         step.status === "open" && "bg-card",
+        step.highlighted === true && "bg-status-warn-surface",
       )}
+      {...(step.highlighted === true && { "aria-current": "step" as const })}
     >
       <StatusIcon step={step} />
       <div className="flex min-w-0 grow flex-col gap-1.5">
@@ -183,6 +216,7 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
         {step.description !== undefined && (
           <span className="text-[13px] text-foreground-secondary">{step.description}</span>
         )}
+        <StepSources step={step} />
         <StepTags step={step} />
         {step.meta !== undefined && (
           <span className="text-[13px] text-muted-foreground">{step.meta}</span>

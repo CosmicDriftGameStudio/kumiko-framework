@@ -23,7 +23,13 @@ function edgeFadeMaskImage(start: boolean, end: boolean): string | undefined {
   return undefined;
 }
 
-export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): ReactNode {
+export function DefaultTabs({
+  items,
+  activeId,
+  onSelect,
+  appearance = "pill",
+  testId,
+}: TabsProps): ReactNode {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   // Two primitive booleans instead of one object: setState with a fresh
   // object on every measurement would always change reference and force
@@ -122,7 +128,10 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
         className="relative min-w-0 overflow-x-auto border-b border-border px-1.5 [scrollbar-width:none] @lg:px-6 [&::-webkit-scrollbar]:hidden"
         style={maskImage !== undefined ? { maskImage, WebkitMaskImage: maskImage } : undefined}
       >
-        <TabsList variant="line" className="h-11 gap-2 p-0 @lg:gap-6">
+        <TabsList
+          variant="line"
+          className={cn("gap-2 p-0 @lg:gap-6", appearance === "plain" ? "h-10" : "h-11")}
+        >
           {items.map((item) => (
             <TabsTrigger
               key={item.id}
@@ -133,14 +142,32 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
               aria-controls={undefined}
               data-testid={testId !== undefined ? `${testId}-${item.id}` : undefined}
             >
+              {item.icon !== undefined && (
+                <span aria-hidden="true" className="mr-1.5 inline-flex shrink-0 [&>svg]:size-4">
+                  {item.icon}
+                </span>
+              )}
               {item.label}
+              {item.detail !== undefined && (
+                <span
+                  className="ml-1.5 text-xs font-normal text-muted-foreground"
+                  data-testid={testId !== undefined ? `${testId}-${item.id}-detail` : undefined}
+                >
+                  {item.detail}
+                </span>
+              )}
               {item.count !== undefined && (
                 <span
                   className={cn(
-                    "ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-xs font-medium",
-                    item.id === activeId
-                      ? "bg-primary/10 text-foreground"
-                      : "bg-status-neutral-surface text-foreground-secondary",
+                    "ml-1.5",
+                    appearance === "plain"
+                      ? "text-xs font-normal text-muted-foreground"
+                      : [
+                          "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-xs font-medium",
+                          item.id === activeId
+                            ? "bg-primary/10 text-foreground"
+                            : "bg-status-neutral-surface text-foreground-secondary",
+                        ],
                   )}
                   data-testid={testId !== undefined ? `${testId}-${item.id}-count` : undefined}
                 >

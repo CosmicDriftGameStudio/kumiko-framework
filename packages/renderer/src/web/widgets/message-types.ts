@@ -42,6 +42,10 @@ export type MessageThreadProps = {
 export type MessageReaderTab = {
   readonly id: string;
   readonly label: string;
+  /** Shown before the label in the tab strip. */
+  readonly icon?: ReactNode;
+  /** Small muted text after the label, e.g. "4 Seiten". */
+  readonly detail?: string;
   readonly render: () => ReactNode;
 };
 

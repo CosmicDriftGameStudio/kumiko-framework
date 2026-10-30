@@ -49,6 +49,7 @@ import {
   resolveDetailBreadcrumb,
   screenTitleKey,
 } from "./shell-breadcrumb.ts";
+import { useShellFocused } from "./shell-focus.tsx";
 import { SHELL_HEADER_CONTROLS_CLASSES } from "./uniform-bar-controls.ts";
 
 type ShellHeaderUser = {
@@ -59,7 +60,7 @@ type ShellHeaderUser = {
 export function ShellHeader({
   schema,
   user,
-  headerActions,
+  headerActions: appHeaderActions,
   allowedNavQns,
 }: {
   readonly schema: AppSchema | FeatureSchema;
@@ -70,6 +71,8 @@ export function ShellHeader({
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
+  const focused = useShellFocused();
+  const headerActions = focused ? undefined : appHeaderActions;
   const appSchema = toAppSchema(schema);
   const tree = useMemo(() => {
     const source = buildNavRegistrySliceForApp(appSchema);
@@ -132,11 +135,12 @@ export function ShellHeader({
       className={cn(
         "flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6",
         compact && "relative",
+        focused && "max-md:hidden",
       )}
     >
       {/* A size container: what the actions leave over decides whether the parent crumb still fits. */}
       <div className="@container flex min-w-0 flex-1 items-center gap-3">
-        <SidebarTrigger label={t("kumiko.sidebar.toggle")} />
+        {!focused && <SidebarTrigger label={t("kumiko.sidebar.toggle")} />}
         {/* Compact: the status goes on its own line under the title, so the title keeps the width. */}
         <div
           className={cn("flex min-w-0", compact ? "flex-col justify-center" : "items-center gap-3")}
@@ -213,7 +217,9 @@ export function ShellHeader({
             compact && "overflow-hidden",
           )}
         />
-        {user !== undefined && hasInAppChannel && <NotificationBell screens={allScreens} />}
+        {!focused && user !== undefined && hasInAppChannel && (
+          <NotificationBell screens={allScreens} />
+        )}
         {!compact && headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
             {headerActions}
