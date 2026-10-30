@@ -1,5 +1,6 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { PROBE_RUN_STATUS, probeRunsTable } from "./schema/probe-run.ts";
 import {
   countResults,
@@ -10,14 +11,12 @@ import {
   visibleResults,
 } from "./visible-results.ts";
 
-type InstantLike = { readonly toString: () => string };
-
 export type RunRow = {
   readonly id: string;
   readonly status: string;
-  readonly requestedAt: InstantLike;
-  readonly startedAt: InstantLike | null;
-  readonly finishedAt: InstantLike | null;
+  readonly requestedAt: Temporal.Instant;
+  readonly startedAt: Temporal.Instant | null;
+  readonly finishedAt: Temporal.Instant | null;
   readonly triggeredByUserId: string;
   readonly durationMs: number | null;
   readonly results: unknown;

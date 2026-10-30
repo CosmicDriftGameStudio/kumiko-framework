@@ -29,7 +29,8 @@ export const runListQuery = defineQueryHandler({
       const { counts, outcome } = viewRun(run, query.user);
       return {
         id: run.id,
-        requestedAt: run.requestedAt.toString(),
+        // Fixed width: pageRows sorts this as a string, and a trimmed fraction ("…20Z" vs "…20.001Z") sorts wrong.
+        requestedAt: run.requestedAt.toString({ fractionalSecondDigits: 6 }),
         triggeredByUserId: run.triggeredByUserId,
         triggeredByName: starterNames.get(run.triggeredByUserId) ?? run.triggeredByUserId,
         status: run.status,
