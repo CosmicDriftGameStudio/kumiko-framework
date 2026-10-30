@@ -6,6 +6,7 @@ import type {
   DashboardScreenDefinition,
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
+  ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import type { FeatureSchema } from "../../index.ts";
@@ -136,44 +137,61 @@ describe("embedded form submit row", () => {
   });
 });
 
-describe("embedded entityList description", () => {
-  test("appears once, in the panel head, not again in the list toolbar", async () => {
-    const list: EntityListScreenDefinition = {
-      id: "task-list",
-      type: "entityList",
-      entity: "task",
-      columns: ["title"],
-      description: "tasks.list.description",
-    };
-    const board = dashboardWith([
-      { kind: "screen", id: "tasks", screen: "task-list", chromeless: true },
-    ]);
-    const schema: FeatureSchema = {
-      featureName: "sites",
-      entities: { task: taskEntity },
-      screens: [list, board],
-    };
-    const query = queryAnswering(() => ({
-      isSuccess: true,
-      data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-    }));
-    render(
-      <BrowserNav>
-        <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
-          <AppFeaturesProvider features={[schema]}>
-            <DashboardBodyProvider value={WebDashboardBody}>
-              <KumikoScreen
-                schema={schema}
-                qn="sites:screen:board"
-                translate={(key) => (key === "tasks.list.description" ? "Open tasks" : key)}
-              />
-            </DashboardBodyProvider>
-          </AppFeaturesProvider>
-        </DispatcherProvider>
-      </BrowserNav>,
-    );
-    await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
-    expect(screen.getAllByText("Open tasks")).toHaveLength(1);
-    expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe("Open tasks");
-  });
+const embeddedEntityList: EntityListScreenDefinition = {
+  id: "task-list",
+  type: "entityList",
+  entity: "task",
+  columns: ["title"],
+  description: "tasks.list.description",
+};
+
+const embeddedProjectionList: ProjectionListScreenDefinition = {
+  id: "task-list",
+  type: "projectionList",
+  query: "sites:query:task:list",
+  columns: [{ field: "title", label: "Title" }],
+  description: "tasks.list.description",
+};
+
+describe("embedded list description", () => {
+  test.each([
+    ["entityList", embeddedEntityList],
+    ["projectionList", embeddedProjectionList],
+  ] as const)(
+    "%s: appears once, in the panel head, not again in the list toolbar",
+    async (_type, list) => {
+      const board = dashboardWith([
+        { kind: "screen", id: "tasks", screen: "task-list", chromeless: true },
+      ]);
+      const schema: FeatureSchema = {
+        featureName: "sites",
+        entities: { task: taskEntity },
+        screens: [list, board],
+      };
+      const query = queryAnswering(() => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
+      }));
+      render(
+        <BrowserNav>
+          <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+            <AppFeaturesProvider features={[schema]}>
+              <DashboardBodyProvider value={WebDashboardBody}>
+                <KumikoScreen
+                  schema={schema}
+                  qn="sites:screen:board"
+                  translate={(key) => (key === "tasks.list.description" ? "Open tasks" : key)}
+                />
+              </DashboardBodyProvider>
+            </AppFeaturesProvider>
+          </DispatcherProvider>
+        </BrowserNav>,
+      );
+      await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
+      expect(screen.getAllByText("Open tasks")).toHaveLength(1);
+      expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe(
+        "Open tasks",
+      );
+    },
+  );
 });

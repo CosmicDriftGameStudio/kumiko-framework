@@ -72,7 +72,7 @@ export function renderProjectionList(model: ProjectionListRenderModel): ReactNod
         query.activeNamedFilter !== undefined ||
         isListNarrowed(query.activeSearch, urlState.filters)
       }
-      {...projectionLeadProps(screen, effectiveTranslate, actions.emptyContent)}
+      {...projectionLeadProps(screen, effectiveTranslate, actions.emptyContent, isEmbeddedScreen)}
       searchValue={urlState.q}
       onSearchChange={urlState.setQ}
       sort={query.activeSort}
