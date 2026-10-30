@@ -69,7 +69,7 @@ export type ScaffoldTestSetupFactory = (input: {
 
 // Exact pin (no caret): the generated files are formatted to this Biome's output,
 // and a scaffold-lint test keeps it equal to the monorepo's own Biome version.
-export const SCAFFOLD_BIOME_VERSION = "2.5.7";
+export const SCAFFOLD_BIOME_VERSION = "2.6.4";
 
 const SCAFFOLD_GITIGNORE = `node_modules/
 dist/
