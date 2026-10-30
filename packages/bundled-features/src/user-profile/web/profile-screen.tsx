@@ -14,8 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
-import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
-import { requestEmailVerification } from "../../auth-email-password/web/index.ts";
+import { AuthHandlers, requestEmailVerification } from "../../auth-email-password/web/index.ts";
 import { type SectionStatus, StatusBanner } from "../../shared/web/status-banner.tsx";
 import { UserProfileHandlers } from "./constants.ts";
 
