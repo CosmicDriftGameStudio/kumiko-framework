@@ -1372,7 +1372,7 @@ type StepListItem = {
 type StepListProps = {
   title: string;
   steps: StepListItem[];
-  footerActions?: StepAction[]; // Footer row, e.g. "Alle ablehnen" (ghost) and "Nächsten prüfen" (primary).
+  footerActions?: StepAction[]; // Footer row: a ghost action for the whole list next to the primary next-step action.
   collapsedAfter?: number; // Show only the first n steps plus "und k weitere Schritte" (expands on click).
   surface?: "ai" | "plain"; // "ai" (default) = AiSurface background, "plain" = no background.
   emptyContent?: ReactNode;

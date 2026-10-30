@@ -14,7 +14,7 @@ export type {
 export type StepListProps = {
   readonly title: string;
   readonly steps: readonly StepListItem[];
-  /** Footer row, e.g. "Alle ablehnen" (ghost) and "Nächsten prüfen" (primary). */
+  /** Footer row: a ghost action for the whole list next to the primary next-step action. */
   readonly footerActions?: readonly StepAction[];
   /** Show only the first n steps plus "und k weitere Schritte" (expands on click). */
   readonly collapsedAfter?: number;
