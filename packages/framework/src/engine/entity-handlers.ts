@@ -15,6 +15,7 @@ import {
   type ListAggregatePayload,
   listAggregatePayloadSchema,
 } from "@cosmicdrift/kumiko-types/list-aggregate-types";
+import type { NamedListFilterCondition } from "@cosmicdrift/kumiko-types/named-list-filters";
 import type { ZodType } from "zod";
 import * as z from "zod";
 import type { DbRow } from "../db/connection.ts";
@@ -39,6 +40,7 @@ import { entityListRuntime, parentVisibilityFor } from "./entity-list-runtime-op
 import { assertReason } from "./escape-hatch-reason.ts";
 import { dropEmptyWriteOnlyValues } from "./field-access.ts";
 import { instructionFieldNames } from "./instruction-fields.ts";
+import { resolveNamedListFilters } from "./resolve-named-list-filters.ts";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.ts";
 import type {
   EntityCrudRegistrar,
@@ -125,6 +127,8 @@ type ListPayload = {
     readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
     readonly value: unknown;
   };
+  filters?: readonly NamedListFilterCondition[];
+  namedFilter?: string;
   aggregate?: ListAggregatePayload;
 };
 
@@ -204,6 +208,8 @@ export const entityListSchema = z.object({
       }),
     )
     .optional(),
+  // Entity-defined work-queue rule (EntityDefinition.namedFilters); its conditions are appended to `filters`.
+  namedFilter: z.string().min(1).max(100).optional(),
   aggregate: listAggregatePayloadSchema.optional(),
 });
 
@@ -589,7 +595,22 @@ export function defineEntityQueryHandler(
         // against Meilisearch/InMem at runtime (remote combobox search). The
         // executor is built at definition time and cannot know the adapter, so the
         // runtime override supplies it.
-        const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
+        const requestPayload = query.payload as ListPayload; // @cast-boundary engine-payload
+        const listPayload =
+          requestPayload.namedFilter === undefined
+            ? requestPayload
+            : {
+                ...requestPayload,
+                filters: [
+                  ...(requestPayload.filters ?? []),
+                  ...(await resolveNamedListFilters(
+                    ctx,
+                    query.user,
+                    entityName,
+                    requestPayload.namedFilter,
+                  )),
+                ],
+              };
         const db = dbFor(ctx);
         const { runtimeOptions, eagerLoadViewer, resolveEntity } = entityListRuntime(
           ctx,

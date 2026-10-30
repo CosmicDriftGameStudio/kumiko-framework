@@ -2676,6 +2676,15 @@ interface ResultTableFooterRow {
 }
 ```
 
+## packages/renderer/src/web/widgets/stat.tsx
+
+```ts
+type StatLink = { // Makes a tile a link; `onPress` is the SPA navigation, `href` serves modified clicks and a11y.
+  href: string;
+  onPress: () => void;
+};
+```
+
 ## packages/testing/src/bundled-injection.ts
 
 ```ts
@@ -4374,6 +4383,30 @@ type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
   jobs?: {
     dispatch(jobName: string, payload: Record<string, unknown>, options?: { jobId?: string; }): Promise<void>;
   };
+};
+```
+
+## packages/types/src/named-list-filters.ts
+
+```ts
+type NamedListFilterCondition = {
+  field: string;
+  op: NamedListFilterOp;
+  value: unknown;
+};
+type NamedListFilterDef = { // A work-queue rule defined once on the entity: the list and every count query resolve the same conditions.
+  access?: AccessRule;
+  filters: (scope: NamedListFilterScope) => NamedListFilterCondition[] | Promise<NamedListFilterCondition[]>;
+};
+type NamedListFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
+type NamedListFilterRef = { // Screen-side reference to an entity-defined named filter; `label` is an i18n key.
+  id: string;
+  label: string;
+};
+type NamedListFilterScope = {
+  ctx: HandlerContext;
+  user: SessionUser;
+  now: Temporal.Instant;
 };
 ```
 

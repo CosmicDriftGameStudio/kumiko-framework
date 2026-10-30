@@ -35,7 +35,7 @@ function createDecimalField<R extends true | false = false>(config: { precision:
 function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef; // Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
 function createEmbeddedField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef;
 function createEmbeddedListField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef & { multiple: true; };
-function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
+function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
 function createEntityExecutor<E extends EntityDefinition>(entityName: string, entity: E): { table: EntityTable; executor: EventStoreExecutor<EntityRow<E>>; };
 function createFileField(overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FileFieldDef;
 function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FilesFieldDef;
@@ -137,6 +137,7 @@ function referenceGroupLabels(ctx: HandlerContext, user: SessionUser, sourceTabl
 function requireTierResolverPlugin(usage: RegistrarExtensionRegistration): TierResolverPlugin;
 function resolveAgentExposure(def: { description?: string; agent?: AgentHandlerHints; }, kind: "query" | "write"): AgentExposure; // Fail-closed: a handler without a `description` stays invisible to the agent unless it opts in explicitly.
 function resolveEntityTransferAdjacency(entities: ReadonlyMap<string, EntityDefinition>, rootEntityType?: string): TransferAdjacency;
+function resolveNamedListFilters(ctx: HandlerContext, user: SessionUser, entityName: string, name: string): Promise<NamedListFilterCondition[]>;
 function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(pipelineDef: PipelineDef<TPayload, TData>, event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<WriteResult<TData>>;
 function runStepList<TPayload, TMap extends object = KumikoEventTypeMap>(steps: StepInstance[], event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, stepsAcc: Record<string, unknown>, scopeAcc: Record<string, unknown>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<StepListOutcome>; // Walk a step-list.
 function sectionFieldSpecs(section: FieldsOrGroupsSection): EditFieldSpec[];
@@ -564,6 +565,7 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
   readGate?: ReadGateDef; // Declarative read gate for rows readable only through other rows (a link to a visible host, a file whose owner is readable).
   retention?: RetentionDef; // Default retention policy for this entity.
   derivedFields?: DerivedFieldsMap; // Read-time computed fields, keyed by name.
+  namedFilters?: Readonly<Record<string, NamedListFilterDef>>; // Named work-queue rules keyed by id, selected via `namedFilter`; function-valued, never in the client schema.
   description?: string; // Optional free-text semantics for the AI agent manifest — see TextFieldDef.description.
   transferable?: boolean; // Opts the rows into `tenant-handover`, a grant-legitimated move from an anonymous tenant to the signed-up account's tenant.
   attachedFileAccess?: "record-only"; // Attached files are readable only through the record's detail query: the files feature's privilegedRoles do not bypass it, the uploader check stays.
@@ -628,6 +630,7 @@ type EntityListScreenDefinition = {
   defaultSort?: ListSortSpec;
   defaultFilters?: Readonly<Record<string, string[] | boolean>>; // Initial facet selection, per filterable field: option values (string facets) or a boolean.
   facets?: Readonly<Record<string, EntityListFacetConfig | false>>; // Per-facet display options for the entity's `filterable` fields, keyed by field name.
+  namedFilters?: NamedListFilterRef[]; // Named work-queue rules offered on this list: ids declared in `EntityDefinition.namedFilters`, `label` an i18n key.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
@@ -1351,6 +1354,7 @@ type ProjectionListScreenDefinition = {
   paginated?: boolean; // Derived by buildAppSchema from the query handler's Zod schema (`cursor` or `offset` param present).
   filter?: ScreenFilter; // Server-side filter, fixed on the screen — see `ScreenFilter` doc above (entityList).
   facets?: ListFacetSpec[]; // User-toggleable facet dropdowns — see `ListFacetSpec` doc.
+  namedFilters?: NamedListFilterRef[]; // Named work-queue rules the bound query understands: its Zod schema must have a `namedFilter` key (boot-checked) and is sent the selected id in every list and count query.
   slots?: ScreenSlots;
   access?: AccessRule;
 };

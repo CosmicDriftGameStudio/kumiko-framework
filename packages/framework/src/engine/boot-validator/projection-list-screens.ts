@@ -11,8 +11,10 @@ import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import { isEditLayoutScreen } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 
+import { bootRuleError } from "./boot-rule.ts";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
 import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
+import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { findEntity } from "./parent-ref.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
 
@@ -110,6 +112,7 @@ function validateOneProjectionListScreen(
 
   validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
   validateProjectionListFacetsSchemaAcceptance(prefix, screen, schema);
+  validateProjectionListNamedFilterSchemaAcceptance(prefix, screen, schema);
   validateListTableAggregateQuery({ prefix, ...screen, handler, featureMap });
 }
 
@@ -127,6 +130,21 @@ function validateProjectionListFilterSchemaAcceptance(
       `schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","lte","gte","in"]), ` +
       `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
   );
+}
+
+// namedFilters send `payload.namedFilter` — same 422 footgun as filter/facets.
+function validateProjectionListNamedFilterSchemaAcceptance(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: no named filters declared, or the schema already accepts the key — nothing to reject.
+  if (screen.namedFilters === undefined || schemaAccepts(schema, "namedFilter")) return;
+  throw bootRuleError(NAMED_FILTER_RULES.projectionQueryAcceptsNamedFilter, {
+    message:
+      `${prefix}: declares namedFilters but query "${screen.query}" has no "namedFilter" parameter in its ` +
+      `Zod schema — add namedFilter: z.string().optional() to the handler's schema and resolve it with resolveNamedListFilters.`,
+  });
 }
 
 // facets send `payload.filters` — same failure mode as search/sort:

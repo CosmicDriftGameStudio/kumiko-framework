@@ -2,6 +2,7 @@ import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framewo
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import type { ListUrlStateApi } from "../hooks/use-list-url-state.ts";
 import { screenFillsHeight } from "../screen-fills-height.ts";
+import { routeFacetChange, withNamedFilterValues } from "./named-filter-facet.ts";
 import type { useProjectionListActions } from "./use-projection-list-actions.ts";
 import type { useProjectionListData } from "./use-projection-list-data.ts";
 import type { useProjectionListDefinitions } from "./use-projection-list-definitions.ts";
@@ -60,7 +61,7 @@ export function projectionFacetProps(
   return {
     ...(filterFacets.length > 0 && {
       filterFacets,
-      onFilterChange: urlState.setFilter,
+      onFilterChange: routeFacetChange(urlState),
     }),
     ...(dateRangeFacets.length > 0 && {
       dateRangeFacets,
@@ -73,10 +74,11 @@ export function projectionFilterStateProps(
   filterFacets: ReturnType<typeof useProjectionListData>["filterFacets"],
   dateRangeFacets: ReturnType<typeof useProjectionListQuery>["dateRangeFacets"],
   urlState: ListUrlStateApi,
+  activeNamedFilter: string | undefined,
 ) {
   return {
     ...((filterFacets.length > 0 || dateRangeFacets.length > 0) && {
-      filterValues: urlState.filters,
+      filterValues: withNamedFilterValues(urlState.filters, activeNamedFilter),
       onFilterReset: urlState.clearFilters,
     }),
   };

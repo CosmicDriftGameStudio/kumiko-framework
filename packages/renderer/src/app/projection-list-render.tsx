@@ -68,7 +68,10 @@ export function renderProjectionList(model: ProjectionListRenderModel): ReactNod
       rows={listRows.rows}
       featureName={schema.featureName}
       searchable={definitions.searchable}
-      narrowed={isListNarrowed(query.activeSearch, urlState.filters)}
+      narrowed={
+        query.activeNamedFilter !== undefined ||
+        isListNarrowed(query.activeSearch, urlState.filters)
+      }
       {...projectionLeadProps(screen, effectiveTranslate, actions.emptyContent)}
       searchValue={urlState.q}
       onSearchChange={urlState.setQ}
@@ -89,7 +92,12 @@ export function renderProjectionList(model: ProjectionListRenderModel): ReactNod
         urlState,
       )}
       {...listTable.props}
-      {...projectionFilterStateProps(filterFacets, dateRangeFacets, urlState)}
+      {...projectionFilterStateProps(
+        filterFacets,
+        dateRangeFacets,
+        urlState,
+        query.activeNamedFilter,
+      )}
     />
   );
 }

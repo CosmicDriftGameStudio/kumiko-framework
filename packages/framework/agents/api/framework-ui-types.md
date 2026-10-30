@@ -252,6 +252,10 @@ type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & {
   deltaToneField?: string;
   icon?: PlatformComponent; // Static icon next to the label.
   accentColor?: string; // Static CSS color value (e.g. "var(--color-debt)") for the icon chip, passed straight to the tile without a registry lookup.
+  navigate?: {
+    screen: string;
+    namedFilter?: string;
+  }; // Makes the tile a link to a list screen (qualified screen id).
 };
 type DashboardText = string | DashboardI18nText; // Plain string is displayed as-is; DashboardI18nText is translated by the renderer.
 type DashboardTextBlock =

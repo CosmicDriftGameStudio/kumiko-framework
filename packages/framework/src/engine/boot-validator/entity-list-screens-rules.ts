@@ -26,6 +26,11 @@ export const ENTITY_LIST_RULES = {
     summary: "A list whose entity has a detail screen offers a navigate row action.",
     fix: 'Add a navigate rowAction with id "view" or "edit".',
   },
+  unknownNamedFilter: {
+    id: "entity-list/unknown-named-filter",
+    summary: "Every screen namedFilters id is declared in the entity's namedFilters.",
+    fix: "Declare the rule in EntityDefinition.namedFilters or remove the id from the screen.",
+  },
   unknownColumn: {
     id: "entity-list/unknown-column",
     summary:

@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   TICKET_CAPABILITIES_QUERY,
+  TICKET_LIST_QUERY,
   TICKET_STATS_QUERY,
   ticketEntity,
   ticketFeature,
@@ -40,11 +41,11 @@ describe("dashboard screen", () => {
     const stats = screen.panels.flatMap((panel) =>
       panel.kind === "stat-group" ? panel.stats : panel.kind === "stat" ? [panel] : [],
     );
-    expect(stats.map((s) => s.valueField)).toEqual(["open", "closed", "total"]);
-    for (const stat of stats) expect(stat.query).toBe(TICKET_STATS_QUERY);
+    expect(stats.map((s) => s.valueField)).toEqual(["open", "closed", "total", "total"]);
+    const statsQueryStats = stats.filter((s) => s.query === TICKET_STATS_QUERY);
 
     const result = await stack.http.queryOk<Record<string, unknown>>(TICKET_STATS_QUERY, {}, admin);
-    for (const stat of stats) expect(result).toHaveProperty(stat.valueField);
+    for (const stat of statsQueryStats) expect(result).toHaveProperty(stat.valueField);
   });
 });
 
@@ -103,5 +104,27 @@ describe("record-bound dashboard with a gated detail panel", () => {
       field: "canClose",
       eq: true,
     });
+  });
+});
+
+describe("named filter shared by the dashboard tile and the list", () => {
+  test("the tile total equals the filtered list total over HTTP", async () => {
+    const dashboard = ticketFeature.screens["ticket-dashboard"];
+    if (dashboard?.type !== "dashboard") throw new Error("ticket-dashboard missing");
+    const tile = dashboard.panels.find(
+      (panel) => panel.kind === "stat" && panel.id === "open-work",
+    );
+    if (tile?.kind !== "stat") throw new Error("open-work tile missing");
+    expect(tile.navigate).toEqual({ screen: "ticket-queue", namedFilter: "open-work" });
+
+    const counted = await stack.http.queryOk<{ total: number }>(tile.query, tile.params, admin);
+    const listed = await stack.http.queryOk<{ rows: unknown[]; total: number }>(
+      TICKET_LIST_QUERY,
+      { namedFilter: "open-work", totalCount: true, limit: 50 },
+      admin,
+    );
+    expect(counted.total).toBe(listed.total);
+    expect(listed.rows).toHaveLength(listed.total);
+    expect(listed.total).toBeGreaterThan(0);
   });
 });

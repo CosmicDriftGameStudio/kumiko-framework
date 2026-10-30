@@ -584,6 +584,72 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     const kpiCall = calls.find((c) => c.type === "widgets:query:metrics:kpi");
     expect(kpiCall?.payload).toEqual({ tenantId: "t-2" });
   });
+
+  test("a stat with navigate links to the target list and ignores the dashboard filter in its payload", async () => {
+    window.history.replaceState(null, "", "/overview?tenantId=t-2");
+    const calls: { readonly type: string; readonly payload: unknown }[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        calls.push({ type, payload });
+        return {
+          isSuccess: true,
+          data: { rows: [], nextCursor: null, total: 4 },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    const navSchema: FeatureSchema = {
+      featureName: "work",
+      entities: {},
+      screens: [
+        {
+          id: "overview",
+          type: "dashboard",
+          filter: {
+            id: "tenantId",
+            label: "work:dashboard:filter-tenant",
+            kind: "select",
+            options: [{ value: "t-2", label: "work:dashboard:filter-tenant-t2" }],
+          },
+          panels: [
+            {
+              kind: "stat",
+              id: "overdue",
+              label: "work:dashboard:overdue",
+              query: "work:query:task:list",
+              valueField: "total",
+              params: { namedFilter: "overdue", limit: 1, totalCount: true },
+              navigate: { screen: "task-list", namedFilter: "overdue" },
+            },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <DashboardBodyProvider value={WebDashboardBody}>
+            <KumikoScreen schema={navSchema} qn="work:screen:overview" />
+          </DashboardBodyProvider>
+        </DispatcherProvider>
+      </BrowserNav>,
+    );
+
+    const link = await screen.findByTestId("dashboard-panel-overdue-link");
+    expect(calls.find((c) => c.type === "work:query:task:list")?.payload).toEqual({
+      namedFilter: "overdue",
+      limit: 1,
+      totalCount: true,
+    });
+    expect(screen.getByText("4")).toBeTruthy();
+    const href = link.getAttribute("href") ?? "";
+    expect(href).toContain("task-list");
+    expect(decodeURIComponent(href)).toContain("task-list.filter=overdue");
+
+    await userEvent.click(link);
+    expect(window.location.pathname).toContain("task-list");
+    expect(window.location.search).toContain("task-list.filter=overdue");
+  });
 });
 
 const sessionsSchema: FeatureSchema = {

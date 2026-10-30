@@ -226,6 +226,7 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({
       "orders.page": null,
+      "orders.filter": null,
       "orders.f.createdAt.from": null,
       "orders.f.createdAt.to": null,
     });
@@ -242,6 +243,7 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({
       "orders.page": null,
+      "orders.filter": null,
       "orders.f.status": null,
       "orders.f.active": null,
     });

@@ -32,6 +32,35 @@ const TONE_VALUE: Record<StatTone, string> = {
   negative: "text-status-bad",
 };
 
+/** Makes a tile a link; `onPress` is the SPA navigation, `href` serves modified clicks and a11y. */
+export type StatLink = {
+  readonly href: string;
+  readonly onPress: () => void;
+};
+
+function StatLinkFrame({
+  link,
+  testId,
+  children,
+}: {
+  readonly link: StatLink | undefined;
+  readonly testId: string | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Link } = usePrimitives();
+  if (link === undefined) return children;
+  return (
+    <Link
+      href={link.href}
+      onPress={link.onPress}
+      className="block min-w-0 text-inherit hover:no-underline"
+      {...(testId !== undefined && { testId: `${testId}-link` })}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export type StatDelta = {
   readonly value: string;
   readonly direction: "up" | "down";
@@ -123,6 +152,7 @@ export function StatCard({
   trend,
   spark,
   testId,
+  link,
   children,
 }: {
   readonly icon?: ReactNode;
@@ -135,6 +165,7 @@ export function StatCard({
   readonly trend?: string;
   readonly spark?: readonly number[];
   readonly testId?: string;
+  readonly link?: StatLink;
   /** Extra content below the built-in fields (e.g. a usage meter) — kept
    *  inside the same card chrome instead of stacking a second bordered box. */
   readonly children?: ReactNode;
@@ -144,7 +175,7 @@ export function StatCard({
   // a whole-section frame) — an extension section mounting several of
   // these renders a grid of tiles inside its own host Card, not a
   // duplicate outer frame around the section's full content.
-  return (
+  const tile = (
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card options={{ padded: false }} className="p-4" testId={testId}>
       <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
@@ -177,6 +208,11 @@ export function StatCard({
       {children !== undefined && <div className="mt-3">{children}</div>}
     </Card>
   );
+  return (
+    <StatLinkFrame link={link} testId={testId}>
+      {tile}
+    </StatLinkFrame>
+  );
 }
 
 /** Flat KPI cell for a strip (divider instead of card): label, value with
@@ -191,6 +227,7 @@ export function StatStripCell({
   delta,
   spark,
   testId,
+  link,
 }: {
   /** Chip before the label, colored like StatCard's (`accentColor` or the tone). */
   readonly icon?: ReactNode;
@@ -202,34 +239,41 @@ export function StatStripCell({
   readonly delta?: StatDelta;
   readonly spark?: readonly number[];
   readonly testId?: string;
+  readonly link?: StatLink;
 }): ReactNode {
   return (
-    <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
-          {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
-          <span>{label}</span>
-        </span>
-        {delta !== undefined && (
-          <span
-            className={cn(
-              "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
-              TONE_CHIP[delta.tone ?? tone],
+    <StatLinkFrame link={link} testId={testId}>
+      <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+            {icon !== undefined && (
+              <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />
             )}
-          >
-            {delta.direction === "up" ? "↑" : "↓"}
-            {delta.value}
+            <span>{label}</span>
           </span>
-        )}
+          {delta !== undefined && (
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
+                TONE_CHIP[delta.tone ?? tone],
+              )}
+            >
+              {delta.direction === "up" ? "↑" : "↓"}
+              {delta.value}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>
+            {value}
+          </span>
+          {spark !== undefined && (
+            <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
+          )}
+        </div>
+        {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
       </div>
-      <div className="flex items-center gap-3">
-        <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</span>
-        {spark !== undefined && (
-          <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
-        )}
-      </div>
-      {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
-    </div>
+    </StatLinkFrame>
   );
 }
 

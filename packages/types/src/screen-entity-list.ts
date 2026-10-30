@@ -1,5 +1,6 @@
 import type { FieldCondition } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
+import type { NamedListFilterRef } from "./named-list-filters.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
@@ -556,6 +557,10 @@ export type EntityListScreenDefinition = {
    *  through `defaultFilters` and the URL). Fields without an entry keep the
    *  default dropdown. */
   readonly facets?: Readonly<Record<string, EntityListFacetConfig | false>>;
+  /** Named work-queue rules offered on this list: ids declared in `EntityDefinition.namedFilters`,
+   *  `label` an i18n key. Selected through the `<screenId>.filter` URL key; a dashboard stat's
+   *  `navigate.namedFilter` links here. While one is active `defaultFilters` are not applied. */
+  readonly namedFilters?: readonly NamedListFilterRef[];
   /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */

@@ -28,6 +28,11 @@ query and the fields to read, the query does the counting.
 - **Fallback by reason**: `fallback: { forbidden, notFound }` renders a screen on
   403/404 of the gate query; other reasons get the default notice or an error
   banner with retry.
+- **Named filter shared by tile and list**: the entity declares `namedFilters`,
+  the `ticket-queue` entityList lists the id in `namedFilters`, and the
+  `open-work` stat counts through the list's own query with `params.namedFilter`
+  and `navigate`. A click opens the queue filtered by the same rule, so tile and
+  list cannot drift.
 
 ## When to reach for it
 

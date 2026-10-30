@@ -212,6 +212,11 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
             "minimum": 0,
             "type": "integer",
           },
+          "namedFilter": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string",
+          },
           "offset": {
             "maximum": 9007199254740991,
             "minimum": 0,

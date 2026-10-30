@@ -9,6 +9,7 @@ import type { FeatureFlags } from "./boot-phases.ts";
 import type { BootReport } from "./boot-report.ts";
 import { validateCardMetaOverflow } from "./card-meta-overflow.ts";
 import { validateConfigReads } from "./config-deps.ts";
+import { validateDashboardStatNavigate } from "./dashboard-stat-navigate.ts";
 import { validateExtensionPreSaveWiring } from "./entity-handler.ts";
 import { validateEntityListScreens } from "./entity-list-screens.ts";
 import { validateGdprStoragePersistence } from "./gdpr-storage.ts";
@@ -63,6 +64,10 @@ const APP_CHECKS_AFTER_I18N: readonly AppCheck[] = [
   {
     check: "validateProjectionListScreens",
     run: (c) => validateProjectionListScreens(c.features),
+  },
+  {
+    check: "validateDashboardStatNavigate",
+    run: (c) => validateDashboardStatNavigate(c.features),
   },
   {
     check: "validateRelatedListSectionQueries",

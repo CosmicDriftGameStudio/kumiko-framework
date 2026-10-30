@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { Translate } from "../headless/index.ts";
 import type { DataTableFacet } from "../primitives.tsx";
 import { buildFilterFacets, type ResolvedFacetSpec } from "./list-facets.ts";
+import { buildNamedFilterFacet } from "./named-filter-facet.ts";
 import { useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
@@ -47,9 +48,12 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     aggregates: listTable.aggregates,
   });
 
-  const filterFacets = useMemo<DataTableFacet[]>(
-    () => buildFilterFacets(resolvedFacetSpecs),
-    [resolvedFacetSpecs],
-  );
+  const filterFacets = useMemo<DataTableFacet[]>(() => {
+    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate);
+    return [
+      ...(namedFacet !== undefined ? [namedFacet] : []),
+      ...buildFilterFacets(resolvedFacetSpecs),
+    ];
+  }, [resolvedFacetSpecs, screen.namedFilters, effectiveTranslate]);
   return { listTable, listRows, filterFacets };
 }

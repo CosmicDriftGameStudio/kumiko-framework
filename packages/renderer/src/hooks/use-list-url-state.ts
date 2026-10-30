@@ -11,6 +11,8 @@
 //   <screenId>.f.<field> — faceted filter: comma-joined selected values;
 //                          NO_FILTER_URL_VALUE = "no filter", chosen deliberately
 //                          for a field that has a declared default
+//   <screenId>.filter   — id of a named list filter (EntityDefinition.namedFilters);
+//                          while set, the screen's defaultFilters do not apply
 //
 // Uses setSearchParams (replaceState, not push) so sort/filter toggles do not
 // flood the browser history.
@@ -43,6 +45,8 @@ export type ListUrlState = {
   /** Active faceted filters: field → selected values (strings; callers coerce
    * them according to the field type). Empty when no filter is set. */
   readonly filters: Readonly<Record<string, readonly string[]>>;
+  /** Id of the active named list filter; undefined when none is set. */
+  readonly namedFilter: string | undefined;
 };
 
 export type ListUrlStateApi = ListUrlState & {
@@ -58,7 +62,9 @@ export type ListUrlStateApi = ListUrlState & {
   /** Sets the selected values for a facet field. An empty array clears the key
    * and resets the page, like sort/search changes. */
   readonly setFilter: (field: string, values: readonly string[]) => void;
-  /** Clears all active faceted filters (for a reset button). */
+  /** Sets or (undefined) clears the named list filter and resets the page. */
+  readonly setNamedFilter: (id: string | undefined) => void;
+  /** Clears all active faceted filters and the named filter (for a reset button). */
   readonly clearFilters: () => void;
   /** Sets both bounds of a dateRange facet in ONE params update — two
    *  setFilter calls would overwrite each other, since the second still sees
@@ -91,6 +97,11 @@ export function listFilterUrlKey(screenId: string, field: string): string {
   return key(screenId, `f.${field}`);
 }
 
+/** URL key of the named list filter id. Distinct from the `f.` facet prefix. */
+export function listNamedFilterUrlKey(screenId: string): string {
+  return key(screenId, "filter");
+}
+
 function parseDir(value: string | undefined): ListSortDir | undefined {
   return value === "asc" || value === "desc" ? value : undefined;
 }
@@ -119,6 +130,11 @@ export function useListUrlState(
   const page = parsePage(params[key(screenId, "page")]);
   const pageSize = parsePageSize(params[key(screenId, "size")]);
 
+  const namedFilterParam = params[listNamedFilterUrlKey(screenId)];
+  const namedFilter = namedFilterParam === "" ? undefined : namedFilterParam;
+  // The named filter defines the view, so author defaults must not narrow it further.
+  const effectiveDefaultFilters = namedFilter === undefined ? defaultFilters : undefined;
+
   const filterPrefix = listFilterUrlKey(screenId, "");
   const filters = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
     const out: Record<string, readonly string[]> = {};
@@ -130,18 +146,18 @@ export function useListUrlState(
       // commas; use repeated keys if comma-containing values are ever needed.
       out[field] = v === NO_FILTER_URL_VALUE ? [] : v.split(",").filter((s) => s !== "");
     }
-    for (const [field, values] of Object.entries(defaultFilters ?? {})) {
+    for (const [field, values] of Object.entries(effectiveDefaultFilters ?? {})) {
       if (!Object.hasOwn(out, field)) out[field] = values;
     }
     return out;
-  }, [params, filterPrefix, defaultFilters]);
+  }, [params, filterPrefix, effectiveDefaultFilters]);
 
   const clearedFilterValue = useCallback(
     (field: string): string | null =>
-      defaultFilters !== undefined && Object.hasOwn(defaultFilters, field)
+      effectiveDefaultFilters !== undefined && Object.hasOwn(effectiveDefaultFilters, field)
         ? NO_FILTER_URL_VALUE
         : null,
-    [defaultFilters],
+    [effectiveDefaultFilters],
   );
 
   const setSort = useCallback(
@@ -211,8 +227,21 @@ export function useListUrlState(
     [nav, screenId],
   );
 
+  const setNamedFilter = useCallback(
+    (id: string | undefined) => {
+      nav.setSearchParams({
+        [listNamedFilterUrlKey(screenId)]: id ?? null,
+        [key(screenId, "page")]: null,
+      });
+    },
+    [nav, screenId],
+  );
+
   const clearFilters = useCallback(() => {
-    const updates: Record<string, string | null> = { [key(screenId, "page")]: null };
+    const updates: Record<string, string | null> = {
+      [key(screenId, "page")]: null,
+      [listNamedFilterUrlKey(screenId)]: null,
+    };
     for (const field of Object.keys(filters)) {
       updates[key(screenId, `f.${field}`)] = clearedFilterValue(field);
     }
@@ -225,11 +254,13 @@ export function useListUrlState(
     page,
     pageSize,
     filters,
+    namedFilter,
     setSort,
     setQ,
     setPage,
     setPageSize,
     setFilter,
+    setNamedFilter,
     clearFilters,
     setDateRange,
   };
