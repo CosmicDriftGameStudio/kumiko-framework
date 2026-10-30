@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.403.0",
+    "type": "improvement",
+    "title": "Entities define named list filters",
+    "detail": "createEntity takes namedFilters, a record of { access?, filters(scope) } where filters returns ListFilter conditions (sync or async). The default list query accepts namedFilter and appends the resolved conditions to filters, on the row path and the aggregate path. An unknown name is a validation error on namedFilter, a failed access rule is access_denied. resolveNamedListFilters is exported from the engine entry. The definition is function-valued and never reaches the client schema."
+  },
+  {
     "version": "0.402.0",
     "type": "improvement",
     "title": "Boot violations carry rule ids with a fix and a doc link",

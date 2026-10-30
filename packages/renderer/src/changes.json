@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.403.0",
+    "type": "improvement",
+    "title": "Lists and dashboard stats take named filters",
+    "detail": "entityList and projectionList take namedFilters [{ id, label }], shown as a removable chip and kept in the URL as <screenId>.filter; it reaches the list, facet and count queries, and defaultFilters are skipped while it is active. A dashboard stat takes navigate { screen, namedFilter } and becomes a link to the filtered list. The boot validator checks that ids exist, that a projectionList query accepts namedFilter, and that the tile counts with the target list's own query and namedFilter."
+  },
+  {
     "version": "0.402.0",
     "type": "improvement",
     "title": "The editor panel keeps its save bar pinned",
