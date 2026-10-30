@@ -182,11 +182,14 @@ describe("StepList source links and highlight", () => {
     );
   });
 
-  test("showProgress false hides the count and the progress bar", () => {
+  test("progress count keeps only the count, none hides count and bar", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
     expect(screen.getByTestId("step-list-progress")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeNull();
-    rerender(<StepList title="Plan" steps={heatingSteps} showProgress={false} />);
+    rerender(<StepList title="Plan" steps={heatingSteps} progress="count" />);
+    expect(screen.getByTestId("step-list-progress").textContent).toBe("1 of 3 done");
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    rerender(<StepList title="Plan" steps={heatingSteps} progress="none" />);
     expect(screen.queryByTestId("step-list-progress")).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
