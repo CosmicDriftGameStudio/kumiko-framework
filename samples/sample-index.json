@@ -190,6 +190,7 @@
         "recipes-documents"
       ],
       "hasVisualOutput": true,
+      "readmeSummary": "createDocumentsFeature (@cosmicdrift/kumiko-bundled-features/documents) with categories, linkTargets and access roles. - A capture rule turns a file field into a document source without the entity knowing about the documents feature: every saved contract.file is filed as a document of category contract, titled from the row, and linked to the contract's property. - Visibility follows the linked records: a document is visible to users who may read the linked records and the contract that owns the file. The documents:query:for-record query returns the documents of one record; a property reader sees none for the property because they may not read the contract that owns the file.",
       "primarySample": "recipes-documents",
       "whenToUse": "Files must be filed as documents with category and expiry, visible only to whoever can read the linked records and the owner of the file.",
       "sampleBlurb": "Capture contract files as documents linked to contract and property; visibility follows the linked records without a host column.",

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+  assertPrimarySampleHasReadme,
   buildSampleIndex,
   extractFeaturesFromText,
   extractReadmeSummary,
@@ -91,5 +92,14 @@ describe("sample-index", () => {
     expect(summary).toContain("Zero host changes");
     expect(summary).toContain("tag awareness");
     expect(summary).toContain("own tables");
+  });
+
+  test("a primarySample without README.md aborts with feature, sample and fix", () => {
+    expect(() => assertPrimarySampleHasReadme("documents", "recipes-documents", false)).toThrow(
+      /feature "documents".*"recipes-documents".*README\.md/,
+    );
+    expect(() =>
+      assertPrimarySampleHasReadme("documents", "recipes-documents", true),
+    ).not.toThrow();
   });
 });
