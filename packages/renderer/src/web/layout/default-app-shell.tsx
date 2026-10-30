@@ -14,7 +14,7 @@
 // Apps that need granular control can use the ui/ components directly.
 // Apps that need a topbar with a workspace switcher should use <WorkspaceShell>.
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   type AppSchema,
   type FeatureSchema,
@@ -30,10 +30,9 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarRail,
-  useSidebar,
 } from "../ui/sidebar.tsx";
 import { fillClasses } from "./fill-classes.ts";
-import { FocusRail } from "./focus-rail.tsx";
+import { FocusAwareSidebarBody, focusSidebarProviderProps } from "./focus-aware-sidebar.tsx";
 import { NavTree } from "./nav-tree.tsx";
 import { PageHeaderSlotProvider } from "./page-header-slot.tsx";
 import { ShellFocusProvider, useShellFocusHost } from "./shell-focus.tsx";
@@ -79,29 +78,6 @@ export type DefaultAppShellProps = {
   readonly children: ReactNode;
 };
 
-// 3.5rem = the 56px rail of the focused screen; the default icon width stays 3rem.
-const FOCUS_RAIL_WIDTH_STYLE: CSSProperties = { "--sidebar-width-icon": "3.5rem" };
-
-function FocusAwareSidebarBody({
-  focused,
-  brand,
-  schema,
-  user,
-  children,
-}: {
-  readonly focused: boolean;
-  readonly brand: ReactNode;
-  readonly schema: AppSchema | FeatureSchema;
-  readonly user: DefaultAppShellUser | undefined;
-  readonly children: ReactNode;
-}): ReactNode {
-  const { state, isMobile } = useSidebar();
-  if (focused && state === "collapsed" && !isMobile) {
-    return <FocusRail brand={brand} schema={schema} {...(user !== undefined && { user })} />;
-  }
-  return children;
-}
-
 export function DefaultAppShell({
   brand,
   schema,
@@ -120,14 +96,7 @@ export function DefaultAppShell({
   const panel = useSidebarPanelHost();
   const focus = useShellFocusHost();
   return (
-    <SidebarProvider
-      {...fillCls.provider}
-      {...(focus.focused && {
-        open: focus.railOpen,
-        onOpenChange: focus.setRailOpen,
-        style: FOCUS_RAIL_WIDTH_STYLE,
-      })}
-    >
+    <SidebarProvider {...fillCls.provider} {...focusSidebarProviderProps(focus)}>
       <ShellFocusProvider value={focus.value}>
         <SidebarPanelProvider value={panel.value}>
           {/* Standard variant (border-r, flush content) + collapsible="icon" — the rail collapses to icon width (trigger/rail). */}

@@ -23,6 +23,7 @@ export type FocusRailProps = {
   readonly brand: ReactNode;
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: { readonly id: string; readonly roles: readonly string[] };
+  readonly allowedNavQns?: ReadonlySet<string>;
 };
 
 function RailGlyph({ node, label }: { readonly node: NavNode; readonly label: string }): ReactNode {
@@ -52,14 +53,14 @@ function useActiveScreenId(
   }, [tree, schema, routedScreenId]);
 }
 
-export function FocusRail({ brand, schema, user }: FocusRailProps): ReactNode {
+export function FocusRail({ brand, schema, user, allowedNavQns }: FocusRailProps): ReactNode {
   const t = useTranslation();
   const dispatchTarget = useDispatchTarget();
   const { setOpen } = useSidebar();
   const tree = useMemo(() => {
-    const source = buildNavRegistrySliceForApp(toAppSchema(schema));
+    const source = buildNavRegistrySliceForApp(toAppSchema(schema), allowedNavQns);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
-  }, [schema, user]);
+  }, [schema, user, allowedNavQns]);
   const activeScreenId = useActiveScreenId(tree, schema);
 
   return (
