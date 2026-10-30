@@ -206,6 +206,20 @@ function buildEntities(
   return result;
 }
 
+const FEATURE_DESCRIPTION_MAX_CHARS = 300;
+
+// Only ". " before a capital ends the sentence, so "e.g. the" and "Art. 15" stay whole.
+const SENTENCE_END = /\.\s+(?=\p{Lu})/u;
+
+/** The manifest is prompt payload; the full text stays in `FeatureDefinition.description`
+ *  for the docs generators. */
+function leadSentence(description: string): string {
+  const text = description.replace(/\s+/g, " ").trim();
+  const end = SENTENCE_END.exec(text);
+  const sentence = end === null ? text : text.slice(0, end.index + 1);
+  return sentence.slice(0, FEATURE_DESCRIPTION_MAX_CHARS);
+}
+
 function buildFeatures(
   features: ReadonlyMap<string, FeatureDefinition>,
   visibleFeatureNames: ReadonlySet<string>,
@@ -215,7 +229,9 @@ function buildFeatures(
     if (!visibleFeatureNames.has(feature.name)) continue;
     result.push({
       name: feature.name,
-      ...(feature.description !== undefined && { description: feature.description }),
+      ...(feature.description !== undefined && {
+        description: leadSentence(feature.description),
+      }),
       ...(feature.uiHints?.displayLabel !== undefined && {
         displayLabel: feature.uiHints.displayLabel,
       }),

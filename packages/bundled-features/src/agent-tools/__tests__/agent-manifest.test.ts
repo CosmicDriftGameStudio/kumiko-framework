@@ -607,3 +607,36 @@ describe("handler exposed without a description", () => {
     expect(catalog.tools.find((t) => t.description === `Run ${entry?.qn}.`)).toBeDefined();
   });
 });
+
+describe("buildAgentManifest feature descriptions", () => {
+  const described = (text: string) =>
+    defineFeature("desc-test", (r) => {
+      r.describe(text);
+      r.queryHandler({
+        name: "thing:ping",
+        schema: z.object({}),
+        handler: async () => ({}),
+        access: { roles: ["admin"] },
+        description: "Ping.",
+      });
+    });
+  const manifestDescription = (text: string) =>
+    buildAgentManifest(createRegistry([described(text)]), { locale: "en", roles: ["admin"] })
+      .features[0]?.description;
+
+  test("only the first sentence reaches the manifest, the definition keeps the full text", () => {
+    const text = "Sends mail to tenants. Call `ctx.notify` from a handler to queue one.";
+    expect(manifestDescription(text)).toBe("Sends mail to tenants.");
+    expect(described(text).description).toBe(text);
+  });
+
+  test("abbreviations and article numbers do not end the sentence", () => {
+    expect(
+      manifestDescription("Handles requests, e.g. exports per Art. 15 of the GDPR. More."),
+    ).toBe("Handles requests, e.g. exports per Art. 15 of the GDPR.");
+  });
+
+  test("a sentence without an end is capped at 300 characters", () => {
+    expect(manifestDescription("a".repeat(500))).toHaveLength(300);
+  });
+});
