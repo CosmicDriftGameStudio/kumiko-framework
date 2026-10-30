@@ -208,6 +208,8 @@ export type MetricSpec = {
   readonly tone?: DashboardStatTone;
   /** Icon chip of the tile; only drawn with `metricsStyle: "tiles"`. */
   readonly icon?: NavIconKey;
+  /** Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value. */
+  readonly format?: FormatSpec;
 };
 
 export type ProjectionDetailScreenDefinition = {

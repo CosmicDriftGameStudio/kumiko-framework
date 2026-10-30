@@ -68,15 +68,17 @@ const testPrimitives: CorePrimitives = {
 const { dispatcher } = stubDispatcher({
   query: (async () => ({
     isSuccess: true,
-    data: { id: "r1", name: "Release 1.2", state: "in_review" },
+    data: { id: "r1", name: "Release 1.2", state: "in_review", due: "2026-11-05" },
   })) as unknown as Dispatcher["query"],
 });
 
+const METRIC_VALUE_ID = "kumiko-screen-projection-detail-metric-due-value";
 const STATE_FORMAT = { format: "enumOption", keyPrefix: "app.state." } as const;
 
 function renderDetail(options: {
   readonly statusFormat?: boolean;
   readonly layoutFormat?: boolean;
+  readonly metricFormat?: boolean;
   readonly tone?: "accent" | "critical";
 }): ReturnType<typeof render> {
   const screen = {
@@ -90,6 +92,13 @@ function renderDetail(options: {
       statusTones: { in_review: options.tone ?? "warn" },
       ...(options.statusFormat === true && { statusFormat: STATE_FORMAT }),
     },
+    metrics: [
+      {
+        field: "due",
+        label: "app.due",
+        ...(options.metricFormat === true && { format: { format: "date" } }),
+      },
+    ],
     layout: {
       sections: [
         {
@@ -173,5 +182,18 @@ describe("projectionDetail header status text", () => {
   test("the critical option tone reaches the badge", async () => {
     const badge = await statusBadge(renderDetail({ tone: "critical" }));
     expect(badge.getAttribute("data-tone")).toBe("critical");
+  });
+
+  test("metric format formats the displayed value", async () => {
+    const view = renderDetail({ metricFormat: true });
+    const metric = await waitFor(() => view.getByTestId(METRIC_VALUE_ID));
+    expect(metric.textContent).not.toBe("2026-11-05");
+    expect(metric.textContent).toContain("2026");
+  });
+
+  test("a metric without format keeps the raw value", async () => {
+    const view = renderDetail({});
+    const metric = await waitFor(() => view.getByTestId(METRIC_VALUE_ID));
+    expect(metric.textContent).toBe("2026-11-05");
   });
 });

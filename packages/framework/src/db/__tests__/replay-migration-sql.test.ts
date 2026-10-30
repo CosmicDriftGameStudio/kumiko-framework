@@ -555,4 +555,12 @@ ALTER TABLE "widgets" ADD COLUMN "after_do" text;`,
     ]);
     expect(diffReplayAgainstSnapshot(replayed, snapshot)).toEqual([]);
   });
+
+  test("a table name ending in as is not mistaken for CREATE TABLE AS", () => {
+    const replayed = replayOf({
+      "0001_init.sql": `CREATE TABLE IF NOT EXISTS "read_themas" ("id" uuid PRIMARY KEY, "titel" text NOT NULL);`,
+    });
+    expect([...replayed.keys()]).toEqual(["read_themas"]);
+    expect([...(replayed.get("read_themas")?.columns.keys() ?? [])]).toEqual(["id", "titel"]);
+  });
 });

@@ -190,7 +190,7 @@ function applyStatement(
 
   const createAs = statement.match(
     new RegExp(
-      `^CREATE\\s+(?:UNLOGGED\\s+)?TABLE\\s+(IF NOT EXISTS\\s+)?${IDENT}\\s*(?:\\(([^)]*)\\)\\s*)?AS\\b([\\s\\S]*)$`,
+      `^CREATE\\s+(?:UNLOGGED\\s+)?TABLE\\s+(IF NOT EXISTS\\s+)?${IDENT}(?:\\s*\\(([^)]*)\\)\\s*|\\s+)AS\\b([\\s\\S]*)$`,
       "i",
     ),
   );

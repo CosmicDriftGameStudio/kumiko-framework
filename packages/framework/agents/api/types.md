@@ -4783,6 +4783,7 @@ type MetricSpec = {
   navigate?: MetricNavigate;
   tone?: DashboardStatTone; // Tile color as on dashboard stat panels; not applied while the value is 0.
   icon?: NavIconKey; // Icon chip of the tile; only drawn with `metricsStyle: "tiles"`.
+  format?: FormatSpec; // Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value.
 };
 type RecordHeaderSpec = {
   title: string;

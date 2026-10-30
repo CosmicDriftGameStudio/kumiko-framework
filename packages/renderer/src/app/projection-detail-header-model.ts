@@ -102,3 +102,14 @@ export function buildDetailTabItems(
     };
   });
 }
+
+export function resolveMetricText(
+  metric: { readonly format?: FormatSpec },
+  raw: unknown,
+  translate: Translate,
+): string {
+  const rawText = String(raw ?? "");
+  if (metric.format === undefined) return rawText;
+  const formatted = applyFormatSpec(metric.format, raw, translate);
+  return formatted === "" ? rawText : formatted;
+}
