@@ -108,15 +108,21 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
   const maskImage = edgeFadeMaskImage(scrollStart, scrollEnd);
 
   return (
-    <Tabs value={activeId} onValueChange={onSelect} data-testid={testId} className="min-w-0">
+    <Tabs
+      value={activeId}
+      onValueChange={onSelect}
+      data-testid={testId}
+      className="@container min-w-0"
+    >
+      {/* Below 32rem the record-page spacing (px-6, gap-6) pushes a few counted tabs out of a list pane. */}
       <div
         ref={scrollerRef}
         data-scroll-start={scrollStart ? "" : undefined}
         data-scroll-end={scrollEnd ? "" : undefined}
-        className="relative min-w-0 overflow-x-auto border-b border-border px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative min-w-0 overflow-x-auto border-b border-border px-3 [scrollbar-width:none] @lg:px-6 [&::-webkit-scrollbar]:hidden"
         style={maskImage !== undefined ? { maskImage, WebkitMaskImage: maskImage } : undefined}
       >
-        <TabsList variant="line" className="h-11 gap-6 p-0">
+        <TabsList variant="line" className="h-11 gap-3 p-0 @lg:gap-6">
           {items.map((item) => (
             <TabsTrigger
               key={item.id}
