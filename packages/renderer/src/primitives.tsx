@@ -254,6 +254,15 @@ export type FieldProps = {
  *  signature. Custom implementations can dispatch internally, render a
  *  different control (toggle instead of checkbox), or customize individual
  *  kinds. */
+/** Icon button inside the right edge of a text input, e.g. a microphone. */
+export type InputEndAction = {
+  readonly icon: ReactNode;
+  readonly ariaLabel: string;
+  readonly onClick: () => void;
+  /** Toggle state, e.g. a microphone that is currently recording. */
+  readonly pressed?: boolean;
+};
+
 /** Button beside a single-line text/number input that fills it with a
  *  suggestion. Stays usable on a `disabled` input (the readOnly+fill case). */
 export type InputFillAction = {
@@ -311,6 +320,7 @@ export type InputProps =
       readonly prefix?: string;
       readonly suffix?: string;
       readonly fill?: InputFillAction;
+      readonly endAction?: InputEndAction;
       readonly dataAttributes?: DataAttributes;
       /** Raw keydown access (e.g. Enter-to-submit at the field instead of
        *  the surrounding Form). Forwarded to the element. */

@@ -1,7 +1,8 @@
-import type { ChangeEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 import { Input as UiInput } from "../ui/input.tsx";
 import { Textarea } from "../ui/textarea.tsx";
+import { AiTextEndActionButton, END_ACTION_PADDING_CLASS } from "../widgets/ai-text-end-action.tsx";
 import { CodeInput } from "./code-input.tsx";
 import {
   fieldIconFor,
@@ -12,25 +13,46 @@ import {
 } from "./field.tsx";
 import type { KindRenderer, PropsOfKind } from "./input-shared.ts";
 
+function withEndAction(props: PropsOfKind<"text">, input: ReactNode): ReactNode {
+  if (props.endAction === undefined) return input;
+  return (
+    <div className="relative">
+      {input}
+      <AiTextEndActionButton
+        action={props.endAction}
+        multiline={false}
+        disabled={props.disabled === true}
+        testId={props.testId}
+      />
+    </div>
+  );
+}
+
 export const renderTextKind: KindRenderer<"text"> = (props, { common, textInputRef }) =>
   withInputAddons(
     props,
-    withFieldIcon(
-      props.icon,
-      <UiInput
-        type="text"
-        ref={textInputRef}
-        {...common}
-        {...props.dataAttributes}
-        data-testid={props.testId}
-        readOnly={props.readOnly}
-        value={props.value}
-        onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
-        onKeyDown={props.onKeyDown}
-        {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
-        {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-        className={cn(fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined)}
-      />,
+    withEndAction(
+      props,
+      withFieldIcon(
+        props.icon,
+        <UiInput
+          type="text"
+          ref={textInputRef}
+          {...common}
+          {...props.dataAttributes}
+          data-testid={props.testId}
+          readOnly={props.readOnly}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          onKeyDown={props.onKeyDown}
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
+          {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
+          className={cn(
+            fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
+            props.endAction !== undefined ? END_ACTION_PADDING_CLASS : undefined,
+          )}
+        />,
+      ),
     ),
   );
 
