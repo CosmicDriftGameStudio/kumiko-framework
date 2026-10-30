@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +30,7 @@ function securityException(overrides: Partial<SecurityException>): SecurityExcep
     reason: "no fix yet",
     reviewedBy: "Reviewer",
     expires: "2026-12-31",
+    source: { file: "/repo/dependency-security-exceptions.json", origin: "repo" },
     ...overrides,
   };
 }
@@ -171,6 +172,55 @@ describe("runSecurityCheck", () => {
     expect(evaluation.usedExceptions).toEqual([renewedInRepo]);
   });
 
+  describe("unused exception warning", () => {
+    async function runAndCaptureLog(
+      exceptions: SecurityException[],
+      raw: RawAuditReport,
+      reportOnly = false,
+    ): Promise<{ exitCode: number; log: string }> {
+      const logSpy = spyOn(console, "log").mockImplementation(() => {});
+      try {
+        const exitCode = await runSecurityCheck({
+          repoRoot: repoWithLockfile(),
+          reportOnly,
+          runAudit: async () => raw,
+          exceptions,
+          nowMs: NOW,
+        });
+        return { exitCode, log: logSpy.mock.calls.map((call) => call.join(" ")).join("\n") };
+      } finally {
+        logSpy.mockRestore();
+      }
+    }
+
+    test("an unused repo exception warns with package, advisory and file, and does not block", async () => {
+      const unused = securityException({ advisory: "GHSA-vfj7-8cjw-p6xm", package: "braces" });
+      for (const reportOnly of [false, true]) {
+        const { exitCode, log } = await runAndCaptureLog([unused], {}, reportOnly);
+        expect(exitCode).toBe(0);
+        expect(log).toContain("suppressed no advisory");
+        expect(log).toContain(
+          "braces  GHSA-vfj7-8cjw-p6xm  (/repo/dependency-security-exceptions.json)",
+        );
+      }
+    });
+
+    test("a used repo exception does not warn", async () => {
+      const { exitCode, log } = await runAndCaptureLog([securityException({})], report("high"));
+      expect(exitCode).toBe(0);
+      expect(log).not.toContain("suppressed no advisory");
+    });
+
+    test("an unused bundled exception does not warn", async () => {
+      const bundled = securityException({
+        source: { file: "/pkg/dependency-security-exceptions.json", origin: "bundled" },
+      });
+      const { exitCode, log } = await runAndCaptureLog([bundled], {});
+      expect(exitCode).toBe(0);
+      expect(log).not.toContain("suppressed no advisory");
+    });
+  });
+
   test("a clean audit passes", async () => {
     expect(
       await runSecurityCheck({
@@ -237,7 +287,12 @@ describe("loadSecurityExceptions", () => {
       JSON.stringify({ exceptions: [securityException({}), { advisory: "GHSA-x", package: "y" }] }),
       "utf-8",
     );
-    expect(loadSecurityExceptions([repo]).map((e) => e.advisory)).toEqual(["GHSA-aaaa-bbbb-cccc"]);
+    const loaded = loadSecurityExceptions([repo]);
+    expect(loaded.map((e) => e.advisory)).toEqual(["GHSA-aaaa-bbbb-cccc"]);
+    expect(loaded[0]?.source).toEqual({
+      file: join(repo, "dependency-security-exceptions.json"),
+      origin: "repo",
+    });
   });
 
   test("an exception with an unparsable expiry is dropped", () => {

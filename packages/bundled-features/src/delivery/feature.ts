@@ -197,7 +197,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     if (attemptLogRetentionDays !== undefined) {
       r.job({
         name: DeliveryJobNames.attemptLogRetention,
-        trigger: { cron: "15 3 * * *" },
+        trigger: { maintenance: true },
         concurrency: "skip",
         escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON },
         handler: async (_payload, ctx) => {

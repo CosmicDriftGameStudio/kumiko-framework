@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "Pattern library documents the maintenance trigger",
+    "detail": "The job pattern's comment and summary name { maintenance: true }; the parser already reads it as a literal option."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "Codemod entries return their exit code",

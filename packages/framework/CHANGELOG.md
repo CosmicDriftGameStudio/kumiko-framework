@@ -1,5 +1,66 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.404.0
+
+### Minor Changes
+
+- 7123167: New job trigger `{ maintenance: true }`: one daily run in the app's maintenance window (`KUMIKO_MAINTENANCE_WINDOW`, `HH:MM` UTC, default 03:00), so a sleeping app wakes once a day for all its cleanup jobs. The cleanup jobs of the framework and the bundled features use it.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: JobTrigger gains { maintenance: true }
+  detail: A job with trigger { maintenance: true } runs once a day at the maintenance window of the app. Prefer it over a fixed cron for housekeeping; the window can be set per app.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Maintenance trigger and KUMIKO_MAINTENANCE_WINDOW
+  detail: The job runner registers maintenance jobs as a daily UTC scheduler at JobRunnerOptions.maintenanceWindow (default 03:00), set from KUMIKO_MAINTENANCE_WINDOW by runProdApp and runWorkerApp; an invalid value aborts the boot. maintenanceWindowFromEnv is exported from the jobs barrel. files sweep-orphaned-uploads (hourly before) and the soft-delete cleanup jobs (03:00 and 03:15 before) now run in the window. A schedule stored with the old time is replaced on the next start.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Cleanup jobs run once a day in the maintenance window
+  detail: jobs (stale-run-sweep, hourly before, and retention-cleanup), user-data-rights (export and forget), data-retention, audit escape-hatch-retention, inbound-mail retention, delivery attempt-log-retention and form-draft cleanup use trigger { maintenance: true } instead of 03:00 to 03:30 and hourly crons. Without KUMIKO_MAINTENANCE_WINDOW they all run at 03:00 UTC. A stuck job run is now marked failed at most a day after it crosses the stale timeout.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: improvement
+  title: Pattern library documents the maintenance trigger
+  detail: The job pattern's comment and summary name { maintenance: true }; the parser already reads it as a literal option.
+  -->
+- 7123167: Apps sharing one Redis can be confined to a per-app ACL user: `KUMIKO_REDIS_PREFIX` puts every key, the BullMQ queues and every Pub/Sub channel under `<prefix>:`, and `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` lets a SIGTERM wait for running jobs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: KUMIKO_REDIS_PREFIX namespaces all Redis keys and channels
+  detail: redisNamespaceFromEnv resolves keyPrefix, bullmqPrefix, channelPrefix and the subscribe pattern. Unset keeps today's layout (bull:*, unprefixed locks, rate limit, idempotency and cache keys). Set, the main ioredis client gets keyPrefix <P>:, the job runner passes prefix <P>:bull to every Queue and Worker (new JobRunnerOptions.redisNamespace, also on the entrypoint jobs block) and gives its lock client the keyPrefix, and the SSE broker, cache-sync bus and toggle signal use <P>: channels. Redis matches PSUBSCRIBE patterns literally against ACL channel rules, so with a prefix they subscribe to <P>:* and filter by channel. A value with ":" or glob characters, or a KUMIKO_REDIS_CHANNEL_PREFIX that differs from it, aborts the boot. The cache-sync bus of runProdApp, runWorkerApp and createDefaultCacheSyncBus now also honours KUMIKO_REDIS_CHANNEL_PREFIX alone (before, only SSE and toggle channels did). JobRunner gains an optional stopConsuming(), which createJobRunner implements. The ACL rule set and the key layout for a wake-up service are in docs/reference/infra-requirements.md.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp and runWorkerApp use the Redis prefix and drain running jobs on SIGTERM
+  detail: Both boots pass the namespace to the Redis client, the cache-sync bus and the job runner, so enqueuer and consumer share one key space. KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS (positive integer, invalid aborts the boot) sets the drain budget; signals.drainTimeoutMs wins, the default stays 25 s. Entrypoint stop() now stops every job lane fetching first, then waits for active jobs up to that budget before the database and Redis close; before, the lifecycle's fixed 40 s cut the wait short.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-toggles
+  type: improvement
+  title: Feature-toggle Redis signal follows KUMIKO_REDIS_PREFIX
+  detail: createRedisToggleSyncSignal takes an optional channelSubscribePattern (default from KUMIKO_REDIS_PREFIX) and ignores messages from other channels, which a prefix-wide subscription delivers.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [7123167]
+  - @cosmicdrift/kumiko-types@0.404.0
+
 ## 0.403.0
 
 ### Minor Changes

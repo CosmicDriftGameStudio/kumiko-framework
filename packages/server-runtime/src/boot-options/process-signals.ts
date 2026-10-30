@@ -8,6 +8,30 @@ export type SignalsOption = false | { readonly drainTimeoutMs?: number };
 // Draining 25 s leaves room for the exit and the final log line before that.
 export const DEFAULT_DRAIN_TIMEOUT_MS = 25_000;
 
+export const SHUTDOWN_DRAIN_TIMEOUT_ENV = "KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS";
+
+/** Shared apps scaled to zero by KEDA need the drain to outlast their longest job. Unset: undefined.
+ *  An invalid value fails the boot instead of silently shortening the drain. */
+export function readShutdownDrainTimeoutMs(
+  env: Readonly<Record<string, string | undefined>>,
+): number | undefined {
+  const raw = env[SHUTDOWN_DRAIN_TIMEOUT_ENV]?.trim();
+  if (raw === undefined || raw === "") return undefined;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`[env] ${SHUTDOWN_DRAIN_TIMEOUT_ENV}="${raw}" must be a positive integer`);
+  }
+  return parsed;
+}
+
+/** Explicit `signals.drainTimeoutMs` wins over the env variable, which wins over the default. */
+export function resolveDrainTimeoutMs(
+  explicit: number | undefined,
+  fromEnv: number | undefined,
+): number {
+  return explicit ?? fromEnv ?? DEFAULT_DRAIN_TIMEOUT_MS;
+}
+
 export type SignalProcess = {
   on(signal: ShutdownSignal, listener: () => void): unknown;
   off(signal: ShutdownSignal, listener: () => void): unknown;

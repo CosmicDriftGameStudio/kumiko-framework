@@ -2,7 +2,7 @@ import type { KumikoServeEnv } from "@cosmicdrift/kumiko-framework/api";
 import { assertNoActiveRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { flushEscapeHatchAudits } from "@cosmicdrift/kumiko-framework/pipeline";
-import { installShutdownSignals } from "./boot-options/process-signals.ts";
+import { installShutdownSignals, resolveDrainTimeoutMs } from "./boot-options/process-signals.ts";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
 import { uninstallProcessLogger } from "./process-logger.ts";
@@ -110,6 +110,14 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
   const webSocketUpgradeFetch = async (req: Request, env: KumikoServeEnv): Promise<Response> =>
     securedUpgradeFetch(req, env);
 
+  const explicitDrainTimeoutMs =
+    options.signals === false ? undefined : options.signals?.drainTimeoutMs;
+  const drainTimeoutMs = resolveDrainTimeoutMs(
+    explicitDrainTimeoutMs,
+    config.shutdownDrainTimeoutMs,
+  );
+  // Without a configured budget the lifecycle keeps its own default for programmatic stop().
+  const jobDrainTimeoutMs = explicitDrainTimeoutMs ?? config.shutdownDrainTimeoutMs;
   let uninstallShutdownSignals: (() => void) | undefined;
   let uninstallFatalHandlers: (() => void) | undefined;
   const handle: ProdAppHandle = {
@@ -146,9 +154,7 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
         uninstallShutdownSignals?.();
         uninstallShutdownSignals = installShutdownSignals({
           stop: () => handle.stop(),
-          ...(options.signals?.drainTimeoutMs !== undefined && {
-            drainTimeoutMs: options.signals.drainTimeoutMs,
-          }),
+          drainTimeoutMs,
         });
         uninstallFatalHandlers?.();
         uninstallFatalHandlers = installFatalErrorHandlers({
@@ -162,7 +168,10 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
     stop: async () => {
       uninstallFatalHandlers?.();
       uninstallFatalHandlers = undefined;
-      await entrypoint.stop();
+      // Jobs finish before the HTTP grace period, the DB and Redis close (all below this line).
+      await entrypoint.stop(
+        jobDrainTimeoutMs !== undefined ? { drainTimeoutMs: jobDrainTimeoutMs } : {},
+      );
       if (handle.server) await stopServerGracefully(handle.server);
       await flushEscapeHatchAudits();
       await connections.closeDb();

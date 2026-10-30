@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "runProdApp and runWorkerApp use the Redis prefix and drain running jobs on SIGTERM",
+    "detail": "Both boots pass the namespace to the Redis client, the cache-sync bus and the job runner, so enqueuer and consumer share one key space. KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS (positive integer, invalid aborts the boot) sets the drain budget; signals.drainTimeoutMs wins, the default stays 25 s. Entrypoint stop() now stops every job lane fetching first, then waits for active jobs up to that budget before the database and Redis close; before, the lifecycle's fixed 40 s cut the wait short."
+  },
+  {
     "version": "0.399.0",
     "type": "fix",
     "title": "Worker SSE signals reach the API clients when the env comes from envSource",

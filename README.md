@@ -1,6 +1,6 @@
 # Kumiko
 
-> An AI-native backend builder. You describe your domain and get the backend for it: schema, auth, audit log, multi-tenancy and realtime updates, as TypeScript code in your own repo.
+> A backend framework for business software in TypeScript. You describe the domain and get the backend for it: schema, auth, roles, audit log, multi-tenancy and realtime updates, as TypeScript code in your own repo.
 
 [![CI](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/CosmicDriftGameStudio/kumiko-framework/badges/.github/badges/coverage.json)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@cosmicdrift/kumiko-framework.svg)](https://www.npmjs.com/package/@cosmicdrift/kumiko-framework) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.4.4-black.svg)](https://bun.sh)
 
@@ -49,8 +49,8 @@ You write:
 const taskEntity = createEntity({
   table: "read_tasks",
   fields: {
-    title: createTextField({ required: true }),
-    status: createTextField({ sortable: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    status: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     isArchived: createBooleanField({ default: false }),
   },
   softDelete: true,
@@ -64,14 +64,18 @@ export const taskFeature = defineFeature("tasks", (r) => {
 });
 ```
 
+Every text field states whether it holds personal data. A field without that stance fails at boot.
+
 You get, for free:
 
 - Tenant scoping: every entity is tenant-scoped by default.
 - An audit trail: every write appends to the event log, and you can run time-travel queries against it.
-- Auth and sessions with email/password, JWT and role-based access.
-- Bundled features for auth, delivery, files, billing, DSGVO hooks, jobs and more. `bun create kumiko-app` lets you pick the ones you need.
+- Auth and sessions with email/password, JWT and role-based access, down to single fields and rows.
+- Personal data encrypted per person, with GDPR export and erasure built in.
+- Bundled features for auth, mail, files, billing, jobs, delivery to email, push and chat channels, and more. `bun create kumiko-app` lets you pick the ones you need.
 - Realtime updates over SSE, delivered by the async event-dispatcher.
-- A schema-driven CRUD UI (forms and lists via `r.screen`) that you can override where needed.
+- A schema-driven UI: lists, forms, record pages and dashboards declared with `r.screen`, custom screens where you need them.
+- Boot validation: an inconsistent declaration stops the app with a message that names the fix.
 - Strict types throughout, without `any` or magic strings.
 
 ## Quickstart
@@ -86,7 +90,7 @@ bun install
 bun dev
 ```
 
-The interactive picker wires bundled features (auth, tenant, files, notifications, …) and resolves hard dependencies for you.
+The interactive picker wires bundled features (auth, tenant, files, delivery channels, …) and resolves hard dependencies for you.
 
 Add a domain feature later:
 
@@ -96,13 +100,13 @@ kumiko add feature product-catalog
 
 ### Framework repo (contributors)
 
-You need [Bun](https://bun.sh/) ≥ 1.4.4 and [Docker](https://www.docker.com/) for PostgreSQL, Redis, Meilisearch and MinIO.
+You need [Bun](https://bun.sh/) ≥ 1.4.4 and [Docker](https://www.docker.com/) for PostgreSQL, Redis, Meilisearch and an S3-compatible file store (RustFS).
 
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
 cd kumiko-framework
 bun install
-bun kumiko dev      # Postgres :15432, Redis :16379, Meilisearch :17700, MinIO :19000
+bun kumiko dev      # Postgres :15432, Redis :16379, Meilisearch :17700, S3 :19000
 bun kumiko check    # Biome + TypeScript + tests + guards
 ```
 
@@ -127,9 +131,13 @@ Kumiko is built for B2B SaaS and internal tools, so multi-tenancy and the audit 
 
 It talks to Postgres directly through Bun.SQL and EntityTableMeta, without an ORM, and keeps one database as the single source of truth.
 
-Features are config-driven, which means AI tools can patch every `r.*` call.
+Features are declarations on the `r` registrar, so a coding agent can read and change them like any other code.
 
-For DACH/EU setups you can self-host on Hetzner, Kubernetes or bare metal and bring your own LLM (Anthropic, OpenAI, Ollama, vLLM).
+You can self-host on your own server, at a host of your choice or in your own Kubernetes cluster, which keeps your data in the EU if you need it there.
+
+## For coding agents
+
+The framework package ships its own guide for coding agents: `node_modules/@cosmicdrift/kumiko-framework/AGENTS.md`. Next to it, `agents/` holds files generated from the framework source: an index of the bundled features, the API signatures of every entry point, the UI widgets, every boot rule and one tested example per concept. A guard fails the build when they drift from the source, so they match the installed version and an agent doesn't work from an API that no longer exists. Point your app's own `AGENTS.md` or `CLAUDE.md` at them.
 
 ## Architecture
 
@@ -175,7 +183,9 @@ after commit through the dispatcher, outside the request's transaction.
 | App | What it shows | Links |
 |-----|---------------|-------|
 | **Show Pony** | Tutorial app: multi-tenant RSVP, anonymous public writes, schema-driven host UI, billing hooks | [Live](https://show-pony.kumiko.rocks) · [Tutorial](https://docs.kumiko.rocks/en/show-pony/) · [Source](https://github.com/CosmicDriftGameStudio/show-pony) |
-| **publicstatus** | Production statuspage clone on Hetzner | [Live](https://publicstatus.eu) · [Source](https://github.com/cosmicdriftgamestudio/publicstatus) |
+| **PublicStatus** | Multi-tenant status pages with uptime monitoring, chat alerts, custom domains and white-label branding | [Live](https://publicstatus.eu) |
+| **Offlot** | Campaign workflow for used-car dealers: VIN reading, channel-specific copy, scheduling, public vehicle pages and leads | [Live](https://offlot.app) |
+| **CashColt** | Multi-tenant credit planner with property folders, building savings and rental cashflow | [Live](https://cashcolt.kumiko.rocks) |
 
 ## Samples
 
@@ -192,7 +202,7 @@ Full docs: [docs.kumiko.rocks](https://docs.kumiko.rocks).
 
 Kumiko is pre-1.0 and under active development. APIs may change between minor versions until 1.0 ([stability policy](docs/reference/stability-policy.md)). Every breaking change ships with a migration note in its package changelog, indexed in [CHANGELOG.md](./CHANGELOG.md). In an app, `bunx kumiko-upgrade` lists what changed since your installed version and `--apply` runs the codemods.
 
-Used in production at [publicstatus.eu](https://publicstatus.eu) and [show-pony.kumiko.rocks](https://show-pony.kumiko.rocks).
+Used in production at [publicstatus.eu](https://publicstatus.eu), [offlot.app](https://offlot.app) and [cashcolt.kumiko.rocks](https://cashcolt.kumiko.rocks).
 
 ## Join in
 
@@ -202,7 +212,7 @@ Good ways to start:
 
 - Walk through the [Show Pony tutorial](https://docs.kumiko.rocks/en/show-pony/) and open an issue if something confuses you. That counts as a docs fix.
 - Pick a [recipe](samples/recipes/) close to your use case. A failing or missing recipe is a real bug.
-- Docs, i18n (de/en) and screenshot drift in samples are always fair game.
+- Docs, translations and screenshot drift in samples are always fair game.
 
 Before a bigger PR, skim [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue for new features, so you don't build something we're already shipping.
 
@@ -214,8 +224,8 @@ Every merged PR needs tests where they make sense; every new framework feature n
 
 Kumiko is released under the [MIT License](./LICENSE). Build, run and sell anything with it, including hosted services. Releases published before this change carry BUSL-1.1 and stay under that license.
 
-## Hosted platform
+## Kumiko Studio
 
-Don't want to self-host? [kumiko.rocks](https://kumiko.rocks) is the hosted version with AI-builder, designer, and managed hosting.
+Want the app built for you? [Kumiko Studio](https://studio.kumiko.rocks) builds it on Kumiko.
 
 © 2026 Marc Frost, Cosmic Drift Game Studio.

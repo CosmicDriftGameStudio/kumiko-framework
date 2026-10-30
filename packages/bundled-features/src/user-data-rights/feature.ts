@@ -600,14 +600,14 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       type: "gauge",
       unit: "seconds",
       description:
-        "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding the cron interval plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
+        "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding one day plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
     });
 
     // Worker for the asynchronous export pipeline, triggered by a cron job.
     const RUN_EXPORT_JOBS_REASON = "processes pending export jobs across every tenant";
     r.job({
       name: "run-export-jobs",
-      trigger: { cron: "0 3 * * *" },
+      trigger: { maintenance: true },
       concurrency: "skip",
       escapeHatch: { reason: RUN_EXPORT_JOBS_REASON },
       handler: async (_payload, ctx) => {
@@ -705,7 +705,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     const RUN_FORGET_CLEANUP_REASON = "executes overdue Art.17 forget requests across every tenant";
     r.job({
       name: "run-forget-cleanup",
-      trigger: { cron: "0 3 * * *" },
+      trigger: { maintenance: true },
       concurrency: "skip",
       escapeHatch: { reason: RUN_FORGET_CLEANUP_REASON },
       handler: async (_payload, ctx) => {

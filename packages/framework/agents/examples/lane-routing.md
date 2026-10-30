@@ -13,6 +13,7 @@ Pin jobs to deploy lanes (`api` | `worker`) with event-triggered fan-out.
 ## What it shows
 
 - `r.job({ runIn: "worker" })` after an HTTP write
+- `trigger: { maintenance: true }` for a daily housekeeping job in the app's maintenance window (`KUMIKO_MAINTENANCE_WINDOW`)
 - End-to-end verification via `createAllInOneEntrypoint`
 
 ## Source
@@ -65,7 +66,12 @@ import {
   type TestDb,
   type TestRedis,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
+import {
+  createLaneRoutingFeature,
+  pruneRuns,
+  renderedReceipts,
+  sentConfirmations,
+} from "../feature";
 
 const JWT = "lane-routing-sample-secret-minimum-32-chars!";
 const adminUser = TestUsers.admin;
@@ -87,6 +93,7 @@ afterAll(async () => {
 afterEach(() => {
   renderedReceipts.length = 0;
   sentConfirmations.length = 0;
+  pruneRuns.length = 0;
 });
 
 describe("lane-routing sample", () => {
@@ -132,6 +139,30 @@ describe("lane-routing sample", () => {
       await entry.stop();
     }
   });
+
+  test("a maintenance job is registered for the daily window and runs on the worker lane", async () => {
+    const registry = createRegistry([createLaneRoutingFeature()]);
+    expect(registry.getJob("orders:job:prune-old-receipts")?.trigger).toEqual({
+      maintenance: true,
+    });
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `lane-routing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      maintenanceWindow: { hour: 5, minute: 30 },
+    });
+    await entry.start();
+    try {
+      await entry.jobRunner.dispatch("orders:job:prune-old-receipts", {});
+      await waitFor(() => expect(pruneRuns).toHaveLength(1));
+    } finally {
+      await entry.stop();
+    }
+  });
 });
 ```
 
@@ -163,6 +194,7 @@ import { z } from "zod";
 // opaque to the framework.
 export const renderedReceipts: Array<{ customerName: string; amount: number }> = [];
 export const sentConfirmations: Array<{ customerName: string; amount: number }> = [];
+export const pruneRuns: number[] = [];
 
 // The entity declaration secures the qualified-name prefix "orders:write:order:create"
 // for the write handler below and thereby the job trigger on this event.
@@ -240,6 +272,13 @@ export function createLaneRoutingFeature(): FeatureDefinition {
         });
       },
     );
+
+    // Housekeeping: `maintenance` runs once a day in the app's maintenance window
+    // (KUMIKO_MAINTENANCE_WINDOW, UTC, default 03:00) instead of a cron time of its own, so a
+    // sleeping app wakes once a day for all its cleanup jobs.
+    r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
+      pruneRuns.push(Date.now());
+    });
   });
 }
 ```

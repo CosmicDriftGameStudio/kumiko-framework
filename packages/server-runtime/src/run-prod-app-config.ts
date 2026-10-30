@@ -8,13 +8,19 @@ import {
   type Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import {
+  type MaintenanceWindow,
+  maintenanceWindowFromEnv,
+} from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { type RedisNamespace, redisNamespaceFromEnv } from "@cosmicdrift/kumiko-framework/redis";
 import { resolveBootCrypto } from "./boot/boot-crypto.ts";
 import {
   composeAppFeatures,
   validateComposedFeatures,
   withEnvDefaults,
 } from "./boot/shared-boot-steps.ts";
+import { readShutdownDrainTimeoutMs } from "./boot-options/process-signals.ts";
 import {
   type BootOptionWiring,
   resolveBootOptionWiring,
@@ -57,6 +63,10 @@ export type ProdBootConfig = {
   readonly databaseUrl: string;
   readonly rowLevelSecurity: RowLevelSecurityMode;
   readonly redisUrl: string;
+  readonly redisNamespace: RedisNamespace;
+  readonly maintenanceWindow: MaintenanceWindow;
+  // Only the env value; the effective drain budget is resolveDrainTimeoutMs(signals option, this).
+  readonly shutdownDrainTimeoutMs: number | undefined;
   readonly jwtSecret: string;
   readonly jwtSecretOrKeyring: ReturnType<typeof loadJwtSecretOrKeyring>;
   readonly jwtIssuer: string | undefined;
@@ -116,6 +126,9 @@ export async function resolveProdBootConfig(
   // configured.
   const databaseUrl = requireEnv("DATABASE_URL", envSource);
   const redisUrl = requireEnv("REDIS_URL", envSource);
+  const redisNamespace = redisNamespaceFromEnv(envSource);
+  const maintenanceWindow = maintenanceWindowFromEnv(envSource);
+  const shutdownDrainTimeoutMs = readShutdownDrainTimeoutMs(envSource);
   // JWT_SECRET stays mandatory (also the resolveAuthMail hmacSecret
   // fallback below — a separate, non-rotating HMAC token family, not the
   // session JWT). jwtSecretOrKeyring is the OPTIONAL upgrade: set
@@ -162,6 +175,9 @@ export async function resolveProdBootConfig(
     databaseUrl,
     rowLevelSecurity: options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE,
     redisUrl,
+    redisNamespace,
+    maintenanceWindow,
+    shutdownDrainTimeoutMs,
     jwtSecret,
     jwtSecretOrKeyring,
     jwtIssuer,

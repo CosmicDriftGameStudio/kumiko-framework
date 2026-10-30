@@ -18,7 +18,7 @@ describe("attempt log retention option", () => {
 
   test("the delivery feature registers the daily job by default", () => {
     const job = createDeliveryFeature().jobs[DeliveryJobNames.attemptLogRetention];
-    expect(job?.trigger).toEqual({ cron: "15 3 * * *" });
+    expect(job?.trigger).toEqual({ maintenance: true });
   });
 
   test("attemptLogRetentionDays: false registers no job", () => {

@@ -2,8 +2,8 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createFallbackLogger } from "../logging/utils.ts";
 import {
   type RedisClientOptions,
-  redisChannelPrefixFromEnv,
   redisClientOptionsFromEnv,
+  redisNamespaceFromEnv,
 } from "../redis/client.ts";
 import { createRedisPubSubSignal } from "../redis/pubsub-signal.ts";
 import {
@@ -30,6 +30,9 @@ export type RedisSseBrokerOptions = {
   readonly clientOptions?: RedisClientOptions;
   // Prepended to every channel (see redisChannelPrefixFromEnv); isolates apps sharing one Redis.
   readonly channelPrefix?: string;
+  // Replaces the default PSUBSCRIBE pattern (see RedisNamespace.channelSubscribePattern); the
+  // startsWith filters below keep the delivered traffic identical.
+  readonly channelSubscribePattern?: string;
 };
 
 export type RedisSseBroker = SseBroker & {
@@ -63,11 +66,13 @@ export function createDefaultSseBroker(env: Record<string, string | undefined> =
   readonly ownedRedisSseBroker: RedisSseBroker | undefined;
 } {
   const redisUrl = env["REDIS_URL"];
+  const { channelPrefix, channelSubscribePattern } = redisNamespaceFromEnv(env);
   const ownedRedisSseBroker = redisUrl
     ? createRedisSseBroker({
         redisUrl,
         clientOptions: redisClientOptionsFromEnv(env),
-        channelPrefix: redisChannelPrefixFromEnv(env),
+        channelPrefix,
+        ...(channelSubscribePattern !== undefined && { channelSubscribePattern }),
       })
     : undefined;
   return { sseBroker: ownedRedisSseBroker ?? createSseBroker(), ownedRedisSseBroker };
@@ -142,7 +147,8 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
   const invalidationPrefix = `${opts.channelPrefix ?? ""}${INVALIDATION_PREFIX}`;
   const signal = createRedisPubSubSignal({
     redisUrl: opts.redisUrl,
-    channelPattern: `${opts.channelPrefix ?? ""}${PSUBSCRIBE_SUFFIX}`,
+    channelPattern:
+      opts.channelSubscribePattern ?? `${opts.channelPrefix ?? ""}${PSUBSCRIBE_SUFFIX}`,
     label: "sse-broker",
     ...(opts.clientOptions ? { clientOptions: opts.clientOptions } : {}),
   });

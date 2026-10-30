@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "JobTrigger gains { maintenance: true }",
+    "detail": "A job with trigger { maintenance: true } runs once a day at the maintenance window of the app. Prefer it over a fixed cron for housekeeping; the window can be set per app."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "RecordHeaderSpec takes statusFormat",

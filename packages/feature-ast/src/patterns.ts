@@ -483,7 +483,8 @@ export type HookPattern = {
 // `r.job(name, options, handler)` — registers a background job, qualified
 // to `<feature>:job:<short>` and executed on a BullMQ queue outside the
 // request pipeline. `trigger` is `{ on: handlerRef(s) }` (fires after the
-// handler commits), `{ cron: "..." }`, or `{ manual: true }`; options cover
+// handler commits), `{ cron: "..." }`, `{ maintenance: true }` (the app's daily
+// maintenance window), or `{ manual: true }`; options cover
 // concurrency modes, retries/backoff, timeout, `perTenant` fan-out, and the
 // `runIn` lane (`api`/`worker`). The handler body stays an opaque code
 // span.

@@ -410,6 +410,10 @@ export type JobTrigger =
   // zone, UTC in the standard containers). A wall-clock
   // time skipped by DST runs once, shifted by the gap; a doubled one runs once, at its first occurrence.
   | { readonly cron: string; readonly tz?: string }
+  // One daily run in the app's maintenance window (KUMIKO_MAINTENANCE_WINDOW, default 03:00 UTC),
+  // so a sleeping app wakes once a day for all its cleanup jobs. Use it instead of a fixed cron
+  // for housekeeping; the operator can stagger the window per app.
+  | { readonly maintenance: true }
   | { readonly manual: true };
 
 export type JobBackoffStrategy = "fixed" | "exponential";

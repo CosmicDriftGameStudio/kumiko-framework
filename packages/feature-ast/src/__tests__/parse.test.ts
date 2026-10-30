@@ -1934,6 +1934,21 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("captures the maintenance trigger as a literal option", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("sweep", { trigger: { maintenance: true } }, async (ctx) => {});
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "job",
+      jobName: "sweep",
+      options: { trigger: { maintenance: true } },
+    });
+  });
+
   test("object form captures name, handler and extra options", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
