@@ -221,6 +221,33 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 - relatedList and expandableRow group through `table.grouping: { field, label?, labels?, collapsedWhen? }`. Groups, counts and header measures come from the server, so the bound query must accept `aggregate`. Every group gets a header; without `label` or a `labels` entry it shows the group value. An expandableRow takes only `table.grouping` with a fixed `field`, no `userChoice`. The old `groupBy` key is a boot error. `rowTone` is a field condition plus a tone, for example `{ field: "status", eq: "failed", tone: "bad" }`.
 - A DataTable primitive that has no support for `serverGroups`, `rowTone` or `filterFacets[].chips` (for example a native renderer) shows the flat list and the default facet control.
 
+## Named list filters and dashboard tiles
+
+```ts illustration
+// entity
+namedFilters: {
+  overdue: {
+    access: { roles: ["Admin"] },
+    filters: async ({ ctx, now }) => [{ field: "id", op: "in", value: await overdueIds(ctx, now) }],
+  },
+},
+// list screen
+namedFilters: [{ id: "overdue", label: "tasks.filter.overdue" }],
+// dashboard stat
+{ kind: "stat", id: "overdue", query: "tasks:query:task:list", valueField: "total",
+  params: { namedFilter: "overdue", limit: 1, totalCount: true },
+  navigate: { screen: "task-list", namedFilter: "overdue" } }
+```
+
+- The rule lives once on the entity. The default list query resolves `namedFilter` and appends the conditions to `filters`; the tile counts through that query and the click opens the list with `<screenId>.filter=<id>`, so tile and list cannot drift.
+- An empty `in` list matches no rows. An unknown name is a validation error on `namedFilter`, a failed `access` rule is `access_denied`; the list then shows its error state and the chip stays removable.
+- While the filter is active, `defaultFilters` are not applied.
+- A projectionList takes `namedFilters` only when its query schema has a `namedFilter` key. A custom query handler must pass the resolved conditions into `executor.list` as `filters`, because only that path applies the field-read and PII guards.
+- A condition on a field the entity does not have fails the request with an internal error instead of being dropped, so a typo cannot widen the queue.
+- The boot validator requires for `navigate`: the target is an entityList or projectionList, the id is declared there, `query` equals the target's list query, `params.namedFilter` equals `navigate.namedFilter`, and a static `filter` on the target is repeated in `params.filter`.
+- A stat with `navigate` sends only its own `params`, never the dashboard filter, time range or record params, because the list it opens cannot carry them.
+- A stat group hidden by `visibleWhen` does not mount its stats, so their queries do not run.
+
 ## Forms
 
 - An entityEdit or projectionDetail opened with an unknown or deleted record id shows an empty state (`kumiko.record.not-found.*`, localized) with a back button: to `returnTo` when present, otherwise to the entity's list screen (projectionDetail: `listScreenId` or the list of `detailFor`). Without a target there is no button.

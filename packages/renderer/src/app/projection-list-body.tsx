@@ -11,6 +11,7 @@ import { useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
+import { NamedFilterRemove } from "./named-filter-remove.tsx";
 import { useNav } from "./nav.tsx";
 import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import {
@@ -100,7 +101,16 @@ export function ProjectionListBody({
     return <QueryLoadingBanner />;
   }
   if (listRows.error && !listRows.hasData) {
-    return renderQueryRetryBanner(listRows, listRows.error, effectiveTranslate);
+    return (
+      <>
+        {renderQueryRetryBanner(listRows, listRows.error, effectiveTranslate)}
+        <NamedFilterRemove
+          active={query.activeNamedFilter !== undefined}
+          translate={effectiveTranslate}
+          onRemove={() => query.urlState.setNamedFilter(undefined)}
+        />
+      </>
+    );
   }
   // A failed refetch keeps the last good data on screen.
   const refetchErrorBanner = listRows.error

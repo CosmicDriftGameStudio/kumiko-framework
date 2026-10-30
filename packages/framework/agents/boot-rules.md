@@ -28,6 +28,7 @@
 | <a id="entity-list-detail-without-navigate"></a>`entity-list/detail-without-navigate` | A list whose entity has a detail screen offers a navigate row action. | Add a navigate rowAction with id "view" or "edit". | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-searchable-false"></a>`entity-list/searchable-false` | Operator lists are searchable unless they are on the searchable-false whitelist. | Set searchable: true or add the screen id to the whitelist. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-unknown-column"></a>`entity-list/unknown-column` | Every column without a label names an entity field, derived field or row-meta column. | Fix the column field name or give the column a label. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
+| <a id="entity-list-unknown-named-filter"></a>`entity-list/unknown-named-filter` | Every screen namedFilters id is declared in the entity's namedFilters. | Declare the rule in EntityDefinition.namedFilters or remove the id from the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 
 ## extension
 
@@ -51,6 +52,17 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="list-card-meta-overflow"></a>`list/card-meta-overflow` | A card list shows at most the maximum number of meta columns. | Reduce each list to the maximum number of meta columns or mark the others hideOnNarrow: true. | `packages/framework/src/engine/boot-validator/card-meta-overflow-rules.ts` |
+
+## named-filter
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="named-filter-projection-query-accepts-named-filter"></a>`named-filter/projection-query-accepts-named-filter` | A projectionList with namedFilters binds a query whose schema has a namedFilter key. | Add namedFilter: z.string().optional() to the query schema, resolve it with resolveNamedListFilters and pass the conditions into executor.list filters, the only path that applies field-read and PII guards. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-filter-declared"></a>`named-filter/stat-navigate-filter-declared` | A stat navigate.namedFilter is declared in the target screen's namedFilters. | Add { id, label } to namedFilters of the target screen. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-same-named-filter"></a>`named-filter/stat-navigate-same-named-filter` | A stat's params.namedFilter equals navigate.namedFilter. | Set params.namedFilter to the same id as navigate.namedFilter. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-same-query"></a>`named-filter/stat-navigate-same-query` | A stat with navigate counts with the target list's own query. | Set the stat query to the target list's query. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-static-filter"></a>`named-filter/stat-navigate-static-filter` | A stat repeats the target screen's static filter in params.filter. | Set params.filter to the target screen's filter. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-target"></a>`named-filter/stat-navigate-target` | A stat navigate.screen resolves to an entityList or projectionList screen. | Point navigate.screen at a registered list screen. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 
 ## pii
 

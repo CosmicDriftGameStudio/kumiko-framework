@@ -1,5 +1,6 @@
 import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
+import type { NamedListFilterRef } from "./named-list-filters.ts";
 import type { NavIconKey } from "./nav-icon.ts";
 import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { DashboardStatTone, ScreenVisibility } from "./screen-dashboard.ts";
@@ -141,6 +142,9 @@ export type ProjectionListScreenDefinition = {
    *  "dateRange" facet instead needs its two `params` keys in that schema;
    *  it sends no `filters` entry. */
   readonly facets?: readonly ListFacetSpec[];
+  /** Named work-queue rules the bound query understands: its Zod schema must have a
+   *  `namedFilter` key (boot-checked) and is sent the selected id in every list and count query. */
+  readonly namedFilters?: readonly NamedListFilterRef[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

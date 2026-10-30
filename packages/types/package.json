@@ -202,6 +202,10 @@
       "types": "./src/hooks.ts",
       "default": "./src/hooks.ts"
     },
+    "./named-list-filters": {
+      "types": "./src/named-list-filters.ts",
+      "default": "./src/named-list-filters.ts"
+    },
     "./nav": {
       "types": "./src/nav.ts",
       "default": "./src/nav.ts"
@@ -500,6 +504,10 @@
       "./hooks": {
         "types": "./dist/hooks.d.ts",
         "default": "./dist/hooks.js"
+      },
+      "./named-list-filters": {
+        "types": "./dist/named-list-filters.d.ts",
+        "default": "./dist/named-list-filters.js"
       },
       "./nav": {
         "types": "./dist/nav.d.ts",

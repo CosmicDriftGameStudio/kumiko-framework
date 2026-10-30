@@ -36,6 +36,11 @@ query and the fields to read, the query does the counting.
 - **Fallback by reason**: `fallback: { forbidden, notFound }` renders a screen on
   403/404 of the gate query; other reasons get the default notice or an error
   banner with retry.
+- **Named filter shared by tile and list**: the entity declares `namedFilters`,
+  the `ticket-queue` entityList lists the id in `namedFilters`, and the
+  `open-work` stat counts through the list's own query with `params.namedFilter`
+  and `navigate`. A click opens the queue filtered by the same rule, so tile and
+  list cannot drift.
 
 ## When to reach for it
 
@@ -73,6 +78,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   TICKET_CAPABILITIES_QUERY,
+  TICKET_LIST_QUERY,
   TICKET_STATS_QUERY,
   ticketEntity,
   ticketFeature,
@@ -100,11 +106,11 @@ describe("dashboard screen", () => {
     const stats = screen.panels.flatMap((panel) =>
       panel.kind === "stat-group" ? panel.stats : panel.kind === "stat" ? [panel] : [],
     );
-    expect(stats.map((s) => s.valueField)).toEqual(["open", "closed", "total"]);
-    for (const stat of stats) expect(stat.query).toBe(TICKET_STATS_QUERY);
+    expect(stats.map((s) => s.valueField)).toEqual(["open", "closed", "total", "total"]);
+    const statsQueryStats = stats.filter((s) => s.query === TICKET_STATS_QUERY);
 
     const result = await stack.http.queryOk<Record<string, unknown>>(TICKET_STATS_QUERY, {}, admin);
-    for (const stat of stats) expect(result).toHaveProperty(stat.valueField);
+    for (const stat of statsQueryStats) expect(result).toHaveProperty(stat.valueField);
   });
 });
 
@@ -165,6 +171,28 @@ describe("record-bound dashboard with a gated detail panel", () => {
     });
   });
 });
+
+describe("named filter shared by the dashboard tile and the list", () => {
+  test("the tile total equals the filtered list total over HTTP", async () => {
+    const dashboard = ticketFeature.screens["ticket-dashboard"];
+    if (dashboard?.type !== "dashboard") throw new Error("ticket-dashboard missing");
+    const tile = dashboard.panels.find(
+      (panel) => panel.kind === "stat" && panel.id === "open-work",
+    );
+    if (tile?.kind !== "stat") throw new Error("open-work tile missing");
+    expect(tile.navigate).toEqual({ screen: "ticket-queue", namedFilter: "open-work" });
+
+    const counted = await stack.http.queryOk<{ total: number }>(tile.query, tile.params, admin);
+    const listed = await stack.http.queryOk<{ rows: unknown[]; total: number }>(
+      TICKET_LIST_QUERY,
+      { namedFilter: "open-work", totalCount: true, limit: 50 },
+      admin,
+    );
+    expect(counted.total).toBe(listed.total);
+    expect(listed.rows).toHaveLength(listed.total);
+    expect(listed.total).toBeGreaterThan(0);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -193,10 +221,15 @@ export const ticketEntity = createEntity({
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     status: createSelectField({ options: TICKET_STATUSES, default: "open", required: true }),
   },
+  // Defined once: the queue list and the dashboard tile both read it.
+  namedFilters: {
+    "open-work": { filters: () => [{ field: "status", op: "eq", value: "open" }] },
+  },
 });
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
+export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
 const readerRoles = { roles: ["Admin", "User"] } as const;
 
@@ -281,6 +314,9 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open": { en: "Open" },
       "tickets.dashboard.closed": { en: "Closed" },
       "tickets.dashboard.total": { en: "All tickets" },
+      "tickets.dashboard.open-work": { en: "Open work" },
+      "tickets.filter.open-work": { en: "Open work" },
+      "screen:ticket-queue.title": { en: "Ticket queue" },
     },
   });
 
@@ -316,6 +352,16 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         query: TICKET_STATS_QUERY,
         valueField: "total",
       },
+      // Counts through the list's own query with the same named filter, then links to that list.
+      {
+        kind: "stat",
+        id: "open-work",
+        label: "tickets.dashboard.open-work",
+        query: TICKET_LIST_QUERY,
+        valueField: "total",
+        params: { namedFilter: "open-work", limit: 1, totalCount: true },
+        navigate: { screen: "ticket-queue", namedFilter: "open-work" },
+      },
     ],
     access: readerRoles,
   });
@@ -323,6 +369,15 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.
   const gate = { query: TICKET_CAPABILITIES_QUERY, field: "canClose", eq: true } as const;
+
+  r.screen({
+    id: "ticket-queue",
+    type: "entityList",
+    entity: "ticket",
+    columns: ["title", "status"],
+    namedFilters: [{ id: "open-work", label: "tickets.filter.open-work" }],
+    access: readerRoles,
+  });
 
   // The list doubles as the fallback target: it has no visibleWhen of its own.
   r.screen({

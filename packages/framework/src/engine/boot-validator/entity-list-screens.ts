@@ -116,12 +116,24 @@ function checkColumns(feature: FeatureDefinition, screen: EntityListScreenDefini
   });
 }
 
+function checkNamedFilters(feature: FeatureDefinition, screen: EntityListScreenDefinition): void {
+  const declared = feature.entities?.[screen.entity]?.namedFilters ?? {};
+  collectBootRuleViolations(screen.namedFilters ?? [], (ref) => {
+    // skip: id is declared on the entity
+    if (Object.hasOwn(declared, ref.id)) return;
+    throw bootRuleError(ENTITY_LIST_RULES.unknownNamedFilter, {
+      message: `${screenPrefix(feature, screen)}: namedFilters id "${ref.id}" is not declared in entity "${screen.entity}" namedFilters. Known: ${Object.keys(declared).sort().join(", ") || "(none)"}.`,
+    });
+  });
+}
+
 const ENTITY_LIST_CHECKS: readonly EntityListCheck[] = [
   checkSearchable,
   checkDefaultSortRequired,
   checkDefaultSortColumn,
   checkDetailNavigate,
   checkColumns,
+  checkNamedFilters,
 ];
 
 export function validateEntityListScreens(features: readonly FeatureDefinition[]): void {

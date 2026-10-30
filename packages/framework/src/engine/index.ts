@@ -398,6 +398,7 @@ export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts"
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";
 export { readClaim } from "./read-claim.ts";
 export { createRegistry } from "./registry.ts";
+export { resolveNamedListFilters } from "./resolve-named-list-filters.ts";
 export type { AssignableAppRoles } from "./role-assignment.ts";
 export {
   assignableAppRolesFromUsages,

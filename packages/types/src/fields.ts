@@ -26,6 +26,7 @@ export type {
 import type { ParentRefDef, ReadGateDef } from "./entity-row-visibility.ts";
 import type { DerivedFieldsMap } from "./fields-derived.ts";
 import type { EventUpcastCtx } from "./handlers.ts";
+import type { NamedListFilterDef } from "./named-list-filters.ts";
 import type { OwnershipMap } from "./ownership.ts";
 import type { EntityTenancy } from "./tenancy-brand.ts";
 
@@ -1270,6 +1271,8 @@ export type EntityDefinition<
    * nameable as a column in a declarative `entityList`. See DerivedFieldDef.
    */
   readonly derivedFields?: DerivedFieldsMap;
+  /** Named work-queue rules keyed by id, selected via `namedFilter`; function-valued, never in the client schema. */
+  readonly namedFilters?: Readonly<Record<string, NamedListFilterDef>>;
   /** Optional free-text semantics for the AI agent manifest — see TextFieldDef.description. */
   readonly description?: string;
   /** Opts the rows into `tenant-handover`, a grant-legitimated move from an anonymous tenant to the

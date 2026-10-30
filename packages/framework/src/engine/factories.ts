@@ -596,6 +596,8 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   readonly readGate?: EntityDefinition["readGate"];
   readonly retention?: RetentionDef;
   readonly derivedFields?: EntityDefinition["derivedFields"];
+  /** See EntityDefinition.namedFilters. */
+  readonly namedFilters?: EntityDefinition["namedFilters"];
   readonly tenancy?: T;
   /** See EntityDefinition.transferable. */
   readonly transferable?: boolean;

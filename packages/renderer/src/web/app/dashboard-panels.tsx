@@ -17,6 +17,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
+import { listNamedFilterUrlKey } from "../../hooks/use-list-url-state.ts";
 import {
   extensionSectionName,
   lastSegment,
@@ -51,6 +52,7 @@ import {
   STAT_CARD_GRID_CLASSES,
   StatCard,
   type StatDelta,
+  type StatLink,
   StatStripCell,
   type StatTone,
 } from "../widgets/stat.tsx";
@@ -117,6 +119,8 @@ export function StatPanelBody({
   readonly variant: "card" | "strip";
 }): ReactNode {
   const formats = useDashboardFormats();
+  const nav = useNav();
+  const link = statNavigationLink(nav, panel.navigate);
   // Resolved HERE (not in a separate always-rendered child) so `icon` on
   // <StatCard> is `undefined` — not a React element that renders empty —
   // when the icon name isn't registered. StatCard gates its accent chip on
@@ -135,7 +139,8 @@ export function StatPanelBody({
 
   const { data, error, loading, refetch } = useDashboardQuery<Readonly<Record<string, unknown>>>(
     panel.query,
-    panelPayload(panel, screenParams),
+    // A navigate tile counts exactly what its target list can reproduce from the URL.
+    panel.navigate === undefined ? panelPayload(panel, screenParams) : (panel.params ?? {}),
   );
   useReportPanelLoaded(data);
   if (loading && data === null) return <LoadingState rows={2} />;
@@ -186,6 +191,7 @@ export function StatPanelBody({
         {...(delta !== undefined && { delta })}
         {...(spark !== undefined && { spark })}
         testId={testId}
+        {...(link !== undefined && { link })}
       />
     );
   }
@@ -200,8 +206,25 @@ export function StatPanelBody({
       {...(delta !== undefined && { delta })}
       {...(spark !== undefined && { spark })}
       testId={testId}
+      {...(link !== undefined && { link })}
     />
   );
+}
+
+function statNavigationLink(
+  nav: ReturnType<typeof useNav>,
+  navigate: DashboardStatPanel["navigate"],
+): StatLink | undefined {
+  if (navigate === undefined) return undefined;
+  const target = { screenId: lastSegment(navigate.screen) };
+  const options =
+    navigate.namedFilter === undefined
+      ? undefined
+      : { searchParams: { [listNamedFilterUrlKey(target.screenId)]: navigate.namedFilter } };
+  return {
+    href: nav.hrefFor(target, options),
+    onPress: () => nav.navigate(target, options),
+  };
 }
 
 function readDelta(

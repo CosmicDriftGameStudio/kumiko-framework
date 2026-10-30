@@ -149,6 +149,10 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
      *  An accent that should change with the result (e.g. by sign) goes through
      *  `toneField`; leave `accentColor` unset then. */
     readonly accentColor?: string;
+    /** Makes the tile a link to a list screen (qualified screen id). Count tiles use the
+     *  list's own query with `params.namedFilter`; the boot validator pins that the tile and
+     *  the target list select the same rows. The click sets `<screenId>.filter`. */
+    readonly navigate?: { readonly screen: string; readonly namedFilter?: string };
   };
 
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";

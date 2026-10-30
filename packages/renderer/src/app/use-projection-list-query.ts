@@ -40,6 +40,7 @@ function resolveActiveSort(
 export function useProjectionListQuery(input: ProjectionListQueryInput) {
   const { screen, featureName, effectiveTranslate, searchable, paginated } = input;
   const urlState = useListUrlState(screen.id);
+  const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
   // Gated on the derived capability, not just on whether URL-state happens to
   // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
@@ -106,9 +107,11 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     if (screen.facets !== undefined && filterPayload.length > 0) {
       payload["filters"] = filterPayload;
     }
+    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
     Object.assign(payload, dateRangePayload);
     return payload;
   }, [
+    activeNamedFilter,
     limit,
     activeSearch,
     activeSort,
@@ -132,5 +135,6 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     dateRangeFacets,
     handleDateRangeChange,
     queryPayload,
+    activeNamedFilter,
   };
 }

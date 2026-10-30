@@ -40,6 +40,12 @@ import {
   mergeReferenceFacetOptions,
   normalizeDefaultFilters,
 } from "./list-facets.ts";
+import {
+  buildNamedFilterFacet,
+  routeFacetChange,
+  withNamedFilterValues,
+} from "./named-filter-facet.ts";
+import { NamedFilterRemove } from "./named-filter-remove.tsx";
 import { type ScreenTarget, useNav } from "./nav.tsx";
 import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
 import {
@@ -149,6 +155,8 @@ function EntityListBody({
     [screen.defaultFilters],
   );
   const urlState = useListUrlState(screen.id, defaultFilters);
+  // Gated on the screen offering named filters, so a stale URL cannot send a param the list rejects.
+  const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
   const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
@@ -201,8 +209,10 @@ function EntityListBody({
     }
     const filters = [...filterPayload, ...range.rangeFilters];
     if (filters.length > 0) payload["filters"] = filters;
+    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
     return payload;
   }, [
+    activeNamedFilter,
     limit,
     urlState.q,
     effectiveSort,
@@ -265,16 +275,30 @@ function EntityListBody({
       setFacetCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count })),
     [],
   );
-  const filterFacets = useMemo<DataTableFacet[]>(
-    () =>
-      buildEntityFilterFacets(
+  const filterFacets = useMemo<DataTableFacet[]>(() => {
+    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate);
+    return [
+      ...(namedFacet !== undefined ? [namedFacet] : []),
+      ...buildEntityFilterFacets(
         mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions),
         screen.facets,
         effectiveTranslate,
         facetCounts,
       ),
-    [entityFacetSpecs, entityReferenceFacetOptions, screen.facets, effectiveTranslate, facetCounts],
+    ];
+  }, [
+    entityFacetSpecs,
+    entityReferenceFacetOptions,
+    screen.facets,
+    screen.namedFilters,
+    effectiveTranslate,
+    facetCounts,
+  ]);
+  const filterValues = useMemo(
+    () => withNamedFilterValues(urlState.filters, activeNamedFilter),
+    [urlState.filters, activeNamedFilter],
   );
+  const onFilterChange = useMemo(() => routeFacetChange(urlState), [urlState]);
   const facetCountQueries = useMemo<FacetCountQuery[]>(
     () =>
       buildFacetCountRequests(entityFacetSpecs, screen.facets, effectiveTranslate).map(
@@ -294,11 +318,13 @@ function EntityListBody({
               ...(urlState.q !== "" && { search: urlState.q }),
               ...(screen.filter !== undefined && { filter: screen.filter }),
               ...(filters.length > 0 && { filters }),
+              ...(activeNamedFilter !== undefined && { namedFilter: activeNamedFilter }),
             },
           };
         },
       ),
     [
+      activeNamedFilter,
       entityFacetSpecs,
       screen.facets,
       screen.filter,
@@ -538,11 +564,18 @@ function EntityListBody({
   }
   if (listRows.error && !listRows.hasData) {
     return (
-      <QueryErrorBanner
-        error={listRows.error}
-        translate={effectiveTranslate}
-        onRetry={listRows.retry}
-      />
+      <>
+        <QueryErrorBanner
+          error={listRows.error}
+          translate={effectiveTranslate}
+          onRetry={listRows.retry}
+        />
+        <NamedFilterRemove
+          active={activeNamedFilter !== undefined}
+          translate={effectiveTranslate}
+          onRemove={() => urlState.setNamedFilter(undefined)}
+        />
+      </>
     );
   }
   // A failed refetch keeps the last good data on screen.
@@ -609,7 +642,10 @@ function EntityListBody({
         rows={listRows.rows}
         featureName={featureName}
         searchable={searchable}
-        narrowed={isListNarrowed(urlState.q, urlState.filters, defaultFilters)}
+        narrowed={
+          activeNamedFilter !== undefined ||
+          isListNarrowed(urlState.q, urlState.filters, defaultFilters)
+        }
         defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
         {...(screen.description !== undefined && {
           description: effectiveTranslate(screen.description),
@@ -632,13 +668,13 @@ function EntityListBody({
         {...(onCreate !== undefined && { onCreate })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-        {...(filterFacets.length > 0 && { filterFacets, onFilterChange: urlState.setFilter })}
+        {...(filterFacets.length > 0 && { filterFacets, onFilterChange })}
         {...(range.rangeFacets.length > 0 && {
           rangeFacets: range.rangeFacets,
           onRangeChange: range.onRangeChange,
         })}
         {...((filterFacets.length > 0 || range.rangeFacets.length > 0) && {
-          filterValues: urlState.filters,
+          filterValues,
           onFilterReset: urlState.clearFilters,
         })}
         {...listTable.props}

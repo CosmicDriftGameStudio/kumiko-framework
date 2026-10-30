@@ -21,10 +21,15 @@ export const ticketEntity = createEntity({
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     status: createSelectField({ options: TICKET_STATUSES, default: "open", required: true }),
   },
+  // Defined once: the queue list and the dashboard tile both read it.
+  namedFilters: {
+    "open-work": { filters: () => [{ field: "status", op: "eq", value: "open" }] },
+  },
 });
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
+export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
 const readerRoles = { roles: ["Admin", "User"] } as const;
 
@@ -109,6 +114,9 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open": { en: "Open" },
       "tickets.dashboard.closed": { en: "Closed" },
       "tickets.dashboard.total": { en: "All tickets" },
+      "tickets.dashboard.open-work": { en: "Open work" },
+      "tickets.filter.open-work": { en: "Open work" },
+      "screen:ticket-queue.title": { en: "Ticket queue" },
     },
   });
 
@@ -144,6 +152,16 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         query: TICKET_STATS_QUERY,
         valueField: "total",
       },
+      // Counts through the list's own query with the same named filter, then links to that list.
+      {
+        kind: "stat",
+        id: "open-work",
+        label: "tickets.dashboard.open-work",
+        query: TICKET_LIST_QUERY,
+        valueField: "total",
+        params: { namedFilter: "open-work", limit: 1, totalCount: true },
+        navigate: { screen: "ticket-queue", namedFilter: "open-work" },
+      },
     ],
     access: readerRoles,
   });
@@ -151,6 +169,15 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.
   const gate = { query: TICKET_CAPABILITIES_QUERY, field: "canClose", eq: true } as const;
+
+  r.screen({
+    id: "ticket-queue",
+    type: "entityList",
+    entity: "ticket",
+    columns: ["title", "status"],
+    namedFilters: [{ id: "open-work", label: "tickets.filter.open-work" }],
+    access: readerRoles,
+  });
 
   // The list doubles as the fallback target: it has no visibleWhen of its own.
   r.screen({
