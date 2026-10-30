@@ -222,6 +222,9 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
             "minimum": 0,
             "type": "integer",
           },
+          "onlyDeleted": {
+            "type": "boolean",
+          },
           "search": {
             "type": "string",
           },
