@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "The editor panel keeps its save bar pinned",
+    "detail": "A FormScreenLayout editor inside the editor panel gets the full panel height, so its save bar stays visible while the content scrolls."
+  },
+  {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "projectionDetail metrics can be formatted",
+    "detail": "`metrics[].format` takes a `FormatSpec` such as `{ format: \"date\" }`. The metric shows the formatted value (an empty result falls back to the raw text); the tone still resolves on the raw value. Without `format` nothing changes."
+  },
+  {
     "version": "0.401.0",
     "type": "fix",
     "title": "Dashboard list panels show the target's label for reference columns",

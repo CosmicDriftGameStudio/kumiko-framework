@@ -1,5 +1,119 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.402.0
+
+### Minor Changes
+
+- 1f8a50c: The agent manifest carries labels as one string in the requested locale and shows only the first sentence of a feature description.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Agent manifest labels are one string in the requested locale
+  detail: `buildAgentManifest` used to emit every label in every locale (`labels: { de, en, es }`, often `{}`), although the caller names one `locale`. Entities, fields, navs and workspaces now carry `label?: string`, screens `title?: string`, picked in the requested locale, then English, then the first other locale, and left out when untranslated. Empty `params` and `workspaces` on screens, empty `workspaces` on navs and an empty handler `description` are left out as well (`description`, `params` and `workspaces` are optional in the types). `buildToolCatalog` reads the new fields.
+  migration: Read `entity.label`, `field.label`, `nav.label`, `workspace.label` and `screen.title` instead of the `labels`/`titles` maps. Code that only passes the manifest to `buildToolCatalog` or serialises it needs no change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: Agent manifest shows only the first sentence of a feature description
+  detail: `buildAgentManifest` emits the first sentence of `FeatureDefinition.description` (a `. ` before a capital letter ends it, so "e.g." and "Art. 15" stay whole), at most 300 characters. The full text stays on the definition for the docs generators. In an app with 77 features the descriptions drop from about 46.6k to 12.2k characters.
+  -->
+- e99caa1: The agent manifest lists only the features and entities the role reaches.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: Agent manifest features and entities follow the role
+  detail: `buildAgentManifest` now leaves out a feature when none of its handlers, screens or navs remain in the manifest for the role, and an entity when no remaining handler or screen refers to it, no `get_`/`list_` tool of the role reads it and no reachable entity points at it through a reference field (one hop). Before, `features` and `entities` were identical for every role, so a restricted role paid for schemas it could not use in every system prompt. A translation-only feature such as `locale-de` no longer appears in `features`.
+  -->
+- 7822446: Follow-ups to the editor round: relative links in document anchors, a nav label for the create title, a pinned save bar, a render cache for managed pages and a single deletion card.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document anchors accept relative links
+  detail: An anchor href in a document body may be relative (/path, ./, ../, #, ?); never // or a backslash. Other URL attributes (image src and similar) and mail links still accept only explicit schemes or placeholders. The sanitizer, the editor schema, compileDocumentBody and the confirmation mail use the same split.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Collection nav takes entryLabel for the create title
+  detail: A collection's nav takes an optional entryLabel (singular i18n key, new in the nav type and in the required surface keys of all locale packages). The create screen title reads "New {label}", or "New entry" without it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: The editor panel keeps its save bar pinned
+  detail: A FormScreenLayout editor inside the editor panel gets the full panel height, so its save bar stays visible while the content scrolls.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: The public render caches a sanitized document body per page version
+  detail: The render cache holds up to 500 entries keyed on tenant, slug, language, version and format. Bodies larger than 256 KB are sanitized on every render and not cached.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: request-deletion-screen shows one deletion card
+  detail: The request form no longer draws its own card inside the screen's card, so the screen shows one deletion card.
+  -->
+- db35c43: Inbound mail is safe with several workers: the dedup anchor of a mail is a unique database row, and the watch supervisor always coordinates through a distributed lock.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: The inbound mail supervisor requires a lock and the dedup anchor is unique
+  detail: `createInboundMailSupervisor` takes a required `lock` (a DistributedLock) instead of an optional one, so only one worker holds the IMAP watch per account; the single-process path without a lock is gone. The unmanaged table store_mail_seen_messages gets a unique index on (account_id, provider_message_id), which the ingest comment always promised; ingest-message already serialized concurrent ingests of one mail with a per-message advisory lock, so the second one reports duplicate.
+  migration: Pass `lock: createDistributedLock(redis, "kumiko:lock:inbound-mail:watch:")` to createInboundMailSupervisor. Run `kumiko-schema generate <name>` in each app that mounts inbound-mail-foundation to get the migration for the unique index on store_mail_seen_messages; existing rows must hold no duplicate (account_id, provider_message_id).
+  -->
+
+### Patch Changes
+
+- 6fd7cbc: Boot rules get stable ids. The measured hot spots (PII and retention, entityList, i18n, card meta columns, action icons, API and extension wiring, feature bootChecks, user-data-rights hooks) throw typed rule errors and report every violation of a run instead of the first. `agents/boot-rules.md` lists every rule with summary and fix, and the new `boot-raw-throws` guard keeps raw throws in boot validation from growing.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot violations carry rule ids with a fix and a doc link
+  detail: 43 boot rules have an id such as `pii/subject-key-sortable` or `entity-list/default-sort-required`. A violation in `BootValidationError.violations` and in `kumiko-schema validate` (text and `--json`) carries that id instead of `unclassified/<check>`, plus a `Fix:` line and `Rule: agents/boot-rules.md#<id>`. PII field rules, entityList screen rules, missing i18n keys, API and extension usages and user-data-rights hooks now report all violations in one run. Message texts are unchanged. `@cosmicdrift/kumiko-framework/engine` exports `bootRuleError`, `BootRuleViolation`, `BootValidationError`, `collectBootRuleViolations` and the types `BootRule`, `BootRuleTable`, `BootViolation`, so a feature's `r.bootCheck` can throw a classified rule.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard boot-raw-throws
+  detail: Freezes the count of raw `throw new Error` in `engine/boot-validator` and bundled `boot-checks.ts` per file in `.kumiko-boot-raw-throws-baseline.json`. New boot checks throw `bootRuleError(RULE, { message })` with a rule table. Only the framework repo is scanned.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: user-data-rights boot checks report rule ids
+  detail: The bootChecks of user-data-rights report `user-data-rights/empty-hook`, `user-data-rights/export-without-delete` and `user-data-rights/missing-hook` with a fix, and list every missing or empty hook of a run instead of stopping at the first. Message texts are unchanged.
+  -->
+- dd2b30f: The system-check history lists the newest run first even when two runs start in the same second.
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: fix
+  title: System-check history keeps runs of the same second in order
+  detail: `probe-run:list` returned `requestedAt` as `Instant.toString()`, which drops trailing zeros in the fraction, and `pageRows` sorts that field as a string. Two runs in the same second could then come out reversed (`…:20Z` sorted after `…:20.001Z`), so the history showed the older run on top and a click opened it. `requestedAt` now always carries six fractional digits, so string order matches time order.
+  -->
+- Updated dependencies [6fd7cbc]
+- Updated dependencies [7822446]
+- Updated dependencies [ba148ac]
+  - @cosmicdrift/kumiko-framework@0.402.0
+  - @cosmicdrift/kumiko-renderer@0.402.0
+  - @cosmicdrift/kumiko-types@0.402.0
+  - @cosmicdrift/kumiko-testing@0.402.0
+
 ## 0.401.0
 
 ### Minor Changes

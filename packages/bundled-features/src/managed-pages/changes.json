@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "The public render caches a sanitized document body per page version",
+    "detail": "The render cache holds up to 500 entries keyed on tenant, slug, language, version and format. Bodies larger than 256 KB are sanitized on every render and not cached."
+  },
+  {
     "version": "0.395.0",
     "type": "breaking",
     "title": "A managed page body is Markdown or an editor document, edited in the document editor",

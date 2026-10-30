@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "user-data-rights boot checks report rule ids",
+    "detail": "The bootChecks of user-data-rights report `user-data-rights/empty-hook`, `user-data-rights/export-without-delete` and `user-data-rights/missing-hook` with a fix, and list every missing or empty hook of a run instead of stopping at the first. Message texts are unchanged."
+  },
+  {
+    "version": "0.402.0",
+    "type": "fix",
+    "title": "request-deletion-screen shows one deletion card",
+    "detail": "The request form no longer draws its own card inside the screen's card, so the screen shows one deletion card."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "export cleanup stays quiet when metrics are off",

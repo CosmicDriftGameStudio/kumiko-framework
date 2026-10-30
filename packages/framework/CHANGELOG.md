@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.402.0
+
+### Minor Changes
+
+- 6fd7cbc: Boot rules get stable ids. The measured hot spots (PII and retention, entityList, i18n, card meta columns, action icons, API and extension wiring, feature bootChecks, user-data-rights hooks) throw typed rule errors and report every violation of a run instead of the first. `agents/boot-rules.md` lists every rule with summary and fix, and the new `boot-raw-throws` guard keeps raw throws in boot validation from growing.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot violations carry rule ids with a fix and a doc link
+  detail: 43 boot rules have an id such as `pii/subject-key-sortable` or `entity-list/default-sort-required`. A violation in `BootValidationError.violations` and in `kumiko-schema validate` (text and `--json`) carries that id instead of `unclassified/<check>`, plus a `Fix:` line and `Rule: agents/boot-rules.md#<id>`. PII field rules, entityList screen rules, missing i18n keys, API and extension usages and user-data-rights hooks now report all violations in one run. Message texts are unchanged. `@cosmicdrift/kumiko-framework/engine` exports `bootRuleError`, `BootRuleViolation`, `BootValidationError`, `collectBootRuleViolations` and the types `BootRule`, `BootRuleTable`, `BootViolation`, so a feature's `r.bootCheck` can throw a classified rule.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard boot-raw-throws
+  detail: Freezes the count of raw `throw new Error` in `engine/boot-validator` and bundled `boot-checks.ts` per file in `.kumiko-boot-raw-throws-baseline.json`. New boot checks throw `bootRuleError(RULE, { message })` with a rule table. Only the framework repo is scanned.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: user-data-rights boot checks report rule ids
+  detail: The bootChecks of user-data-rights report `user-data-rights/empty-hook`, `user-data-rights/export-without-delete` and `user-data-rights/missing-hook` with a fix, and list every missing or empty hook of a run instead of stopping at the first. Message texts are unchanged.
+  -->
+
+### Patch Changes
+
+- 7822446: Follow-ups to the editor round: relative links in document anchors, a nav label for the create title, a pinned save bar, a render cache for managed pages and a single deletion card.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document anchors accept relative links
+  detail: An anchor href in a document body may be relative (/path, ./, ../, #, ?); never // or a backslash. Other URL attributes (image src and similar) and mail links still accept only explicit schemes or placeholders. The sanitizer, the editor schema, compileDocumentBody and the confirmation mail use the same split.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Collection nav takes entryLabel for the create title
+  detail: A collection's nav takes an optional entryLabel (singular i18n key, new in the nav type and in the required surface keys of all locale packages). The create screen title reads "New {label}", or "New entry" without it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: The editor panel keeps its save bar pinned
+  detail: A FormScreenLayout editor inside the editor panel gets the full panel height, so its save bar stays visible while the content scrolls.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: The public render caches a sanitized document body per page version
+  detail: The render cache holds up to 500 entries keyed on tenant, slug, language, version and format. Bodies larger than 256 KB are sanitized on every render and not cached.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: request-deletion-screen shows one deletion card
+  detail: The request form no longer draws its own card inside the screen's card, so the screen shows one deletion card.
+  -->
+- ba148ac: projectionDetail metrics accept a `format`, and the migration replay no longer reads a table name ending in `as` as `CREATE TABLE ... AS`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail metrics can be formatted
+  detail: `metrics[].format` takes a `FormatSpec` such as `{ format: "date" }`. The metric shows the formatted value (an empty result falls back to the raw text); the tone still resolves on the raw value. Without `format` nothing changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Migration replay keeps tables whose name ends in "as"
+  detail: `CREATE TABLE IF NOT EXISTS "read_themas" (...)` was parsed as `CREATE TABLE read_them AS ...`, so `kumiko-schema validate` reported content drift for `read_them` and `read_themas`. `AS` now needs a column list or whitespace before it.
+  -->
+- Updated dependencies [7822446]
+- Updated dependencies [ba148ac]
+  - @cosmicdrift/kumiko-types@0.402.0
+
 ## 0.401.0
 
 ### Minor Changes

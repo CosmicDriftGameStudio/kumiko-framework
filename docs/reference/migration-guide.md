@@ -2,13 +2,31 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-29
+verified: 2026-10-30
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.402.0
+
+### agent-tools
+
+**Agent manifest labels are one string in the requested locale**
+
+`buildAgentManifest` used to emit every label in every locale (`labels: { de, en, es }`, often `{}`), although the caller names one `locale`. Entities, fields, navs and workspaces now carry `label?: string`, screens `title?: string`, picked in the requested locale, then English, then the first other locale, and left out when untranslated. Empty `params` and `workspaces` on screens, empty `workspaces` on navs and an empty handler `description` are left out as well (`description`, `params` and `workspaces` are optional in the types). `buildToolCatalog` reads the new fields.
+
+**Migration:** Read `entity.label`, `field.label`, `nav.label`, `workspace.label` and `screen.title` instead of the `labels`/`titles` maps. Code that only passes the manifest to `buildToolCatalog` or serialises it needs no change.
+
+### inbound-mail-foundation
+
+**The inbound mail supervisor requires a lock and the dedup anchor is unique**
+
+`createInboundMailSupervisor` takes a required `lock` (a DistributedLock) instead of an optional one, so only one worker holds the IMAP watch per account; the single-process path without a lock is gone. The unmanaged table store_mail_seen_messages gets a unique index on (account_id, provider_message_id), which the ingest comment always promised; ingest-message already serialized concurrent ingests of one mail with a per-message advisory lock, so the second one reports duplicate.
+
+**Migration:** Pass `lock: createDistributedLock(redis, "kumiko:lock:inbound-mail:watch:")` to createInboundMailSupervisor. Run `kumiko-schema generate <name>` in each app that mounts inbound-mail-foundation to get the migration for the unique index on store_mail_seen_messages; existing rows must hold no duplicate (account_id, provider_message_id).
 
 ## 0.401.0
 
