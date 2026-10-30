@@ -147,6 +147,18 @@ export type DevFileWatcherDeps = {
   readonly stop: () => Promise<void>;
 };
 
+// A deleted or renamed file is a real change, so a failing stat counts as changed.
+export function isUnchangedSinceWatchStart(
+  absolutePath: string,
+  watchStartedAtMs: number,
+): boolean {
+  try {
+    return statSync(absolutePath).mtimeMs < watchStartedAtMs;
+  } catch {
+    return false;
+  }
+}
+
 // Because Bun caches module imports, a server-side change needs a process
 // restart: exit code 75 (EX_TEMPFAIL) lets the `kumiko-dev` wrapper respawn.
 async function handleWatchedChange(
@@ -154,11 +166,15 @@ async function handleWatchedChange(
   dir: string,
   filename: string,
   entrySourceFiles: ReadonlySet<string>,
+  watchStartedAtMs: number,
 ): Promise<void> {
   const action = classifyWatchedChange(dir, filename, entrySourceFiles);
   // skip: file change classified as ignore (test/css/json), nothing to rebuild
   if (action === "ignore") return;
   if (action === "restart") {
+    // skip: macOS FSEvents also reports metadata and late events without a content change;
+    // restarting would kill a directly started server (no kumiko-dev wrapper) for nothing.
+    if (isUnchangedSinceWatchStart(resolve(dir, filename), watchStartedAtMs)) return;
     logInfo(
       `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht). ` +
         "The kumiko-dev wrapper (package.json's `dev` script) respawns automatically " +
@@ -187,11 +203,12 @@ export function startDevFileWatchers(deps: DevFileWatcherDeps): void {
   const entryDirs = new Set<string>();
   for (const e of deps.entries) entryDirs.add(resolve(e.sourceFile, ".."));
   const entrySourceFiles = new Set(deps.entries.map((e) => resolve(e.sourceFile)));
+  const watchStartedAtMs = Date.now();
   const dirs = [...entryDirs, ...expandWatchPatterns(deps.watchDirs ?? [])];
   for (const dir of dirs) {
     void watchDir(
       dir,
-      (filename) => handleWatchedChange(deps, dir, filename, entrySourceFiles),
+      (filename) => handleWatchedChange(deps, dir, filename, entrySourceFiles, watchStartedAtMs),
       deps.signal,
       deps.watchDirectory ?? watch,
     );

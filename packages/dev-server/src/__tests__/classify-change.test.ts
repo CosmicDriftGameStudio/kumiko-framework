@@ -4,8 +4,15 @@
 // If the classification drifts, either unnecessary restarts hurt DX or real schema
 // changes fail to propagate (UX is broken). Both are costly, so we pin this behavior.
 
-import { describe, expect, test } from "bun:test";
-import { classifyChange, classifyWatchedChange } from "../create-kumiko-server-watcher.ts";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  classifyChange,
+  classifyWatchedChange,
+  isUnchangedSinceWatchStart,
+} from "../create-kumiko-server-watcher.ts";
 
 describe("classifyChange", () => {
   test("server-side feature.ts → restart", () => {
@@ -102,5 +109,40 @@ describe("classifyWatchedChange", () => {
 
   test("a nested web/ file → hot-reload", () => {
     expect(classifyWatchedChange(entryDir, "web/page.tsx", entries)).toBe("hot-reload");
+  });
+});
+
+describe("isUnchangedSinceWatchStart", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kumiko-watch-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const watchStartedAtMs = 1_800_000_000_000;
+
+  function fileWithMtime(name: string, mtimeMs: number): string {
+    const path = join(dir, name);
+    writeFileSync(path, "x");
+    utimesSync(path, mtimeMs / 1000, mtimeMs / 1000);
+    return path;
+  }
+
+  test("mtime before watch start → unchanged", () => {
+    expect(
+      isUnchangedSinceWatchStart(
+        fileWithMtime("old.ts", watchStartedAtMs - 7000),
+        watchStartedAtMs,
+      ),
+    ).toBe(true);
+  });
+
+  test("mtime after watch start → changed", () => {
+    expect(
+      isUnchangedSinceWatchStart(
+        fileWithMtime("new.ts", watchStartedAtMs + 7000),
+        watchStartedAtMs,
+      ),
+    ).toBe(false);
+  });
+
+  test("missing file (deleted or renamed) → changed", () => {
+    expect(isUnchangedSinceWatchStart(join(dir, "gone.ts"), watchStartedAtMs)).toBe(false);
   });
 });
