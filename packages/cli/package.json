@@ -41,7 +41,7 @@
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
-    "marked": "^18.0.3",
+    "marked": "^18.1.2",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
