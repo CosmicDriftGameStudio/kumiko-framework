@@ -86,6 +86,60 @@ async function mountApp(options: CreateKumikoAppOptions): Promise<void> {
   });
 }
 
+function FirstSwatch({ value }: ColumnRendererProps): ReactNode {
+  return <span data-testid="ca-first">{String(value)}</span>;
+}
+
+function DeliveryLog(): ReactNode {
+  return <span data-testid="delivery-log-mounted" />;
+}
+
+function SecondSwatch({ value }: ColumnRendererProps): ReactNode {
+  return <span data-testid="ca-second">{String(value)}</span>;
+}
+
+function Swatch({ value, column }: ColumnRendererProps): ReactNode {
+  return (
+    <span data-testid="ca-swatch">
+      <span data-testid="ca-swatch-value">{String(value)}</span>
+      <span data-testid="ca-swatch-field">{column.field}</span>
+    </span>
+  );
+}
+
+function DocumentEditor({ value }: ContentEditorProps): ReactNode {
+  return <div data-testid="ca-document-editor">{value}</div>;
+}
+
+function EditorProbe(): ReactNode {
+  const Editor = useContentEditor("document");
+  return (
+    <Editor
+      id="ca-document-editor-probe"
+      value="hello"
+      onChange={() => {}}
+      variables={[]}
+      readOnly={false}
+    />
+  );
+}
+
+function TaskDetailStub(): ReactNode {
+  return <span data-testid="task-detail-mounted" />;
+}
+
+function SystemAdminRoleProvider({ children }: { readonly children: ReactNode }): ReactNode {
+  return <UserRolesProvider roles={["SystemAdmin"]}>{children}</UserRolesProvider>;
+}
+
+function LoginPlaceholderGate({
+  children: _children,
+}: {
+  readonly children: ReactNode;
+}): ReactNode {
+  return <span data-testid="login-placeholder" />;
+}
+
 describe("createKumikoApp", () => {
   // createKumikoApp mounts via createRoot into document.body. Reset
   // between tests: unmount the React root so pending effects cannot leak into
@@ -325,10 +379,6 @@ describe("createKumikoApp", () => {
 
   test("custom screen WITH a registered clientFeatures component → no boot diagnostic", async () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
-
-    function DeliveryLog(): ReactNode {
-      return <span data-testid="delivery-log-mounted" />;
-    }
     const customScreenSchema: FeatureSchema = {
       featureName: "delivery",
       entities: { task: taskEntity },
@@ -390,13 +440,6 @@ describe("createKumikoApp", () => {
     // override behavior does not silently change if someone refactors it to
     // "first-wins".
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-
-    function FirstSwatch({ value }: ColumnRendererProps): ReactNode {
-      return <span data-testid="ca-first">{String(value)}</span>;
-    }
-    function SecondSwatch({ value }: ColumnRendererProps): ReactNode {
-      return <span data-testid="ca-second">{String(value)}</span>;
-    }
     const colorEntity = {
       fields: { color: { type: "text" } },
     } as unknown as EntityDefinition;
@@ -442,18 +485,6 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.columnRenderers → __component-Renderer mounts a real component in the DOM", async () => {
-    // Verifies the end-to-end wiring: ClientFeatureDefinition.columnRenderers
-    // → provider in create-app → useColumnRenderer in the DataTable cell → JSX
-    // in the DOM. The schema declares the string form; the component exists only
-    // on the client.
-    function Swatch({ value, column }: ColumnRendererProps): ReactNode {
-      return (
-        <span data-testid="ca-swatch">
-          <span data-testid="ca-swatch-value">{String(value)}</span>
-          <span data-testid="ca-swatch-field">{column.field}</span>
-        </span>
-      );
-    }
     const colorEntity = {
       fields: { title: { type: "text" }, color: { type: "text" } },
     } as unknown as EntityDefinition;
@@ -495,26 +526,6 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.contentEditors → createKumikoApp wires merge → provider → useContentEditor end-to-end", async () => {
-    // Proves the whole chain: ClientFeatureDefinition.contentEditors →
-    // mergeContentEditors → ContentEditorsProvider in the tree →
-    // useContentEditor in the consumer. Without the provider mount,
-    // useContentEditor would always fall back to the textarea — this test
-    // would fail then.
-    function DocumentEditor({ value }: ContentEditorProps): ReactNode {
-      return <div data-testid="ca-document-editor">{value}</div>;
-    }
-    function EditorProbe(): ReactNode {
-      const Editor = useContentEditor("document");
-      return (
-        <Editor
-          id="ca-document-editor-probe"
-          value="hello"
-          onChange={() => {}}
-          variables={[]}
-          readOnly={false}
-        />
-      );
-    }
     const probeSchema: FeatureSchema = {
       featureName: "tasks",
       entities: {},
@@ -691,10 +702,6 @@ describe("createKumikoApp", () => {
       detailFor: "task",
       renderer: { react: { __component: "TaskDetail" } },
     };
-
-    function TaskDetailStub(): ReactNode {
-      return <span data-testid="task-detail-mounted" />;
-    }
 
     function makeRowDispatcher(): Dispatcher {
       return createMockDispatcher({
@@ -955,9 +962,6 @@ describe("createKumikoApp", () => {
         ],
       };
       mockFetch(() => new Response(JSON.stringify(systemAdminOnly), { status: 200 }));
-      function SystemAdminRoleProvider({ children }: { readonly children: ReactNode }): ReactNode {
-        return <UserRolesProvider roles={["SystemAdmin"]}>{children}</UserRolesProvider>;
-      }
       await mountApp({
         dispatcher: makeDispatcher(),
         clientFeatures: [{ name: "role-stub", providers: [SystemAdminRoleProvider] }],
@@ -971,13 +975,6 @@ describe("createKumikoApp", () => {
     test("clientFeature gate rendering a placeholder instead of children → fetch never runs", async () => {
       mountRoot();
       mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
-      function LoginPlaceholderGate({
-        children: _children,
-      }: {
-        readonly children: ReactNode;
-      }): ReactNode {
-        return <span data-testid="login-placeholder" />;
-      }
       await mountApp({
         dispatcher: makeDispatcher(),
         clientFeatures: [{ name: "auth-stub", gates: [LoginPlaceholderGate] }],
@@ -1006,6 +1003,7 @@ describe("createKumikoApp", () => {
       mountRoot();
       mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
       const gateStore = createToggleableGateStore(true);
+      // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local gateStore; defined once per test run, never during a render
       function ToggleableGate({ children }: { readonly children: ReactNode }): ReactNode {
         const allowed = useSyncExternalStore(gateStore.subscribe, gateStore.getSnapshot);
         return allowed ? children : <span data-testid="gate-closed" />;

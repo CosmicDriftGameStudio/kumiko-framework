@@ -4,6 +4,10 @@ import { AuthCard, AuthShellProvider } from "../auth-form-primitives.tsx";
 import { LoginScreen } from "../login-screen.tsx";
 import { renderWithProviders } from "./test-utils.tsx";
 
+function Shell({ card }: { readonly card: ReactNode }): ReactNode {
+  return <div data-testid="apex-chrome">{card}</div>;
+}
+
 describe("AuthCard / AuthShell", () => {
   test("without a provider → default fullscreen wrapper (backward-compatible)", () => {
     const { container } = renderWithProviders(
@@ -17,9 +21,6 @@ describe("AuthCard / AuthShell", () => {
   });
 
   test("with a provider → App shell replaces fullscreen wrapper, card remains", () => {
-    function Shell({ card }: { readonly card: ReactNode }): ReactNode {
-      return <div data-testid="apex-chrome">{card}</div>;
-    }
     const { container } = renderWithProviders(
       <AuthShellProvider shell={(card) => <Shell card={card} />}>
         <AuthCard title="Login">

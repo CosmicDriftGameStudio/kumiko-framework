@@ -63,6 +63,7 @@ import {
   type TranslationsByLocale,
   toAppSchema,
   translationsByLocaleFromKeys,
+  useBasePath,
   useNav,
   usePrimitives,
   useTranslation,
@@ -652,6 +653,12 @@ function AppSchemaBoundary({
   );
 }
 
+// createKumikoApp mounts BasePathProvider above the NavProvider that calls this hook.
+function useBrowserNavApiWithBasePath(navOptions?: Parameters<typeof useBrowserNavApi>[0]): NavApi {
+  const basePath = useBasePath();
+  return useBrowserNavApi({ ...navOptions, ...(basePath !== "" && { basePath }) });
+}
+
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
@@ -736,8 +743,6 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
 
   const localeResolver = options.locale ?? createBrowserLocaleResolver();
   const { basePath } = options;
-  const useBrowserNavApiWithBasePath = (navOptions?: Parameters<typeof useBrowserNavApi>[0]) =>
-    useBrowserNavApi({ ...navOptions, ...(basePath !== undefined && { basePath }) });
   const navAdapter = options.navAdapter ?? useBrowserNavApiWithBasePath;
 
   const reporter = options.reportClientErrors === false ? undefined : createClientErrorReporter();

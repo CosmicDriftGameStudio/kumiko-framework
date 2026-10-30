@@ -73,6 +73,7 @@ export function createLoginRoute(
   const MfaVerifyComponent = opts.mfaVerifyScreen;
   const MfaSetupComponent = opts.mfaSetupScreen;
 
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory (module scope or makeAuthGate); the route takes no props, so opts are bound here
   function LoginRoute(): ReactNode {
     const { status, refresh, bootstrapFailure, logout } = useSession();
     const { onAuthenticated } = opts;
@@ -212,6 +213,7 @@ function resolveLoginRedirectOrNull(
   try {
     return resolveLoginRedirect(loginUrl, locale, location);
   } catch (error) {
+    // biome-ignore lint/suspicious/noConsole: the browser console is the only place a broken loginUrl builder shows up, the visitor just sees the built-in login
     console.error("Auth gate: loginUrl could not be resolved, showing the built-in login", error);
     return null;
   }
@@ -223,6 +225,7 @@ export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   const { loginUrl } = opts;
   if (typeof loginUrl === "string") assertNavigableUrl(loginUrl, "loginUrl");
   const LoginRoute = createLoginRoute(opts);
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory (makeSessionAuthGate or an app's mount function); gates only receive children, so opts are bound here
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
     const locale = useLocale().locale();
@@ -255,6 +258,7 @@ export function makeSessionAuthGate(opts: SessionAuthGateOptions = {}): Componen
   const { postLogoutUrl } = opts;
   if (postLogoutUrl !== undefined) assertNavigableUrl(postLogoutUrl, "postLogoutUrl");
   const AuthGate = makeAuthGate(opts);
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory, called once per emailPasswordClient(); gates only receive children, so opts are bound here
   function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     return (
       <SessionProvider postLogoutUrl={postLogoutUrl}>

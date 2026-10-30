@@ -54,6 +54,15 @@ function renderRL(props: {
   );
 }
 
+function KeystrokeOnMount(): null {
+  useLayoutEffect(() => {
+    const input = document.querySelector("input");
+    if (input === null) throw new Error("search input not mounted");
+    fireEvent.change(input, { target: { value: "a" } });
+  }, []);
+  return null;
+}
+
 describe("RenderList — Search-Debounce", () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -116,17 +125,6 @@ describe("RenderList — Search-Debounce", () => {
 
   test("A keystroke in the same commit as mounting is not lost", () => {
     const onSearchChange = mock();
-    // The keystroke is delivered from a layout effect, i.e. inside the mount
-    // commit and before RenderList's passive effects have run: an effect-based
-    // searchValue sync would reset the buffer afterwards and swallow the key.
-    function KeystrokeOnMount(): null {
-      useLayoutEffect(() => {
-        const input = document.querySelector("input");
-        if (input === null) throw new Error("search input not mounted");
-        fireEvent.change(input, { target: { value: "a" } });
-      }, []);
-      return null;
-    }
     render(
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
         <PrimitivesProvider value={defaultPrimitives}>

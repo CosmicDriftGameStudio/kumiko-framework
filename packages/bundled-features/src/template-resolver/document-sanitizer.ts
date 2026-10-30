@@ -248,8 +248,8 @@ export function withParsedDocument<T>(html: string, read: (body: ScanElement) =>
     );
     return read(parsed.body);
   } finally {
-    window.happyDOM.abort();
-    window.happyDOM.close();
+    // close() aborts pending tasks as well; the window is never reused, so this sync API need not await teardown.
+    void window.happyDOM.close();
   }
 }
 

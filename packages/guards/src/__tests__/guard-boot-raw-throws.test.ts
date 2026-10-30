@@ -12,6 +12,7 @@ describe("rawErrorThrowLines", () => {
     const source = [
       "export function a(x: number) {",
       '  if (x > 1) throw new Error("big");',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text for the guard, the template literal is the input
       "  throw new Error(`small ${x}`);",
       "}",
     ].join("\n");

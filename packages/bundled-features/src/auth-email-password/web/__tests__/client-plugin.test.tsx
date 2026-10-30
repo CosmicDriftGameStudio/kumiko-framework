@@ -22,12 +22,13 @@ mockModuleForFile(fileURLToPath(new URL("../auth-gate.tsx", import.meta.url)), r
 
 const { emailPasswordClient } = await import("../client-plugin.ts");
 
+function CustomMfaSetup() {
+  return null;
+}
+
 describe("emailPasswordClient — mfaSetupScreen wiring", () => {
   test("passes options.mfaSetupScreen through to makeSessionAuthGate", () => {
     makeSessionAuthGateCalls.length = 0;
-    function CustomMfaSetup() {
-      return null;
-    }
 
     emailPasswordClient({ mfaSetupScreen: CustomMfaSetup });
 

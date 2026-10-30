@@ -32,6 +32,25 @@ async function mount(options: Parameters<typeof createPublicSurface>[0]): Promis
   });
 }
 
+function Greeting(): ReactNode {
+  const t = useTranslation();
+  return <p data-testid="greeting">{t("public.greeting")}</p>;
+}
+
+function HideEverythingGate(): ReactNode {
+  return <div data-testid="gate-hijack">gate</div>;
+}
+
+const Ctx = createContext("absent");
+
+function MarkerProvider({ children }: { readonly children: ReactNode }): ReactNode {
+  return <Ctx.Provider value="present">{children}</Ctx.Provider>;
+}
+
+function ProbeRoute(): ReactNode {
+  return <div data-testid="probe">{useContext(Ctx)}</div>;
+}
+
 describe("createPublicSurface", () => {
   afterEach(() => {
     if (appRoot !== undefined) {
@@ -101,16 +120,6 @@ describe("createPublicSurface", () => {
   });
 
   test("clientFeatures: providers are stacked, but gates are NOT (surface remains public)", async () => {
-    const Ctx = createContext("absent");
-    function MarkerProvider({ children }: { readonly children: ReactNode }): ReactNode {
-      return <Ctx.Provider value="present">{children}</Ctx.Provider>;
-    }
-    function HideEverythingGate(): ReactNode {
-      return <div data-testid="gate-hijack">gate</div>;
-    }
-    function ProbeRoute(): ReactNode {
-      return <div data-testid="probe">{useContext(Ctx)}</div>;
-    }
     const feature: ClientFeatureDefinition = {
       name: "auth",
       providers: [MarkerProvider],
@@ -141,10 +150,6 @@ describe("createPublicSurface", () => {
   });
 
   test("formality: formal makes every page of the surface use the -x-formal wording", async () => {
-    function Greeting(): ReactNode {
-      const t = useTranslation();
-      return <p data-testid="greeting">{t("public.greeting")}</p>;
-    }
     const withGreeting: ClientFeatureDefinition = {
       name: "greeting",
       translations: {

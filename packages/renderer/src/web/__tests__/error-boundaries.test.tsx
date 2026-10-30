@@ -55,6 +55,10 @@ function setNodeEnv(value: string | undefined): void {
   else process.env.NODE_ENV = value;
 }
 
+function ThrowingProvider(): ReactNode {
+  throw new Error("provider-kaputt");
+}
+
 describe("renderer error boundaries", () => {
   let errorSpy: ReturnType<typeof spyOn<Console, "error">>;
 
@@ -176,9 +180,6 @@ describe("renderer error boundaries", () => {
   });
 
   test("an error above the screen (provider) is caught by the root boundary without needing providers", async () => {
-    function ThrowingProvider(): ReactNode {
-      throw new Error("provider-kaputt");
-    }
     await mountApp({
       schema,
       screenQn: "probe:screen:calm",
@@ -259,9 +260,6 @@ describe("renderer error boundaries", () => {
     });
 
     test("the root fallback shows the errorId and copies it", async () => {
-      function ThrowingProvider(): ReactNode {
-        throw new Error("provider-kaputt");
-      }
       const written: string[] = [];
       const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
       Object.defineProperty(navigator, "clipboard", {

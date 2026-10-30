@@ -92,6 +92,7 @@ async function renderList(
     Banner: passChildren,
     Field: passChildren,
     Input: noop,
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderList-local tableRendered flag; defined once per renderList call, never during a render
     DataTable: ({ toolbarEnd, emptyState }: DataTableProps) => {
       tableRendered = true;
       return (

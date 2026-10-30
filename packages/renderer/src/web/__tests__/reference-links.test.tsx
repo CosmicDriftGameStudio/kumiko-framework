@@ -94,6 +94,7 @@ function renderWith(
   cleanup();
   const features = setup.features ?? [featureWith()];
   const nav = navFor(features);
+  // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderWith-local setup, features and nav; defined once per renderWith() call, never during a render
   function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
     const inner = (
       <DispatcherProvider dispatcher={setup.dispatcher ?? createMockDispatcher()}>

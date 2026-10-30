@@ -588,15 +588,15 @@ describe("RenderEdit fields filter", () => {
   });
 });
 
-describe("RenderEdit — slots.titleAction", () => {
-  function TitleChips({ entityId }: { readonly entityId: string | null }): ReactNode {
-    return (
-      <span data-testid="title-chips" data-entity-id={entityId ?? "(create)"}>
-        3 left
-      </span>
-    );
-  }
+function TitleChips({ entityId }: { readonly entityId: string | null }): ReactNode {
+  return (
+    <span data-testid="title-chips" data-entity-id={entityId ?? "(create)"}>
+      3 left
+    </span>
+  );
+}
 
+describe("RenderEdit — slots.titleAction", () => {
   test("titleAction renders in the form title row, next to the title and outside the actions", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
@@ -692,15 +692,15 @@ describe("RenderEdit — slots.titleAction", () => {
   });
 });
 
-describe("RenderEdit — slots.header", () => {
-  function HeaderExtra({ entityId }: { readonly entityId: string | null }): ReactNode {
-    return (
-      <div data-testid="header-extra" data-entity-id={entityId ?? "(create)"}>
-        header extra
-      </div>
-    );
-  }
+function HeaderExtra({ entityId }: { readonly entityId: string | null }): ReactNode {
+  return (
+    <div data-testid="header-extra" data-entity-id={entityId ?? "(create)"}>
+      header extra
+    </div>
+  );
+}
 
+describe("RenderEdit — slots.header", () => {
   function makeHeaderScreen(): EntityEditScreenDefinition {
     return {
       id: "orders:screen:order-edit-header",
@@ -807,30 +807,30 @@ describe("RenderEdit — slots.header", () => {
   });
 });
 
-describe("RenderEdit — slots.footer", () => {
-  function FooterExtra({
-    entityId,
-    hasUnsavedChanges,
-    wizardStep,
-  }: {
-    readonly entityId: string | null;
-    readonly hasUnsavedChanges?: boolean;
-    readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
-  }): ReactNode {
-    return (
-      <button
-        type="button"
-        data-testid="footer-extra"
-        data-entity-id={entityId ?? "(create)"}
-        data-dirty={String(hasUnsavedChanges === true)}
-        data-step={wizardStep !== undefined ? String(wizardStep.index) : "undefined"}
-        data-last={wizardStep !== undefined ? String(wizardStep.isLast) : "undefined"}
-      >
-        extra
-      </button>
-    );
-  }
+function FooterExtra({
+  entityId,
+  hasUnsavedChanges,
+  wizardStep,
+}: {
+  readonly entityId: string | null;
+  readonly hasUnsavedChanges?: boolean;
+  readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      data-testid="footer-extra"
+      data-entity-id={entityId ?? "(create)"}
+      data-dirty={String(hasUnsavedChanges === true)}
+      data-step={wizardStep !== undefined ? String(wizardStep.index) : "undefined"}
+      data-last={wizardStep !== undefined ? String(wizardStep.isLast) : "undefined"}
+    >
+      extra
+    </button>
+  );
+}
 
+describe("RenderEdit — slots.footer", () => {
   function makeFooterScreen(): EntityEditScreenDefinition {
     return {
       id: "orders:screen:order-edit-footer",

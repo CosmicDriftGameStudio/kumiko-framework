@@ -293,6 +293,12 @@ function Probe({ id, concurrency }: { readonly id: number; readonly concurrency:
   return <span data-testid={`probe-${id}`}>{loading ? "loading" : String(data?.id)}</span>;
 }
 
+function Waiting({ onRefetch }: { readonly onRefetch: (refetch: () => Promise<void>) => void }) {
+  const { refetch } = useQuery<{ id: number }>(QUERY_TYPE, { id: 1 }, { concurrency: 1 });
+  onRefetch(refetch);
+  return null;
+}
+
 function Probes({
   ids,
   concurrency,
@@ -315,6 +321,11 @@ async function settleNext(fake: ReturnType<typeof deferredDispatcher>): Promise<
   await act(async () => {
     call.settle({ isSuccess: true, data: call.payload });
   });
+}
+
+function Free({ id }: { readonly id: number }) {
+  useQuery(QUERY_TYPE, { id });
+  return null;
 }
 
 describe("useQuery concurrency", () => {
@@ -341,10 +352,6 @@ describe("useQuery concurrency", () => {
 
   test("without the option all queries start at once", async () => {
     const fake = deferredDispatcher();
-    function Free({ id }: { readonly id: number }) {
-      useQuery(QUERY_TYPE, { id });
-      return null;
-    }
     render(
       <DispatcherProvider dispatcher={fake.dispatcher}>
         {ids.map((id) => (
@@ -438,15 +445,10 @@ describe("useQuery concurrency", () => {
   test("refetch() of a waiting hook does not take a second queue position or a slot", async () => {
     const fake = deferredDispatcher();
     let refetchWaiting: () => Promise<void> = async () => {};
-    function Waiting() {
-      const { refetch } = useQuery<{ id: number }>(QUERY_TYPE, { id: 1 }, { concurrency: 1 });
-      refetchWaiting = refetch;
-      return null;
-    }
     render(
       <DispatcherProvider dispatcher={fake.dispatcher}>
         <Probe id={0} concurrency={1} />
-        <Waiting />
+        <Waiting onRefetch={(refetch) => (refetchWaiting = refetch)} />
       </DispatcherProvider>,
     );
     await act(async () => {});

@@ -17,6 +17,7 @@ const SLUG_INVALID_ISSUE: FieldIssue = {
 export function createCollectionEntryCreateForm(
   tenantId: string | undefined,
 ): (props: { readonly target: TargetRef; readonly onClose: () => void }) => ReactNode {
+  // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory, called once per templateResolverClient(); the resolver slot only passes target/onClose, so tenantId is bound here
   return function BoundCollectionEntryCreateForm(props) {
     return <CollectionEntryCreateForm {...props} tenantId={tenantId} />;
   };

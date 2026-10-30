@@ -42,6 +42,16 @@ function wrapper(dispatcher: Dispatcher) {
   );
 }
 
+const DispatcherRequiredProbe = (): ReactNode => {
+  useDispatcher();
+  return null;
+};
+
+const OptionalDispatcherProbe = (): ReactNode => {
+  const d = useOptionalDispatcher();
+  return <span data-testid="d">{d === undefined ? "no-provider" : "found"}</span>;
+};
+
 describe("DispatcherContext", () => {
   test("useDispatcher returns the provided instance", () => {
     const { dispatcher } = makeFakeDispatcher();
@@ -50,13 +60,7 @@ describe("DispatcherContext", () => {
   });
 
   test("useDispatcher throws outside a provider — the app forgot to wrap root", () => {
-    // renderHook surfaces hook-throws as result.current being the error —
-    // we read it directly via render() and catch in the component.
-    const Probe = (): ReactNode => {
-      useDispatcher();
-      return null;
-    };
-    expect(() => render(<Probe />)).toThrow(/no <DispatcherProvider> mounted/);
+    expect(() => render(<DispatcherRequiredProbe />)).toThrow(/no <DispatcherProvider> mounted/);
   });
 
   test("useDispatcherStatus reflects current status on mount", () => {
@@ -89,11 +93,7 @@ describe("DispatcherContext", () => {
   });
 
   test("useOptionalDispatcher: returns undefined when no provider mounted (no throw)", () => {
-    const Probe = (): ReactNode => {
-      const d = useOptionalDispatcher();
-      return <span data-testid="d">{d === undefined ? "no-provider" : "found"}</span>;
-    };
-    const { getByTestId } = render(<Probe />);
+    const { getByTestId } = render(<OptionalDispatcherProbe />);
     expect(getByTestId("d").textContent).toBe("no-provider");
   });
 });

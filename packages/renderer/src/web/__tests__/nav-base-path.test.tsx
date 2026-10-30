@@ -167,16 +167,27 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
   });
 });
 
+function NavWithTrailing({ children }: { readonly children: ReactNode }): ReactNode {
+  const api = useBrowserNavApi({ basePath: "/admin/" });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
+
+function NavWithoutLeading({ children }: { readonly children: ReactNode }): ReactNode {
+  const api = useBrowserNavApi({ basePath: "admin" });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
+
+function NavWithRoot({ children }: { readonly children: ReactNode }): ReactNode {
+  const api = useBrowserNavApi({ basePath: "/" });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
+
 describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
   });
 
   test("basePath with trailing slash is normalized", () => {
-    function NavWithTrailing({ children }: { readonly children: ReactNode }): ReactNode {
-      const api = useBrowserNavApi({ basePath: "/admin/" });
-      return <NavProvider value={api}>{children}</NavProvider>;
-    }
     window.history.replaceState(null, "", "/admin/task-list");
     render(
       <NavWithTrailing>
@@ -187,10 +198,6 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
   });
 
   test("basePath without leading slash is normalized", () => {
-    function NavWithoutLeading({ children }: { readonly children: ReactNode }): ReactNode {
-      const api = useBrowserNavApi({ basePath: "admin" });
-      return <NavProvider value={api}>{children}</NavProvider>;
-    }
     window.history.replaceState(null, "", "/admin/task-list");
     render(
       <NavWithoutLeading>
@@ -201,10 +208,6 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
   });
 
   test("basePath='/' behaves like no basePath", () => {
-    function NavWithRoot({ children }: { readonly children: ReactNode }): ReactNode {
-      const api = useBrowserNavApi({ basePath: "/" });
-      return <NavProvider value={api}>{children}</NavProvider>;
-    }
     window.history.replaceState(null, "", "/task-list");
     render(
       <NavWithRoot>
@@ -274,26 +277,26 @@ describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () =>
   });
 });
 
+function SearchProbe(): React.ReactElement {
+  const nav = useNav();
+  return (
+    <div>
+      <span data-testid="filter">{nav.searchParams["filter"] ?? "(none)"}</span>
+      <button
+        type="button"
+        data-testid="set-filter"
+        onClick={() => nav.setSearchParams({ filter: "open" })}
+      >
+        set
+      </button>
+    </div>
+  );
+}
+
 describe("useBrowserNavApi({ basePath }) — searchParams orthogonality", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
   });
-
-  function SearchProbe(): React.ReactElement {
-    const nav = useNav();
-    return (
-      <div>
-        <span data-testid="filter">{nav.searchParams["filter"] ?? "(none)"}</span>
-        <button
-          type="button"
-          data-testid="set-filter"
-          onClick={() => nav.setSearchParams({ filter: "open" })}
-        >
-          set
-        </button>
-      </div>
-    );
-  }
 
   test("Read: ?filter=open under '/admin/task-list' is read, not affected by basePath", () => {
     window.history.replaceState(null, "", "/admin/task-list?filter=open");
@@ -321,35 +324,35 @@ describe("useBrowserNavApi({ basePath }) — searchParams orthogonality", () => 
   });
 });
 
+function WorkspaceAdminNav({ children }: { readonly children: ReactNode }): ReactNode {
+  const api = useBrowserNavApi({ basePath: "/admin", hasWorkspaces: true });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
+
+function WorkspaceProbe(): React.ReactElement {
+  const nav = useNav();
+  return (
+    <div>
+      <span data-testid="workspace-id">{nav.route?.workspaceId ?? "(none)"}</span>
+      <span data-testid="screen-id">{nav.route?.screenId ?? "(none)"}</span>
+      <span data-testid="href-dispatch">
+        {nav.hrefFor({ workspaceId: "dispatch", screenId: "task-list" })}
+      </span>
+      <button
+        type="button"
+        data-testid="go-dispatch"
+        onClick={() => nav.navigate({ workspaceId: "dispatch", screenId: "task-list" })}
+      >
+        go
+      </button>
+    </div>
+  );
+}
+
 describe("useBrowserNavApi({ basePath, hasWorkspaces })", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
   });
-
-  function WorkspaceAdminNav({ children }: { readonly children: ReactNode }): ReactNode {
-    const api = useBrowserNavApi({ basePath: "/admin", hasWorkspaces: true });
-    return <NavProvider value={api}>{children}</NavProvider>;
-  }
-
-  function WorkspaceProbe(): React.ReactElement {
-    const nav = useNav();
-    return (
-      <div>
-        <span data-testid="workspace-id">{nav.route?.workspaceId ?? "(none)"}</span>
-        <span data-testid="screen-id">{nav.route?.screenId ?? "(none)"}</span>
-        <span data-testid="href-dispatch">
-          {nav.hrefFor({ workspaceId: "dispatch", screenId: "task-list" })}
-        </span>
-        <button
-          type="button"
-          data-testid="go-dispatch"
-          onClick={() => nav.navigate({ workspaceId: "dispatch", screenId: "task-list" })}
-        >
-          go
-        </button>
-      </div>
-    );
-  }
 
   test("Read: '/admin/dispatch/task-list' → workspaceId='dispatch', screenId='task-list'", () => {
     window.history.replaceState(null, "", "/admin/dispatch/task-list");

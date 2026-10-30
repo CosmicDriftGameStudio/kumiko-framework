@@ -3,6 +3,7 @@ import { useOptionalCurrentUser } from "@cosmicdrift/kumiko-renderer";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { SessionProvider, useSession } from "../session.tsx";
+import { clearCsrfCookie, setCsrfCookie } from "./test-utils.tsx";
 
 function CurrentUserProbe(): ReactNode {
   const user = useOptionalCurrentUser();
@@ -28,11 +29,11 @@ describe("SessionProvider provides the renderer's current user", () => {
   }
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=current-user-test-token; path=/";
+    setCsrfCookie("current-user-test-token");
   });
 
   afterEach(() => {
-    document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCsrfCookie();
     globalThis.fetch = originalFetch;
   });
 
@@ -85,7 +86,7 @@ describe("CurrentUser reference stability", () => {
   });
 
   test("a refresh that returns an identical profile keeps the same CurrentUser reference", async () => {
-    document.cookie = "kumiko_csrf=current-user-test-token; path=/";
+    setCsrfCookie("current-user-test-token");
     // Fresh response objects per call, so the profile object differs each time.
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -102,6 +103,7 @@ describe("CurrentUser reference stability", () => {
 
     const seen: unknown[] = [];
     let refresh: (() => Promise<void>) | undefined;
+    // biome-ignore lint/correctness/noComponentHookFactories: closes over the test-local seen and refresh variables; defined once per test run, never during a render
     function Probe(): ReactNode {
       const user = useOptionalCurrentUser();
       refresh = useSession().refresh;

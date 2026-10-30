@@ -143,15 +143,15 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — preserves the workspace 
   });
 });
 
+function FlatNav({ children }: { readonly children: ReactNode }): ReactNode {
+  const api = useBrowserNavApi({ hasWorkspaces: false });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
+
 describe("useBrowserNavApi without workspaces — injection remains disabled", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/task-list");
   });
-
-  function FlatNav({ children }: { readonly children: ReactNode }): ReactNode {
-    const api = useBrowserNavApi({ hasWorkspaces: false });
-    return <NavProvider value={api}>{children}</NavProvider>;
-  }
 
   test("navigate({ screenId }) remains flat: '/maintenance-schedule-form'", () => {
     render(

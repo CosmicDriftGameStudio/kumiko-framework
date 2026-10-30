@@ -18,6 +18,7 @@ import {
   NavProvider,
   UserRolesProvider,
 } from "../../index.ts";
+import { useBrowserNavApi } from "../app/nav.tsx";
 import {
   clickSubmitOnceEnabled,
   defaultEnText,
@@ -33,6 +34,25 @@ import {
   taskEntity,
   waitFor,
 } from "./test-utils.tsx";
+
+const TaskCustomFields = ({
+  entityName,
+  entityId,
+  initialValues,
+}: {
+  entityName: string;
+  entityId: string | null;
+  initialValues?: Readonly<Record<string, unknown>>;
+}) => (
+  <div data-testid="task-custom-fields">
+    {entityName}:{entityId ?? "(create)"}:{String(initialValues?.["vendor"] ?? "(no-value)")}
+  </div>
+);
+
+function BrowserNav({ children }: { readonly children: React.ReactNode }): React.ReactNode {
+  const api = useBrowserNavApi({ hasWorkspaces: false });
+  return <NavProvider value={api}>{children}</NavProvider>;
+}
 
 describe("KumikoScreen", () => {
   test("unknown qn → unavailable empty state", () => {
@@ -282,19 +302,6 @@ describe("KumikoScreen", () => {
       entities: { task: taskEntity },
       screens: [editScreenWithExtension],
     };
-    const TaskCustomFields = ({
-      entityName,
-      entityId,
-      initialValues,
-    }: {
-      entityName: string;
-      entityId: string | null;
-      initialValues?: Readonly<Record<string, unknown>>;
-    }) => (
-      <div data-testid="task-custom-fields">
-        {entityName}:{entityId ?? "(create)"}:{String(initialValues?.["vendor"] ?? "(no-value)")}
-      </div>
-    );
     const dispatcher = makeDispatcher({
       // The detail row includes id and the customFields jsonb. The update form filters id
       // out of the form values (the section must not be in create mode), and the section
@@ -1131,13 +1138,6 @@ describe("KumikoScreen", () => {
         },
       ],
     };
-
-    const { NavProvider } = await import("../../index.ts");
-    const { useBrowserNavApi } = await import("../app/nav.tsx");
-    function BrowserNav({ children }: { readonly children: React.ReactNode }): React.ReactNode {
-      const api = useBrowserNavApi({ hasWorkspaces: false });
-      return <NavProvider value={api}>{children}</NavProvider>;
-    }
 
     const user = userEvent.setup();
     render(

@@ -26,7 +26,7 @@ function openSessionStorage(): Storage | undefined {
 
 function prefixedKeys(storage: Storage): string[] {
   return Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (key): key is string => key !== null && key.startsWith(KEY_PREFIX),
+    (key): key is string => key?.startsWith(KEY_PREFIX) === true,
   );
 }
 

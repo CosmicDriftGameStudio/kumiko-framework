@@ -134,6 +134,7 @@ describe("FileNameLink", () => {
       );
     }) as unknown as typeof fetch;
     const { findByText } = render(
+      // biome-ignore lint/complexity/noUselessFragments: render() takes a single ReactElement, not an element array
       <>
         {ids.map((id) => (
           <FileNameLink key={id} fileId={id} fallbackLabel="File attached" />

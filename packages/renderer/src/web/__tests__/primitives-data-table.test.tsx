@@ -7,6 +7,16 @@ import { PageSection } from "../primitives/layout.tsx";
 import { DataTable, paddingClasses, paddingOf } from "./_primitives-helpers.tsx";
 import { fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
+function EditableSwatch({ value, column, onChange }: ColumnRendererProps): ReactNode {
+  return (
+    <input
+      data-testid={`edit-${column.field}`}
+      value={String(value)}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  );
+}
+
 describe("DataTable", () => {
   test("facet chips: click selects the chip's values, pressed follows filterValues, hideEmpty drops zero-count chips", () => {
     const onFilterChange = mock();
@@ -1305,16 +1315,6 @@ describe("DataTable", () => {
   });
 
   describe("onCellChange (editable cell)", () => {
-    function EditableSwatch({ value, column, onChange }: ColumnRendererProps): ReactNode {
-      return (
-        <input
-          data-testid={`edit-${column.field}`}
-          value={String(value)}
-          onChange={(e) => onChange?.(e.target.value)}
-        />
-      );
-    }
-
     test("column-renderer receives onChange bound to (rowId, field, value) when onCellChange is set", () => {
       const onCellChange = mock();
       const cols = [

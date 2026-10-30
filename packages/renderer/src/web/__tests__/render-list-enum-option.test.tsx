@@ -70,35 +70,43 @@ const statusScreen: EntityListScreenDefinition = {
   columns: [{ field: "status", renderer: { format: "enumOption", keyPrefix: STATUS_KEY_PREFIX } }],
 };
 
+function LocaleWrapper({
+  locale,
+  children,
+}: {
+  readonly locale: string;
+  readonly children: ReactNode;
+}): ReactElement {
+  return (
+    <TokensProvider value={stubTokens}>
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale })}
+        fallbackBundles={[STATUS_BUNDLES]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={stubNav}>
+            <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+          </NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensProvider>
+  );
+}
+
 // Explicit cleanup() before each render — two renders happen inside a single
 // test to prove the locale-switch, and RTL's auto-cleanup only fires between
 // `test()` blocks, not within one.
 function renderStatusListUnderLocale(locale: string, statusValue: string): string | null {
   cleanup();
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
-    return (
-      <TokensProvider value={stubTokens}>
-        <LocaleProvider
-          resolver={createStaticLocaleResolver({ locale })}
-          fallbackBundles={[STATUS_BUNDLES]}
-        >
-          <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={stubNav}>
-              <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-            </NavProvider>
-          </PrimitivesProvider>
-        </LocaleProvider>
-      </TokensProvider>
-    );
-  }
   const result = render(
-    <RenderList
-      screen={statusScreen}
-      entity={statusColumnEntity}
-      rows={[{ id: "r1", status: statusValue }]}
-      featureName="contact"
-    />,
-    { wrapper: Wrapper },
+    <LocaleWrapper locale={locale}>
+      <RenderList
+        screen={statusScreen}
+        entity={statusColumnEntity}
+        rows={[{ id: "r1", status: statusValue }]}
+        featureName="contact"
+      />
+    </LocaleWrapper>,
   );
   return result.getByTestId("cell-r1-status").textContent;
 }

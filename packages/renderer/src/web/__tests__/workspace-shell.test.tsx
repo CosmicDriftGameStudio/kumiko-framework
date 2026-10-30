@@ -45,17 +45,18 @@ beforeEach(() => {
 // route (URL-driven). The stub's no-op navigate() would freeze tab
 // clicks. Workspaces-mode is on by default for these tests; the parser
 // expects the first path segment to be a workspace short id.
+function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  const nav = useBrowserNavApi({ hasWorkspaces: true });
+  return (
+    <LocaleProvider resolver={createStaticLocaleResolver()}>
+      <PrimitivesProvider value={defaultPrimitives}>
+        <NavProvider value={nav}>{children}</NavProvider>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 function renderShell(ui: ReactNode): ReturnType<typeof _render> {
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    const nav = useBrowserNavApi({ hasWorkspaces: true });
-    return (
-      <LocaleProvider resolver={createStaticLocaleResolver()}>
-        <PrimitivesProvider value={defaultPrimitives}>
-          <NavProvider value={nav}>{children}</NavProvider>
-        </PrimitivesProvider>
-      </LocaleProvider>
-    );
-  }
   return _render(ui, { wrapper: Wrapper });
 }
 

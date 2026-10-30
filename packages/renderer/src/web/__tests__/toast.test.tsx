@@ -20,6 +20,15 @@ function ToastTrigger({ options }: { readonly options: readonly ToastOptions[] }
   return null;
 }
 
+function Outside(): ReactNode {
+  const { toast } = useToast();
+  return (
+    <button type="button" onClick={() => toast({ title: "Stub" })}>
+      trigger
+    </button>
+  );
+}
+
 describe("ToastProvider + useToast", () => {
   test("toast() pushes Title and Description into the viewport", () => {
     render(
@@ -139,17 +148,6 @@ describe("ToastProvider + useToast", () => {
   });
 
   test("useToast outside the provider: no-op, no crash", () => {
-    // Component that uses useToast but is not mounted inside <ToastProvider>,
-    // such as a test without a provider or a pre-mount code path.
-    // It must render without throwing.
-    function Outside(): ReactNode {
-      const { toast } = useToast();
-      return (
-        <button type="button" onClick={() => toast({ title: "Stub" })}>
-          trigger
-        </button>
-      );
-    }
     render(<Outside />);
     // Clicking calls toast() and should complete without producing an effect.
     act(() => {

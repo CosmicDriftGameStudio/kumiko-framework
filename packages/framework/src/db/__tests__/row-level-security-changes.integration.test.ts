@@ -103,8 +103,7 @@ describe("generated row level security migration SQL", () => {
 });
 
 describe("INSERT ... ON CONFLICT under the policies", () => {
-  const upsert = (id: string) =>
-    `INSERT INTO "store_rls_conflict" (id, tenant_id, label) VALUES ($1::uuid, $2::uuid, 'hijacked')
+  const UPSERT_HIJACK_SQL = `INSERT INTO "store_rls_conflict" (id, tenant_id, label) VALUES ($1::uuid, $2::uuid, 'hijacked')
      ON CONFLICT (id) DO UPDATE SET label = 'hijacked'`;
 
   async function labelOf(id: string): Promise<string | undefined> {
@@ -117,11 +116,11 @@ describe("INSERT ... ON CONFLICT under the policies", () => {
 
   test("DO UPDATE on a row of another tenant or of SYSTEM is rejected", async () => {
     const codes = await asProbe(testDb.db, { tenantId: tenantA }, async (raw) => ({
-      foreign: await pgCodeOf(raw.unsafe(upsert(ID_B), [ID_B, tenantA])),
+      foreign: await pgCodeOf(raw.unsafe(UPSERT_HIJACK_SQL, [ID_B, tenantA])),
     }));
     expect(codes.foreign).toBe(INSUFFICIENT_PRIVILEGE);
     const systemCode = await asProbe(testDb.db, { tenantId: tenantA }, (raw) =>
-      pgCodeOf(raw.unsafe(upsert(ID_SYSTEM), [ID_SYSTEM, tenantA])),
+      pgCodeOf(raw.unsafe(UPSERT_HIJACK_SQL, [ID_SYSTEM, tenantA])),
     );
     expect(systemCode).toBe(INSUFFICIENT_PRIVILEGE);
     expect(await labelOf(ID_B)).toBe("original");
@@ -130,7 +129,7 @@ describe("INSERT ... ON CONFLICT under the policies", () => {
 
   test("DO UPDATE on an own row works", async () => {
     const code = await asProbe(testDb.db, { tenantId: tenantA }, (raw) =>
-      pgCodeOf(raw.unsafe(upsert(ID_A), [ID_A, tenantA])),
+      pgCodeOf(raw.unsafe(UPSERT_HIJACK_SQL, [ID_A, tenantA])),
     );
     expect(code).toBeUndefined();
   });

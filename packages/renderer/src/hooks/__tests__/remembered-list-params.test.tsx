@@ -13,6 +13,7 @@ function renderRemembered(
   store = createMemoryListStateStore(),
 ) {
   let latest: Record<string, string> = initial;
+  // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderRemembered-local initial params and latest tracker; defined once per renderRemembered call, never during a render
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     const [params, setParams] = useState(initial);
     latest = params;

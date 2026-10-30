@@ -18,6 +18,30 @@ function Thrower({ message }: { readonly message: string }): ReactNode {
   throw new Error(message);
 }
 
+function Host({ ids }: { readonly ids: string[] }): ReactNode {
+  const [message, setMessage] = useState("first");
+  return (
+    <ErrorBoundary
+      scope="test"
+      onError={(_e, _i, context) => ids.push(context.errorId)}
+      fallback={({ reset }) => (
+        <button
+          type="button"
+          data-testid="retry"
+          onClick={() => {
+            setMessage("second");
+            reset();
+          }}
+        >
+          retry
+        </button>
+      )}
+    >
+      <Thrower message={message} />
+    </ErrorBoundary>
+  );
+}
+
 describe("ErrorBoundary errorId", () => {
   test("hands the same uuid to onError and the fallback", () => {
     const seen: string[] = [];
@@ -37,30 +61,7 @@ describe("ErrorBoundary errorId", () => {
 
   test("every new error after a reset gets a fresh id", () => {
     const ids: string[] = [];
-    function Host(): ReactNode {
-      const [message, setMessage] = useState("first");
-      return (
-        <ErrorBoundary
-          scope="test"
-          onError={(_e, _i, context) => ids.push(context.errorId)}
-          fallback={({ reset }) => (
-            <button
-              type="button"
-              data-testid="retry"
-              onClick={() => {
-                setMessage("second");
-                reset();
-              }}
-            >
-              retry
-            </button>
-          )}
-        >
-          <Thrower message={message} />
-        </ErrorBoundary>
-      );
-    }
-    render(<Host />);
+    render(<Host ids={ids} />);
     fireEvent.click(screen.getByTestId("retry"));
     expect(ids).toHaveLength(2);
     expect(ids[0]).not.toBe(ids[1]);

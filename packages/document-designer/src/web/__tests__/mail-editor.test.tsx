@@ -23,7 +23,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ReactNode } from "react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import { TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
-import { createMailEditor } from "../mail-editor.tsx";
+import { MailEditor } from "../mail-editor.tsx";
 import { PreviewRecordPickerProvider } from "../preview-record-picker.tsx";
 
 const SLUG = "billing:notify:invoice-issued";
@@ -240,14 +240,14 @@ const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),
   documentDesignerClient().translations ?? {},
 );
-const MailEditor = createMailEditor(["de", "en"]);
+const APP_LOCALES = ["de", "en"] as const;
 
 function renderEditor(
   dispatcher: Dispatcher,
   wrapper?: (children: ReactNode) => ReactNode,
   navApi: NavApi = nav,
 ): void {
-  const editor = <MailEditor />;
+  const editor = <MailEditor appLocales={APP_LOCALES} />;
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}

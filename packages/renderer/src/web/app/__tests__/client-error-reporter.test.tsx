@@ -26,6 +26,7 @@ afterEach(() => {
 // landed on "/" or on the directory of the URL it left behind, so both get cleared.
 function clearCsrfCookie(): void {
   for (const path of ["/", "/rent"]) {
+    // biome-ignore lint/suspicious/noDocumentCookie: the reporter reads the csrf token from document.cookie, so the test clears it there
     document.cookie = `kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}`;
   }
 }
@@ -65,6 +66,7 @@ describe("createClientErrorReporter", () => {
     reporter.report({ kind: "render", error: new Error("no-cookie") });
     expect(new Headers(calls[0]?.init.headers).get("x-csrf-token")).toBeNull();
 
+    // biome-ignore lint/suspicious/noDocumentCookie: the reporter reads the csrf token from document.cookie synchronously
     document.cookie = "kumiko_csrf=tok-123; path=/";
     reporter.report({ kind: "render", error: new Error("with-cookie") });
     expect(new Headers(calls[1]?.init.headers).get("x-csrf-token")).toBe("tok-123");

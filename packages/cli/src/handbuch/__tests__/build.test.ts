@@ -305,6 +305,7 @@ describe("ui strings", () => {
     const source = [
       "export const K = {",
       '  "a.b": { de: "Speichern", en: \'It\\\'s done\', es: `Hecho` },',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text, the interpolated template is what the test feeds the extractor
       '  "c": { de: "Zeile \\"zitiert\\" {count}", en: `x ${1}` },',
       "};",
     ].join("\n");

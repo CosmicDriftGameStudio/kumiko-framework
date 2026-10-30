@@ -296,42 +296,45 @@ describe("FileField", () => {
   });
 });
 
+function SizedButton({ size }: { readonly size: "sm" | "md" | "icon" }): ReactNode {
+  const { Button } = usePrimitives();
+  return (
+    <Button size={size} onClick={() => {}}>
+      X
+    </Button>
+  );
+}
+
+function IconBtn(): ReactNode {
+  const { Button } = usePrimitives();
+  return (
+    <Button size="icon" ariaLabel="Entfernen" onClick={() => {}}>
+      ✕
+    </Button>
+  );
+}
+
+function WideBtn(): ReactNode {
+  const { Button } = usePrimitives();
+  return (
+    <Button width="full" onClick={() => {}}>
+      Upgrade
+    </Button>
+  );
+}
+
 describe("Button size", () => {
-  function SizedButton({ size }: { readonly size: "sm" | "md" | "icon" }): ReactNode {
-    const { Button } = usePrimitives();
-    return (
-      <Button size={size} onClick={() => {}}>
-        X
-      </Button>
-    );
-  }
   test("size=sm renders the compact shadcn size (h-8)", () => {
     render(<SizedButton size="sm" />);
     expect(screen.getByRole("button", { name: "X" }).className).toContain("h-8");
   });
 
   test("ariaLabel gives icon-only buttons an accessible name", () => {
-    function IconBtn(): ReactNode {
-      const { Button } = usePrimitives();
-      return (
-        <Button size="icon" ariaLabel="Entfernen" onClick={() => {}}>
-          ✕
-        </Button>
-      );
-    }
     render(<IconBtn />);
     expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
   });
 
   test('width="full" stretches the button (w-full)', () => {
-    function WideBtn(): ReactNode {
-      const { Button } = usePrimitives();
-      return (
-        <Button width="full" onClick={() => {}}>
-          Upgrade
-        </Button>
-      );
-    }
     render(<WideBtn />);
     expect(screen.getByRole("button", { name: "Upgrade" }).className).toContain("w-full");
   });

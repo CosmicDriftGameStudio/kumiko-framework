@@ -85,43 +85,43 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   return <NavProvider value={api}>{children}</NavProvider>;
 }
 
+function Probe(): React.ReactElement {
+  const nav = useNav();
+  return (
+    <div>
+      <span data-testid="screen-id">{nav.route?.screenId ?? "(none)"}</span>
+      <span data-testid="entity-id">{nav.route?.entityId ?? "(none)"}</span>
+      <button
+        type="button"
+        data-testid="go-list"
+        onClick={() => nav.navigate({ screenId: "task-list" })}
+      >
+        go-list
+      </button>
+      <button
+        type="button"
+        data-testid="go-edit"
+        onClick={() => nav.navigate({ screenId: "task-edit", entityId: "xyz" })}
+      >
+        go-edit
+      </button>
+      <button
+        type="button"
+        data-testid="replace-list"
+        onClick={() => nav.replace({ screenId: "task-list" })}
+      >
+        replace-list
+      </button>
+    </div>
+  );
+}
+
 describe("useBrowserNavApi + NavProvider", () => {
   beforeEach(() => {
     // jsdom shares window.history between tests, so reset it to /;
     // otherwise routes leak from earlier tests into later ones.
     window.history.replaceState(null, "", "/");
   });
-
-  function Probe(): React.ReactElement {
-    const nav = useNav();
-    return (
-      <div>
-        <span data-testid="screen-id">{nav.route?.screenId ?? "(none)"}</span>
-        <span data-testid="entity-id">{nav.route?.entityId ?? "(none)"}</span>
-        <button
-          type="button"
-          data-testid="go-list"
-          onClick={() => nav.navigate({ screenId: "task-list" })}
-        >
-          go-list
-        </button>
-        <button
-          type="button"
-          data-testid="go-edit"
-          onClick={() => nav.navigate({ screenId: "task-edit", entityId: "xyz" })}
-        >
-          go-edit
-        </button>
-        <button
-          type="button"
-          data-testid="replace-list"
-          onClick={() => nav.replace({ screenId: "task-list" })}
-        >
-          replace-list
-        </button>
-      </div>
-    );
-  }
 
   test("initial route from window.location.pathname", async () => {
     window.history.replaceState(null, "", "/task-list");

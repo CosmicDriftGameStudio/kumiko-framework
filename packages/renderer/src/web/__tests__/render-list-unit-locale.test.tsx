@@ -65,33 +65,41 @@ const numberScreen: EntityListScreenDefinition = {
   columns: [{ field: "area" }],
 };
 
+function LocaleWrapper({
+  locale,
+  children,
+}: {
+  readonly locale: string;
+  readonly children: ReactNode;
+}): ReactElement {
+  return (
+    <TokensProvider value={stubTokens}>
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale })}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={stubNav}>
+            <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+          </NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensProvider>
+  );
+}
+
 function renderAreaListUnderLocale(
   locale: string,
   areaValue: number,
   screen: EntityListScreenDefinition,
 ): string | null {
   cleanup();
-  function Wrapper({ children }: { readonly children: ReactNode }): ReactElement {
-    return (
-      <TokensProvider value={stubTokens}>
-        <LocaleProvider resolver={createStaticLocaleResolver({ locale })}>
-          <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={stubNav}>
-              <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-            </NavProvider>
-          </PrimitivesProvider>
-        </LocaleProvider>
-      </TokensProvider>
-    );
-  }
   const result = render(
-    <RenderList
-      screen={screen}
-      entity={areaColumnEntity}
-      rows={[{ id: "r1", area: areaValue }]}
-      featureName="listing"
-    />,
-    { wrapper: Wrapper },
+    <LocaleWrapper locale={locale}>
+      <RenderList
+        screen={screen}
+        entity={areaColumnEntity}
+        rows={[{ id: "r1", area: areaValue }]}
+        featureName="listing"
+      />
+    </LocaleWrapper>,
   );
   return result.getByTestId("cell-r1-area").textContent;
 }

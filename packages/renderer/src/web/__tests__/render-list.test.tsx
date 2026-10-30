@@ -150,13 +150,14 @@ describe("RenderList", () => {
   });
 });
 
+const ListHeader = (props: ExtensionSectionProps) => (
+  <div data-testid="list-header-slot">
+    header for {props.entityName} (id={String(props.entityId)}) (screen=
+    {String(props.screenId)})
+  </div>
+);
+
 describe("RenderList — slots.header", () => {
-  const ListHeader = (props: ExtensionSectionProps) => (
-    <div data-testid="list-header-slot">
-      header for {props.entityName} (id={String(props.entityId)}) (screen=
-      {String(props.screenId)})
-    </div>
-  );
   const screenWithHeader: EntityListScreenDefinition = {
     ...listScreen,
     slots: { header: { react: { __component: "list-cap-header" } } },

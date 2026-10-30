@@ -251,6 +251,7 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
   mkdirSync(outDir, { recursive: true });
   // Scoped in its own describe so `test.use` below can't leak the pinned
   // locale into sibling test.describe blocks in the same spec file.
+  // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: test.describe(callback) is Playwright's documented anonymous group; a title would prefix every scenario test name
   test.describe(() => {
     // Browser-context locale for JS-side Intl/navigator.language (e.g. money-input's
     // resolvedLocale) — pinEnglishLocale() only seeds the app's own kumiko:locale.

@@ -71,12 +71,14 @@ const testInput = (props: InputProps) =>
     />
   ) : null;
 
+const testBanner = ({ children, testId }: { children?: ReactNode; testId?: string }) => (
+  <div data-testid={testId}>{children}</div>
+);
+
 function testPrimitives(): CorePrimitives {
   return {
     Button: noop,
-    Banner: ({ children, testId }: { children?: ReactNode; testId?: string }) => (
-      <div data-testid={testId}>{children}</div>
-    ),
+    Banner: testBanner,
     Field: passChildren,
     Input: testInput,
     DataTable: testDataTable,

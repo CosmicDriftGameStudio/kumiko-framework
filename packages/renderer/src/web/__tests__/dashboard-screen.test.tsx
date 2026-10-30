@@ -252,6 +252,22 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   return <NavProvider value={nav}>{children}</NavProvider>;
 }
 
+function RegionEcho({ filterParams }: ExtensionSectionProps): ReactNode {
+  return <div data-testid="custom-echo">{String(filterParams?.["region"] ?? "none")}</div>;
+}
+
+function CustomEcho({ screenId, filterParams }: ExtensionSectionProps): ReactNode {
+  return (
+    <div data-testid="custom-echo">
+      {screenId}:{String(filterParams?.["region"] ?? "none")}
+    </div>
+  );
+}
+
+function KpiIcon(): ReactNode {
+  return <svg data-testid="kpi-icon" />;
+}
+
 describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
   afterEach(() => {
     window.history.replaceState(null, "", "/");
@@ -325,13 +341,6 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
   });
 
   test("custom panel: registered component renders with screenId + filterParams", async () => {
-    function CustomEcho({ screenId, filterParams }: ExtensionSectionProps): ReactNode {
-      return (
-        <div data-testid="custom-echo">
-          {screenId}:{String(filterParams?.["region"] ?? "none")}
-        </div>
-      );
-    }
     const dispatcher = createMockDispatcher();
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -348,9 +357,6 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("custom panel: static params reach the component and win over a screen filter value", async () => {
     window.history.replaceState(null, "", "/rich?region=us");
-    function CustomEcho({ filterParams }: ExtensionSectionProps): ReactNode {
-      return <div data-testid="custom-echo">{String(filterParams?.["region"] ?? "none")}</div>;
-    }
     const schema: FeatureSchema = {
       ...richSchema,
       screens: [
@@ -370,7 +376,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     render(
       <BrowserNav>
         <DispatcherProvider dispatcher={createMockDispatcher()}>
-          <ExtensionSectionsProvider value={{ "rich-dashboard-custom": CustomEcho }}>
+          <ExtensionSectionsProvider value={{ "rich-dashboard-custom": RegionEcho }}>
             <DashboardBodyProvider value={WebDashboardBody}>
               <KumikoScreen schema={schema} qn="widgets:screen:rich" />
             </DashboardBodyProvider>
@@ -424,9 +430,6 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
   });
 
   test("stat panel: registered icon renders, unregistered icon renders nothing (no crash)", async () => {
-    function KpiIcon(): ReactNode {
-      return <svg data-testid="kpi-icon" />;
-    }
     const dispatcher = createMockDispatcher({
       query: (async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {

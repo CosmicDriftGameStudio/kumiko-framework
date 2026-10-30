@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { type SessionApi, SessionProvider, useSession } from "../session.tsx";
+import { clearCsrfCookie, setCsrfCookie } from "./test-utils.tsx";
 
 let session: SessionApi | undefined;
 
@@ -14,7 +15,7 @@ describe("logout forgets remembered list state", () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    document.cookie = "kumiko_csrf=logout-test-token; path=/";
+    setCsrfCookie("logout-test-token");
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input.toString();
       if (url === "/api/auth/tenants") {
@@ -33,7 +34,7 @@ describe("logout forgets remembered list state", () => {
   });
 
   afterEach(() => {
-    document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCsrfCookie();
     globalThis.fetch = originalFetch;
     window.sessionStorage.clear();
   });

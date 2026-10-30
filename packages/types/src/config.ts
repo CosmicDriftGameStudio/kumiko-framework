@@ -372,6 +372,7 @@ export type JobRunIn = Exclude<RunIn, "both">;
 export type JobHandlerFn = (
   payload: Record<string, unknown>,
   context: JobContext,
+  // biome-ignore lint/suspicious/noConfusingVoidType: public handler type, `| undefined` would reject job handlers declared as Promise<void>
 ) => Promise<void | JobDeferral>;
 
 export type JobTrigger =
