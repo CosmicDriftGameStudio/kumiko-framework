@@ -120,6 +120,8 @@ export const inboundMessageEntity = createEntity({
     // Null on rows from before the column; list-messages never selects it.
     bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
     bodyTextTruncated: createBooleanField(),
+    // Sanitized HTML of the mail (sanitizeInboundHtml), null when the mail has none or it was too large.
+    bodyHtml: createLongTextField({ maxLength: 500_000, personal: "tenant", find: "none" }),
     // Bound to the message (entityType = the aggregate type), so the file guard answers with the
     // mail's visibility. The fileRefs are bound at ingest, the projection copies the ids.
     attachmentFileIds: createFilesField({ personal: false, reason: "technical_reference" }),

@@ -4,6 +4,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type {
   DashboardScreenDefinition,
+  EntityDefinition,
+  EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
@@ -125,5 +127,48 @@ describe("embedded form submit row", () => {
     const row = screen.getByTestId("f-footer");
     expect(row.className).not.toContain("border-t");
     expect(row.className).not.toContain("justify-end");
+  });
+});
+
+describe("embedded entityList description", () => {
+  test("appears once, in the panel head, not again in the list toolbar", async () => {
+    const entity = { fields: { title: { type: "text" } } } as unknown as EntityDefinition;
+    const list: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      description: "tasks.list.description",
+    };
+    const board = dashboardWith([
+      { kind: "screen", id: "tasks", screen: "task-list", chromeless: true },
+    ]);
+    const schema: FeatureSchema = {
+      featureName: "sites",
+      entities: { task: entity },
+      screens: [list, board],
+    };
+    const query = (async () => ({
+      isSuccess: true,
+      data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
+    })) as unknown as Dispatcher["query"];
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+          <AppFeaturesProvider features={[schema]}>
+            <DashboardBodyProvider value={WebDashboardBody}>
+              <KumikoScreen
+                schema={schema}
+                qn="sites:screen:board"
+                translate={(key) => (key === "tasks.list.description" ? "Open tasks" : key)}
+              />
+            </DashboardBodyProvider>
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </BrowserNav>,
+    );
+    await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
+    expect(screen.getAllByText("Open tasks")).toHaveLength(1);
+    expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe("Open tasks");
   });
 });

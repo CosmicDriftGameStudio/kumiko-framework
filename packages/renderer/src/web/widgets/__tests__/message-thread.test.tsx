@@ -123,7 +123,7 @@ describe("MessageThread", () => {
       expect(screen.getByText("External images are blocked.")).toBeTruthy();
       fireEvent.click(screen.getByText("Show images"));
       const frame = screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement;
-      expect(frame.getAttribute("srcdoc")).toContain("img-src data: https:");
+      expect(frame.getAttribute("srcdoc")).toContain("img-src data: https: http:");
       expect(screen.queryByText("External images are blocked.")).toBeNull();
     });
 
@@ -131,7 +131,7 @@ describe("MessageThread", () => {
       render(<MessageThread messages={[htmlMessage]} remoteImages="allowed" />);
       expect(screen.queryByTestId("message-images-bar")).toBeNull();
       const frame = screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement;
-      expect(frame.getAttribute("srcdoc")).toContain("img-src data: https:");
+      expect(frame.getAttribute("srcdoc")).toContain("img-src data: https: http:");
     });
 
     test("no bar when the html has no external images", () => {

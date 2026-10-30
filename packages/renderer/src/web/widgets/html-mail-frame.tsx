@@ -10,7 +10,7 @@ export function buildMailSrcDoc(
   html: string,
   options: { readonly allowRemoteImages: boolean; readonly style: MailFrameStyle },
 ): string {
-  const imageSources = options.allowRemoteImages ? "img-src data: https:" : "img-src data:";
+  const imageSources = options.allowRemoteImages ? "img-src data: https: http:" : "img-src data:";
   const csp = `default-src 'none'; style-src 'unsafe-inline'; ${imageSources}`;
   const { fontFamily, color } = options.style;
   const baseStyle = `html,body{margin:0;background:transparent}body{font-family:${stripMarkup(fontFamily)};font-size:15px;line-height:1.55;color:${stripMarkup(color)};overflow-wrap:anywhere}img{max-width:100%;height:auto}a{color:inherit}`;

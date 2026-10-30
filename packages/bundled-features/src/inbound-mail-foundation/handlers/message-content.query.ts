@@ -26,6 +26,8 @@ export type InboundMessageContent = {
   readonly messageId: string;
   readonly bodyText: string;
   readonly bodyTextTruncated: boolean;
+  /** Sanitized HTML, null when the mail has none; readers show bodyText then. */
+  readonly bodyHtml: string | null;
   readonly bodyRef: string;
   readonly attachmentFileIds: readonly string[];
   readonly skippedAttachments: readonly SkippedInboundAttachment[];
@@ -67,6 +69,7 @@ export async function loadInboundMessageContent(
     messageId,
     bodyText: typeof bodyText === "string" ? bodyText : "",
     bodyTextTruncated: row["bodyTextTruncated"] === true,
+    bodyHtml: typeof readable["bodyHtml"] === "string" ? readable["bodyHtml"] : null,
     bodyRef: typeof row["bodyRef"] === "string" ? row["bodyRef"] : "",
     attachmentFileIds: fileIdsSchema.parse(row["attachmentFileIds"] ?? []),
     skippedAttachments: parseJsonColumn(row["skippedAttachments"], skippedListSchema, []),

@@ -25,7 +25,7 @@ detail: projectionDetail with layout.mode tabs left about 10px between the tab s
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: Chromeless screen panels in dashboards carry a section head
 detail: A dashboard panel kind screen with chromeless renders the embedded screen's title (panel label, else screen:<id>.title) and its translated description as a section head, separated from the previous panel by a divider and without extra indentation. The embedded form no longer renders its own title block, and its submit buttons sit left-aligned directly under the fields without a divider footer. The "All fields are required" hint needs at least two shown fields, a lone field keeps its own required mark. The "As of" stamp only shows when the dashboard has a panel that loads data (not only screen, text or custom panels). The account-security dashboard marks its panels chromeless, and the sessions screen my-sessions is now titled "Signed-in devices" with a description (de, en, es, fr, it).
 -->

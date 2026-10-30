@@ -819,7 +819,13 @@ async function bootProdApp(
     entrypoint,
     entrypointOptions.dispatcherOptions,
   );
-  await startProdBackgroundWork(entrypoint, config, composed, connections);
+  await startProdBackgroundWork(
+    entrypoint,
+    config,
+    composed,
+    connections,
+    requestContext.extraContext,
+  );
 
   const fetch = await buildProdFetchHandler(options, config, entrypoint);
 

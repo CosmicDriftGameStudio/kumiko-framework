@@ -540,6 +540,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.unprocessable": "The request could not be processed.",
   "errors.file.violatesBindTarget": "This file does not meet the requirements of the target field.",
   "errors.validation.custom": "Invalid value.",
+  "errors.validation.onlyDeleted": "The trash list is not available here.",
   "errors.validation.failed": "Validation failed.",
   "errors.validation.invalid_element": "Invalid entry.",
   "errors.validation.invalid_format": "Invalid format.",

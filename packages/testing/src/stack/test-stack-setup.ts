@@ -429,7 +429,7 @@ function collectSearchableFields(features: TestStackOptions["features"]): string
   for (const feature of features) {
     for (const [, entity] of Object.entries(feature.entities ?? {})) {
       for (const [fieldName, field] of Object.entries(entity.fields)) {
-        if (field.type === "text" && field.searchable) {
+        if ((field.type === "text" || field.type === "longText") && field.searchable) {
           searchableFields.push(fieldName);
         }
         if (field.type === "embedded") {

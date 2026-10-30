@@ -561,6 +561,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.file.violatesBindTarget":
     "Questo file non soddisfa i requisiti del campo di destinazione.",
   "errors.validation.custom": "Valore non valido.",
+  "errors.validation.onlyDeleted": "Richiesta del cestino non disponibile.",
   "errors.validation.failed": "Convalida non riuscita.",
   "errors.validation.invalid_element": "Voce non valida.",
   "errors.validation.invalid_format": "Formato non valido.",

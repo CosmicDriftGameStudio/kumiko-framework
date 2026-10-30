@@ -25,3 +25,35 @@ export async function withSessionAdvisoryLock<T>(
     await conn.release();
   }
 }
+
+export type TryAdvisoryLockResult<T> =
+  | { readonly acquired: true; readonly value: T }
+  | { readonly acquired: false };
+
+// Same session scoping as withSessionAdvisoryLock, but a peer holding the lock makes the
+// caller skip instead of wait: for work that only needs to run once across replicas.
+export async function tryWithSessionAdvisoryLock<T>(
+  db: AnyDb,
+  key: number,
+  fn: () => Promise<T>,
+): Promise<TryAdvisoryLockResult<T>> {
+  const client = asRawClient(db);
+  if (typeof client.reserve !== "function") {
+    throw new Error("tryWithSessionAdvisoryLock: db has no .reserve() (need a Bun.SQL pool)");
+  }
+  const conn = await client.reserve();
+  try {
+    const rows = await conn.unsafe<{ locked: boolean }>(
+      `SELECT pg_try_advisory_lock($1) AS "locked"`,
+      [key],
+    );
+    if (rows[0]?.locked !== true) return { acquired: false };
+    try {
+      return { acquired: true, value: await fn() };
+    } finally {
+      await conn.unsafe(`SELECT pg_advisory_unlock($1)`, [key]).catch(() => undefined);
+    }
+  } finally {
+    await conn.release();
+  }
+}
