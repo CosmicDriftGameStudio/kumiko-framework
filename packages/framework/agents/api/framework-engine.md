@@ -972,6 +972,9 @@ type JobTrigger =
     tz?: string;
   }
   | {
+    maintenance: true;
+  }
+  | {
     manual: true;
   }
 ;

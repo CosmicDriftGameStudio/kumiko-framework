@@ -23,6 +23,7 @@ import { z } from "zod";
 // opaque to the framework.
 export const renderedReceipts: Array<{ customerName: string; amount: number }> = [];
 export const sentConfirmations: Array<{ customerName: string; amount: number }> = [];
+export const pruneRuns: number[] = [];
 
 // The entity declaration secures the qualified-name prefix "orders:write:order:create"
 // for the write handler below and thereby the job trigger on this event.
@@ -100,5 +101,12 @@ export function createLaneRoutingFeature(): FeatureDefinition {
         });
       },
     );
+
+    // Housekeeping: `maintenance` runs once a day in the app's maintenance window
+    // (KUMIKO_MAINTENANCE_WINDOW, UTC, default 03:00) instead of a cron time of its own, so a
+    // sleeping app wakes once a day for all its cleanup jobs.
+    r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
+      pruneRuns.push(Date.now());
+    });
   });
 }

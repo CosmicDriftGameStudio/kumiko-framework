@@ -43,7 +43,7 @@ export type JobsFeatureOptions = {
   // store_job_run_logs before the daily retention-cleanup job deletes it. Also the age after
   // which a tenant-visible "queued" row counts as lost and is dropped by the stale-run sweep.
   readonly retentionDays?: number;
-  // How long a run can sit at status "running" before the hourly
+  // How long a run can sit at status "running" before the daily
   // stale-run-sweep job marks it "failed" — a process kill mid-run
   // never fires onJobComplete/onJobFailed, so nothing else ever revisits
   // it). Must clear any legitimately long-running job (reindexEntity,
@@ -120,18 +120,17 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     // stores — nothing else purges them.
     r.job(
       "retention-cleanup",
-      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
+      { trigger: { maintenance: true }, concurrency: "skip" },
       createRetentionCleanupJob(retentionDays),
     );
 
     // Sweeps store_job_runs for rows stuck at status "running" past the
-    // timeout. Hourly matches the timeout's own granularity —
-    // frequent enough to catch a stuck run soon after it crosses the
-    // threshold, cheap enough that an (almost always empty) result set
-    // doesn't matter.
+    // timeout. Runs in the maintenance window: the timeout is
+    // hours, so a daily pass finds a stuck run at most a day late and a sleeping
+    // app is not woken every hour for it.
     r.job(
       "stale-run-sweep",
-      { trigger: { cron: "0 * * * *" }, concurrency: "skip" },
+      { trigger: { maintenance: true }, concurrency: "skip" },
       createStaleRunSweepJob(staleRunTimeoutHours, retentionDays),
     );
 

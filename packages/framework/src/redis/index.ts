@@ -12,11 +12,12 @@ export {
   CACHE_SYNC_TOPICS,
   isTierAssignmentSyncMessage,
 } from "./cache-sync-topics.ts";
-export type { RedisClientOptions } from "./client.ts";
+export type { RedisClientOptions, RedisNamespace } from "./client.ts";
 export {
   createRedisClient,
   logRedisConnectionState,
   redisChannelPrefixFromEnv,
   redisClientOptionsFromEnv,
+  redisNamespaceFromEnv,
 } from "./client.ts";
 export { createRedisPubSubSignal } from "./pubsub-signal.ts";

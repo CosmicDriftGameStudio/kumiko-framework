@@ -1247,6 +1247,7 @@ type JobQueuedMeta = {
 type JobRunner = {
   start(): Promise<void>;
   stop(): Promise<void>;
+  stopConsuming?(): Promise<void>;
   dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
   handleEvent(eventName: string, payload: Record<string, unknown>, user?: SessionUser, triggerEvent?: JobTriggerEvent): Promise<void>;
   handleCatchUpEvent(jobName: string, eventName: string, payload: Record<string, unknown>, user: SessionUser, triggerEvent: JobTriggerEvent): Promise<void>;
@@ -1259,6 +1260,8 @@ type JobRunnerOptions = {
   redisUrl: string;
   consumerLane?: JobRunIn | undefined;
   queueNamePrefix?: string | undefined;
+  redisNamespace?: Pick<RedisNamespace, "keyPrefix" | "bullmqPrefix"> | undefined;
+  maintenanceWindow?: MaintenanceWindow | undefined;
   bootRedisTimeoutMs?: number | undefined;
   schedulerSeenRefreshMs?: number | undefined;
   jobRetention?: { completedAgeSec?: number | undefined; failedAgeSec?: number | undefined; } | undefined;
@@ -1269,6 +1272,15 @@ type JobRunnerOptions = {
   onJobDeferred?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
   onJobDropped?: (jobName: string, jobId: string, meta: JobDroppedMeta) => void;
+};
+```
+
+## packages/framework/src/jobs/maintenance-window.ts
+
+```ts
+type MaintenanceWindow = {
+  hour: number;
+  minute: number;
 };
 ```
 
@@ -1433,6 +1445,17 @@ type SystemHooks = {
   preDelete?: SystemHookDef<PreDeleteHookFn>[];
   postDelete?: SystemHookDef<PostDeleteHookFn>[];
   postDeleteBatch?: SystemHookDef<PostDeleteBatchHookFn>[];
+};
+```
+
+## packages/framework/src/redis/client.ts
+
+```ts
+type RedisNamespace = {
+  keyPrefix: string; // ioredis keyPrefix for every non-BullMQ key; "" when unnamespaced.
+  bullmqPrefix: string; // BullMQ `prefix` option ("bull" is BullMQ's own default).
+  channelPrefix: string; // Prepended to every Pub/Sub channel (ioredis keyPrefix does not apply to Pub/Sub).
+  channelSubscribePattern: string | undefined; // Set only with KUMIKO_REDIS_PREFIX.
 };
 ```
 

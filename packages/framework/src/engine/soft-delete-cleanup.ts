@@ -231,7 +231,7 @@ export function buildSoftDeleteCleanupJob(): JobDefinition {
   return {
     name: SOFT_DELETE_CLEANUP_JOB,
     handler: softDeleteCleanupJob,
-    trigger: { cron: "0 3 * * *" },
+    trigger: { maintenance: true },
     perTenant: true,
     concurrency: "skip",
     runIn: "worker",
@@ -242,7 +242,7 @@ export function buildSoftDeleteCleanupSystemJob(): JobDefinition {
   return {
     name: SOFT_DELETE_CLEANUP_SYSTEM_JOB,
     handler: softDeleteCleanupSystemJob,
-    trigger: { cron: "15 3 * * *" },
+    trigger: { maintenance: true },
     concurrency: "skip",
     runIn: "worker",
     escapeHatch: {

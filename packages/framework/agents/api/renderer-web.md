@@ -338,6 +338,7 @@ type CreateEventSourceLiveEventsOptions = {
   url?: string; // URL of the SSE endpoint.
   onSessionEnded?: () => void; // Fires once per connection when the session ended: the server refused the SSE handshake, or opened the stream with a `session-ended` frame (stale auth cookie downgraded to anonymous).
   timers?: LiveEventTimers; // Reconnect-timer seam; defaults to the global setTimeout/clearTimeout.
+  stallTimers?: LiveEventTimers; // Stall-watchdog timer seam; defaults to the global setTimeout/clearTimeout.
   random?: () => number; // Jitter source in [0, 1); defaults to Math.random.
   now?: () => number; // Clock for synthetic resync events; defaults to Date.now.
 };

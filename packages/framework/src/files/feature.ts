@@ -28,10 +28,10 @@ export type FilesFeatureOptions = {
   readonly unclaimedUploadReaders?: readonly string[];
   // Global upload size default (per-field `maxSize` still wins). e.g. "10mb".
   readonly maxUploadSize?: string;
-  // Hours an upload may wait for its fileRef row before the hourly sweep deletes its bytes.
+  // Hours an upload may wait for its fileRef row before the daily sweep deletes its bytes.
   // Whole hours, at least 1; default 24.
   readonly uploadSweepGraceHours?: number;
-  // Hours an upload for a form field may stay unbound to a record before the hourly sweep
+  // Hours an upload for a form field may stay unbound to a record before the daily sweep
   // soft-deletes it (abandoned forms). Off by default: an app that keeps fileRef ids without
   // binding them would lose those files. Whole hours, at least 1.
   readonly pendingUploadGraceHours?: number;
@@ -78,7 +78,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
     r.storeTable(fileUploadLedgerTable, { reason: "coordination.file_upload_ledger" });
     r.job({
       name: "sweep-orphaned-uploads",
-      trigger: { cron: "0 * * * *" },
+      trigger: { maintenance: true },
       perTenant: true,
       concurrency: "skip",
       handler: async (_payload, ctx) => {

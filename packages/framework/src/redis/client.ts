@@ -76,14 +76,59 @@ export function logRedisConnectionState(redis: Redis, logger: Pick<Logger, "warn
   });
 }
 
-// Redis Pub/Sub ignores the DB index and ioredis keyPrefix, so apps or environments sharing one
-// Redis instance would see each other's SSE and toggle-sync traffic. An optional prefix
-// namespaces those channels; unset keeps the unprefixed channel names.
+const BULLMQ_DEFAULT_PREFIX = "bull";
+// No ":" and no glob characters: the ACL rules `~<P>:*` / `&<P>:*` must not match a sibling app ("app-x" vs "app-x2:").
+const REDIS_PREFIX_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$/;
+
+export type RedisNamespace = {
+  /** ioredis keyPrefix for every non-BullMQ key; "" when unnamespaced. */
+  readonly keyPrefix: string;
+  /** BullMQ `prefix` option ("bull" is BullMQ's own default). BullMQ rejects an ioredis keyPrefix. */
+  readonly bullmqPrefix: string;
+  /** Prepended to every Pub/Sub channel (ioredis keyPrefix does not apply to Pub/Sub). */
+  readonly channelPrefix: string;
+  /** Set only with KUMIKO_REDIS_PREFIX. Redis checks PSUBSCRIBE patterns against `&` ACL rules literally,
+   *  so `P:kumiko:sse:*` is NOPERM under `&P:*`; subscribe to `P:*` and filter by channel instead. */
+  readonly channelSubscribePattern: string | undefined;
+};
+
+// KUMIKO_REDIS_PREFIX namespaces keys and channels for apps sharing one Redis behind per-app ACL users.
+// KUMIKO_REDIS_CHANNEL_PREFIX alone keeps its older channels-only behaviour.
+export function redisNamespaceFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): RedisNamespace {
+  const prefix = env["KUMIKO_REDIS_PREFIX"]?.trim();
+  const channelPrefix = env["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim();
+  if (!prefix) {
+    return {
+      keyPrefix: "",
+      bullmqPrefix: BULLMQ_DEFAULT_PREFIX,
+      channelPrefix: channelPrefix ? `${channelPrefix}:` : "",
+      channelSubscribePattern: undefined,
+    };
+  }
+  if (!REDIS_PREFIX_PATTERN.test(prefix)) {
+    throw new Error(
+      `KUMIKO_REDIS_PREFIX "${prefix}" is invalid: use 1-63 characters of A-Z a-z 0-9 _ - starting with a letter or digit (no ":" or glob characters).`,
+    );
+  }
+  if (channelPrefix && channelPrefix !== prefix) {
+    throw new Error(
+      `KUMIKO_REDIS_PREFIX "${prefix}" and KUMIKO_REDIS_CHANNEL_PREFIX "${channelPrefix}" differ; unset the channel prefix or make them equal.`,
+    );
+  }
+  return {
+    keyPrefix: `${prefix}:`,
+    bullmqPrefix: `${prefix}:${BULLMQ_DEFAULT_PREFIX}`,
+    channelPrefix: `${prefix}:`,
+    channelSubscribePattern: `${prefix}:*`,
+  };
+}
+
 export function redisChannelPrefixFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
-  const raw = env["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim();
-  return raw ? `${raw}:` : "";
+  return redisNamespaceFromEnv(env).channelPrefix;
 }
 
 // Env-var reader — mirrors dbConnectionOptionsFromEnv's contract. Strict:

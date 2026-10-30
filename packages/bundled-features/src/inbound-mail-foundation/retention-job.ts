@@ -18,7 +18,7 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
     "inbound-mail retention runs raw deletes; every statement filters by this run's tenantId";
   r.job({
     name: "inbound-mail-retention",
-    trigger: { cron: "0 3 * * *" },
+    trigger: { maintenance: true },
     perTenant: true,
     concurrency: "skip",
     escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },

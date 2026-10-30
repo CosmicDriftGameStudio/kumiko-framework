@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { installShutdownSignals, type SignalProcess } from "../process-signals.ts";
+import {
+  DEFAULT_DRAIN_TIMEOUT_MS,
+  installShutdownSignals,
+  readShutdownDrainTimeoutMs,
+  resolveDrainTimeoutMs,
+  type SignalProcess,
+} from "../process-signals.ts";
 
 function fakeProcess(): SignalProcess & { emit(signal: string): void; count(): number } {
   const emitter = new EventEmitter();
@@ -128,5 +134,30 @@ describe("installShutdownSignals", () => {
     uninstall();
 
     expect(signalProcess.count()).toBe(0);
+  });
+});
+
+describe("shutdown drain timeout", () => {
+  test("unset or blank values leave the budget to the caller", () => {
+    expect(readShutdownDrainTimeoutMs({})).toBeUndefined();
+    expect(readShutdownDrainTimeoutMs({ KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS: " " })).toBeUndefined();
+  });
+
+  test("a positive integer is parsed", () => {
+    expect(readShutdownDrainTimeoutMs({ KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS: "290000" })).toBe(
+      290_000,
+    );
+  });
+
+  test.each(["0", "-5", "1.5", "abc", "10s"])("invalid value %p fails the boot", (value) => {
+    expect(() => readShutdownDrainTimeoutMs({ KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS: value })).toThrow(
+      /KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS/,
+    );
+  });
+
+  test("explicit option wins over the variable, the variable over the default", () => {
+    expect(resolveDrainTimeoutMs(1_000, 290_000)).toBe(1_000);
+    expect(resolveDrainTimeoutMs(undefined, 290_000)).toBe(290_000);
+    expect(resolveDrainTimeoutMs(undefined, undefined)).toBe(DEFAULT_DRAIN_TIMEOUT_MS);
   });
 });
