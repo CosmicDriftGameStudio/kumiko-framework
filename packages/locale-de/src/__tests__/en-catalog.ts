@@ -1174,7 +1174,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "screen:member-roles-edit.title": "Edit roles",
   "screen:members.title": "Team",
   "screen:my-caps.title": "My usage",
-  "screen:my-sessions.title": "Your sessions",
+  "screen:my-sessions.title": "Signed-in devices",
+  "sessions.mine.description":
+    "Devices you are currently signed in on. Sign out unfamiliar devices here.",
   "screen:page-edit.createTitle": "New page",
   "screen:page-edit.title": "Edit page",
   "screen:page-list.title": "Pages",

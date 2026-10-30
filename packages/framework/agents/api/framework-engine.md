@@ -868,6 +868,7 @@ type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   user: SessionUser; // The active SessionUser for the handler call, exposed as a convenience alias for `event.user`.
   rateLimitDigest?: (value: string) => string; // Keyed digest for handler-owned rate-limit keys, so Redis never holds a plaintext or plainly hashed identifier.
   includeDeleted?: boolean;
+  onlyDeleted?: boolean;
   dispatch: HandlerDispatch;
   hasFeature: (featureName: string) => Promise<boolean>;
   events: HandlerEvents<TMap>;

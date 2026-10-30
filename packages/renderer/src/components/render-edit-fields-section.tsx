@@ -25,7 +25,6 @@ function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
             group.fields,
             group.columns,
             `${sectionKey}-group-${groupIndex}-grid`,
-            group.columnsDeclared,
           )}
         </Card>
       ))}
@@ -72,14 +71,7 @@ function renderTabbedFieldsSection<TValues extends FormValues, TCtx>(
       })}
       testId={`section-${sectionKey}`}
     >
-      {renderFieldGrid(
-        rc.model,
-        section,
-        section.fields,
-        section.columns,
-        `${sectionKey}-grid`,
-        section.columnsDeclared,
-      )}
+      {renderFieldGrid(rc.model, section, section.fields, section.columns, `${sectionKey}-grid`)}
     </Card>
   );
   return rc.wrapWizardStep(sectionKey, cardEl);
@@ -136,14 +128,7 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
         model.engine.state.insideDrawer &&
         sectionIndex === 0 &&
         renderAllRequiredHint(model)}
-      {renderFieldGrid(
-        model,
-        section,
-        section.fields,
-        section.columns,
-        `${sectionKey}-grid`,
-        section.columnsDeclared,
-      )}
+      {renderFieldGrid(model, section, section.fields, section.columns, `${sectionKey}-grid`)}
     </Section>
   );
   return rc.wrapWizardStep(sectionKey, sectionEl);

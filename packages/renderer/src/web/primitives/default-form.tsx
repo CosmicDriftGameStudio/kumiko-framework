@@ -176,29 +176,16 @@ export function DefaultForm({
         testId={testId}
         className="flex w-full flex-col gap-6"
       >
-        <FormTitleBlock
-          title={title}
-          subtitle={subtitle}
-          titleAction={titleAction}
-          testId={testId}
-          bordered={false}
-          fillHeight={false}
-        />
         <FormSections chromeless stickyActions={undefined} fillHeight={false} screenForm>
           {children}
         </FormSections>
-        {/* Divider spans only the settings-list width (max-w-4xl), not the page. */}
         {(actions !== undefined || secondaryActions !== undefined) && (
-          <div className="max-w-4xl border-t border-border">
-            <FormFooter
-              actions={actions}
-              secondaryActions={secondaryActions}
-              testId={testId}
-              chromeless
-              stickyActions={undefined}
-              fillHeight={false}
-              {...(unsavedCount !== undefined && { unsavedCount })}
-            />
+          <div
+            data-testid={testId !== undefined ? `${testId}-footer` : undefined}
+            className="flex flex-wrap items-center gap-2"
+          >
+            {actions}
+            {secondaryActions}
           </div>
         )}
       </FormRoot>
@@ -307,7 +294,11 @@ export function DefaultForm({
           className={cn("!p-0", pinnedShellClassName)}
         >
           {headerRegion !== undefined && (
-            <div className={cn("flex flex-col", fillHeight === true && "shrink-0")}>
+            // The list toolbar under the tab strip brings ~10px of its own; pb-1.5 tops that up to the 16px content gap.
+            <div
+              data-testid={testId !== undefined ? `${testId}-header-region` : undefined}
+              className={cn("flex flex-col pb-1.5", fillHeight === true && "shrink-0")}
+            >
               {headerRegion}
             </div>
           )}

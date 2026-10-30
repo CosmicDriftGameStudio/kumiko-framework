@@ -3274,6 +3274,7 @@ type ListFilterOption = {
 type ListRuntimeOptions = {
   searchAdapter?: SearchAdapter;
   includeDeleted?: boolean;
+  onlyDeleted?: boolean;
   referenceSearch?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;

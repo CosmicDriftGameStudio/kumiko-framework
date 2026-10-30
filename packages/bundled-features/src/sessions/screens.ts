@@ -118,6 +118,7 @@ export const createSessionDetailScreen = (
 export const sessionMineScreen: ProjectionListScreenDefinition = {
   id: SESSION_MINE_SCREEN_ID,
   type: "projectionList",
+  description: i18nKey("sessions.mine.description"),
   query: SessionQueries.mine,
   columns: [
     {

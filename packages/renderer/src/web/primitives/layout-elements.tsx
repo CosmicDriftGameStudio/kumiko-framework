@@ -186,8 +186,7 @@ export function DefaultGrid({
       </div>
     );
   }
-  const declaresColumns = typeof columns === "number" && columns >= 2;
-  if (flow === true && (insideDrawerBody || !declaresColumns)) {
+  if (flow === true) {
     return (
       <div
         {...groupProps}
@@ -247,11 +246,7 @@ export function DefaultGrid({
     <div
       {...groupProps}
       data-testid={testId}
-      className={cn(
-        "grid gap-[var(--kumiko-grid-gap,1rem)] grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]",
-        flow === true &&
-          "items-end has-[[data-appendix-below]]:items-start has-[[role=alert]]:items-start",
-      )}
+      className="grid gap-[var(--kumiko-grid-gap,1rem)] grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
       style={style}
     >
       {children}

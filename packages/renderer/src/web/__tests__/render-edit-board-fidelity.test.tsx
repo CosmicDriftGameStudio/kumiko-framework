@@ -61,6 +61,15 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByTestId("field-price").textContent).toContain("*");
   });
 
+  test("all-required hint needs at least two shown fields; a lone field keeps its own mark", () => {
+    const entity = {
+      fields: { price: { type: "number", required: true } },
+    } as unknown as EntityDefinition;
+    renderEdit(entity, ["price"]);
+    expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();
+    expect(screen.getByTestId("field-price").textContent).toContain("*");
+  });
+
   test("a required boolean shows no required mark and does not block the all-required hint", () => {
     const entity = {
       fields: {

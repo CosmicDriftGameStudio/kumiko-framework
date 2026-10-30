@@ -726,6 +726,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   // payload's `includeDeleted` field — visibility (tenant/ownership) filters
   // still apply, so this never widens what a user may see beyond the live list.
   readonly includeDeleted?: boolean;
+  // Trash list opt-in: only soft-deleted rows, set from the query payload's `onlyDeleted`.
+  // Never combined with includeDeleted (the dispatcher rejects that); visibility filters still apply.
+  readonly onlyDeleted?: boolean;
 
   readonly dispatch: HandlerDispatch;
 

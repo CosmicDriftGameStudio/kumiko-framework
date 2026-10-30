@@ -187,6 +187,9 @@ export const entityListSchema = z.object({
   // entities; the dispatcher mirrors it onto ctx.includeDeleted. Tenant +
   // ownership filters still apply.
   includeDeleted: z.boolean().optional(),
+  // Trash list: only soft-deleted rows (restore candidates). Rejected together with
+  // includeDeleted and on entities without softDelete.
+  onlyDeleted: z.boolean().optional(),
   filter: z
     .object({
       field: z.string(),

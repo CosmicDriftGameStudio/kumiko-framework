@@ -20,6 +20,7 @@ const CLIENT_CONTROLLED_PAGING_KEYS = [
   "totalCount",
   "aggregate",
   "includeDeleted",
+  "onlyDeleted",
   "filter",
 ] as const;
 

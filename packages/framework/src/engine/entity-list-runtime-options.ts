@@ -90,6 +90,7 @@ export function entityListRuntime(
         searchAdapter: ctx.services.searchAdapter,
       }),
       ...(ctx.includeDeleted === true && { includeDeleted: true }),
+      ...(ctx.onlyDeleted === true && { onlyDeleted: true }),
       referenceSearch: {
         fields: ctx.registry.getSearchableReferences(entityName),
         resolveEntity,

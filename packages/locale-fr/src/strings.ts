@@ -1219,7 +1219,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "screen:member-roles-edit.title": "Modifier les rôles",
   "screen:members.title": "Équipe",
   "screen:my-caps.title": "Mon utilisation",
-  "screen:my-sessions.title": "Vos sessions",
+  "screen:my-sessions.title": "Appareils connectés",
+  "sessions.mine.description":
+    "Appareils sur lesquels vous êtes connecté. Vous déconnectez ici ceux que vous ne reconnaissez pas.",
   "screen:page-edit.createTitle": "Nouvelle page",
   "screen:page-edit.title": "Modifier la page",
   "screen:page-list.title": "Pages",

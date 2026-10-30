@@ -196,7 +196,9 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "notesHistory.section.createMode": "Speichern Sie zuerst den Eintrag, um Notizen anzulegen.",
   "rateLimiting.errors.bucketOutsideTenant":
     "Sie können nur Rate-Limit-Buckets Ihres eigenen Mandanten oder Benutzers einsehen.",
-  "screen:my-sessions.title": "Ihre Sitzungen",
+  "screen:my-sessions.title": "Angemeldete Geräte",
+  "sessions.mine.description":
+    "Geräte, auf denen Sie gerade angemeldet sind. Fremde Geräte melden Sie hier ab.",
   "profile.danger.dialogDescription":
     "Nach Ablauf der Frist werden Ihre Daten endgültig gelöscht. Bis dahin können Sie die Löschung abbrechen.",
   "profile.danger.explainer":
