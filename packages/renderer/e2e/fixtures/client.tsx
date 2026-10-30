@@ -13,9 +13,10 @@ import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";
 import { DateTestPage } from "./date-page";
 import { TestIdentityProvider } from "./identity-provider";
+import { InboxPaneScreen } from "./inbox-pane-screen";
 import { createMockDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
-import { BOOM_SCREEN_ID, e2eSchema } from "./schema";
+import { BOOM_SCREEN_ID, e2eSchema, INBOX_PANE_SCREEN_ID } from "./schema";
 
 // Write controls a spec sets with addInitScript before boot and reads back afterwards.
 type WriteControlWindow = Window & {
@@ -106,7 +107,7 @@ async function boot(): Promise<void> {
     clientFeatures: [
       {
         name: "test",
-        components: { [BOOM_SCREEN_ID]: BoomScreen },
+        components: { [BOOM_SCREEN_ID]: BoomScreen, [INBOX_PANE_SCREEN_ID]: InboxPaneScreen },
         providers: [
           TestIdentityProvider,
           ...(new URLSearchParams(window.location.search).has("crash-root")
