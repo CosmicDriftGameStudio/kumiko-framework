@@ -35,6 +35,31 @@ import type {
   RegistryManifestView,
 } from "./types.ts";
 
+const FALLBACK_LOCALE = "en";
+
+/** Requested locale, then English, then the first remaining locale in code-point
+ *  order; `undefined` when the entry has no text at all (the key is then omitted). */
+function pickLabel(labels: Readonly<Record<string, string>>, locale: string): string | undefined {
+  const nonEmpty = (value: string | undefined): string | undefined =>
+    value !== undefined && value !== "" ? value : undefined;
+  const firstLocale = Object.keys(labels)
+    .sort(compareIds)
+    .find((key) => nonEmpty(labels[key]));
+  return (
+    nonEmpty(labels[locale]) ??
+    nonEmpty(labels[FALLBACK_LOCALE]) ??
+    (firstLocale !== undefined ? labels[firstLocale] : undefined)
+  );
+}
+
+function labelProp(
+  labels: Readonly<Record<string, string>>,
+  locale: string,
+): { readonly label?: string } {
+  const label = pickLabel(labels, locale);
+  return label === undefined ? {} : { label };
+}
+
 /** The manifest surfaces one string per locale — a plural entry reads as its
  *  CLDR `other` form since the manifest has no `count` to select a category. */
 function entryAsLabels(entry: TranslationEntry): Readonly<Record<string, string>> {
@@ -136,6 +161,7 @@ function buildField(
   field: FieldDefinition,
   translations: TranslationKeys,
   searchableFields: ReadonlySet<string>,
+  locale: string,
 ): AgentManifestField {
   const options =
     field.type === "select" || field.type === "multiSelect" ? field.options : undefined;
@@ -144,7 +170,7 @@ function buildField(
   return {
     name: fieldName,
     type: field.type,
-    labels: labelsForSuffix(translations, `:entity:${entityName}:field:${fieldName}`),
+    ...labelProp(labelsForSuffix(translations, `:entity:${entityName}:field:${fieldName}`), locale),
     ...(field.description !== undefined && { description: field.description }),
     ...(options !== undefined && { options }),
     ...(references !== undefined && { references }),
@@ -161,17 +187,18 @@ function buildEntities(
   translations: TranslationKeys,
   getSearchableFields: (entityName: string) => readonly string[],
   visibleEntityNames: ReadonlySet<string>,
+  locale: string,
 ): readonly AgentManifestEntity[] {
   const result: AgentManifestEntity[] = [];
   for (const [entityName, entity] of entities) {
     if (!visibleEntityNames.has(entityName)) continue;
     const searchableFields = new Set(getSearchableFields(entityName));
     const fields = Object.entries(entity.fields).map(([fieldName, field]) =>
-      buildField(entityName, fieldName, field, translations, searchableFields),
+      buildField(entityName, fieldName, field, translations, searchableFields, locale),
     );
     result.push({
       name: entityName,
-      labels: labelsForSuffix(translations, `:entity:${entityName}`),
+      ...labelProp(labelsForSuffix(translations, `:entity:${entityName}`), locale),
       ...(entity.description !== undefined && { description: entity.description }),
       fields,
     });
@@ -241,7 +268,8 @@ function buildHandlerEntry(
 
   // `agent.expose: true` without a `description` still opts in — the author
   // asked for exposure explicitly, there's just nothing to show as prose.
-  const description = def.description ?? "";
+  const description =
+    def.description !== undefined && def.description !== "" ? def.description : undefined;
 
   let inputSchema: Readonly<Record<string, unknown>>;
   try {
@@ -258,7 +286,7 @@ function buildHandlerEntry(
   return {
     qn,
     kind,
-    description,
+    ...(description !== undefined && { description }),
     risk: exposure.risk,
     inputSchema,
     ...(entity !== undefined && { entity }),
@@ -302,6 +330,7 @@ function buildNavs(
   translations: TranslationKeys,
   roles: readonly string[],
   screens: ReadonlyMap<string, ScreenDefinition>,
+  locale: string,
 ): readonly AgentManifestNav[] {
   const result: AgentManifestNav[] = [];
   for (const [, nav] of navs) {
@@ -316,10 +345,10 @@ function buildNavs(
 
     result.push({
       id: nav.id,
-      labels: entryAsLabels(translations[nav.label] ?? {}),
+      ...labelProp(entryAsLabels(translations[nav.label] ?? {}), locale),
       ...(nav.screen !== undefined && { screen: nav.screen }),
       ...(nav.parent !== undefined && { parent: nav.parent }),
-      workspaces: visibleWorkspaces,
+      ...(visibleWorkspaces.length > 0 && { workspaces: visibleWorkspaces }),
     });
   }
   return withoutOrphanedNavs(result);
@@ -414,10 +443,42 @@ function screenTitles(
   translations: TranslationKeys,
   screenId: string,
   shortId: string,
-): AgentManifestScreen["titles"] {
-  return entryAsLabels(
-    translations[`${screenId}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
+  locale: string,
+): { readonly title?: string } {
+  const title = pickLabel(
+    entryAsLabels(
+      translations[`${screenId}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
+    ),
+    locale,
   );
+  return title === undefined ? {} : { title };
+}
+
+function buildScreenEntry(
+  screen: ScreenDefinition,
+  screenWorkspaces: readonly string[],
+  translations: TranslationKeys,
+  locale: string,
+): AgentManifestScreen {
+  return {
+    id: screen.id,
+    type: screen.type,
+    ...screenTitles(translations, screen.id, lastSegment(screen.id), locale),
+    // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
+    // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
+    // `labelsForSuffix` does for entity/field labels, else fall back to the
+    // literal string as authored.
+    ...(screen.description !== undefined && {
+      description:
+        pickLabel(labelsForSuffix(translations, screen.description), locale) ?? screen.description,
+    }),
+    ...("entity" in screen && screen.entity !== undefined && { entity: screen.entity }),
+    // A detail screen takes the row id under its idParam; everything else is parameterless.
+    ...(screen.detailFor !== undefined && { params: [detailIdParam(screen)] }),
+    ...(screenWorkspaces.length > 0 && { workspaces: screenWorkspaces }),
+    ...(screen.detailFor !== undefined && { detailFor: screen.detailFor }),
+    ...("handler" in screen && typeof screen.handler === "string" && { handler: screen.handler }),
+  };
 }
 
 function buildScreens(
@@ -427,6 +488,7 @@ function buildScreens(
   translations: TranslationKeys,
   roles: readonly string[],
   visibleNavIds: ReadonlySet<string>,
+  locale: string,
 ): readonly AgentManifestScreen[] {
   const allNavs = [...navs.values()];
   const result: AgentManifestScreen[] = [];
@@ -450,29 +512,11 @@ function buildScreens(
       });
     if (!uiVisible(screen.access, roles) || !reachable) continue;
 
-    const shortId = lastSegment(screen.id);
     const screenWorkspaces = dedupeSorted(
       accessibleNavs.flatMap((nav) => visibleWorkspaceIds(nav.workspaces, workspaces, roles)),
     );
 
-    result.push({
-      id: screen.id,
-      type: screen.type,
-      titles: screenTitles(translations, screen.id, shortId),
-      // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
-      // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
-      // `labelsForSuffix` does for entity/field labels, else fall back to the
-      // literal string as authored.
-      ...(screen.description !== undefined && {
-        description: labelsForSuffix(translations, screen.description)["en"] ?? screen.description,
-      }),
-      ...("entity" in screen && screen.entity !== undefined && { entity: screen.entity }),
-      // A detail screen takes the row id under its idParam; everything else is parameterless.
-      params: screen.detailFor !== undefined ? [detailIdParam(screen)] : [],
-      workspaces: screenWorkspaces,
-      ...(screen.detailFor !== undefined && { detailFor: screen.detailFor }),
-      ...("handler" in screen && typeof screen.handler === "string" && { handler: screen.handler }),
-    });
+    result.push(buildScreenEntry(screen, screenWorkspaces, translations, locale));
   }
   return result;
 }
@@ -481,13 +525,14 @@ function buildWorkspaces(
   workspaces: ReadonlyMap<string, WorkspaceDefinition>,
   translations: TranslationKeys,
   roles: readonly string[],
+  locale: string,
 ): readonly AgentManifestWorkspace[] {
   const result: AgentManifestWorkspace[] = [];
   for (const [, workspace] of workspaces) {
     if (!uiVisible(workspace.access, roles)) continue;
     result.push({
       id: workspace.id,
-      labels: entryAsLabels(translations[workspace.label] ?? {}),
+      ...labelProp(entryAsLabels(translations[workspace.label] ?? {}), locale),
       ...(workspace.default === true && { default: true as const }),
     });
   }
@@ -516,7 +561,7 @@ export function buildAgentManifest(
     denyQns,
   );
   const screenMap = registry.getAllScreens();
-  const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap);
+  const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap, options.locale);
   const screens = buildScreens(
     screenMap,
     navMap,
@@ -524,14 +569,16 @@ export function buildAgentManifest(
     translations,
     roles,
     new Set(navs.map((nav) => nav.id)),
+    options.locale,
   );
-  const workspaces = buildWorkspaces(workspaceMap, translations, roles);
+  const workspaces = buildWorkspaces(workspaceMap, translations, roles, options.locale);
   const features = buildFeatures(registry.features, visibleFeatureNamesOf(handlers, screens, navs));
   const entities = buildEntities(
     registry.getAllEntities(),
     translations,
     (name) => registry.getSearchableFields(name),
     visibleEntityNamesOf(registry, roles, denyQns, handlers, screens),
+    options.locale,
   );
 
   const manifest: AgentManifest = {
