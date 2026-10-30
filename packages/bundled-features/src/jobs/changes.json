@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.404.0",
+    "type": "improvement",
+    "title": "Cleanup jobs run once a day in the maintenance window",
+    "detail": "jobs (stale-run-sweep, hourly before, and retention-cleanup), user-data-rights (export and forget), data-retention, audit escape-hatch-retention, inbound-mail retention, delivery attempt-log-retention and form-draft cleanup use trigger { maintenance: true } instead of 03:00 to 03:30 and hourly crons. Without KUMIKO_MAINTENANCE_WINDOW they all run at 03:00 UTC. A stuck job run is now marked failed at most a day after it crosses the stale timeout."
+  },
+  {
     "version": "0.394.0",
     "type": "fix",
     "title": "catchUp job consumers ignore foreign event types before upcasting, and catchUp with maxPerTenant skip fails at boot",

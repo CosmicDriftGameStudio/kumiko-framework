@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.404.0
+
+### Patch Changes
+
+- Updated dependencies [7123167]
+- Updated dependencies [7123167]
+- Updated dependencies [7123167]
+  - @cosmicdrift/kumiko-types@0.404.0
+  - @cosmicdrift/kumiko-framework@0.404.0
+  - @cosmicdrift/kumiko-bundled-features@0.404.0
+  - @cosmicdrift/kumiko-renderer@0.404.0
+
 ## 0.403.0
 
 ### Patch Changes
