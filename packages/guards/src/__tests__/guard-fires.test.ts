@@ -360,6 +360,29 @@ describe("every registered guard catches its own violation", () => {
     });
   }
 
+  test("Cross-Feature-Import Guard covers .tsx screens but not .test.tsx files", () => {
+    const guard = ALL.find((g) => g.name === "Cross-Feature-Import Guard");
+    expect(guard?.scan.extensions).toContain("tsx");
+    const project = new Project({ useInMemoryFileSystem: true });
+    const code = 'import { thing } from "../../beta/internal";\nexport const v = thing;';
+    const screen = project.createSourceFile(`${FEAT}/alpha/web/screen.tsx`, code);
+    const screenTest = project.createSourceFile(`${FEAT}/alpha/web/screen.test.tsx`, code);
+    expect(guard?.run([screen]).violations.map((v) => v.message)).toEqual([
+      'feature "alpha" → "beta" (../../beta/internal)',
+    ]);
+    expect(guard?.run([screenTest]).violations).toEqual([]);
+  });
+
+  test("Cross-Feature-Import Guard lets a screen import another feature's web barrel", () => {
+    const guard = ALL.find((g) => g.name === "Cross-Feature-Import Guard");
+    const project = new Project({ useInMemoryFileSystem: true });
+    const screen = project.createSourceFile(
+      `${FEAT}/alpha/web/screen.tsx`,
+      'import { a } from "../../beta/web";\nimport { b } from "../../beta/web/index.ts";\nexport const v = [a, b];',
+    );
+    expect(guard?.run([screen]).violations).toEqual([]);
+  });
+
   // A fixture per WARNING_ONLY guard that would be a finding under the
   // underlying rule — proves `violations: []` holds even when the guard has
   // something to report (console-only), not just on a clean tree where "no
