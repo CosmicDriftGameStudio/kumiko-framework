@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { ProgressBar } from "./progress-bar.tsx";
+import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 import { type StepAction, StepActionButton, type StepListItem, StepRow } from "./step-list-row.tsx";
 
 export type {
@@ -14,6 +15,10 @@ export type {
 
 export type StepListProps = {
   readonly title: string;
+  /** Second line under the title, e.g. who completed the list and when. */
+  readonly subtitle?: string;
+  /** Badge next to the title, e.g. "Erledigt" for a finished list. */
+  readonly status?: { readonly label: string; readonly tone: StatusBadgeTone };
   readonly steps: readonly StepListItem[];
   /** Footer row: a ghost action for the whole list next to the primary next-step action. */
   readonly footerActions?: readonly StepAction[];
@@ -28,6 +33,8 @@ export type StepListProps = {
 /** Ordered plan of steps with status icons, progress header and per-step actions. */
 export function StepList({
   title,
+  subtitle,
+  status,
   steps,
   footerActions,
   collapsedAfter,
@@ -56,11 +63,22 @@ export function StepList({
     >
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
         <div className="flex items-baseline gap-2">
-          <h3 className="m-0 grow text-[15px] font-semibold">{title}</h3>
+          <h3 className="m-0 text-[15px] font-semibold">{title}</h3>
+          {status !== undefined && (
+            <StatusBadge tone={status.tone} testId={`${testId}-status`}>
+              {status.label}
+            </StatusBadge>
+          )}
+          <span className="grow" />
           <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
             {t("kumiko.widget.step-list.progress", { done, total })}
           </span>
         </div>
+        {subtitle !== undefined && (
+          <p className="m-0 text-[13px] text-muted-foreground" data-testid={`${testId}-subtitle`}>
+            {subtitle}
+          </p>
+        )}
         <ProgressBar
           size="thin"
           value={total === 0 ? 0 : done / total}

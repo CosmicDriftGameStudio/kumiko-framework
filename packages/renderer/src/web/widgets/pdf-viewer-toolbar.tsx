@@ -21,6 +21,7 @@ export type PdfViewerToolbarProps = {
   readonly onToggleSearch: () => void;
   readonly onTermChange: (term: string) => void;
   readonly onStepMatch: (direction: 1 | -1) => void;
+  readonly hideSearch?: boolean;
 };
 
 const INPUT_CLASS =
@@ -117,7 +118,7 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
         {t("kumiko.widget.pdf-preview.pageCount", { pages: props.pageCount })}
       </span>
       <span className="grow" />
-      {props.search.open && (
+      {props.search.open && props.hideSearch !== true && (
         <SearchControls
           search={props.search}
           onTermChange={props.onTermChange}
@@ -143,15 +144,17 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
       >
         +
       </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        pressed={props.search.open}
-        ariaLabel={t("kumiko.widget.pdf-preview.search")}
-        onClick={props.onToggleSearch}
-      >
-        <Search aria-hidden="true" className="size-3.5" />
-      </Button>
+      {props.hideSearch !== true && (
+        <Button
+          size="sm"
+          variant="ghost"
+          pressed={props.search.open}
+          ariaLabel={t("kumiko.widget.pdf-preview.search")}
+          onClick={props.onToggleSearch}
+        >
+          <Search aria-hidden="true" className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

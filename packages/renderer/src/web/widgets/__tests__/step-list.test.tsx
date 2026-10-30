@@ -153,4 +153,22 @@ describe("StepList source links and highlight", () => {
     );
     expect(within(done).getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
   });
+
+  test("status badge and subtitle render in the header and are absent by default", () => {
+    const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
+    expect(screen.queryByTestId("step-list-status")).toBeNull();
+    expect(screen.queryByTestId("step-list-subtitle")).toBeNull();
+    rerender(
+      <StepList
+        title="Plan"
+        steps={heatingSteps}
+        status={{ label: "Erledigt", tone: "ok" }}
+        subtitle="Abgeschlossen von dir am 27.10."
+      />,
+    );
+    expect(screen.getByTestId("step-list-status").textContent).toContain("Erledigt");
+    expect(screen.getByTestId("step-list-subtitle").textContent).toBe(
+      "Abgeschlossen von dir am 27.10.",
+    );
+  });
 });

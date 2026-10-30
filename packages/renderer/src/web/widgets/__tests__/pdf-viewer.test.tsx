@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { type ReactNode, Suspense } from "react";
+import { type ReactElement, type ReactNode, Suspense } from "react";
 import { render, screen } from "../../__tests__/test-utils.tsx";
 import { PdfViewer } from "../pdf-viewer.tsx";
 
@@ -130,5 +130,29 @@ describe("PdfViewer", () => {
     );
     expect(scrolledPages).toContain("2");
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("Nutzeinheit");
+  });
+
+  test("a controlled matchIndex scrolls to that hit and reports count and index", async () => {
+    const onMatchesChange = mock((_info: { count: number; index: number }) => {});
+    const view = (index: number): ReactElement => (
+      <Suspense fallback={null}>
+        <PdfViewer
+          document={fakeDocument()}
+          searchTerm="heiz"
+          matchIndex={index}
+          onMatchesChange={onMatchesChange}
+          hideSearchBar
+        />
+      </Suspense>
+    );
+    const { rerender } = render(view(0));
+    await waitFor(() => expect(onMatchesChange).toHaveBeenCalledWith({ count: 3, index: 0 }));
+    expect(scrolledPages).toContain("1");
+    expect(screen.queryByTestId("pdf-match-count")).toBeNull();
+    expect(screen.queryByLabelText("Search in document")).toBeNull();
+    scrolledPages.length = 0;
+    rerender(view(2));
+    await waitFor(() => expect(onMatchesChange).toHaveBeenCalledWith({ count: 3, index: 2 }));
+    expect(scrolledPages).toContain("3");
   });
 });
