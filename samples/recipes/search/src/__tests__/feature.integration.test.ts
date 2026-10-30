@@ -9,7 +9,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { productEntity, productFeature } from "../feature";
+import { articleEntity, productEntity, productFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -18,6 +18,7 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [productFeature] });
   await unsafeCreateEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, articleEntity, "article");
   await createEventsTable(stack.db);
 });
 
@@ -116,5 +117,39 @@ describe("search indexing", () => {
       { filterType: "product" },
     );
     expect(results).toHaveLength(0);
+  });
+});
+
+describe("longText find: fuzzy and the trash list", () => {
+  type ArticleList = { rows: Record<string, unknown>[] };
+  const listArticles = (payload: Record<string, unknown>) =>
+    stack.http.queryOk<ArticleList>("shop:query:article:list", payload, admin);
+
+  test("a word deep inside a long body is found, and a deleted article moves to the trash and back", async () => {
+    const body = `${"filler ".repeat(5_000)}deepneedle`;
+    const created = await stack.http.writeOk<{ id: string }>(
+      "shop:write:article:create",
+      { title: "Handbook", body },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ search: "deepneedle" })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
+
+    await stack.http.writeOk("shop:write:article:delete", { id: created.id }, admin);
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ search: "deepneedle" })).rows).toEqual([]);
+    expect((await listArticles({})).rows.some((r) => r["id"] === created.id)).toBe(false);
+    expect((await listArticles({ onlyDeleted: true })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
+
+    await stack.http.writeOk("shop:write:article:restore", { id: created.id }, admin);
+    await stack.eventDispatcher?.runOnce();
+    expect((await listArticles({ onlyDeleted: true })).rows).toEqual([]);
+    expect((await listArticles({ search: "deepneedle" })).rows.map((r) => r["id"])).toEqual([
+      created.id,
+    ]);
   });
 });

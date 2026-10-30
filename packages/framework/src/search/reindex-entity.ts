@@ -37,6 +37,9 @@ export type ReindexEntityOptions = {
   readonly batchSize?: number;
   // Scan + build docs, write nothing.
   readonly dryRun?: boolean;
+  // Runs after a batch was read and its documents built, before they are written. Lets a test
+  // place a concurrent delete/update at exactly the point the reconcile pass exists for.
+  readonly afterBatchRead?: () => Promise<void>;
 };
 
 function quoteIdent(name: string): string {
@@ -78,6 +81,121 @@ async function readBatchWithoutStatementTimeout(
   });
 }
 
+type BatchContext = {
+  readonly db: DbRunner;
+  readonly registry: Registry;
+  readonly entityName: string;
+  readonly tableName: string;
+  readonly fieldNames: readonly string[];
+  readonly deletedFilter: boolean;
+};
+
+type IndexedDoc = { entityId: string; doc: SearchDocument };
+
+async function buildBatchDocs(
+  batch: BatchContext,
+  rows: readonly Record<string, unknown>[],
+  failures: ReindexEntityFailure[],
+): Promise<IndexedDoc[]> {
+  const docs: IndexedDoc[] = [];
+  for (const row of rows) {
+    const entityId = String(row["id"]);
+    try {
+      const rawState = rowToState(row, batch.fieldNames);
+      // `pii + searchable` fields hold ciphertext on the read-table row —
+      // decrypt the same way the live write-path consumer does. An
+      // erased subject key doesn't throw, it swaps the value for
+      // PII_ERASED_SENTINEL (see decryptSearchableSubjectFields) — check
+      // for that AFTER decrypting, mirroring the softDelete filter in reindexEntity:
+      // resurrecting a crypto-shredded row here would undo
+      // purgeSearchDocumentsForSubject and make it findable again.
+      const state = await decryptSearchableSubjectFields(
+        batch.entityName,
+        rawState,
+        batch.registry,
+      );
+      if (hasErasedSearchableSubjectField(batch.entityName, state, batch.registry)) continue;
+      const doc = await buildSearchDocument(batch.entityName, entityId, state, batch.registry);
+      if (doc) docs.push({ entityId, doc });
+    } catch (e) {
+      failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return docs;
+}
+
+async function writeBatchDocs(
+  searchAdapter: SearchAdapter,
+  tenantId: TenantId,
+  docs: readonly IndexedDoc[],
+  failures: ReindexEntityFailure[],
+): Promise<number> {
+  if (searchAdapter.indexBatch) {
+    try {
+      await searchAdapter.indexBatch(
+        tenantId,
+        docs.map((d) => d.doc),
+      );
+      return docs.length;
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      for (const { entityId } of docs) failures.push({ entityId, reason });
+      return 0;
+    }
+  }
+  let written = 0;
+  for (const { entityId, doc } of docs) {
+    try {
+      await searchAdapter.index(tenantId, doc);
+      written++;
+    } catch (e) {
+      failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return written;
+}
+
+// The live consumer keeps running while a reindex scans. A row deleted, purged or edited after
+// its batch was read would otherwise leave stale text in the index, the one thing a delete or a
+// subject purge must not leave behind. So the written ids are read again: rows that vanished,
+// were soft-deleted or became erased leave the index, rows whose version moved are rewritten fresh.
+async function reconcileWrittenBatch(
+  batch: BatchContext,
+  searchAdapter: SearchAdapter,
+  tenantId: TenantId,
+  readRows: readonly Record<string, unknown>[],
+  written: readonly IndexedDoc[],
+  failures: ReindexEntityFailure[],
+): Promise<void> {
+  const writtenIds = new Set(written.map((w) => w.entityId));
+  const versionAtRead = new Map(readRows.map((row) => [String(row["id"]), row["version"]]));
+  const ids = [...writtenIds];
+  const placeholders = ids.map((_, i) => `$${i + 2}`).join(", ");
+  const fresh = await readBatchWithoutStatementTimeout(
+    batch.db,
+    `SELECT * FROM ${quoteIdent(batch.tableName)}
+        WHERE ${quoteIdent("tenant_id")} = $1 AND ${quoteIdent("id")} IN (${placeholders})`,
+    [tenantId, ...ids],
+  );
+  const live = fresh.filter((row) => !(batch.deletedFilter && row["is_deleted"] === true));
+  const liveIds = new Set(live.map((row) => String(row["id"])));
+  const changed = live.filter((row) => row["version"] !== versionAtRead.get(String(row["id"])));
+  const rewritten = await buildBatchDocs(batch, changed, failures);
+  const rewrittenIds = new Set(rewritten.map((w) => w.entityId));
+  const changedIds = new Set(changed.map((row) => String(row["id"])));
+
+  const toRemove = ids
+    .filter((id) => !liveIds.has(id) || (changedIds.has(id) && !rewrittenIds.has(id)))
+    .map((entityId) => ({ entityType: batch.entityName, entityId }));
+  if (toRemove.length > 0) {
+    if (searchAdapter.removeBatch) await searchAdapter.removeBatch(tenantId, toRemove);
+    else
+      for (const item of toRemove)
+        await searchAdapter.remove(tenantId, item.entityType, item.entityId);
+  }
+  if (rewritten.length > 0) await writeBatchDocs(searchAdapter, tenantId, rewritten, failures);
+}
+
 export async function reindexEntity(
   db: DbRunner,
   registry: Registry,
@@ -113,6 +231,15 @@ export async function reindexEntity(
 
       const failures: ReindexEntityFailure[] = [];
       const result = { scannedRows: 0, indexedRows: 0, wouldIndexRows: 0, failures };
+
+      const batch: BatchContext = {
+        db,
+        registry,
+        entityName,
+        tableName,
+        fieldNames,
+        deletedFilter: entity.softDelete === true,
+      };
 
       let lastId: unknown;
       // Whether a searchable field lacks a matching read-table column depends
@@ -150,55 +277,20 @@ export async function reindexEntity(
           }
         }
 
-        const docs: Array<{ entityId: string; doc: SearchDocument }> = [];
-        for (const row of rows) {
-          result.scannedRows++;
-          const entityId = String(row["id"]);
-          try {
-            const rawState = rowToState(row, fieldNames);
-            // `pii + searchable` fields hold ciphertext on the read-table row —
-            // decrypt the same way the live write-path consumer does. An
-            // erased subject key doesn't throw, it swaps the value for
-            // PII_ERASED_SENTINEL (see decryptSearchableSubjectFields) — check
-            // for that AFTER decrypting, mirroring the softDelete filter above:
-            // resurrecting a crypto-shredded row here would undo
-            // purgeSearchDocumentsForSubject and make it findable again.
-            const state = await decryptSearchableSubjectFields(entityName, rawState, registry);
-            if (hasErasedSearchableSubjectField(entityName, state, registry)) continue;
-            const doc = await buildSearchDocument(entityName, entityId, state, registry);
-            if (doc) docs.push({ entityId, doc });
-          } catch (e) {
-            result.failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
-          }
-        }
+        const docs = await buildBatchDocs(batch, rows, result.failures);
+        result.scannedRows += rows.length;
+        await options.afterBatchRead?.();
 
-        if (!options.dryRun && docs.length > 0) {
-          if (searchAdapter.indexBatch) {
-            try {
-              await searchAdapter.indexBatch(
-                tenantId,
-                docs.map((d) => d.doc),
-              );
-              result.indexedRows += docs.length;
-            } catch (e) {
-              const reason = e instanceof Error ? e.message : String(e);
-              for (const { entityId } of docs) result.failures.push({ entityId, reason });
-            }
-          } else {
-            for (const { entityId, doc } of docs) {
-              try {
-                await searchAdapter.index(tenantId, doc);
-                result.indexedRows++;
-              } catch (e) {
-                result.failures.push({
-                  entityId,
-                  reason: e instanceof Error ? e.message : String(e),
-                });
-              }
-            }
-          }
-        } else if (options.dryRun) {
+        if (options.dryRun) {
           result.wouldIndexRows += docs.length;
+        } else if (docs.length > 0) {
+          result.indexedRows += await writeBatchDocs(
+            searchAdapter,
+            tenantId,
+            docs,
+            result.failures,
+          );
+          await reconcileWrittenBatch(batch, searchAdapter, tenantId, rows, docs, result.failures);
         }
 
         lastId = rows[rows.length - 1]?.["id"];
