@@ -134,6 +134,7 @@ function parseTenantId(value: unknown): TenantId | null;
 function projectAppSchemaForRoles(schema: AppSchema, roles: string[]): AppSchema;
 function qn(scope: string, type: QnType, name: string): string;
 function readClaim<T extends ClaimKeyType>(user: SessionUser, handle: ClaimKeyHandle<T>): ClaimKeyJsType<T> | undefined;
+function readSoftDeleteGraceDays(config: ((qualifiedKey: string) => Promise<unknown>) | undefined): Promise<number>;
 function referenceGroupLabels(ctx: HandlerContext, user: SessionUser, sourceTableName: string, groupByField: string, keys: AggregateKey[], db: TenantDb): Promise<ReadonlyMap<string, string>>;
 function requireTierResolverPlugin(usage: RegistrarExtensionRegistration): TierResolverPlugin;
 function resolveAgentExposure(def: { description?: string; agent?: AgentHandlerHints; }, kind: "query" | "write"): AgentExposure; // Fail-closed: a handler without a `description` stays invisible to the agent unless it opts in explicitly.
@@ -201,6 +202,8 @@ const QnTypes: { write; query; hook; job; notify; event; channel; config; secret
 const SECURITY_BASELINE_FEATURE_NAMES: ["sessions", "crypto-shredding", "rate-limiting", "audit"];
 const SELECTED_EXTENSIONS_QUERY: "config:query:config-value:selected-extensions";
 const SETTINGS_HUB_FEATURE: "config";
+const SOFT_DELETE_DEFAULT_GRACE_DAYS: 30;
+const SOFT_DELETE_GRACE_DAYS_KEY: "soft-delete:config:grace-days";
 const STEP_DISPATCHED_TYPE: "kumiko:system:step.dispatched";
 const STEP_DISPATCH_AGGREGATE_TYPE: "step-dispatch";
 const STEP_DISPATCH_FAILED_TYPE: "kumiko:system:step.dispatch-failed";

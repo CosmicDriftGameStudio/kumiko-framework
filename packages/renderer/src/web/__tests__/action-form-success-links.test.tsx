@@ -30,6 +30,7 @@ const SCHEMA: FeatureSchema = {
     { id: "customer-edit", type: "entityEdit", entity: "customer" },
     { id: "order-edit", type: "entityEdit", entity: "order" },
     { id: "pair-list", type: "entityList", entity: "customer" },
+    { id: "cockpit", type: "custom" },
   ] as unknown as FeatureSchema["screens"],
 };
 
@@ -155,6 +156,45 @@ describe("actionForm successLinks", () => {
     await waitFor(() => expect(screen.getByTestId("action-form-success-link-0")).toBeTruthy());
     expect(screen.queryByTestId("action-form-success-link-1")).toBeNull();
     expect(screen.getByTestId("action-form-success-link-2")).toBeTruthy();
+  });
+
+  test("a link to a custom screen carries search params from the payload", async () => {
+    const withCockpitLink = {
+      ...CREATE_PAIR,
+      successLinks: [
+        { screen: "cockpit", params: { cmd: "duplicateOfId" }, label: "demo.link.list" },
+      ],
+    } as unknown as ActionFormScreenDefinition;
+    const navigate = mock(() => {});
+    renderScreen(withCockpitLink, { isSuccess: true, data: { duplicateOfId: "m-7" } }, navigate);
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await typeNameAndSubmit();
+    await waitFor(() => expect(screen.getByTestId("action-form-success-link-0")).toBeTruthy());
+
+    await userEvent.setup().click(screen.getByTestId("action-form-success-link-0"));
+
+    expect(navigate).toHaveBeenCalledWith(
+      { screenId: "cockpit" },
+      { searchParams: { cmd: "m-7" } },
+    );
+  });
+
+  test("a link whose param field is missing from the payload is hidden", async () => {
+    const withCockpitLink = {
+      ...CREATE_PAIR,
+      successLinks: [
+        { screen: "cockpit", params: { cmd: "duplicateOfId" }, label: "demo.link.list" },
+      ],
+      successMessage: "demo.saved",
+    } as unknown as ActionFormScreenDefinition;
+    renderScreen(withCockpitLink, { isSuccess: true, data: {} });
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await typeNameAndSubmit();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("action-form-success").textContent).toContain("Pair created"),
+    );
+    expect(screen.queryByTestId("action-form-success-link-0")).toBeNull();
   });
 
   test("uses successMessage as the box text when declared", async () => {

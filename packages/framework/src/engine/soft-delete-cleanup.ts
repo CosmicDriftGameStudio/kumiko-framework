@@ -43,6 +43,14 @@ export const softDeleteGraceDaysConfig: ConfigKeyDefinition = {
   bounds: { min: 1 },
 };
 
+// ctx.config skips the key's read roles, so a plain user's trash query can show the period.
+export async function readSoftDeleteGraceDays(
+  config: ((qualifiedKey: string) => Promise<unknown>) | undefined,
+): Promise<number> {
+  const value = await config?.(SOFT_DELETE_GRACE_DAYS_KEY);
+  return typeof value === "number" && value >= 1 ? value : DEFAULT_GRACE_DAYS;
+}
+
 function hasTenantIdColumn(table: unknown): boolean {
   return hasFieldProperty(table, "tenantId");
 }

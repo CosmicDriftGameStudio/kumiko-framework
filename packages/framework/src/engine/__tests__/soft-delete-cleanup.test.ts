@@ -4,6 +4,7 @@ import { createRegistry } from "../registry.ts";
 import {
   DEFAULT_GRACE_DAYS,
   isSystemScopedSoftDeleteTable,
+  readSoftDeleteGraceDays,
   SOFT_DELETE_CLEANUP_JOB,
   SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
@@ -78,5 +79,15 @@ describe("isSystemScopedSoftDeleteTable", () => {
   });
   test("false for a tenant-scoped table with a tenantId column", () => {
     expect(isSystemScopedSoftDeleteTable({ tenantId: {} }, {})).toBe(false);
+  });
+});
+
+describe("readSoftDeleteGraceDays", () => {
+  test("returns the tenant's configured period and falls back to the default", async () => {
+    const configured = async (key: string) => (key === SOFT_DELETE_GRACE_DAYS_KEY ? 14 : undefined);
+    expect(await readSoftDeleteGraceDays(configured)).toBe(14);
+    expect(await readSoftDeleteGraceDays(async () => undefined)).toBe(DEFAULT_GRACE_DAYS);
+    expect(await readSoftDeleteGraceDays(async () => 0)).toBe(DEFAULT_GRACE_DAYS);
+    expect(await readSoftDeleteGraceDays(undefined)).toBe(DEFAULT_GRACE_DAYS);
   });
 });
