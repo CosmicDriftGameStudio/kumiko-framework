@@ -9,14 +9,17 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | Name | Description |
 | --- | --- |
 | `ActionMenu` |  |
+| `AiSurface` | Light blue area that marks content as AI-generated. |
 | `AiTextArea` | Multi-line variant of {@link AiTextField}. |
 | `AiTextField` | Single-line AI text field — ghost-text completion + correct/translate/ rewrite toolbar. |
 | `AppLayout` |  |
+| `AttachmentChip` | File chip with icon, name and a second line; renders as link, button or plain box depending on href/onOpen. |
 | `Avatar` |  |
 | `BareFormProvider` |  |
 | `BooleanField` | Checkbox/Switch = Field(layout:"inline") + Input(kind:"boolean"). |
 | `Card` |  |
 | `ChoiceCards` | Card-styled radio group for mutually exclusive choices that need a description or price line. |
+| `ClampedText` | Clamps content to `lines`; the toggle shows only while the content actually overflows. |
 | `CollapsibleSection` | Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render. |
 | `ComparisonTable` | Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric. |
 | `DateField` | Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd. |
@@ -49,6 +52,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `LiveEventsProvider` |  |
 | `LoadingState` | Loading state with skeleton rows styled like cards; `rows` controls the height. |
 | `LocaleProvider` |  |
+| `MessageReader` | Mail thread with an optional tab per attachment; the tab bar only exists when there are attachment tabs. |
+| `MessageThread` | Mail conversation, oldest first: older messages fold to one line, the last one is open on a sheet. |
 | `MiniStat` | Compact metric tile (without an icon) — for dense KPI grids. |
 | `ModeSwitch` | Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>. |
 | `MoneyField` |  |
@@ -56,7 +61,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `NavTree` |  |
 | `NumberField` | Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen. |
 | `PageSection` |  |
-| `PdfPreview` |  |
+| `PdfPreview` | PDF pages rendered with pdf.js; pages render lazily as they scroll into view. |
 | `PercentField` |  |
 | `PhotoSlots` | Guided photo capture: one tile per requested shot in a two-column grid, each its own camera/gallery picker, filled tiles show the thumbnail. |
 | `PlainContentEditor` |  |
@@ -80,6 +85,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ScreenWidthProvider` |  |
 | `SectionCard` | Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens. |
 | `SelectField` | Select field = Field + Input(kind:"select"). |
+| `SenderFrame` | Sand frame with one white sheet inside, for content that mimics a letter or mail. |
+| `SenderSheet` | The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails). |
 | `SideBySideTable` | Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs. |
 | `Sidebar` |  |
 | `SidebarBrand` |  |
@@ -95,6 +102,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `StatusBadge` | Pill badge with a status dot. |
 | `StatusBarChart` | Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe. |
 | `StepBar` | Wizard step overview — numbered chips with a connector line between them. |
+| `StepList` | Ordered plan of steps with status icons, progress header and per-step actions. |
 | `TextField` | Text field = Field + Input(kind:"text"). |
 | `TextareaField` | Multi-line text field = Field + Input(kind:"textarea"). |
 | `ThemeMenuItem` | Theme toggle as a dropdown entry, for a user menu that carries the shell controls. |

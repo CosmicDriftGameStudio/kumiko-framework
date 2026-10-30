@@ -115,6 +115,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-sheet: 2px;
+  --shadow-sheet: 0 1px 3px rgba(26, 28, 30, 0.18);
 
   /* Semantische Status-Farben (Widgets: StatusBadge, Charts, StatCard-Tones).
      `status-X` ist die Textfarbe, `status-X-surface` die Fläche dahinter
@@ -133,6 +135,12 @@
   --color-status-neutral-surface: #2a2926;
   --color-status-active: #7fb3c9;
   --color-status-active-surface: #14303c;
+
+  /* Sender content sits in a sand frame on sheets, AI content on a blue surface; light values below. */
+  --color-sender-frame: #2a2926;
+  --color-sender-frame-border: #3a3935;
+  --color-sender-sheet: #1a1a19;
+  --color-ai-surface: #14262e;
 
   /* JSON-Syntax-Highlighting (JsonView). Eigene, gedämpfte Palette statt der
      Status-Ampel — ein `false` oder eine Zahl ist kein Fehler-/Warn-Signal.
@@ -365,6 +373,11 @@
     --color-status-neutral-surface: #f0eee8;
     --color-status-active: #205265;
     --color-status-active-surface: #e1edf2;
+
+    --color-sender-frame: #eceae4;
+    --color-sender-frame-border: #e2e0d9;
+    --color-sender-sheet: #ffffff;
+    --color-ai-surface: #f3f7f9;
 
     /* JSON-Syntax-Highlighting Light — dunkler/gesättigter, Kontrast gegen
        bg-muted geprüft (>=6:1). */

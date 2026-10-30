@@ -191,6 +191,12 @@ export const WIDGETS_I18N = {
     de: "Zeile links anklicken.",
     en: "Click a row on the left.",
   },
+  "widgets:catalog:inbox-reader": { de: "Posteingang: Leser", en: "Inbox: reader" },
+  "widgets:catalog:inbox-reader-subtitle": {
+    de: "Mail-Verlauf mit Anhängen, Original-Betrachter und Plan der KI",
+    en: "Mail thread with attachments, original viewer and the AI plan",
+  },
+  "widgets:catalog:inbox-plan-title": { de: "Vorschlag der KI", en: "AI proposal" },
   "widgets:catalog:ai-text": { de: "AI-Text", en: "AI text" },
   "widgets:catalog:ai-text-subtitle": {
     de: "Ghost-Text-Completion, Correct, Translate, Rewrite",
