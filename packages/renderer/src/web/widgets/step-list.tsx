@@ -28,8 +28,8 @@ export type StepListProps = {
   readonly surface?: "ai" | "plain";
   /** Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom. */
   readonly fill?: boolean;
-  /** false hides the "x von y erledigt" count and the progress bar, e.g. when `status` already says the list is done. */
-  readonly showProgress?: boolean;
+  /** "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done. */
+  readonly progress?: "full" | "count" | "none";
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 };
@@ -44,7 +44,7 @@ export function StepList({
   collapsedAfter,
   surface = "ai",
   fill = false,
-  showProgress = true,
+  progress = "full",
   emptyContent,
   testId = "step-list",
 }: StepListProps): ReactNode {
@@ -76,7 +76,7 @@ export function StepList({
             </StatusBadge>
           )}
           <span className="grow" />
-          {showProgress && (
+          {progress !== "none" && (
             <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
               {t("kumiko.widget.step-list.progress", { done, total })}
             </span>
@@ -87,7 +87,7 @@ export function StepList({
             {subtitle}
           </p>
         )}
-        {showProgress && (
+        {progress === "full" && (
           <ProgressBar
             size="thin"
             value={total === 0 ? 0 : done / total}
