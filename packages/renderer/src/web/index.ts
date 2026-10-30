@@ -136,6 +136,7 @@ export type { NavTreeProps } from "./layout/nav-tree.tsx";
 export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.tsx";
 export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.tsx";
 export { ProfileMenu } from "./layout/profile-menu.tsx";
+export { useShellFocusMode } from "./layout/shell-focus.tsx";
 export type { SidebarProps } from "./layout/sidebar.tsx";
 export { Sidebar } from "./layout/sidebar.tsx";
 export type { SidebarBrandProps } from "./layout/sidebar-brand.tsx";
@@ -204,6 +205,7 @@ export type { KumikoBuild } from "./version/update-checker.tsx";
 export { readLoadedBuild } from "./version/update-checker.tsx";
 export type {
   AiTextAreaProps,
+  AiTextEndAction,
   AiTextFieldProps,
   BooleanFieldProps,
   ComparisonMetric,
@@ -250,6 +252,7 @@ export type {
   StepAction,
   StepListItem,
   StepListProps,
+  StepSource,
   StepStatus,
   StepTag,
   TextareaFieldProps,

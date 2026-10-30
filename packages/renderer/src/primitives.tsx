@@ -1399,9 +1399,15 @@ export type TabsProps = {
     /** Shown dimmed after the label (e.g. an open-items count). Omit for
      *  tabs without a counter. */
     readonly count?: number;
+    /** Rendered before the label. */
+    readonly icon?: ReactNode;
+    /** Small muted text after the label, e.g. "4 Seiten". */
+    readonly detail?: string;
   }[];
   readonly activeId: string;
   readonly onSelect: (id: string) => void;
+  /** "pill" (default) = count badge, 44px strip. "plain" = count as plain muted number, 40px strip. */
+  readonly appearance?: "pill" | "plain";
   readonly testId?: string;
 };
 

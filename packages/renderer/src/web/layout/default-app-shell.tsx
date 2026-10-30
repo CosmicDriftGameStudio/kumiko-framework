@@ -14,7 +14,7 @@
 // Apps that need granular control can use the ui/ components directly.
 // Apps that need a topbar with a workspace switcher should use <WorkspaceShell>.
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   type AppSchema,
   type FeatureSchema,
@@ -30,10 +30,13 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarRail,
+  useSidebar,
 } from "../ui/sidebar.tsx";
 import { fillClasses } from "./fill-classes.ts";
+import { FocusRail } from "./focus-rail.tsx";
 import { NavTree } from "./nav-tree.tsx";
 import { PageHeaderSlotProvider } from "./page-header-slot.tsx";
+import { ShellFocusProvider, useShellFocusHost } from "./shell-focus.tsx";
 import { ShellHeader } from "./shell-header.tsx";
 import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel.tsx";
 
@@ -76,6 +79,29 @@ export type DefaultAppShellProps = {
   readonly children: ReactNode;
 };
 
+// 3.5rem = the 56px rail of the focused screen; the default icon width stays 3rem.
+const FOCUS_RAIL_WIDTH_STYLE: CSSProperties = { "--sidebar-width-icon": "3.5rem" };
+
+function FocusAwareSidebarBody({
+  focused,
+  brand,
+  schema,
+  user,
+  children,
+}: {
+  readonly focused: boolean;
+  readonly brand: ReactNode;
+  readonly schema: AppSchema | FeatureSchema;
+  readonly user: DefaultAppShellUser | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { state, isMobile } = useSidebar();
+  if (focused && state === "collapsed" && !isMobile) {
+    return <FocusRail brand={brand} schema={schema} {...(user !== undefined && { user })} />;
+  }
+  return children;
+}
+
 export function DefaultAppShell({
   brand,
   schema,
@@ -92,59 +118,79 @@ export function DefaultAppShell({
   // Second column only when a screen fills it (sidebar-09 pattern) — otherwise
   // every other screen would carry an empty strip next to the navigation.
   const panel = useSidebarPanelHost();
+  const focus = useShellFocusHost();
   return (
-    <SidebarProvider {...fillCls.provider}>
-      <SidebarPanelProvider value={panel.value}>
-        {/* Standard variant (border-r, flush content) + collapsible="icon" — the rail collapses to icon width (trigger/rail). */}
-        <Sidebar
-          collapsible="icon"
-          mobileTitle={t("kumiko.sidebar.title")}
-          mobileDescription={t("kumiko.sidebar.description")}
-        >
-          <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
-          {sidebarActions !== undefined && (
-            <SidebarGroup
-              data-kumiko-layout="sidebar-actions"
-              className="flex-row flex-wrap items-center gap-1 py-0"
-            >
-              {sidebarActions}
-            </SidebarGroup>
-          )}
-          <SidebarContent data-kumiko-layout="sidebar-nav">
-            <NavTree
+    <SidebarProvider
+      {...fillCls.provider}
+      {...(focus.focused && {
+        open: focus.railOpen,
+        onOpenChange: focus.setRailOpen,
+        style: FOCUS_RAIL_WIDTH_STYLE,
+      })}
+    >
+      <ShellFocusProvider value={focus.value}>
+        <SidebarPanelProvider value={panel.value}>
+          {/* Standard variant (border-r, flush content) + collapsible="icon" — the rail collapses to icon width (trigger/rail). */}
+          <Sidebar
+            collapsible="icon"
+            mobileTitle={t("kumiko.sidebar.title")}
+            mobileDescription={t("kumiko.sidebar.description")}
+          >
+            <FocusAwareSidebarBody
+              focused={focus.focused}
+              brand={brand}
               schema={schema}
-              {...(user !== undefined && { user })}
-              {...(navBadges !== undefined && { navBadges })}
-            />
-          </SidebarContent>
-          {sidebarFooter !== undefined && (
-            <SidebarFooter
-              data-kumiko-layout="sidebar-footer"
-              className="border-t border-sidebar-border"
+              user={user}
             >
-              {sidebarFooter}
-            </SidebarFooter>
-          )}
-          <SidebarRail aria-label={t("kumiko.sidebar.toggle")} title={t("kumiko.sidebar.toggle")} />
-        </Sidebar>
-        <div
-          ref={panel.ref}
-          data-kumiko-layout="sidebar-panel"
-          className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
-        />
-        <SidebarInset className={fillCls.inset}>
-          <PageHeaderSlotProvider>
-            <ShellHeader
-              schema={schema}
-              {...(user !== undefined && { user })}
-              {...(headerActions !== undefined && { headerActions })}
+              <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
+              {sidebarActions !== undefined && (
+                <SidebarGroup
+                  data-kumiko-layout="sidebar-actions"
+                  className="flex-row flex-wrap items-center gap-1 py-0"
+                >
+                  {sidebarActions}
+                </SidebarGroup>
+              )}
+              <SidebarContent data-kumiko-layout="sidebar-nav">
+                <NavTree
+                  schema={schema}
+                  {...(user !== undefined && { user })}
+                  {...(navBadges !== undefined && { navBadges })}
+                />
+              </SidebarContent>
+              {sidebarFooter !== undefined && (
+                <SidebarFooter
+                  data-kumiko-layout="sidebar-footer"
+                  className="border-t border-sidebar-border"
+                >
+                  {sidebarFooter}
+                </SidebarFooter>
+              )}
+            </FocusAwareSidebarBody>
+            <SidebarRail
+              aria-label={t("kumiko.sidebar.toggle")}
+              title={t("kumiko.sidebar.toggle")}
             />
-            <main className={fillCls.main}>
-              <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
-            </main>
-          </PageHeaderSlotProvider>
-        </SidebarInset>
-      </SidebarPanelProvider>
+          </Sidebar>
+          <div
+            ref={panel.ref}
+            data-kumiko-layout="sidebar-panel"
+            className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
+          />
+          <SidebarInset className={fillCls.inset}>
+            <PageHeaderSlotProvider>
+              <ShellHeader
+                schema={schema}
+                {...(user !== undefined && { user })}
+                {...(headerActions !== undefined && { headerActions })}
+              />
+              <main className={fillCls.main}>
+                <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+              </main>
+            </PageHeaderSlotProvider>
+          </SidebarInset>
+        </SidebarPanelProvider>
+      </ShellFocusProvider>
     </SidebarProvider>
   );
 }

@@ -233,3 +233,46 @@ describe("MessageReader", () => {
     expect(screen.getByText("PDF-Vorschau Vertrag")).toBeTruthy();
   });
 });
+
+describe("MessageThread layout details", () => {
+  test("collapsed rows carry sender, one-line snippet and short date; outgoing rows say Du with the reply icon", () => {
+    render(<MessageThread messages={[annaFirst, reply, annaLast]} />);
+    const incoming = screen.getByTestId("message-row-m1");
+    expect(incoming.textContent).toContain("Anna Schneider");
+    expect(incoming.textContent).toContain("Guten Tag, seit gestern Abend");
+    expect(incoming.textContent).not.toContain("\n");
+    expect(incoming.textContent).toContain("Mo 08:14");
+    const own = screen.getByTestId("message-row-m2");
+    expect(own.textContent).toContain("Du");
+    expect(own.querySelector('[data-testid="message-outgoing-icon"]')).not.toBeNull();
+  });
+
+  test("the open message header keeps name, email and date on one non-wrapping line", () => {
+    render(<MessageThread messages={[annaLast]} />);
+    const header = screen.getByTestId("message-header-m3");
+    expect(header.className).not.toContain("flex-wrap");
+    expect(header.children[0]?.className).toContain("whitespace-nowrap");
+    expect(header.textContent).toBe("Anna Schneidera.schneider@mieter.testHeute 09:41");
+  });
+
+  test("reader attachment tabs show icon and detail text, counts stay plain", () => {
+    render(
+      <MessageReader
+        thread={{ messages: [annaLast] }}
+        attachmentTabs={[
+          {
+            id: "att1",
+            label: "Mietvertrag.pdf",
+            detail: "4 Seiten",
+            icon: <svg data-testid="pdf-icon" />,
+            render: () => <p>PDF</p>,
+          },
+        ]}
+      />,
+    );
+    const tab = screen.getByRole("tab", { name: /Mietvertrag\.pdf/ });
+    expect(tab.textContent).toContain("4 Seiten");
+    expect(tab.querySelector('[data-testid="pdf-icon"]')).not.toBeNull();
+    expect(screen.getByRole("tablist").className).toContain("h-10");
+  });
+});

@@ -101,7 +101,7 @@ const ActiveScreenMarkerContext = createContext<ActiveScreenMarker>(undefined);
 
 // Walks only the static `children` — provider-emitted nodes (treeNodeToNavNode
 // below) never set `screen`, so they can't hide a match this walk would miss.
-function treeContainsScreen(nodes: readonly NavNode[], screenId: string): boolean {
+export function treeContainsScreen(nodes: readonly NavNode[], screenId: string): boolean {
   return nodes.some(
     (n) =>
       (n.screen !== undefined && lastSegment(n.screen) === screenId) ||

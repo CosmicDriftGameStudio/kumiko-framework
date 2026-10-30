@@ -44,7 +44,7 @@ function CollapsedRow({
       onClick={onExpand}
       className="flex w-full items-center gap-2.5 border-0 border-b border-sender-frame-border bg-transparent py-2.5 text-left text-foreground"
     >
-      <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
+      <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold">
         {message.direction === "outgoing" && (
           <CornerUpLeft
             aria-hidden="true"
@@ -72,13 +72,17 @@ function OpenMessage({
   const attachments = message.attachments ?? [];
   return (
     <div data-testid={`message-open-${message.id}`} className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-2">
-        <span className="font-semibold">{message.author}</span>
+      <div data-testid={`message-header-${message.id}`} className="flex items-baseline gap-2">
+        <span className="shrink-0 whitespace-nowrap font-semibold">{message.author}</span>
         {message.address !== undefined && (
-          <span className="text-[13px] text-muted-foreground">{message.address}</span>
+          <span className="min-w-0 truncate text-[13px] text-muted-foreground">
+            {message.address}
+          </span>
         )}
         <span className="grow" />
-        <span className="text-[13px] text-muted-foreground">{message.timeLabel}</span>
+        <span className="shrink-0 whitespace-nowrap text-[13px] text-muted-foreground">
+          {message.timeLabel}
+        </span>
       </div>
       <MessageBodyView
         body={message.body}

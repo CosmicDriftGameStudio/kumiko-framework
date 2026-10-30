@@ -107,3 +107,50 @@ describe("StepList", () => {
     expect(screen.getByText("0 of 0 done")).toBeTruthy();
   });
 });
+
+describe("StepList source links and highlight", () => {
+  test("sources render as links under the step and fire their callback", () => {
+    const onSource = mock(() => {});
+    render(
+      <StepList
+        title="Vorschlag der KI"
+        steps={[
+          {
+            id: "deposit",
+            title: "Kaution 2.850,00 € in drei Raten",
+            status: "open",
+            sources: [{ label: "Quelle: Seite 3, § 5", onClick: onSource }],
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("Quelle: Seite 3, § 5"));
+    expect(onSource).toHaveBeenCalledTimes(1);
+  });
+
+  test("only the highlighted step carries the warm background and aria-current", () => {
+    render(
+      <StepList
+        title="Vorschlag der KI"
+        steps={[
+          { id: "a", title: "A", status: "open", highlighted: true },
+          { id: "b", title: "B", status: "open" },
+        ]}
+      />,
+    );
+    const highlighted = screen.getByTestId("step-a");
+    expect(highlighted.className).toContain("bg-status-warn-surface");
+    expect(highlighted.getAttribute("aria-current")).toBe("step");
+    expect(screen.getByTestId("step-b").className).not.toContain("bg-status-warn-surface");
+    expect(screen.getByTestId("step-b").getAttribute("aria-current")).toBeNull();
+  });
+
+  test("a done step shows its trailing link and meta line next to the title", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    const done = screen.getByTestId("step-case");
+    expect(within(done).getByText("Öffnen").closest("a")?.getAttribute("href")).toBe(
+      "/cases/heizungsausfall",
+    );
+    expect(within(done).getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
+  });
+});
