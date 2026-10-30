@@ -18,17 +18,16 @@ export type {
 
 const DEFAULT_CLAMP_LINES = 16;
 
-function firstLineOf(message: ThreadMessage): string {
+const PREVIEW_SOURCE_CHARS = 300;
+
+// Joined across lines: a mail's first line is usually only the greeting ("Guten Tag,").
+// The row truncates with CSS; the slice only keeps long bodies out of the DOM.
+function previewOf(message: ThreadMessage): string {
   const text =
     message.body.kind === "text"
       ? message.body.text
       : (message.body.fallbackText ?? plainTextOfHtml(message.body.html));
-  return (
-    text
-      .split("\n")
-      .find((line) => line.trim() !== "")
-      ?.trim() ?? ""
-  );
+  return text.slice(0, PREVIEW_SOURCE_CHARS).replace(/\s+/g, " ").trim();
 }
 
 function CollapsedRow({
@@ -55,7 +54,7 @@ function CollapsedRow({
         )}
         {message.author}
       </span>
-      <span className="min-w-0 grow truncate text-muted-foreground">{firstLineOf(message)}</span>
+      <span className="min-w-0 grow truncate text-muted-foreground">{previewOf(message)}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{message.timeLabel}</span>
     </button>
   );
