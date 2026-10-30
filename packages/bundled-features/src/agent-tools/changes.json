@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.402.0",
+    "type": "breaking",
+    "title": "Agent manifest labels are one string in the requested locale",
+    "detail": "`buildAgentManifest` used to emit every label in every locale (`labels: { de, en, es }`, often `{}`), although the caller names one `locale`. Entities, fields, navs and workspaces now carry `label?: string`, screens `title?: string`, picked in the requested locale, then English, then the first other locale, and left out when untranslated. Empty `params` and `workspaces` on screens, empty `workspaces` on navs and an empty handler `description` are left out as well (`description`, `params` and `workspaces` are optional in the types). `buildToolCatalog` reads the new fields.",
+    "migration": "Read `entity.label`, `field.label`, `nav.label`, `workspace.label` and `screen.title` instead of the `labels`/`titles` maps. Code that only passes the manifest to `buildToolCatalog` or serialises it needs no change."
+  },
+  {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "Agent manifest shows only the first sentence of a feature description",
+    "detail": "`buildAgentManifest` emits the first sentence of `FeatureDefinition.description` (a `. ` before a capital letter ends it, so \"e.g.\" and \"Art. 15\" stay whole), at most 300 characters. The full text stays on the definition for the docs generators. In an app with 77 features the descriptions drop from about 46.6k to 12.2k characters."
+  },
+  {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "Agent manifest features and entities follow the role",
+    "detail": "`buildAgentManifest` now leaves out a feature when none of its handlers, screens or navs remain in the manifest for the role, and an entity when no remaining handler or screen refers to it, no `get_`/`list_` tool of the role reads it and no reachable entity points at it through a reference field (one hop). Before, `features` and `entities` were identical for every role, so a restricted role paid for schemas it could not use in every system prompt. A translation-only feature such as `locale-de` no longer appears in `features`."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Local agent tool errors carry a code",

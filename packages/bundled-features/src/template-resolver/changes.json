@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "Document anchors accept relative links",
+    "detail": "An anchor href in a document body may be relative (/path, ./, ../, #, ?); never // or a backslash. Other URL attributes (image src and similar) and mail links still accept only explicit schemes or placeholders. The sanitizer, the editor schema, compileDocumentBody and the confirmation mail use the same split."
+  },
+  {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "Collection nav takes entryLabel for the create title",
+    "detail": "A collection's nav takes an optional entryLabel (singular i18n key, new in the nav type and in the required surface keys of all locale packages). The create screen title reads \"New {label}\", or \"New entry\" without it."
+  },
+  {
     "version": "0.395.0",
     "type": "breaking",
     "title": "Content collections edit in plain or document format; rich and markdown are gone",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.402.0",
+    "type": "improvement",
+    "title": "New guard boot-raw-throws",
+    "detail": "Freezes the count of raw `throw new Error` in `engine/boot-validator` and bundled `boot-checks.ts` per file in `.kumiko-boot-raw-throws-baseline.json`. New boot checks throw `bootRuleError(RULE, { message })` with a rule table. Only the framework repo is scanned."
+  },
+  {
     "version": "0.396.0",
     "type": "improvement",
     "title": "Faster guard suite through text prefilters",
