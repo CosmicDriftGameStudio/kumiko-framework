@@ -53,7 +53,7 @@ describe("buildAgentManifest against the showcase app", () => {
     expect(byQn.get("showcase:write:item:create")?.description).toBeTruthy();
   });
 
-  test("includes the item entity with field labels in both de and en", () => {
+  test("includes the item entity with field labels in the requested locale", () => {
     const registry = createRegistry([localeDe(), itemsFeature, demosFeature]);
     const manifest = buildAgentManifest(registry, { locale: "de", roles: ["admin"] });
 
@@ -61,6 +61,6 @@ describe("buildAgentManifest against the showcase app", () => {
     expect(item).toBeDefined();
 
     const titleField = item?.fields.find((field) => field.name === "title");
-    expect(titleField?.labels).toMatchObject({ de: "Titel", en: "Title" });
+    expect(titleField?.label).toBe("Titel");
   });
 });

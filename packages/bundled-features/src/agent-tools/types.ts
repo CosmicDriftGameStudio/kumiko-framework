@@ -125,8 +125,8 @@ export type AgentManifestOptions = {
 export type AgentManifestField = {
   readonly name: string;
   readonly type: string;
-  /** Label per app locale, keyed by locale code. */
-  readonly labels: Readonly<Record<string, string>>;
+  /** Label in the requested locale (English, then any other, as fallback); absent when untranslated. */
+  readonly label?: string;
   readonly description?: string;
   readonly options?: readonly string[];
   /** Entity a `reference` field points at. */
@@ -140,7 +140,7 @@ export type AgentManifestField = {
 
 export type AgentManifestEntity = {
   readonly name: string;
-  readonly labels: Readonly<Record<string, string>>;
+  readonly label?: string;
   readonly description?: string;
   readonly fields: readonly AgentManifestField[];
 };
@@ -148,7 +148,7 @@ export type AgentManifestEntity = {
 export type AgentManifestHandler = {
   readonly qn: string;
   readonly kind: "query" | "write";
-  readonly description: string;
+  readonly description?: string;
   readonly risk: AgentRisk;
   readonly inputSchema: Readonly<Record<string, unknown>>;
   readonly entity?: string;
@@ -159,11 +159,12 @@ export type AgentManifestHandler = {
 export type AgentManifestScreen = {
   readonly id: string;
   readonly type: string;
-  readonly titles: Readonly<Record<string, string>>;
+  readonly title?: string;
   readonly description?: string;
   readonly entity?: string;
-  readonly params: readonly string[];
-  readonly workspaces: readonly string[];
+  /** Only present on detail screens. */
+  readonly params?: readonly string[];
+  readonly workspaces?: readonly string[];
   /** Entity this screen is the detail view for. Distinct from `entity`: a custom
    *  screen can render entity A while being the detail view for B. */
   readonly detailFor?: string;
@@ -173,15 +174,15 @@ export type AgentManifestScreen = {
 
 export type AgentManifestNav = {
   readonly id: string;
-  readonly labels: Readonly<Record<string, string>>;
+  readonly label?: string;
   readonly screen?: string;
   readonly parent?: string;
-  readonly workspaces: readonly string[];
+  readonly workspaces?: readonly string[];
 };
 
 export type AgentManifestWorkspace = {
   readonly id: string;
-  readonly labels: Readonly<Record<string, string>>;
+  readonly label?: string;
   readonly default?: true;
 };
 

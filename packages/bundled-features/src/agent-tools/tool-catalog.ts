@@ -146,13 +146,9 @@ function addToolsForListHandler(
   }
 }
 
-function entityDisplayLabel(
-  entity: AgentManifestEntity | undefined,
-  entityName: string,
-  locale: string,
-): string {
+function entityDisplayLabel(entity: AgentManifestEntity | undefined, entityName: string): string {
   if (entity?.description) return entity.description;
-  const label = entity?.labels[locale];
+  const label = entity?.label;
   if (label) return label;
   return entityName;
 }
@@ -285,7 +281,7 @@ function stripFieldFromSchema(
 }
 
 function handlerDescription(handler: AgentManifestHandler): string {
-  return handler.description.length > 0 ? handler.description : `Run ${handler.qn}.`;
+  return handler.description ?? `Run ${handler.qn}.`;
 }
 
 /** Drops the `query`/`write` verb segment from a handler QN, joins the rest with `_`, and
@@ -483,12 +479,11 @@ function addGetTools(
   registry: RegistrySearchView,
   detailQnByEntity: ReadonlyMap<string, string>,
   entityByName: ReadonlyMap<string, AgentManifestEntity>,
-  locale: string,
   sink: CatalogSink,
 ): void {
   const getEntries = [...detailQnByEntity.entries()].sort((a, b) => compareByCodePoint(a[0], b[0]));
   for (const [entityName, qn] of getEntries) {
-    const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
+    const label = entityDisplayLabel(entityByName.get(entityName), entityName);
     const { tool, descriptor } = buildGetTool(
       entityName,
       qn,
@@ -504,12 +499,11 @@ function addListTools(
   listQnByEntity: ReadonlyMap<string, string>,
   entityByName: ReadonlyMap<string, AgentManifestEntity>,
   roles: readonly string[],
-  locale: string,
   sink: CatalogSink,
 ): void {
   const listEntries = [...listQnByEntity.entries()].sort((a, b) => compareByCodePoint(a[0], b[0]));
   for (const [entityName, qn] of listEntries) {
-    const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
+    const label = entityDisplayLabel(entityByName.get(entityName), entityName);
     const searchableFields = registry.getSearchableFields(entityName);
     const filterableFields = filterableFieldsOf(
       entityByName.get(entityName),
@@ -636,7 +630,6 @@ export function buildToolCatalog(
 ): ToolCatalog {
   const sink: CatalogSink = { tools: [], dispatchTable: new Map(), usedNames: new Set() };
   const roleFilter = { roles: manifest.builtForRoles };
-  const locale = manifest.tenantSettings.locale;
   const entityByName = new Map(manifest.entities.map((entity) => [entity.name, entity]));
   const denyQns = new Set(options.denyQns ?? []);
   assertCatalogMirrorsManifestDenyQns(manifest, denyQns);
@@ -647,8 +640,8 @@ export function buildToolCatalog(
     roleFilter,
     denyQns,
   );
-  addGetTools(registry, detailQnByEntity, entityByName, locale, sink);
-  addListTools(registry, listQnByEntity, entityByName, roleFilter.roles, locale, sink);
+  addGetTools(registry, detailQnByEntity, entityByName, sink);
+  addListTools(registry, listQnByEntity, entityByName, roleFilter.roles, sink);
   addQueryHandlerTools(manifest, entityListDetailQns, denyQns, sink);
   if (options.mode !== "read-only") {
     addWriteHandlerTools(manifest, detailQnByEntity, denyQns, sink);

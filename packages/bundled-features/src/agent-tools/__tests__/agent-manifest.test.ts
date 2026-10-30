@@ -11,6 +11,7 @@ import {
 import type { ReferenceFieldDef, TextFieldDef } from "@cosmicdrift/kumiko-framework/engine/types";
 import * as z from "zod";
 import { buildAgentManifest } from "../agent-manifest.ts";
+import { buildToolCatalog } from "../tool-catalog.ts";
 
 const gatedEntity = createEntity({
   fields: {
@@ -201,7 +202,6 @@ describe("buildAgentManifest", () => {
     expect(secretNote).toEqual({
       name: "secretNote",
       type: "text",
-      labels: {},
       pii: true,
     });
   });
@@ -393,9 +393,9 @@ describe("buildAgentManifest", () => {
     });
 
     const widget = manifest.entities.find((e) => e.name === "widget");
-    expect(widget?.labels["en"]).toBe("Widget");
-    expect(widget?.fields.find((f) => f.name === "title")?.labels["en"]).toBe("Title");
-    expect(widget?.fields.find((f) => f.name === "status")?.labels).toEqual({});
+    expect(widget?.label).toBe("Widget");
+    expect(widget?.fields.find((f) => f.name === "title")?.label).toBe("Title");
+    expect(widget?.fields.find((f) => f.name === "status")).not.toHaveProperty("label");
   });
 });
 
@@ -417,7 +417,7 @@ describe("screen titles with a shared short id", () => {
     });
     for (const name of order) {
       const screen = manifest.screens.find((s) => s.id === `${name}:screen:settings`);
-      expect(screen?.titles["en"]).toBe(`Title of ${name}`);
+      expect(screen?.title).toBe(`Title of ${name}`);
     }
   });
 });
@@ -527,5 +527,116 @@ describe("buildAgentManifest features and entities follow the role", () => {
     });
     expect(manifest.features.map((f) => f.name)).not.toContain("rf-notes");
     expect(manifest.entities.map((e) => e.name)).not.toContain("note");
+  });
+});
+
+describe("buildAgentManifest labels and empty fields", () => {
+  const feature = defineFeature("label-locale-test", (r) => {
+    r.entity({ name: "gadget", ...gatedEntity });
+    r.queryHandler({
+      name: "gadget:lookup",
+      schema: z.object({ id: z.string() }),
+      handler: async () => ({}),
+      access: { roles: ["admin"] },
+      description: "Look up a gadget.",
+    });
+    r.screen({
+      id: "gadget-board",
+      type: "custom",
+      renderer: { react: "stub" },
+      description: "Board.",
+    });
+    r.translations({
+      keys: {
+        "label-locale-test:entity:gadget": { en: "Gadget", de: "Gerät" },
+        "label-locale-test:entity:gadget:field:title": { de: "Titel" },
+        "label-locale-test:entity:gadget:field:status": { fr: "Statut", es: "Estado" },
+        "screen:gadget-board.title": { en: "Gadget board", de: "Gerätetafel" },
+      },
+    });
+  });
+  const manifestFor = (locale: string) =>
+    buildAgentManifest(createRegistry([feature]), { locale, roles: ["admin"] });
+  const fieldLabel = (locale: string, name: string) =>
+    manifestFor(locale)
+      .entities.find((e) => e.name === "gadget")
+      ?.fields.find((f) => f.name === name)?.label;
+
+  test("labels come only in the requested locale", () => {
+    const de = manifestFor("de");
+    expect(de.entities.find((e) => e.name === "gadget")?.label).toBe("Gerät");
+    expect(de.screens.find((s) => s.id.endsWith("gadget-board"))?.title).toBe("Gerätetafel");
+    expect(JSON.stringify(de)).not.toContain("Gadget");
+  });
+
+  test("a missing locale falls back to English, then to the first other locale", () => {
+    expect(manifestFor("es").entities.find((e) => e.name === "gadget")?.label).toBe("Gadget");
+    expect(fieldLabel("en", "title")).toBe("Titel");
+    expect(fieldLabel("de", "status")).toBe("Estado");
+  });
+
+  test("untranslated labels and empty optional fields are left out", () => {
+    const manifest = manifestFor("en");
+    const gadget = manifest.entities.find((e) => e.name === "gadget");
+    expect(gadget?.fields.find((f) => f.name === "ownerId")).not.toHaveProperty("label");
+    const screen = manifest.screens.find((s) => s.id.endsWith("gadget-board"));
+    expect(screen).not.toHaveProperty("params");
+    expect(screen).not.toHaveProperty("workspaces");
+  });
+});
+
+describe("handler exposed without a description", () => {
+  const feature = defineFeature("no-description-test", (r) => {
+    r.queryHandler({
+      name: "thing:ping",
+      schema: z.object({}),
+      handler: async () => ({}),
+      access: { roles: ["admin"] },
+      agent: { expose: true },
+    });
+  });
+
+  test("the manifest entry has no description key and the tool falls back to a generic one", () => {
+    const registry = createRegistry([feature]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["admin"] });
+    const entry = manifest.handlers.find((h) => h.qn.endsWith(":thing:ping"));
+    expect(entry).toBeDefined();
+    expect(entry).not.toHaveProperty("description");
+
+    const catalog = buildToolCatalog(registry, manifest, { mode: "read-only" });
+    expect(catalog.tools.find((t) => t.description === `Run ${entry?.qn}.`)).toBeDefined();
+  });
+});
+
+describe("buildAgentManifest feature descriptions", () => {
+  const described = (text: string) =>
+    defineFeature("desc-test", (r) => {
+      r.describe(text);
+      r.queryHandler({
+        name: "thing:ping",
+        schema: z.object({}),
+        handler: async () => ({}),
+        access: { roles: ["admin"] },
+        description: "Ping.",
+      });
+    });
+  const manifestDescription = (text: string) =>
+    buildAgentManifest(createRegistry([described(text)]), { locale: "en", roles: ["admin"] })
+      .features[0]?.description;
+
+  test("only the first sentence reaches the manifest, the definition keeps the full text", () => {
+    const text = "Sends mail to tenants. Call `ctx.notify` from a handler to queue one.";
+    expect(manifestDescription(text)).toBe("Sends mail to tenants.");
+    expect(described(text).description).toBe(text);
+  });
+
+  test("abbreviations and article numbers do not end the sentence", () => {
+    expect(
+      manifestDescription("Handles requests, e.g. exports per Art. 15 of the GDPR. More."),
+    ).toBe("Handles requests, e.g. exports per Art. 15 of the GDPR.");
+  });
+
+  test("a sentence without an end is capped at 300 characters", () => {
+    expect(manifestDescription("a".repeat(500))).toHaveLength(300);
   });
 });
