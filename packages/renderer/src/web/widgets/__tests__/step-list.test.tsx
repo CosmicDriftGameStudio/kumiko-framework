@@ -154,6 +154,16 @@ describe("StepList source links and highlight", () => {
     expect(within(done).getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
   });
 
+  test("done step icon uses the ok token and fill stretches the list to its container", () => {
+    const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
+    const doneIcon = within(screen.getByTestId("step-case")).getByRole("img");
+    expect(doneIcon.className).toContain("bg-status-ok");
+    expect(doneIcon.className).not.toContain("bg-primary");
+    expect(screen.getByTestId("step-list").className).not.toContain("h-full");
+    rerender(<StepList title="Plan" steps={heatingSteps} fill />);
+    expect(screen.getByTestId("step-list").className).toContain("h-full");
+  });
+
   test("status badge and subtitle render in the header and are absent by default", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
     expect(screen.queryByTestId("step-list-status")).toBeNull();
