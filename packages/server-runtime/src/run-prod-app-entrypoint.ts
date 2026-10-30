@@ -93,6 +93,7 @@ function prodJobOptions(
   const queueNamePrefix = options.jobs?.queueNamePrefix;
   return {
     ...jobRunLoggerCallbacks(composed.registry, connections.db),
+    redisNamespace: connections.redisNamespace,
     ...(queueNamePrefix !== undefined && { queueNamePrefix }),
     ...(options.jobs?.getActiveTenantIds !== undefined && {
       getActiveTenantIds: options.jobs.getActiveTenantIds,

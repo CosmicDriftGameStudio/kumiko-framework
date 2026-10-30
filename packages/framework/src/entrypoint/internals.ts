@@ -36,6 +36,7 @@ export type BaseEntrypointOptions = {
 export type JobsBlock = {
   readonly redisUrl: string;
   readonly queueNamePrefix?: string;
+  readonly redisNamespace?: JobRunnerOptions["redisNamespace"];
   readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
   readonly onJobStart?: JobRunnerOptions["onJobStart"];
   readonly onJobComplete?: JobRunnerOptions["onJobComplete"];

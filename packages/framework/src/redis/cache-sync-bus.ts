@@ -3,7 +3,11 @@ import type {
   ClosableCacheSyncBus,
 } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { createFallbackLogger } from "../logging/utils.ts";
-import { type RedisClientOptions, redisClientOptionsFromEnv } from "./client.ts";
+import {
+  type RedisClientOptions,
+  redisClientOptionsFromEnv,
+  redisNamespaceFromEnv,
+} from "./client.ts";
 import { createRedisPubSubSignal, type PubSubSignal } from "./pubsub-signal.ts";
 
 export type { CacheSyncBus, ClosableCacheSyncBus };
@@ -113,7 +117,9 @@ export function createCacheSyncBusOverSignal(
   const now = opts.now ?? Date.now;
   const fanout = createLocalFanout();
 
-  signal.onMessage((_channel, payload) => {
+  signal.onMessage((channel, payload) => {
+    // skip: a wide subscribe pattern also delivers other features' channels
+    if (channel !== opts.channel) return;
     // skip: foreign or malformed payload on the channel
     if (!isCacheSyncEnvelope(payload)) return;
     // skip: own echo, already delivered locally by publish()
@@ -165,13 +171,15 @@ export type RedisCacheSyncBusOptions = {
   // The pub/sub connections carry no ioredis keyPrefix, so stacks sharing one
   // Redis (parallel test files) namespace the channel themselves.
   readonly channelPrefix?: string;
+  // Replaces the literal channel as PSUBSCRIBE pattern (see RedisNamespace.channelSubscribePattern).
+  readonly channelSubscribePattern?: string;
 };
 
 export function createRedisCacheSyncBus(opts: RedisCacheSyncBusOptions): ClosableCacheSyncBus {
   const channel = `${opts.channelPrefix ?? ""}${CACHE_SYNC_CHANNEL}`;
   const signal = createRedisPubSubSignal({
     redisUrl: opts.redisUrl,
-    channelPattern: channel,
+    channelPattern: opts.channelSubscribePattern ?? channel,
     label: "cache-sync",
     ...(opts.clientOptions ? { clientOptions: opts.clientOptions } : {}),
   });
@@ -184,9 +192,14 @@ export function createDefaultCacheSyncBus(
   envVars: Record<string, string | undefined> = process.env,
 ): ClosableCacheSyncBus {
   const redisUrl = envVars["REDIS_URL"];
-  return redisUrl
-    ? createRedisCacheSyncBus({ redisUrl, clientOptions: redisClientOptionsFromEnv(envVars) })
-    : createLocalCacheSyncBus();
+  if (!redisUrl) return createLocalCacheSyncBus();
+  const { channelPrefix, channelSubscribePattern } = redisNamespaceFromEnv(envVars);
+  return createRedisCacheSyncBus({
+    redisUrl,
+    clientOptions: redisClientOptionsFromEnv(envVars),
+    channelPrefix,
+    ...(channelSubscribePattern !== undefined && { channelSubscribePattern }),
+  });
 }
 
 export type ResolvedCacheSyncBus = {

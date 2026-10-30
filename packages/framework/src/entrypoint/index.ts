@@ -74,6 +74,11 @@ import { assertEntrypointRowLevelSecurityMode } from "./row-level-security-mode-
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.
+export type EntrypointStopOptions = {
+  // Overrides the lifecycle's default drain budget (40 s); a shared app waiting for long jobs raises it.
+  readonly drainTimeoutMs?: number;
+};
+
 // Shape the JobRunner block takes in every entrypoint mode. Extracted so
 // adding a new JobRunnerOption doesn't need three parallel changes.
 export type ApiEntrypointOptions = BaseEntrypointOptions & {
@@ -128,7 +133,7 @@ export type ApiEntrypoint = {
   // event-dispatcher (eventDispatcher.runLocal) when configured;
   // no-op otherwise. Uniform call-site so `main.ts` doesn't branch on mode.
   start(): Promise<void>;
-  stop(): Promise<void>;
+  stop(options?: EntrypointStopOptions): Promise<void>;
 };
 
 export type WorkerEntrypoint = {
@@ -145,7 +150,7 @@ export type WorkerEntrypoint = {
   // Starts event-dispatcher poll + BullMQ worker. SIGTERM triggers
   // `lifecycle.drain()`, which stops both via registered hooks.
   start(): Promise<void>;
-  stop(): Promise<void>;
+  stop(options?: EntrypointStopOptions): Promise<void>;
 };
 
 export type AllInOneEntrypoint = Omit<ApiEntrypoint, "mode"> &
@@ -315,6 +320,7 @@ function buildJobRunnerWithHook(
     redisUrl: jobs.redisUrl,
     consumerLane,
     queueNamePrefix: jobs.queueNamePrefix,
+    redisNamespace: jobs.redisNamespace,
     getActiveTenantIds: jobs.getActiveTenantIds,
     onJobStart: jobs.onJobStart,
     onJobComplete: jobs.onJobComplete,
@@ -327,6 +333,20 @@ function buildJobRunnerWithHook(
     await jobRunner.stop();
   });
   return jobRunner;
+}
+
+// Before the lifecycle drain, not as a hook: runner hooks drain one after another, and every other
+// hook (cache sync, brokers) would otherwise run first, leaving a window in which a lane still
+// fetches new jobs after SIGTERM.
+async function drainEntrypoint(
+  lifecycle: Lifecycle,
+  runners: readonly JobRunner[],
+  stopOptions: EntrypointStopOptions | undefined,
+): Promise<void> {
+  await Promise.all(runners.map((runner) => runner.stopConsuming?.()));
+  await lifecycle.drain(
+    stopOptions?.drainTimeoutMs !== undefined ? { timeoutMs: stopOptions.drainTimeoutMs } : {},
+  );
 }
 
 // A worker-shaped process with no consumers (no SSE, no search adapter,
@@ -430,8 +450,8 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
       // buildServer.
       if (server.eventDispatcher) await server.eventDispatcher.start();
     },
-    async stop() {
-      await lifecycle.drain();
+    async stop(stopOptions) {
+      await drainEntrypoint(lifecycle, apiJobRunner ? [apiJobRunner] : [], stopOptions);
     },
   };
 }
@@ -467,8 +487,8 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
       await eventDispatcher.start();
       await jobRunner.start();
     },
-    async stop() {
-      await lifecycle.drain();
+    async stop(stopOptions) {
+      await drainEntrypoint(lifecycle, [jobRunner], stopOptions);
     },
   };
 }
@@ -545,8 +565,8 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
       await workerJobRunner.start();
       await apiJobRunner.start();
     },
-    async stop() {
-      await lifecycle.drain();
+    async stop(stopOptions) {
+      await drainEntrypoint(lifecycle, [workerJobRunner, apiJobRunner], stopOptions);
     },
   };
 }

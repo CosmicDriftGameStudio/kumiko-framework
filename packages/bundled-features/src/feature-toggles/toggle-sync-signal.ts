@@ -4,6 +4,7 @@ import {
   createRedisPubSubSignal,
   type RedisClientOptions,
   redisChannelPrefixFromEnv,
+  redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ToggleSyncSignal } from "./toggle-runtime.ts";
@@ -36,11 +37,12 @@ export function createRedisToggleSyncSignal(
   redisUrl: string,
   clientOptions?: RedisClientOptions,
   channelPrefix: string = redisChannelPrefixFromEnv(),
+  channelSubscribePattern: string | undefined = redisNamespaceFromEnv().channelSubscribePattern,
 ): RedisToggleSyncSignal {
   const toggleSyncChannel = `${channelPrefix}${TOGGLE_SYNC_CHANNEL_NAME}`;
   const signal = createRedisPubSubSignal({
     redisUrl,
-    channelPattern: toggleSyncChannel,
+    channelPattern: channelSubscribePattern ?? toggleSyncChannel,
     label: "feature-toggles",
     ...(clientOptions ? { clientOptions } : {}),
   });
@@ -50,7 +52,9 @@ export function createRedisToggleSyncSignal(
       signal.publish(toggleSyncChannel, { featureName, enabled });
     },
     onMessage(listener) {
-      signal.onMessage((_channel, payload) => {
+      signal.onMessage((channel, payload) => {
+        // skip: a wide subscribe pattern also delivers other features' channels
+        if (channel !== toggleSyncChannel) return;
         if (!isTogglePayload(payload)) {
           // biome-ignore lint/suspicious/noConsole: ops-visible fallback — no ctx.obs.log in a raw PubSubSignal handler.
           console.error(

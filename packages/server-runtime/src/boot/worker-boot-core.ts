@@ -41,12 +41,14 @@ import {
 import {
   createRedisCacheSyncBus,
   redisClientOptionsFromEnv,
+  redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
+import { readShutdownDrainTimeoutMs } from "../boot-options/process-signals.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
 import { readEnv, requireEnv } from "../require-env.ts";
@@ -156,6 +158,8 @@ export async function bootWorkerProcess(
 
   const databaseUrl = requireEnv("DATABASE_URL", envSource, processName);
   const redisUrl = requireEnv("REDIS_URL", envSource, processName);
+  const redisNamespace = redisNamespaceFromEnv(envSource);
+  const shutdownDrainTimeoutMs = readShutdownDrainTimeoutMs(envSource);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
   const rowLevelSecurity = options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE;
 
@@ -205,11 +209,18 @@ export async function bootWorkerProcess(
     envSource,
     rowLevelSecurity,
   );
-  const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  const redis = new Redis(redisUrl, {
+    maxRetriesPerRequest: null,
+    keyPrefix: redisNamespace.keyPrefix,
+  });
 
   const cacheSync = createRedisCacheSyncBus({
     redisUrl,
     clientOptions: redisClientOptionsFromEnv(envSource),
+    channelPrefix: redisNamespace.channelPrefix,
+    ...(redisNamespace.channelSubscribePattern !== undefined && {
+      channelSubscribePattern: redisNamespace.channelSubscribePattern,
+    }),
   });
   try {
     await waitForDatabase(db, {
@@ -307,6 +318,7 @@ export async function bootWorkerProcess(
     eventDedup,
     ...(options.observability && { observability: options.observability }),
     redisUrl,
+    redisNamespace,
     ...jobLogger,
     ...(options.jobs?.queueNamePrefix !== undefined && {
       queueNamePrefix: options.jobs.queueNamePrefix,
@@ -339,7 +351,9 @@ export async function bootWorkerProcess(
     ...(isSecretsContext(extraContext["secrets"]) && { secrets: extraContext["secrets"] }),
     ...(bootCrypto.configCipher && { configCipher: bootCrypto.configCipher }),
     close: async () => {
-      await entrypoint.stop();
+      await entrypoint.stop(
+        shutdownDrainTimeoutMs !== undefined ? { drainTimeoutMs: shutdownDrainTimeoutMs } : {},
+      );
       await closeDb();
       await closeOutsideTransactionDb();
       redis.disconnect();

@@ -8,6 +8,7 @@ import type {
   SessionUser,
   TenantId,
 } from "../engine/types/index.ts";
+import type { RedisNamespace } from "../redis/client.ts";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -67,6 +68,10 @@ export type JobSubjectValue = string | number | boolean | null;
 export type JobRunner = {
   start(): Promise<void>;
   stop(): Promise<void>;
+  // Stops fetching new jobs without waiting for active ones; stop() then waits for them.
+  // Lets a shutdown with several runners keep every lane from picking up work while another lane drains.
+  // Optional so hand-written runners (test stubs) keep compiling; createJobRunner always provides it.
+  stopConsuming?(): Promise<void>;
   dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
   handleEvent(
     eventName: string,
@@ -108,6 +113,9 @@ export type JobRunnerOptions = {
   // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
   // two parallel test-runners never see each other's jobs.
   queueNamePrefix?: string | undefined;
+  // Key namespace on a shared Redis (see redisNamespaceFromEnv). Enqueuer and consumer must receive
+  // the same value, otherwise they use different BullMQ key spaces and jobs are silently lost.
+  redisNamespace?: Pick<RedisNamespace, "keyPrefix" | "bullmqPrefix"> | undefined;
   // Override how long start() waits for the worker's Redis connection
   // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
   // to keep an unreachable-Redis assertion fast.

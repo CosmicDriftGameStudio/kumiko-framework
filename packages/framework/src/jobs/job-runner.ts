@@ -94,12 +94,16 @@ export type {
   JobSubjectValue,
 } from "./job-runner-types.ts";
 
+const DEFAULT_REDIS_NAMESPACE = { keyPrefix: "", bullmqPrefix: "bull" } as const;
+
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl, consumerLane } = options;
   const queueNamePrefix = options.queueNamePrefix ?? DEFAULT_QUEUE_NAME_PREFIX;
   const bootRedisTimeoutMs = options.bootRedisTimeoutMs ?? BOOT_REDIS_TIMEOUT_MS;
   const schedulerSeenRefreshMs = options.schedulerSeenRefreshMs ?? ORPHAN_SCHEDULER_GRACE_MS / 4;
   const redisOpts = parseRedisOpts(redisUrl);
+  // BullMQ rejects an ioredis keyPrefix on its connection, so it gets its own `prefix`; only lockRedis uses keyPrefix.
+  const { keyPrefix, bullmqPrefix } = options.redisNamespace ?? DEFAULT_REDIS_NAMESPACE;
   // Use the context's tracer when present (observability-provider injected at
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
   const tracer: Tracer = context.tracer ?? getFallbackTracer();
@@ -224,7 +228,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let lockRedis: Redis | null = null;
   let sequentialLock: DistributedLock | null = null;
   if (hasSequential) {
-    lockRedis = new Redis(redisOpts);
+    lockRedis = new Redis({ ...redisOpts, keyPrefix });
     // Without a listener, a post-close 'error' (e.g. a teardown-race
     // "Connection is closed") is unhandled and crashes the process — in
     // bun:test it gets attributed to whichever test happens to run next.
@@ -256,10 +260,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const queues: Readonly<Record<JobRunIn, Queue>> = {
     api: new Queue(queueNameFor(queueNamePrefix, "api"), {
       connection: redisOpts,
+      prefix: bullmqPrefix,
       defaultJobOptions: jobRetentionOpts,
     }),
     worker: new Queue(queueNameFor(queueNamePrefix, "worker"), {
       connection: redisOpts,
+      prefix: bullmqPrefix,
       defaultJobOptions: jobRetentionOpts,
     }),
   };
@@ -493,6 +499,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         (job, token) => handleJob(job, token),
         {
           connection: redisOpts,
+          prefix: bullmqPrefix,
           concurrency: 5,
           // Not consuming until the boot gates passed: a job already queued from a
           // previous run must not execute against an unmet boot precondition.
@@ -597,6 +604,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         consumerLane,
         expectedSchedulerIds,
       );
+    },
+
+    async stopConsuming(): Promise<void> {
+      await worker?.pause(true);
     },
 
     async stop(): Promise<void> {

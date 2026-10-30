@@ -64,6 +64,44 @@ A deployment with no rate limiting, no jobs, and no realtime SSE can run
 Postgres-only — but in practice, realtime SSE is a core selling point of
 Kumiko, so most real deployments end up needing Redis.
 
+### Sharing one Redis between apps
+
+Apps that share a Redis instance each get an ACL user and set `KUMIKO_REDIS_PREFIX=<P>` on every
+process of the app (API, worker). With the variable set, every Redis key and every Pub/Sub channel
+the app touches starts with `<P>:`; without it the key layout is unchanged.
+
+| Variable | Effect |
+|---|---|
+| `KUMIKO_REDIS_PREFIX` | `^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$`, no `:` and no glob characters, an invalid value aborts the boot. Prefixes every key (ioredis `keyPrefix`: locks, rate limit, idempotency, event dedup, cache), the BullMQ `prefix` (`<P>:bull`) and every Pub/Sub channel (`<P>:`). |
+| `KUMIKO_REDIS_CHANNEL_PREFIX` | Channels only, for apps that do not set `KUMIKO_REDIS_PREFIX` (parallel e2e stacks). Together with `KUMIKO_REDIS_PREFIX` it must be equal or unset, otherwise the boot aborts. |
+| `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` | Positive integer. Drain budget after SIGTERM for `runProdApp` and `runWorkerApp`; `signals.drainTimeoutMs` wins, default 25000 for the signal path. Set it to the pod's `terminationGracePeriodSeconds` minus a margin (about 290000 for 300 s) so running jobs can finish. |
+
+ACL user (the colon in `<P>:*` is required, otherwise `app-x*` also matches `app-x2:`):
+
+```
+ACL SETUSER <user> on ><password> resetkeys resetchannels ~<P>:* &<P>:* +@all -@dangerous +info +client|setname
+```
+
+Redis checks `PSUBSCRIBE` patterns against `&` rules literally, so `PSUBSCRIBE <P>:kumiko:sse:*` is
+`NOPERM` under `&<P>:*`. With a prefix set, the SSE broker, the cache-sync bus and the toggle
+signal therefore subscribe to the single pattern `<P>:*` and filter by channel name.
+
+The integration test `run-prod-app-redis-namespace.integration.test.ts` boots against exactly this
+user and asserts an empty `ACL LOG` for it.
+
+Key layout for a wake-up service (KEDA scaler) that watches the job queues. The queue names are
+`<queueNamePrefix>-api` and `<queueNamePrefix>-worker`; `queueNamePrefix` defaults to `kumiko-jobs`,
+so the default queues are `kumiko-jobs-api` and `kumiko-jobs-worker`:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `<P>:bull:<queueName>:delayed` | ZSET | delayed jobs and the next cron runs, score = due time in ms |
+| `<P>:bull:<queueName>:wait` | LIST | jobs ready to run |
+| `<P>:bull:<queueName>:prioritized` | ZSET | ready jobs with a priority |
+| `<P>:bull:<queueName>:active` | LIST | jobs a worker is running |
+
+Without `KUMIKO_REDIS_PREFIX` the keys are `bull:<queueName>:...`.
+
 ## + Meilisearch
 
 Only needed if a feature registers a search index
