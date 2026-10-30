@@ -14,7 +14,7 @@ const annaFirst: ThreadMessage = {
   timeLabel: "Mo 08:14",
   body: {
     kind: "text",
-    text: "seit gestern Abend ist meine Heizung komplett kalt.\nBitte melden.",
+    text: "Guten Tag,\n\nseit gestern Abend ist meine Heizung komplett kalt.\nBitte melden.",
   },
 };
 const reply: ThreadMessage = {
@@ -56,9 +56,10 @@ describe("MessageThread", () => {
     render(<MessageThread messages={[annaFirst, reply, annaLast]} />);
     const row = screen.getByTestId("message-row-m1");
     expect(row.textContent).toContain("Anna Schneider");
-    expect(row.textContent).toContain("seit gestern Abend ist meine Heizung komplett kalt.");
+    expect(row.textContent).toContain(
+      "Guten Tag, seit gestern Abend ist meine Heizung komplett kalt. Bitte melden.",
+    );
     expect(row.textContent).toContain("Mo 08:14");
-    expect(screen.queryByText("Bitte melden.", { exact: false })).toBeNull();
     expect(screen.getByTestId("message-open-m3")).toBeTruthy();
     expect(screen.queryByTestId("message-open-m1")).toBeNull();
 
