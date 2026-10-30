@@ -143,6 +143,7 @@ function text(name: string): ColumnBuilder<string>;
 function timestamp(name: string, _opts?: { withTimezone?: boolean; mode?: "string" | "date"; }): ColumnBuilder<Temporal.Instant | string>;
 function toPostgresArrayLiteral(values: PostgresArrayElement[]): string;
 function transaction<T>(db: AnyDb, fn: (tx: DbTx) => Promise<T>): Promise<T>;
+function tryWithSessionAdvisoryLock<T>(db: AnyDb, key: number, fn: () => Promise<T>): Promise<TryAdvisoryLockResult<T>>;
 function uniqueIndex(name: string): IndexBuilder;
 function unsafeReadRetrying<TRow>(db: AnyDb, sqlText: string, params: unknown[]): Promise<TRow[]>;
 function updateMany<TRow = AnyRow>(db: AnyDb, table: WritableTable, set: Record<string, unknown>, where: WhereObject): Promise<TRow[]>;

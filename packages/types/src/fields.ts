@@ -132,8 +132,9 @@ export type FieldAccess = {
 //   - `find: "fuzzy"`  → `lookupable: true, searchable: true`. substring/
 //                        full-text via the Meilisearch consumer.
 //   - `find: "none"`   → neither.
-//   - `find: "secret"` → `sensitive: true`. longText fields only allow
-//                        "none" | "secret" — no lookup/search machinery there.
+//   - `find: "secret"` → `sensitive: true`. longText fields allow
+//                        "none" | "fuzzy" | "secret" (no "exact": no blind index
+//                        on long values; "fuzzy" there means `searchable: true` only).
 //
 // Worked examples, all live in this repo:
 //
@@ -238,10 +239,10 @@ export type PersonalAnnotations =
       readonly anonymize?: () => unknown | Promise<unknown>;
     };
 
-// longText has no lookupable/searchable machinery ("Kein searchable" — see
-// LongTextFieldDef doc) — only "does this need to stay a secret" applies.
+// longText has no blind-index lookup: "fuzzy" means full-text via the
+// SearchAdapter only (long values are chunked there), "secret" means never findable.
 // Kept mandatory like `find` on PersonalAnnotations: no silent default.
-export type LongTextFindability = "none" | "secret";
+export type LongTextFindability = "none" | "fuzzy" | "secret";
 
 export type PersonalAnnotationsLongText =
   | {
@@ -360,9 +361,9 @@ export type TextFieldDef = {
  *
  *   - **No `sortable`**: ordering 100 KB strings costs I/O without useful UX;
  *     lexicographic ordering of code is not meaningful.
- *   - **No `searchable`**: ILIKE/substring searches do not scale on long text.
- *     Full-text search should use the SearchAdapter (Meilisearch), which has
- *     its own tokenizer and index rather than this field flag.
+ *   - **`searchable` only through `find: "fuzzy"`**: ILIKE/substring searches
+ *     do not scale on long text, so the value is full-text indexed by the
+ *     SearchAdapter (Meilisearch, chunked) and never searched in SQL.
  *   - **No `filterable`**: filtering long strings has the same issue as sorting.
  *   - **No `format`**: email/url/phone are short, structured inputs, whereas
  *     longText is unstructured by definition.
@@ -386,6 +387,8 @@ export type LongTextFieldDef = {
    *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
    *  run that already read the compromised value. See irreversible-operation-gate. */
   readonly readAsInstruction?: boolean;
+  /** Set by `find: "fuzzy"`: the value goes into the SearchAdapter document. */
+  readonly searchable?: boolean;
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };

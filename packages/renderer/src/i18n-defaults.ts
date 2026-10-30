@@ -430,6 +430,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_element": "Invalid entry.",
     "errors.validation.invalid_value": "Invalid choice.",
     "errors.validation.custom": "Invalid value.",
+    "errors.validation.onlyDeleted": "The trash list is not available here.",
     "errors.validation.unexpected_field": "Unknown field.",
     "errors.validation.out_of_bounds": "Value out of allowed range.",
     "errors.validation.invalid_option": "Invalid choice.",

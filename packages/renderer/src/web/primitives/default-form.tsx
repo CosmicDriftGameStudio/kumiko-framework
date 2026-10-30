@@ -1,5 +1,10 @@
 import { type ReactNode, useContext } from "react";
-import { type FormProps, InsideDrawerProvider, useInsideDrawer } from "../../index.ts";
+import {
+  type FormProps,
+  InsideDrawerProvider,
+  useInsideDrawer,
+  useTranslation,
+} from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { screenFormColumnWidthClassName, screenPaddingClassName } from "./layout.tsx";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
@@ -23,6 +28,7 @@ import {
   isPinnedFooter,
   SECTION_NAV_MIN_ITEMS,
 } from "./form.tsx";
+import { unsavedStatusText } from "./form-footer-parts.tsx";
 
 // Form inside the Drawer primitive: the drawer header carries the title, so
 // only the description (as help text), the scrolling sections and a pinned
@@ -123,6 +129,7 @@ export function DefaultForm({
   summary,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
+  const t = useTranslation();
   const isEmbeddedForm = useContext(EmbeddedFormContext);
   const contextWidth = useContext(ScreenWidthContext);
   // Embedded (AuthCard etc.): bare <form>, stacked fields with gap; the
@@ -186,6 +193,18 @@ export function DefaultForm({
           >
             {actions}
             {secondaryActions}
+            {unsavedCount !== undefined && unsavedCount > 0 && (
+              <span
+                data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
+                className="flex items-center gap-2 text-[13px] text-foreground-secondary"
+              >
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-status-active"
+                  aria-hidden="true"
+                />
+                {unsavedStatusText(t, unsavedCount)}
+              </span>
+            )}
           </div>
         )}
       </FormRoot>

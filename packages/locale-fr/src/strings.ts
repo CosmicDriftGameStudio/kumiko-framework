@@ -572,6 +572,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "errors.unprocessable": "La requête n'a pas pu être traitée.",
   "errors.file.violatesBindTarget": "Ce fichier ne respecte pas les exigences du champ cible.",
   "errors.validation.custom": "Valeur invalide.",
+  "errors.validation.onlyDeleted": "Requête de la corbeille impossible.",
   "errors.validation.failed": "Échec de la validation.",
   "errors.validation.invalid_element": "Entrée invalide.",
   "errors.validation.invalid_format": "Format invalide.",

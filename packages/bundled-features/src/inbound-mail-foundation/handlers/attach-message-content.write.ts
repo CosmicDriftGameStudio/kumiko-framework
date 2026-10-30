@@ -20,6 +20,7 @@ import {
   type InboundMessageContentFetchedEventPayload,
 } from "../events.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
+import { sanitizeInboundHtml } from "../sanitize-inbound-html.ts";
 import {
   finalizePreparedContent,
   type PreparedInboundContent,
@@ -27,6 +28,7 @@ import {
 } from "./ingest-message-prepare.ts";
 import {
   contentStateOf,
+  encryptMessageBodyHtml,
   encryptMessageBodyText,
   inboundContentPayloadShape,
   MESSAGE_LOCK_NAMESPACE,
@@ -104,6 +106,11 @@ async function contentEventPayloadOf(
     bodyRef: content?.bodyRef ?? "",
     bodyText: await encryptMessageBodyText(tenantId, messageAggId, fetched ? payload.bodyText : ""),
     bodyTextTruncated: fetched && payload.bodyTextTruncated,
+    bodyHtml: await encryptMessageBodyHtml(
+      tenantId,
+      messageAggId,
+      fetched && payload.bodyHtml !== undefined ? sanitizeInboundHtml(payload.bodyHtml) : null,
+    ),
     attachmentFileIds: content?.attachmentFileIds ?? [],
     skippedAttachments: content?.skippedAttachments ?? [],
     contentState: content

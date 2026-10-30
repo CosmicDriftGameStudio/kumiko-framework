@@ -107,10 +107,10 @@ type TextFieldStanceFactory = "createTextField" | "createLongTextField";
 
 // `find` is mandatory once a subject is named (types require it — see
 // PersonalAnnotations / PersonalAnnotationsLongText), but the valid values
-// differ per factory: longText has no lookup/search machinery.
+// differ per factory: longText has no blind-index lookup ("exact").
 const TEXT_FIELD_STANCE_FIND_VALUES: Record<TextFieldStanceFactory, readonly Findability[]> = {
   createTextField: ["exact", "fuzzy", "none", "secret"],
-  createLongTextField: ["none", "secret"],
+  createLongTextField: ["none", "fuzzy", "secret"],
 };
 
 function textFieldStanceHint(factoryName: TextFieldStanceFactory): string {
@@ -216,14 +216,17 @@ export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
 }
 
 export function createLongTextField<R extends true | false = false>(
-  overrides: Partial<Omit<LongTextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+  overrides: Partial<
+    Omit<LongTextFieldDef, "type" | "required" | "searchable" | keyof ResolvedPiiFlags>
+  > &
     PersonalAnnotationsLongText & { required?: R },
 ): EntityLongTextFieldDef & { required: R } {
   assertTextFieldStance("createLongTextField", overrides);
+  const { lookupable: _noBlindIndex, ...expanded } = expandPersonalAnnotations(overrides);
   return {
     type: "longText",
     required: false,
-    ...expandPersonalAnnotations(overrides),
+    ...expanded,
   } as EntityLongTextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 

@@ -248,6 +248,37 @@ describe("retention removes the attachments of a purged mail", () => {
   });
 });
 
+describe("sanitized HTML body", () => {
+  test("only the sanitized HTML is stored and returned by message:content", async () => {
+    const admin = adminFor(6140);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "html-1",
+        text: "Hello",
+        html: '<p onclick="steal()">Hello</p><script>alert(1)</script><img src="cid:logo">',
+      }),
+    );
+    await createMailSupervisor(env.stack).pollOnce();
+
+    const content = await contentOf(admin, accountId, "html-1");
+    expect(content?.bodyHtml).toBe("<p>Hello</p>");
+  });
+
+  test("a mail without HTML reads bodyHtml null", async () => {
+    const admin = adminFor(6141);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "plain-1", text: "Only text" }),
+    );
+    await createMailSupervisor(env.stack).pollOnce();
+
+    expect((await contentOf(admin, accountId, "plain-1"))?.bodyHtml).toBeNull();
+  });
+});
+
 describe("event versions", () => {
   test("a v1 received event reads with the content defaults", async () => {
     const upcasters = env.stack.registry.getEventUpcasters();
@@ -283,8 +314,9 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
+      bodyHtml: null,
       bodyText: "",
       bodyTextTruncated: false,
       attachmentFileIds: [],
@@ -322,7 +354,7 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
       contentUnavailableReason: null,
       accountId: null,
@@ -359,7 +391,7 @@ describe("event versions", () => {
       tenantId: v2.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
       contentUnavailableReason: "gone_from_server",
       accountId: null,

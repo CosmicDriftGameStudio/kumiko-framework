@@ -270,6 +270,11 @@ function buildSortableReferenceField(
   };
 }
 
+// longText becomes searchable only through `find: "fuzzy"` (indexed in chunks by the SearchAdapter).
+function isSearchableStringField(field: EntityDefinition["fields"][string]): boolean {
+  return (field.type === "text" || field.type === "longText") && field.searchable === true;
+}
+
 // Precompute: searchable/sortable fields, searchable + sortable reference fields.
 export function buildSearchableSortableCaches(state: RegistryState): void {
   for (const [name, entity] of state.entityMap) {
@@ -278,7 +283,7 @@ export function buildSearchableSortableCaches(state: RegistryState): void {
     const searchableReferences: SearchableReferenceField[] = [];
     const sortableReferences: SortableReferenceField[] = [];
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type === "text" && field.searchable === true) searchable.push(fieldName);
+      if (isSearchableStringField(field)) searchable.push(fieldName);
       if (field.type === "text" && field.sortable === true) sortable.push(fieldName);
       if (field.type === "embedded") {
         for (const [subName, subField] of Object.entries(field.schema)) {

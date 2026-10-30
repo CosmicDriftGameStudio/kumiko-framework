@@ -560,6 +560,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.unprocessable": "No se pudo procesar la solicitud.",
   "errors.file.violatesBindTarget": "Este archivo no cumple los requisitos del campo de destino.",
   "errors.validation.custom": "Valor no válido.",
+  "errors.validation.onlyDeleted": "Consulta de la papelera no disponible.",
   "errors.validation.failed": "Validación fallida.",
   "errors.validation.invalid_element": "Entrada no válida.",
   "errors.validation.invalid_format": "Formato no válido.",

@@ -209,7 +209,7 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     expect(hits.some((h) => h.entityId === aggregateId)).toBe(true);
   });
 
-  test("a batch mixing creates and deletes produces at most one index task and one deletion task", async () => {
+  test("a batch mixing creates and deletes produces one index task and two deletion tasks (removal and stale-piece cleanup), not one per row", async () => {
     const toDelete = uuid();
     await deliverBatch([eventRow(toDelete, "created", { label: "mixed-batch-to-delete" })]);
 
@@ -223,7 +223,8 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     const indexTasks = await taskCountSince(baseline, ["documentAdditionOrUpdate"]);
     const deletionTasks = await taskCountSince(baseline, ["documentDeletion"]);
     expect(indexTasks).toBe(1);
-    expect(deletionTasks).toBe(1);
+    // One filter-delete for the removed entity, one for pieces left over from earlier versions of the created ones.
+    expect(deletionTasks).toBe(2);
   });
 
   test("remove and removeBatch on a tenant whose index was never created resolve", async () => {

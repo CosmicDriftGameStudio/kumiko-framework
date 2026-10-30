@@ -12,6 +12,7 @@ import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observabi
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
 import { makeDispatchSystemQuery, makeDispatchSystemWrite } from "./extra-routes-deps.ts";
 import { makeFilesForTenant } from "./files-for-tenant.ts";
 import type { RunProdAppOptions } from "./run-prod-app.ts";
@@ -203,6 +204,7 @@ export async function startProdBackgroundWork(
   config: ProdBootConfig,
   composed: ProdComposedFeatures,
   connections: ProdConnections,
+  extraContext: object,
 ): Promise<void> {
   const { envSource } = config;
   await entrypoint.start();
@@ -210,6 +212,13 @@ export async function startProdBackgroundWork(
   startPiiEventBackfillOnBoot({
     db: connections.db,
     registry: composed.registry,
+    lifecycle: entrypoint.lifecycle,
+    envSource,
+  });
+  startSearchReindexOnBoot({
+    db: connections.db,
+    registry: composed.registry,
+    extraContext,
     lifecycle: entrypoint.lifecycle,
     envSource,
   });

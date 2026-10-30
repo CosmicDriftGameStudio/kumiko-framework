@@ -4,11 +4,16 @@ import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
 import { importOptionalPeer } from "../utils/import-optional-peer.ts";
 import {
   type MeilisearchAdapterOptions,
-  meilisearchDocId,
   meilisearchTenantIndex,
 } from "./meilisearch-adapter-internals.ts";
+import {
+  buildPieceDocuments,
+  entityPiecesFilter,
+  filterTypeClause,
+  stalePiecesFilter,
+} from "./meilisearch-chunking.ts";
 import { MEILISEARCH_PEER } from "./meilisearch-peer.ts";
-import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.ts";
+import type { SearchAdapter, SearchAdapterConfig, SearchDocument, SearchResult } from "./types.ts";
 
 // meilisearch is an optional peer; a static import would fail with the runtime's bare
 // "Cannot find package" error instead of naming the peer and how to install it.
@@ -51,8 +56,19 @@ const INDEX_LIST_PAGE_SIZE = 100;
 // What an unconfigured Meilisearch index reports as searchableAttributes.
 const MEILI_ALL_ATTRIBUTES = "*";
 
-const DEFAULT_FILTERABLE_ATTRIBUTES: readonly string[] = ["_type", "_weight"];
+// _entityId and _chunk back the piece filters (stale-piece cleanup, remove); distinct on
+// _entityId makes an entity with several matching pieces appear once in the results.
+const DISTINCT_ATTRIBUTE = "_entityId";
+const DEFAULT_FILTERABLE_ATTRIBUTES: readonly string[] = [
+  "_type",
+  "_weight",
+  DISTINCT_ATTRIBUTE,
+  "_chunk",
+];
 const DEFAULT_SORTABLE_ATTRIBUTES: readonly string[] = ["_weight"];
+
+// Filters per deleteDocuments call: one task per call, and the filter string stays short.
+const DELETE_FILTER_BATCH = 100;
 
 function defaultSearchableAttributes(config: SearchAdapterConfig): readonly string[] {
   return config.rankingFields ?? config.searchableFields;
@@ -78,6 +94,7 @@ function isOutdatedDefault(
     filterable: readonly string[];
     sortable: readonly string[];
   },
+  distinctMissing: boolean,
 ): boolean {
   const pairs = [
     [stored.searchable, wanted.searchable],
@@ -86,7 +103,8 @@ function isOutdatedDefault(
   ] as const;
   return (
     pairs.every(([have, want]) => isSubsetOf(have, want)) &&
-    pairs.some(([have, want]) => want.some((attribute) => !have.includes(attribute)))
+    (distinctMissing ||
+      pairs.some(([have, want]) => want.some((attribute) => !have.includes(attribute))))
   );
 }
 
@@ -125,6 +143,51 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     );
     await awaitSucceededTask(index.updateFilterableAttributes([...DEFAULT_FILTERABLE_ATTRIBUTES]));
     await awaitSucceededTask(index.updateSortableAttributes([...DEFAULT_SORTABLE_ATTRIBUTES]));
+    await awaitSucceededTask(index.updateDistinctAttribute(DISTINCT_ATTRIBUTE));
+  }
+
+  // Filter deletes need the filterable attributes, but a tenant whose index was never created has
+  // nothing to delete and must not get an empty index out of a delete.
+  async function ensureConfiguredIfIndexExists(tenantId: TenantId): Promise<boolean> {
+    if (!configuredTenants.has(tenantId)) {
+      try {
+        await client.getIndex(meilisearchTenantIndex(prefix, tenantId));
+      } catch (err) {
+        if (isIndexNotFound(err)) return false;
+        throw err;
+      }
+    }
+    await ensureConfigured(tenantId);
+    return true;
+  }
+
+  async function deleteByFilters(tenantId: TenantId, filters: readonly string[]): Promise<void> {
+    const index = client.index(meilisearchTenantIndex(prefix, tenantId));
+    await writeForgettingConfigOnFailure(tenantId, async () => {
+      for (let offset = 0; offset < filters.length; offset += DELETE_FILTER_BATCH) {
+        const filter = filters.slice(offset, offset + DELETE_FILTER_BATCH).join(" OR ");
+        await awaitSucceededTask(index.deleteDocuments({ filter }), REMOVE_TOLERATED_ERROR_CODES);
+      }
+    });
+  }
+
+  // All pieces first, then the leftovers of an earlier, longer version: a failure in between
+  // leaves a document that is too long, never a hole.
+  async function writeDocuments(
+    tenantId: TenantId,
+    docs: readonly SearchDocument[],
+  ): Promise<void> {
+    const index = client.index(meilisearchTenantIndex(prefix, tenantId));
+    const pieces = docs.flatMap(buildPieceDocuments);
+    await writeForgettingConfigOnFailure(tenantId, async () => {
+      await awaitSucceededTask(index.addDocuments(pieces, { primaryKey: "_id" }));
+    });
+    await deleteByFilters(
+      tenantId,
+      docs.map((doc) =>
+        stalePiecesFilter(doc.entityType, doc.entityId, buildPieceDocuments(doc).length),
+      ),
+    );
   }
 
   // Lazily configures a tenant's index off the default config on its first
@@ -158,6 +221,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
             filterable: DEFAULT_FILTERABLE_ATTRIBUTES,
             sortable: DEFAULT_SORTABLE_ATTRIBUTES,
           },
+          settings.distinctAttribute !== DISTINCT_ATTRIBUTE,
         )
       );
     } catch (err) {
@@ -219,43 +283,14 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
     async index(tenantId, doc) {
       await ensureConfigured(tenantId);
-      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await writeForgettingConfigOnFailure(tenantId, async () => {
-        await awaitSucceededTask(
-          index.addDocuments(
-            [
-              {
-                _id: meilisearchDocId(doc.entityType, doc.entityId),
-                _type: doc.entityType,
-                _weight: doc.weight,
-                _entityId: doc.entityId,
-                ...doc.fields,
-              },
-            ],
-            { primaryKey: "_id" },
-          ),
-        );
-      });
+      await writeDocuments(tenantId, [doc]);
     },
 
     async indexBatch(tenantId, docs) {
       // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (docs.length === 0) return;
       await ensureConfigured(tenantId);
-      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      const payload = docs.map((doc) => ({
-        _id: meilisearchDocId(doc.entityType, doc.entityId),
-        _type: doc.entityType,
-        _weight: doc.weight,
-        _entityId: doc.entityId,
-        ...doc.fields,
-      }));
-      // Single Meilisearch task covering all N docs. Meilisearch processes
-      // the payload server-side as one indexing job — waitTask blocks until
-      // that job is done, but it's one round-trip instead of N.
-      await writeForgettingConfigOnFailure(tenantId, async () => {
-        await awaitSucceededTask(index.addDocuments(payload, { primaryKey: "_id" }));
-      });
+      await writeDocuments(tenantId, docs);
     },
 
     async dropAllIndexes() {
@@ -287,11 +322,12 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async removeBatch(tenantId, items) {
       // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (items.length === 0) return;
-      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      const ids = items.map((i) => meilisearchDocId(i.entityType, i.entityId));
-      await writeForgettingConfigOnFailure(tenantId, async () => {
-        await awaitSucceededTask(index.deleteDocuments(ids), REMOVE_TOLERATED_ERROR_CODES);
-      });
+      // skip: the tenant has no index, so nothing is left to remove
+      if (!(await ensureConfiguredIfIndexExists(tenantId))) return;
+      await deleteByFilters(
+        tenantId,
+        items.map((item) => entityPiecesFilter(item.entityType, item.entityId)),
+      );
     },
 
     async search(tenantId, query, options) {
@@ -300,7 +336,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
       const filter: string[] = [];
       if (options?.filterType) {
-        filter.push(`_type = "${options.filterType}"`);
+        filter.push(filterTypeClause(options.filterType));
       }
 
       const searchParams: Record<string, unknown> = {
@@ -320,13 +356,9 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async remove(tenantId, entityType, entityId) {
-      const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await writeForgettingConfigOnFailure(tenantId, async () => {
-        await awaitSucceededTask(
-          index.deleteDocument(meilisearchDocId(entityType, entityId)),
-          REMOVE_TOLERATED_ERROR_CODES,
-        );
-      });
+      // skip: the tenant has no index, so nothing is left to remove
+      if (!(await ensureConfiguredIfIndexExists(tenantId))) return;
+      await deleteByFilters(tenantId, [entityPiecesFilter(entityType, entityId)]);
     },
   };
 }

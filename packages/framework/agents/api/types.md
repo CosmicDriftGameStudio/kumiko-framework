@@ -617,6 +617,20 @@ type DeleteRowsWithoutReplayableStreamArgs = {
 type PostgresArrayElement = string | number | bigint | null;
 ```
 
+## packages/framework/src/db/queries/session-advisory-lock.ts
+
+```ts
+type TryAdvisoryLockResult<T> =
+  | {
+    acquired: true;
+    value: T;
+  }
+  | {
+    acquired: false;
+  }
+;
+```
+
 ## packages/framework/src/db/query.ts
 
 ```ts
@@ -3682,11 +3696,12 @@ type LongTextFieldDef = PiiAndFieldState & { // Long-form text content — sourc
   encrypted?: boolean;
   sensitive?: boolean;
   readAsInstruction?: boolean; // A later run reads this field's value as an instruction — prompt, rule, template.
+  searchable?: boolean; // Set by `find: "fuzzy"`: the value goes into the SearchAdapter document.
   default?: string;
   access?: FieldAccess;
   multiline?: boolean | { rows?: number; };
 };
-type LongTextFindability = "none" | "secret";
+type LongTextFindability = "none" | "fuzzy" | "secret";
 type MoneyCurrencySource = // Where a money field's currency comes from.
   | {
     kind: "tenant";

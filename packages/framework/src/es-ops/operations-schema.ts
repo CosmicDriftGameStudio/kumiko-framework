@@ -12,7 +12,7 @@ import { acquireNamespacedAdvisoryLock } from "../db/queries/advisory-lock.ts";
 import { ES_OPS_ADVISORY_LOCK_KEY } from "../db/queries/es-ops.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 
-export type EsOperationType = "seed-migration" | "stream-migration";
+export type EsOperationType = "seed-migration" | "stream-migration" | "search-reindex";
 // Extensions — append here when implemented:
 // | "projection-rebuild"
 // | "event-replay"

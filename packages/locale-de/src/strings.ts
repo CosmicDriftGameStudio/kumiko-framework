@@ -564,6 +564,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.unprocessable": "Die Anfrage konnte nicht verarbeitet werden.",
   "errors.file.violatesBindTarget": "Diese Datei erfüllt die Vorgaben des Zielfelds nicht.",
   "errors.validation.custom": "Ungültiger Wert.",
+  "errors.validation.onlyDeleted": "Papierkorb-Abfrage nicht möglich.",
   "errors.validation.failed": "Validierung fehlgeschlagen.",
   "errors.validation.invalid_element": "Ungültiger Eintrag.",
   "errors.validation.invalid_format": "Ungültiges Format.",
