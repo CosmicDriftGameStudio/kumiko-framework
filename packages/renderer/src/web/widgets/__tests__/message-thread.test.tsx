@@ -107,7 +107,8 @@ describe("MessageThread", () => {
       const frame = screen.getAllByTitle("Anna Schneider")[0] as HTMLIFrameElement;
       expect(frame.tagName).toBe("IFRAME");
       const sandbox = frame.getAttribute("sandbox") ?? "";
-      expect(sandbox).toBe("allow-same-origin allow-popups allow-popups-to-escape-sandbox");
+      expect(sandbox).toBe("allow-popups allow-popups-to-escape-sandbox");
+      expect(sandbox).not.toContain("allow-same-origin");
       expect(sandbox).not.toContain("allow-scripts");
       const srcdoc = frame.getAttribute("srcdoc") ?? "";
       expect(srcdoc).toContain("default-src 'none'; style-src 'unsafe-inline'; img-src data:");
