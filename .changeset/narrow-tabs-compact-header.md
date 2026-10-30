@@ -8,7 +8,7 @@ Tab strips fit narrow panes, and the compact page header keeps the title whole.
 feature: renderer
 type: fix
 title: Tab strips tighten their spacing in narrow containers
-detail: DefaultTabs is a size container now. Below a strip width of 32rem (512px) it uses px-3 and gap-3, so four counted tabs fit a 400px list pane. Strips 32rem and wider keep px-6 and gap-6, and a strip that grows after mount gets the wide spacing back. A strip that still overflows keeps the edge fade at the cut side.
+detail: DefaultTabs is a size container now. Below a strip width of 32rem (512px) it uses px-2.5 and gap-2, so four counted tabs fit a 400px list pane. Strips 32rem and wider keep px-6 and gap-6, and a strip that grows after mount gets the wide spacing back. A strip that still overflows keeps the edge fade at the cut side.
 -->
 
 <!-- kumiko-changes
