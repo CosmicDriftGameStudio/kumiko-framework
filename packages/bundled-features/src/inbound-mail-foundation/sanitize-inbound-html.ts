@@ -51,8 +51,14 @@ const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
   th: ["colspan", "rowspan", "align", "valign", "width"],
   table: ["width", "cellpadding", "cellspacing", "border", "align"],
   font: ["color", "size"],
+  div: ["class", "id"],
+  blockquote: ["class", "type"],
   "*": ["style", "dir", "align"],
 };
+
+// Exactly the markers the reader's quote folding looks for (Gmail, Apple Mail, Thunderbird, Yahoo, Outlook).
+const QUOTE_CLASS_NAMES = ["gmail_quote", "moz-cite-prefix", "yahoo_quoted"];
+const QUOTE_ELEMENT_IDS = new Set(["divRplyFwdMsg", "appendonsend"]);
 
 // A style value may carry a remote load (url(), @import) or legacy script (expression()).
 const SAFE_STYLE_VALUE = /^(?!.*(?:url\s*\(|expression|@import|javascript:)).*$/i;
@@ -98,15 +104,28 @@ function withoutAttributeUnless(
   return rest;
 }
 
+function withoutIdUnlessQuoteMarker(attribs: Record<string, string>): Record<string, string> {
+  const id = attribs["id"];
+  if (id === undefined || QUOTE_ELEMENT_IDS.has(id.trim())) return attribs;
+  const { id: _dropped, ...rest } = attribs;
+  return rest;
+}
+
 export function sanitizeInboundHtml(html: string): string | null {
   const clean = sanitizeHtml(html, {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,
     allowedStyles: { "*": ALLOWED_STYLES },
+    allowedClasses: { div: QUOTE_CLASS_NAMES, blockquote: QUOTE_CLASS_NAMES },
     allowedSchemes: ["http", "https", "mailto", "tel"],
     allowedSchemesByTag: { img: ["http", "https"] },
     allowProtocolRelative: false,
     transformTags: {
+      div: (tagName, attribs) => ({ tagName, attribs: withoutIdUnlessQuoteMarker(attribs) }),
+      blockquote: (tagName, attribs) => ({
+        tagName,
+        attribs: withoutAttributeUnless(attribs, "type", /^cite$/),
+      }),
       a: (tagName, attribs) => ({
         tagName,
         attribs: {

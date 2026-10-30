@@ -44,7 +44,8 @@ export type QuotedHtmlSplit = {
   readonly quotedLineCount: number;
 };
 
-const HTML_QUOTE_SELECTOR = 'blockquote[type="cite"], .gmail_quote, #divRplyFwdMsg, #appendonsend';
+const HTML_QUOTE_SELECTOR =
+  'blockquote[type="cite"], .gmail_quote, .moz-cite-prefix, .yahoo_quoted, #divRplyFwdMsg, #appendonsend';
 
 function parseHtmlBody(html: string): HTMLElement | null {
   if (typeof DOMParser === "undefined") return null;

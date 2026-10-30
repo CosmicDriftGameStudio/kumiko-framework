@@ -78,6 +78,40 @@ describe("sanitizeInboundHtml", () => {
     expect(out).toBe("<p>ok</p>");
   });
 
+  describe("quote markers", () => {
+    test("keeps the quote markers of Gmail, Apple Mail, Thunderbird, Yahoo and Outlook", () => {
+      const html =
+        '<div class="gmail_quote"><blockquote class="gmail_quote" type="cite">q</blockquote></div>' +
+        '<div class="moz-cite-prefix yahoo_quoted">a</div>' +
+        '<div id="appendonsend"></div><div id="divRplyFwdMsg">f</div>';
+      const out = sanitizeInboundHtml(html) ?? "";
+      expect(out).toContain('<div class="gmail_quote">');
+      expect(out).toContain('<blockquote class="gmail_quote" type="cite">');
+      expect(out).toContain('class="moz-cite-prefix yahoo_quoted"');
+      expect(out).toContain('id="appendonsend"');
+      expect(out).toContain('id="divRplyFwdMsg"');
+    });
+
+    test("other classes, ids and types stay stripped", () => {
+      const out =
+        sanitizeInboundHtml(
+          '<div class="evil gmail_quote" id="login"><blockquote class="x" type="other">q</blockquote></div>' +
+            '<p class="gmail_quote" id="appendonsend" type="cite">p</p><span class="gmail_quote">s</span>',
+        ) ?? "";
+      expect(out).toBe(
+        '<div class="gmail_quote"><blockquote>q</blockquote></div><p>p</p><span>s</span>',
+      );
+    });
+
+    test("script, style and on* handlers are still removed next to quote markers", () => {
+      const out =
+        sanitizeInboundHtml(
+          '<div class="gmail_quote" onclick="x()"><script>alert(1)</script><style>p{}</style>q</div>',
+        ) ?? "";
+      expect(out).toBe('<div class="gmail_quote">q</div>');
+    });
+  });
+
   test("empty result is null", () => {
     expect(sanitizeInboundHtml("")).toBeNull();
     expect(sanitizeInboundHtml("<script>x</script>")).toBeNull();
