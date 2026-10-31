@@ -13,6 +13,7 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { findExtensionOptions } from "./collect-extension-options.ts";
 
 export const EXT_SIGNUP_HANDOVER = "signupHandover" as const;
 
@@ -54,10 +55,7 @@ export function isSignupHandoverProvider(options: unknown): options is SignupHan
 }
 
 export function findSignupHandoverProvider(registry: Registry): SignupHandoverProvider | undefined {
-  for (const usage of registry.getExtensionUsages(EXT_SIGNUP_HANDOVER)) {
-    if (isSignupHandoverProvider(usage.options)) return usage.options;
-  }
-  return undefined;
+  return findExtensionOptions(registry, EXT_SIGNUP_HANDOVER, isSignupHandoverProvider);
 }
 
 declare module "@cosmicdrift/kumiko-framework/engine" {

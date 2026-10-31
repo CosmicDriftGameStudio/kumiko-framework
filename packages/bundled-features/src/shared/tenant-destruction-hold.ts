@@ -7,6 +7,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { findExtensionOptions } from "./collect-extension-options.ts";
 
 export const EXT_TENANT_DESTRUCTION_HOLD = "tenantDestructionHold" as const;
 
@@ -34,10 +35,11 @@ function isTenantDestructionHoldProvider(
 export function findTenantDestructionHoldProvider(
   registry: Registry,
 ): TenantDestructionHoldProvider | undefined {
-  for (const usage of registry.getExtensionUsages(EXT_TENANT_DESTRUCTION_HOLD)) {
-    if (isTenantDestructionHoldProvider(usage.options)) return usage.options;
-  }
-  return undefined;
+  return findExtensionOptions(
+    registry,
+    EXT_TENANT_DESTRUCTION_HOLD,
+    isTenantDestructionHoldProvider,
+  );
 }
 
 declare module "@cosmicdrift/kumiko-framework/engine" {
