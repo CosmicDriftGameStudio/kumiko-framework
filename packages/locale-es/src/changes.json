@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Spanish strings for the contact feature and the configEdit action rows",
+    "detail": "Adds the Spanish copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work."
+  },
+  {
     "version": "0.371.0",
     "type": "improvement",
     "title": "errors.demoReadOnly translated",

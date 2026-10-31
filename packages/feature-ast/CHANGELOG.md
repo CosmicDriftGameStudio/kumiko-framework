@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.409.0
+
+### Patch Changes
+
+- 61cb538: Entity list queries take `onlyDeleted: true` and return just the soft-deleted rows, the list a trash screen needs next to `<entity>:restore`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: List payload flag onlyDeleted for trash lists
+  detail: The entity list query accepts onlyDeleted: true and returns only is_deleted rows. Tenant, ownership and read scopes, filter, search, totalCount and aggregate apply unchanged, with the same access rule as includeDeleted. onlyDeleted together with includeDeleted is a validation error, as is onlyDeleted on an entity without softDelete. Custom query handlers read it as ctx.onlyDeleted; export payloads drop it like includeDeleted.
+  -->
+- Updated dependencies [1eecc1d]
+- Updated dependencies [4161aa8]
+- Updated dependencies [dcca36c]
+- Updated dependencies [a8e08cf]
+- Updated dependencies [fb68269]
+- Updated dependencies [61cb538]
+- Updated dependencies [86e7f73]
+- Updated dependencies [ef46965]
+- Updated dependencies [41c8953]
+- Updated dependencies [a9c8650]
+- Updated dependencies [d680b38]
+  - @cosmicdrift/kumiko-types@0.409.0
+  - @cosmicdrift/kumiko-framework@0.409.0
+
 ## 0.408.0
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "In-app read state by idempotency key",
+    "detail": "Channels receive the notify `idempotencyKey` as `ChannelContext.idempotencyKey`. The in-app channel stores it in the new nullable column `in_app_messages.idempotency_key` (indexed) and the SystemAdmin query `channel-in-app:query:readStateByKeys` (`{ keys }`, 1 to 50) returns `{ key, readAt }` rows without any content, tenant-scoped. Queued delivery jobs carry the key as `notifyIdempotencyKey` in their payload.",
+    "migration": "Run `kumiko schema generate`: it adds the `idempotency_key` column and its index to `in_app_messages`. Notes sent before the migration have no key."
+  },
+  {
     "version": "0.399.0",
     "type": "improvement",
     "title": "Inbox cursor, total and navigation target for the shell bell",

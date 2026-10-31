@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "createAdminShellFeature extraPlatformPanels",
+    "detail": "`createAdminShellFeature({ extraPlatformPanels })` appends dashboard panels to the platform \"Overview\" dashboard, so a feature can put a tile (for example the open contact requests) there instead of mounting a dashboard of its own."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "includeTenantOverview turns the tenant overview off",

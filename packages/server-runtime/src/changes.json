@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Boot-time search reindex when search fields or the document format change",
+    "detail": "runProdApp and runWorkerApp start a background reindex (reindexEntity for every tenant that owns events) for each searchable entity whose search fingerprint, the sorted search fields plus the document format version 2, has no completion marker yet. The marker is a kumiko_es_operations row written only after a run without failing rows, so an aborted or failed run is retried on the next boot. A Postgres advisory lock lets one process run it while the others skip, and boot readiness does not wait for it. It needs a configured SearchAdapter in the process; KUMIKO_SKIP_SEARCH_REINDEX=1 opts out."
+  },
+  {
     "version": "0.408.0",
     "type": "improvement",
     "title": "writeStaticHtmlPages and webp content type",

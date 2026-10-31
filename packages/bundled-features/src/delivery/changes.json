@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Delivery attempts remember the notify idempotencyKey; new attempts-by-keys query",
+    "detail": "`store_delivery_attempts` gets a nullable text column `idempotency_key` plus the non-unique index `(tenant_id, idempotency_key)`. Every attempt a `ctx.notify` call logs carries the call's `idempotencyKey` (the first event of an attempt stores it; later sent/failed events keep the row's value). The new SystemAdmin query `delivery:query:attempts-by-keys` (`{ keys: string[] }`, 1 to 50) returns channel, status, error code, time and recipient id of those attempts across tenants, never an address. Attempts logged before this version keep `idempotency_key = null`.",
+    "migration": "Run `kumiko schema generate`. It adds the nullable column `idempotency_key` to `store_delivery_attempts` and the index `store_delivery_attempts_tenant_id_idempotency_key_idx`. No backfill is needed; do not write the column with SQL. Every app that mounts delivery needs this migration when it bumps."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "Unsubscribe link origin is looked up once per notify call",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "fix",
+    "title": "Test-stack jobs get ctx.services.files from mounted file providers",
+    "detail": "setupTestStack resolved the file-provider plugins only for the request path, so a job saw ctx.services.files undefined unless the stack got an explicit files option. The job context now carries the same resolver the production entrypoint builds (withFileProviderResolver), so a job that hashes or reads stored bytes behaves in tests as it does in production."
+  },
+  {
     "version": "0.401.0",
     "type": "fix",
     "title": "drainJobs waits for consumer backlogs under row-level security",
