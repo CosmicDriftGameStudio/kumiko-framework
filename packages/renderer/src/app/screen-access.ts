@@ -35,9 +35,11 @@ export function navigateTargetAllows(
   if (entity !== undefined) {
     const found = findDetailForScreen(appFeatures, entity);
     if (found !== undefined) return isUiAccessGranted(found.screen.access, userRoles);
-  } else {
+  } else if (screen !== undefined) {
+    // Qualified (<feature>:screen:<id>) and short targets resolve alike.
+    const targetId = lastSegment(screen);
     for (const feature of appFeatures) {
-      const candidate = feature.screens.find((s) => lastSegment(s.id) === screen);
+      const candidate = feature.screens.find((s) => lastSegment(s.id) === targetId);
       if (candidate !== undefined) return isUiAccessGranted(candidate.access, userRoles);
     }
   }

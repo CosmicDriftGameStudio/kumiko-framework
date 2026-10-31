@@ -106,7 +106,7 @@ detail: `GET /contact/client.js` now sends the challenge and submit requests wit
 feature: framework
 type: fix
 title: Fully qualified screen targets of another feature boot in navigate actions
-detail: The boot validator no longer prefixes the owning feature to a navigate target that is already a `<feature>:screen:<id>` name (entityList toolbarActions, row actions, metric and detail links). Before, such a target failed boot with a doubled name like `contact:screen:publicstatus:screen:x`. Unknown qualified targets are still rejected, and a `tab` is checked against the target screen in the other feature.
+detail: The boot validator no longer prefixes the owning feature to a navigate target that is already a `<feature>:screen:<id>` name (entityList toolbarActions, row actions, metric and detail links). Before, such a target failed boot with a doubled name like `contact:screen:publicstatus:screen:x`. Unknown qualified targets are still rejected, and a `tab` is checked against the target screen in the other feature. The renderer resolves such qualified targets like short ids: the link or action is offered when the target screen exists and is accessible, and the URL carries the short screen id.
 -->
 
 <!-- kumiko-changes

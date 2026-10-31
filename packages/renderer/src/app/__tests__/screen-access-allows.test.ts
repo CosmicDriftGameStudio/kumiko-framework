@@ -5,7 +5,7 @@ import type {
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { screenAccessAllows } from "../kumiko-screen.tsx";
-import { resolveTarget } from "../nav.tsx";
+import { formatPath, resolveTarget } from "../nav.tsx";
 import { navigateTargetAllows } from "../screen-access.ts";
 
 describe("screenAccessAllows", () => {
@@ -67,5 +67,38 @@ describe("navigateTargetAllows", () => {
   test("screen target resolves by short id and unknown targets are denied", () => {
     expect(navigateTargetAllows({ screen: "lease-detail-open" }, features, undefined)).toBe(true);
     expect(navigateTargetAllows({ screen: "nope" }, features, ["Admin"])).toBe(false);
+  });
+
+  test("qualified screen target of another feature resolves like its short id", () => {
+    const qualified: readonly FeatureSchema[] = [
+      {
+        featureName: "user",
+        entities: {},
+        screens: [{ id: "user:screen:user-edit", type: "custom", renderer: { react: "stub" } }],
+      },
+      {
+        featureName: "gated",
+        entities: {},
+        screens: [
+          {
+            id: "gated:screen:secret",
+            type: "custom",
+            renderer: { react: "stub" },
+            access: { roles: ["Admin"] },
+          },
+        ],
+      },
+    ];
+    expect(navigateTargetAllows({ screen: "user:screen:user-edit" }, qualified, [])).toBe(true);
+    expect(navigateTargetAllows({ screen: "user:screen:unknown" }, qualified, [])).toBe(false);
+    expect(navigateTargetAllows({ screen: "gated:screen:secret" }, qualified, ["Member"])).toBe(
+      false,
+    );
+  });
+
+  test("formatPath writes a qualified screen target as the short id", () => {
+    expect(formatPath({ screenId: "user:screen:user-edit", entityId: "u-1" })).toBe(
+      "/user-edit/u-1",
+    );
   });
 });

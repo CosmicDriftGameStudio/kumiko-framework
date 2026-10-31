@@ -133,7 +133,8 @@ export function formatPath(target: ScreenTarget): string {
   // workspace before screen mirrors parsePath's segment order.
   const segments: string[] = [];
   if (target.workspaceId !== undefined) segments.push(target.workspaceId);
-  segments.push(target.screenId);
+  // Targets may arrive as <feature>:screen:<id>; the URL carries short ids only.
+  segments.push(lastSegment(target.screenId));
   if (target.entityId !== undefined) segments.push(target.entityId);
   return `/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
 }
