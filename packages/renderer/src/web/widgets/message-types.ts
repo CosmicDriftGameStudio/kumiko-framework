@@ -29,6 +29,8 @@ export type ThreadMessage = {
   readonly timeLabel: string;
   readonly body: MessageBody;
   readonly attachments?: readonly MessageAttachment[];
+  /** Plain-text preview the host derived, e.g. without the greeting; shown instead of the clamped body while a folded thread has the mail closed. */
+  readonly teaser?: string;
 };
 
 export type MessageThreadProps = {

@@ -41,12 +41,22 @@ export type PageLayout = {
   readonly highlight: PdfTextHighlight | null;
   /** The page the viewer opened on: its top is brought back into view whenever its size settles, unless a search hit is active. */
   readonly anchorTop?: boolean;
+  /** Pixel height a whole page may take (pane height minus its padding). Set, a page fits the pane in both directions instead of only its width, so a search hit shows its page whole. */
+  readonly fitHeight?: number;
 };
 
-// Fit-to-width only shrinks; a zoom above 100% is meant to overflow and scroll.
-function fitScaleFor(availableWidth: number | null, contentWidth: number, zoom: number): number {
+// Fit only shrinks; a zoom above 100% is meant to overflow and scroll.
+export function fitScaleFor(
+  availableWidth: number | null,
+  contentWidth: number,
+  zoom: number,
+  height?: { readonly available: number | undefined; readonly content: number },
+): number {
   if (zoom > 1 || availableWidth === null || availableWidth <= 0) return 1;
-  return Math.min(1, availableWidth / contentWidth);
+  const widthScale = availableWidth / contentWidth;
+  const heightScale =
+    height?.available !== undefined && height.available > 0 ? height.available / height.content : 1;
+  return Math.min(1, widthScale, heightScale);
 }
 
 function PageSheet({
@@ -66,7 +76,10 @@ function PageSheet({
     () => page.getViewport({ scale: RENDER_SCALE * layout.zoom }),
     [page, layout.zoom],
   );
-  const fitScale = fitScaleFor(availableWidth, viewport.width, layout.zoom);
+  const fitScale = fitScaleFor(availableWidth, viewport.width, layout.zoom, {
+    available: layout.fitHeight,
+    content: viewport.height,
+  });
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const [textLayerReady, setTextLayerReady] = useState(false);
 
@@ -222,13 +235,17 @@ export function PdfPageSlot({
 
   const scale = RENDER_SCALE * layout.zoom;
   const placeholderWidth = firstPageSize.width * scale;
-  const placeholderFit = fitScaleFor(availableWidth, placeholderWidth, layout.zoom);
+  const placeholderHeight = firstPageSize.height * scale;
+  const placeholderFit = fitScaleFor(availableWidth, placeholderWidth, layout.zoom, {
+    available: layout.fitHeight,
+    content: placeholderHeight,
+  });
   const placeholder = (
     <div
       className="mx-auto"
       style={{
         width: placeholderWidth * placeholderFit,
-        height: firstPageSize.height * scale * placeholderFit,
+        height: placeholderHeight * placeholderFit,
       }}
     />
   );

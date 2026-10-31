@@ -301,6 +301,54 @@ describe("ClampedText", () => {
   });
 });
 
+describe("MessageThread teaser on a folded thread", () => {
+  const htmlWithTeaser: ThreadMessage = {
+    ...annaLast,
+    body: { kind: "html", html: "<p>Der Monteur ist nicht gekommen.</p>" },
+    teaser: "Der Monteur ist nicht gekommen, bitte melden.",
+  };
+
+  test("shows the teaser and the whole-mail button instead of the html body; a click opens the body", () => {
+    const { container } = render(
+      <MessageThread messages={[reply, htmlWithTeaser]} clampLines={4} foldOlderTogether />,
+    );
+    expect(screen.getByTestId("message-teaser").textContent).toBe(
+      "Der Monteur ist nicht gekommen, bitte melden.",
+    );
+    expect(container.querySelector("iframe")).toBeNull();
+    fireEvent.click(screen.getByText("Read the whole mail"));
+    expect(container.querySelector("iframe")).not.toBeNull();
+    expect(screen.queryByTestId("message-teaser")).toBeNull();
+    expect(screen.queryByText("Read the whole mail")).toBeNull();
+  });
+
+  test("without a teaser, or with an empty one, the body behaves as before", () => {
+    const { container, rerender } = render(
+      <MessageThread
+        messages={[reply, { ...htmlWithTeaser, teaser: undefined }]}
+        clampLines={4}
+        foldOlderTogether
+      />,
+    );
+    expect(screen.queryByTestId("message-teaser")).toBeNull();
+    expect(container.querySelector("iframe")).not.toBeNull();
+    rerender(
+      <MessageThread
+        messages={[reply, { ...htmlWithTeaser, teaser: "" }]}
+        clampLines={4}
+        foldOlderTogether
+      />,
+    );
+    expect(screen.queryByTestId("message-teaser")).toBeNull();
+  });
+
+  test("a plain thread ignores the teaser", () => {
+    const { container } = render(<MessageThread messages={[reply, htmlWithTeaser]} />);
+    expect(screen.queryByTestId("message-teaser")).toBeNull();
+    expect(container.querySelector("iframe")).not.toBeNull();
+  });
+});
+
 describe("MessageReader", () => {
   const tabs = [
     { id: "att1", label: "Anhang 1: Vertrag.pdf", render: () => <p>PDF-Vorschau Vertrag</p> },

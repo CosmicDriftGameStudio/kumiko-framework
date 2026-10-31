@@ -90,6 +90,50 @@ afterEach(() => {
   Element.prototype.scrollIntoView = originalScrollIntoView;
 });
 
+describe("PdfViewer fit-page with pagesOnly", () => {
+  const originalHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+  const originalWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+  const PAGE_HEIGHT = 842 * (96 / 72);
+
+  beforeEach(() => {
+    // A wide pane, so only the height can limit the scale.
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get: () => 2000,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 400,
+    });
+  });
+  afterEach(() => {
+    for (const [name, descriptor] of [
+      ["clientHeight", originalHeight],
+      ["clientWidth", originalWidth],
+    ] as const) {
+      if (descriptor === undefined) Reflect.deleteProperty(HTMLElement.prototype, name);
+      else Object.defineProperty(HTMLElement.prototype, name, descriptor);
+    }
+  });
+
+  function placeholderHeight(): number {
+    const placeholder = screen.getByTestId("pdf-page-1").querySelector(":scope > div > div");
+    return Number.parseFloat((placeholder as HTMLElement).style.height);
+  }
+
+  test("a tall page in a short pane shrinks to the pane height", async () => {
+    renderViewer(<PdfViewer document={fakeDocument()} pagesOnly />);
+    await screen.findByTestId("pdf-page-1");
+    expect(placeholderHeight()).toBeCloseTo(400, 3);
+  });
+
+  test("without pagesOnly the page only fits the width", async () => {
+    renderViewer(<PdfViewer document={fakeDocument()} />);
+    await screen.findByTestId("pdf-page-1");
+    expect(placeholderHeight()).toBeCloseTo(PAGE_HEIGHT, 3);
+  });
+});
+
 describe("PdfViewer", () => {
   test("renders toolbar, thumbnail rail and one slot per page without rendering any page yet", async () => {
     const document = fakeDocument();

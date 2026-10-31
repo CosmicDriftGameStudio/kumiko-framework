@@ -46,6 +46,33 @@ function useCurrentPage(
   return { currentPage, commitPage };
 }
 
+/** Height a whole page may take inside the scroller's padding; undefined unless `enabled`. */
+function useScrollerContentHeight(
+  scrollerRef: { readonly current: HTMLElement | null },
+  enabled: boolean,
+): number | undefined {
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!enabled || scroller === null) return undefined;
+    // Padding is read from the computed style: the root font size, and so p-5, differs per app.
+    const measure = () => {
+      const style = getComputedStyle(scroller);
+      const padding =
+        (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+      setHeight(scroller.clientHeight - padding);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    return () => {
+      observer.disconnect();
+      setHeight(undefined);
+    };
+  }, [scrollerRef, enabled]);
+  return height;
+}
+
 function useVisiblePageTracking(
   scrollerRef: { readonly current: HTMLElement | null },
   onVisiblePage: (page: number) => void,
@@ -153,6 +180,7 @@ export function PdfViewer({
   const [internalMatchIndex, setMatchIndex] = useState(0);
   const matchIndex = controlledMatchIndex ?? internalMatchIndex;
   const zoom = ZOOM_STEPS[zoomIndex] ?? 1;
+  const fitHeight = useScrollerContentHeight(scrollerRef, pagesOnly);
 
   const pageTexts = usePageTexts(document, searchOpen && term.trim() !== "");
   const matches = useMemo(
@@ -268,6 +296,7 @@ export function PdfViewer({
                   zoom,
                   highlight: pageHighlightOf(pageNumber, terms, activeMatch),
                   anchorTop: pageNumber === anchorPage,
+                  ...(fitHeight !== undefined && { fitHeight }),
                 }}
               />
             ))}
