@@ -1,10 +1,9 @@
 {
   "format": 1,
   "generated": "2026-10-31",
-  "total": 7235,
+  "total": 5772,
   "perFile": {
     "packages/feature-ast/src/pattern-change-schema.ts": 1295,
-    "packages/framework/src/engine/boot-validator/entity-handler.ts": 1463,
     "packages/renderer/src/primitives.tsx": 1745,
     "packages/types/src/fields.ts": 1286,
     "packages/types/src/handlers.ts": 1446
