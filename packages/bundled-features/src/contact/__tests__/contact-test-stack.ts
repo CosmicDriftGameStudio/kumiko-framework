@@ -45,6 +45,8 @@ import {
 } from "../../file-foundation/index.ts";
 import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
 import { createFilesFeature, fileRefEntity } from "../../files/index.ts";
+import { noteEntryEntity, noteMentionEntity } from "../../notes-history/entity.ts";
+import { createNotesHistoryFeature } from "../../notes-history/feature.ts";
 import { createSecretsFeature } from "../../secrets/feature.ts";
 import { createSecretsContext } from "../../secrets/secrets-context.ts";
 import { tenantSecretsTable } from "../../secrets/table.ts";
@@ -131,6 +133,7 @@ export async function createContactTestStack(
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/activate" },
       }),
       createUserDataRightsFeature(),
+      createNotesHistoryFeature(),
       createContactFeature({
         appName: "Acme",
         telegram: true,
@@ -167,6 +170,8 @@ export async function createContactTestStack(
   await unsafeCreateEntityTable(stack.db, configValueEntity);
   await unsafeCreateEntityTable(stack.db, fileRefEntity, "file-ref");
   if (stackOptions.tierEngine) await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
+  await unsafeCreateEntityTable(stack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, contactRequestEntity);
   await unsafeCreateEntityTable(stack.db, contactReplyEntity);
   await unsafePushTables(stack.db, {

@@ -1655,6 +1655,32 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
     expect(nav.querySelector("[aria-current='true']")?.textContent).toBe("Basics");
   });
 
+  test("section nav also lists extension sections and scrolls to them", () => {
+    renderScreenForm({
+      entityId: "order-1",
+      screenDef: {
+        id: "orders:screen:order-edit",
+        type: "entityEdit",
+        entity: "order",
+        layout: {
+          sections: [
+            { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+            { kind: "extension", title: "History", component: { react: { __component: "X" } } },
+            { kind: "extension", title: "Audit", component: { react: { __component: "Y" } } },
+          ],
+        },
+      },
+    });
+    const nav = screen.getByTestId("form-section-nav");
+    expect(Array.from(nav.querySelectorAll("button")).map((b) => b.textContent)).toEqual([
+      "Basics",
+      "History",
+      "Audit",
+    ]);
+    expect(document.getElementById("form-section-1")?.textContent).toContain("History");
+    expect(document.getElementById("form-section-2")?.textContent).toContain("Audit");
+  });
+
   test("no section nav with only two sections", () => {
     const base = threeSectionScreen();
     renderScreenForm({

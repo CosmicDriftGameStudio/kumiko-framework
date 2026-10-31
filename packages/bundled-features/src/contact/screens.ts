@@ -7,7 +7,7 @@ import type {
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DELIVERY_LOG_SCREEN_ID } from "../delivery/index.ts";
-import { AUTHENTICATED_ROLES } from "./handlers/access.ts";
+import { REPORT_ACCESS } from "./handlers/access.ts";
 import type { ContactOptions, ContactSettings } from "./options.ts";
 import {
   CONTACT_ADMIN_KINDS,
@@ -91,7 +91,7 @@ function createReportScreen(
     submitLabel: `${CONTACT_FEATURE}:report.submit`,
     ...(opts.reportCancelTarget !== undefined && { cancelTarget: opts.reportCancelTarget }),
     successMessage: `${CONTACT_FEATURE}:report.success`,
-    access: { roles: AUTHENTICATED_ROLES },
+    access: REPORT_ACCESS,
   };
 }
 
@@ -204,183 +204,213 @@ const deliveryStatusTones = {
   [CONTACT_DELIVERY_STATUS.Read]: "accent",
 } as const;
 
-const requestDetailScreen: ProjectionDetailScreenDefinition = {
-  id: "request-detail",
-  type: "projectionDetail",
-  dormant: true,
-  query: ContactQueries.requestDetail,
-  listScreenId: "request-list",
-  header: {
-    title: "subject",
-    subtitle: [
-      {
-        field: "kind",
-        format: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:kind:option:` },
+function detailLinkTarget(
+  link: string | false | undefined,
+  defaultScreen: string,
+): string | undefined {
+  if (link === false) return undefined;
+  return link ?? defaultScreen;
+}
+
+function createRequestDetailScreen(
+  opts: ContactOptions,
+  settings: ContactSettings,
+): ProjectionDetailScreenDefinition {
+  const userScreen = detailLinkTarget(opts.detailLinks?.user, "user-edit");
+  const tenantScreen = detailLinkTarget(opts.detailLinks?.tenant, "tenant-edit");
+  return {
+    id: "request-detail",
+    type: "projectionDetail",
+    dormant: true,
+    query: ContactQueries.requestDetail,
+    listScreenId: "request-list",
+    header: {
+      title: "subject",
+      subtitle: [
+        {
+          field: "kind",
+          format: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:kind:option:` },
+        },
+        {
+          field: "name",
+          ...(userScreen !== undefined && {
+            navigate: { screen: userScreen, entityId: "reporterUserId" },
+          }),
+        },
+        {
+          field: "reporterTenantName",
+          ...(tenantScreen !== undefined && {
+            navigate: { screen: tenantScreen, entityId: "reporterTenantId" },
+          }),
+        },
+        {
+          field: "submittedAt",
+          format: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
+        },
+      ],
+      status: "status",
+      statusFormat: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:status:option:` },
+      statusTones: {
+        [CONTACT_STATUS.Open]: "warn",
+        [CONTACT_STATUS.Answered]: "accent",
+        [CONTACT_STATUS.Done]: "ok",
       },
-      { field: "name", navigate: { screen: "user-edit", entityId: "reporterUserId" } },
+    },
+    actions: [
       {
-        field: "reporterTenantName",
-        navigate: { screen: "tenant-edit", entityId: "reporterTenantId" },
+        kind: "writeHandler",
+        id: "mark-done",
+        label: `${CONTACT_FEATURE}:action.mark-done`,
+        handler: ContactHandlers.markDone,
+        icon: "check-circle",
+        style: "secondary",
+        payload: { pick: ["id"] },
+        visible: { field: "status", ne: CONTACT_STATUS.Done },
       },
       {
-        field: "submittedAt",
-        format: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
+        kind: "drawer",
+        id: "reply",
+        icon: "mail",
+        style: "primary",
+        label: `${CONTACT_FEATURE}:action.reply`,
+        screen: "reply",
+        params: { map: { requestId: "id", name: "name", email: "email", replyTo: "replyTo" } },
+        title: "screen:reply.title",
+        visible: { field: "replyChannels", eq: CONTACT_REPLY_CHANNELS.EmailAndInApp },
+      },
+      {
+        kind: "drawer",
+        id: "reply-mail",
+        icon: "mail",
+        style: "primary",
+        label: `${CONTACT_FEATURE}:action.reply`,
+        screen: "reply-mail",
+        params: { map: { requestId: "id", name: "name", email: "email", replyTo: "replyTo" } },
+        title: "screen:reply-mail.title",
+        visible: { field: "replyChannels", eq: CONTACT_REPLY_CHANNELS.Email },
       },
     ],
-    status: "status",
-    statusFormat: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:status:option:` },
-    statusTones: {
-      [CONTACT_STATUS.Open]: "warn",
-      [CONTACT_STATUS.Answered]: "accent",
-      [CONTACT_STATUS.Done]: "ok",
+    primaryAction: "reply",
+    inlineActions: ["mark-done"],
+    fieldLabels: {
+      message: `${REQUEST_FIELD}:message`,
+      fileIds: `${CONTACT_FEATURE}:detail.attachments`,
+      name: `${REQUEST_FIELD}:name`,
+      email: `${REQUEST_FIELD}:email`,
+      phone: `${REQUEST_FIELD}:phone`,
+      reporterTenantPlan: `${REQUEST_FIELD}:reporterTenantPlan`,
+      origin: `${REQUEST_FIELD}:origin`,
+      page: `${REQUEST_FIELD}:page`,
+      versionLabel: `${REQUEST_FIELD}:versionLabel`,
+      browser: `${REQUEST_FIELD}:browser`,
     },
-  },
-  actions: [
-    {
-      kind: "writeHandler",
-      id: "mark-done",
-      label: `${CONTACT_FEATURE}:action.mark-done`,
-      handler: ContactHandlers.markDone,
-      icon: "check-circle",
-      style: "secondary",
-      payload: { pick: ["id"] },
-      visible: { field: "status", ne: CONTACT_STATUS.Done },
-    },
-    {
-      kind: "drawer",
-      id: "reply",
-      icon: "mail",
-      style: "primary",
-      label: `${CONTACT_FEATURE}:action.reply`,
-      screen: "reply",
-      params: { map: { requestId: "id", name: "name", email: "email", replyTo: "replyTo" } },
-      title: "screen:reply.title",
-      visible: { field: "replyChannels", eq: CONTACT_REPLY_CHANNELS.EmailAndInApp },
-    },
-    {
-      kind: "drawer",
-      id: "reply-mail",
-      icon: "mail",
-      style: "primary",
-      label: `${CONTACT_FEATURE}:action.reply`,
-      screen: "reply-mail",
-      params: { map: { requestId: "id", name: "name", email: "email", replyTo: "replyTo" } },
-      title: "screen:reply-mail.title",
-      visible: { field: "replyChannels", eq: CONTACT_REPLY_CHANNELS.Email },
-    },
-  ],
-  primaryAction: "reply",
-  inlineActions: ["mark-done"],
-  fieldLabels: {
-    message: `${REQUEST_FIELD}:message`,
-    fileIds: `${CONTACT_FEATURE}:detail.attachments`,
-    name: `${REQUEST_FIELD}:name`,
-    email: `${REQUEST_FIELD}:email`,
-    phone: `${REQUEST_FIELD}:phone`,
-    reporterTenantPlan: `${REQUEST_FIELD}:reporterTenantPlan`,
-    origin: `${REQUEST_FIELD}:origin`,
-    page: `${REQUEST_FIELD}:page`,
-    versionLabel: `${REQUEST_FIELD}:versionLabel`,
-    browser: `${REQUEST_FIELD}:browser`,
-  },
-  layout: {
-    sections: [
-      { title: `${CONTACT_FEATURE}:detail.section.message`, fields: ["message"] },
-      {
-        kind: "relatedList",
-        readOnly: true,
-        title: `${CONTACT_FEATURE}:detail.section.replies`,
-        query: ContactQueries.replies,
-        columns: [
-          {
-            field: "sentAt",
-            renderer: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
-            label: `${CONTACT_FEATURE}:entity:contact-reply:field:sentAt`,
-          },
-          {
-            field: "authorName",
-            label: `${CONTACT_FEATURE}:entity:contact-reply:field:authorName`,
-          },
-          { field: "message", label: `${CONTACT_FEATURE}:entity:contact-reply:field:message` },
-        ],
-      },
-      {
-        title: `${CONTACT_FEATURE}:detail.section.files`,
-        fields: [
-          {
-            field: CONTACT_UPLOAD_FIELD,
-            renderer: { format: "file" },
-            visible: { field: "fileCount", ne: 0 },
-          },
-        ],
-      },
-      {
-        title: `${CONTACT_FEATURE}:detail.section.sender`,
-        fields: [
-          "name",
-          { field: "email", format: "email" },
-          { field: "phone", format: "phone", visible: { field: "phone", ne: "" } },
-          "reporterTenantPlan",
-        ],
-      },
-      {
-        title: `${CONTACT_FEATURE}:detail.section.origin`,
-        fields: [
-          {
-            field: "origin",
-            renderer: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:origin:option:` },
-          },
-          { field: "page", visible: { field: "origin", eq: CONTACT_ORIGIN.Website } },
-          "versionLabel",
-          "browser",
-        ],
-      },
-      {
-        kind: "relatedList",
-        readOnly: true,
-        title: `${CONTACT_FEATURE}:detail.section.delivery`,
-        query: ContactQueries.requestDelivery,
-        toolbarActions: [
-          {
-            kind: "navigate",
-            id: "delivery-log",
-            label: `${CONTACT_FEATURE}:detail.delivery-log`,
-            screen: DELIVERY_LOG_SCREEN_ID,
-          },
-        ],
-        columns: [
-          {
-            field: "channel",
-            label: `${DELIVERY_FIELD}:channel`,
-            renderer: { format: "enumOption", keyPrefix: `${DELIVERY_FIELD}:channel:option:` },
-          },
-          { field: "recipient", label: `${DELIVERY_FIELD}:recipient` },
-          {
-            field: "at",
-            renderer: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
-            label: `${DELIVERY_FIELD}:at`,
-          },
-          {
-            field: "status",
-            label: `${DELIVERY_FIELD}:status`,
-            renderer: {
-              format: "enumOption",
-              keyPrefix: `${DELIVERY_FIELD}:status:option:`,
-              tones: deliveryStatusTones,
+    layout: {
+      sections: [
+        { title: `${CONTACT_FEATURE}:detail.section.message`, fields: ["message"] },
+        {
+          kind: "relatedList",
+          readOnly: true,
+          title: `${CONTACT_FEATURE}:detail.section.replies`,
+          query: ContactQueries.replies,
+          columns: [
+            {
+              field: "sentAt",
+              renderer: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
+              label: `${CONTACT_FEATURE}:entity:contact-reply:field:sentAt`,
             },
-          },
-        ],
-      },
-      {
-        kind: "extension",
-        title: `${CONTACT_FEATURE}:detail.section.notes`,
-        component: { react: { __component: "NotesSection" } },
-        entityName: "contact-request",
-      },
-    ],
-  },
-  access: { roles: access.systemAdmin },
-};
+            {
+              field: "authorName",
+              label: `${CONTACT_FEATURE}:entity:contact-reply:field:authorName`,
+            },
+            { field: "message", label: `${CONTACT_FEATURE}:entity:contact-reply:field:message` },
+          ],
+        },
+        {
+          title: `${CONTACT_FEATURE}:detail.section.files`,
+          fields: [
+            {
+              field: CONTACT_UPLOAD_FIELD,
+              renderer: { format: "file" },
+              visible: { field: "fileCount", ne: 0 },
+            },
+          ],
+        },
+        {
+          title: `${CONTACT_FEATURE}:detail.section.sender`,
+          fields: [
+            "name",
+            { field: "email", format: "email" },
+            ...(settings.phone !== "off"
+              ? [
+                  {
+                    field: "phone",
+                    format: "phone" as const,
+                    visible: { field: "phone", notIn: [null, ""] },
+                  },
+                ]
+              : []),
+            "reporterTenantPlan",
+          ],
+        },
+        {
+          title: `${CONTACT_FEATURE}:detail.section.origin`,
+          fields: [
+            {
+              field: "origin",
+              renderer: { format: "enumOption", keyPrefix: `${REQUEST_FIELD}:origin:option:` },
+            },
+            { field: "page", visible: { field: "origin", eq: CONTACT_ORIGIN.Website } },
+            "versionLabel",
+            "browser",
+          ],
+        },
+        {
+          kind: "relatedList",
+          readOnly: true,
+          title: `${CONTACT_FEATURE}:detail.section.delivery`,
+          query: ContactQueries.requestDelivery,
+          toolbarActions: [
+            {
+              kind: "navigate",
+              id: "delivery-log",
+              label: `${CONTACT_FEATURE}:detail.delivery-log`,
+              screen: DELIVERY_LOG_SCREEN_ID,
+            },
+          ],
+          columns: [
+            {
+              field: "channel",
+              label: `${DELIVERY_FIELD}:channel`,
+              renderer: { format: "enumOption", keyPrefix: `${DELIVERY_FIELD}:channel:option:` },
+            },
+            { field: "recipient", label: `${DELIVERY_FIELD}:recipient` },
+            {
+              field: "at",
+              renderer: { format: "timestamp", dateStyle: "medium", timeStyle: "short" },
+              label: `${DELIVERY_FIELD}:at`,
+            },
+            {
+              field: "status",
+              label: `${DELIVERY_FIELD}:status`,
+              renderer: {
+                format: "enumOption",
+                keyPrefix: `${DELIVERY_FIELD}:status:option:`,
+                tones: deliveryStatusTones,
+              },
+            },
+          ],
+        },
+        {
+          kind: "extension",
+          title: `${CONTACT_FEATURE}:detail.section.notes`,
+          component: { react: { __component: "NotesSection" } },
+          entityName: "contact-request",
+        },
+      ],
+    },
+    access: { roles: access.systemAdmin },
+  };
+}
 
 function createForwardingScreen(telegram: boolean): ConfigEditScreenDefinition {
   return {
@@ -468,7 +498,7 @@ export function createContactScreens(
   return [
     createReportScreen(opts, settings),
     requestListScreen,
-    requestDetailScreen,
+    createRequestDetailScreen(opts, settings),
     createReplyScreen("reply", `${CONTACT_FEATURE}:reply.summary.in-app`),
     createReplyScreen("reply-mail", `${CONTACT_FEATURE}:reply.summary.mail`),
     createForwardingScreen(opts.telegram === true),

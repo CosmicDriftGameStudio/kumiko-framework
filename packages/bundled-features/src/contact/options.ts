@@ -11,7 +11,7 @@ import {
 } from "./web/constants.ts";
 
 export type ContactOptions = {
-  /** Name shown to reporters and in mails ("Geht direkt an das <appName>-Team", "Testnachricht von <appName>"). */
+  /** Name shown in the notification mails ("Testnachricht von <appName>"); the static screen texts do not name it. */
   readonly appName: string;
   /** Default { phone: "off" }. Controls both the public form (challenge query reports it) and the admin report form. */
   readonly fields?: { readonly phone?: ContactPhoneMode };
@@ -21,6 +21,11 @@ export type ContactOptions = {
   readonly telegram?: boolean;
   /** Screen the admin report form's Cancel button navigates to (short id or `<feature>:screen:<id>`). Default: no Cancel button. */
   readonly reportCancelTarget?: string;
+  /** Screens the sender and tenant links in the request detail header open (short id or `<feature>:screen:<id>`). Default `user-edit` and `tenant-edit`; `false` shows plain text. */
+  readonly detailLinks?: {
+    readonly user?: string | false;
+    readonly tenant?: string | false;
+  };
   /** Language of the notification mails and Telegram texts SystemAdmins receive. Default "en". */
   readonly adminLocale?: string;
   /** Deep link to the request in the admin, put into the notification mail and the Telegram text. Omitted: no link. */

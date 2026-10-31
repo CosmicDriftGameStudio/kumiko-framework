@@ -28,7 +28,7 @@ import {
   ContactScreens,
   contactIdempotencyKeys,
 } from "../web/constants.ts";
-import { AUTHENTICATED_ROLES } from "./access.ts";
+import { REPORT_ACCESS } from "./access.ts";
 import { takeOverUploads } from "./take-over-uploads.ts";
 
 export type ContactReportData = { readonly kind: "reported"; readonly id: string };
@@ -37,7 +37,7 @@ export function createReportHandler(opts: ContactOptions, settings: ContactSetti
   return defineWriteHandler<"report", typeof ContactReportSchema, ContactReportData>({
     name: "report",
     schema: ContactReportSchema,
-    access: { roles: AUTHENTICATED_ROLES },
+    access: REPORT_ACCESS,
     rateLimit: REPORT_RATE_LIMIT,
     description:
       "A signed-in user reports a problem, asks a question or voices a wish to the platform operators; name, email and tenant come from the session, never from the payload. Forwards the request to the SystemAdmins and mails the reporter a copy.",

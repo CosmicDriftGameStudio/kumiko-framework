@@ -22,6 +22,7 @@ export function ExtensionSectionMount({
   markSaved,
   hideTitle,
   actions,
+  anchorId,
   stepKey,
   onReportStepComplete,
 }: {
@@ -36,6 +37,8 @@ export function ExtensionSectionMount({
   readonly hideTitle?: boolean;
   /** section.actions, already resolved into buttons by the caller. */
   readonly actions?: ReactNode;
+  /** DOM id the "on this page" navigation scrolls to. */
+  readonly anchorId?: string;
   readonly stepKey?: string;
   readonly onReportStepComplete?: (stepKey: string, complete: boolean) => void;
 }): ReactNode {
@@ -71,7 +74,12 @@ export function ExtensionSectionMount({
         placeholder
       )
     ) : (
-      <Section key={section.title} title={section.title} testId={testId}>
+      <Section
+        key={section.title}
+        {...(anchorId !== undefined && { id: anchorId })}
+        title={section.title}
+        testId={testId}
+      >
         {placeholder}
       </Section>
     );
@@ -97,7 +105,12 @@ export function ExtensionSectionMount({
       mounted
     )
   ) : (
-    <Section {...(actions !== undefined && { actions })} title={section.title} testId={testId}>
+    <Section
+      {...(actions !== undefined && { actions })}
+      {...(anchorId !== undefined && { id: anchorId })}
+      title={section.title}
+      testId={testId}
+    >
       {mounted}
     </Section>
   );

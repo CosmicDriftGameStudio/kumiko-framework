@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { FormValues } from "../headless/index.ts";
 import { renderAllRequiredHint } from "./render-edit-banners.tsx";
 import { renderFieldGrid } from "./render-edit-field-grid.tsx";
-import { formSectionDomId } from "./render-edit-helpers.tsx";
+import { sectionNavAnchorId } from "./render-edit-helpers.tsx";
 import type { FieldsSection, SectionRenderContext } from "./render-edit-render-model.ts";
 
 function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
@@ -107,16 +107,13 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
 ): ReactNode {
   const { model, sectionIndex, sectionActionsEl } = rc;
   const { Section } = model.engine.state.primitives;
+  const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const sectionTitle = resolveSectionTitle(rc, section);
   const sectionSubtitle = resolveSectionSubtitle(rc, section);
   const sectionEl = (
     <Section
       key={sectionKey}
-      {...(model.titles.sectionNavItems.some(
-        (item) => item.id === formSectionDomId(sectionIndex),
-      ) && {
-        id: formSectionDomId(sectionIndex),
-      })}
+      {...(anchorId !== undefined && { id: anchorId })}
       {...(sectionTitle !== undefined && { title: sectionTitle })}
       {...(sectionSubtitle !== undefined && { subtitle: sectionSubtitle })}
       {...(section.icon !== undefined && { icon: section.icon })}

@@ -2492,7 +2492,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "contact:action.mark-done": "Marcar como resuelta",
   "contact:action.reply": "Responder",
   "contact:detail.attachments": "Adjuntos",
-  "contact:detail.section.message": "Consulta",
+  "contact:detail.section.message": "Mensaje",
   "contact:detail.section.replies": "Respuestas",
   "contact:detail.section.files": "Archivos",
   "contact:detail.section.sender": "Remitente",

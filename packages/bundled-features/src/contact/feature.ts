@@ -70,7 +70,7 @@ export function createContactFeature(opts: ContactOptions): FeatureDefinition {
     );
     r.uiHints({ displayLabel: "Contact", category: "communication", recommended: false });
     r.systemScope();
-    r.requires({ features: ["config", "delivery", "user-data-rights", "files"] });
+    r.requires({ features: ["config", "delivery", "user-data-rights", "files", "notes-history"] });
     if (telegram) r.requires({ features: [TELEGRAM_FEATURE] });
     r.adoptsBundledLists();
     r.translations({ keys: createContactI18n() });

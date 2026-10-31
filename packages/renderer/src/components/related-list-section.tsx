@@ -165,6 +165,7 @@ export function RelatedListSection({
   grow,
   onOpenDrawer,
   actions,
+  anchorId,
   embedded,
   onAfterWrite,
   refreshToken,
@@ -192,6 +193,8 @@ export function RelatedListSection({
    *  (non-`hideTitle`) branch below — `hideTitle` uses `FillContainer`, which
    *  has no title row to render actions into (see the comment on that branch). */
   readonly actions?: ReactNode;
+  /** DOM id the "on this page" navigation scrolls to. */
+  readonly anchorId?: string;
   /** Mounted inside a host row (entityList `expandableRow`): unframed, in
    *  document flow (no Section card, no scrollBody), with its own title row
    *  carrying `actions`. */
@@ -612,6 +615,7 @@ export function RelatedListSection({
       {bridges}
       <Section
         title={section.title}
+        {...(anchorId !== undefined && { id: anchorId })}
         {...(actions !== undefined && { actions })}
         testId={`related-list-${section.title}`}
       >

@@ -87,6 +87,20 @@ detail: `createContactFeature({ reportCancelTarget })` sets the screen the Cance
 -->
 
 <!-- kumiko-changes
+feature: contact
+type: improvement
+title: contact option detailLinks; every signed-in user may report a problem
+detail: `createContactFeature({ detailLinks: { user, tenant } })` sets the screens the sender and tenant links in the request detail header open (short id or `<feature>:screen:<id>`); defaults stay `user-edit` and `tenant-edit`, `false` removes a link. `contact:write:report` and the report screen are now open to every signed-in user (`openToAll`), not only TenantAdmin and Member. The detail layout drops the phone row while `fields.phone` is off and hides it for an empty value, and the contact feature now requires `notes-history` (the detail notes section needs it).
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: "On this page" navigation lists related-list and extension sections
+detail: The section navigation next to a screen form (entityEdit, projectionDetail) now also lists titled `relatedList` and `extension` sections, not only field sections, and scrolls to them. A section whose title equals the screen title is still left out.
+-->
+
+<!-- kumiko-changes
 feature: renderer
 type: improvement
 title: Stored write-only secrets show a masked "set" row with Replace

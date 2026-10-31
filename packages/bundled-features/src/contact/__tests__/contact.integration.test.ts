@@ -122,6 +122,22 @@ describe("contact submit", () => {
   });
 });
 
+describe("contact report access", () => {
+  test("a signed-in user without an admin role files a report", async () => {
+    const plain = await seedReporter(ctx.stack, "plain@example.com");
+    const asPlainUser: SessionUser = { ...plain, roles: ["Viewer"] };
+    const data = await ctx.stack.http.writeOk<{ kind: string; id: string }>(
+      ContactHandlers.report,
+      { kind: "bug", subject: "Button does nothing", message: "Clicking save has no effect." },
+      asPlainUser,
+    );
+    expect(data.kind).toBe("reported");
+    const [stored] = await loadRequests(ctx.stack);
+    expect(stored?.["source"]).toBe("admin");
+    expect(stored?.["reporterUserId"]).toBe(plain.id);
+  });
+});
+
 describe("contact admin queries and access", () => {
   test("only a SystemAdmin reaches reply, mark-done, open-count, replies and delivery", async () => {
     const reporter = await seedReporter(ctx.stack, "member@example.com");

@@ -65,13 +65,13 @@ function sectionNavItemsFor(
   index: number,
   formTitle: string,
 ): readonly FormSectionNavItem[] {
-  const isNavigable =
-    section.kind === "fields" &&
-    section.visible &&
-    section.title !== undefined &&
-    section.title !== formTitle;
-  return isNavigable && section.title !== undefined
-    ? [{ id: formSectionDomId(index), title: section.title }]
+  const isListed =
+    section.kind === "relatedList" ||
+    section.kind === "extension" ||
+    (section.kind === "fields" && section.visible);
+  const title = section.title;
+  return isListed && title !== undefined && title !== formTitle
+    ? [{ id: formSectionDomId(index), title }]
     : [];
 }
 
