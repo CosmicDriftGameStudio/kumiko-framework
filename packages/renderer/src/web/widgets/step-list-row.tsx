@@ -155,13 +155,16 @@ function StepTagBadge({
   );
 }
 
-function StepTags({ step }: { readonly step: StepListItem }): ReactNode {
+// Sources and tags share one line: a source link and the step it waits for read as one fact.
+function StepSourcesAndTags({ step }: { readonly step: StepListItem }): ReactNode {
   const t = useTranslation();
   const tags = step.tags ?? [];
+  const sources = step.sources ?? [];
   const waiting = step.status === "locked" && step.lockedReason !== undefined;
-  if (tags.length === 0 && !waiting) return null;
+  if (tags.length === 0 && sources.length === 0 && !waiting) return null;
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px]">
+      <StepSources step={step} />
       {tags.map((tag) => (
         <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} />
       ))}
@@ -177,23 +180,21 @@ function StepTags({ step }: { readonly step: StepListItem }): ReactNode {
 
 function StepSources({ step }: { readonly step: StepListItem }): ReactNode {
   const { Button } = usePrimitives();
-  const sources = step.sources ?? [];
-  if (sources.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-x-3">
-      {sources.map((source) => (
+    <>
+      {(step.sources ?? []).map((source) => (
         <Button
           key={source.label}
           variant="link"
           size="sm"
           onClick={source.onClick}
-          className="h-auto p-0 text-[13px]"
+          className="h-auto p-0 text-[13px] underline underline-offset-2"
           testId={`step-${step.id}-source`}
         >
           {source.label}
         </Button>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -222,7 +223,7 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
       {...(step.highlighted === true && { "aria-current": "step" as const })}
     >
       <StatusIcon step={step} />
-      <div className="flex min-w-0 grow flex-col gap-1.5">
+      <div className="flex min-w-0 grow flex-col gap-1">
         <span
           className={cn("font-medium", rejected && "text-muted-foreground line-through")}
           data-testid={`step-${step.id}-title`}
@@ -232,8 +233,7 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
         {step.description !== undefined && (
           <span className="text-[13px] text-foreground-secondary">{step.description}</span>
         )}
-        <StepSources step={step} />
-        <StepTags step={step} />
+        <StepSourcesAndTags step={step} />
         {step.meta !== undefined && (
           <span className="text-[13px] text-muted-foreground">{step.meta}</span>
         )}
