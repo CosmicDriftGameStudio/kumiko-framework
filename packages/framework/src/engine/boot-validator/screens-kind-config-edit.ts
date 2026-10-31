@@ -10,6 +10,7 @@ import type {
   EditSectionSpec,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { CONFIG_EDIT_ACTION_RULES } from "./config-edit-action-rules.ts";
 import {
   isWriteOnlyField,
   validateConfigEditSecretField,
@@ -137,6 +138,53 @@ function validateConfigKeyMapping(
   }
 }
 
+function layoutFieldNames(screen: ConfigEditScreenDefinition): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const section of screen.layout.sections) {
+    if (
+      isExtensionEditSection(section) ||
+      section.kind === "relatedList" ||
+      section.kind === "writeForm"
+    ) {
+      continue;
+    }
+    for (const spec of sectionFieldSpecs(section)) names.add(normalizeEditField(spec).field);
+  }
+  return names;
+}
+
+function validateConfigEditActions(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  screen: ConfigEditScreenDefinition,
+): void {
+  const where = `[Feature ${ctx.feature.name}] Screen "${screenId}" (configEdit) action`;
+  const inLayout = layoutFieldNames(screen);
+  const seen = new Set<string>();
+  for (const action of screen.actions ?? []) {
+    if (seen.has(action.id)) {
+      throw bootRuleError(CONFIG_EDIT_ACTION_RULES.duplicateId, {
+        message: `${where} id "${action.id}" is declared twice — ids must be unique.`,
+      });
+    }
+    seen.add(action.id);
+    if (!ctx.allWriteHandlerQns.has(action.handler)) {
+      throw bootRuleError(CONFIG_EDIT_ACTION_RULES.unknownHandler, {
+        message:
+          `${where} "${action.id}" → handler "${action.handler}" is not a registered write handler ` +
+          `(expected "<feature>:write:<handler>").`,
+      });
+    }
+    if (!inLayout.has(action.afterField)) {
+      throw bootRuleError(CONFIG_EDIT_ACTION_RULES.unknownAfterField, {
+        message:
+          `${where} "${action.id}" afterField "${action.afterField}" is not a field of the layout. ` +
+          `Known fields: ${[...inLayout].sort().join(", ")}`,
+      });
+    }
+  }
+}
+
 // Validate configEdit layout and fields like actionForm, then verify that
 // every qualified config key is registered and its scope matches the key.
 export function validateConfigEditScreen(
@@ -162,4 +210,5 @@ export function validateConfigEditScreen(
   for (const fname of fieldNames) {
     validateConfigEditFieldKey(ctx, screenId, screen, fname);
   }
+  validateConfigEditActions(ctx, screenId, screen);
 }

@@ -4,12 +4,13 @@ import type {
   ConfigScope,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  ConfigEditAction,
   ConfigEditScreenDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ComponentProps, type ReactNode, useCallback, useMemo } from "react";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
@@ -29,6 +30,7 @@ import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
+import { ConfigEditActionRow } from "./config-edit-action-row.tsx";
 import {
   buildConfigEditSchema,
   synthesizeConfigEditEntity,
@@ -138,6 +140,29 @@ function buildConfigEditDefaults(
 
 type StoredSecretRow = { readonly key: string };
 
+// Stable identities: the payload is a useQuery key.
+const SYSTEM_SECRET_SCOPE = { scope: "system" } as const;
+const NO_SECRET_SCOPE = {} as const;
+
+function secretScopePayloadFor(scope: string): typeof SYSTEM_SECRET_SCOPE | typeof NO_SECRET_SCOPE {
+  return scope === "system" ? SYSTEM_SECRET_SCOPE : NO_SECRET_SCOPE;
+}
+
+function actionRowsAfterField(
+  actions: readonly ConfigEditAction[] | undefined,
+  translate: ComponentProps<typeof ConfigEditActionRow>["translate"],
+): Pick<ComponentProps<typeof RenderEdit>, "rowAfterField"> {
+  if (actions === undefined) return {};
+  const rowAfterField = (fieldName: string, { dirty }: { readonly dirty: boolean }): ReactNode => {
+    const here = actions.filter((action) => action.afterField === fieldName);
+    if (here.length === 0) return undefined;
+    return here.map((action) => (
+      <ConfigEditActionRow key={action.id} action={action} dirty={dirty} translate={translate} />
+    ));
+  };
+  return { rowAfterField };
+}
+
 // A field hidden by its `visible` condition (a provider's settings while another
 // provider is picked) is not saved: the form saves what it shows.
 function hiddenLayoutFieldNames(
@@ -181,9 +206,12 @@ export function ConfigEditBody({
     scope: declaredScreen.scope,
   });
 
+  // Platform-wide secrets live under the system tenant; the server picks that target from the
+  // scope alone and only lets a SystemAdmin through.
+  const secretScopePayload = secretScopePayloadFor(declaredScreen.scope);
   const secretsQuery = useQuery<readonly StoredSecretRow[]>(
     "secrets:query:list",
-    {},
+    secretScopePayload,
     { enabled: declaredScreen.secretKeys !== undefined },
   );
   // The form screen's access is the union of config and secrets access, so a viewer may write
@@ -294,10 +322,16 @@ export function ConfigEditBody({
           // Same wire shape as a writeOnly config field: null removes, a string replaces.
           if (value === null) {
             commandFieldNames.push(shortName);
-            commands.push({ type: "secrets:write:delete", payload: { key: secretKey } });
+            commands.push({
+              type: "secrets:write:delete",
+              payload: { key: secretKey, ...secretScopePayload },
+            });
           } else if (typeof value === "string" && value.trim() !== "") {
             commandFieldNames.push(shortName);
-            commands.push({ type: "secrets:write:set", payload: { key: secretKey, value } });
+            commands.push({
+              type: "secrets:write:set",
+              payload: { key: secretKey, value, ...secretScopePayload },
+            });
           }
           continue;
         }
@@ -395,6 +429,7 @@ export function ConfigEditBody({
       valuesQuery.refetch,
       cascadeQuery.refetch,
       secretsQuery.refetch,
+      secretScopePayload,
     ],
   );
 
@@ -453,6 +488,7 @@ export function ConfigEditBody({
         CONFIG_SCOPE_SOURCE[screen.scope]
       }
       markChangedFields
+      {...actionRowsAfterField(screen.actions, effectiveTranslate)}
       {...(screen.fieldDescriptions !== undefined && {
         fieldDescription: (fieldName: string) => {
           const key = screen.fieldDescriptions?.[fieldName];

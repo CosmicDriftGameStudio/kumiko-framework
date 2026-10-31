@@ -55,6 +55,8 @@ const renderJobBaseSchema = z.object({
   priority: z.enum(["critical", "normal", "low"]),
   message: channelMessageSchema,
   idempotencyKey: z.string().optional(),
+  // The notify() key as given, for the channel context; idempotencyKey above is only the release key.
+  notifyIdempotencyKey: z.string().optional(),
 });
 
 const renderJobPayloadSchema = renderJobBaseSchema.and(recipientAddressFieldSchema);
@@ -258,6 +260,7 @@ async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
     ctx.services.secrets,
     ctx.config,
     (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
+    p.notifyIdempotencyKey,
   );
 
   let rendered: RenderedMessage;
@@ -302,6 +305,7 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
     ctx.services.secrets,
     ctx.config,
     (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
+    p.notifyIdempotencyKey,
   );
 
   try {

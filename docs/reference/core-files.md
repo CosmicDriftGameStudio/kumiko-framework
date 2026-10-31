@@ -186,6 +186,10 @@ documents) are not covered: they stay with their uploader and the privileged
 roles. Use binding when the
 reference is a file field, `unclaimedUploadReaders` when it is not.
 
+### SystemAdmin reads of system-tenant files
+
+Files are tenant-isolated, with one read-only exception: a SystemAdmin whose session sits in any tenant may read (`GET /files/:id`, `/meta`, `/download-url`) files owned by `SYSTEM_TENANT_ID`, for example attachments of the contact feature. The file access guard still applies. Delete, variants and upload stay strictly tenant-equal, and files of other tenants stay unreadable.
+
 ## Upload in an actionForm
 
 A `files` or `images` field of an `actionForm` screen has no record to attach to,

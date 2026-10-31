@@ -556,7 +556,7 @@ export function resolveRowActionNavigateTarget(
         `sets neither "screen" nor "entity" — exactly one navigate-target form is required.`,
     });
   }
-  const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
+  const candidateQn = resolveScreenTargetQn(featureName, action.screen);
   if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
     throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetUnresolved, {
       message:
@@ -564,7 +564,15 @@ export function resolveRowActionNavigateTarget(
         `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
     });
   }
-  const target = screensByShortId.get(action.screen)?.[0];
+  const targetIsQn = isValidQn(action.screen);
+  const screensWithShortId = screensByShortId.get(
+    targetIsQn ? action.screen.slice(action.screen.lastIndexOf(":") + 1) : action.screen,
+  );
+  const target = targetIsQn
+    ? screensWithShortId?.find(
+        (entry) => qualifyEntityName(entry.featureName, "screen", entry.screen.id) === candidateQn,
+      )
+    : screensWithShortId?.[0];
   validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, target);
   return target;
 }

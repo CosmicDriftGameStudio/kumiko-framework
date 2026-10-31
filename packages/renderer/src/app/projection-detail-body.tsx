@@ -4,7 +4,7 @@ import { RenderEdit } from "../components/render-edit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
-import { useTranslation } from "../i18n.tsx";
+import { useLocale, useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
@@ -59,6 +59,7 @@ export function ProjectionDetailBody({
 }): ReactNode {
   const primitives = usePrimitives();
   const t = useTranslation();
+  const locale = useLocale().locale();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompactContext = usePageHeaderCompact();
   const effectiveTranslate = translate ?? t;
@@ -134,6 +135,7 @@ export function ProjectionDetailBody({
     record,
     primitives,
     effectiveTranslate,
+    locale,
     nav,
     appFeatures,
     userRoles,

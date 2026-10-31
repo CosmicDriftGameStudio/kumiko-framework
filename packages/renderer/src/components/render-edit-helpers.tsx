@@ -160,6 +160,15 @@ export function formSectionDomId(sectionIndex: number): string {
   return `form-section-${sectionIndex}`;
 }
 
+/** The scroll-anchor id of a section, only when the "on this page" navigation lists it. */
+export function sectionNavAnchorId(
+  sectionNavItems: readonly { readonly id: string }[],
+  sectionIndex: number,
+): string | undefined {
+  const id = formSectionDomId(sectionIndex);
+  return sectionNavItems.some((item) => item.id === id) ? id : undefined;
+}
+
 /** A record title is a non-blank string; anything else leaves the screen title alone. */
 export function resolveRecordTitle(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value : undefined;

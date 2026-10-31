@@ -391,13 +391,14 @@ type ConfigEditScreenDefinition = {
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
   scope: "tenant" | "system" | "user"; // scope for config:write:set calls.
   configKeys: Readonly<Record<string, string>>; // Map: form field name (short, as referenced in the layout) → fully qualified config key (`<feature>:config:<short>`).
-  secretKeys?: Readonly<Record<string, string>>; // Field name → qualified secret key (`<feature>:secret:<short>`), tenant scope only.
+  secretKeys?: Readonly<Record<string, string>>; // Field name → qualified secret key (`<feature>:secret:<short>`), tenant or system scope (system: platform-wide, SystemAdmin only), never user scope.
   fields: Readonly<Record<string, FieldDefinition>>; // Form shape per field name.
   layout: EditLayout; // Layout: sections with field refs.
   fieldLabels?: Readonly<Record<string, string>>; // Optional per-field label i18n key (field name → key).
   fieldDescriptions?: Readonly<Record<string, string>>; // Per-field help text i18n key (Field-Name → Key), from `mask.description`.
   requiredFields?: string[]; // Field names whose config key declares `required: true` — drives the "Not set.
   submitLabel?: string; // i18n key for the submit button.
+  actions?: ConfigEditAction[]; // Handler buttons drawn as their own row after `afterField` (settings-list layout).
   slots?: ScreenSlots;
   access?: AccessRule;
 };
@@ -509,6 +510,7 @@ type EditFieldSpec =
     fillAction?: FieldFillAction; // Button beside the input that runs a query and writes one scalar of its result into this field.
     refEntity?: string; // Marks this field as a reference lookup instead of a plain value — for projectionDetail fields, which have no `EntityDefinition` to carry a real `reference` field type.
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
+    format?: "email" | "phone"; // Text format for projectionDetail fields, which have no `EntityDefinition` to carry it: a read-only value renders as a `mailto:`/`tel:` link.
     embeddedList?: EmbeddedListEditSpec; // Embedded-list fields only (`createEmbeddedListField`).
     prefill?: EditFieldPrefill; // Fills an empty value when the create form opens; the update form and values from URL params or a handoff are never touched.
   }
@@ -1207,6 +1209,7 @@ type NotifyJobDispatcher = {
 type NotifyOptions = {
   to?: string | string[] | { tenant: TenantId; };
   route?: Readonly<Record<string, string>>;
+  channels?: string[];
   data?: Readonly<Record<string, unknown>>;
   priority?: NotifyPriority;
   idempotencyKey?: string;

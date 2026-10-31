@@ -2,6 +2,7 @@ import {
   type ColumnRendererComponent,
   type ColumnRendererProps,
   formatWhen,
+  useLocale,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER, toInstant } from "@cosmicdrift/kumiko-renderer/headless";
@@ -129,21 +130,22 @@ export function UsedByCell({ row }: ColumnRendererProps): ReactNode {
 
 // Date only keeps the column narrow enough for the overview to fit without
 // horizontal scroll; the full timestamp stays reachable via the tooltip.
-function formatModifiedDate(value: string): string {
+function formatModifiedDate(value: string, locale: string): string {
   try {
-    return toInstant(value).toLocaleString(undefined, { dateStyle: "medium" });
+    return toInstant(value).toLocaleString(locale, { dateStyle: "medium" });
   } catch {
     return value;
   }
 }
 
 export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
+  const locale = useLocale().locale();
   return withRow(row, (r) =>
     r.modifiedAt === "" ? (
       EMPTY_VALUE_PLACEHOLDER
     ) : (
-      <span className="whitespace-nowrap" title={formatWhen(r.modifiedAt)}>
-        {formatModifiedDate(r.modifiedAt)}
+      <span className="whitespace-nowrap" title={formatWhen(r.modifiedAt, locale)}>
+        {formatModifiedDate(r.modifiedAt, locale)}
       </span>
     ),
   );

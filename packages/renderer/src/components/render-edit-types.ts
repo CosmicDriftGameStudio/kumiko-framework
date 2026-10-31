@@ -128,6 +128,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly fieldAppendixPlacement?: "above-control" | "below-control";
   /** Per-field help text rendered under the label (translated by the caller). */
   readonly fieldDescription?: (fieldName: string) => ReactNode | undefined;
+  /** Extra full-width row drawn right after a field's cell (configEdit actions). `dirty` is true
+   *  while the form has unsaved changes. Called with the field name, returns a ReactNode or
+   *  undefined. */
+  readonly rowAfterField?: (
+    fieldName: string,
+    state: { readonly dirty: boolean },
+  ) => ReactNode | undefined;
   /** Marks fields whose value is set at this level; drawn by `settings-list` rows. */
   readonly fieldAccent?: (fieldName: string) => boolean;
   /** Edit-mode "changed" markers also for screens without an entity id

@@ -1,5 +1,11 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { formatWhen, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  formatWhen,
+  useLocale,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import type { ListColumnViewModel, ListRowViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import { Drawer, EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useMemo, useState } from "react";
@@ -72,6 +78,7 @@ export function OverridesDrawer({
   overrides,
 }: OverridesDrawerProps): ReactNode {
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const { DataTable } = usePrimitives();
   const [view, setView] = useState<DetailView | null>(null);
   // Only asked while the drawer is open; the answer is not needed for the editor itself.
@@ -125,10 +132,10 @@ export function OverridesDrawer({
           tenantName: row.tenantName,
           status: row.status,
           versionLabel: `v${row.version}`,
-          changed: formatWhen(row.changedAt),
+          changed: formatWhen(row.changedAt, appLocale),
         },
       })),
-    [tenantRows],
+    [tenantRows, appLocale],
   );
   const openRow = (row: ListRowViewModel, mode: DetailView["mode"]): void => {
     const found = tenantRows.find((candidate) => candidate.tenantId === row.id);

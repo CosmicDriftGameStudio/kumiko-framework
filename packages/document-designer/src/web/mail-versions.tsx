@@ -1,4 +1,10 @@
-import { formatWhen, useAppFeatures, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  formatWhen,
+  useAppFeatures,
+  useLocale,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
@@ -30,6 +36,7 @@ function VersionRows({
   readonly currentStatus: string;
 }): ReactNode {
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const audit = useQuery<AuditResponse>(AUDIT_LIST_QUERY, {
     aggregateType: "template-resource",
     aggregateId: rowId,
@@ -53,7 +60,7 @@ function VersionRows({
           testId={`mail-version-${row.version}`}
           label={t("documentDesigner.mail.versions.line", {
             version: row.version,
-            when: formatWhen(row.createdAt),
+            when: formatWhen(row.createdAt, appLocale),
             name: names.get(row.createdBy) ?? EMPTY_VALUE_PLACEHOLDER,
           })}
           trailing={

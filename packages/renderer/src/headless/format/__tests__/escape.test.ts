@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeHtml, escapeHtmlAttr, escapeXml } from "../escape.ts";
+import { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref } from "../escape.ts";
 
 describe("escapeHtml", () => {
   test('escapes & < > "', () => {
@@ -75,5 +75,23 @@ describe("escapeXml", () => {
   test("no double-escape", () => {
     const escaped = escapeXml(`& < > " '`);
     expect(escapeXml(escaped)).toBe("&amp;amp; &amp;lt; &amp;gt; &amp;quot; &amp;apos;");
+  });
+});
+
+describe("isSafeHref tel links", () => {
+  test("lets a plain phone number through", () => {
+    expect(isSafeHref("tel:+493012345")).toBe(true);
+    expect(isSafeHref("tel:030 (123) 45-6.7/8")).toBe(true);
+  });
+
+  test("blocks USSD codes and anything with letters", () => {
+    expect(isSafeHref("tel:*#06#")).toBe(false);
+    expect(isSafeHref("tel:javascript")).toBe(false);
+    expect(isSafeHref("TEL:+49;ext=1")).toBe(false);
+  });
+
+  test("still blocks script and data schemes", () => {
+    expect(isSafeHref("javascript:alert(1)")).toBe(false);
+    expect(isSafeHref("mailto:a@b.de")).toBe(true);
   });
 });

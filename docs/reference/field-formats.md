@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-12
-evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/renderer/src/headless/format; packages/headless/src/view-model/list-file-display.ts (format image/file)"
+evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/renderer/src/headless/format; packages/headless/src/view-model/list-file-display.ts (format image/file); packages/types/src/fields.ts (TextFieldDef.format); packages/renderer/src/components/render-field-control.tsx (readOnlyTextRule); packages/renderer/src/headless/format/escape.ts (isSafeHref); packages/renderer/src/app/projection-detail-shim.ts; packages/renderer/src/app/__tests__/projection-detail-shim.test.ts"
 ---
 
 # Field-Formats: deklarative Wert-Formatierung (`FormatSpec`)
@@ -56,6 +56,18 @@ Thumbnail (Variante, sonst Original, sonst Platzhalter), `{ format: "file" }`
 den Dateinamen als Link. Mehrere Dateien zeigen `+N`. Ohne `format` greift
 dasselbe für Felder vom Typ `file`/`image`/`files`/`images`; es erscheint nie
 eine Datei-ID.
+
+## `email` / `phone` (read-only Text-Felder)
+
+Ein read-only Textfeld (`type: "text"`) mit `format: "email"` rendert den Wert
+als `mailto:`-Link, mit `format: "phone"` als `tel:`-Link. Der `tel:`-Href
+enthält nur Ziffern und ein führendes `+`; der sichtbare Text bleibt der
+gespeicherte Wert. Leere Werte und Telefonwerte ohne Ziffer bleiben Klartext.
+Gerendert wird über die `Link`-Primitive, deren `isSafeHref` dafür neben
+`http(s)` und `mailto` jetzt auch `tel` zulässt. Gilt im `RenderField`-Pfad
+ohne eigenen `renderer`; editierbare Felder behalten das Eingabefeld.
+In einem `projectionDetail`, das keine Entity-Felder kennt, setzt man das Format
+am Layout-Feld: `{ field: "email", format: "email" }` (nur `email` und `phone`).
 
 ## Anwendung
 

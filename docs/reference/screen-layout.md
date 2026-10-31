@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-26
-evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
+evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts; packages/renderer/src/app/config-edit-action-row.tsx; packages/renderer/src/app/__tests__/config-edit-actions.test.tsx; packages/framework/src/engine/boot-validator/screens-kind-config-edit.ts; packages/renderer/src/app/projection-detail-navigation.ts; packages/renderer/src/app/__tests__/projection-detail-subtitle-format.test.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -113,6 +113,7 @@ header: {
 ```
 
 - A part with an empty value is left out together with its separator.
+- `{ field, format }` formats the raw value with a `FormatSpec` (for example `{ format: "timestamp" }` for a date and time) before it is shown; the empty check applies to the formatted text.
 - A part becomes a link only when its target resolves and the user may open it, and, for `entity`/`entityId`, the `entityId` field is not empty. Otherwise it stays plain text. A part with `navigate` that has neither `screen` nor `entity` fails at boot.
 - The separator "·" is its own element, hidden from assistive tech. The parts wrap onto a new line on narrow screens.
 - `subtitleHref` (external URL for the whole subtitle) only works with the string form of `subtitle`; combining it with a list fails at boot.
@@ -287,6 +288,36 @@ namedFilters: [{ id: "overdue", label: "tasks.filter.overdue" }],
 - An actionForm in a drawer shows `title` and `subtitle` of the opening drawer action instead of the action label.
 
 Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/select-field.md` for the select presentation.
+
+## configEdit action rows
+
+A `configEdit` screen can carry `actions: ConfigEditAction[]`: a button that calls a write handler, drawn as its own row directly after `afterField` (in the settings-list layout the row looks like a setting with a label, an optional description and the button).
+
+```ts illustration
+r.screen({
+  id: "settings",
+  type: "configEdit",
+  scope: "system",
+  configKeys: { telegramChat: "contact:config:telegram-chat" },
+  fields: { telegramChat: { type: "text" } },
+  layout: { sections: [{ fields: ["telegramChat"] }] },
+  actions: [
+    {
+      id: "send-test",
+      handler: "contact:write:send-test",
+      label: "contact:config.send-test.label",
+      description: "contact:config.send-test.description",
+      buttonLabel: "contact:config.send-test.button",
+      afterField: "telegramChat",
+      successMessage: "contact:config.send-test.sent",
+    },
+  ],
+});
+```
+
+- A click calls `handler` with `{}` and does not save the form. The button is disabled while the form has unsaved changes and shows the hint `kumiko.configEdit.action.saveFirst` ("Save first"; shipped in de, en, es, fr, it), so the handler always works on stored values.
+- `successMessage` is an optional i18n key. Success and failure go through the action notifier (a toast on web) and fall back to a banner inside the row. A failure shows the translated error of the handler (`i18nKey`, then `message`, then `code`).
+- Boot validation: `handler` must be a registered write handler, `afterField` must be a field of the layout, and the ids are unique within the screen.
 
 ## Projection detail header on phones
 

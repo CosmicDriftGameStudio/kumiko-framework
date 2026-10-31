@@ -242,7 +242,7 @@ describe("NotesSection — entry display", () => {
     });
     const metaEl = view.getByTestId("notes-section-meta-note-1");
     expect(metaEl.textContent).not.toContain(INSERTED_AT);
-    expect(metaEl.textContent).toContain(formatWhen(INSERTED_AT));
+    expect(metaEl.textContent).toContain(formatWhen(INSERTED_AT, stubResolver.locale()));
   });
 });
 

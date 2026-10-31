@@ -4,7 +4,7 @@ import { ExtensionSectionMount } from "./edit-mounts.tsx";
 import { RelatedListSection } from "./related-list-section.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { renderFieldsSection } from "./render-edit-fields-section.tsx";
-import { wizardStepKey } from "./render-edit-helpers.tsx";
+import { sectionNavAnchorId, wizardStepKey } from "./render-edit-helpers.tsx";
 import { resolveExtensionEntityId } from "./render-edit-logic.ts";
 import type { RenderEditModel, SectionRenderContext } from "./render-edit-render-model.ts";
 import { WriteFormSection } from "./write-form-section.tsx";
@@ -20,9 +20,11 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
   const { props, state, form, draft, sections } = model.engine;
   const { hideSectionTitles } = props;
   const { Card } = state.primitives;
+  const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const mount = (
     <ExtensionSectionMount
       key={section.title}
+      {...(anchorId !== undefined && { anchorId })}
       section={section}
       entityName={sections.vm.entityName}
       entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
@@ -67,7 +69,7 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
 }
 
 function renderRelatedListSection<TValues extends FormValues, TCtx>(
-  { model, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
+  { model, sectionIndex, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
   section: RelatedListSectionModel,
 ): ReactNode {
   const { props, form, sections } = model.engine;
@@ -77,9 +79,11 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   // Rejected at boot in wizard layouts, so no WizardStepGroup here.
   const parentId = resolveExtensionEntityId(props.entityId, sections.vm.id);
   if (parentId === null) return null;
+  const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const mount = (
     <RelatedListSection
       key={section.title}
+      {...(anchorId !== undefined && { anchorId })}
       section={section}
       parentId={parentId}
       // @cast-boundary form-values: TValues is structurally a Record.

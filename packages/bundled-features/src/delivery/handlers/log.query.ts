@@ -39,7 +39,7 @@ type DeliveryLogRow = {
   createdAt: Temporal.Instant;
 };
 
-function toClientError(stored: string | null): DeliveryErrorCode | null {
+export function toClientError(stored: string | null): DeliveryErrorCode | null {
   if (stored === null) return null;
   return isDeliveryErrorCode(stored) ? stored : "channel_error";
 }

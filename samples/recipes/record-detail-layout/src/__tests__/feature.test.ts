@@ -40,7 +40,10 @@ describe("record-detail-layout showcase — registration", () => {
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.header).toEqual({
       title: "customerName",
-      subtitle: "orderNumber",
+      subtitle: [
+        "orderNumber",
+        { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
+      ],
       status: "status",
     });
     expect(screen.metrics?.map((metric) => metric.field)).toEqual([

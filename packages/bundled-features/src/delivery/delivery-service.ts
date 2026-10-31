@@ -324,9 +324,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     readonly deliveries: NotifyDelivery[];
     readonly jobDispatcher: NotifyJobDispatcher | undefined;
     readonly locale: string | undefined;
+    readonly channelNames: ReadonlySet<string> | undefined;
     // Set only when exactly one channel carries the call: the queued job may then free
     // the key on terminal failure without risking a duplicate send on another channel.
     readonly jobIdempotencyKey: string | undefined;
+    // The caller's key as given, stamped on every attempt the call logs.
+    readonly idempotencyKey: string | undefined;
     readonly filesForTenant: ((tenantId: string) => FileContext | undefined) | undefined;
   };
 
@@ -348,9 +351,16 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // Single-shot terminal log (inline channels, skips, idempotency dups). Async
   // attempts instead append a queued event up front and a terminal event from
   // the send job — see deliverViaChannel + jobs.ts.
+  function withIdempotencyKey(run: NotifyRun, entry: DeliveryLogEntry): DeliveryLogEntry {
+    return run.idempotencyKey === undefined
+      ? entry
+      : { ...entry, idempotencyKey: run.idempotencyKey };
+  }
+
   async function logDelivery(run: NotifyRun, entry: DeliveryLogEntry): Promise<void> {
-    const attemptId = await logAttempt(run.db, registry, entry);
-    recordDelivery(run, entry, attemptId);
+    const stamped = withIdempotencyKey(run, entry);
+    const attemptId = await logAttempt(run.db, registry, stamped);
+    recordDelivery(run, stamped, attemptId);
   }
 
   // The stored/returned error is only the code; the redacted message goes to the log.
@@ -426,7 +436,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         error: null,
         priority,
       };
-      await appendAttemptEvent(run.db, registry, deliveryAttemptId, queuedEntry);
+      await appendAttemptEvent(
+        run.db,
+        registry,
+        deliveryAttemptId,
+        withIdempotencyKey(run, queuedEntry),
+      );
       await run.jobDispatcher.dispatch(
         channel.render ? DeliveryJobs.render : DeliveryJobs.send,
         {
@@ -439,6 +454,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
           message,
           ...(run.jobIdempotencyKey !== undefined && { idempotencyKey: run.jobIdempotencyKey }),
+          ...(run.idempotencyKey !== undefined && { notifyIdempotencyKey: run.idempotencyKey }),
         },
         { priority: deliveryPriorityRank[priority] },
       );
@@ -605,6 +621,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   const recipientChannelKey = (userId: string, channelName: string) => `${userId}|${channelName}`;
 
+  const isChannelSelected = (run: NotifyRun, channelName: string) =>
+    run.channelNames === undefined || run.channelNames.has(channelName);
+
   type ChannelGate = "open" | "channel_disabled" | "preference_disabled" | "rate_limited";
   type PrefetchedRecipients = {
     readonly addresses: ReadonlyMap<string, string | null>;
@@ -660,10 +679,11 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       secrets,
       tenantConfigFor?.(tenantId),
       run.filesForTenant,
+      run.idempotencyKey,
     );
     for (const userId of userIds) {
       for (const channel of channels) {
-        if (!channel.resolve) continue;
+        if (!channel.resolve || !isChannelSelected(run, channel.name)) continue;
         const key = recipientChannelKey(userId, channel.name);
         try {
           const gate = await evaluateChannelGate(
@@ -754,11 +774,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       secrets,
       tenantConfigFor?.(tenantId),
       run.filesForTenant,
+      run.idempotencyKey,
     );
 
     for (const channel of channels) {
       // Route-only channel (no per-user address): not a user-notification target.
-      if (!channel.resolve) continue;
+      if (!channel.resolve || !isChannelSelected(run, channel.name)) continue;
 
       const message = buildMessage(notificationType, data, channel.name, run.locale);
 
@@ -880,6 +901,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       secrets,
       tenantConfigFor?.(tenantId),
       run.filesForTenant,
+      run.idempotencyKey,
     );
     const suppressed = await loadSuppressedAddresses(
       run,
@@ -1050,7 +1072,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         deliveries: [],
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
+        channelNames: options.channels === undefined ? undefined : new Set(options.channels),
         jobIdempotencyKey: jobIdempotencyKeyFor(idempotencyKey, route),
+        idempotencyKey,
         filesForTenant:
           fileProviderResolver === undefined
             ? filesForTenant

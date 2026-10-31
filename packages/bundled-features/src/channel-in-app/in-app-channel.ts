@@ -33,6 +33,7 @@ export const inAppChannel: DeliveryChannel = {
       title: message.title,
       body: message.body ?? null,
       data: storedData,
+      idempotencyKey: ctx.idempotencyKey ?? null,
     });
 
     if (ctx.sseBroker) {

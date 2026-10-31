@@ -10,7 +10,7 @@ Format: one line per function or constant, object and options types as property 
 | --- | --- | --- |
 | `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 426 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 25 |
-| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 155 |
+| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 156 |
 | `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 151 |
 | `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 38 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |

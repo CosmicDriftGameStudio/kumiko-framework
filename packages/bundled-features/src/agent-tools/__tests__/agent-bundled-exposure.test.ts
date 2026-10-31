@@ -5,6 +5,7 @@ import {
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../../auth-mfa/index.ts";
+import { createContactFeature } from "../../contact/index.ts";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
 import { createInboundMailFoundationFeature } from "../../inbound-mail-foundation/index.ts";
 import { createLedgerFeature } from "../../ledger/index.ts";
@@ -41,6 +42,7 @@ const pat = createPersonalAccessTokensFeature({ scopes: {} });
 const secrets = createSecretsFeature();
 const cryptoShredding = createCryptoShreddingFeature();
 const inboundMail = createInboundMailFoundationFeature();
+const contact = createContactFeature({ appName: "Acme", telegram: true });
 
 const CASES: readonly ExposureCase[] = [
   { feature: tenant, kind: "query", handlerName: "members", expose: true, risk: "high" },
@@ -115,6 +117,17 @@ const CASES: readonly ExposureCase[] = [
     expose: true,
     risk: "high",
   },
+  // Reads stay open to the agent; anything that sends or changes state is a human action, since request text is anonymous input.
+  { feature: contact, kind: "query", handlerName: "contact-request:list", expose: true },
+  { feature: contact, kind: "query", handlerName: "request-detail", expose: true },
+  { feature: contact, kind: "query", handlerName: "replies", expose: true },
+  { feature: contact, kind: "query", handlerName: "request-delivery", expose: true },
+  { feature: contact, kind: "write", handlerName: "reply", expose: false },
+  { feature: contact, kind: "write", handlerName: "mark-done", expose: false },
+  { feature: contact, kind: "write", handlerName: "send-test", expose: false },
+  { feature: contact, kind: "write", handlerName: "forward-request", expose: false },
+  { feature: contact, kind: "write", handlerName: "submit", expose: false },
+  { feature: contact, kind: "write", handlerName: "report", expose: false },
 ];
 
 describe("bundled handlers keep their agent exposure and risk", () => {

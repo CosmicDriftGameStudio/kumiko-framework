@@ -3924,6 +3924,86 @@ describe("boot-validator", () => {
       );
     });
 
+    function secretScreenFeature(scope: "tenant" | "system" | "user") {
+      return defineFeature("shop", (r) => {
+        r.secret("smtp-password", { label: { en: "SMTP password" }, scope: "tenant" });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope,
+          configKeys: {},
+          secretKeys: { smtpPassword: "shop:secret:smtp-password" },
+          fields: { smtpPassword: { type: "text", writeOnly: true } } as never,
+          layout: { sections: [{ title: "Mail", fields: ["smtpPassword"] }] } as never,
+        });
+      });
+    }
+
+    test("secretKeys on a tenant or system scope screen → no throw", () => {
+      expect(() => validateBoot([secretScreenFeature("tenant")])).not.toThrow();
+      expect(() => validateBoot([secretScreenFeature("system")])).not.toThrow();
+    });
+
+    test("secretKeys on a user scope screen → throws", () => {
+      expect(() => validateBoot([secretScreenFeature("user")])).toThrow(
+        /maps secret "shop:secret:smtp-password" on a user-scope screen/,
+      );
+    });
+
+    describe("actions", () => {
+      function actionFeature(actions: readonly Record<string, unknown>[], registerHandler = true) {
+        return defineFeature("shop", (r) => {
+          r.config({ keys: { "site-name": createTenantConfig("text", { default: "" }) } });
+          if (registerHandler) {
+            r.writeHandler({
+              name: "probe",
+              schema: z.object({}),
+              handler: async () => ({ isSuccess: true as const, data: null }),
+              access: { roles: ["Admin"] },
+            });
+          }
+          r.screen({
+            id: "settings",
+            type: "configEdit",
+            scope: "tenant",
+            configKeys: { siteName: "shop:config:site-name" },
+            fields: { siteName: { type: "text" } } as never,
+            layout: { sections: [{ title: "Basics", fields: ["siteName"] }] } as never,
+            actions: actions as never,
+          });
+        });
+      }
+      const probe = {
+        id: "probe",
+        handler: "shop:write:probe",
+        label: "shop.probe.label",
+        buttonLabel: "shop.probe.button",
+        afterField: "siteName",
+      };
+
+      test("a registered write handler and a layout field → no throw", () => {
+        expect(() => validateBoot([actionFeature([probe])])).not.toThrow();
+      });
+
+      test("an unregistered handler → throws", () => {
+        expect(() => validateBoot([actionFeature([probe], false)])).toThrow(
+          /action "probe" → handler "shop:write:probe" is not a registered write handler/,
+        );
+      });
+
+      test("an afterField outside the layout → throws", () => {
+        expect(() => validateBoot([actionFeature([{ ...probe, afterField: "ghost" }])])).toThrow(
+          /action "probe" afterField "ghost" is not a field of the layout/,
+        );
+      });
+
+      test("duplicate ids → throws", () => {
+        expect(() => validateBoot([actionFeature([probe, probe])])).toThrow(
+          /action id "probe" is declared twice/,
+        );
+      });
+    });
+
     test("mode: wizard with only 1 section → throws", () => {
       expect(() =>
         validateBoot([

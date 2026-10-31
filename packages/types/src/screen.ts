@@ -212,6 +212,7 @@ export type {
   SecretRevealField,
 } from "./screen-action-form.ts";
 export type {
+  ConfigEditAction,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,

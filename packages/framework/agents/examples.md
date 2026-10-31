@@ -19,6 +19,7 @@
 | `chat-channels` | Chat channels. Delivery notifications to Slack, minus the browser tab. | `examples/chat-channels.md` |
 | `compliance-profiles-demo` | Two-tenant demo: EU + Swiss compliance profiles deliver different authority contacts, languages, and grace periods through the same App-code. | `examples/compliance-profiles-demo.md` |
 | `compose-stacks` | compose*Stack helpers for auth, security, GDPR and SaaS billing, and the runProdApp check that names a stack whose boot option is missing. | `examples/compose-stacks.md` |
+| `contact` | Public contact form backend: the contact bundled feature with its required companions (delivery, user-data-rights, files) and the anonymous browser client. | `examples/contact.md` |
 | `cross-feature-events` | Feature appends a typed domain event via ctx.events.append; a r.multiStreamProjection reacts asynchronously. | `examples/cross-feature-events.md` |
 | `crypto-shredding-hr` | Crypto-shredding: PII fields encrypted per subject key; forgetting the subject erases the key and every field it protected. | `examples/crypto-shredding-hr.md` |
 | `currencies-global` | Shared money fields across tenants. Commas still matter. | `examples/currencies-global.md` |

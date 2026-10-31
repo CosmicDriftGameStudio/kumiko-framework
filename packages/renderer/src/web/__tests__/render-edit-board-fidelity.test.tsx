@@ -317,6 +317,24 @@ describe("RenderEdit board fidelity", () => {
     );
     expect(screen.getByTestId("drawer-form-summary").textContent).toContain("Grundmiete · WE-12");
   });
+
+  test("screen form renders the summary box too", () => {
+    const { Form } = defaultPrimitives;
+    render(
+      <Form
+        onSubmit={() => {}}
+        testId="screen-form"
+        screenForm
+        fillHeight
+        summary={{ title: "Geht direkt an das Team", subtitle: "Antwort per Mail" }}
+      >
+        <span />
+      </Form>,
+    );
+    const box = screen.getByTestId("screen-form-summary");
+    expect(box.textContent).toContain("Geht direkt an das Team");
+    expect(box.textContent).toContain("Antwort per Mail");
+  });
 });
 
 function ActionsHost(): ReactNode {

@@ -80,6 +80,7 @@ export type {
   ActionFormSuccessFact,
   ActionFormSuccessItems,
   ActionFormSuccessLink,
+  ConfigEditAction,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   DashboardChartMarkerKind,

@@ -152,6 +152,7 @@ export function buildChannelContext(
   secrets?: SecretsContext,
   tenantConfig?: ConfigAccessor,
   filesForTenant?: (tenantId: string) => FileContext | undefined,
+  idempotencyKey?: string,
 ): ChannelContext {
   return {
     db: createTenantDb({ db, tenantId }),
@@ -160,6 +161,7 @@ export function buildChannelContext(
     tenantId,
     secrets,
     config: tenantConfig,
+    ...(idempotencyKey !== undefined && { idempotencyKey }),
     renderMail: createTemplateMailRenderer(db, registry, tenantId, tenantConfig),
     ...(filesForTenant !== undefined && {
       readAttachment: createEmailAttachmentReader(

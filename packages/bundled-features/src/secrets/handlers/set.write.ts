@@ -1,7 +1,9 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { announceSecretChange } from "../announce-secret-change.ts";
 import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.ts";
+import { resolveSecretTarget, secretScopeSchema } from "../secret-scope.ts";
 import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../web/constants.ts";
 import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.ts";
 
@@ -9,7 +11,7 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
     name: "set",
     description:
-      "Stores or replaces one encrypted secret for the caller's tenant under the given key, together with a redacted preview and optional hint; use it to enter or rotate a credential.",
+      "Stores or replaces one encrypted secret for the caller's tenant (or, with scope system and the SystemAdmin role, the platform-wide one) under the given key, together with a redacted preview and optional hint; use it to enter or rotate a credential.",
     // `value` is the plaintext credential: as a tool call it would travel to
     // the model provider before it is ever encrypted at rest.
     agent: { expose: false },
@@ -21,6 +23,7 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
       // handler derives a generic one (first-3-chars + bullets).
       redactedPreview: z.string().max(50).optional(),
       hint: z.string().max(200).optional(),
+      scope: secretScopeSchema,
     }),
     access,
     escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
@@ -29,7 +32,9 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
         { secrets: ctx.services.secrets, user: ctx.user },
         SecretsHandlers.set,
       ).withRunner(ctx.db.unsafeRaw());
-      const { key, value, redactedPreview, hint } = event.payload;
+      const { key, value, redactedPreview, hint, scope } = event.payload;
+      const target = resolveSecretTarget(event.user, scope);
+      if (!target.ok) return writeFailure(target.error);
 
       // Preview-priority: explicit payload param > feature-declared redact
       // (via r.secret()) > generic default. A feature that declared a
@@ -44,12 +49,12 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
         ? () => redactedPreview
         : (featureRedact ?? defaultRedact);
 
-      await secrets.set(event.user.tenantId, key, value, {
+      await secrets.set(target.tenantId, key, value, {
         redact: redactFn,
         ...(hint ? { hint } : {}),
         updatedBy: event.user.id,
       });
-      announceSecretChange(ctx, event.user.tenantId, key);
+      announceSecretChange(ctx, target.tenantId, key);
 
       return {
         isSuccess: true,

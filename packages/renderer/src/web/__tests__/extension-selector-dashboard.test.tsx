@@ -274,7 +274,7 @@ describe("generated extension-selector dashboard", () => {
     ]);
   });
 
-  test("a stored password shows as set and removing it deletes the secret", async () => {
+  test("a stored password shows as set, and Replace then Remove deletes the secret", async () => {
     const batch = batchSpy();
     renderHub(
       createMockDispatcher({
@@ -283,9 +283,11 @@ describe("generated extension-selector dashboard", () => {
       }),
     );
     await waitFor(() => screen.getByTestId("field-mail-smtp-password"));
-    expect(inputOf("mail-smtp-password").placeholder).toBe("Set — leave empty to keep it");
+    expect(screen.getByText("•••••••••• set")).toBeTruthy();
 
     const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Replace" }));
+    expect(inputOf("mail-smtp-password").placeholder).toBe("Set — leave empty to keep it");
     await user.click(screen.getByRole("button", { name: "Remove stored value" }));
     await user.click(screen.getByTestId("render-edit-submit"));
 

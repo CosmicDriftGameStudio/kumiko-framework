@@ -23,10 +23,14 @@ export const inAppMessagesTable = pgTable(
     data: text("data"), // JSON string for action, screen, etc.
     isRead: boolean("is_read").default(false).notNull(),
     readAt: instant("read_at"),
+    idempotencyKey: text("idempotency_key"),
     createdAt: instant("created_at").default(sql`now()`).notNull(),
   },
   // Every inbox, unread-count, mark-all-read and userData export/delete read filters by tenant + user.
-  (t) => [index("in_app_messages_tenant_user_created_idx").on(t.tenantId, t.userId, t.createdAt)],
+  (t) => [
+    index("in_app_messages_tenant_user_created_idx").on(t.tenantId, t.userId, t.createdAt),
+    index("in_app_messages_idempotency_key_idx").on(t.idempotencyKey),
+  ],
 );
 
 // Derived from inAppMessagesTable (table() attaches the meta as a Symbol) so

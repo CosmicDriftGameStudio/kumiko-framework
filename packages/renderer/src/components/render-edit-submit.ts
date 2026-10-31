@@ -51,6 +51,20 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
     return blocked;
   }
 
+  // A typed secret was just written; keeping the plaintext in form state would
+  // leave it readable in memory and re-sendable. Back to the write-only wire
+  // shape "set" (true), so the field shows the masked row again.
+  function dropSavedSecrets(): void {
+    const values = controller.getSnapshot().values;
+    const saved: Record<string, true> = {};
+    for (const [name, def] of Object.entries(props.entity.fields)) {
+      if ("writeOnly" in def && def.writeOnly === true && typeof values[name] === "string") {
+        if (values[name] !== "") saved[name] = true;
+      }
+    }
+    if (Object.keys(saved).length > 0) controller.setValues({ ...values, ...saved });
+  }
+
   // Enter in the active step triggers the native form submit (Next is
   // type="submit" for Enter support) — on intermediate steps that means
   // "Next", not "Save". Checked BEFORE the `disabled` guard below:
@@ -96,7 +110,10 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
       let result = customSubmit !== undefined ? blockedCustomSubmitResult() : undefined;
       if (result === undefined && customSubmit !== undefined) {
         result = await customSubmit(controller.getSnapshot());
-        if (result.isSuccess) controller.rebase();
+        if (result.isSuccess) {
+          dropSavedSecrets();
+          controller.rebase();
+        }
       } else if (result === undefined) {
         result = await controller.submit();
       }

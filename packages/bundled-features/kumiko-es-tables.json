@@ -20,6 +20,14 @@
     "export": "configValuesTable"
   },
   {
+    "module": "contact/entity",
+    "export": "contactRequestTable"
+  },
+  {
+    "module": "contact/entity",
+    "export": "contactReplyTable"
+  },
+  {
     "module": "data-retention/schema/tenant-retention-override",
     "export": "tenantRetentionOverrideTable"
   },

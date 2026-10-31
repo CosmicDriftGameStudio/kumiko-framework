@@ -77,7 +77,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
       id: "order-detail",
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
-      header: { title: "customerName", subtitle: "orderNumber", status: "status" },
+      header: {
+        title: "customerName",
+        // Parts are joined by a separator; `format` formats the raw field value.
+        subtitle: [
+          "orderNumber",
+          { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
+        ],
+        status: "status",
+      },
       metrics: [
         { field: "totalAmount", label: "order-desk.metric.totalAmount" },
         { field: "outstandingAmount", label: "order-desk.metric.outstandingAmount" },

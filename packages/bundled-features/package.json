@@ -153,6 +153,8 @@
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/constants": "./src/legal-pages/web/constants.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
+    "./contact": "./src/contact/index.ts",
+    "./contact/web": "./src/contact/web/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
@@ -721,6 +723,14 @@
       "./legal-pages/web": {
         "types": "./dist/legal-pages/web/index.d.ts",
         "default": "./dist/legal-pages/web/index.js"
+      },
+      "./contact": {
+        "types": "./dist/contact/index.d.ts",
+        "default": "./dist/contact/index.js"
+      },
+      "./contact/web": {
+        "types": "./dist/contact/web/index.d.ts",
+        "default": "./dist/contact/web/index.js"
       },
       "./waitlist": {
         "types": "./dist/waitlist/index.d.ts",

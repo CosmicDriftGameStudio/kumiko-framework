@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 91,
+  "featureCount": 92,
   "features": [
     {
       "name": "account-security",
@@ -692,6 +692,94 @@
         "displayLabel": "Tenant Config Store",
         "category": "infrastructure",
         "recommended": true
+      }
+    },
+    {
+      "name": "contact",
+      "description": "Contact inbox: an anonymous browser client (GET /contact/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin. Every request is stored platform-wide and every SystemAdmin is notified by mail, optionally also in a Telegram chat (option `telegram`, off by default); the notification names only the kind, the app and a link, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. SystemAdmins reply by mail (Reply-To set, attachments, quoting the original) and mark requests done; a website sender gets a fixed acknowledgement, a signed-in reporter a copy and an in-app note. Personal data is crypto-shredding-ready and the EXT_USER_DATA hooks export and erase a user's requests.",
+      "toggleableDefault": null,
+      "adoptsBundledLists": true,
+      "requires": [
+        "config",
+        "delivery",
+        "user-data-rights",
+        "files",
+        "notes-history",
+        "channel-telegram"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "contact-request"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "contact-reply"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "reply-to",
+          "qualifiedName": "contact:config:reply-to",
+          "type": "text",
+          "scope": "system",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^[^\\s@<>]{1,64}@[^\\s@<>]{1,200}\\.[^\\s@<>]{2,24}$"
+          },
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "telegram-chat",
+          "qualifiedName": "contact:config:telegram-chat",
+          "type": "text",
+          "scope": "system",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^(-?[0-9]{1,20}|@[A-Za-z0-9_]{5,32})$"
+          },
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "contact:write:forward-request",
+        "contact:write:mark-done",
+        "contact:write:notify-reporter-in-app",
+        "contact:write:reply",
+        "contact:write:report",
+        "contact:write:send-reply-mail",
+        "contact:write:send-test",
+        "contact:write:submit"
+      ],
+      "uiHints": {
+        "displayLabel": "Contact",
+        "category": "communication",
+        "recommended": false
       }
     },
     {

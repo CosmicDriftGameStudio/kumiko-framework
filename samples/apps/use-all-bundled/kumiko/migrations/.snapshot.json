@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-31T16:37:55.685Z",
+  "generatedAt": "2026-10-31T21:00:24.561Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -157,6 +157,11 @@
           "notNull": false
         },
         {
+          "name": "idempotency_key",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "created_at",
           "pgType": "timestamptz",
           "notNull": true,
@@ -167,6 +172,10 @@
         {
           "name": "in_app_messages_tenant_user_created_idx",
           "columns": ["tenant_id", "user_id", "created_at"]
+        },
+        {
+          "name": "in_app_messages_idempotency_key_idx",
+          "columns": ["idempotency_key"]
         }
       ],
       "source": "unmanaged"
@@ -314,6 +323,285 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_contact_replies",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "request_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "reporter_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "message",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "author_user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "author_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "file_ids",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
+        },
+        {
+          "name": "channels",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "sent_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_contact_replies_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["message"],
+      "tenancy": "global"
+    },
+    {
+      "tableName": "read_contact_requests",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "kind",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'open'"
+        },
+        {
+          "name": "source",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "message",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "name_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "email_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "phone",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "reporter_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "reporter_tenant_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "reporter_tenant_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "reporter_tenant_plan",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "page",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "app_version",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "browser",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "file_ids",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
+        },
+        {
+          "name": "file_count",
+          "pgType": "double precision",
+          "notNull": false,
+          "defaultSql": "0"
+        },
+        {
+          "name": "submitted_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "answered_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "closed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "reply_count",
+          "pgType": "double precision",
+          "notNull": false,
+          "defaultSql": "0"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_contact_requests_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_contact_requests_name_bidx_idx",
+          "columns": ["name_bidx"]
+        },
+        {
+          "name": "read_contact_requests_email_bidx_idx",
+          "columns": ["email_bidx"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["subject", "message", "name", "email", "phone"],
+      "tenancy": "global"
     },
     {
       "tableName": "read_custom_field_definitions",
@@ -4105,12 +4393,21 @@
           "pgType": "timestamptz",
           "notNull": true,
           "defaultSql": "now()"
+        },
+        {
+          "name": "idempotency_key",
+          "pgType": "text",
+          "notNull": false
         }
       ],
       "indexes": [
         {
           "name": "store_delivery_attempts_tenant_id_created_at_idx",
           "columns": ["tenant_id", "created_at"]
+        },
+        {
+          "name": "store_delivery_attempts_tenant_id_idempotency_key_idx",
+          "columns": ["tenant_id", "idempotency_key"]
         }
       ],
       "source": "unmanaged"
@@ -5134,6 +5431,44 @@
       ]
     },
     "read_config_values": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_contact_replies": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_contact_requests": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

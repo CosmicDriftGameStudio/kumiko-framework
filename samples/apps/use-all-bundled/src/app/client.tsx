@@ -29,6 +29,7 @@ import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web"
 import { inboundMailFoundationClient } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
 import { managedPagesClient } from "@cosmicdrift/kumiko-bundled-features/managed-pages/web";
+import { notesHistoryClient } from "@cosmicdrift/kumiko-bundled-features/notes-history/web";
 import { sessionsClient } from "@cosmicdrift/kumiko-bundled-features/sessions/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
@@ -119,6 +120,8 @@ createKumikoApp({
     userProfileClient(),
     customFieldsClient(),
     foldersClient(),
+    // The contact request detail frames its internal notes with the NotesSection extension.
+    notesHistoryClient(),
     inboundMailFoundationClient(),
     complianceProfilesClient(),
     featureTogglesClient(),

@@ -162,7 +162,10 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features,
     extraContext: (deps) =>
-      createDeliveryTestContext(deps, { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
+      createDeliveryTestContext(deps, {
+        tenantUserIdsQuery: TenantQueries.resolveUserIds,
+        idempotencyRedis: deps.redis,
+      }),
   });
   db = stack.db;
 
@@ -244,6 +247,33 @@ describe("delivery-notifications sample", () => {
     expect(channels).toContain("email");
     expect(channels).toContain("push");
     expect(logs.every((l) => l["status"] === "sent")).toBe(true);
+  });
+
+  test("the idempotency key tells a SystemAdmin when the assignee read the in-app message", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "support:write:ticket:create",
+      { title: "Read me", assigneeId: assignee.id, priority: "normal", status: "open" },
+      admin,
+    );
+    const key = `ticket-assigned:${created.id}`;
+    const readState = () =>
+      stack.http.queryOk<{ rows: { key: string; readAt: unknown }[] }>(
+        "channel-in-app:query:read-state-by-keys",
+        { keys: [key] },
+        TestUsers.systemAdmin,
+      );
+
+    expect((await readState()).rows).toEqual([{ key, readAt: null }]);
+
+    const [message] = await selectMany(db, inAppMessagesTable, { idempotencyKey: key });
+    await stack.http.writeOk(
+      "channel-in-app:write:mark-read",
+      { id: Number(message?.["id"]) },
+      assignee,
+    );
+    const [row] = (await readState()).rows;
+    expect(row?.key).toBe(key);
+    expect(row?.readAt).not.toBeNull();
   });
 
   test("a tenant override of the stored mail text replaces the system text", async () => {
@@ -438,6 +468,9 @@ export const supportFeature = defineFeature("support", (r) => {
       const ticketId = created.data.id;
       await ctx.notify(TICKET_ASSIGNED, {
         to: assigneeId,
+        // Known key per ticket: dedups a replayed handler and lets an admin screen ask
+        // channel-in-app:query:read-state-by-keys whether the assignee has seen it.
+        idempotencyKey: `ticket-assigned:${ticketId}`,
         data: {
           ticketId,
           title: event.payload.title,

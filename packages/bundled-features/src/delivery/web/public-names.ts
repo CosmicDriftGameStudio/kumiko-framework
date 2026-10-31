@@ -24,6 +24,7 @@ export const DELIVERY_RESUBSCRIBE_PATH = "/api/delivery/resubscribe" as const;
 export const DeliveryQueries = {
   log: "delivery:query:log",
   preferences: "delivery:query:preferences",
+  attemptsByKeys: "delivery:query:attempts-by-keys",
   unsubscribePageChrome: "delivery:query:unsubscribe-page-chrome",
 } as const;
 

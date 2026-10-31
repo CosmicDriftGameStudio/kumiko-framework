@@ -83,8 +83,8 @@ export const FORM_FIELD_RULES = {
   },
   configSecretScope: {
     id: "form/config-secret-scope",
-    summary: "Secret-mapped configEdit fields are on a tenant-scope screen.",
-    fix: 'Use scope "tenant" or drop the secret mapping.',
+    summary: "Secret-mapped configEdit fields are on a tenant- or system-scope screen.",
+    fix: 'Use scope "tenant" or "system", or drop the secret mapping.',
   },
   configSecretFieldType: {
     id: "form/config-secret-field-type",

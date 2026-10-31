@@ -5,6 +5,8 @@
 
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
+  access,
+  createTextField,
   defineFeature,
   defineWriteHandler,
   type FeatureDefinition,
@@ -66,6 +68,26 @@ const chargeWrite = defineWriteHandler({
   },
 });
 
+// Platform-wide secret edited on a configEdit screen. The declaration keeps scope "tenant" (the
+// only declared scope); the screen's scope "system" stores one value for the whole platform under
+// the system tenant, and only a SystemAdmin may write it.
+export let WEBHOOK_SIGNING_KEY: SecretKeyHandle;
+
+const webhookSendTestWrite = defineWriteHandler({
+  name: "webhook-send-test",
+  schema: z.object({}),
+  access: { roles: access.systemAdmin },
+  handler: async (event, ctx) => {
+    const secrets = requireSecretsContext(
+      { secrets: ctx.services.secrets, user: ctx.user },
+      "billing:write:webhook-send-test",
+    );
+    const key = await secrets.get(event.user.tenantId, WEBHOOK_SIGNING_KEY);
+    if (!key) return failUnprocessable("webhook_key_missing");
+    return { isSuccess: true, data: { signed: true } };
+  },
+});
+
 export function createBillingFeature(): FeatureDefinition {
   return defineFeature("billing", (r) => {
     // Typed declaration of the secret this feature needs. Admin UIs can
@@ -86,6 +108,40 @@ export function createBillingFeature(): FeatureDefinition {
       },
       scope: "tenant",
     });
+    WEBHOOK_SIGNING_KEY = r.secret("webhook.signingKey", {
+      label: { de: "Webhook-Signaturschlüssel", en: "Webhook signing key" },
+      scope: "tenant",
+    });
     r.writeHandler(chargeWrite);
+    r.writeHandler(webhookSendTestWrite);
+    r.screen({
+      id: "webhook-settings",
+      type: "configEdit",
+      dormant: true,
+      scope: "system",
+      configKeys: {},
+      secretKeys: { signingKey: WEBHOOK_SIGNING_KEY.name },
+      fields: {
+        signingKey: createTextField({
+          writeOnly: true,
+          maxLength: 200,
+          personal: false,
+          reason: "is_business_data",
+        }),
+      },
+      layout: { variant: "settings-list", sections: [{ fields: ["signingKey"] }] },
+      // A button row calls a handler with {} on the stored values; it is disabled while the
+      // form has unsaved changes.
+      actions: [
+        {
+          id: "send-test",
+          handler: "billing:write:webhook-send-test",
+          label: "billing.webhook.test.label",
+          buttonLabel: "billing.webhook.test.button",
+          afterField: "signingKey",
+        },
+      ],
+      access: { roles: access.systemAdmin },
+    });
   });
 }

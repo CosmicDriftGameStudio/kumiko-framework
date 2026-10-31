@@ -439,7 +439,8 @@ export function isWriteOnlyField(fdef: FieldDefinition | undefined): boolean {
 }
 
 // A secret on a configEdit form keeps its value out of the client like an encrypted
-// config key does, and the secrets store only exists per tenant.
+// config key does. The secrets store only exists per tenant and, for scope "system", platform-wide
+// under the system tenant.
 export function validateConfigEditSecretField(
   featureName: string,
   screen: ConfigEditScreenDefinition,
@@ -453,9 +454,9 @@ export function validateConfigEditSecretField(
       message: `${where} is mapped in both configKeys and secretKeys — keep one.`,
     });
   }
-  if (screen.scope !== "tenant") {
+  if (screen.scope === "user") {
     throw bootRuleError(FORM_FIELD_RULES.configSecretScope, {
-      message: `${where} maps secret "${secretQn}" on a ${screen.scope}-scope screen — secrets are tenant-scoped.`,
+      message: `${where} maps secret "${secretQn}" on a user-scope screen — secrets exist per tenant or platform-wide (scope "system"), not per user.`,
     });
   }
   const fdef = screen.fields[fieldName];

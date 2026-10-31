@@ -40,7 +40,7 @@ export function stripControlChars(value: string): string {
   return result;
 }
 
-// http(s)/mailto or scheme-less (relative/anchor) allowed; javascript:,
+// http(s)/mailto/tel or scheme-less (relative/anchor) allowed; javascript:,
 // data:, vbscript:, etc. rejected. Shared between renderer/web's Link
 // primitive and page-render's server-side markdown renderer (both take
 // untrusted tenant-authored hrefs) — no sanitizer dependency needed for a
@@ -75,5 +75,6 @@ function decodeHtmlEntities(value: string): string {
 export function isSafeHref(href: string): boolean {
   const trimmed = stripControlChars(decodeHtmlEntities(href)).toLowerCase();
   if (!/^[a-z][a-z0-9+.-]*:/.test(trimmed)) return true;
-  return /^(?:https?|mailto):/.test(trimmed);
+  // tel: only dials a number; USSD codes like tel:*#06# and anything with letters stay blocked.
+  return /^(?:https?|mailto):/.test(trimmed) || /^tel:\+?[\d ()./-]+$/.test(trimmed);
 }

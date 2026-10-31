@@ -75,6 +75,23 @@ export type CustomScreenDefinition = {
 // scope MUST match the `createTenantConfig`/`createSystemConfig`/
 // `createUserConfig` declaration of the referenced keys — the boot
 // validator pins that.
+/** A button row on a configEdit form that calls a write handler with `{}` (for example "send a test").
+ *  It never saves the form: the button is disabled while the form has unsaved changes, so the
+ *  handler always works on what is stored. All text fields are i18n keys. */
+export type ConfigEditAction = {
+  /** Unique within the screen; used for the test id. */
+  readonly id: string;
+  /** Qualified name of a write handler (`<feature>:write:<name>`). */
+  readonly handler: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly buttonLabel: string;
+  /** Field (from the layout) after which the row is drawn. */
+  readonly afterField: string;
+  /** Shown after a successful call; without it a success stays silent. */
+  readonly successMessage?: string;
+};
+
 export type ConfigEditScreenDefinition = {
   readonly id: string;
   readonly type: "configEdit";
@@ -100,7 +117,8 @@ export type ConfigEditScreenDefinition = {
    *  qualified config key (`<feature>:config:<short>`). The boot validator
    *  checks that every qualified key is known in the registry. */
   readonly configKeys: Readonly<Record<string, string>>;
-  /** Field name → qualified secret key (`<feature>:secret:<short>`), tenant scope only.
+  /** Field name → qualified secret key (`<feature>:secret:<short>`), tenant or system scope
+   *  (system: platform-wide, SystemAdmin only), never user scope.
    *  Such a field is a writeOnly text field with no `configKeys` entry; the same save
    *  writes it through secrets:write:set (or secrets:write:delete on removal). */
   readonly secretKeys?: Readonly<Record<string, string>>;
@@ -124,6 +142,8 @@ export type ConfigEditScreenDefinition = {
   readonly requiredFields?: readonly string[];
   /** i18n key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
+  /** Handler buttons drawn as their own row after `afterField` (settings-list layout). */
+  readonly actions?: readonly ConfigEditAction[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

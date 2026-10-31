@@ -47,9 +47,11 @@ export function synthesizeProjectionDetailEntity(
     // relatedList and extension sections carry no `fields` to synthesize.
     if (!isFieldsEditSection(section)) continue;
     for (const spec of sectionFieldSpecs(section)) {
-      fields[normalizeEditField(spec).field] = {
+      const { field, format } = normalizeEditField(spec);
+      fields[field] = {
         type: "text",
         allowPlaintext: SYNTHESIZED_FIELD_PII_REASON,
+        ...(format !== undefined && { format }),
       };
     }
   }

@@ -840,12 +840,36 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => screen.getByTestId("render-edit-form"));
+    if (stored && source === "system-row")
+      await user.click(await screen.findByTestId("field-write-only-replace-apiKey"));
     const input = screen.getByTestId("field-apiKey").querySelector("input");
     if (!input) throw new Error("expected apiKey input");
     return { batchSpy, user, input };
   }
 
-  test("a stored secret shows neither the plaintext nor the mask, only the set placeholder", async () => {
+  test("a stored secret shows a set marker with Replace, and Replace reveals an empty input", async () => {
+    const user = userEvent.setup();
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { "demo:config:api-key": { value: MASK, scope: "system", source: "system-row" } },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={secretSchema} qn="demo:screen:secrets-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const marker = await screen.findByTestId("field-write-only-set-apiKey");
+    expect(marker.textContent).toBe("•••••••••• set");
+    expect(screen.getByTestId("field-apiKey").querySelector("input")).toBeNull();
+    await user.click(screen.getByTestId("field-write-only-replace-apiKey"));
+    const input = screen.getByTestId("field-apiKey").querySelector("input");
+    expect(input?.value).toBe("");
+  });
+
+  test("after Replace the input is empty with the keep-placeholder", async () => {
     const { input } = await renderSecretScreen(true);
 
     expect(input.value).toBe("");
@@ -877,6 +901,18 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
         payload: { key: "demo:config:api-key", value: "sk_new_value", scope: "system" },
       },
     ]);
+  });
+
+  test("after a successful save the typed secret is gone from the form and the masked row is back", async () => {
+    const { batchSpy, user, input } = await renderSecretScreen(true);
+
+    await user.type(input, "sk_typed_plaintext");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    await screen.findByTestId("field-write-only-set-apiKey");
+    expect(document.body.innerHTML).not.toContain("sk_typed_plaintext");
+    expect(screen.getByTestId("field-apiKey").querySelector("input")).toBeNull();
   });
 
   test("removing the stored secret is sent as a reset", async () => {

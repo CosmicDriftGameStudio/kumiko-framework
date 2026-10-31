@@ -175,3 +175,23 @@ describe("groups-sections", () => {
     });
   });
 });
+
+describe("synthesizeProjectionDetailEntity format", () => {
+  test("carries a field's format into the synthetic text field", () => {
+    const entity = synthesizeProjectionDetailEntity({
+      sections: [
+        {
+          title: "Sender",
+          fields: [
+            { field: "email", format: "email" },
+            { field: "phone", format: "phone" },
+            "name",
+          ],
+        },
+      ],
+    });
+    expect(entity.fields["email"]).toMatchObject({ type: "text", format: "email" });
+    expect(entity.fields["phone"]).toMatchObject({ type: "text", format: "phone" });
+    expect(entity.fields["name"]).not.toHaveProperty("format");
+  });
+});
