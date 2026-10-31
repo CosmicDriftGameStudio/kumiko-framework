@@ -14,6 +14,7 @@ Pin jobs to deploy lanes (`api` | `worker`) with event-triggered fan-out.
 
 - `r.job({ runIn: "worker" })` after an HTTP write
 - `trigger: { maintenance: true }` for a daily housekeeping job in the app's maintenance window (`KUMIKO_MAINTENANCE_WINDOW`)
+- `wakesSleepingApp: false` on a cron trigger for upkeep that must not wake a sleeping shared app
 - End-to-end verification via `createAllInOneEntrypoint`
 
 ## Source
@@ -144,6 +145,10 @@ describe("lane-routing sample", () => {
     const registry = createRegistry([createLaneRoutingFeature()]);
     expect(registry.getJob("orders:job:prune-old-receipts")?.trigger).toEqual({
       maintenance: true,
+    });
+    expect(registry.getJob("orders:job:warm-receipt-cache")?.trigger).toEqual({
+      cron: "*/15 * * * *",
+      wakesSleepingApp: false,
     });
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
@@ -279,6 +284,14 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
       pruneRuns.push(Date.now());
     });
+
+    // Optional upkeep: `wakesSleepingApp: false` keeps a sleeping shared app asleep when a run is
+    // due; the run happens on the next wake instead.
+    r.job(
+      "warm-receipt-cache",
+      { trigger: { cron: "*/15 * * * *", wakesSleepingApp: false }, runIn: "worker" },
+      async () => {},
+    );
   });
 }
 ```

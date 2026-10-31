@@ -6,6 +6,7 @@ Pin jobs to deploy lanes (`api` | `worker`) with event-triggered fan-out.
 
 - `r.job({ runIn: "worker" })` after an HTTP write
 - `trigger: { maintenance: true }` for a daily housekeeping job in the app's maintenance window (`KUMIKO_MAINTENANCE_WINDOW`)
+- `wakesSleepingApp: false` on a cron trigger for upkeep that must not wake a sleeping shared app
 - End-to-end verification via `createAllInOneEntrypoint`
 
 ## Source
