@@ -21,7 +21,7 @@ import {
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
+import { resolveFeatureAccess } from "../shared/index.ts";
 import { accountEntity, scheduleEntity, transactionEntity } from "./entity.ts";
 import { createConfirmSchedulePeriodHandler } from "./handlers/confirm-schedule-period.write.ts";
 import { createCreateTransactionHandler } from "./handlers/create-transaction.write.ts";

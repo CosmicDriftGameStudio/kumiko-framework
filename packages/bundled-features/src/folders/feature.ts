@@ -25,8 +25,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
+import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";

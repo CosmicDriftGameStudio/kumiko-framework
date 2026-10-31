@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-29",
-  "asOfVersion": "0.400.0",
+  "generated": "2026-10-31",
+  "asOfVersion": "0.404.1",
   "packages": {
     "framework": {
       "./compliance": [
@@ -56,6 +56,11 @@
         "BeforeTransactionContext",
         "BeforeTransactionResult",
         "BootOptionName",
+        "BootRule",
+        "BootRuleTable",
+        "BootRuleViolation",
+        "BootValidationError",
+        "BootViolation",
         "BundledListsOptions",
         "CODEMOD_PLACEHOLDER_REASON_MARKER",
         "ChangelogEntry",
@@ -309,6 +314,7 @@
         "assignableAppRolesFromUsages",
         "assignableAppRolesOf",
         "attachOutsideTransaction",
+        "bootRuleError",
         "bridgeStub",
         "buildAppSchema",
         "buildConfigFeatureSchema",
@@ -318,6 +324,7 @@
         "buildSessionRoles",
         "buildUpdateSchema",
         "canActorAssignRole",
+        "collectBootRuleViolations",
         "collectCardMetaOverflow",
         "collectWriteHandlerQns",
         "compareVersions",
@@ -434,6 +441,7 @@
         "requireTierResolverPlugin",
         "resolveAgentExposure",
         "resolveEntityTransferAdjacency",
+        "resolveNamedListFilters",
         "runPipeline",
         "runStepList",
         "sectionFieldSpecs",
@@ -950,6 +958,7 @@
         "variantSuffix"
       ],
       "./jobs": [
+        "DEFAULT_MAINTENANCE_WINDOW",
         "JobDroppedMeta",
         "JobLogEntry",
         "JobMeta",
@@ -957,7 +966,10 @@
         "JobQueuedMeta",
         "JobRunner",
         "JobRunnerOptions",
+        "MAINTENANCE_WINDOW_ENV",
+        "MaintenanceWindow",
         "createJobRunner",
+        "maintenanceWindowFromEnv",
         "serializeJobSubject"
       ],
       "./observability": [
@@ -1000,6 +1012,7 @@
         "AllInOneEntrypoint",
         "ApiEntrypoint",
         "ApiEntrypointOptions",
+        "EntrypointStopOptions",
         "WorkerEntrypoint",
         "createAllInOneEntrypoint",
         "createApiEntrypoint",
@@ -1013,6 +1026,7 @@
         "CacheSyncBus",
         "ClosableCacheSyncBus",
         "RedisClientOptions",
+        "RedisNamespace",
         "TenantConfigSyncMessage",
         "TierAssignmentSyncMessage",
         "createDefaultCacheSyncBus",
@@ -1023,14 +1037,20 @@
         "isTierAssignmentSyncMessage",
         "logRedisConnectionState",
         "redisChannelPrefixFromEnv",
-        "redisClientOptionsFromEnv"
+        "redisClientOptionsFromEnv",
+        "redisNamespaceFromEnv"
       ],
       "./search": [
+        "ReindexTenantsSearchOptions",
+        "ReindexTenantsSearchResult",
         "SearchAdapter",
         "SearchAdapterConfig",
+        "collectSearchableFieldNames",
         "createInMemorySearchAdapter",
+        "isEntitySearchable",
         "purgeSearchDocumentsForSubject",
-        "reindexEntity"
+        "reindexEntity",
+        "reindexTenantsSearch"
       ],
       "./search/meilisearch": [
         "createMeilisearchAdapter"
@@ -1096,9 +1116,12 @@
         "encryptPiiFieldValues",
         "encryptPiiJsonValueForSubject",
         "encryptPiiValueForSubject",
+        "hashOpaqueToken",
+        "hashOpaqueTokenSync",
         "isPiiCiphertext",
         "isRecordKeyedField",
         "isSelfPiiField",
+        "opaqueTokenHashMatches",
         "requireKmsWiring",
         "requireKmsWiringAsync",
         "resolveKmsWiring",
@@ -1364,7 +1387,14 @@
         "withDerivedCells"
       ],
       "./utils": [
+        "DigestAlgorithm",
+        "LruCache",
+        "LruCacheOptions",
         "assertUnreachable",
+        "bytesToHex",
+        "chunk",
+        "createLruCache",
+        "digestHex",
         "generateDeterministicId",
         "generateId",
         "isPlainObject",
@@ -2065,6 +2095,8 @@
         "SubscriptionView",
         "SubscriptionWebhookRouteOptions",
         "TierSyncResult",
+        "TtlPriceCache",
+        "TtlPriceCacheOptions",
         "billingPlansPanel",
         "consentPayloadSchema",
         "createBillingFoundationFeature",
@@ -2073,12 +2105,15 @@
         "createContractTerminationRoutes",
         "createSubscriptionTierSync",
         "createSubscriptionWebhookRoute",
+        "createTtlPriceCache",
         "effectiveTierFromSubscription",
         "getSubscriptionForTenant",
+        "hasSeenProviderEvent",
         "isBillingEnabled",
         "isSwitchableSubscriptionStatus",
         "isTerminalSubscriptionStatus",
         "parseProviderConsentId",
+        "parseStoredSecret",
         "paymentAggregateId",
         "paymentEntity",
         "paymentEventPayloadSchema",
@@ -2088,7 +2123,8 @@
         "subscriptionAggregateId",
         "subscriptionEntity",
         "subscriptionEventPayloadSchema",
-        "subscriptionsProjectionTable"
+        "subscriptionsProjectionTable",
+        "validateOneOffPriceIds"
       ],
       "./billing-foundation/web": [
         "BILLING_PLANS_SCREEN_ID",
@@ -2657,9 +2693,12 @@
         "seedTenantMembership"
       ],
       "./tenant-lifecycle": [
+        "TENANT_DESTROY_ARCHIVED_BY",
+        "TENANT_DESTROY_ARCHIVE_REASON",
         "TENANT_DESTRUCTION_STAGES",
         "TENANT_LIFECYCLE_FEATURE",
         "TenantLifecycleHandlers",
+        "archiveAndDeleteTenantRows",
         "createTenantLifecycleFeature",
         "resolveTenantLifecycleGate"
       ],
@@ -2920,6 +2959,7 @@
         "TenantSummary",
         "TenantSwitcher",
         "TenantSwitcherProps",
+        "UseRedirectAuthedFromLoginOptions",
         "UserMenu",
         "UserMenuProps",
         "VerifyEmailFailure",
@@ -2933,6 +2973,7 @@
         "emailPasswordClient",
         "failureFromErrorField",
         "hasLikelyAuthSession",
+        "isAuthedOnLoginPath",
         "isSafeNextPath",
         "isSafeReturnPath",
         "makeAuthGate",
@@ -2948,6 +2989,7 @@
         "retryDelayMs",
         "toLoginResponse",
         "useAuthShell",
+        "useRedirectAuthedFromLogin",
         "useSession",
         "useShellUser",
         "verifyEmail"
@@ -3482,6 +3524,7 @@
         "hasPlaceholderProblems",
         "imageLinksOf",
         "isAllowedDocumentLinkHref",
+        "isAllowedDocumentUrlHref",
         "isDocumentPlaceholderHref",
         "isDocumentReferenceName",
         "isDocumentResourceKey",
@@ -3543,6 +3586,7 @@
         "DocumentVariable",
         "documentExtensions",
         "isAllowedDocumentLinkHref",
+        "isAllowedDocumentUrlHref",
         "isDocumentPlaceholderHref",
         "isDocumentReferenceName",
         "isDocumentResourceKey"

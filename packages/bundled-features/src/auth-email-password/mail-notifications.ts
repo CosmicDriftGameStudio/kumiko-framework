@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
-import { createMailLocaleTemplates } from "../shared/mail-locale-templates.ts";
+import { createMailLocaleTemplates } from "../shared/index.ts";
 import { AUTH_EMAIL_PASSWORD_FEATURE } from "./web/constants.ts";
 
 export const AUTH_MAIL_KINDS = {

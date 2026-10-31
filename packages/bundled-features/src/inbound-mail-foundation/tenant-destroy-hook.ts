@@ -17,7 +17,7 @@
 
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/archive-and-delete-tenant-rows.ts";
+import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/index.ts";
 import { seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,

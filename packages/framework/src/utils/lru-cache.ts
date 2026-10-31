@@ -27,6 +27,7 @@ export function createLruCache<K, V>(options: LruCacheOptions<V>): LruCache<K, V
 
   function remove(key: K): void {
     const stored = entries.get(key);
+    // skip: key not cached, nothing to remove
     if (stored === undefined) return;
     totalSize -= stored.size;
     entries.delete(key);
@@ -50,6 +51,7 @@ export function createLruCache<K, V>(options: LruCacheOptions<V>): LruCache<K, V
     set(key, value) {
       remove(key);
       const size = sizeOf(value);
+      // skip: a value larger than the whole budget would evict everything and still not fit
       if (options.maxTotalSize !== undefined && size > options.maxTotalSize) return;
       entries.set(key, { value, storedAt: now(), size });
       totalSize += size;

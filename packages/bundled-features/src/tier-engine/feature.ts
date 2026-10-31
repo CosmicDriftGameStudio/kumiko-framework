@@ -495,7 +495,7 @@ export function createTierEngineFeature<
       // point AND registers itself as the default plugin. Other features could
       // register there later (e.g. a future toggle-only resolver), but only one
       // plugin wins — see the "single-plugin" comment on findTierResolverUsage.
-      r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
+      r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, {});
 
       // Plugin-registration: framework's runDevApp/runProdApp picks this up
       // post-stack-setup, calls build(deps), wires effectiveFeatures.

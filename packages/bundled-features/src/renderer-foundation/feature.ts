@@ -1,5 +1,5 @@
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { collectExtensionOptions } from "../shared/collect-extension-options.ts";
+import { collectExtensionOptions } from "../shared/index.ts";
 import { RENDERER_EXTENSION } from "./constants.ts";
 import { isRendererRegistrationPlugin, type RendererPlugin } from "./types.ts";
 

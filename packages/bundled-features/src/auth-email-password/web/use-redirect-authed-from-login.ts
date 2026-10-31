@@ -25,6 +25,7 @@ export function useRedirectAuthedFromLogin({
   const targetRef = useRef(target);
   targetRef.current = target;
   useEffect(() => {
+    // skip: no browser location to inspect (native or server render)
     if (typeof window === "undefined") return;
     const redirectIfStranded = () => {
       if (isAuthedOnLoginPath(authed, window.location.pathname, loginPath))

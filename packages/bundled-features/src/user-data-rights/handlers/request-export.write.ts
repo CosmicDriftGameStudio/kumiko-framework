@@ -25,7 +25,7 @@ import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framewor
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { isUniqueConstraintFailure } from "../../shared/is-unique-constraint-failure.ts";
+import { isUniqueConstraintFailure } from "../../shared/index.ts";
 import {
   ACTIVE_JOB_CONSTRAINT,
   EXPORT_JOB_STATUS,

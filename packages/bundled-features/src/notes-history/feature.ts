@@ -20,8 +20,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
+import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
 import { createNoteEntryExecutor } from "./executor.ts";
 import { createAddNoteHandler } from "./handlers/add-note.write.ts";
