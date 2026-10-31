@@ -69,7 +69,8 @@ export function StepList({
       aria-label={title}
       data-testid={testId}
       className={cn(
-        "flex min-h-0 flex-col text-sm",
+        // Px on phones: an app may shrink its root font for desktop density, the phone reading size stays.
+        "flex min-h-0 flex-col text-sm max-md:text-[14px]",
         fill && "h-full",
         surface === "ai" && "bg-ai-surface",
         phoneCard && "max-md:rounded-md max-md:p-3",

@@ -60,7 +60,7 @@ const STATUS_LABEL_KEY: Record<StepStatus, string> = {
   failed: "kumiko.widget.step-list.statusFailed",
 };
 
-const ICON_BOX = "flex size-5 shrink-0 items-center justify-center rounded-full";
+const ICON_BOX = "flex size-5 max-md:size-[20px] shrink-0 items-center justify-center rounded-full";
 
 function StatusGlyph({ status }: { readonly status: StepStatus }): ReactNode {
   switch (status) {
@@ -154,6 +154,7 @@ export function StepActionButton({ action }: { readonly action: StepAction }): R
       loading={action.pending}
       onClick={action.onClick}
       testId={`step-action-${action.id}`}
+      className="max-md:text-[14px]"
     >
       {action.label}
     </Button>
