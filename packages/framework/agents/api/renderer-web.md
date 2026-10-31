@@ -1430,6 +1430,7 @@ type StepStatus = "done" | "open" | "locked" | "running" | "rejected" | "failed"
 type StepTag = {
   label: string;
   tone?: "accent" | "muted" | "warn" | "ok" | "bad";
+  afterWaiting?: boolean; // A note about the step's history (e.g. just changed) reads after what it waits for.
 };
 interface TextFieldProps extends FieldBase {
   value: string;

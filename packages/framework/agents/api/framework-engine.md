@@ -289,9 +289,11 @@ type ActionFormScreenDefinition = {
   slots?: ScreenSlots;
   access?: AccessRule;
 };
+type AgentEffect = "proposal"; // "proposal": the write only changes a suggestion that a person still approves elsewhere, so the agent may run it without its own approval step.
 type AgentHandlerHints = { // Per-handler hints for the AI-agent manifest.
   expose?: boolean;
   risk?: AgentRisk;
+  effect?: AgentEffect;
 };
 type AgentRisk = "low" | "mid" | "high";
 type AppContext = SharedContextFields & {

@@ -60,6 +60,24 @@ describe("StepList", () => {
     expect(within(row).getByRole("img").getAttribute("aria-label")).toBe("Waiting for: Auftrag");
   });
 
+  test("a history tag reads after what the step waits for, other tags before it", () => {
+    const changedReply: StepListItem = {
+      id: "changed",
+      title: "Antwort an Anna Schneider",
+      status: "locked",
+      lockedReason: "Auftrag",
+      tags: [
+        { label: "Gerade geändert", tone: "ok", afterWaiting: true },
+        { label: "Sendet eine Mail", tone: "accent" },
+      ],
+    };
+    render(<StepList title="Vorschlag der KI" steps={[changedReply]} />);
+    const labels = within(screen.getByTestId("step-changed"))
+      .getAllByText(/Gerade geändert|Sendet eine Mail|Waiting for: Auftrag/)
+      .map((node) => node.textContent);
+    expect(labels).toEqual(["Sendet eine Mail", "Waiting for: Auftrag", "Gerade geändert"]);
+  });
+
   test("a tag too long for the column is cut and keeps its full text as tooltip", () => {
     render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
     const tag = within(screen.getByTestId("step-reply")).getByText("Waiting for: Auftrag");

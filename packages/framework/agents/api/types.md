@@ -2388,6 +2388,10 @@ type FormSectionNavItem = { // One entry of a form's "on this page" navigation: 
   id: string;
   title: string;
 };
+type InputEndAction = ({ icon: ReactNode; ariaLabel: string; label?: undefined; } | { label: string; icon?: undefined; ariaLabel?: undefined; }) & { // Button inside the right edge of a text input: an icon (e.g. a microphone) or, with `label`, a small primary text button that submits what was typed.
+  onClick: () => void;
+  pressed?: boolean; // Toggle state, e.g. a microphone that is currently recording.
+};
 type InputFillAction = { // Button beside a single-line text/number input that fills it with a suggestion.
   label: string;
   onPress: () => void;
@@ -2528,9 +2532,10 @@ type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinn
   testId?: string;
 };
 type TabsProps = { // Tab strip for a projectionDetail `layout.mode: "tabs"`.
-  items: { id: string; label: string; count?: number; }[];
+  items: { id: string; label: string; count?: number; icon?: ReactNode; detail?: string; }[];
   activeId: string;
   onSelect: (id: string) => void;
+  appearance?: "pill" | "plain" | "filter"; // "pill" (default) = count badge, 44px strip.
   testId?: string;
 };
 type TrailingInputAction = {
@@ -2667,6 +2672,7 @@ interface AiTextFieldBaseProps {
   completionDebounceMs?: number; // Debounce for ghost-text requests, ms.
   actions?: AiTextAction[]; // Toolbar actions to expose.
   translateLanguages?: string[]; // Target languages the translate action offers.
+  endAction?: AiTextEndAction; // Icon button inside the right edge of the control (e.g. a microphone).
 }
 ```
 
@@ -4045,6 +4051,7 @@ type ActiveMembershipResult =
 type AgentExposure = {
   expose: boolean;
   risk: AgentRisk;
+  effect?: AgentEffect;
 };
 type AgentScreenHints = Pick<AgentHandlerHints, "expose">; // Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here.
 type AggregateStreamHandle = {

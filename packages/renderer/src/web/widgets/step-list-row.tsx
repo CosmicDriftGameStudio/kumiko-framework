@@ -18,6 +18,8 @@ export type StepAction = {
 export type StepTag = {
   readonly label: string;
   readonly tone?: "accent" | "muted" | "warn" | "ok" | "bad";
+  /** A note about the step's history (e.g. just changed) reads after what it waits for. */
+  readonly afterWaiting?: boolean;
 };
 
 export type StepListItem = {
@@ -197,9 +199,11 @@ function StepSourcesAndTags({
   return (
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px]">
       <StepSources step={step} />
-      {tags.map((tag) => (
-        <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} />
-      ))}
+      {tags
+        .filter((tag) => tag.afterWaiting !== true)
+        .map((tag) => (
+          <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} />
+        ))}
       {waiting && (
         <StepTagBadge
           tone="muted"
@@ -207,6 +211,11 @@ function StepSourcesAndTags({
           {...(phoneCard && { className: PHONE_WAITING_TEXT_CLASS })}
         />
       )}
+      {tags
+        .filter((tag) => tag.afterWaiting === true)
+        .map((tag) => (
+          <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} />
+        ))}
     </div>
   );
 }
