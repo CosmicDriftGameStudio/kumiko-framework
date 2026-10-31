@@ -207,4 +207,21 @@ describe("PdfViewer", () => {
     );
     await waitFor(() => expect(scrolledHits).toEqual(["Whg. 4"]));
   });
+
+  test("markTerm marks the passage on its page top and leaves the search closed but usable", async () => {
+    Object.assign(globalThis, { IntersectionObserver: undefined });
+    renderViewer(<PdfViewer document={fakeDocument()} markTerm="Whg. 4" initialPage={3} />);
+    const page = await screen.findByTestId("pdf-page-3");
+    await waitFor(() => expect(page.querySelector("mark.pdf-hit")?.textContent).toBe("Whg. 4"));
+    expect(page.querySelector(".pdf-hit-active")).toBeNull();
+    expect(scrolledHits).toEqual([]);
+    expect(scrolledPages).toContain("3");
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Search in document"));
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Nutzeinheit" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 1 of 1"),
+    );
+    await waitFor(() => expect(page.querySelector("mark.pdf-hit")).toBeNull());
+  });
 });

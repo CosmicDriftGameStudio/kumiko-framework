@@ -90,6 +90,7 @@ export function PdfViewer({
   matchIndex: controlledMatchIndex,
   onMatchesChange,
   hideSearchBar = false,
+  markTerm = "",
   fill = false,
 }: {
   readonly document: PDFDocumentProxy;
@@ -101,6 +102,8 @@ export function PdfViewer({
   readonly onMatchesChange?: (info: PdfMatchInfo) => void;
   /** Hides the toolbar's search toggle and controls, for hosts that render their own. */
   readonly hideSearchBar?: boolean;
+  /** Marks a passage, e.g. the clause a step was read from, without opening the search; the toolbar search stays usable and wins while it has a term. */
+  readonly markTerm?: string;
   readonly fill?: boolean;
 }): ReactNode {
   const pageCount = document.numPages;
@@ -164,7 +167,8 @@ export function PdfViewer({
     setMatchIndex((index) => (index + direction + matches.length) % matches.length);
   };
 
-  const highlightTerm = searchOpen || hideSearchBar ? term.trim() : "";
+  const searchedTerm = searchOpen || hideSearchBar ? term.trim() : "";
+  const highlightTerm = searchedTerm === "" ? markTerm.trim() : searchedTerm;
   return (
     <div
       data-testid="pdf-viewer"
@@ -222,7 +226,9 @@ export function PdfViewer({
                       : {
                           term: highlightTerm,
                           activeOrdinal:
-                            activeMatch?.page === pageNumber ? activeMatch.ordinalOnPage : null,
+                            searchedTerm !== "" && activeMatch?.page === pageNumber
+                              ? activeMatch.ordinalOnPage
+                              : null,
                         },
                 }}
               />

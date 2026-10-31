@@ -27,6 +27,8 @@ export type PdfPreviewProps = {
   readonly onMatchesChange?: (info: PdfMatchInfo) => void;
   /** Viewer only: hides the toolbar's own search controls. */
   readonly hideSearchBar?: boolean;
+  /** Viewer only: marks a passage without opening the search, e.g. the clause a step was read from. */
+  readonly markTerm?: string;
   /** Viewer only: take the container's height without the 480px floor, for hosts whose layout sizes the pane. */
   readonly fill?: boolean;
 };
