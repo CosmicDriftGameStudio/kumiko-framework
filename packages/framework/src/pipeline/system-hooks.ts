@@ -240,10 +240,10 @@ async function flushSearchOperationsForTenant(
 
 type HeldTenantOperations = { readonly eventIds: readonly string[]; readonly error: unknown };
 
-// A failed tenant batch is replayed op by op in event order, like the dispatcher's per-event
-// fallback but scoped to the tenant: ops before the failing one land, and only the failing op
-// and the tenant's later ops are held, so skipPoisonEvent's lastFailedEventId is the culprit.
-async function flushTenantHoldingFromFirstFailure(
+// A failed tenant batch is replayed op by op. After the collapse every op targets another
+// entity, so only the ops that fail are held and the rest land, removes included; the first
+// held event is the earliest failing one, which skipPoisonEvent's lastFailedEventId names.
+async function flushTenantHoldingFailedOperations(
   searchAdapter: SearchAdapter,
   tenantId: TenantId,
   bucket: TenantSearchBucket,
@@ -257,21 +257,26 @@ async function flushTenantHoldingFromFirstFailure(
       return { eventIds: bucket.sourcedOps.map((s) => s.sourceEventId), error: batchError };
     }
   }
-  for (const [position, sourced] of bucket.sourcedOps.entries()) {
+  const heldEventIds: string[] = [];
+  let firstError: unknown;
+  for (const sourced of bucket.sourcedOps) {
     try {
       await applySearchOperation(searchAdapter, sourced.op);
     } catch (error) {
-      const eventIds = bucket.sourcedOps.slice(position).map((s) => s.sourceEventId);
-      return { eventIds, error };
+      if (heldEventIds.length === 0) firstError = error;
+      heldEventIds.push(sourced.sourceEventId);
     }
   }
-  return null;
+  return heldEventIds.length === 0 ? null : { eventIds: heldEventIds, error: firstError };
 }
 
 // Spacing for a tenant whose index keeps rejecting writes: its held events come back on every
 // dispatcher turn, but Meilisearch is only asked again once the delay has passed.
 const TENANT_RETRY_BASE_DELAY_MS = 1_000;
 const TENANT_RETRY_MAX_DELAY_MS = 60_000;
+// Ten failures span about four minutes of backoff: enough for Meilisearch to restart, short
+// enough that a broken index or a poison document reaches ops as an error.
+const TENANT_HOLD_ESCALATION_FAILURES = 10;
 
 type TenantRetryState = {
   readonly consecutiveFailures: number;
@@ -292,17 +297,21 @@ export function createSearchEventConsumer(
   // Process memory only: after a restart a held tenant is simply retried at once.
   const tenantRetries = new Map<TenantId, TenantRetryState>();
 
-  function recordTenantFailure(tenantId: TenantId, err: unknown): string {
+  function recordTenantFailure(tenantId: TenantId, held: HeldTenantOperations): string {
     const previous = tenantRetries.get(tenantId);
     const consecutiveFailures = (previous?.consecutiveFailures ?? 0) + 1;
     const delayMs = Math.min(
       TENANT_RETRY_BASE_DELAY_MS * 2 ** (consecutiveFailures - 1),
       TENANT_RETRY_MAX_DELAY_MS,
     );
-    const message = err instanceof Error ? err.message : String(err);
-    const reason = `search index of tenant ${tenantId} rejected the write, held for retry: ${message}`;
+    const message = held.error instanceof Error ? held.error.message : String(held.error);
+    const reason =
+      consecutiveFailures >= TENANT_HOLD_ESCALATION_FAILURES
+        ? `search index of tenant ${tenantId} rejected writes ${consecutiveFailures} times in a row, event ${held.eventIds[0]} stays held until the index is fixed or the event is skipped with skipPoisonEvent: ${message}`
+        : `search index of tenant ${tenantId} rejected the write, held for retry: ${message}`;
     tenantRetries.set(tenantId, { consecutiveFailures, retryAtMs: now() + delayMs, reason });
     if (!previous) log.warn(reason);
+    if (consecutiveFailures === TENANT_HOLD_ESCALATION_FAILURES) log.error(reason);
     return reason;
   }
 
@@ -319,8 +328,8 @@ export function createSearchEventConsumer(
       const op = await resolveSearchOperation(event, ctx, registry);
       if (op) await applySearchOperation(searchAdapter, op);
     },
-    // One tenant's failing index must not stall the others: its ops are held for a later turn
-    // (in id order, so per-entity order survives) while every other tenant is flushed.
+    // One tenant's failing index must not stall the others: its failing ops are held for a later
+    // turn, and while it backs off all of its ops wait, so per-entity order survives.
     batchHandler: async (events, ctx, turn) => {
       const perTenant = await resolveSearchOperationsByTenant(events, ctx, registry);
       for (const [tenantId, bucket] of perTenant) {
@@ -332,9 +341,9 @@ export function createSearchEventConsumer(
           );
           continue;
         }
-        const held = await flushTenantHoldingFromFirstFailure(searchAdapter, tenantId, bucket);
+        const held = await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket);
         if (held) {
-          turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held.error));
+          turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
           continue;
         }
         if (retry) {

@@ -33,9 +33,11 @@ import {
   fetchPendingEvents,
   markProcessing,
   type PersistedConsumerOutcome,
+  pendingFetchLimit,
   persistConsumerOutcome,
   preRegisterConsumers,
   selectIdleConsumerKeys,
+  withholdNewEventsOfTenantsWithUnfetchedPending,
 } from "./event-dispatcher-delivery.ts";
 import {
   mergeContiguousGapRanges,
@@ -73,6 +75,8 @@ import {
 // persistent subscriptions): strictly-ordered + halt-on-poison. The one
 // exception is a batch handler holding a partition's events for a later turn
 // (BatchTurnControl): those move to pending_gaps and are re-delivered first.
+// Pending ids fill at most half a batch; when that cap leaves some out, newer
+// events of their tenants wait as pending gaps too, so per tenant the order holds.
 //
 // Delivery semantics: **at-least-once**. If a handler runs but the cursor
 // update fails (crash mid-pass), the same event is delivered again next pass.
@@ -105,7 +109,8 @@ export type EventConsumerBatchHandler = (
 // index rejects writes) while the rest of the turn goes through. Held events are kept in
 // pending_gaps, so they survive restarts and come back first, in id order, on every later turn
 // until the handler stops holding them. The consumer stays idle with lastError set; holding
-// never counts towards maxAttempts.
+// never counts towards maxAttempts, like errorPolicy.isTransientError, because dead-lettering
+// the shared consumer would stall every other partition. Escalating is the handler's job.
 export type BatchTurnControl = {
   readonly holdForRetry: (eventIds: readonly string[], reason: string) => void;
 };
@@ -639,18 +644,19 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // xmin BEFORE the fetch: a range is provably burnt only once this has
         // passed the xmax recorded with it. Only needed when ranges exist.
         const xminNow = pendingGaps.length > 0 ? await selectSnapshotXmin(tx) : "0";
-        const events = await fetchPendingEvents(tx, oldCursor, batchSize, toIdRanges(pendingGaps));
-        const fetchedIds = events.map((e) => e.id);
-        const truncated = events.length === batchSize;
+        const pendingRanges = toIdRanges(pendingGaps);
+        const events = await fetchPendingEvents(tx, oldCursor, batchSize, pendingRanges);
+        const pendingFetchedIds = events.filter((e) => e.id <= oldCursor).map((e) => e.id);
+        const pendingTruncated = pendingFetchedIds.length === pendingFetchLimit(batchSize);
 
         // Burnt: no visible id this turn, the fetch is proven to have
-        // covered the range (LIMIT can otherwise cut it off early), and
+        // covered the range (the pending LIMIT can otherwise cut it off early), and
         // xmin passed its recorded xmax — every xact that could still
         // produce a row has finished without one ever appearing.
         const { burnt: burntGaps, surviving: survivingGaps } = partitionBurntGaps(
           pendingGaps,
-          fetchedIds,
-          truncated,
+          pendingFetchedIds,
+          pendingTruncated,
           xminNow,
         );
 
@@ -668,9 +674,17 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         }
         await markProcessing(tx, consumer.name, instanceId);
 
+        const deliverable = await withholdNewEventsOfTenantsWithUnfetchedPending(
+          tx,
+          events,
+          oldCursor,
+          pendingRanges,
+          batchSize,
+        );
+        const fetchedIds = deliverable.map((e) => e.id);
         const outcome: DeliveryOutcome =
-          events.length > 0
-            ? await deliverEvents(consumer, events, context, maxAttempts, acquired.state)
+          deliverable.length > 0
+            ? await deliverEvents(consumer, deliverable, context, maxAttempts, acquired.state)
             : {
                 cursor: oldCursor,
                 attempts: acquired.state.attempts,

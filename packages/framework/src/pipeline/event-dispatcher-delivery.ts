@@ -19,6 +19,7 @@ import {
   type PendingIdRange,
   selectEventsHeadId,
   selectPendingAndNewEventRows,
+  selectTenantIdsInRangesAbove,
 } from "../db/queries/event-store.ts";
 import { coerceRow } from "../db/query.ts";
 import { extractTableInfo } from "../db/table-info.ts";
@@ -263,9 +264,41 @@ export async function fetchPendingEvents(
   batchSize: number,
   pendingRanges: readonly PendingIdRange[] = [],
 ): Promise<ReadonlyArray<StoredEventRow>> {
-  const rawRows = await selectPendingAndNewEventRows(tx, cursor, pendingRanges, batchSize);
+  const rawRows = await selectPendingAndNewEventRows(
+    tx,
+    cursor,
+    pendingRanges,
+    batchSize,
+    pendingFetchLimit(batchSize),
+  );
   const info = extractTableInfo(eventsTable);
   return rawRows.map((row) => coerceRow<StoredEventRow>(row, info));
+}
+
+// Pending ids get at most half the batch: a batch handler that keeps holding events must not
+// starve every newer event of the consumer.
+export function pendingFetchLimit(batchSize: number): number {
+  return Math.max(1, Math.floor(batchSize / 2));
+}
+
+// When the pending part of a fetch was capped, newer events of a tenant with pending events
+// left out of it are withheld this turn; they fall between delivered ids and so become pending
+// gaps themselves. No consumer sees a tenant's event before an older one it is still holding.
+export async function withholdNewEventsOfTenantsWithUnfetchedPending(
+  tx: DbTx,
+  events: ReadonlyArray<StoredEventRow>,
+  cursor: bigint,
+  pendingRanges: readonly PendingIdRange[],
+  batchSize: number,
+): Promise<ReadonlyArray<StoredEventRow>> {
+  const pendingIds = events.filter((event) => event.id <= cursor).map((event) => event.id);
+  const lastPendingId = pendingIds.at(-1);
+  if (lastPendingId === undefined || pendingIds.length < pendingFetchLimit(batchSize)) {
+    return events;
+  }
+  const tenantsLeftOut = await selectTenantIdsInRangesAbove(tx, pendingRanges, lastPendingId);
+  if (tenantsLeftOut.size === 0) return events;
+  return events.filter((event) => event.id <= cursor || !tenantsLeftOut.has(event.tenantId));
 }
 
 export type DeliveryOutcome = {
