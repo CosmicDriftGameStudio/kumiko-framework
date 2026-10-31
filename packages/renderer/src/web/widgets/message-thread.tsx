@@ -82,7 +82,7 @@ function TeaserBody({
     <div className="flex flex-col items-start gap-1">
       <p
         data-testid="message-teaser"
-        className="m-0 w-full whitespace-pre-wrap text-[15px] leading-[1.55] max-md:text-[16px] max-md:leading-[22px]"
+        className="m-0 w-full whitespace-pre-wrap text-[15px] leading-[1.55] max-md:text-[14px] max-md:leading-[22px]"
         style={{
           display: "-webkit-box",
           WebkitBoxOrient: "vertical",
