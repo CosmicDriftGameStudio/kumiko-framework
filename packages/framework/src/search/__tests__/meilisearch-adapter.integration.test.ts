@@ -459,6 +459,8 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
   });
 });
 
+const INDEX_PAGE_SIZE = 1000;
+
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
   const dropClient = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
   const createdPrefixes: string[] = [];
@@ -475,9 +477,15 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
     return { adapter: created, prefix };
   }
 
+  // Pages through every index: a shared local Meilisearch can hold more than one page.
   async function indexUids(prefix: string): Promise<string[]> {
-    const all = await dropClient.getIndexes({ limit: 1000 });
-    return all.results.map((i) => i.uid).filter((uid) => uid.startsWith(prefix));
+    const uids: string[] = [];
+    for (let offset = 0; ; offset += INDEX_PAGE_SIZE) {
+      const page = await dropClient.getIndexes({ limit: INDEX_PAGE_SIZE, offset });
+      uids.push(...page.results.map((index) => index.uid));
+      if (page.results.length < INDEX_PAGE_SIZE) break;
+    }
+    return uids.filter((uid) => uid.startsWith(prefix));
   }
 
   afterAll(async () => {

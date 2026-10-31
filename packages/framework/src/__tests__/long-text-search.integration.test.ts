@@ -206,7 +206,11 @@ describe.skipIf(!MEILI_UP)("longText pieces in Meilisearch follow the memo lifec
     async function replayNewEvents(): Promise<void> {
       const events = await loadEventsAfterVersion(stack.db, memoId, tenant, replayedVersion);
       expect(events.length).toBeGreaterThan(0);
-      await consumer.batchHandler?.(events, stack.context);
+      await consumer.batchHandler?.(events, stack.context, {
+        holdForRetry: (_eventIds, reason) => {
+          throw new Error(`search write held: ${reason}`);
+        },
+      });
       replayedVersion = Math.max(...events.map((event) => event.version));
     }
     async function piecesInMeili(): Promise<number> {
