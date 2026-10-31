@@ -141,4 +141,54 @@ describe("event-dispatcher — batchHandler", () => {
     expect(firstEventDeliveries).toHaveLength(1);
     expect(state?.lastProcessedEventId).toBe(BigInt(handlerCalls[0]?.id ?? "0"));
   });
+
+  test("a held event does not stop the turn and comes back first on the next turn until released", async () => {
+    const consumerName = "batchhandlerintegration:hold";
+    const turns: string[][] = [];
+    let heldAggregateId: string | undefined;
+    let holding = true;
+
+    const consumer: EventConsumer = {
+      name: consumerName,
+      batchHandler: async (events, _ctx, turn) => {
+        turns.push(events.map((event) => event.aggregateId));
+        const held = events.filter((event) => event.aggregateId === heldAggregateId);
+        if (holding)
+          turn.holdForRetry(
+            held.map((event) => event.id),
+            "partition unavailable",
+          );
+      },
+      handler: async () => {
+        throw new Error("per-event fallback must not run while the batch succeeds");
+      },
+    };
+
+    const dispatcher = buildDispatcher([consumer]);
+    await dispatcher.ensureRegistered();
+
+    heldAggregateId = await appendWidget("held");
+    const passingId = await appendWidget("passing");
+
+    const firstPass = await dispatcher.runOnce();
+    expect(firstPass.byConsumer[consumerName]).toEqual({ processed: 1, failed: 1 });
+    const heldState = await getConsumerState(stack.db, consumerName);
+    expect(heldState?.status).toBe("idle");
+    expect(heldState?.lastError).toBe("partition unavailable");
+
+    const laterId = await appendWidget("later");
+    await dispatcher.runOnce();
+    holding = false;
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+
+    expect(turns).toEqual([
+      [heldAggregateId, passingId],
+      [heldAggregateId, laterId],
+      [heldAggregateId],
+    ]);
+    const releasedState = await getConsumerState(stack.db, consumerName);
+    expect(releasedState?.lastError).toBeNull();
+    expect(releasedState?.attempts).toBe(0);
+  });
 });

@@ -247,16 +247,15 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     ).rejects.toThrow(/invalid_document_id/);
   });
 
-  test("a poison doc in the batch halts the turn at the last good event; a second pass dead-letters it", async () => {
+  test("a poison doc holds its tenant from the poison event on; the ops before it land and the consumer is not dead-lettered", async () => {
     // Real UUID aggregateIds always produce a valid Meili doc id via
     // meilisearchDocId (all illegal characters are sanitized away) — the
     // only realistic way to fail Meili's own id validation is length, so
     // event #3's aggregateId is an oversized synthetic id, not a shape
     // production ever emits.
-    const poisonConsumer = {
-      ...createSearchEventConsumer(meiliAdapter, stack.registry),
-      errorPolicy: { maxAttempts: 2 },
-    };
+    const poisonConsumer = createSearchEventConsumer(meiliAdapter, stack.registry, {
+      now: () => 0,
+    });
 
     const good1 = eventRow(uuid(), "created", { label: "poisondoc-1" });
     const good2 = eventRow(uuid(), "created", { label: "poisondoc-2" });
@@ -274,8 +273,11 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
       stubState(),
     );
 
-    expect(first.cursor).toBe(good2.id);
-    expect(first.attempts).toBe(1);
+    expect(first.cursor).toBe(good5.id);
+    expect(first.heldNewIds).toEqual([poison.id, good4.id, good5.id]);
+    expect(first.failedEventId).toBe(poison.id);
+    expect(first.lastError).toContain("invalid_document_id");
+    expect(first.attempts).toBe(0);
     expect(first.deadLettered).toBe(false);
 
     const hitsAfterFirst = await meiliAdapter.search(TENANT, "poisondoc", {
@@ -299,11 +301,13 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
         lastProcessedEventId: first.cursor,
         attempts: first.attempts,
         lastError: first.lastError,
+        lastFailedEventId: first.failedEventId,
       },
     );
 
-    expect(second.deadLettered).toBe(true);
-    expect(second.attempts).toBe(2);
-    expect(second.cursor).toBe(good2.id);
+    expect(second.deadLettered).toBe(false);
+    expect(second.cursor).toBe(good5.id);
+    expect(second.failedEventId).toBe(poison.id);
+    expect(second.resolvedPendingIds).toEqual([]);
   });
 });
