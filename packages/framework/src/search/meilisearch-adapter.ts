@@ -1,4 +1,4 @@
-import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { errorCodeOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { EnqueuedTaskPromise, FilterableAttributes, Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
 import { importOptionalPeer } from "../utils/import-optional-peer.ts";
@@ -51,7 +51,7 @@ async function awaitSucceededTask(
 // would fail forever.
 const REMOVE_TOLERATED_ERROR_CODES: readonly string[] = [ErrorStatusCode.INDEX_NOT_FOUND];
 
-const INDEX_LIST_PAGE_SIZE = 100;
+const INDEX_LIST_PAGE_SIZE = 1000;
 
 // What an unconfigured Meilisearch index reports as searchableAttributes.
 const MEILI_ALL_ATTRIBUTES = "*";
@@ -116,6 +116,81 @@ type ConfigAction =
 function isIndexNotFound(err: unknown): boolean {
   const cause = typeof err === "object" && err !== null && "cause" in err ? err.cause : null;
   return errorCodeOf(cause) === ErrorStatusCode.INDEX_NOT_FOUND;
+}
+
+// Meili reports ENOENT as "No such file or directory (os error 2)" when an index's files vanish
+// under a running task.
+const MISSING_INDEX_FILES = "os error 2";
+
+/** A drop that finds its index already deleted by a concurrent drop (index_not_found, or the
+ *  vanished index files) has reached its end state. Reads a task error or an API error's cause. */
+export function isGoneIndexError(error: unknown): boolean {
+  const message = propertyOf(error, "message");
+  return (
+    errorCodeOf(error) === ErrorStatusCode.INDEX_NOT_FOUND ||
+    (typeof message === "string" && message.includes(MISSING_INDEX_FILES))
+  );
+}
+
+/** The part of the Meilisearch client an index listing needs. */
+export type IndexListingClient = {
+  getIndexes(query: {
+    limit: number;
+    offset: number;
+  }): Promise<{ results: readonly { uid: string }[]; total: number }>;
+  tasks: {
+    getTasks(query: {
+      types: "indexDeletion"[];
+      statuses: ("enqueued" | "processing")[];
+      limit: number;
+    }): Promise<{ results: readonly { uid: number }[] }>;
+    waitForTasks(taskUids: number[]): Promise<unknown>;
+  };
+};
+
+/** Every index uid on the instance, paged. Several apps or test runs can share one Meilisearch:
+ *  a listing that meets another client's index deletion fails as a whole (500 "os error 2"),
+ *  so it waits for the deletions in flight and reads once more. A deletion enqueued between
+ *  that wait and the second read still fails the call. */
+export async function listIndexUids(client: IndexListingClient): Promise<readonly string[]> {
+  try {
+    return await readIndexUids(client);
+  } catch (err) {
+    if (!isGoneIndexError(propertyOf(err, "cause"))) throw err;
+  }
+  const pending = await client.tasks.getTasks({
+    types: ["indexDeletion"],
+    statuses: ["enqueued", "processing"],
+    limit: INDEX_LIST_PAGE_SIZE,
+  });
+  await client.tasks.waitForTasks(pending.results.map((task) => task.uid));
+  return readIndexUids(client);
+}
+
+async function readIndexUids(client: IndexListingClient): Promise<string[]> {
+  const uids: string[] = [];
+  for (let offset = 0; ; offset += INDEX_LIST_PAGE_SIZE) {
+    const page = await client.getIndexes({ limit: INDEX_LIST_PAGE_SIZE, offset });
+    uids.push(...page.results.map((index) => index.uid));
+    if (page.results.length === 0 || offset + page.results.length >= page.total) return uids;
+  }
+}
+
+// Enqueued together so Meili batches the deletions: every deletion in flight fails other
+// clients' index listings, and one batch keeps that window short.
+async function dropIndexesIfPresent(
+  client: InstanceType<typeof Meilisearch>,
+  uids: readonly string[],
+): Promise<void> {
+  const enqueued = await Promise.all(uids.map((uid) => client.deleteIndex(uid)));
+  const tasks = await client.tasks.waitForTasks(enqueued);
+  // A concurrent drop that got there first leaves the index gone, which is the goal.
+  const failed = tasks.find((task) => task.status !== "succeeded" && !isGoneIndexError(task.error));
+  if (failed) {
+    throw new Error(
+      `Meilisearch task ${failed.uid} (${failed.type}) ended with status "${failed.status}": ${failed.error ? failed.error.code : "no error code"}`,
+    );
+  }
 }
 
 // Exported for unit tests (index-name / primary-key shape) without a live Meili.
@@ -319,25 +394,16 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       if (prefix === "") {
         throw new Error("refusing to drop Meilisearch indexes with an empty prefix");
       }
-      const uids: string[] = [];
-      for (let offset = 0; ; offset += INDEX_LIST_PAGE_SIZE) {
-        const page = await client.getIndexes({ limit: INDEX_LIST_PAGE_SIZE, offset });
-        for (const index of page.results) {
-          if (isOwnTenantIndex(index.uid)) uids.push(index.uid);
-        }
-        if (page.results.length === 0 || offset + page.results.length >= page.total) break;
-      }
-      // Cleared even when a delete throws midway: otherwise ensureConfigured treats the
-      // already-dropped tenants as configured and the next index() recreates an
+      // Cleared even when the listing or a delete throws midway: otherwise ensureConfigured
+      // treats the already-dropped tenants as configured and the next index() recreates an
       // unconfigured index ("not filterable" on filtered search).
       try {
-        for (const uid of uids) {
-          await awaitSucceededTask(client.deleteIndex(uid), REMOVE_TOLERATED_ERROR_CODES);
-        }
+        const uids = (await listIndexUids(client)).filter(isOwnTenantIndex);
+        await dropIndexesIfPresent(client, uids);
+        return uids.length;
       } finally {
         configuredTenants.clear();
       }
-      return uids.length;
     },
 
     async removeBatch(tenantId, items) {
