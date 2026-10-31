@@ -10,6 +10,15 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs.tsx";
 const TAB_TRIGGER_CLASS =
   "h-full shrink-0 flex-none whitespace-nowrap rounded-none border-0 border-b-2 border-transparent focus-visible:border-transparent bg-transparent px-0 py-0 text-sm font-medium text-foreground-secondary after:hidden hover:text-foreground data-[state=active]:border-primary data-[state=active]:focus-visible:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground dark:text-foreground-secondary dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-foreground dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-primary";
 
+// Strip inset and tab spacing per appearance. The muted looks pad each tab instead of the strip, so a
+// tab's hover and underline span its label plus 10px; "filter" insets the strip so its first label
+// lines up with a list pane's search field, "plain" sits flush with the content it switches.
+const STRIP_SPACING = {
+  pill: { scroller: "px-1.5 @lg:px-6", list: "h-11 gap-2 @lg:gap-6", trigger: "" },
+  plain: { scroller: "px-0", list: "h-10 gap-1", trigger: "px-2.5" },
+  filter: { scroller: "px-1.5", list: "h-10 gap-0", trigger: "px-2.5" },
+} as const;
+
 // A single fade-width both edges share — mask-image needs the same offset
 // on each side or the gradient reads as lopsided.
 const EDGE_FADE_PX = 24;
@@ -112,6 +121,8 @@ export function DefaultTabs({
   }, [updateScrollEdges]);
 
   const maskImage = edgeFadeMaskImage(scrollStart, scrollEnd);
+  const spacing = STRIP_SPACING[appearance];
+  const isPill = appearance === "pill";
 
   return (
     <Tabs
@@ -125,32 +136,39 @@ export function DefaultTabs({
         ref={scrollerRef}
         data-scroll-start={scrollStart ? "" : undefined}
         data-scroll-end={scrollEnd ? "" : undefined}
-        className="relative min-w-0 overflow-x-auto border-b border-border px-1.5 [scrollbar-width:none] @lg:px-6 [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          "relative min-w-0 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          spacing.scroller,
+        )}
         style={maskImage !== undefined ? { maskImage, WebkitMaskImage: maskImage } : undefined}
       >
-        <TabsList
-          variant="line"
-          className={cn("gap-2 p-0 @lg:gap-6", appearance === "plain" ? "h-10" : "h-11")}
-        >
+        <TabsList variant="line" className={cn("p-0", spacing.list)}>
           {items.map((item) => (
             <TabsTrigger
               key={item.id}
               value={item.id}
-              className={TAB_TRIGGER_CLASS}
+              className={cn(TAB_TRIGGER_CLASS, spacing.trigger)}
               // The strip renders no TabsContent (the caller mounts the panel), so Radix's
               // auto aria-controls would point at a panel id that never exists.
               aria-controls={undefined}
               data-testid={testId !== undefined ? `${testId}-${item.id}` : undefined}
             >
               {item.icon !== undefined && (
-                <span aria-hidden="true" className="mr-1.5 inline-flex shrink-0 [&>svg]:size-4">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "inline-flex shrink-0",
+                    // The trigger's own gap already spaces icon, label and count in the muted looks.
+                    isPill ? "mr-1.5 [&>svg]:size-4" : "[&>svg]:size-3.5",
+                  )}
+                >
                   {item.icon}
                 </span>
               )}
               {item.label}
               {item.detail !== undefined && (
                 <span
-                  className="ml-1.5 text-xs font-normal text-muted-foreground"
+                  className={cn("text-xs font-normal text-muted-foreground", isPill && "ml-1.5")}
                   data-testid={testId !== undefined ? `${testId}-${item.id}-detail` : undefined}
                 >
                   {item.detail}
@@ -159,11 +177,10 @@ export function DefaultTabs({
               {item.count !== undefined && (
                 <span
                   className={cn(
-                    "ml-1.5",
-                    appearance === "plain"
-                      ? "text-xs font-normal text-muted-foreground"
+                    !isPill
+                      ? "text-xs font-normal text-muted-foreground tabular-nums"
                       : [
-                          "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-xs font-medium",
+                          "ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-xs font-medium",
                           item.id === activeId
                             ? "bg-primary/10 text-foreground"
                             : "bg-status-neutral-surface text-foreground-secondary",

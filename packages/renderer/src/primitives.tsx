@@ -1418,8 +1418,10 @@ export type TabsProps = {
   }[];
   readonly activeId: string;
   readonly onSelect: (id: string) => void;
-  /** "pill" (default) = count badge, 44px strip. "plain" = count as plain muted number, 40px strip. */
-  readonly appearance?: "pill" | "plain";
+  /** "pill" (default) = count badge, 44px strip. "plain" = count as plain muted number, 40px strip
+   *  flush with its content (tabs that switch a reader). "filter" = the plain look inset by 6px with
+   *  no gap between tabs (the filter strip of a list pane). */
+  readonly appearance?: "pill" | "plain" | "filter";
   readonly testId?: string;
 };
 

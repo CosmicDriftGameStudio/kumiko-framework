@@ -26,6 +26,26 @@ describe("DefaultTabs appearance", () => {
     expect(screen.getByRole("tablist").className).toContain("h-10");
   });
 
+  test("plain pads each tab and sits flush with its content; filter insets the strip without gaps", () => {
+    const { unmount } = render(
+      <Tabs items={ITEMS} activeId="mail" onSelect={() => {}} appearance="plain" testId="tabs" />,
+    );
+    expect(screen.getByTestId("tabs-mail").className).toContain("px-2.5");
+    expect(screen.getByRole("tablist").parentElement?.className).toContain("px-0");
+    expect(screen.getByRole("tablist").className).toContain("gap-1");
+    expect(screen.getByTestId("tabs-contract-count").className).not.toContain("ml-1.5");
+    unmount();
+
+    render(
+      <Tabs items={ITEMS} activeId="mail" onSelect={() => {}} appearance="filter" testId="tabs" />,
+    );
+    expect(screen.getByTestId("tabs-mail").className).toContain("px-2.5");
+    expect(screen.getByRole("tablist").parentElement?.className).toContain("px-1.5");
+    expect(screen.getByRole("tablist").className).toContain("gap-0");
+    expect(screen.getByRole("tablist").className).toContain("h-10");
+    expect(screen.getByTestId("tabs-contract-count").className).not.toContain("rounded-full");
+  });
+
   test("icon renders before the label and detail after it", () => {
     render(<Tabs items={ITEMS} activeId="mail" onSelect={() => {}} testId="tabs" />);
     const mailTab = screen.getByTestId("tabs-mail");
