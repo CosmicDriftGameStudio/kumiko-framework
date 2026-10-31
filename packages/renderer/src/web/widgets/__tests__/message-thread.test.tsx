@@ -253,16 +253,16 @@ describe("ClampedText", () => {
   test("shows the toggle only when the content overflows, and toggles", () => {
     mockBoxHeights(400, 200);
     render(<ClampedText lines={4}>lange Nachricht</ClampedText>);
-    fireEvent.click(screen.getByText("Show more"));
+    fireEvent.click(screen.getByText("Read the whole mail"));
     expect(screen.getByText("Show less")).toBeTruthy();
     fireEvent.click(screen.getByText("Show less"));
-    expect(screen.getByText("Show more")).toBeTruthy();
+    expect(screen.getByText("Read the whole mail")).toBeTruthy();
   });
 
   test("short content gets no toggle", () => {
     mockBoxHeights(60, 60);
     render(<ClampedText lines={4}>kurz</ClampedText>);
-    expect(screen.queryByText("Show more")).toBeNull();
+    expect(screen.queryByText("Read the whole mail")).toBeNull();
   });
 });
 
@@ -343,5 +343,25 @@ describe("MessageThread layout details", () => {
     expect(tab.textContent).toContain("4 Seiten");
     expect(tab.querySelector('[data-testid="pdf-icon"]')).not.toBeNull();
     expect(screen.getByRole("tablist").className).toContain("h-10");
+  });
+});
+
+describe("MessageThread folded older messages", () => {
+  test("foldOlderTogether shows one toggle for the older messages, a click lists them as rows", () => {
+    render(<MessageThread messages={[annaFirst, reply, annaLast]} foldOlderTogether />);
+    expect(screen.queryByTestId("message-row-m1")).toBeNull();
+    expect(screen.queryByTestId("message-row-m2")).toBeNull();
+    expect(screen.getByTestId("message-open-m3")).toBeTruthy();
+    fireEvent.click(screen.getByText("2 earlier mails"));
+    expect(screen.getByTestId("message-row-m1")).toBeTruthy();
+    expect(screen.getByTestId("message-row-m2")).toBeTruthy();
+    expect(screen.queryByTestId("message-thread-earlier")).toBeNull();
+  });
+
+  test("one older message gets the singular toggle, a single message none", () => {
+    const { rerender } = render(<MessageThread messages={[reply, annaLast]} foldOlderTogether />);
+    expect(screen.getByText("1 earlier mail")).toBeTruthy();
+    rerender(<MessageThread messages={[annaLast]} foldOlderTogether />);
+    expect(screen.queryByTestId("message-thread-earlier")).toBeNull();
   });
 });
