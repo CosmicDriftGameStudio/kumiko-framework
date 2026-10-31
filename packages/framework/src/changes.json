@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "chunk in framework utils",
+    "detail": "@cosmicdrift/kumiko-framework/utils exports chunk(items, size), which splits an array into slices of at most size elements. files-tenant-data, subscription-paddle and template-resolver use it instead of local copies."
+  },
+  {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "Search sweep helpers in framework/search",
+    "detail": "@cosmicdrift/kumiko-framework/search exports collectSearchableFieldNames, isEntitySearchable and reindexTenantsSearch(db, registry, adapter, { tenantIds, timeoutMs?, configureTimeoutMs?, dryRun?, warn? }). The sweep configures each given tenant index, then reindexes every searchable entity for those tenants (system-stream entities once under the system tenant) and returns counts of indexed rows and failures. A failed configure or reindex is reported through warn and does not stop the sweep. Apps no longer need their own configure-on-boot seed: the server's default search config is applied lazily to a missing or factory-default index."
+  },
+  {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "createLruCache in framework utils",
+    "detail": "@cosmicdrift/kumiko-framework/utils exports createLruCache({ maxEntries, ttlMs?, now?, maxTotalSize?, sizeOf? }) with get, set, delete, clear and size. The tenant timezone cache and the managed-pages body cache use it. runWithTimeout moves to the utils module; the api barrel export stays."
+  },
+  {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "Engine and db helpers deduplicated",
+    "detail": "The engine uses one findEntity lookup instead of three copies, the PII subject resolver and the boot validator use isFileField, insertOne builds its SQL through the same insert helpers as insertMany, the projection rebuild maps event rows through the shared toStoredEvent, and the app-schema role projection filters row, toolbar and related-list actions through one helper. No behavior change."
+  },
+  {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "One key split for file variants and derivatives",
+    "detail": "deriveKey and the derivative key helpers split a storage key into base and extension through the same function, so both always agree on where the extension starts. No behavior change."
+  },
+  {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "Opaque-token hash and hex helpers exported",
+    "detail": "@cosmicdrift/kumiko-framework/crypto exports hashOpaqueToken (async, Web Crypto), hashOpaqueTokenSync (node:crypto, for synchronous server paths) and opaqueTokenHashMatches (timing-safe comparison against a stored SHA-256 hex hash). @cosmicdrift/kumiko-framework/utils exports bytesToHex and digestHex(algorithm, text). The framework's own token hashes (personal access tokens, single-use token store, preauth MFA key, export download tokens, termination revocation) use them and produce the same hex as before. Apps that hash share or heartbeat tokens themselves can switch to these helpers without migrating stored hashes."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
     "title": "Maintenance trigger and KUMIKO_MAINTENANCE_WINDOW",

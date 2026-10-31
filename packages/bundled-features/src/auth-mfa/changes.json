@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "MFA setup token uses the shared HMAC token codec",
+    "detail": "signMfaSetupToken and verifyMfaSetupToken run on createHmacTokenCodec with the domain mfa-setup. Tokens issued before the change still verify, and new tokens are byte-identical for the same input. The challenge and preauth-setup tokens share one payload guard, and signed-token and the inbound-mail OAuth state use the same HMAC signature helper."
+  },
+  {
     "version": "0.391.0",
     "type": "fix",
     "title": "The disable-MFA form confirms success",

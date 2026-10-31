@@ -1,5 +1,103 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.405.0
+
+### Minor Changes
+
+- 403f98c: The framework exports a tenant search sweep and an LRU cache, tenant-lifecycle exports the archive-then-delete helper, and auth-email-password/web gains a login-path redirect hook and a topbar option without UserMenu.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Search sweep helpers in framework/search
+  detail: @cosmicdrift/kumiko-framework/search exports collectSearchableFieldNames, isEntitySearchable and reindexTenantsSearch(db, registry, adapter, { tenantIds, timeoutMs?, configureTimeoutMs?, dryRun?, warn? }). The sweep configures each given tenant index, then reindexes every searchable entity for those tenants (system-stream entities once under the system tenant) and returns counts of indexed rows and failures. A failed configure or reindex is reported through warn and does not stop the sweep. Apps no longer need their own configure-on-boot seed: the server's default search config is applied lazily to a missing or factory-default index.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createLruCache in framework utils
+  detail: @cosmicdrift/kumiko-framework/utils exports createLruCache({ maxEntries, ttlMs?, now?, maxTotalSize?, sizeOf? }) with get, set, delete, clear and size. The tenant timezone cache and the managed-pages body cache use it. runWithTimeout moves to the utils module; the api barrel export stays.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: improvement
+  title: archiveAndDeleteTenantRows for tenant-destroy hooks
+  detail: @cosmicdrift/kumiko-bundled-features/tenant-lifecycle exports archiveAndDeleteTenantRows(ctx, table, aggregateType, escapeHatchReason), which archives each row's event stream and then deletes the tenant's rows, plus the TENANT_DESTROY_ARCHIVED_BY and TENANT_DESTROY_ARCHIVE_REASON constants. inbound-mail-foundation uses the helper, billing-foundation the constants.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Login-path redirect hook and topbar without UserMenu
+  detail: auth-email-password/web exports useRedirectAuthedFromLogin({ loginPath, target }), which replaces the URL with target while a signed-in user sits on the login path, also after Browser-Back, and isAuthedOnLoginPath. DefaultTopbarActions takes userMenu (default true) to hide the UserMenu and themeToggleTestId for the ThemeToggle button.
+  -->
+
+### Patch Changes
+
+- c0b5f51: Stripe and Paddle share their price-id validation, stored-secret parsing and price cache through billing-foundation, and the framework utils gain chunk.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Provider helpers shared through billing-foundation
+  detail: billing-foundation exports validateOneOffPriceIds, parseStoredSecret, createTtlPriceCache and hasSeenProviderEvent. subscription-stripe and subscription-paddle use them instead of their own copies, with the same error texts as before. The subscription projection reuses one apply body for created/updated and one for canceled/invoice-paid; the exported apply names stay.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: chunk in framework utils
+  detail: @cosmicdrift/kumiko-framework/utils exports chunk(items, size), which splits an array into slices of at most size elements. files-tenant-data, subscription-paddle and template-resolver use it instead of local copies.
+  -->
+- 5f46e2b: Internal duplicates in framework and bundled-features are merged into shared modules. Behavior and public exports stay the same.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Engine and db helpers deduplicated
+  detail: The engine uses one findEntity lookup instead of three copies, the PII subject resolver and the boot validator use isFileField, insertOne builds its SQL through the same insert helpers as insertMany, the projection rebuild maps event rows through the shared toStoredEvent, and the app-schema role projection filters row, toolbar and related-list actions through one helper. No behavior change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: improvement
+  title: Bundled features share internal helpers
+  detail: Access resolution for folders, ledger, notes-history and tags, the folders/tags write hook, the system-mode TenantDb cache of the re-encryption and rotation jobs, the mail locale templates of auth-email-password and user-data-rights, extension option collection for delivery and renderers, PAT scope parsing, user-data-rights hook DBs, unique-constraint failure checks, tenant member PII decryption, the status banner, the invite-accept request, the tenant label and the jobs subject parser each live in one internal module now. Empty onRegister callbacks are dropped. No behavior change.
+  -->
+- 6a35c7c: The handbuch renderer uses the renderer's escapeHtmlAttr, and deriveKey shares its key split with the derivative helpers.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: handbuch escapes HTML through the renderer helper
+  detail: The handbuch renderer uses escapeHtmlAttr from @cosmicdrift/kumiko-renderer/headless instead of its own copy. The escaped characters are the same as before, including the single quote.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: One key split for file variants and derivatives
+  detail: deriveKey and the derivative key helpers split a storage key into base and extension through the same function, so both always agree on where the extension starts. No behavior change.
+  -->
+- b3c8bc5: Token hashing and HMAC signing share one helper each; stored hashes and token wire formats stay byte-identical.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Opaque-token hash and hex helpers exported
+  detail: @cosmicdrift/kumiko-framework/crypto exports hashOpaqueToken (async, Web Crypto), hashOpaqueTokenSync (node:crypto, for synchronous server paths) and opaqueTokenHashMatches (timing-safe comparison against a stored SHA-256 hex hash). @cosmicdrift/kumiko-framework/utils exports bytesToHex and digestHex(algorithm, text). The framework's own token hashes (personal access tokens, single-use token store, preauth MFA key, export download tokens, termination revocation) use them and produce the same hex as before. Apps that hash share or heartbeat tokens themselves can switch to these helpers without migrating stored hashes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: MFA setup token uses the shared HMAC token codec
+  detail: signMfaSetupToken and verifyMfaSetupToken run on createHmacTokenCodec with the domain mfa-setup. Tokens issued before the change still verify, and new tokens are byte-identical for the same input. The challenge and preauth-setup tokens share one payload guard, and signed-token and the inbound-mail OAuth state use the same HMAC signature helper.
+  -->
+- @cosmicdrift/kumiko-types@0.405.0
+
 ## 0.404.1
 
 ### Patch Changes
