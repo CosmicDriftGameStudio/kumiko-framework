@@ -96,7 +96,7 @@ export function StepList({
           )}
         >
           {visibleSteps.map((step) => (
-            <StepRow key={step.id} step={step} />
+            <StepRow key={step.id} step={step} phoneCard={phoneCard} />
           ))}
           {hiddenCount > 0 && (
             <li className="px-4 py-3">

@@ -205,6 +205,17 @@ describe("StepList source links and highlight", () => {
     expect(screen.getByRole("progressbar").closest(".max-md\\:hidden")).not.toBeNull();
   });
 
+  test("phoneCard reads the waiting reason as plain text on a phone, the badge stays on desktop", () => {
+    const waitingBadge = (): string =>
+      within(screen.getByTestId("step-reply")).getByText("Waiting for: Auftrag").parentElement
+        ?.className ?? "";
+    const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
+    expect(waitingBadge()).not.toContain("max-md:bg-transparent");
+    rerender(<StepList title="Plan" steps={heatingSteps} phoneCard />);
+    expect(waitingBadge()).toContain("max-md:bg-transparent");
+    expect(waitingBadge()).toContain("rounded-full");
+  });
+
   test("done step icon uses the ok token and fill stretches the list to its container", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
     const doneIcon = within(screen.getByTestId("step-case")).getByRole("img");

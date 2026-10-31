@@ -1,5 +1,6 @@
 import { CornerUpLeft } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { AttachmentChip } from "./attachment-chip.tsx";
 import { MessageBodyView } from "./message-body-view.tsx";
@@ -111,18 +112,35 @@ export function MessageThread({
   clampLines = DEFAULT_CLAMP_LINES,
   remoteImages = "blocked",
   showHeaders = true,
+  foldOlderTogether = false,
   testId = "message-thread",
 }: MessageThreadProps): ReactNode {
+  const t = useTranslation();
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+  const [olderShown, setOlderShown] = useState(false);
   const lastIndex = messages.length - 1;
   const hasOlder = messages.length > 1;
+  const olderFolded = foldOlderTogether && hasOlder && !olderShown;
 
   return (
     <section
       data-testid={testId}
       className={cn(SENDER_FRAME_CLASS, "flex flex-col px-4 pb-4", hasOlder ? "pt-1" : "pt-4")}
     >
-      {messages.map((message, index) => {
+      {olderFolded && (
+        <button
+          type="button"
+          data-testid={`${testId}-earlier`}
+          onClick={() => setOlderShown(true)}
+          className="border-0 bg-transparent py-2.5 text-left text-[13px] text-foreground-secondary"
+        >
+          {lastIndex === 1
+            ? t("kumiko.widget.message-thread.showEarlierOne")
+            : t("kumiko.widget.message-thread.showEarlier", { count: lastIndex })}
+        </button>
+      )}
+      {(olderFolded ? messages.slice(lastIndex) : messages).map((message, offset) => {
+        const index = olderFolded ? lastIndex : offset;
         const open = index === lastIndex || expandedIds.has(message.id);
         if (!open) {
           return (

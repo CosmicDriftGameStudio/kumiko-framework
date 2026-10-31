@@ -162,13 +162,15 @@ export function StepActionButton({ action }: { readonly action: StepAction }): R
 function StepTagBadge({
   tone,
   label,
+  className,
 }: {
   readonly tone: StatusBadgeTone;
   readonly label: string;
+  readonly className?: string;
 }): ReactNode {
   return (
     <span className="flex min-w-0 max-w-full" title={label}>
-      <StatusBadge tone={tone} className="min-w-0 max-w-full">
+      <StatusBadge tone={tone} className={cn("min-w-0 max-w-full", className)}>
         <span className="truncate">{label}</span>
       </StatusBadge>
     </span>
@@ -176,7 +178,17 @@ function StepTagBadge({
 }
 
 // Sources and tags share one line: a source link and the step it waits for read as one fact.
-function StepSourcesAndTags({ step }: { readonly step: StepListItem }): ReactNode {
+// The phone card reads the waiting reason as a plain second line, not as a pill.
+const PHONE_WAITING_TEXT_CLASS =
+  "max-md:h-auto max-md:rounded-none max-md:bg-transparent max-md:px-0 max-md:text-[13px] max-md:font-normal max-md:text-foreground-secondary max-md:[&>[data-status-dot]]:hidden";
+
+function StepSourcesAndTags({
+  step,
+  phoneCard,
+}: {
+  readonly step: StepListItem;
+  readonly phoneCard: boolean;
+}): ReactNode {
   const t = useTranslation();
   const tags = step.tags ?? [];
   const sources = step.sources ?? [];
@@ -192,6 +204,7 @@ function StepSourcesAndTags({ step }: { readonly step: StepListItem }): ReactNod
         <StepTagBadge
           tone="muted"
           label={t("kumiko.widget.step-list.waitingFor", { reason: step.lockedReason ?? "" })}
+          {...(phoneCard && { className: PHONE_WAITING_TEXT_CLASS })}
         />
       )}
     </div>
@@ -230,7 +243,13 @@ function StepActions({ step }: { readonly step: StepListItem }): ReactNode {
   );
 }
 
-export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
+export function StepRow({
+  step,
+  phoneCard = false,
+}: {
+  readonly step: StepListItem;
+  readonly phoneCard?: boolean;
+}): ReactNode {
   const rejected = step.status === "rejected";
   return (
     <li
@@ -253,7 +272,7 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
         {step.description !== undefined && (
           <span className="text-[13px] text-foreground-secondary">{step.description}</span>
         )}
-        <StepSourcesAndTags step={step} />
+        <StepSourcesAndTags step={step} phoneCard={phoneCard} />
         {step.meta !== undefined && (
           <span className="text-[13px] text-muted-foreground">{step.meta}</span>
         )}
