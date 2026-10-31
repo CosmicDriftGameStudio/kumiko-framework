@@ -17,7 +17,12 @@ import { useSeenInViewport } from "./use-in-view.ts";
 
 export const RENDER_SCALE = 96 / 72;
 
-export type PdfTextHighlight = { readonly term: string; readonly activeOrdinal: number | null };
+export type PdfTextHighlight = {
+  readonly term: string;
+  readonly activeOrdinal: number | null;
+  /** Without an active hit: bring this page's top into view once it has rendered. */
+  readonly anchorTop?: boolean;
+};
 
 export type PdfPageSize = { readonly width: number; readonly height: number };
 
@@ -119,6 +124,8 @@ function PageSheet({
 
   const highlightTerm = layout.highlight?.term ?? "";
   const activeOrdinal = layout.highlight?.activeOrdinal ?? null;
+  const anchorTop = activeOrdinal === null && layout.highlight?.anchorTop === true;
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const container = textLayerRef.current;
     if (container === null || !textLayerReady) return;
@@ -126,11 +133,14 @@ function PageSheet({
     // Scrolling to the page top is not enough: the hit can sit below the fold, and pages above it change height once rendered.
     if (activeOrdinal !== null) {
       container.querySelector(`.${ACTIVE_HIT_CLASS}`)?.scrollIntoView({ block: "center" });
+    } else if (anchorTop) {
+      sheetRef.current?.scrollIntoView({ block: "start" });
     }
-  }, [highlightTerm, activeOrdinal, textLayerReady]);
+  }, [highlightTerm, activeOrdinal, anchorTop, textLayerReady]);
 
   return (
     <div
+      ref={sheetRef}
       className="mx-auto"
       style={{ width: viewport.width * fitScale, height: viewport.height * fitScale }}
     >
