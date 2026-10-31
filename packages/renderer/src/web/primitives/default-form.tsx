@@ -33,6 +33,21 @@ import { unsavedStatusText } from "./form-footer-parts.tsx";
 // Form inside the Drawer primitive: the drawer header carries the title, so
 // only the description (as help text), the scrolling sections and a pinned
 // footer remain. The scroll area is a sibling of the footer, never its parent.
+function FormSummaryBox({ summary, testId }: Pick<FormProps, "summary" | "testId">): ReactNode {
+  if (summary === undefined) return null;
+  return (
+    <div
+      data-testid={testId !== undefined ? `${testId}-summary` : undefined}
+      className="flex flex-col gap-0.5 rounded-lg bg-muted px-3.5 py-3"
+    >
+      <span className="text-sm font-semibold text-foreground">{summary.title}</span>
+      {summary.subtitle !== undefined && (
+        <span className="text-[13px] text-foreground-secondary">{summary.subtitle}</span>
+      )}
+    </div>
+  );
+}
+
 function DrawerFormLayout({
   onSubmit,
   focusFirstErrorKey,
@@ -65,17 +80,7 @@ function DrawerFormLayout({
         data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
         className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
       >
-        {summary !== undefined && (
-          <div
-            data-testid={testId !== undefined ? `${testId}-summary` : undefined}
-            className="flex flex-col gap-0.5 rounded-lg bg-muted px-3.5 py-3"
-          >
-            <span className="text-sm font-semibold text-foreground">{summary.title}</span>
-            {summary.subtitle !== undefined && (
-              <span className="text-[13px] text-foreground-secondary">{summary.subtitle}</span>
-            )}
-          </div>
-        )}
+        <FormSummaryBox summary={summary} testId={testId} />
         {subtitle !== undefined && (
           <p
             data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
@@ -273,6 +278,7 @@ export function DefaultForm({
                   bordered={false}
                   fillHeight={false}
                 />
+                <FormSummaryBox summary={summary} testId={testId} />
                 {sections}
               </div>
               {showsSectionNav && <FormSectionNav items={sectionNav} />}

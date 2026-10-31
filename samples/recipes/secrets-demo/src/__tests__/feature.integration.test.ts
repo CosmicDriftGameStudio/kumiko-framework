@@ -41,7 +41,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
-import { createBillingFeature, STRIPE_API_KEY } from "../feature";
+import { createBillingFeature, STRIPE_API_KEY, WEBHOOK_SIGNING_KEY } from "../feature";
 
 // Stable KEK bytes across provider rebuilds — mimics ops flipping env vars
 // across a redeploy without rotating the actual key material.
@@ -91,7 +91,12 @@ beforeAll(async () => {
   providerRef = createMutableMasterKeyProvider(initialProvider);
 
   stack = await setupTestStack({
-    features: [createJobsFeature(), createSecretsFeature(), createBillingFeature(), leakyFeature],
+    features: [
+      createJobsFeature(),
+      createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }),
+      createBillingFeature(),
+      leakyFeature,
+    ],
     // Typed masterKeyProvider option: lands in AppContext as a typed field,
     // no Record<string, unknown>-via-extraContext. The rotation job reads
     // it from ctx.services.masterKeyProvider directly.
@@ -286,5 +291,37 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
       });
       expect(row?.kekVersion).toBe(2);
     });
+  });
+});
+
+describe("system-scope secret on a configEdit screen", () => {
+  const systemAdmin = createTestUser({
+    id: "00000000-0000-4000-8000-000000000011",
+    tenantId: "00000000-0000-4000-8000-000000000001",
+    roles: ["SystemAdmin"],
+  });
+
+  test("the screen carries the secret field and a handler action", () => {
+    const screen = stack.registry.getScreen("billing:screen:webhook-settings");
+    if (screen?.type !== "configEdit") throw new Error("expected configEdit");
+    expect(screen.secretKeys).toEqual({ signingKey: WEBHOOK_SIGNING_KEY.name });
+    expect(screen.actions?.map((action) => action.handler)).toEqual([
+      "billing:write:webhook-send-test",
+    ]);
+  });
+
+  test("the action works on the stored secret and a TenantAdmin may not call it", async () => {
+    const missing = await stack.http.writeErr("billing:write:webhook-send-test", {}, systemAdmin);
+    expect(missing.httpStatus).toBe(422);
+
+    await stack.http.writeOk(
+      SecretsHandlers.set,
+      { key: WEBHOOK_SIGNING_KEY.name, value: "whsec_platform_signing_key" },
+      systemAdmin,
+    );
+    await stack.http.writeOk("billing:write:webhook-send-test", {}, systemAdmin);
+
+    const denied = await stack.http.writeErr("billing:write:webhook-send-test", {}, tenantAdmin);
+    expect(denied.httpStatus).toBe(403);
   });
 });

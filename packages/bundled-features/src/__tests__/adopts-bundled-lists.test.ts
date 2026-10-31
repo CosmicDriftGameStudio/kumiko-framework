@@ -5,6 +5,7 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuditFeature } from "../audit/index.ts";
 import { createCapCounterFeature } from "../cap-counter/index.ts";
 import { createCapOverviewFeature } from "../cap-overview/index.ts";
+import { createContactFeature } from "../contact/index.ts";
 import { createDeliveryFeature } from "../delivery/index.ts";
 import { createDocumentsFeature } from "../documents/index.ts";
 import { createFeatureTogglesFeature } from "../feature-toggles/index.ts";
@@ -33,6 +34,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
     createCapOverviewFeature({
       caps: [{ id: "widgets", label: "test.cap.widgets", limit: () => 5, usage: async () => 0 }],
     }),
+  contact: () => createContactFeature({ appName: "Acme" }),
   delivery: () => createDeliveryFeature(),
   documents: () => createDocumentsFeature({ categories: ["contract"], linkTargets: ["property"] }),
   "feature-toggles": () => createFeatureTogglesFeature(),

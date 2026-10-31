@@ -33,6 +33,8 @@ export const deliveryAttemptSchema = z.object({
   priority: z.enum(["critical", "normal", "low"]),
   // Provider accepted the request but does not confirm delivery (e.g. Teams 202).
   confirmed: z.literal(false).optional(),
+  // The notify() idempotencyKey, so callers can find their attempts again; set on the first event of an attempt only.
+  idempotencyKey: z.string().optional(),
 });
 
 export type DeliveryAttemptPayload = z.infer<typeof deliveryAttemptSchema>;

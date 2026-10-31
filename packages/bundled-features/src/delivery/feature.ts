@@ -24,6 +24,7 @@ import {
   DeliveryQueries,
 } from "./constants.ts";
 import { deliveryAttemptAddressErasedSchema, deliveryAttemptSchema } from "./events.ts";
+import { attemptsByKeysQuery } from "./handlers/attempts-by-keys.query.ts";
 import { logQuery } from "./handlers/log.query.ts";
 import { preferencesQuery } from "./handlers/preferences.query.ts";
 import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.ts";
@@ -153,6 +154,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
               error: p.error,
               priority: p.priority,
               confirmed: p.confirmed ?? null,
+              idempotencyKey: p.idempotencyKey ?? null,
             },
             {
               status: p.status,
@@ -216,7 +218,6 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
         },
       });
     }
-
     const handlers = {
       setPreference: r.writeHandler(setPreferenceWrite),
       unsubscribeAddress: r.writeHandler(unsubscribeAddressWrite),
@@ -224,10 +225,10 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       resubscribeAddress: r.writeHandler(resubscribeAddressWrite),
       resubscribeUser: r.writeHandler(resubscribeUserWrite),
     };
-
     const queries = {
       log: r.queryHandler({ ...logQuery, access: { roles: resolvedAccess } }),
       preferences: r.queryHandler(preferencesQuery),
+      attemptsByKeys: r.queryHandler(attemptsByKeysQuery),
       unsubscribePageChrome: r.queryHandler(unsubscribePageChromeQuery),
     };
 

@@ -29,6 +29,7 @@ import { inAppMessagesTable } from "../tables.ts";
 
 const reader = createTestUser({ id: 21, roles: ["User"] });
 const stranger = createTestUser({ id: 22, roles: ["User"] });
+const systemAdmin = createTestUser({ id: 23, roles: ["SystemAdmin"] });
 
 let brokerForProbe: SseBroker | undefined;
 
@@ -41,6 +42,7 @@ const deliverProbeFeature = defineFeature("inapp-probe", (r) => {
         title: z.string(),
         data: z.record(z.string(), z.unknown()).optional(),
         count: z.number().default(1),
+        idempotencyKey: z.string().optional(),
       }),
       access: { roles: ["User"] },
       handler: async (event, ctx) => {
@@ -60,6 +62,7 @@ const deliverProbeFeature = defineFeature("inapp-probe", (r) => {
                 registry: ctx.registry,
                 sseBroker: brokerForProbe,
                 tenantId: event.user.tenantId,
+                idempotencyKey: event.payload.idempotencyKey,
               },
             ),
           );
@@ -96,7 +99,7 @@ afterAll(async () => {
 async function deliver(
   userId: string,
   title: string,
-  extra: { data?: Record<string, unknown>; count?: number } = {},
+  extra: { data?: Record<string, unknown>; count?: number; idempotencyKey?: string } = {},
 ): Promise<readonly string[]> {
   const result = await stack.http.writeOk<{ statuses: string[] }>(
     "inapp-probe:write:deliver",
@@ -208,5 +211,41 @@ describe("channel-in-app inbox", () => {
     expect(pushed).toHaveLength(1);
     expect(pushed[0]?.type).toBe("channel-in-app:event:delivered");
     expect(Object.keys(pushed[0]?.data ?? {}).sort()).toEqual(["id", "notificationType", "userId"]);
+  });
+});
+
+describe("channel-in-app read state by idempotency key", () => {
+  function readState(user: typeof reader, keys: string[]) {
+    return stack.http.queryOk<{ rows: { key: string; readAt: string | null }[] }>(
+      "channel-in-app:query:read-state-by-keys",
+      { keys },
+      user,
+    );
+  }
+
+  test("a SystemAdmin sees null while unread and the read time afterwards, never a title or body", async () => {
+    const key = "read-state:test:1";
+    await deliver(reader.id, "Keyed", { idempotencyKey: key });
+
+    const unread = await readState(systemAdmin, [key, "read-state:test:unknown"]);
+    expect(unread.rows).toEqual([{ key, readAt: null }]);
+
+    const [message] = (await inbox(reader, { limit: 1 })).rows;
+    if (!message) throw new Error("inbox is empty");
+    await stack.http.writeOk("channel-in-app:write:mark-read", { id: message.id }, reader);
+
+    const read = await readState(systemAdmin, [key]);
+    expect(read.rows).toHaveLength(1);
+    expect(read.rows[0]?.readAt).not.toBeNull();
+    expect(JSON.stringify(read)).not.toContain("Keyed");
+  });
+
+  test("a user without the SystemAdmin role is refused", async () => {
+    const res = await stack.http.query(
+      "channel-in-app:query:read-state-by-keys",
+      { keys: ["read-state:test:1"] },
+      reader,
+    );
+    expect(res.status).toBe(403);
   });
 });

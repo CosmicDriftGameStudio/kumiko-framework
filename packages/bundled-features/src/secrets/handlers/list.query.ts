@@ -1,5 +1,6 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { resolveSecretTarget, secretScopeSchema } from "../secret-scope.ts";
 import { tenantSecretsTable } from "../table.ts";
 import { DEFAULT_SECRETS_ACCESS } from "../web/constants.ts";
 
@@ -10,10 +11,12 @@ export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineQueryHandler({
     name: "list",
     description:
-      "Lists the secrets stored for the caller's tenant by key with a redacted preview, hint, key version and rotation date — never the plaintext; use it to check which credentials are set.",
-    schema: z.object({}),
+      "Lists the secrets stored for the caller's tenant (or, with scope system and the SystemAdmin role, the platform-wide ones) by key with a redacted preview, hint, key version and rotation date — never the plaintext; use it to check which credentials are set.",
+    schema: z.object({ scope: secretScopeSchema }),
     access,
     handler: async (event, ctx) => {
+      const target = resolveSecretTarget(event.user, event.payload.scope);
+      if (!target.ok) throw target.error;
       const rows = await ctx.db.selectMany<{
         key: string;
         kekVersion: number;
@@ -22,7 +25,7 @@ export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
         insertedAt: unknown;
       }>(
         tenantSecretsTable,
-        { tenantId: event.user.tenantId },
+        { tenantId: target.tenantId },
         {
           orderBy: { col: "key", direction: "asc" },
         },

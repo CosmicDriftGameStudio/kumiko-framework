@@ -13,6 +13,7 @@
 import {
   formatWhen,
   useDispatcher,
+  useLocale,
   usePrimitives,
   useQuery,
   useTranslation,
@@ -49,6 +50,7 @@ export function NotesSection({
 }): ReactNode {
   const { Banner, Button, Grid, Heading, Text, Input } = usePrimitives();
   const t = useTranslation();
+  const locale = useLocale().locale();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
   const notes = useQuery<NoteListResponse>(
@@ -176,7 +178,7 @@ export function NotesSection({
                       n.authorName,
                       t("notesHistory.section.authorUnknown"),
                     ),
-                    date: formatWhen(n.insertedAt),
+                    date: formatWhen(n.insertedAt, locale),
                   })}
                 </Text>
               </div>

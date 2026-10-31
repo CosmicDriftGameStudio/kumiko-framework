@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
+import type { usePrimitives } from "../primitives.tsx";
 import { AvailabilityOptionsSelect } from "./availability-options-select.tsx";
 import { EmbeddedListField } from "./embedded-list-field.tsx";
 import { QueryOptionsSelect } from "./query-options-select.tsx";
@@ -12,6 +13,7 @@ import { ReadOnlyReferenceValue, ReferenceInput } from "./render-field-reference
 import { WriteOnlyTextInput } from "./render-field-write-only.tsx";
 
 export type ControlContext = RenderInputArgs & {
+  readonly Link: ReturnType<typeof usePrimitives>["Link"];
   readonly readOnlyText: boolean;
   readonly featureName: string | undefined;
   readonly allIssues: Readonly<Record<string, readonly FieldIssue[]>> | undefined;
@@ -127,9 +129,36 @@ const selectAvailabilityRule: ControlRule = (ctx) => {
   );
 };
 
-const readOnlyTextRule: ControlRule = ({ field, Text, appLocale, t, readOnlyText }) => {
+// Only digits and a leading "+" survive into the tel: href, so a stored
+// "+49 (30) 123-45" dials but can never smuggle other URI parts.
+function telHrefDigits(value: string): string {
+  const digits = value.replace(/[^\d]/g, "");
+  return value.trim().startsWith("+") ? `+${digits}` : digits;
+}
+
+function contactHref(field: EditFieldViewModel): string | undefined {
+  if (field.type !== "text" || typeof field.value !== "string" || field.value.trim() === "") {
+    return undefined;
+  }
+  if (field.format === "email") return `mailto:${field.value.trim()}`;
+  if (field.format === "phone") {
+    const digits = telHrefDigits(field.value);
+    return digits.replace("+", "") === "" ? undefined : `tel:${digits}`;
+  }
+  return undefined;
+}
+
+const readOnlyTextRule: ControlRule = ({ field, Text, Link, appLocale, t, readOnlyText }) => {
   if (!readOnlyText || isComplexFieldType(field.type) || isFileFieldType(field.type)) {
     return undefined;
+  }
+  const href = contactHref(field);
+  if (href !== undefined) {
+    return (
+      <Link href={href} className="underline" testId={`field-value-${field.field}`}>
+        {readOnlyDisplayText(field, appLocale, t)}
+      </Link>
+    );
   }
   return (
     <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale, t)}</Text>

@@ -3,6 +3,8 @@ export type { PendingFileRef } from "./bind-pending-file-refs.ts";
 export { bindPendingFileRef, loadPendingFileRef } from "./bind-pending-file-refs.ts";
 export type { CanReadFileRefContext } from "./can-caller-read-file-ref.ts";
 export { canCallerReadFileRef } from "./can-caller-read-file-ref.ts";
+export type { FileRefCopyTarget, PendingUploadSource } from "./copy-pending-file-refs-to-tenant.ts";
+export { copyPendingFileRefsToTenant } from "./copy-pending-file-refs-to-tenant.ts";
 export type {
   CreatedFileRef,
   CreateFileRefInput,

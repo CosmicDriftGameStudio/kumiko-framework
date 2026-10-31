@@ -59,6 +59,14 @@
 | <a id="config-edit-secret-key-unknown-field"></a>`config-edit/secret-key-unknown-field` | secretKeys names declared fields. | Name a declared field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="config-edit-write-only-not-encrypted"></a>`config-edit/write-only-not-encrypted` | A writeOnly configEdit field maps to an encrypted config key. | Declare the key with encrypted: true or backing: "secrets". | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 
+## config-edit-action
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="config-edit-action-duplicate-id"></a>`config-edit-action/duplicate-id` | A configEdit screen declares each action id once. | Rename or remove the repeated action id. | `packages/framework/src/engine/boot-validator/config-edit-action-rules.ts` |
+| <a id="config-edit-action-unknown-after-field"></a>`config-edit-action/unknown-after-field` | A configEdit action sits after a field that is part of the layout. | Set afterField to a field name that appears in one of the layout sections. | `packages/framework/src/engine/boot-validator/config-edit-action-rules.ts` |
+| <a id="config-edit-action-unknown-handler"></a>`config-edit-action/unknown-handler` | A configEdit action points at a registered write handler. | Use the qualified write handler name "<feature>:write:<handler>" of a registered handler. | `packages/framework/src/engine/boot-validator/config-edit-action-rules.ts` |
+
 ## config-key
 
 | Rule | Summary | Fix | Source |
@@ -311,7 +319,7 @@
 | <a id="form-affix-unknown-field"></a>`form/affix-unknown-field` | A { field } prefix or suffix names another field of the same form. | Name a field of the same form. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-config-secret-also-config-key"></a>`form/config-secret-also-config-key` | A configEdit field is mapped in configKeys or secretKeys, not both. | Keep one of the mappings. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-config-secret-field-type"></a>`form/config-secret-field-type` | A secret-mapped configEdit field is a writeOnly text field. | Make the field a writeOnly text field. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
-| <a id="form-config-secret-scope"></a>`form/config-secret-scope` | Secret-mapped configEdit fields are on a tenant-scope screen. | Use scope "tenant" or drop the secret mapping. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
+| <a id="form-config-secret-scope"></a>`form/config-secret-scope` | Secret-mapped configEdit fields are on a tenant- or system-scope screen. | Use scope "tenant" or "system", or drop the secret mapping. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-config-secret-undeclared"></a>`form/config-secret-undeclared` | A secret-mapped configEdit field names a secret declared via r.secret(). | Declare the secret with r.secret() or fix the secret name. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-confirm-carry-collides-field"></a>`form/confirm-carry-collides-field` | A confirm.carry entry does not share a name with a confirm.fields entry. | Rename the carry entry or the field. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-confirm-carry-entry-empty"></a>`form/confirm-carry-entry-empty` | secretMint confirm.carry entries are non-empty strings. | Use non-empty strings in carry. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |

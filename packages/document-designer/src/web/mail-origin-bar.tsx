@@ -2,6 +2,7 @@ import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/t
 import {
   dispatcherErrorText,
   formatWhen,
+  useLocale,
   useMutation,
   usePrimitives,
   useTranslation,
@@ -22,12 +23,13 @@ export function languageName(t: Translate, locale: string): string {
   return translated === key ? locale : translated;
 }
 
-function statusSentence(t: Translate, row: TemplateRowView): string {
+function statusSentence(t: Translate, row: TemplateRowView, appLocale: string): string {
   const besideActive = draftBesideActiveSentence(t, row);
   if (besideActive !== null) return besideActive;
   if (row.status === "active") {
     return t("documentDesigner.mail.origin.activeSince", {
-      when: row.modifiedAt === null ? EMPTY_VALUE_PLACEHOLDER : formatWhen(row.modifiedAt),
+      when:
+        row.modifiedAt === null ? EMPTY_VALUE_PLACEHOLDER : formatWhen(row.modifiedAt, appLocale),
     });
   }
   return t(
@@ -72,6 +74,7 @@ function TenantOriginBar({
   readonly onResetError: (message: string) => void;
 }): ReactNode {
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const { Button, Dialog } = usePrimitives();
   const [diffOpen, setDiffOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
@@ -125,7 +128,7 @@ function TenantOriginBar({
       {hasSystem
         ? t("documentDesigner.mail.origin.overrides", { version: systemVersion })
         : t("documentDesigner.mail.origin.tenantOnly")}{" "}
-      {statusSentence(t, row)}
+      {statusSentence(t, row, appLocale)}
     </EditorInfoBar>
   );
 }

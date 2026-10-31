@@ -26,6 +26,7 @@ export type DetailHeaderModel = {
   readonly record: Readonly<Record<string, unknown>>;
   readonly primitives: ReturnType<typeof usePrimitives>;
   readonly effectiveTranslate: Translate;
+  readonly locale: string;
   readonly nav: NavApi;
   readonly appFeatures: readonly FeatureSchema[];
   readonly userRoles: readonly string[] | undefined;
@@ -136,7 +137,16 @@ export function renderHeaderSubtitleSlot(model: DetailHeaderModel): ReactNode {
   const header = screen.header;
   const subtitleParts =
     header !== undefined && typeof header.subtitle === "object"
-      ? buildSubtitleParts(header.subtitle, record, nav, appFeatures, userRoles, host)
+      ? buildSubtitleParts(
+          header.subtitle,
+          record,
+          nav,
+          appFeatures,
+          userRoles,
+          host,
+          model.effectiveTranslate,
+          model.locale,
+        )
       : undefined;
   return subtitleParts !== undefined
     ? subtitleParts.length > 0

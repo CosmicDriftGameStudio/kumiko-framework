@@ -82,6 +82,26 @@ describe("platform-overview", () => {
     ]);
   });
 
+  test("extraPlatformPanels land after the built-in panels and only on the platform overview", () => {
+    const extra: DashboardPanelDefinition = {
+      kind: "stat",
+      id: "extra-tile",
+      label: "extra:tile",
+      query: JobQueries.list,
+      valueField: "total",
+    };
+    const shell = createAdminShellFeature({
+      metrics: DEFAULT_METRICS,
+      extraPlatformPanels: [extra],
+    });
+    expect(panelIds(dashboard(shell, PLATFORM_OVERVIEW_SCREEN_ID).panels).at(-1)).toBe(
+      "extra-tile",
+    );
+    expect(panelIds(dashboard(shell, TENANT_OVERVIEW_SCREEN_ID).panels)).not.toContain(
+      "extra-tile",
+    );
+  });
+
   test("has no tenant picker without cap-overview", () => {
     const shell = createAdminShellFeature({ metrics: DEFAULT_METRICS });
     expect(dashboard(shell, PLATFORM_OVERVIEW_SCREEN_ID).filter).toBeUndefined();

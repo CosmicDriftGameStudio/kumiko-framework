@@ -145,7 +145,7 @@ export function RenderField({
   fillDisabled,
   hideLabel,
 }: RenderFieldProps): ReactNode {
-  const { Field, Input, Banner, Text, JsonView } = usePrimitives();
+  const { Field, Input, Banner, Text, JsonView, Link } = usePrimitives();
   // The app locale is required for money/date inputs; otherwise they fall back
   // to navigator.language instead of the selected app language. RenderField is
   // publicly exported and therefore requires a LocaleProvider; standalone
@@ -172,6 +172,7 @@ export function RenderField({
     appLocale,
     Banner,
     Text,
+    Link,
     JsonView,
     t,
     readOnlyText,

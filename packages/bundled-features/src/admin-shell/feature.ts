@@ -7,6 +7,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { DashboardPanelDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DEFAULT_METRICS, type MetricDefinition } from "../metrics/index.ts";
 import {
   OVERVIEW_TIME_RANGE,
@@ -48,6 +49,8 @@ export type CreateAdminShellOptions = {
    *  createMetricsFeature / createSystemMetricsFeature. Panels exist only for
    *  ids in this list. Default DEFAULT_METRICS. */
   readonly metrics?: readonly MetricDefinition[];
+  /** Panels appended to the platform overview, for tiles a mounted feature owns (e.g. the contact inbox count). */
+  readonly extraPlatformPanels?: readonly DashboardPanelDefinition[];
 };
 
 type NavIdOptions = {
@@ -148,7 +151,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       timeRange: OVERVIEW_TIME_RANGE,
       // The picker needs a SystemAdmin {rows:{value,label}} tenant query; only cap-overview ships one.
       ...(includeCapOverview && { filter: PLATFORM_TENANT_FILTER }),
-      panels: [...platformOverviewPanels(metrics)],
+      panels: [...platformOverviewPanels(metrics), ...(options.extraPlatformPanels ?? [])],
     });
     r.nav({
       id: "platform-overview",

@@ -168,7 +168,12 @@ export type ProjectionListScreenDefinition = {
 // above.
 export type RecordHeaderSubtitlePart =
   | string
-  | { readonly field: string; readonly navigate?: MetricNavigate };
+  | {
+      readonly field: string;
+      readonly navigate?: MetricNavigate;
+      /** Formats the raw field value (e.g. `timestamp`); an empty value is still dropped. */
+      readonly format?: FormatSpec;
+    };
 
 export type RecordHeaderSpec = {
   readonly title: string;

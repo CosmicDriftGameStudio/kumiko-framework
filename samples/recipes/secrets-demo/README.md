@@ -6,6 +6,7 @@ Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation.
 
 - `r.secret` + `ctx.services.secrets.get` (audited reads)
 - Charge-style handler that never returns the plaintext key
+- A system-scope secret edited on a `configEdit` screen (`secretKeys`) with a handler button row (`actions`)
 
 ## Source
 

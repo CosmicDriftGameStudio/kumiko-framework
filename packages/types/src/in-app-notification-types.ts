@@ -6,6 +6,7 @@ export const IN_APP_NOTIFICATION_FEATURE = "channel-in-app" as const;
 export const IN_APP_NOTIFICATION_QUERIES = {
   inbox: "channel-in-app:query:inbox",
   unreadCount: "channel-in-app:query:unread-count",
+  readStateByKeys: "channel-in-app:query:read-state-by-keys",
 } as const;
 
 export const IN_APP_NOTIFICATION_WRITES = {

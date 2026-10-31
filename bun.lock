@@ -727,6 +727,16 @@
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
       },
     },
+    "samples/recipes/contact": {
+      "name": "@cosmicdrift/kumiko-sample-contact",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/cross-feature-events": {
       "name": "@cosmicdrift/kumiko-sample-cross-feature-events",
       "dependencies": {
@@ -1516,6 +1526,8 @@
     "@cosmicdrift/kumiko-sample-compose-stacks": ["@cosmicdrift/kumiko-sample-compose-stacks@workspace:samples/recipes/compose-stacks"],
 
     "@cosmicdrift/kumiko-sample-config-demo": ["@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo"],
+
+    "@cosmicdrift/kumiko-sample-contact": ["@cosmicdrift/kumiko-sample-contact@workspace:samples/recipes/contact"],
 
     "@cosmicdrift/kumiko-sample-cross-feature-events": ["@cosmicdrift/kumiko-sample-cross-feature-events@workspace:samples/recipes/cross-feature-events"],
 

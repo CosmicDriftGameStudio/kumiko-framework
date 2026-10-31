@@ -30,6 +30,8 @@ import {
 // its event stream 1:1 — same convention as jobRunsTable + tenantSecretsTable.
 // Event replays stay idempotent (primary-key conflict instead of duplicate rows).
 const DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX = "store_delivery_attempts_tenant_id_created_at_idx";
+const DELIVERY_ATTEMPTS_TENANT_IDEMPOTENCY_INDEX =
+  "store_delivery_attempts_tenant_id_idempotency_key_idx";
 
 export const deliveryAttemptsTable = pgTable(
   "store_delivery_attempts",
@@ -49,8 +51,13 @@ export const deliveryAttemptsTable = pgTable(
     // notify() priority from the event payload.
     priority: text("priority").notNull().default("normal").$type<"critical" | "normal" | "low">(),
     createdAt: instant("created_at").default(sql`now()`).notNull(),
+    // Null for attempts of notify() calls without an idempotencyKey and for rows that predate the column.
+    idempotencyKey: text("idempotency_key"),
   },
-  (t) => [index(DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX).on(t.tenantId, t.createdAt)],
+  (t) => [
+    index(DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX).on(t.tenantId, t.createdAt),
+    index(DELIVERY_ATTEMPTS_TENANT_IDEMPOTENCY_INDEX).on(t.tenantId, t.idempotencyKey),
+  ],
 );
 
 // **Unmanaged table** — deliberately has no createEntity because:
@@ -64,7 +71,10 @@ export const deliveryAttemptsTable = pgTable(
 // from this metadata.
 export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "store_delivery_attempts",
-  indexes: [{ name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] }],
+  indexes: [
+    { name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] },
+    { name: DELIVERY_ATTEMPTS_TENANT_IDEMPOTENCY_INDEX, columns: ["tenant_id", "idempotency_key"] },
+  ],
   columns: [
     { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
     { name: "tenant_id", pgType: "uuid", notNull: true },
@@ -77,6 +87,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
     { name: "confirmed", pgType: "boolean", notNull: false },
     { name: "priority", pgType: "text", notNull: true, defaultSql: "'normal'" },
     { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
+    { name: "idempotency_key", pgType: "text", notNull: false },
   ],
 });
 

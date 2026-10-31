@@ -195,13 +195,20 @@ function requirePasswordInput(): Extract<InputProps, { kind: "password" }> {
   return input;
 }
 
+async function openReplace(): Promise<void> {
+  fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
+}
+
 const SET_RECORD = { id: "w1", version: 3, name: "Widget", apiKey: true };
 
 afterEach(cleanup);
 
 describe("entityEdit writeOnly field", () => {
-  test("a set value shows the keep-placeholder and an empty save does not send the field", async () => {
+  test("a set value shows the masked marker first, then the keep-placeholder after Replace", async () => {
     mountEdit(SET_RECORD);
+    expect(await screen.findByText("•••••••••• set")).toBeDefined();
+    expect(capturedInputs["apiKey"]).toBeUndefined();
+    await openReplace();
     await waitFor(() => {
       expect(capturedInputs["apiKey"]).toBeDefined();
     });
@@ -215,6 +222,7 @@ describe("entityEdit writeOnly field", () => {
 
   test("Undo cancels a pending removal", async () => {
     mountEdit(SET_RECORD);
+    await openReplace();
     const remove = await screen.findByRole("button", { name: "Remove stored value" });
     fireEvent.click(remove);
     const undo = await screen.findByRole("button", { name: "Undo" });
@@ -226,13 +234,15 @@ describe("entityEdit writeOnly field", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
-    expect(screen.getByRole("button", { name: "Remove stored value" })).toBeDefined();
+    // The value is "set" again, so the masked marker returns.
+    expect(await screen.findByText("•••••••••• set")).toBeDefined();
     const changes = await submitAndReadChanges();
     expect(Object.hasOwn(changes, "apiKey")).toBe(false);
   });
 
   test("Remove then save sends null", async () => {
     mountEdit(SET_RECORD);
+    await openReplace();
     fireEvent.click(await screen.findByRole("button", { name: "Remove stored value" }));
     await screen.findByRole("button", { name: "Undo" });
     // The only buttons are the in-field icon actions — no text link-button below the field.
@@ -244,6 +254,7 @@ describe("entityEdit writeOnly field", () => {
 
   test("typing a new value sends the string", async () => {
     mountEdit(SET_RECORD);
+    await openReplace();
     await waitFor(() => {
       expect(capturedInputs["apiKey"]).toBeDefined();
     });
@@ -254,6 +265,7 @@ describe("entityEdit writeOnly field", () => {
 
   test("a required set field offers no Remove and counts as filled", async () => {
     mountEdit(SET_RECORD, true);
+    await openReplace();
     await waitFor(() => {
       expect(capturedInputs["apiKey"]).toBeDefined();
     });

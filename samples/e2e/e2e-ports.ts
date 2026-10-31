@@ -10,6 +10,7 @@ export const E2E_PORTS = {
   "framework/use-all-bundled": 4194,
   "framework/use-all-bundled-billing-gallery": 4196,
   "framework/use-all-bundled-puppeteer-service": 4197,
+  "framework/use-all-bundled-fake-telegram": 4199,
   "framework/styleguide": 4187,
   "framework/workspaces": 4182,
   "framework/admin-console": 4183,

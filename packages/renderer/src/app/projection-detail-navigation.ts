@@ -3,7 +3,7 @@ import type {
   RecordHeaderSubtitlePart,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isSafeHref } from "../headless/index.ts";
+import { applyFormatSpec, isSafeHref, type Translate } from "../headless/index.ts";
 import { requestLeave } from "../leave-guard.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import type { NavApi } from "./nav.tsx";
@@ -120,10 +120,20 @@ export function buildSubtitleParts(
   appFeatures: readonly FeatureSchema[],
   userRoles: readonly string[] | undefined,
   host: ReturnHost | undefined,
+  translate: Translate,
+  locale: string,
 ): SubtitlePartView[] {
   return parts.flatMap((part): SubtitlePartView[] => {
     const field = typeof part === "string" ? part : part.field;
-    const text = String(record[field] ?? "");
+    const format = typeof part === "string" ? undefined : part.format;
+    const text =
+      format === undefined
+        ? String(record[field] ?? "")
+        : applyFormatSpec(
+            { ...format, locale: ("locale" in format ? format.locale : undefined) ?? locale },
+            record[field],
+            translate,
+          );
     // skip: empty subtitle parts render nothing
     if (text === "") return [];
     const navigate = typeof part === "string" ? undefined : part.navigate;

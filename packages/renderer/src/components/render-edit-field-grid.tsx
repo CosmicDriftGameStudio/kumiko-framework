@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { EditFieldViewModel, FormValues } from "../headless/index.ts";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
 import type {
@@ -77,7 +77,9 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
   columns: number,
   gridKey: string,
 ): ReactNode {
-  const { Grid } = model.engine.state.primitives;
+  const { Grid, GridCell } = model.engine.state.primitives;
+  const { rowAfterField } = model.engine.props;
+  const dirty = Object.keys(model.engine.form.snapshot.changes).length > 0;
   const { isSettingsList } = model.footer;
   const { usesFieldFlow } = model.titles;
   const renderCell = createFieldCellRenderer(model, section, columns);
@@ -87,7 +89,16 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
       columns={columns}
       {...(isSettingsList ? { list: true } : usesFieldFlow && { flow: true })}
     >
-      {fields.map((field: EditFieldViewModel) => renderCell(field))}
+      {fields.map((field: EditFieldViewModel) => {
+        const extraRow = rowAfterField?.(field.field, { dirty });
+        if (extraRow === undefined) return renderCell(field);
+        return (
+          <Fragment key={field.field}>
+            {renderCell(field)}
+            <GridCell span={columns}>{extraRow}</GridCell>
+          </Fragment>
+        );
+      })}
     </Grid>
   );
 }

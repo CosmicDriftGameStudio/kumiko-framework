@@ -52,6 +52,8 @@ test("TenantAdmin stores provider, SMTP settings and password with one save", as
   await expect(page.getByRole("textbox", { name: "Sender address", exact: true })).toHaveValue(
     "status@northwind-cloud.com",
   );
+  await expect(page.getByText("•••••••••• set")).toBeVisible();
+  await page.getByRole("button", { name: "Replace", exact: true }).click();
   const passwordField = page.getByRole("textbox", { name: "SMTP password", exact: true });
   await expect(passwordField).toHaveValue("");
   await expect(passwordField).toHaveAttribute("placeholder", "Set — leave empty to keep it");

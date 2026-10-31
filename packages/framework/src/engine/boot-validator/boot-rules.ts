@@ -4,6 +4,7 @@ import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
 import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
 import type { BootRule } from "./boot-rule.ts";
 import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
+import { CONFIG_EDIT_ACTION_RULES } from "./config-edit-action-rules.ts";
 import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
 import { DERIVED_SQL_FIELD_RULES } from "./derived-sql-fields-rules.ts";
 import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
@@ -43,6 +44,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   I18N_RULES,
   CARD_META_OVERFLOW_RULES,
   SCREEN_ACTION_RULES,
+  CONFIG_EDIT_ACTION_RULES,
   API_EXT_RULES,
   BOOT_CHECK_RULES,
   DASHBOARD_RULES,

@@ -87,6 +87,15 @@ type AppSchema = {
   features: FeatureSchema[];
   workspaces?: WorkspaceSchema[];
 };
+type ConfigEditAction = { // A button row on a configEdit form that calls a write handler with `{}` (for example "send a test").
+  id: string; // Unique within the screen; used for the test id.
+  handler: string; // Qualified name of a write handler (`<feature>:write:<name>`).
+  label: string;
+  description?: string;
+  buttonLabel: string;
+  afterField: string; // Field (from the layout) after which the row is drawn.
+  successMessage?: string; // Shown after a successful call; without it a success stays silent.
+};
 type CustomScreenDefinition = {
   id: string;
   type: "custom";
@@ -425,6 +434,7 @@ type RecordHeaderSubtitlePart =
   | {
     field: string;
     navigate?: MetricNavigate;
+    format?: FormatSpec; // Formats the raw field value (e.g. `timestamp`); an empty value is still dropped.
   }
 ;
 type RelatedListEmptyStateSpec = ListEmptyStateSpec & { // The first `variants` entry whose `when` holds for the parent record replaces `title` and `description`; `action` stays.

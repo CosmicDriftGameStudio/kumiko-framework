@@ -48,6 +48,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops"`; requires `compliance-profiles`, `tenant`
 - `config`: Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row → tenant-row → system-row → app-override (deploy-time `AppConfigOverrides`) → computed → feature default.
   `import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config"`
+- `contact`: Contact inbox: an anonymous browser client (GET /contact/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin.
+  `import { createContactFeature } from "@cosmicdrift/kumiko-bundled-features/contact"`; requires `config`, `delivery`, `user-data-rights`, `files`, `channel-telegram`
 - `crypto-shredding`: Operator-level crypto-shredding trigger.
   `import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding"`
 - `custom-fields`: Tenant- and system-scoped custom field definitions with generic value storage on any host entity.

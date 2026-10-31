@@ -6,6 +6,7 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getUser } from "../api/auth-middleware.ts";
 import { requestContext } from "../api/request-context.ts";
+import { ROLES } from "../auth/roles.ts";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -26,7 +27,12 @@ import { resolveFieldVariant } from "../derivatives/index.ts";
 import { isFileField } from "../engine/field-helpers.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { FieldDefinition } from "../engine/types/fields.ts";
-import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
+import {
+  type Registry,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "../engine/types/index.ts";
 
 import { createFailOpenReporter, respondRateLimited } from "../rate-limit/middleware.ts";
 import { listActionFormFileFields, mayUseActionForm } from "./action-form-upload.ts";
@@ -216,6 +222,10 @@ export function readFilesRouteOptions(
 export function configuredMaxUploadBytes(registry: Registry): number | undefined {
   const configured = readFilesRouteOptions(registry).maxUploadSize;
   return configured === undefined ? undefined : parseMaxSize(configured);
+}
+
+function canReadSystemTenantFile(user: SessionUser, fileTenantId: TenantId): boolean {
+  return fileTenantId === SYSTEM_TENANT_ID && user.roles.includes(ROLES.SystemAdmin);
 }
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {
@@ -450,7 +460,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // GET /files/:id — download.
   //
   // Authorization stack:
-  //   1. tenantId must match (hard isolation, never crossable).
+  //   1. tenantId must match (hard isolation); the one crossing is a SystemAdmin reading a SYSTEM_TENANT_ID file.
   //   2. The configured FileAccessGuard decides read access. Default:
   //      unattached → allow; attached → uploader, privileged role or a
   //      reader of the record.
@@ -458,7 +468,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   api.get("/files/:id", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
-    const fileRef = await loadFileForTenant(id, user.tenantId);
+    const fileRef = await loadReadableFileRef(id, user);
     if (!fileRef) return c.json({ error: "not_found" }, 404);
 
     const decision = await guard({ fileRef, user, operation: "read" });
@@ -468,7 +478,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: "not_found" }, 404);
     }
 
-    const storageProvider = await options.resolveProvider(user.tenantId);
+    const storageProvider = await options.resolveProvider(fileRef.tenantId);
     const data = await storageProvider.read(fileRef.storageKey);
     // The stored mimeType is client-declared (file.type off the upload) and
     // never verified against the bytes — serving it as-is would let a
@@ -591,7 +601,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   api.get("/files/:id/download-url", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
-    const fileRef = await loadFileForTenant(id, user.tenantId);
+    const fileRef = await loadReadableFileRef(id, user);
     if (!fileRef) return c.json({ error: "not_found" }, 404);
 
     const decision = await guard({ fileRef, user, operation: "read" });
@@ -599,7 +609,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     // Resolve after access-check: tenant-scoped provider, and capability
     // disclosure (501) stays behind the auth+guard gate.
-    const storageProvider = await options.resolveProvider(user.tenantId);
+    const storageProvider = await options.resolveProvider(fileRef.tenantId);
     if (!storageProvider.getSignedUrl) {
       return c.json(
         {
@@ -643,7 +653,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),
     // narrower in loadFileForTenant's selectMany. Restore that here so meta
     // doesn't leak reference-tenant rows.
-    if (fileRef.tenantId !== user.tenantId) return null;
+    if (fileRef.tenantId !== user.tenantId && !canReadSystemTenantFile(user, fileRef.tenantId)) {
+      return null;
+    }
 
     const decision = await guard({ fileRef, user, operation: "read" });
     if (decision === "deny") return null;
@@ -663,6 +675,15 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const meta = await loadReadableFileMeta(c.req.param("id"), getUser(c));
     return meta ? c.json(meta) : c.json({ error: "not_found" }, 404);
   });
+
+  // Read-only crossing: SYSTEM_TENANT_ID files (e.g. contact attachments) are
+  // visible to a SystemAdmin whose session sits in another tenant. Delete,
+  // variant and upload keep using loadFileForTenant and stay tenant-equal.
+  async function loadReadableFileRef(id: string, user: SessionUser): Promise<FileRef | null> {
+    const own = await loadFileForTenant(id, user.tenantId);
+    if (own || !canReadSystemTenantFile(user, SYSTEM_TENANT_ID)) return own;
+    return loadFileForTenant(id, SYSTEM_TENANT_ID);
+  }
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
     // fileRefsTable.id is a UUID column — a malformed id must fail here, not

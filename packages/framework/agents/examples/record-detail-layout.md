@@ -769,7 +769,10 @@ describe("record-detail-layout showcase — registration", () => {
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.header).toEqual({
       title: "customerName",
-      subtitle: "orderNumber",
+      subtitle: [
+        "orderNumber",
+        { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
+      ],
       status: "status",
     });
     expect(screen.metrics?.map((metric) => metric.field)).toEqual([
@@ -948,7 +951,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
       id: "order-detail",
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
-      header: { title: "customerName", subtitle: "orderNumber", status: "status" },
+      header: {
+        title: "customerName",
+        // Parts are joined by a separator; `format` formats the raw field value.
+        subtitle: [
+          "orderNumber",
+          { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
+        ],
+        status: "status",
+      },
       metrics: [
         { field: "totalAmount", label: "order-desk.metric.totalAmount" },
         { field: "outstandingAmount", label: "order-desk.metric.outstandingAmount" },

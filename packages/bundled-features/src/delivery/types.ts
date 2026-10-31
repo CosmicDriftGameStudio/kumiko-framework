@@ -43,6 +43,8 @@ export type ChannelContext = {
   // The tenant's own config accessor, built server-side for this tenantId. Absent when the
   // delivery service has no tenantConfigFor and the job context carries no config.
   readonly config?: ConfigAccessor | undefined;
+  // The notify() idempotencyKey of the call, so a channel can store it next to what it sends.
+  readonly idempotencyKey?: string | undefined;
   // Renders a stored mail template, the tenant's own or the system fallback.
   readonly renderMail?: (payload: MailPayload) => Promise<RenderedMail>;
   // Reads the bytes behind an attachment ref at send time. Absent when no file storage is wired.
@@ -121,6 +123,7 @@ export type DeliveryLogEntry = {
   readonly error: DeliveryErrorCode | null;
   readonly priority: NotifyPriority;
   readonly confirmed?: false;
+  readonly idempotencyKey?: string;
 };
 
 // --- Delivery Service ---

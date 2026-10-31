@@ -443,16 +443,16 @@ export type NotifyPriority = "critical" | "normal" | "low";
 export type NotifyOptions = {
   readonly to?: string | readonly string[] | { readonly tenant: TenantId };
   readonly route?: Readonly<Record<string, string>>;
+  // Limits a `to` delivery to these channels (others get no row); ignored on `route`.
+  readonly channels?: readonly string[];
   readonly data?: Readonly<Record<string, unknown>>;
   readonly priority?: NotifyPriority;
-  // Opt-in dedup. Same key within 24h = single delivery. Use when a handler
-  // can be replayed (webhook retry, user double-click) and you don't want
-  // the notification to fire twice.
+  // Opt-in dedup: same key within 24h = single delivery. For replayable handlers
+  // (webhook retry, user double-click).
   readonly idempotencyKey?: string;
-  // Pseudonymous subject key for the `route` path (no user account). Threaded
-  // into the delivery-attempt event's recipientId so crypto-shredding's
-  // forget-subject can reach recipientAddress under this subject. Ignored on
-  // the `to` path — there the resolved user id is the recipientId, silently.
+  // Pseudonymous subject key for the `route` path (no user account). Threaded into
+  // the attempt event's recipientId so forget-subject can reach recipientAddress.
+  // Ignored on the `to` path, where the resolved user id is the recipientId.
   readonly recipientId?: string;
   // Deliver synchronously, also inside a write handler's transaction (on the
   // outside-tx pool), and deliver queued channels (email/push/chat) inline, so the

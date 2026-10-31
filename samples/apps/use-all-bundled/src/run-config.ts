@@ -35,9 +35,16 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
-import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
+import {
+  createChannelTelegramFeature,
+  type TelegramChannelOptions,
+} from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
+import {
+  contactOpenRequestsPanels,
+  createContactFeature,
+} from "@cosmicdrift/kumiko-bundled-features/contact";
 import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -127,10 +134,18 @@ const stubPushTransport: PushTransport = {
 // no token minted here is ever trusted by a deployment.
 const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
 
+// The e2e points the Telegram channel at a local stub so the contact forward reads "delivered" without the real Bot API.
+function fakeTelegramApiOptions(): TelegramChannelOptions {
+  const apiBaseUrl = process.env["SAMPLE_TELEGRAM_API_URL"];
+  if (apiBaseUrl === undefined) return {};
+  return { apiBaseUrl, allowedHosts: [new URL(apiBaseUrl).hostname], requireHttps: false };
+}
+
 export const APP_FEATURES = [
   localeDe(),
   // foundations not in the auto-mounted bundled-set
-  createSecretsFeature(),
+  // SystemAdmin stores the contact Telegram bot token, which lives in the system tenant.
+  createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }),
   ...composeSecurityStack(),
   // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
   // the auto-mounted auth-email-password login handler when this feature is
@@ -186,7 +201,7 @@ export const APP_FEATURES = [
   createChannelSlackFeature(),
   createChannelDiscordFeature(),
   createChannelTeamsFeature(),
-  createChannelTelegramFeature(),
+  createChannelTelegramFeature(fakeTelegramApiOptions()),
 
   ...composeMailStack({ transports: ["inmemory", "smtp"] }),
 
@@ -309,6 +324,15 @@ export const APP_FEATURES = [
   // CMS / content
   createLegalPagesFeature(),
   createWaitlistFeature(),
+  createContactFeature({
+    appName: "publicstatus",
+    appVersion: "2026.10.30",
+    fields: { phone: "optional" },
+    telegram: true,
+    reportCancelTarget: "admin-shell:screen:tenant-overview",
+    // Lowest values the options allow, so the e2e submit does not wait on the challenge.
+    spamProtection: { minSubmitSeconds: 0, proofOfWorkBits: 8 },
+  }),
   createTemplateResolverFeature({
     // One collection per ownership mode so the smoke app exercises both paths:
     // a shared set an admin curates, and a per-user set every agent keeps.
@@ -394,7 +418,11 @@ export const APP_FEATURES = [
   // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
   // all mounted above. includeCapOverview:true exercises the my-caps /
   // tenant-caps nav entries end-to-end — cap-overview is mounted below.
-  createAdminShellFeature({ includeCapOverview: true, includeDocumentDesigner: true }),
+  createAdminShellFeature({
+    includeCapOverview: true,
+    includeDocumentDesigner: true,
+    extraPlatformPanels: contactOpenRequestsPanels(),
+  }),
 
   // app-author-grade
   createCustomFieldsFeature(),

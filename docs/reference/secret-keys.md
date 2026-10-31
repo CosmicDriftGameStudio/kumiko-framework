@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-03
-evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/delivery/chat-webhook-sender.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/feature-ast/src/__tests__/render-roundtrip.test.ts"
+evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/secrets/secret-scope.ts; packages/bundled-features/src/secrets/__tests__/secrets-system-scope.integration.test.ts; packages/framework/src/engine/boot-validator/screens-forms.ts (validateConfigEditSecretField); packages/bundled-features/src/delivery/chat-webhook-sender.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/feature-ast/src/__tests__/render-roundtrip.test.ts"
 ---
 
 # Secret keys, secret namespaces and write roles
@@ -56,6 +56,12 @@ The chat channels use it to reject a bad address when it is created: the webhook
 ## Chat channel keys
 
 Each chat channel exports its key, so apps do not retype the strings: `SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS` and `TEAMS_SECRET_KEYS` with `webhookPrefix` and `webhookKeyFor(connection)`, and `TELEGRAM_SECRET_KEYS.botToken`.
+
+## System-scope secrets on a configEdit screen
+
+A `configEdit` screen with `scope: "system"` may map `secretKeys`, same as a tenant screen; `scope: "user"` stays rejected at boot. The renderer then sends `scope: "system"` with `secrets:write:set`, `secrets:write:delete` and `secrets:query:list`. The server picks the target itself: with `scope: "system"` the secret lives under `SYSTEM_TENANT_ID`, whatever tenant the SystemAdmin is signed in to. The payload never names a tenant. A caller without the `SystemAdmin` role gets `403 access_denied` on all three handlers, and `list` returns previews only, never values.
+
+The handler access rule still applies first, so an app that offers such a screen must include `SystemAdmin` in the secrets access roles, for example `createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] })`. The default rule (`TenantAdmin` only) keeps a human SystemAdmin session out. Values read at runtime via `ctx.services.secrets.get(SYSTEM_TENANT_ID, key)`.
 
 ## Write roles
 

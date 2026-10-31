@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "tables": ["read_contact_replies", "read_contact_requests"]
+}

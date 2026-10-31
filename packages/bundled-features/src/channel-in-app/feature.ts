@@ -3,6 +3,7 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import { inboxQuery } from "./handlers/inbox.query.ts";
 import { markAllReadWrite } from "./handlers/mark-all-read.write.ts";
 import { markReadWrite } from "./handlers/mark-read.write.ts";
+import { readStateByKeysQuery } from "./handlers/read-state-by-keys.query.ts";
 import { unreadCountQuery } from "./handlers/unread-count.query.ts";
 import { inAppChannel } from "./in-app-channel.ts";
 import { inAppMessagesTableMeta } from "./tables.ts";
@@ -39,6 +40,7 @@ export function createChannelInAppFeature(): FeatureDefinition {
     const queries = {
       inbox: r.queryHandler(inboxQuery),
       unreadCount: r.queryHandler(unreadCountQuery),
+      readStateByKeys: r.queryHandler(readStateByKeysQuery),
     };
 
     return { handlers, queries };

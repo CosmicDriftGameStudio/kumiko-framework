@@ -1219,6 +1219,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   fieldAppendix?: (fieldName: string) => ReactNode | undefined; // Per-field extra content below the input (e.g. ConfigCascadeView).
   fieldAppendixPlacement?: "above-control" | "below-control"; // Placement of every `fieldAppendix` relative to its control.
   fieldDescription?: (fieldName: string) => ReactNode | undefined; // Per-field help text rendered under the label (translated by the caller).
+  rowAfterField?: (fieldName: string, state: { dirty: boolean; }) => ReactNode | undefined; // Extra full-width row drawn right after a field's cell (configEdit actions).
   fieldAccent?: (fieldName: string) => boolean; // Marks fields whose value is set at this level; drawn by `settings-list` rows.
   markChangedFields?: boolean; // Edit-mode "changed" markers also for screens without an entity id (configEdit loads its values from a query, not a record).
   onChange?: (state: RenderEditChangeState<TValues>) => void; // Controlled mode: fires on every values-snapshot change (typing, `patch(...)` from outside) with the current values.

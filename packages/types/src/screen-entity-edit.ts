@@ -72,6 +72,10 @@ export type EditFieldSpec =
       /** Row field on the referenced entity shown as the label (default
        *  "id"). Only meaningful together with `refEntity`. */
       readonly refLabelField?: string;
+      /** Text format for projectionDetail fields, which have no `EntityDefinition`
+       *  to carry it: a read-only value renders as a `mailto:`/`tel:` link.
+       *  Ignored on `entityEdit` fields, where the field's own `format` wins. */
+      readonly format?: "email" | "phone";
       /** Embedded-list fields only (`createEmbeddedListField`). */
       readonly embeddedList?: EmbeddedListEditSpec;
       /** Fills an empty value when the create form opens; the update form and

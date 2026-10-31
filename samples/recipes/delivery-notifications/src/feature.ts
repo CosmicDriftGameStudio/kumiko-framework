@@ -99,6 +99,9 @@ export const supportFeature = defineFeature("support", (r) => {
       const ticketId = created.data.id;
       await ctx.notify(TICKET_ASSIGNED, {
         to: assigneeId,
+        // Known key per ticket: dedups a replayed handler and lets an admin screen ask
+        // channel-in-app:query:read-state-by-keys whether the assignee has seen it.
+        idempotencyKey: `ticket-assigned:${ticketId}`,
         data: {
           ticketId,
           title: event.payload.title,
