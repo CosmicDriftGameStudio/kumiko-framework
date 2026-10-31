@@ -15,7 +15,6 @@ import {
   createNoopMetricsHandle,
   createSafeMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
-import type { HttpRouteHandler } from "@cosmicdrift/kumiko-types/http-route";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createConfigAccessor } from "../config/index.ts";
 import { makeTenantStorageProviderResolver } from "../file-foundation/index.ts";
@@ -172,10 +171,6 @@ export type UserDataRightsOptions = {
    *  must move it here. */
   readonly privacyCenterShowDeletion?: boolean;
 };
-
-function staticBodyHandler(body: string, contentType: string): HttpRouteHandler {
-  return async (c) => c.body(body, 200, { "content-type": contentType });
-}
 
 function isMailTransportMountedWithoutDelivery(features: readonly FeatureDefinition[]): boolean {
   const names = new Set(features.map((feature) => feature.name));
@@ -515,7 +510,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       // Entry point of the emailed download link; cheap static page, but
       // anonymous and token-bearing, so bound per-IP probing.
       rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
-      handler: staticBodyHandler(TOKEN_EXCHANGE_PAGE_HTML, "text/html; charset=utf-8"),
+      // guard:dup-ok the few-shot corpus extractor reads httpRoute handlers only when they are inline
+      handler: async (c) => {
+        return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
+          "content-type": "text/html; charset=utf-8",
+        });
+      },
     });
 
     // External script for the interstitial page above — same-origin file
@@ -526,7 +526,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       method: "GET",
       path: "/user-export/by-token.js",
       anonymous: true,
-      handler: staticBodyHandler(TOKEN_EXCHANGE_PAGE_JS, "application/javascript; charset=utf-8"),
+      // guard:dup-ok the few-shot corpus extractor reads httpRoute handlers only when they are inline
+      handler: async (c) => {
+        return c.body(TOKEN_EXCHANGE_PAGE_JS, 200, {
+          "content-type": "application/javascript; charset=utf-8",
+        });
+      },
     });
 
     // Exchange endpoint for the interstitial page: the token arrives here
