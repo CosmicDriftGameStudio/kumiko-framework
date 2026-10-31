@@ -19,7 +19,9 @@ import type { InboundMailRoles } from "../mail-roles.ts";
 import { inboundMessagesProjectionTable } from "../projection.ts";
 import { isVisibleToCaller } from "./scope-visibility.ts";
 
-// The full text is delivered only by message:content; selecting it here would also decrypt it.
+// The full text and HTML are delivered only by message:content; selecting them here would decrypt
+// every body of the list, the HTML at up to its event cap per row.
+const LIST_EXCLUDED_BODY_FIELDS: ReadonlySet<string> = new Set(["bodyText", "bodyHtml"]);
 const LIST_MESSAGE_COLUMNS = [
   "id",
   "tenantId",
@@ -28,7 +30,9 @@ const LIST_MESSAGE_COLUMNS = [
   "modifiedAt",
   "insertedById",
   "modifiedById",
-  ...Object.keys(inboundMessageEntity.fields).filter((name) => name !== "bodyText"),
+  ...Object.keys(inboundMessageEntity.fields).filter(
+    (name) => !LIST_EXCLUDED_BODY_FIELDS.has(name),
+  ),
 ];
 
 const listMessagesSchema = z
