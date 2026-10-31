@@ -83,6 +83,15 @@ function buildCatalogTestFeature() {
       description: "Ping the service.",
     });
 
+    r.writeHandler({
+      name: "suggest-widget-note",
+      schema: z.object({ note: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin"] },
+      description: "Change the suggested widget note a person still approves.",
+      agent: { risk: "low", effect: "proposal" },
+    });
+
     r.queryHandler({
       name: "widget:summary",
       schema: z.object({ id: z.string() }),
@@ -279,6 +288,19 @@ describe("buildToolCatalog — handler-derived query/write tools", () => {
       op: "write",
       qn: "catalog-test:write:ping",
       risk: "mid",
+    });
+  });
+
+  test("a proposal write handler carries its effect into the dispatch descriptor", () => {
+    const catalog = buildCatalog(ADMIN);
+    expect(
+      catalog.dispatchTable.get(toolNameForQn("catalog-test:write:suggest-widget-note")),
+    ).toEqual({
+      kind: "server",
+      op: "write",
+      qn: "catalog-test:write:suggest-widget-note",
+      risk: "low",
+      effect: "proposal",
     });
   });
 

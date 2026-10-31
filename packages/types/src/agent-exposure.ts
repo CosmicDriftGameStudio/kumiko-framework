@@ -7,9 +7,11 @@ export function resolveAgentExposure(
   def: { readonly description?: string; readonly agent?: AgentHandlerHints },
   kind: "query" | "write",
 ): AgentExposure {
+  const effect = def.agent?.effect;
   return {
     expose: def.agent?.expose ?? def.description !== undefined,
     risk: def.agent?.risk ?? (kind === "query" ? "low" : "mid"),
+    ...(effect !== undefined && { effect }),
   };
 }
 

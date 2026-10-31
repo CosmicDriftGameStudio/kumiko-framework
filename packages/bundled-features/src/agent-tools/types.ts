@@ -1,4 +1,5 @@
 import type {
+  AgentEffect,
   AgentRisk,
   EntityDefinition,
   FeatureDefinition,
@@ -74,6 +75,8 @@ export type ToolDispatchDescriptor =
       readonly op: "write";
       readonly qn: string;
       readonly risk: AgentRisk;
+      /** "proposal": the write changes a suggestion a person still approves, so no approval step. */
+      readonly effect?: AgentEffect;
       readonly entity?: string;
       /** `<feature>:query:<entity>:detail` QN when one is mounted and readable.
        *  Dispatch reads the current `version` from it before an optimistic-lock
@@ -150,6 +153,7 @@ export type AgentManifestHandler = {
   readonly kind: "query" | "write";
   readonly description?: string;
   readonly risk: AgentRisk;
+  readonly effect?: AgentEffect;
   readonly inputSchema: Readonly<Record<string, unknown>>;
   readonly entity?: string;
   /** Fields this generic create/update handler never writes; sending one fails validation. */
