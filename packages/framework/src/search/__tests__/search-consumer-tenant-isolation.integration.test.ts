@@ -94,6 +94,14 @@ async function breakTenantIndex(tenantId: TenantId): Promise<void> {
     .waitTask();
 }
 
+// Another writer recreated the index with the right primary key but factory settings, so
+// document writes land while the stale-piece filter delete is rejected as not filterable.
+async function recreateTenantIndexWithoutSettings(tenantId: TenantId): Promise<void> {
+  const uid = meilisearchTenantIndex(indexPrefix, tenantId);
+  await client.deleteIndex(uid).waitTask();
+  await client.createIndex(uid, { primaryKey: "_id" }).waitTask();
+}
+
 async function repairTenantIndex(tenantId: TenantId): Promise<void> {
   await client.deleteIndex(meilisearchTenantIndex(indexPrefix, tenantId)).waitTask();
 }
@@ -201,5 +209,28 @@ describe.skipIf(!MEILI_UP)("search consumer tenant isolation (live Meilisearch)"
 
     expect(await searchHitIds(brokenTenantUser.tenantId, "secondtitle")).toEqual([noteId]);
     expect(await searchHitIds(brokenTenantUser.tenantId, "firsttitle")).toEqual([]);
+  });
+
+  test("a rejected stale-piece cleanup is held for the tenant and the retry restores the piece filters", async () => {
+    const noteId = await createNote(brokenTenantUser, "cleanup firsttitle");
+    await dispatcher.runOnce();
+    await recreateTenantIndexWithoutSettings(brokenTenantUser.tenantId);
+    await renameNote(brokenTenantUser, noteId, "cleanup secondtitle");
+    const healthyId = await createNote(healthyTenantUser, "cleanup healthy tenant note");
+
+    await dispatcher.runOnce();
+    const heldState = await getConsumerState(stack.db, SEARCH_CONSUMER_NAME);
+    clockMs += BEYOND_RETRY_DELAY_MS;
+    await dispatcher.runOnce();
+
+    expect(heldState?.status).toBe("idle");
+    expect(heldState?.lastError).toContain(brokenTenantUser.tenantId);
+    expect(await searchHitIds(healthyTenantUser.tenantId, "cleanup")).toEqual([healthyId]);
+    const settings = await client
+      .index(meilisearchTenantIndex(indexPrefix, brokenTenantUser.tenantId))
+      .getSettings();
+    expect(settings.filterableAttributes).toEqual(expect.arrayContaining(["_entityId", "_chunk"]));
+    expect(await searchHitIds(brokenTenantUser.tenantId, "secondtitle")).toEqual([noteId]);
+    expect((await getConsumerState(stack.db, SEARCH_CONSUMER_NAME))?.lastError).toBeNull();
   });
 });
