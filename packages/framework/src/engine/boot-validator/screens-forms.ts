@@ -32,9 +32,9 @@ import {
   validateRedirectTarget,
   validateScreenNavTarget,
 } from "./screens-actions.ts";
+import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
 import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
-import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 
 function assertKnownSubFields(
   where: string,
