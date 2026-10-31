@@ -4,6 +4,13 @@
 
 `validateBoot` reports every violation as `- [<id>] <message>`, followed by a `Fix:` and a `Rule:` line that links the entry below. Violations with an `unclassified/<check>` id have no entry yet. `kumiko-schema validate --json` returns the same ids.
 
+## agent-effect
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="agent-effect-proposal-needs-low-risk"></a>`agent-effect/proposal-needs-low-risk` | A write handler with agent.effect "proposal" declares agent.risk "low". | Set agent.risk to "low", or drop agent.effect so the agent asks for approval. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
+| <a id="agent-effect-write-only"></a>`agent-effect/write-only` | Only write handlers declare agent.effect; a query has nothing to approve. | Drop agent.effect from the query handler. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
+
 ## api
 
 | Rule | Summary | Fix | Source |

@@ -164,6 +164,7 @@ function renderMarkedText(span: HTMLSpanElement, segments: readonly SpanSegment[
 function renderHitBands(container: HTMLElement): void {
   for (const band of container.querySelectorAll(`.${HIT_BAND_CLASS}`)) band.remove();
   const layer = container.getBoundingClientRect();
+  // skip: a layer without layout yet has nothing to place the bands on
   if (layer.width === 0 || layer.height === 0) return;
   const rectsByOrdinal = new Map<string, { active: boolean; rects: HitRect[] }>();
   for (const mark of container.querySelectorAll<HTMLElement>("mark")) {
