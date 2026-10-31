@@ -1479,6 +1479,7 @@ type ThreadMessage = {
   timeLabel: string; // Preformatted by the caller ("Heute 09:41").
   body: MessageBody;
   attachments?: MessageAttachment[];
+  teaser?: string; // Plain-text preview the host derived, e.g. without the greeting; shown instead of the clamped body while a folded thread has the mail closed.
 };
 type TimeseriesHeight = // Pixel height, or one height per viewport class.
   | number

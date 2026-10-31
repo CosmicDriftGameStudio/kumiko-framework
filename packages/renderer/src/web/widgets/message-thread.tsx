@@ -1,6 +1,6 @@
 import { CornerUpLeft } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { useTranslation } from "../../index.ts";
+import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { AttachmentCard } from "./attachment-card.tsx";
 import { AttachmentChip } from "./attachment-chip.tsx";
@@ -62,6 +62,43 @@ function CollapsedRow({
   );
 }
 
+// Beyond any real mail, so the body shows whole once the reader asked for it.
+const UNCLAMPED_LINES = 10_000;
+
+function TeaserBody({
+  teaser,
+  clampLines,
+  moreLabelKey,
+  onReadWhole,
+}: {
+  readonly teaser: string;
+  readonly clampLines: number;
+  readonly moreLabelKey: string;
+  readonly onReadWhole: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <p
+        data-testid="message-teaser"
+        className="m-0 w-full whitespace-pre-wrap text-[15px] leading-[1.55] max-md:text-[16px] max-md:leading-[22px]"
+        style={{
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: clampLines,
+          overflow: "hidden",
+        }}
+      >
+        {teaser}
+      </p>
+      <Button variant="link" size="sm" onClick={onReadWhole}>
+        {t(moreLabelKey)}
+      </Button>
+    </div>
+  );
+}
+
 function OpenMessage({
   message,
   clampLines,
@@ -78,6 +115,12 @@ function OpenMessage({
   readonly attachmentsBelow: boolean;
 }): ReactNode {
   const attachments = attachmentsBelow ? [] : (message.attachments ?? []);
+  const [wholeMailRequested, setWholeMailRequested] = useState(false);
+  const showTeaser =
+    moreLabelKey !== undefined &&
+    message.teaser !== undefined &&
+    message.teaser !== "" &&
+    !wholeMailRequested;
   return (
     <div data-testid={`message-open-${message.id}`} className="flex flex-col gap-3">
       {showHeader && (
@@ -94,13 +137,22 @@ function OpenMessage({
           </span>
         </div>
       )}
-      <MessageBodyView
-        body={message.body}
-        title={message.author}
-        clampLines={clampLines}
-        remoteImages={remoteImages}
-        {...(moreLabelKey !== undefined && { moreLabelKey })}
-      />
+      {showTeaser ? (
+        <TeaserBody
+          teaser={message.teaser}
+          clampLines={clampLines}
+          moreLabelKey={moreLabelKey}
+          onReadWhole={() => setWholeMailRequested(true)}
+        />
+      ) : (
+        <MessageBodyView
+          body={message.body}
+          title={message.author}
+          clampLines={wholeMailRequested ? UNCLAMPED_LINES : clampLines}
+          remoteImages={remoteImages}
+          {...(moreLabelKey !== undefined && !wholeMailRequested && { moreLabelKey })}
+        />
+      )}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {attachments.map((attachment) => (
