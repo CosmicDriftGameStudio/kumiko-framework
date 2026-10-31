@@ -48,6 +48,23 @@ export const documentIngestSkippedPayloadSchema = z.object({
 });
 export type DocumentIngestSkippedPayload = z.infer<typeof documentIngestSkippedPayloadSchema>;
 
+export const DOCUMENT_INGEST_PROGRESS_EVENT_SHORT = "documentIngest.progress" as const;
+
+export const DOCUMENT_INGEST_PROGRESS_EVENT_QN =
+  "document-ingest-foundation:event:document-ingest-progress" as const;
+
+export const documentIngestProgressPayloadSchema = z
+  .object({
+    fileRefId: z.string().min(1),
+    pagesDone: z.number().int().min(0),
+    pagesTotal: z.number().int().min(1),
+  })
+  .refine((p) => p.pagesDone <= p.pagesTotal, {
+    message: "pagesDone must not exceed pagesTotal",
+    path: ["pagesDone"],
+  });
+export type DocumentIngestProgressPayload = z.infer<typeof documentIngestProgressPayloadSchema>;
+
 // Terminal events of a document-extract stream. The QNs belong to the provider that registers
 // them; the foundation only owns the shared payload shape.
 export const documentExtractReadyPayloadSchema = z.object({
