@@ -86,7 +86,7 @@ services:
 
   # One-shot bucket bootstrap for S3 integration tests (file-provider-s3/lib).
   minio-init:
-    image: amazon/aws-cli:2.39.2
+    image: amazon/aws-cli:2.39.3
     depends_on:
       minio:
         condition: service_healthy
