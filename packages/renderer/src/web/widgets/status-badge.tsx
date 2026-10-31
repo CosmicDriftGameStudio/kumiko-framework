@@ -46,12 +46,17 @@ export function StatusBadge({
     <span
       data-testid={testId}
       className={cn(
-        "inline-flex h-5 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium",
+        // Px on phones: an app may shrink its root font for desktop density, the phone reading size stays.
+        "inline-flex h-5 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium max-md:h-[20px] max-md:text-[12px]",
         TONE_PILL[tone],
         className,
       )}
     >
-      <span aria-hidden="true" data-status-dot className="size-1.5 shrink-0 rounded-full bg-current" />
+      <span
+        aria-hidden="true"
+        data-status-dot
+        className="size-1.5 shrink-0 rounded-full bg-current"
+      />
       {children}
     </span>
   );
