@@ -128,7 +128,12 @@ export function MessageThread({
   return (
     <section
       data-testid={testId}
-      className={cn(SENDER_FRAME_CLASS, "flex flex-col px-4 pb-4", hasOlder ? "pt-1" : "pt-4")}
+      className={cn(
+        SENDER_FRAME_CLASS,
+        "flex flex-col",
+        foldOlderTogether ? "px-2.5 pb-2.5" : "px-4 pb-4",
+        hasOlder ? "pt-1" : "pt-4",
+      )}
     >
       {olderFolded && (
         <button
@@ -156,7 +161,7 @@ export function MessageThread({
         }
         return (
           <div key={message.id} className={index > 0 ? "mt-3" : undefined}>
-            <SenderSheet>
+            <SenderSheet compact={foldOlderTogether}>
               <OpenMessage
                 message={message}
                 clampLines={clampLines}
