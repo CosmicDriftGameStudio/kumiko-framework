@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "improvement",
+    "title": "No-Direct-Fs allowlists the static page writer",
+    "detail": "packages/server-runtime/src/static-html-pages.ts is on the No-Direct-Fs allowlist, next to run-prod-app-static-files.ts. It writes build output under the caller's outDir and checks page paths for traversal."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
     "title": "Security check warns about unused repo exceptions",

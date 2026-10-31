@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "improvement",
+    "title": "toggleSetMember helper",
+    "detail": "toggleSetMember(set, value) from @cosmicdrift/kumiko-renderer returns a new Set with value removed if it was present and added if it was not. The input set is not changed, so it fits React state updaters for expanded or collapsed ids."
+  },
+  {
     "version": "0.404.0",
     "type": "fix",
     "title": "SSE client reconnects after a stalled stream",

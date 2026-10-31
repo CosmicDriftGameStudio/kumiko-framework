@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "improvement",
+    "title": "findEntity is exported from the engine entry point",
+    "detail": "findEntity(features, entityName) from @cosmicdrift/kumiko-framework/engine returns the entity definition a mounted feature declares under that name, or undefined. It reads the raw feature definitions, not the merged registry entity map. Internal duplicates in logging, jobs, metrics, event consumers, transactions, dispatch and the role projection now share helpers; messages and behavior are unchanged."
+  },
+  {
     "version": "0.407.0",
     "type": "fix",
     "title": "A failing search index holds only its own tenant",
