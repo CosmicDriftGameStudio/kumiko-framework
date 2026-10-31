@@ -2522,7 +2522,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "contact:action.mark-done": "Marquer comme traitée",
   "contact:action.reply": "Répondre",
   "contact:detail.attachments": "Pièces jointes",
-  "contact:detail.section.message": "Message",
+  "contact:detail.section.message": "Demande",
   "contact:detail.section.replies": "Réponses",
   "contact:detail.section.files": "Fichiers",
   "contact:detail.section.sender": "Expéditeur",

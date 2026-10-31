@@ -2438,7 +2438,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "contact:action.mark-done": "Mark as done",
   "contact:action.reply": "Reply",
   "contact:detail.attachments": "Attachments",
-  "contact:detail.section.message": "Message",
+  "contact:detail.section.message": "Request",
   "contact:detail.section.replies": "Replies",
   "contact:detail.section.files": "Files",
   "contact:detail.section.sender": "Sender",

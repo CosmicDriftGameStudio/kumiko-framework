@@ -2501,7 +2501,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "contact:action.mark-done": "Segna come evasa",
   "contact:action.reply": "Rispondi",
   "contact:detail.attachments": "Allegati",
-  "contact:detail.section.message": "Messaggio",
+  "contact:detail.section.message": "Richiesta",
   "contact:detail.section.replies": "Risposte",
   "contact:detail.section.files": "File",
   "contact:detail.section.sender": "Mittente",

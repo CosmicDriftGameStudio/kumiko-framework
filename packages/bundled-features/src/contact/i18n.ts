@@ -107,7 +107,7 @@ export function createContactI18n(): Readonly<Record<string, LocalizedString>> {
     "contact:action.mark-done": { en: "Mark as done", de: "Als erledigt markieren" },
     "contact:action.reply": { en: "Reply", de: "Antworten" },
     "contact:detail.attachments": { en: "Attachments", de: "Anhänge" },
-    "contact:detail.section.message": { en: "Message", de: "Nachricht" },
+    "contact:detail.section.message": { en: "Request", de: "Anliegen" },
     "contact:detail.section.replies": { en: "Replies", de: "Antworten" },
     "contact:detail.section.files": { en: "Files", de: "Dateien" },
     "contact:detail.section.sender": { en: "Sender", de: "Absender" },
