@@ -73,6 +73,7 @@
 | `session-revocation` | createSessionCallbacks + sessionChecker — server-side session revocation via JWT jti. | `examples/session-revocation.md` |
 | `state-machine` | Enforced entity state transitions. No more illegal state changes. | `examples/state-machine.md` |
 | `tags-basic` | Tag and group any entity without changing it — host-agnostic, event-sourced. | `examples/tags-basic.md` |
+| `tenant-inactivity` | tenant-inactivity: warn abandoned free accounts, then file the regular tenant-lifecycle deletion request; tier-based exemption and a keep-account link. | `examples/tenant-inactivity.md` |
 | `tenant-isolation` | Multi-tenant separation. Your data stays your data. | `examples/tenant-isolation.md` |
 | `tenant-settings` | Tenant-Settings: per-tenant Currency + Locale defaults, auto-filled into a money field / locale field on create instead of a hard-coded literal. | `examples/tenant-settings.md` |
 | `tier-admin` | Manually grant a tier to a tenant without a billing purchase — the SystemAdmin operator flow and how the resolver cache stays in sync. | `examples/tier-admin.md` |

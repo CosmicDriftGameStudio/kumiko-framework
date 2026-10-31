@@ -83,6 +83,7 @@ import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTemplateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
 import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover";
+import { createTenantInactivityFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import { createTierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -276,6 +277,11 @@ export const APP_FEATURES = [
   createComplianceProfilesFeature(),
   createComplianceProfilesOpsFeature(),
   createTenantLifecycleFeature(),
+  // Opt-in: free accounts without activity get warning mails, then a regular deletion request.
+  createTenantInactivityFeature({
+    rule: { after: { months: 12 }, warnings: [{ days: 30 }, { days: 7 }] },
+    keepAccountUrl: "https://app.example.test/keep-account",
+  }),
   // tenant-handover: try-before-signup ownership handover (kumiko-
   // framework#3035). No entities/mount-options of its own — it reads
   // OTHER entities' `transferable`/`parentRef` declarations off the

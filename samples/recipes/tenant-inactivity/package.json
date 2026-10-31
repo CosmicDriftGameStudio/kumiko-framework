@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-tenant-inactivity",
+  "description": "tenant-inactivity: warn abandoned free accounts, then file the regular tenant-lifecycle deletion request; tier-based exemption and a keep-account link.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

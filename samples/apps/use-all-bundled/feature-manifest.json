@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 90,
+  "featureCount": 91,
   "features": [
     {
       "name": "account-security",
@@ -3165,6 +3165,37 @@
       }
     },
     {
+      "name": "tenant-inactivity",
+      "description": "Deletes abandoned free accounts: warns the tenant owners before the deadline, then files the regular tenant-lifecycle deletion request. Activity or the keep-account link restarts the period; tiers without a rule are exempt.",
+      "toggleableDefault": null,
+      "requires": [
+        "sessions",
+        "tenant",
+        "tenant-lifecycle",
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "tenant-inactivity-state"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tenant-inactivity:write:keep-account"
+      ],
+      "uiHints": {
+        "displayLabel": "Tenant Inactivity · Deletion",
+        "category": "compliance",
+        "recommended": false
+      }
+    },
+    {
       "name": "tenant-lifecycle",
       "description": "Tenant-destroy lifecycle: request/cancel destruction with compliance-profile grace, auth 410 gate for teardown states, cron trigger after grace, and staged destroy runner (extension fan-out, subject-key erase, tenant tombstone).",
       "toggleableDefault": null,
@@ -3173,7 +3204,8 @@
         "compliance-profiles"
       ],
       "optionalRequires": [
-        "sessions"
+        "sessions",
+        "data-retention"
       ],
       "configReads": [],
       "exposesApis": [
@@ -3183,6 +3215,18 @@
         "compliance.forTenant"
       ],
       "extensionsUsed": [
+        {
+          "extensionName": "tenantDestructionHold",
+          "entityName": "tenant-lifecycle"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "tenant-compliance-profile"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "tenant-retention-override"
+        },
         {
           "extensionName": "tenantLifecycleStatus",
           "entityName": "tenant-lifecycle"

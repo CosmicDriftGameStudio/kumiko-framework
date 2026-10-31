@@ -171,6 +171,13 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "Ihr angeforderter Datenexport für {app} ist fertig. Laden Sie ihn über den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
+  "inactivity.mail.warning.after":
+    "Auch nach dem Löschantrag können Sie die Löschung bis zum Ende der Wartefrist in den Kontoeinstellungen abbrechen.",
+  "inactivity.mail.warning.intro":
+    "in Ihrem {app}-Konto {account} hat sich lange niemand angemeldet. Bleibt das so, beantragen wir am {when} die Löschung des Kontos mit allen Daten.",
+  "inactivity.mail.warning.keep":
+    "Wenn Sie das Konto behalten möchten, melden Sie sich an oder klicken Sie auf den Button. Dann beginnt die Frist neu.",
+  "inactivity.mail.warning.subject": "{app}: Löschantrag für Ihr Konto {account} am {when}",
   "config.settings.audience.user": "Gilt nur für Sie.",
   "config.settings.extensionSelectorHint":
     "Wählen Sie einen Anbieter. Seine Einstellungen erscheinen darunter und werden mit ihm gespeichert.",

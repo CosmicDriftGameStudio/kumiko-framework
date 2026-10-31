@@ -158,6 +158,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant"`; requires `config`; config without default `smtp-host`, `smtp-pass`
 - `tenant-handover`: Try-before-signup ownership handover: claims the rows of a declared-transferable entity graph (root plus its parentRef-linked children) from an anonymous/public tenant into the caller's own tenant, legitimized by a row-bound grant the anonymous flow minted.
   `import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover"`
+- `tenant-inactivity`: Deletes abandoned free accounts: warns the tenant owners before the deadline, then files the regular tenant-lifecycle deletion request.
+  `import { createTenantInactivityFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity"`; requires `sessions`, `tenant`, `tenant-lifecycle`, `delivery`
 - `tenant-lifecycle`: Tenant-destroy lifecycle: request/cancel destruction with compliance-profile grace, auth 410 gate for teardown states, cron trigger after grace, and staged destroy runner (extension fan-out, subject-key erase, tenant tombstone).
   `import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle"`; requires `tenant`, `compliance-profiles`
 - `tenant-settings`: Per-tenant Currency + Locale defaults, exposed as two config keys (tenant-settings:config:currency, tenant-settings:config:locale) that surface in the self-populating Settings-Hub via `mask`.

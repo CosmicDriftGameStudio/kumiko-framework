@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AUTH_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates";
 import { UNSUBSCRIBE_PAGE_EN } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { INACTIVITY_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity/email-templates";
 import { GDPR_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/email-templates";
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -110,6 +111,7 @@ export async function harvestEnglish(): Promise<EnHarvest> {
   });
   sources.push({ origin: "mail:auth", entries: Object.entries(AUTH_MAIL_EN) });
   sources.push({ origin: "mail:gdpr", entries: Object.entries(GDPR_MAIL_EN) });
+  sources.push({ origin: "mail:inactivity", entries: Object.entries(INACTIVITY_MAIL_EN) });
   sources.push({ origin: "mail:chrome", entries: Object.entries(MAIL_CHROME_EN) });
   sources.push({ origin: "mail:unsubscribe", entries: Object.entries(UNSUBSCRIBE_PAGE_EN) });
 

@@ -725,6 +725,14 @@ Try-before-signup ownership handover: claims the rows of a declared-transferable
 
 Category: identity
 
+## tenant-inactivity
+
+Deletes abandoned free accounts: warns the tenant owners before the deadline, then files the regular tenant-lifecycle deletion request. Activity or the keep-account link restarts the period; tiers without a rule are exempt.
+
+Category: compliance
+
+Requires: `sessions`, `tenant`, `tenant-lifecycle`, `delivery`
+
 ## tenant-lifecycle
 
 Tenant-destroy lifecycle: request/cancel destruction with compliance-profile grace, auth 410 gate for teardown states, cron trigger after grace, and staged destroy runner (extension fan-out, subject-key erase, tenant tombstone).
@@ -733,7 +741,7 @@ Category: compliance
 
 Requires: `tenant`, `compliance-profiles`
 
-Optional requires: `sessions`
+Optional requires: `sessions`, `data-retention`
 
 Exposes APIs: `tenantLifecycle.runDestroySweep`
 

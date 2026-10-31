@@ -653,6 +653,15 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "l'export de données que vous avez demandé pour {app} est prêt. Téléchargez-le avec le lien ci-dessous :",
   "gdpr.mail.exportReady.subject": "{app} — Votre export de données est prêt",
   "gdpr.mail.greeting": "Bonjour,",
+  "inactivity.mail.warning.after":
+    "Même après la demande de suppression, vous pouvez l'annuler dans les paramètres du compte jusqu'à la fin du délai d'attente.",
+  "inactivity.mail.warning.button": "Conserver le compte",
+  "inactivity.mail.warning.intro":
+    "personne ne s'est connecté depuis longtemps à votre compte {account} sur {app}. Si cela ne change pas, nous demanderons le {when} la suppression du compte et de toutes ses données.",
+  "inactivity.mail.warning.keep":
+    "Pour conserver le compte, connectez-vous ou cliquez sur le bouton. Le délai repart alors de zéro.",
+  "inactivity.mail.warning.subject":
+    "{app} : demande de suppression de votre compte {account} le {when}",
   "jobs.detail.field.duration": "Durée (ms)",
   "jobs.detail.field.error": "Erreur",
   "jobs.detail.field.finished": "Terminé",

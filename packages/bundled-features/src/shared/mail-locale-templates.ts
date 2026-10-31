@@ -11,6 +11,8 @@ type MailLocaleTemplateConfig<Kind extends string> = {
   readonly notificationTypes: Readonly<Record<Kind, string>>;
   readonly subjectKey: (kind: Kind) => string;
   readonly bodyFor: (kind: Kind, locale: string) => string;
+  // Subject placeholder -> template variable; defaults to the app name only.
+  readonly subjectSlots?: (kind: Kind) => Readonly<Record<string, string>>;
 };
 
 export function createMailLocaleTemplates<Kind extends string>(
@@ -51,7 +53,11 @@ export function createMailLocaleTemplates<Kind extends string>(
           {
             body: config.bodyFor(kind, locale),
             meta: {
-              subject: mailT(locale, kindSubjectKey, { app: "{{appName}}" }),
+              subject: mailT(
+                locale,
+                kindSubjectKey,
+                config.subjectSlots?.(kind) ?? { app: "{{appName}}" },
+              ),
               category: "transactional" as const,
             },
           },

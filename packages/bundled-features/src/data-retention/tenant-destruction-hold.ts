@@ -111,6 +111,7 @@ async function collectHeldRowFileRefIds(
   into: Set<string>,
 ): Promise<void> {
   const plan = planFileFields(held.entity.fields);
+  // skip: an entity without file fields cannot point at a fileRef
   if (plan.singleFields.length === 0 && plan.multiFields.length === 0) return;
   let cursor: string | undefined;
   for (;;) {
@@ -122,6 +123,7 @@ async function collectHeldRowFileRefIds(
       limit: ANONYMIZE_PAGE_SIZE,
       orderBy: { col: "id" },
     });
+    // skip: the cursor walked past the last held row
     if (rows.length === 0) return;
     for (const row of rows) {
       for (const id of await collectFileRefIds(

@@ -9,9 +9,11 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
 import { cleanupJob } from "./handlers/cleanup.job.ts";
 import { createDetailQuery } from "./handlers/detail.query.ts";
+import { registerLastActivityProbe } from "./handlers/last-activity-probe.route.ts";
 import { createListQuery } from "./handlers/list.query.ts";
 import { mineQuery } from "./handlers/mine.query.ts";
 import { revokeWrite } from "./handlers/revoke.write.ts";
@@ -57,6 +59,11 @@ export type SessionsFeatureOptions = {
   // IP/user-agent of every session in the tenant. A preset name, not a role array, because
   // dedupeOptions must stay primitive.
   readonly adminAccess?: "admin" | "systemAdmin";
+  // Real time unless a test injects a manual clock; makes session times deterministic.
+  readonly clock?: Clock;
+  // Opt-in: serves GET /sessions/last-activity to a sibling app presenting this secret as a
+  // Bearer token. Answers the newest session activity across every tenant of this app.
+  readonly lastActivityProbeSecret?: string;
 };
 
 // The returned unbind only clears the binding while it is still this revoker, so a stack that
@@ -145,6 +152,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
           const callbacks = createSessionCallbacks({
             db: deps.db,
             ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
+            ...(options?.clock !== undefined && { clock: options.clock }),
           });
           return {
             creator: callbacks.sessionCreator,
@@ -194,6 +202,9 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
             ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           ),
       });
+
+      const probeSecret = options?.lastActivityProbeSecret;
+      if (probeSecret !== undefined) registerLastActivityProbe(r, probeSecret);
 
       // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
       // the supported cross-feature path: entity-keyed, not prefixed by the
@@ -259,6 +270,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
       return { handlers, queries, bindAutoRevokeOnPasswordChange };
     },
-    { dedupeOptions: options ?? {} },
+    // A clock object is not a comparable dedupe option; a stack that injects one never dedupes.
+    options?.clock === undefined ? { dedupeOptions: options ?? {} } : undefined,
   );
 }
