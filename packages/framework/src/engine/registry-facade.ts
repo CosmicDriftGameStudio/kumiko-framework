@@ -50,6 +50,11 @@ import type {
 import { filterByPhase, filterOwned } from "./registry-state.ts";
 import type { FeatureDefinition, Registry } from "./types/index.ts";
 
+function isFeatureSystemScoped(state: RegistryState, featureName: string | undefined): boolean {
+  if (!featureName) return false;
+  return state.featureMap.get(featureName)?.systemScope ?? false;
+}
+
 // Builds the public Registry surface (64 getters) bound to a specific
 // RegistryState instance — pure move-diff from createRegistry's former
 // return-object literal, only the closure-captured variable changed
@@ -220,15 +225,11 @@ export function buildRegistryFacade(state: RegistryState): Registry {
     },
 
     isHandlerSystemScoped(qualifiedHandler: string): boolean {
-      const featureName = state.handlerFeatureMap.get(qualifiedHandler);
-      if (!featureName) return false;
-      return state.featureMap.get(featureName)?.systemScope ?? false;
+      return isFeatureSystemScoped(state, state.handlerFeatureMap.get(qualifiedHandler));
     },
 
     isJobSystemScoped(qualifiedJobName: string): boolean {
-      const featureName = state.jobFeatureMap.get(qualifiedJobName);
-      if (!featureName) return false;
-      return state.featureMap.get(featureName)?.systemScope ?? false;
+      return isFeatureSystemScoped(state, state.jobFeatureMap.get(qualifiedJobName));
     },
 
     getHandlerFeature(qualifiedHandler: string): string | undefined {

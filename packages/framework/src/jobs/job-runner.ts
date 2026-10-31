@@ -123,6 +123,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // an expected "Connection is closed." Downgrading to debug once stopping
   // is true keeps those out of error-rate alerts without losing them.
   let stopping = false;
+  const logRedisConnectionError = (label: string, err: { readonly message: string }): void => {
+    const log = stopping ? errorLogger.debug : errorLogger.error;
+    log(`${label} redis connection error`, { error: err.message });
+  };
 
   // Default for perTenant fan-out when the caller didn't supply
   // options.getActiveTenantIds: if the tenant feature is mounted (its
@@ -232,10 +236,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // Without a listener, a post-close 'error' (e.g. a teardown-race
     // "Connection is closed") is unhandled and crashes the process — in
     // bun:test it gets attributed to whichever test happens to run next.
-    lockRedis.on("error", (err) => {
-      const log = stopping ? errorLogger.debug : errorLogger.error;
-      log("lock redis connection error", { error: err.message });
-    });
+    lockRedis.on("error", (err) => logRedisConnectionError("lock", err));
     const lockScope = consumerLane ?? "enqueue";
     // Scoped by queueNamePrefix like the queues themselves, so runners
     // isolated by prefix on a shared Redis don't contend for the same lock.
@@ -272,10 +273,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // Same unhandled-'error'-crash hazard as lockRedis above, just via
   // BullMQ's internal ioredis client.
   for (const queue of Object.values(queues)) {
-    queue.on("error", (err) => {
-      const log = stopping ? errorLogger.debug : errorLogger.error;
-      log("queue redis connection error", { error: err.message });
-    });
+    queue.on("error", (err) => logRedisConnectionError("queue", err));
   }
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
@@ -509,10 +507,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           autorun: false,
         },
       );
-      worker.on("error", (err) => {
-        const log = stopping ? errorLogger.debug : errorLogger.error;
-        log("worker redis connection error", { error: err.message });
-      });
+      worker.on("error", (err) => logRedisConnectionError("worker", err));
       // A caller that calls stop() right after start() otherwise races the
       // still-settling blocking connection: it rejects in-flight commands
       // via ioredis's flushQueue() during close(), which isn't a listenable

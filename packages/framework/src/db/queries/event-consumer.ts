@@ -17,6 +17,7 @@ export async function selectSnapshotXmin(db: AnyDb): Promise<string> {
   return xmin;
 }
 
+// guard:dup-ok symmetric twin of selectSnapshotXmin; a shared helper would only add indirection
 export async function selectSnapshotXmax(db: AnyDb): Promise<string> {
   const rows = await asRawClient(db).unsafe<{ xmax: string }>(
     `SELECT pg_snapshot_xmax(pg_current_snapshot())::text AS xmax`,
@@ -166,16 +167,29 @@ export async function selectProvablyIdleConsumerPairs(
   return rows.map((r) => ({ name: r.name, instanceId: r.instance_id }));
 }
 
+// Raw because the callers need row locks (FOR UPDATE [SKIP LOCKED]) or RETURNING *; the SQL is
+// always a fixed literal with name/instanceId bound as $1/$2, never interpolated.
+async function firstConsumerRow(
+  db: AnyDb,
+  sql: string,
+  name: string,
+  instanceId: string,
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(sql, [name, instanceId]);
+  return rows[0];
+}
+
 export async function selectConsumerForUpdateSkipLocked(
   db: AnyDb,
   name: string,
   instanceId: string,
 ): Promise<Record<string, unknown> | undefined> {
-  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
+  return firstConsumerRow(
+    db,
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE SKIP LOCKED`,
-    [name, instanceId],
+    name,
+    instanceId,
   );
-  return rows[0];
 }
 
 export async function markConsumerProcessing(
@@ -344,11 +358,12 @@ export async function selectConsumerForUpdate(
   name: string,
   instanceId: string,
 ): Promise<Record<string, unknown> | undefined> {
-  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
+  return firstConsumerRow(
+    db,
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE`,
-    [name, instanceId],
+    name,
+    instanceId,
   );
-  return rows[0];
 }
 
 export async function updateConsumerRebuildCursor(
@@ -396,7 +411,8 @@ export async function rearmDeadConsumer(
   name: string,
   instanceId: string,
 ): Promise<Record<string, unknown> | undefined> {
-  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
+  return firstConsumerRow(
+    db,
     `UPDATE "kumiko_event_consumers" SET
        "status" = 'idle',
        "attempts" = 0,
@@ -405,9 +421,9 @@ export async function rearmDeadConsumer(
        "updated_at" = now()
      WHERE "name" = $1 AND "instance_id" = $2
      RETURNING *`,
-    [name, instanceId],
+    name,
+    instanceId,
   );
-  return rows[0];
 }
 
 // skipPoisonEvent's pending-gap branch: the poison is a pending id below the

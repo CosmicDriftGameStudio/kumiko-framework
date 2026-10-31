@@ -155,6 +155,21 @@ type DispatcherInternals = {
 
 const dispatcherInternals = new WeakMap<Dispatcher, DispatcherInternals>();
 
+function originAwareInternalsOrThrow(
+  internals: DispatcherInternals | undefined,
+  method: "write" | "queryAs",
+  qn: string,
+): DispatcherInternals {
+  if (!internals) {
+    throw new InternalError({
+      message:
+        `JobContext.${method}("${qn}") carries a gated origin but this dispatcher has no ` +
+        "registered origin-aware internals — refusing to fall open to the ungated path.",
+    });
+  }
+  return internals;
+}
+
 // Adapts Dispatcher's (type, payload, user) call shape to DispatchWriteRef's
 // (user, qn, payload) — JobRunner.attachDispatcher needs the latter.
 export function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
@@ -162,27 +177,24 @@ export function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
   return {
     write: (user, qn, payload, inheritedOrigin) => {
       if (inheritedOrigin && isPersonalDataGated(inheritedOrigin)) {
-        if (!internals) {
-          throw new InternalError({
-            message:
-              `JobContext.write("${qn}") carries a gated origin but this dispatcher has no ` +
-              "registered origin-aware internals — refusing to fall open to the ungated path.",
-          });
-        }
-        return internals.writeWithOrigin(qn, payload, user, inheritedOrigin);
+        return originAwareInternalsOrThrow(internals, "write", qn).writeWithOrigin(
+          qn,
+          payload,
+          user,
+          inheritedOrigin,
+        );
       }
       return dispatcher.write(qn, payload, user);
     },
+    // guard:dup-ok query twin of write; the gate is shared via originAwareInternalsOrThrow, the return types differ
     queryAs: (user, qn, payload, inheritedOrigin) => {
       if (inheritedOrigin && isPersonalDataGated(inheritedOrigin)) {
-        if (!internals) {
-          throw new InternalError({
-            message:
-              `JobContext.queryAs("${qn}") carries a gated origin but this dispatcher has no ` +
-              "registered origin-aware internals — refusing to fall open to the ungated path.",
-          });
-        }
-        return internals.queryWithOrigin(qn, payload, user, inheritedOrigin);
+        return originAwareInternalsOrThrow(internals, "queryAs", qn).queryWithOrigin(
+          qn,
+          payload,
+          user,
+          inheritedOrigin,
+        );
       }
       return dispatcher.query(qn, payload, user);
     },

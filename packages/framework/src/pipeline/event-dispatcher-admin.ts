@@ -146,19 +146,34 @@ async function applyConsumerStatusTransition(
   return normalizeConsumerState(updated);
 }
 
+const RESTART_WRONG_STATUS_HINT =
+  'Restart only applies to dead consumers; use "enable" for a disabled one.';
+const ENABLE_WRONG_STATUS_HINT =
+  'Enable only flips disabled → idle; use "restart" for a dead consumer.';
+
+async function returnConsumerToIdleFrom(
+  db: DbRunner,
+  name: string,
+  instanceId: string,
+  requiredStatus: "dead" | "disabled",
+  wrongStatusHint: string,
+): Promise<ConsumerRecoveryState> {
+  const before = await requireConsumerRow(db, name, instanceId);
+  if (before.status !== requiredStatus) {
+    throw new ConsumerTransitionError(
+      "wrong-status",
+      `Consumer "${name}" (instance_id="${instanceId}") is not ${requiredStatus} (status="${before.status}"). ${wrongStatusHint}`,
+    );
+  }
+  return applyConsumerStatusTransition(db, name, instanceId, "idle");
+}
+
 export async function restartConsumer(
   db: DbRunner,
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name, instanceId);
-  if (before.status !== "dead") {
-    throw new ConsumerTransitionError(
-      "wrong-status",
-      `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
-    );
-  }
-  return applyConsumerStatusTransition(db, name, instanceId, "idle");
+  return returnConsumerToIdleFrom(db, name, instanceId, "dead", RESTART_WRONG_STATUS_HINT);
 }
 
 export async function disableConsumer(
@@ -175,14 +190,7 @@ export async function enableConsumer(
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name, instanceId);
-  if (before.status !== "disabled") {
-    throw new ConsumerTransitionError(
-      "wrong-status",
-      `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
-    );
-  }
-  return applyConsumerStatusTransition(db, name, instanceId, "idle");
+  return returnConsumerToIdleFrom(db, name, instanceId, "disabled", ENABLE_WRONG_STATUS_HINT);
 }
 
 // A pool connection opens its own transaction; inside a handler transaction the

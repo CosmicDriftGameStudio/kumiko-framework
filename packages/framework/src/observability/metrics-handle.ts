@@ -54,25 +54,19 @@ function tryBuildMetricName(featureName: string, shortName: string): string | un
 }
 
 export function createSafeMetricsHandle(meter: Meter, featureName: string): MetricsHandle {
+  const ifRegistered = (shortName: string, record: (name: string) => void): void => {
+    const name = tryBuildMetricName(featureName, shortName);
+    // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
+    if (name === undefined || !meter.definitions().has(name)) return;
+    record(name);
+  };
   return {
-    inc(shortName, labels, value) {
-      const name = tryBuildMetricName(featureName, shortName);
-      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
-      if (name === undefined || !meter.definitions().has(name)) return;
-      meter.counter(name).inc(value, labels);
-    },
-    observe(shortName, value, labels) {
-      const name = tryBuildMetricName(featureName, shortName);
-      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
-      if (name === undefined || !meter.definitions().has(name)) return;
-      meter.histogram(name).observe(value, labels);
-    },
-    set(shortName, value, labels) {
-      const name = tryBuildMetricName(featureName, shortName);
-      // skip: invalid featureName or unregistered name are the documented no-op contract of this handle
-      if (name === undefined || !meter.definitions().has(name)) return;
-      meter.gauge(name).set(value, labels);
-    },
+    inc: (shortName, labels, value) =>
+      ifRegistered(shortName, (name) => meter.counter(name).inc(value, labels)),
+    observe: (shortName, value, labels) =>
+      ifRegistered(shortName, (name) => meter.histogram(name).observe(value, labels)),
+    set: (shortName, value, labels) =>
+      ifRegistered(shortName, (name) => meter.gauge(name).set(value, labels)),
   };
 }
 

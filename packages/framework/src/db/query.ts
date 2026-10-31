@@ -1136,14 +1136,18 @@ export async function deleteManyBatched(
   return { deleted, batches };
 }
 
-export async function transaction<T>(db: AnyDb, fn: (tx: DbTx) => Promise<T>): Promise<T> {
+function beginnableClientOrThrow(db: unknown, caller: string): RawClientWithBegin {
   const raw = asRawClient(db);
   if (!hasBegin(raw)) {
     throw new InternalError({
-      message: "transaction: runner has no begin() — already inside a transaction or savepoint.",
+      message: `${caller}: runner has no begin() — already inside a transaction or savepoint.`,
     });
   }
-  return raw.begin(fn);
+  return raw;
+}
+
+export async function transaction<T>(db: AnyDb, fn: (tx: DbTx) => Promise<T>): Promise<T> {
+  return beginnableClientOrThrow(db, "transaction").begin(fn);
 }
 
 // A tx/savepoint handle has no begin(); fail closed instead of nesting silently or TypeError-ing.
@@ -1151,12 +1155,5 @@ export async function runInNewTransaction<T>(
   db: unknown,
   fn: (tx: DbRunner) => Promise<T>,
 ): Promise<T> {
-  const raw = asRawClient(db);
-  if (!hasBegin(raw)) {
-    throw new InternalError({
-      message:
-        "runInNewTransaction: runner has no begin() — already inside a transaction or savepoint.",
-    });
-  }
-  return raw.begin(fn);
+  return beginnableClientOrThrow(db, "runInNewTransaction").begin(fn);
 }
