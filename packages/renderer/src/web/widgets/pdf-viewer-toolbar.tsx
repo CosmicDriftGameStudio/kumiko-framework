@@ -27,6 +27,9 @@ export type PdfViewerToolbarProps = {
 const INPUT_CLASS =
   "h-[26px] rounded border border-input bg-transparent px-1.5 text-center text-sm text-foreground";
 
+// Bordered like the page input beside them, so the toolbar reads as controls of the document.
+const TOOL_BUTTON_CLASS = "size-7";
+
 function PageNumberInput({
   currentPage,
   onGoToPage,
@@ -126,8 +129,9 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
         />
       )}
       <Button
-        size="sm"
-        variant="ghost"
+        size="icon"
+        variant="secondary"
+        className={TOOL_BUTTON_CLASS}
         ariaLabel={t("kumiko.widget.pdf-preview.zoomOut")}
         onClick={props.onZoomOut}
       >
@@ -137,8 +141,9 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
         {Math.round(props.zoom * 100)} %
       </span>
       <Button
-        size="sm"
-        variant="ghost"
+        size="icon"
+        variant="secondary"
+        className={TOOL_BUTTON_CLASS}
         ariaLabel={t("kumiko.widget.pdf-preview.zoomIn")}
         onClick={props.onZoomIn}
       >
@@ -146,8 +151,9 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
       </Button>
       {props.hideSearch !== true && (
         <Button
-          size="sm"
-          variant="ghost"
+          size="icon"
+          variant="secondary"
+          className={TOOL_BUTTON_CLASS}
           pressed={props.search.open}
           ariaLabel={t("kumiko.widget.pdf-preview.search")}
           onClick={props.onToggleSearch}

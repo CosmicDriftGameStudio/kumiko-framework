@@ -60,6 +60,13 @@ describe("StepList", () => {
     expect(within(row).getByRole("img").getAttribute("aria-label")).toBe("Waiting for: Auftrag");
   });
 
+  test("a tag too long for the column is cut and keeps its full text as tooltip", () => {
+    render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
+    const tag = within(screen.getByTestId("step-reply")).getByText("Waiting for: Auftrag");
+    expect(tag.className).toContain("truncate");
+    expect(tag.closest("[title]")?.getAttribute("title")).toBe("Waiting for: Auftrag");
+  });
+
   test("rejected step is struck through and muted", () => {
     render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
     const title = screen.getByTestId("step-old-title");

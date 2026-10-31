@@ -46,7 +46,7 @@ export function StatusBadge({
     <span
       data-testid={testId}
       className={cn(
-        "inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium",
+        "inline-flex h-5 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium",
         TONE_PILL[tone],
         className,
       )}

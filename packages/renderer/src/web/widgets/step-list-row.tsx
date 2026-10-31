@@ -138,6 +138,23 @@ export function StepActionButton({ action }: { readonly action: StepAction }): R
   );
 }
 
+// A long reason ("Wartet auf: Whg. 3, Stellplatz 7, …") is cut at the column edge instead of running out of it.
+function StepTagBadge({
+  tone,
+  label,
+}: {
+  readonly tone: StatusBadgeTone;
+  readonly label: string;
+}): ReactNode {
+  return (
+    <span className="flex min-w-0 max-w-full" title={label}>
+      <StatusBadge tone={tone} className="min-w-0 max-w-full">
+        <span className="truncate">{label}</span>
+      </StatusBadge>
+    </span>
+  );
+}
+
 function StepTags({ step }: { readonly step: StepListItem }): ReactNode {
   const t = useTranslation();
   const tags = step.tags ?? [];
@@ -146,14 +163,13 @@ function StepTags({ step }: { readonly step: StepListItem }): ReactNode {
   return (
     <div className="flex flex-wrap gap-1.5">
       {tags.map((tag) => (
-        <StatusBadge key={tag.label} tone={tagTone(tag.tone)}>
-          {tag.label}
-        </StatusBadge>
+        <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} />
       ))}
       {waiting && (
-        <StatusBadge tone="muted">
-          {t("kumiko.widget.step-list.waitingFor", { reason: step.lockedReason ?? "" })}
-        </StatusBadge>
+        <StepTagBadge
+          tone="muted"
+          label={t("kumiko.widget.step-list.waitingFor", { reason: step.lockedReason ?? "" })}
+        />
       )}
     </div>
   );
