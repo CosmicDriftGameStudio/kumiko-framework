@@ -220,6 +220,7 @@ export function sanitizeReasonForLog(reason: string): string {
 
 // Cross-tenant by design: the due-user and membership reads on the given runner and raw hook
 // statements must see every tenant, whatever RLS scope the caller (job, operator handler) runs in.
+// guard:dup-ok the single runInSystemRowLevelSecurityScope call with this entry point's own reason
 export function runForgetCleanup(args: RunForgetCleanupArgs): Promise<RunForgetCleanupResult> {
   return runInSystemRowLevelSecurityScope(
     "forget cleanup anonymizes users across all tenants",
@@ -427,6 +428,7 @@ async function processUser(args: {
         resolveDeleteBytes: resolveForgetFileBytesDeleter(buildStorageProvider),
         missingStorage: {
           mode: "skip",
+          // guard:dup-ok a one-message log callback; only the shape matches other log callbacks
           warn: (tenantId) =>
             // biome-ignore lint/suspicious/noConsole: misconfiguration visibility, same as the fileRef delete hook
             console.warn(

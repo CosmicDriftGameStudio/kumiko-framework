@@ -106,11 +106,14 @@ function transactionHandleProxy<T extends object>(handle: T, state: TransactionS
       const value = Reflect.get(target, prop, target);
       if (typeof value !== "function") return value;
       if (UNSUPPORTED_ON_ENFORCED_HANDLE.has(prop)) {
-        return () => {
-          throw new InternalError({
-            message: `row-level security: ${String(prop)} is not supported on an enforced transaction handle`,
-          });
-        };
+        return (
+          // guard:dup-ok a throw-only stub; the message is its whole content
+          () => {
+            throw new InternalError({
+              message: `row-level security: ${String(prop)} is not supported on an enforced transaction handle`,
+            });
+          }
+        );
       }
       if (prop === "unsafe" || prop === "file") {
         return (...args: unknown[]) =>

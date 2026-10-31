@@ -79,6 +79,7 @@ function monthIndex(ym: string): number {
   return Number(y) * 12 + (Number(m) - 1);
 }
 
+// guard:dup-ok ledger month key YYYY-MM; look-alike month-index helpers return other formats
 function indexToMonth(index: number): string {
   const year = Math.floor(index / 12);
   const month = (index % 12) + 1;

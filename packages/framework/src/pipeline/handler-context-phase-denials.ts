@@ -30,12 +30,14 @@ export function dropOutsideTransaction(handlerContext: HandlerContext): void {
   if (handlerContext.db) attachOutsideTransaction(handlerContext.db, undefined);
 }
 
+// guard:dup-ok error factory; only the message differs from its siblings, InternalError is the shared constructor
 function beforeTransactionDenied(surface: string): InternalError {
   return new InternalError({
     message: `ctx.${surface} is not available before the transaction; move it into the handler`,
   });
 }
 
+// guard:dup-ok error factory; only the message differs from its siblings, InternalError is the shared constructor
 export function withoutTransactionDenied(surface: string): InternalError {
   return new InternalError({
     message: `ctx.${surface} is not available without an open transaction; run the write through ctx.dispatch.write so it gets its own transaction`,

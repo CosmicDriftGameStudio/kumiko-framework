@@ -295,6 +295,7 @@ function isMailingOutcome(outcome: BootstrapInviteOutcome): boolean {
 }
 
 // A one-shot operator process, not a tenant request: it looks up users, memberships and invitations across tenants.
+// guard:dup-ok the single runInSystemRowLevelSecurityScope call with this entry point's own reason
 export function bootstrapTenants(
   deps: BootstrapDeps,
   plan: BootstrapPlan,

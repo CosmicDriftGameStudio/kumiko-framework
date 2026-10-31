@@ -65,6 +65,7 @@ export function makeDiscardDraftWrite(policy: TemplateEditPolicy) {
     "Throws away the open draft of one template resource of the caller's tenant so the editor shows the active version again; the served version is untouched. Refused with no_draft when there is no draft. Outside the templates the app lists in tenantEditable only a SystemAdmin may use it.",
   );
 }
+// guard:dup-ok one configured createDiscardDraftHandler instance; only name, scope and description differ
 export function makeDiscardDraftSystemWrite(policy: TemplateEditPolicy) {
   return createDiscardDraftHandler(
     policy,

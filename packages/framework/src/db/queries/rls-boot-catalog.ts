@@ -56,13 +56,16 @@ export async function readTenantTablesRowLevelSecurity(
      ORDER BY c.relname COLLATE "C"`,
     [TENANT_ISOLATION_POLICY, SYSTEM_TENANT_READ_POLICY],
   );
-  return rows.map((row) => ({
-    tableName: row.relname,
-    enabled: row.relrowsecurity,
-    forced: row.relforcerowsecurity,
-    hasIsolationPolicy: row.has_isolation,
-    hasSystemReadPolicy: row.has_system_read,
-  }));
+  return rows.map(
+    // guard:dup-ok catalog row to snapshot field mapping; only the object-literal shape matches other mappers
+    (row) => ({
+      tableName: row.relname,
+      enabled: row.relrowsecurity,
+      forced: row.relforcerowsecurity,
+      hasIsolationPolicy: row.has_isolation,
+      hasSystemReadPolicy: row.has_system_read,
+    }),
+  );
 }
 
 export async function readTablesWithRowLevelSecurityEnabled(db: AnyDb): Promise<readonly string[]> {

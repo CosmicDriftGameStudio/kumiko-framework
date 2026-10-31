@@ -35,6 +35,7 @@ export type UpsertAddressOptOutInput = {
 
 type OptOutLookupRow = { readonly id: string };
 
+// guard:dup-ok fetchOne over this table's own business key; the preference lookup reads another table
 async function lookup(
   db: TenantDb,
   tenantId: TenantId,

@@ -785,6 +785,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
   };
 }
 
+// guard:dup-ok the single runInSystemRowLevelSecurityScope call with this entry point's own reason
 export function resolveAuthClaimsFn(
   ctx: DispatchContext,
   user: SessionUser,

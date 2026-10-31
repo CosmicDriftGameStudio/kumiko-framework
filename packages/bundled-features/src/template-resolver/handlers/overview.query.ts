@@ -320,6 +320,7 @@ function withUsage(
   let usedBy: OverviewUsage[] = [];
   if (draft.kind === "mail" || draft.kind === "mail-layout") {
     usedBy = collectTemplateUsage(registry, draft.slug, draft.kind, effectiveLayouts).map(
+      // guard:dup-ok usage field selection; only the object-literal shape matches other mappers
       (entry) => ({
         qualifiedName: entry.qualifiedName,
         feature: entry.feature,

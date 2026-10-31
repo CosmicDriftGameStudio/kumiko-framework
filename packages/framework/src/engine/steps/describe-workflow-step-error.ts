@@ -3,6 +3,7 @@
 // this generic text; the raw error goes to the log.
 import { unwrapWorkflowStepError } from "./workflow-step-error.ts";
 
+// guard:dup-ok one template-literal message; only the shape matches unrelated string builders
 export function describeWorkflowStepError(error: unknown): string {
   const original = unwrapWorkflowStepError(error);
   return `workflow step failed (${original instanceof Error ? original.name : "unknown error"})`;

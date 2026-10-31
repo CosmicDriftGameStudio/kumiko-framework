@@ -44,6 +44,7 @@ export type SignupHandoverProvider = {
   };
 };
 
+// guard:dup-ok type guard over this provider's own two members; only the guard shape is shared
 export function isSignupHandoverProvider(options: unknown): options is SignupHandoverProvider {
   return (
     isPlainObject(options) &&
