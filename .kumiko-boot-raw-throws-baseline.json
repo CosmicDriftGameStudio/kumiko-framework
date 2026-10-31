@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-10-29",
-  "total": 542,
+  "total": 420,
   "perFile": {
     "packages/bundled-features/src/auth-foundation/boot-checks.ts": 5,
     "packages/bundled-features/src/document-ingest-foundation/boot-checks.ts": 3,
@@ -38,8 +38,6 @@
     "packages/framework/src/engine/boot-validator/record-owned.ts": 1,
     "packages/framework/src/engine/boot-validator/related-list-table-rules.ts": 4,
     "packages/framework/src/engine/boot-validator/screens-actions.ts": 36,
-    "packages/framework/src/engine/boot-validator/screens-dashboard.ts": 67,
-    "packages/framework/src/engine/boot-validator/screens-forms.ts": 55,
     "packages/framework/src/engine/boot-validator/screens-kind-config-edit.ts": 7,
     "packages/framework/src/engine/boot-validator/screens-kind-entity-edit.ts": 3,
     "packages/framework/src/engine/boot-validator/screens-kind-entity-list.ts": 11,

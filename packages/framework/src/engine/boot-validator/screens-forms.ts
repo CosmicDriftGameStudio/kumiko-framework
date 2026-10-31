@@ -21,6 +21,7 @@ import type {
   EditLayout,
   SecretMintScreenDefinition,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { validateFormDerivations, validateFormDerivationsEnforced } from "./form-derivations.ts";
 import type { NavigateTargetLookups } from "./screens-actions.ts";
 import {
@@ -30,6 +31,8 @@ import {
   validateRedirectTarget,
   validateScreenNavTarget,
 } from "./screens-actions.ts";
+import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
+import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
 
 function assertKnownSubFields(
   where: string,
@@ -39,10 +42,11 @@ function assertKnownSubFields(
 ): void {
   for (const cell of cells ?? []) {
     if (schema[cell] === undefined) {
-      throw new Error(
-        `${where} embeddedList.${option} names "${cell}", which is not a sub-field ` +
+      throw bootRuleError(FORM_FIELD_RULES.embeddedListUnknownSubField, {
+        message:
+          `${where} embeddedList.${option} names "${cell}", which is not a sub-field ` +
           `(known: ${Object.keys(schema).sort().join(", ")}).`,
-      );
+      });
     }
   }
 }
@@ -54,10 +58,11 @@ function assertCardHiddenCellsReadOnly(
 ): void {
   for (const cell of cardHiddenCells ?? []) {
     if (readOnlyCells?.includes(cell) !== true) {
-      throw new Error(
-        `${where} embeddedList.cardHiddenCells names "${cell}", which is editable; ` +
+      throw bootRuleError(FORM_FIELD_RULES.embeddedListCardHiddenEditable, {
+        message:
+          `${where} embeddedList.cardHiddenCells names "${cell}", which is editable; ` +
           `only read-only cells (readOnlyCells) can be hidden on cards, otherwise phone users cannot fill it.`,
-      );
+      });
     }
   }
 }
@@ -83,10 +88,11 @@ export function validateEditFieldExtras(
   const listSpec = fieldSpec.embeddedList;
   if (listSpec !== undefined) {
     if (fieldDef.type !== "embedded" || fieldDef.multiple !== true) {
-      throw new Error(
-        `${where} sets embeddedList, which only applies to an embedded list ` +
+      throw bootRuleError(FORM_FIELD_RULES.embeddedListOnNonListField, {
+        message:
+          `${where} sets embeddedList, which only applies to an embedded list ` +
           `(createEmbeddedListField); the field is type "${fieldDef.type}". Remove embeddedList or point it at an embedded list field.`,
-      );
+      });
     }
     assertKnownSubFields(where, "readOnlyCells", listSpec.readOnlyCells, fieldDef.schema);
     assertKnownSubFields(where, "cardHiddenCells", listSpec.cardHiddenCells, fieldDef.schema);
@@ -97,19 +103,20 @@ export function validateEditFieldExtras(
   if (prefill === undefined) return;
   if (prefill.kind === "today") {
     if (fieldDef.type !== "date") {
-      throw new Error(
-        `${where} prefill "today" needs a date field; the field is type "${fieldDef.type}". Use a date field or a different prefill.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.prefillTodayNeedsDate, {
+        message: `${where} prefill "today" needs a date field; the field is type "${fieldDef.type}". Use a date field or a different prefill.`,
+      });
     }
     // skip: today carries no property, nothing further to check
     return;
   }
   const allowsUserId = fieldDef.type === "text" || fieldDef.type === "reference";
   if (prefill.property === "id" ? !allowsUserId : fieldDef.type !== "text") {
-    throw new Error(
-      `${where} prefill currentUser.${prefill.property} does not fit a field of type ` +
+    throw bootRuleError(FORM_FIELD_RULES.prefillCurrentUserFieldType, {
+      message:
+        `${where} prefill currentUser.${prefill.property} does not fit a field of type ` +
         `"${fieldDef.type}" (displayName and email need text; id needs text or a reference). Use a fitting field type or a different prefill property.`,
-    );
+    });
   }
 }
 
@@ -128,9 +135,9 @@ export function validateFieldFormRefs(
   for (const [prop, affix] of affixes) {
     if (affix === undefined || typeof affix === "string") continue;
     if (!formFieldNames.has(affix.field)) {
-      throw new Error(
-        `${where} ${prop} references unknown field "${affix.field}" — it must be another field of the same form.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.affixUnknownField, {
+        message: `${where} ${prop} references unknown field "${affix.field}" — it must be another field of the same form.`,
+      });
     }
   }
   const params = fieldSpec.fillAction?.params;
@@ -139,9 +146,9 @@ export function validateFieldFormRefs(
   const sourceFields = "pick" in params ? params.pick : Object.values(params.map);
   for (const sourceField of sourceFields) {
     if (!formFieldNames.has(sourceField)) {
-      throw new Error(
-        `${where} fillAction.params reads unknown field "${sourceField}" — it must be a field of the same form.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.fillActionUnknownField, {
+        message: `${where} fillAction.params reads unknown field "${sourceField}" — it must be a field of the same form.`,
+      });
     }
   }
 }
@@ -158,16 +165,18 @@ export function validateFillActionTarget(
   // skip: no fill action, or the field is unknown (reported elsewhere)
   if (fieldSpec.fillAction === undefined || fieldDef === undefined) return;
   if (!FILL_ACTION_FIELD_TYPES.includes(fieldDef.type)) {
-    throw new Error(
-      `${where} fillAction needs a ${FILL_ACTION_FIELD_TYPES.join(", ")} field, not "${fieldDef.type}". ` +
+    throw bootRuleError(FORM_FIELD_RULES.fillActionFieldType, {
+      message:
+        `${where} fillAction needs a ${FILL_ACTION_FIELD_TYPES.join(", ")} field, not "${fieldDef.type}". ` +
         `Remove fillAction or use a fitting field type.`,
-    );
+    });
   }
   if (isSensitiveOrPasswordField(fieldDef)) {
-    throw new Error(
-      `${where} fillAction targets a sensitive, writeOnly or password field — a query result is ` +
+    throw bootRuleError(FORM_FIELD_RULES.fillActionSensitiveField, {
+      message:
+        `${where} fillAction targets a sensitive, writeOnly or password field — a query result is ` +
         `never written into those. Remove fillAction.`,
-    );
+    });
   }
 }
 
@@ -192,12 +201,13 @@ export function validateNoWidgetRequiredField(
     fieldSpec.required === undefined ? entityRequired : fieldSpec.required === true;
   // skip: not required — a read-only widget-less field is fine to leave empty.
   if (!isStaticallyRequired) return;
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${fieldSpec.field}" is ` +
+  throw bootRuleError(FORM_FIELD_RULES.requiredFieldWithoutWidget, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${fieldSpec.field}" is ` +
       `type "${fieldDef.type}", which renders read-only on the auto-wired entityEdit path — a ` +
       `required field the user could never fill would block every save. Set required: false, ` +
       `move the field to a custom-component section, or drop the required constraint.`,
-  );
+  });
 }
 
 // Shared by projectionDetail and entityEdit: a tab strip needs something to
@@ -210,36 +220,41 @@ export function validateTabSections(
   sections: readonly { readonly id?: string; readonly title?: string }[],
 ): void {
   if (sections.length < 2) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but only ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.tabsTooFewSections, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but only ` +
         `${sections.length} section(s) — tabs need at least 2 sections.`,
-    );
+    });
   }
   const tabIds = new Set<string>();
   sections.forEach((section, index) => {
     if (section.title === undefined || section.title.trim().length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.tabTitleMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
           `sections[${index}] has no title — every tab needs a title.`,
-      );
+      });
     }
     if (section.id === undefined || section.id.trim().length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.tabIdMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
           `sections[${index}] ("${section.title}") has no id — every tab needs a stable id.`,
-      );
+      });
     }
     if (!isKebabSegment(section.id)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sections[${index}] ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.tabIdNotKebab, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sections[${index}] ` +
           `("${section.title}") has id "${section.id}" — must be kebab-case.`,
-      );
+      });
     }
     if (tabIds.has(section.id)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has duplicate tab id ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.tabIdDuplicate, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has duplicate tab id ` +
           `"${section.id}" (sections[${index}]). Give each tab section a unique id.`,
-      );
+      });
     }
     tabIds.add(section.id);
   });
@@ -262,10 +277,11 @@ export function validateWizardLayout(
   // required field on a hidden tab would still block their submit silently.
   if (layout.mode === "tabs") {
     if (screenType !== "entityEdit") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets mode: "tabs" — tabs are only ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.tabsUnsupportedScreenType, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets mode: "tabs" — tabs are only ` +
           `supported on projectionDetail and entityEdit. Use mode: "wizard" or "single" instead.`,
-      );
+      });
     }
     validateTabSections(featureName, screenId, screenType, layout.sections);
   }
@@ -274,35 +290,39 @@ export function validateWizardLayout(
   // "user-data-rights" check in gdpr-storage.ts.
   if (layout.draft === true) {
     if (layout.mode !== "wizard") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.draftWithoutWizard, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but ` +
           `mode is not "wizard" — draft persistence only applies to wizard layouts. Remove ` +
           `draft: true or set mode: "wizard".`,
-      );
+      });
     }
     if (!featureMap.has("form-draft")) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but the ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.draftFeatureMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but the ` +
           `bundled feature "form-draft" is not mounted — every resume would silently lose its ` +
           `values. Add createFormDraftFeature() from @cosmicdrift/kumiko-bundled-features to the app's ` +
           `feature list.`,
-      );
+      });
     }
   }
   // skip: mode omitted/"single" — no wizard constraints apply.
   if (layout.mode !== "wizard") return;
   if (layout.sections.length < 2) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but only ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.wizardTooFewSections, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but only ` +
         `${layout.sections.length} section(s) — a wizard needs at least 2 sections (one per step).`,
-    );
+    });
   }
   layout.sections.forEach((section, index) => {
     if (section.title === undefined || section.title.trim().length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardStepTitleMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "wizard" but ` +
           `sections[${index}] has no title — every wizard step needs a title.`,
-      );
+      });
     }
   });
 }
@@ -332,9 +352,9 @@ function validateWriteHandlerRegistered(
   allWriteHandlerQns: ReadonlySet<string>,
 ): void {
   if (!handler || typeof handler !== "string") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler. Set handler to a non-empty handler name.`,
-    );
+    throw bootRuleError(FORM_FIELD_RULES.handlerEmpty, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler. Set handler to a non-empty handler name.`,
+    });
   }
   assertWriteHandlerRegistered(
     featureName,
@@ -367,19 +387,21 @@ function validateFormFieldsMap(
 ): Set<string> {
   const fieldNames = new Set(Object.keys(fields));
   if (fieldNames.size === 0 && !allowEmpty) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty fields map — ` +
+    throw bootRuleError(FORM_FIELD_RULES.fieldsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty fields map — ` +
         `declare at least one field.`,
-    );
+    });
   }
   for (const [fname, fdef] of Object.entries(fields)) {
     // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
     const ftype = (fdef as { type?: unknown }).type;
     if (typeof ftype !== "string" || ftype.length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fname}" has no ` +
+      throw bootRuleError(FORM_FIELD_RULES.fieldTypeMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fname}" has no ` +
           `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
-      );
+      });
     }
     if (ftype === "money") {
       validateFormMoneyCurrency(featureName, screenId, context, fname, fdef);
@@ -398,14 +420,14 @@ function validateOptionsQueryFieldRefs(
 ): void {
   for (const ref of optionsQueryFieldRefs(payload)) {
     if (ref === fieldName) {
-      throw new Error(
-        `${where} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different field of the form.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.optionsQueryPayloadSelfReference, {
+        message: `${where} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different field of the form.`,
+      });
     }
     if (!siblingFieldNames.has(ref)) {
-      throw new Error(
-        `${where} optionsQueryPayload references unknown field "${ref}" — it must be another field of the same form`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.optionsQueryPayloadUnknownField, {
+        message: `${where} optionsQueryPayload references unknown field "${ref}" — it must be another field of the same form`,
+      });
     }
   }
 }
@@ -425,26 +447,28 @@ export function validateConfigEditSecretField(
 ): void {
   const where = `[Feature ${featureName}] Screen "${screen.id}" (configEdit) field "${fieldName}"`;
   if (screen.configKeys[fieldName] !== undefined) {
-    throw new Error(`${where} is mapped in both configKeys and secretKeys — keep one.`);
+    throw bootRuleError(FORM_FIELD_RULES.configSecretAlsoConfigKey, {
+      message: `${where} is mapped in both configKeys and secretKeys — keep one.`,
+    });
   }
   if (screen.scope !== "tenant") {
-    throw new Error(
-      `${where} maps secret "${secretQn}" on a ${screen.scope}-scope screen — secrets are tenant-scoped.`,
-    );
+    throw bootRuleError(FORM_FIELD_RULES.configSecretScope, {
+      message: `${where} maps secret "${secretQn}" on a ${screen.scope}-scope screen — secrets are tenant-scoped.`,
+    });
   }
   const fdef = screen.fields[fieldName];
   if (fdef?.type !== "text" || !isWriteOnlyField(fdef)) {
-    throw new Error(
-      `${where} maps secret "${secretQn}" but is no writeOnly text field — a stored secret never goes back to the client.`,
-    );
+    throw bootRuleError(FORM_FIELD_RULES.configSecretFieldType, {
+      message: `${where} maps secret "${secretQn}" but is no writeOnly text field — a stored secret never goes back to the client.`,
+    });
   }
   const declared = [...featureMap.values()].some((feature) =>
     Object.values(feature.secretKeys ?? {}).some((def) => def.qualifiedName === secretQn),
   );
   if (!declared) {
-    throw new Error(
-      `${where} → secret "${secretQn}" is not declared via r.secret() in any feature.`,
-    );
+    throw bootRuleError(FORM_FIELD_RULES.configSecretUndeclared, {
+      message: `${where} → secret "${secretQn}" is not declared via r.secret() in any feature.`,
+    });
   }
 }
 
@@ -458,11 +482,12 @@ export function rejectWriteOnlyFormField(
   fdef: FieldDefinition,
 ): void {
   if (isWriteOnlyField(fdef)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fieldName}" declares writeOnly — ` +
+    throw bootRuleError(FORM_FIELD_RULES.writeOnlyField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fieldName}" declares writeOnly — ` +
         `writeOnly only applies to entity fields (nothing to hide on a form that stores no value). ` +
         `Use format: "password" for a masked input.`,
-    );
+    });
   }
 }
 
@@ -484,40 +509,44 @@ export function validateFormSelectOptions(
   if (fdef.type === "select") {
     const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) select field "${fieldName}"`;
     if (fdef.conditionalOptions !== undefined) {
-      throw new Error(
-        `${where} declares conditionalOptions — ${CONDITIONAL_OPTIONS_ENTITY_ONLY}. Remove conditionalOptions from this field.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.selectConditionalOptions, {
+        message: `${where} declares conditionalOptions — ${CONDITIONAL_OPTIONS_ENTITY_ONLY}. Remove conditionalOptions from this field.`,
+      });
     }
     if (fdef.optionsQuery !== undefined) {
       if (fdef.optionsQuery.length === 0) {
-        throw new Error(`${where} has an empty optionsQuery. Set it to a query name or remove it.`);
+        throw bootRuleError(FORM_FIELD_RULES.selectOptionsQueryEmpty, {
+          message: `${where} has an empty optionsQuery. Set it to a query name or remove it.`,
+        });
       }
       if (fdef.options.length > 0) {
-        throw new Error(`${where} declares both options and optionsQuery — pick one`);
+        throw bootRuleError(FORM_FIELD_RULES.selectOptionsAndQuery, {
+          message: `${where} declares both options and optionsQuery — pick one`,
+        });
       }
       if (fdef.optionsAvailabilityQuery !== undefined) {
-        throw new Error(
-          `${where} declares both optionsQuery and optionsAvailabilityQuery — availability only applies to static options`,
-        );
+        throw bootRuleError(FORM_FIELD_RULES.selectQueryAndAvailability, {
+          message: `${where} declares both optionsQuery and optionsAvailabilityQuery — availability only applies to static options`,
+        });
       }
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsAvailabilityQuery !== undefined) {
       if (fdef.optionsAvailabilityQuery.length === 0) {
-        throw new Error(
-          `${where} has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
-        );
+        throw bootRuleError(FORM_FIELD_RULES.optionsAvailabilityQueryEmpty, {
+          message: `${where} has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
+        });
       }
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsQueryPayload !== undefined) {
-      throw new Error(
-        `${where} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.optionsQueryPayloadWithoutQuery, {
+        message: `${where} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
+      });
     }
   } else if (fdef.type === "multiSelect" && fdef.optionsAvailabilityQuery !== undefined) {
     if (fdef.optionsAvailabilityQuery.length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
-      );
+      throw bootRuleError(FORM_FIELD_RULES.optionsAvailabilityQueryEmpty, {
+        message: `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
+      });
     }
   }
 }
@@ -543,28 +572,32 @@ function validateFormMoneyCurrency(
   // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
   const currency = (fdef as { currency?: { kind?: unknown; code?: unknown } | null }).currency;
   if (currency === undefined) {
-    throw new Error(
-      `${where} must declare where its currency comes from — this screen has no entity whose ` +
+    throw bootRuleError(FORM_FIELD_RULES.moneyCurrencyMissing, {
+      message:
+        `${where} must declare where its currency comes from — this screen has no entity whose ` +
         `\`defaultCurrency\` it could inherit, so the form would seed a bare \`0\` that the ` +
         `handler's schema rejects. ${validForms}`,
-    );
+    });
   }
   if (typeof currency !== "object" || currency === null) {
-    throw new Error(`${where} has a non-object \`currency\`. ${validForms}`);
+    throw bootRuleError(FORM_FIELD_RULES.moneyCurrencyNotObject, {
+      message: `${where} has a non-object \`currency\`. ${validForms}`,
+    });
   }
   const kind = currency.kind;
   if (kind === "literal") {
     const code = currency.code;
     if (typeof code !== "string" || code.trim() === "") {
-      throw new Error(
-        `${where} declares \`currency: { kind: "literal" }\` with an empty or non-string \`code\`. ` +
+      throw bootRuleError(FORM_FIELD_RULES.moneyCurrencyLiteralCode, {
+        message:
+          `${where} declares \`currency: { kind: "literal" }\` with an empty or non-string \`code\`. ` +
           `Pass the ISO code, e.g. { kind: "literal", code: "EUR" }.`,
-      );
+      });
     }
   } else if (kind !== "tenant") {
-    throw new Error(
-      `${where} declares an unknown currency kind ${JSON.stringify(kind)}. ${validForms}`,
-    );
+    throw bootRuleError(FORM_FIELD_RULES.moneyCurrencyUnknownKind, {
+      message: `${where} declares an unknown currency kind ${JSON.stringify(kind)}. ${validForms}`,
+    });
   }
 }
 
@@ -580,16 +613,18 @@ export function validateFieldsXorGroups(
   section: FieldsOrGroupsSection & { readonly title?: string },
 ): void {
   if (section.fields !== undefined && section.groups !== undefined) {
-    throw new Error(
-      `${errorPrefix} section "${section.title}" declares both fields and groups — remove ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.sectionFieldsAndGroups, {
+      message:
+        `${errorPrefix} section "${section.title}" declares both fields and groups — remove ` +
         `\`fields: []\` when using groups.`,
-    );
+    });
   }
   if ((section.fields?.length ?? 0) === 0 && (section.groups?.length ?? 0) === 0) {
-    throw new Error(
-      `${errorPrefix} has a section "${section.title}" with zero fields — drop the section or add ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.sectionEmpty, {
+      message:
+        `${errorPrefix} has a section "${section.title}" with zero fields — drop the section or add ` +
         `fields (or groups) to it.`,
-    );
+    });
   }
 }
 
@@ -605,42 +640,47 @@ function validateFormLayoutSections(
   if (layout.sections.length === 0) {
     // skip: an input-less secretMint declares fields: {} and sections: [] together — no sections to validate.
     if (allowEmptySections) return;
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) has an empty sections list — ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.sectionsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) has an empty sections list — ` +
         `declare at least one section.`,
-    );
+    });
   }
   for (const section of layout.sections) {
     if (isExtensionEditSection(section)) {
       if (section.component?.react === undefined && section.component?.native === undefined) {
-        throw new Error(
-          `[Feature ${featureName}] Screen "${screenId}" (${context}) extension section ` +
+        throw bootRuleError(FORM_LAYOUT_RULES.extensionSectionNoComponent, {
+          message:
+            `[Feature ${featureName}] Screen "${screenId}" (${context}) extension section ` +
             `"${section.title}" has no component — declare a react/native component marker.`,
-        );
+        });
       }
       continue;
     }
     if (section.kind === "relatedList") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) relatedList section ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.relatedListSectionUnsupported, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) relatedList section ` +
           `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
           `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
-      );
+      });
     }
     if (isWriteFormEditSection(section)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) writeForm section ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.writeFormSectionUnsupported, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) writeForm section ` +
           `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
-      );
+      });
     }
     validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (${context})`, section);
     for (const fieldSpec of sectionFieldSpecs(section)) {
       const normalized = normalizeEditField(fieldSpec);
       if (!fieldNames.has(normalized.field)) {
-        throw new Error(
-          `[Feature ${featureName}] Screen "${screenId}" (${context}) layout references unknown field ` +
+        throw bootRuleError(FORM_LAYOUT_RULES.layoutUnknownField, {
+          message:
+            `[Feature ${featureName}] Screen "${screenId}" (${context}) layout references unknown field ` +
             `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
-        );
+        });
       }
       const fieldWhere = `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${normalized.field}"`;
       validateFieldFormRefs(fieldWhere, normalized, fieldNames);
@@ -665,17 +705,19 @@ function validateInlineFormNavTargets(
     screen.successFacts !== undefined &&
     screen.redirect !== undefined
   ) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successFacts — ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.successFactsWithRedirect, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successFacts — ` +
         `redirect leaves the screen, successFacts are shown on it. Use one of them.`,
-    );
+    });
   }
   if (screen.type === "actionForm" && screen.successLinks !== undefined) {
     if (screen.redirect !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successLinks — ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.successLinksWithRedirect, {
+        message:
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successLinks — ` +
           `redirect leaves the screen, successLinks keep it open. Use one of them.`,
-      );
+      });
     }
     screen.successLinks.forEach((link, index) => {
       const propertyPath = `successLinks[${index}]`;
@@ -748,11 +790,12 @@ export function validateInlineFormScreen(
     screen.load?.singleton === true &&
     screen.load.idParam !== undefined
   ) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both load.singleton: true ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.loadSingletonWithIdParam, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both load.singleton: true ` +
         `and load.idParam — singleton means the query picks the row from the caller's context, so ` +
         `there is no record id to send under idParam. Remove idParam.`,
-    );
+    });
   }
   validateInlineFormNavTargets(feature, screenId, screen, kind, lookups);
 }
@@ -793,34 +836,38 @@ export function validateSecretMintConfirm(
     false,
   );
   if (confirm.layout.mode !== undefined && confirm.layout.mode !== "single") {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.mode: ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.confirmLayoutMode, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.mode: ` +
         `"${confirm.layout.mode}" — a one-time reveal confirm step must stay a single-step form. ` +
         `Remove mode or set it to "single".`,
-    );
+    });
   }
   if (confirm.layout.draft === true) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.draft: true — ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.confirmLayoutDraft, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.draft: true — ` +
         `persisting a draft of the reveal-confirm step would leak the one-time secret into storage, ` +
         `the exact leak fw#2548 closed. Remove draft: true.`,
-    );
+    });
   }
   // skip: no carry list declared — no carried fields to cross-check against confirm.fields.
   if (confirm.carry === undefined) return;
   for (const carryField of confirm.carry) {
     if (typeof carryField !== "string" || carryField.trim() === "") {
-      throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${context}) has an empty or non-string ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.confirmCarryEntryEmpty, {
+        message:
+          `[Feature ${feature.name}] Screen "${screenId}" (${context}) has an empty or non-string ` +
           `entry in "carry". Use non-empty strings in carry.`,
-      );
+      });
     }
     if (fieldNames.has(carryField)) {
-      throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${context}) carry field "${carryField}" ` +
+      throw bootRuleError(FORM_LAYOUT_RULES.confirmCarryCollidesField, {
+        message:
+          `[Feature ${feature.name}] Screen "${screenId}" (${context}) carry field "${carryField}" ` +
           `also names a confirm.fields entry — a carried mint-payload value would silently ` +
           `overwrite the user-entered field of the same name. Rename one of them.`,
-      );
+      });
     }
   }
 }
