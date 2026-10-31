@@ -36,7 +36,7 @@ import {
 } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
-import { useInitialValuesHandoff, useNav } from "./nav.tsx";
+import { type NavApi, useInitialValuesHandoff, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -49,6 +49,7 @@ import {
   redirectScreenTarget,
   resolveActionFormSummary,
   resolveRedirectTarget,
+  resolveSuccessItems,
   resolveSuccessLinks,
   resolveSuccessMessageParams,
   returnToWinsOverRedirect,
@@ -227,6 +228,49 @@ export function DrawerHost({
   );
 }
 
+function declaresSuccessContent(screen: ActionFormScreenDefinition): boolean {
+  return (
+    (screen.successLinks?.length ?? 0) > 0 ||
+    (screen.successFacts?.length ?? 0) > 0 ||
+    screen.successItems !== undefined
+  );
+}
+
+function buildSuccessState(
+  text: string,
+  screen: ActionFormScreenDefinition,
+  resultData: unknown,
+  context: {
+    readonly schema: FeatureSchema;
+    readonly appFeatures: readonly FeatureSchema[];
+    readonly nav: NavApi;
+    readonly translate: Translate;
+    readonly locale: string;
+  },
+): ActionFormSuccessState {
+  const { schema, appFeatures, nav, translate, locale } = context;
+  return {
+    text,
+    links: resolveSuccessLinks(
+      screen.successLinks,
+      resultData,
+      schema,
+      appFeatures,
+      nav,
+      translate,
+    ),
+    facts: resolveSuccessFacts(screen.successFacts, resultData, translate, locale),
+    items: resolveSuccessItems(
+      screen.successItems,
+      resultData,
+      schema,
+      appFeatures,
+      nav,
+      translate,
+    ),
+  };
+}
+
 // Action form body: non-CRUD form driven by a write handler. Reuses
 // RenderEdit via a synthesized EntityDefinition + EntityEditScreen
 // definition (see action-form-shim.ts for the debt doc). The form mechanics
@@ -389,27 +433,17 @@ export function ActionFormBody({
         return;
       }
       if (screen.redirect === undefined) {
-        const hasSuccessLinks =
-          (screen.successLinks?.length ?? 0) > 0 || (screen.successFacts?.length ?? 0) > 0;
         const publish = (text: string): void => {
           if (successSequence.current !== sequence) return;
-          setSuccess({
-            text,
-            links: resolveSuccessLinks(
-              screen.successLinks,
-              result.data,
+          setSuccess(
+            buildSuccessState(text, screen, result.data, {
               schema,
               appFeatures,
               nav,
-              effectiveTranslate,
-            ),
-            facts: resolveSuccessFacts(
-              screen.successFacts,
-              result.data,
-              effectiveTranslate,
+              translate: effectiveTranslate,
               locale,
-            ),
-          });
+            }),
+          );
         };
         const messageKey = screen.successMessage;
         if (messageKey !== undefined) {
@@ -418,7 +452,7 @@ export function ActionFormBody({
           void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
             .then(show)
             .catch(() => show(formatSummaryParams(values, locale)));
-        } else if (hasSuccessLinks || screen.resetOnSuccess === true) {
+        } else if (declaresSuccessContent(screen) || screen.resetOnSuccess === true) {
           publish(effectiveTranslate("kumiko.actionForm.success"));
         }
         if (screen.resetOnSuccess === true) {

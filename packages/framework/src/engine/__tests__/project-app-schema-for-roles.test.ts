@@ -184,6 +184,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
         { screen: SECRET_QN, idFrom: "id", label: "host.link.secret" },
         { screen: "list", idFrom: "id", label: "host.link.list" },
       ],
+      successItems: {
+        field: "results",
+        link: { screen: SECRET_QN, idFrom: "id", label: "host.link.secret" },
+      },
     });
     r.screen({
       id: "host-mint",
@@ -331,6 +335,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       "host.link.secret",
       "host.link.list",
     ]);
+    expect(hostLinks.successItems?.link?.label).toBe("host.link.secret");
 
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");
@@ -434,6 +439,8 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     const hostLinks = host.screens.find((s) => s.id === "host-links");
     if (hostLinks?.type !== "actionForm") throw new Error("unreachable");
     expect(hostLinks.successLinks?.map((link) => link.label)).toEqual(["host.link.list"]);
+    // the hints stay, only their link into the denied screen goes
+    expect(hostLinks.successItems).toEqual({ field: "results" });
 
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");

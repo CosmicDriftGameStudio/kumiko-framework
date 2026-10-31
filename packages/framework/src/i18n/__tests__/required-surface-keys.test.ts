@@ -194,7 +194,7 @@ describe("requiredKeysFromScreen — field texts and success links", () => {
     fillAction: { label: "Suggest", query: "shop:query:slug:suggest", field: "slug" },
   };
 
-  test("actionForm requires success link labels and the field placeholder, affix and fill labels", () => {
+  test("actionForm requires success link and item link labels and the field placeholder, affix and fill labels", () => {
     const keys = requiredKeysFromScreen("shop", {
       id: "create-shop",
       type: "actionForm",
@@ -205,10 +205,12 @@ describe("requiredKeysFromScreen — field texts and success links", () => {
         { screen: "shop-list", label: "shop:link:list" },
         { screen: "shop-edit", idFrom: "id", label: "Open shop" },
       ],
+      successItems: { field: "results", link: { screen: "shop-list", label: "shop:link:open" } },
     } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
     expect(keys).toEqual(
       expect.arrayContaining([
         "shop:link:list",
+        "shop:link:open",
         "shop:slug:hint",
         "shop:slug:prefix",
         "shop:slug:suggest",

@@ -85,6 +85,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `submit: false` | edit field | shown and validated, but not in the written payload |
 | `footerActions` | actionForm | extra footer buttons: `{ id, label, icon?, variant?, patch }` |
 | `successLinks` | actionForm | links in the success box after a submit: `{ screen, idFrom, label }[]`, exclusive with `redirect` |
+| `successItems` | actionForm | one hint per entry of a payload array after a submit: `{ field, link? }`; an entry is `{ label, ... }` and `link` reads `idFrom`/`params` from it; the hints replace the generic text, exclusive with `redirect` |
 | `resetOnSuccess` | actionForm | `true` resets the form to its initial values after a successful submit |
 | `placeholder` | edit field | i18n key for the empty-input hint of single-line text, number and textarea fields |
 | `prefix`, `suffix` | edit field | text before or after a single-line text or number input: an i18n key (literal as fallback) or `{ field }` for the live value of another form field |

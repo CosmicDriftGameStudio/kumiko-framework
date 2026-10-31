@@ -282,6 +282,7 @@ type ActionFormScreenDefinition = {
   redirect?: string | ActionFormRedirect; // Navigate to this screen ID after a successful submit: either a short ID (e.g. "item-list" — same feature, the nav-router resolves to the full path) or a fully-qualified cross-feature QN (`<feature>:screen:<id>`).
   successLinks?: ActionFormSuccessLink[]; // Links shown in the success box after a successful submit while the screen stays put.
   successFacts?: ActionFormSuccessFact[]; // Key figures from the handler's success payload, shown in the success box while the screen stays put (e.g. charged/skipped/failed of a batch run).
+  successItems?: ActionFormSuccessItems; // One hint per entry of a success-payload array, each with its own link (e.g. "this file is already in the inbox" with "Open" per uploaded file).
   resetOnSuccess?: boolean; // Reset the form to its initial values after a successful submit (prefill kept, typed values cleared).
   load?: ActionFormLoad; // Load the initial values from a query.
   cancelTarget?: string | false; // Target of the Cancel button.

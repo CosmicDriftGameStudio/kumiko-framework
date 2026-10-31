@@ -388,6 +388,7 @@ function collectActionFormKeys(
   for (const action of form.footerActions ?? []) pushKey(ctx.out, action.label);
   for (const link of form.successLinks ?? []) pushKey(ctx.out, link.label);
   for (const fact of form.successFacts ?? []) pushKey(ctx.out, fact.label);
+  pushKey(ctx.out, form.successItems?.link?.label);
   for (const fieldName of Object.keys(form.fields)) {
     pushFieldLabelOrOverrideKey(ctx, ACTION_FORM_ENTITY, fieldName, form.fieldLabels);
   }
