@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Guard boot-raw-throws removed",
+    "detail": "The temporary `boot-raw-throws` guard and `.kumiko-boot-raw-throws-baseline.json` are deleted because every boot validator throw in the framework is migrated to a rule id. The guard only scanned the framework repo, so apps need no change."
+  },
+  {
     "version": "0.408.0",
     "type": "improvement",
     "title": "No-Direct-Fs allowlists the static page writer",

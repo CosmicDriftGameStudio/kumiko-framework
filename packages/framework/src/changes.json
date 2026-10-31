@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "All boot validation errors have a rule id",
+    "detail": "The boot validators that still threw plain errors now throw `bootRuleError` with a rule from a typed table, for example `form/affix-unknown-field`, `entity/derived-field-collision`, `list-table/unknown-keys` or `config-key/bounds-min-above-max`. A violation in `BootValidationError.violations` and in `kumiko-schema validate` (text and `--json`) carries that id instead of `unclassified/<check>`, plus a `Fix:` line and `Rule: agents/boot-rules.md#<id>`. `agents/boot-rules.md` lists every rule with summary and fix. Message texts are unchanged, so tests that match on the message keep passing; a test that asserted an `unclassified/...` id now sees the real id. Collection boundaries are unchanged: a validator that stopped at its first violation still does."
+  },
+  {
     "version": "0.408.0",
     "type": "improvement",
     "title": "findEntity is exported from the engine entry point",
