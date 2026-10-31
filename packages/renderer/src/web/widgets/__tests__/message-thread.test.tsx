@@ -253,16 +253,26 @@ describe("ClampedText", () => {
   test("shows the toggle only when the content overflows, and toggles", () => {
     mockBoxHeights(400, 200);
     render(<ClampedText lines={4}>lange Nachricht</ClampedText>);
-    fireEvent.click(screen.getByText("Read the whole mail"));
+    fireEvent.click(screen.getByText("Show more"));
     expect(screen.getByText("Show less")).toBeTruthy();
     fireEvent.click(screen.getByText("Show less"));
+    expect(screen.getByText("Show more")).toBeTruthy();
+  });
+
+  test("a folded thread offers the whole mail instead of more, a plain thread keeps show more", () => {
+    mockBoxHeights(400, 200);
+    const { rerender } = render(
+      <MessageThread messages={[reply, annaLast]} clampLines={4} foldOlderTogether />,
+    );
     expect(screen.getByText("Read the whole mail")).toBeTruthy();
+    rerender(<MessageThread messages={[reply, annaLast]} clampLines={4} />);
+    expect(screen.getByText("Show more")).toBeTruthy();
   });
 
   test("short content gets no toggle", () => {
     mockBoxHeights(60, 60);
     render(<ClampedText lines={4}>kurz</ClampedText>);
-    expect(screen.queryByText("Read the whole mail")).toBeNull();
+    expect(screen.queryByText("Show more")).toBeNull();
   });
 });
 

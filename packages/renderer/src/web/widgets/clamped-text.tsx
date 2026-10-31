@@ -7,10 +7,13 @@ const DEFAULT_CLAMP_LINES = 16;
 export function ClampedText({
   children,
   lines = DEFAULT_CLAMP_LINES,
+  moreLabelKey = "kumiko.widget.message-thread.showMore",
   testId,
 }: {
   readonly children: ReactNode;
   readonly lines?: number;
+  /** Translation key of the toggle while the content is clamped. */
+  readonly moreLabelKey?: string;
   readonly testId?: string;
 }): ReactNode {
   const t = useTranslation();
@@ -55,11 +58,7 @@ export function ClampedText({
           expanded={expanded}
           onClick={() => setExpanded((current) => !current)}
         >
-          {t(
-            expanded
-              ? "kumiko.widget.message-thread.showLess"
-              : "kumiko.widget.message-thread.showMore",
-          )}
+          {t(expanded ? "kumiko.widget.message-thread.showLess" : moreLabelKey)}
         </Button>
       )}
     </div>
