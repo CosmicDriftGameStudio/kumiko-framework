@@ -33,6 +33,8 @@ export type StepListItem = {
     readonly label: string;
     readonly href?: string;
     readonly onClick?: () => void;
+    /** "below" puts an action that changes the step (e.g. taking a rejection back) under its text; default is the trailing link to what the step made. */
+    readonly placement?: "trailing" | "below";
   };
   /** Where the step comes from, e.g. "Quelle: Seite 3, § 5" (caller-localized); each renders as a link under the description. */
   readonly sources?: readonly StepSource[];
@@ -110,13 +112,31 @@ function StepLink({ link }: { readonly link: NonNullable<StepListItem["link"]> }
   const { Link, Button } = usePrimitives();
   if (link.href !== undefined) {
     return (
-      <Link href={link.href} onPress={link.onClick} className="shrink-0 text-[13px] font-medium">
+      <Link
+        href={link.href}
+        onPress={link.onClick}
+        className="shrink-0 text-[13px] font-medium underline underline-offset-2"
+      >
         {link.label}
       </Link>
     );
   }
   return (
     <Button variant="link" size="sm" onClick={link.onClick} className="shrink-0 text-[13px]">
+      {link.label}
+    </Button>
+  );
+}
+
+function StepBelowLink({ link }: { readonly link: NonNullable<StepListItem["link"]> }): ReactNode {
+  const { Button } = usePrimitives();
+  return (
+    <Button
+      variant="link"
+      size="sm"
+      onClick={link.onClick}
+      className="h-auto self-start p-0 text-[13px] font-medium"
+    >
       {link.label}
     </Button>
   );
@@ -237,9 +257,10 @@ export function StepRow({ step }: { readonly step: StepListItem }): ReactNode {
         {step.meta !== undefined && (
           <span className="text-[13px] text-muted-foreground">{step.meta}</span>
         )}
+        {step.link?.placement === "below" && <StepBelowLink link={step.link} />}
         <StepActions step={step} />
       </div>
-      {step.link !== undefined && <StepLink link={step.link} />}
+      {step.link !== undefined && step.link.placement !== "below" && <StepLink link={step.link} />}
     </li>
   );
 }

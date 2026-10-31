@@ -169,6 +169,31 @@ describe("StepList source links and highlight", () => {
     expect(within(done).getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
   });
 
+  test("a link placed below sits in the text column and fires, a trailing one stays outside", () => {
+    const onUndo = mock(() => {});
+    render(
+      <StepList
+        title="Plan"
+        steps={[
+          {
+            id: "reply",
+            title: "Antwort an Jonas Weber",
+            status: "rejected",
+            link: { label: "Ablehnung zurücknehmen", onClick: onUndo, placement: "below" },
+          },
+          ...heatingSteps.slice(0, 1),
+        ]}
+      />,
+    );
+    const below = screen.getByText("Ablehnung zurücknehmen");
+    const textColumn = screen.getByTestId("step-reply-title").parentElement;
+    expect(textColumn?.contains(below)).toBe(true);
+    fireEvent.click(below);
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    const trailing = within(screen.getByTestId("step-case")).getByText("Öffnen");
+    expect(screen.getByTestId("step-case-title").parentElement?.contains(trailing)).toBe(false);
+  });
+
   test("done step icon uses the ok token and fill stretches the list to its container", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
     const doneIcon = within(screen.getByTestId("step-case")).getByRole("img");
