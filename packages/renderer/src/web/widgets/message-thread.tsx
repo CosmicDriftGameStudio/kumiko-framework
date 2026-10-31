@@ -66,11 +66,13 @@ function OpenMessage({
   clampLines,
   remoteImages,
   showHeader,
+  moreLabelKey,
 }: {
   readonly message: ThreadMessage;
   readonly clampLines: number;
   readonly remoteImages: "blocked" | "allowed";
   readonly showHeader: boolean;
+  readonly moreLabelKey: string | undefined;
 }): ReactNode {
   const attachments = message.attachments ?? [];
   return (
@@ -94,6 +96,7 @@ function OpenMessage({
         title={message.author}
         clampLines={clampLines}
         remoteImages={remoteImages}
+        {...(moreLabelKey !== undefined && { moreLabelKey })}
       />
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -159,6 +162,9 @@ export function MessageThread({
                 clampLines={clampLines}
                 remoteImages={remoteImages}
                 showHeader={showHeaders}
+                moreLabelKey={
+                  foldOlderTogether ? "kumiko.widget.message-thread.readWholeMail" : undefined
+                }
               />
             </SenderSheet>
           </div>

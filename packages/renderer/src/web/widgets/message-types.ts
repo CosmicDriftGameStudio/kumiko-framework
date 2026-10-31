@@ -32,13 +32,13 @@ export type ThreadMessage = {
 export type MessageThreadProps = {
   /** Oldest first. All but the last start collapsed to one line (author, first line, time); click expands. */
   readonly messages: readonly ThreadMessage[];
-  /** Lines before "Ganze Mail lesen" on a long text body. Default 16. */
+  /** Lines before "Mehr anzeigen" on a long text body. Default 16. */
   readonly clampLines?: number;
   /** External images in html bodies. Default "blocked" with a "Bilder anzeigen" bar. */
   readonly remoteImages?: "blocked" | "allowed";
   /** false drops author, address and time above open messages, for hosts whose page head already names them. */
   readonly showHeaders?: boolean;
-  /** Folds all older messages into one "n earlier mails" toggle instead of a row each, for a phone. */
+  /** Phone reading: older messages fold into one "n earlier mails" toggle instead of a row each, and a clamped mail offers "read the whole mail". */
   readonly foldOlderTogether?: boolean;
   readonly testId?: string;
 };

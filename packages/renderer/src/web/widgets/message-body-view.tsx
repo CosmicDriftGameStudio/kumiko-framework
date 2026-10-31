@@ -28,15 +28,17 @@ function QuoteToggle({
 function TextBody({
   text,
   clampLines,
+  moreLabelKey,
 }: {
   readonly text: string;
   readonly clampLines: number;
+  readonly moreLabelKey: string | undefined;
 }): ReactNode {
   const [quoteOpen, setQuoteOpen] = useState(false);
   const split = useMemo(() => splitQuotedText(text), [text]);
   return (
     <div className="flex flex-col items-start gap-3 text-[15px] leading-[1.55]">
-      <ClampedText lines={clampLines}>
+      <ClampedText lines={clampLines} {...(moreLabelKey !== undefined && { moreLabelKey })}>
         <p className="m-0 whitespace-pre-wrap">{split.main}</p>
       </ClampedText>
       {split.quoted !== null && (
@@ -121,14 +123,16 @@ export function MessageBodyView({
   title,
   clampLines,
   remoteImages,
+  moreLabelKey,
 }: {
   readonly body: MessageBody;
   readonly title: string;
   readonly clampLines: number;
   readonly remoteImages: "blocked" | "allowed";
+  readonly moreLabelKey?: string;
 }): ReactNode {
   return body.kind === "text" ? (
-    <TextBody text={body.text} clampLines={clampLines} />
+    <TextBody text={body.text} clampLines={clampLines} moreLabelKey={moreLabelKey} />
   ) : (
     <HtmlBody html={body.html} title={title} remoteImages={remoteImages} />
   );
