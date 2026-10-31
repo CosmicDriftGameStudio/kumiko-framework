@@ -27,8 +27,7 @@ import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer
 import {
   acquireConsumerState,
   consumerInstanceId,
-  type DeliveryOutcome,
-  deliverEvents,
+  deliverConsumerTurn,
   emitLagFromTx,
   fetchPendingEvents,
   markProcessing,
@@ -37,7 +36,6 @@ import {
   persistConsumerOutcome,
   preRegisterConsumers,
   selectIdleConsumerKeys,
-  withholdNewEventsOfTenantsWithUnfetchedPending,
 } from "./event-dispatcher-delivery.ts";
 import {
   mergeContiguousGapRanges,
@@ -75,8 +73,9 @@ import {
 // persistent subscriptions): strictly-ordered + halt-on-poison. The one
 // exception is a batch handler holding a partition's events for a later turn
 // (BatchTurnControl): those move to pending_gaps and are re-delivered first.
-// Pending ids fill at most half a batch; when that cap leaves some out, newer
-// events of their tenants wait as pending gaps too, so per tenant the order holds.
+// For a batch consumer, pending ids fill at most half a batch; when that cap leaves
+// some out, newer events of their tenants wait as pending gaps too, so per tenant the
+// order holds. Consumers without a batch handler keep the full batch for pending ids.
 //
 // Delivery semantics: **at-least-once**. If a handler runs but the cursor
 // update fails (crash mid-pass), the same event is delivered again next pass.
@@ -110,7 +109,9 @@ export type EventConsumerBatchHandler = (
 // pending_gaps, so they survive restarts and come back first, in id order, on every later turn
 // until the handler stops holding them. The consumer stays idle with lastError set; holding
 // never counts towards maxAttempts, like errorPolicy.isTransientError, because dead-lettering
-// the shared consumer would stall every other partition. Escalating is the handler's job.
+// the shared consumer would stall every other partition. Escalating is the handler's job,
+// up to EventDispatcherOptions.maxPendingGapRanges: past it the consumer escalates like a
+// poison event so the cursor row stays bounded.
 export type BatchTurnControl = {
   readonly holdForRetry: (eventIds: readonly string[], reason: string) => void;
 };
@@ -225,6 +226,10 @@ export type EventDispatcherOptions = {
   // the consumer is healthy again).
   readonly rearmCooldownMs?: number;
   readonly maxRearmCount?: number;
+  // Upper bound on a batch consumer's pending gap ranges (held events of a failing tenant).
+  // At the bound it takes no new events and escalates like a poison event; see
+  // isIntakePausedByPendingGapLimit.
+  readonly maxPendingGapRanges?: number;
   readonly tracer?: Tracer;
   readonly meter?: Meter;
   // Identifies THIS dispatcher process in the consumer-state table. Used as
@@ -249,6 +254,7 @@ const DEFAULT_MAX_ATTEMPTS = 10;
 const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_MAX_REARM_COUNT = 3;
 const PENDING_GAPS_WARN_THRESHOLD = 1000;
+const DEFAULT_MAX_PENDING_GAP_RANGES = 2 * PENDING_GAPS_WARN_THRESHOLD;
 
 // Only these say the database socket itself is gone; timeouts, schema or pool errors do not
 // imply the dedicated LISTEN connection dropped.
@@ -282,6 +288,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
     rearmCooldownMs = DEFAULT_REARM_COOLDOWN_MS,
     maxRearmCount = DEFAULT_MAX_REARM_COUNT,
+    maxPendingGapRanges = DEFAULT_MAX_PENDING_GAP_RANGES,
   } = options;
 
   // Fail-fast on misconfigured per-instance wiring. Catching this at
@@ -645,9 +652,16 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // passed the xmax recorded with it. Only needed when ranges exist.
         const xminNow = pendingGaps.length > 0 ? await selectSnapshotXmin(tx) : "0";
         const pendingRanges = toIdRanges(pendingGaps);
-        const events = await fetchPendingEvents(tx, oldCursor, batchSize, pendingRanges);
+        const pendingLimit = pendingFetchLimit(consumer, batchSize);
+        const events = await fetchPendingEvents(
+          tx,
+          oldCursor,
+          batchSize,
+          pendingRanges,
+          pendingLimit,
+        );
         const pendingFetchedIds = events.filter((e) => e.id <= oldCursor).map((e) => e.id);
-        const pendingTruncated = pendingFetchedIds.length === pendingFetchLimit(batchSize);
+        const pendingTruncated = pendingFetchedIds.length === pendingLimit;
 
         // Burnt: no visible id this turn, the fetch is proven to have
         // covered the range (the pending LIMIT can otherwise cut it off early), and
@@ -674,28 +688,19 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         }
         await markProcessing(tx, consumer.name, instanceId);
 
-        const deliverable = await withholdNewEventsOfTenantsWithUnfetchedPending(
+        const { deliverable, outcome } = await deliverConsumerTurn({
           tx,
+          consumer,
           events,
-          oldCursor,
+          state: acquired.state,
+          context,
+          maxAttempts,
           pendingRanges,
-          batchSize,
-        );
+          pendingLimit,
+          pendingGapCount: survivingGaps.length,
+          maxPendingGapRanges,
+        });
         const fetchedIds = deliverable.map((e) => e.id);
-        const outcome: DeliveryOutcome =
-          deliverable.length > 0
-            ? await deliverEvents(consumer, deliverable, context, maxAttempts, acquired.state)
-            : {
-                cursor: oldCursor,
-                attempts: acquired.state.attempts,
-                lastError: acquired.state.lastError,
-                deadLettered: false,
-                processed: 0,
-                failed: 0,
-                failedEventId: acquired.state.lastFailedEventId,
-                resolvedPendingIds: [],
-                heldNewIds: [],
-              };
         processed = outcome.processed;
         failed = outcome.failed;
 

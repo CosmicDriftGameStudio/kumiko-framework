@@ -16,7 +16,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
 import type { StoredEvent } from "../../event-store/index.ts";
-import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
+import { type EventDispatcher, getConsumerState, restartConsumer } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import type { EventConsumer } from "../event-dispatcher.ts";
 import { createEventDispatcher } from "../event-dispatcher.ts";
@@ -62,12 +62,17 @@ async function appendOtherTenantWidget(name: string): Promise<string> {
   return String(created.data.id);
 }
 
-function buildDispatcher(consumers: readonly EventConsumer[], batchSize = 200): EventDispatcher {
+function buildDispatcher(
+  consumers: readonly EventConsumer[],
+  batchSize = 200,
+  maxPendingGapRanges?: number,
+): EventDispatcher {
   return createEventDispatcher({
     db: stack.db,
     consumers,
     context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
     batchSize,
+    maxPendingGapRanges,
     // No timer/LISTEN involved — runOnce() below drives every pass
     // explicitly, so pollIntervalMs never fires a competing pass.
     pollIntervalMs: 60_000,
@@ -248,5 +253,66 @@ describe("event-dispatcher — batchHandler", () => {
     expect(heldTenantAfterRelease).toEqual([held1, held2, held3, held4]);
     const state = await getConsumerState(stack.db, consumerName);
     expect(state?.lastError).toBeNull();
+  });
+
+  test("at the pending gap limit a batch consumer takes no new events, escalates to dead, and delivers everything once released", async () => {
+    const consumerName = "batchhandlerintegration:gap-limit";
+    const delivered: string[] = [];
+    let holding = true;
+
+    const consumer: EventConsumer = {
+      name: consumerName,
+      errorPolicy: { maxAttempts: 2 },
+      batchHandler: async (events, _ctx, turn) => {
+        const held = holding ? events.filter((event) => event.tenantId === admin.tenantId) : [];
+        turn.holdForRetry(
+          held.map((event) => event.id),
+          "tenant index unavailable",
+        );
+        const heldIds = new Set(held.map((event) => event.id));
+        for (const event of events) if (!heldIds.has(event.id)) delivered.push(event.aggregateId);
+      },
+      handler: async () => {
+        throw new Error("per-event fallback must not run while the batch succeeds");
+      },
+    };
+
+    const dispatcher = buildDispatcher([consumer], 200, 2);
+    await dispatcher.ensureRegistered();
+
+    // Interleaved tenants: each held event becomes its own pending gap range.
+    const held1 = await appendWidget("held one");
+    const other1 = await appendOtherTenantWidget("other one");
+    const held2 = await appendWidget("held two");
+    const other2 = await appendOtherTenantWidget("other two");
+    const held3 = await appendWidget("held three");
+    const other3 = await appendOtherTenantWidget("other three");
+    await dispatcher.runOnce();
+    const cursorAtLimit = (await getConsumerState(stack.db, consumerName))?.lastProcessedEventId;
+
+    const other4 = await appendOtherTenantWidget("other four");
+    await dispatcher.runOnce();
+    const paused = await getConsumerState(stack.db, consumerName);
+    expect(paused?.status).toBe("idle");
+    expect(paused?.attempts).toBe(1);
+    expect(paused?.lastProcessedEventId).toBe(cursorAtLimit);
+    expect(paused?.lastError).toContain("3 pending gap ranges reached the limit of 2");
+
+    await dispatcher.runOnce();
+    const dead = await getConsumerState(stack.db, consumerName);
+    expect(dead?.status).toBe("dead");
+    expect(dead?.lastProcessedEventId).toBe(cursorAtLimit);
+    expect(dead?.lastError).toContain("3 pending gap ranges reached the limit of 2");
+    expect(delivered).toEqual([other1, other2, other3]);
+
+    holding = false;
+    await restartConsumer(stack.db, consumerName);
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+
+    expect(delivered).toEqual([other1, other2, other3, held1, held2, held3, other4]);
+    const released = await getConsumerState(stack.db, consumerName);
+    expect(released?.status).toBe("idle");
+    expect(released?.lastError).toBeNull();
   });
 });
