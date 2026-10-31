@@ -136,13 +136,12 @@ function StepListHeader({
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
       <div className="flex items-baseline gap-2">
-        <h3 className="m-0 text-[15px] font-semibold">{title}</h3>
+        <h3 className="m-0 grow text-[15px] font-semibold">{title}</h3>
         {status !== undefined && (
           <StatusBadge tone={status.tone} testId={`${testId}-status`}>
             {status.label}
           </StatusBadge>
         )}
-        <span className="grow" />
         {progress !== "none" && (
           <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
             {t("kumiko.widget.step-list.progress", { done, total })}
@@ -150,7 +149,7 @@ function StepListHeader({
         )}
       </div>
       {subtitle !== undefined && (
-        <p className="m-0 text-[13px] text-muted-foreground" data-testid={`${testId}-subtitle`}>
+        <p className="m-0 text-[13px] text-foreground-secondary" data-testid={`${testId}-subtitle`}>
           {subtitle}
         </p>
       )}
