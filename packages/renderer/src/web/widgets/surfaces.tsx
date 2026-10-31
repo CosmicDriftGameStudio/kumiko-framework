@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "../lib/cn.ts";
 
 export const SENDER_FRAME_CLASS = "rounded-md border border-sender-frame-border bg-sender-frame";
 
@@ -6,14 +7,20 @@ export const SENDER_FRAME_CLASS = "rounded-md border border-sender-frame-border 
 export function SenderSheet({
   children,
   testId,
+  compact = false,
 }: {
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Narrow padding for a phone-width column, where px-6 would eat a third of each line. */
+  readonly compact?: boolean;
 }): ReactNode {
   return (
     <div
       data-testid={testId}
-      className="rounded-sheet bg-sender-sheet px-6 py-5 text-foreground shadow-sheet"
+      className={cn(
+        "rounded-sheet bg-sender-sheet text-foreground shadow-sheet",
+        compact ? "p-3.5" : "px-6 py-5",
+      )}
     >
       {children}
     </div>
