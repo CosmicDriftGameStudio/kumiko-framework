@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.409.0",
+    "type": "fix",
+    "title": "Inbound HTML sanitizer keeps quote markers so the reader can fold quoted text",
+    "detail": "The sanitizer stripped class and type attributes, so the reader never found the quote of Gmail, Apple Mail, Thunderbird, Yahoo or Outlook mails. It now keeps blockquote type=\"cite\", the classes gmail_quote, moz-cite-prefix and yahoo_quoted on div and blockquote, and the ids appendonsend and divRplyFwdMsg on div; every other class, id and type is still removed. The reader's HTML quote detection also folds moz-cite-prefix and yahoo_quoted."
+  },
+  {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Sanitized HTML body on inbound messages (message.bodyHtml, event version 4)",
+    "detail": "ingest-message and attach-message-content run the HTML part of a mail through sanitizeInboundHtml (sanitize-html allowlist for tags, attributes, schemes and style properties; no scripts, forms, on* attributes, cid: or data: images; img src only absolute http(s), a href only absolute http(s), mailto or tel, so nothing resolves against the app origin; links open in a new tab with rel=\"noopener noreferrer\"; empty or over 500,000 bytes of UTF-8 becomes null instead of a cut-off body). Only the sanitized result reaches the event and the projection, PII-encrypted for the tenant like bodyText; the unsanitized original stays in file storage. inbound-message-received and inbound-message-content-fetched are version 4 with bodyHtml (older events upcast to null), the entity message has the new field bodyHtml, and message:content returns bodyHtml (string or null); the message list leaves bodyHtml out like bodyText.",
+    "migration": "Run `kumiko-schema generate <name>` in each app that mounts inbound-mail-foundation to get the migration for the new column read_inbound_messages.body_html. Existing messages keep bodyHtml null and show their plain text; nothing else to do."
+  },
+  {
     "version": "0.402.0",
     "type": "breaking",
     "title": "The inbound mail supervisor requires a lock and the dedup anchor is unique",

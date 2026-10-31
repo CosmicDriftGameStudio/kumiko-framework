@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Feature manifest lists contact and its new options",
+    "detail": "`feature-manifest.json` describes the bundled feature `contact` with its config keys and dependencies (`config`, `delivery`, `user-data-rights`, `files`; `channel-telegram` with option `telegram`), so scaffolding and `kumiko check` know it."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "The scaffold no longer offers renderer-simple",

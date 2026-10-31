@@ -1,5 +1,64 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.409.0
+
+### Minor Changes
+
+- dcca36c: Every boot validation throw now carries a stable rule id. The remaining validators (screens, dashboards, forms, entities, fields, handlers, lists, queries, config keys, ownership, nav, read gate) and the bundled auth-foundation, document-ingest-foundation and tenant-lifecycle boot checks throw typed rule errors, so `agents/boot-rules.md` lists 572 rules. The temporary `boot-raw-throws` guard and its baseline are removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: All boot validation errors have a rule id
+  detail: The boot validators that still threw plain errors now throw `bootRuleError` with a rule from a typed table, for example `form/affix-unknown-field`, `entity/derived-field-collision`, `list-table/unknown-keys` or `config-key/bounds-min-above-max`. A violation in `BootValidationError.violations` and in `kumiko-schema validate` (text and `--json`) carries that id instead of `unclassified/<check>`, plus a `Fix:` line and `Rule: agents/boot-rules.md#<id>`. `agents/boot-rules.md` lists every rule with summary and fix. Message texts are unchanged, so tests that match on the message keep passing; a test that asserted an `unclassified/...` id now sees the real id. Collection boundaries are unchanged: a validator that stopped at its first violation still does.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Guard boot-raw-throws removed
+  detail: The temporary `boot-raw-throws` guard and `.kumiko-boot-raw-throws-baseline.json` are deleted because every boot validator throw in the framework is migrated to a rule id. The guard only scanned the framework repo, so apps need no change.
+  -->
+
+### Patch Changes
+
+- 6a8a07e: The cross-feature import guard now checks .tsx files too, and a feature's web barrel counts as public.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Cross-feature import guard scans .tsx and accepts web barrels
+  detail: The guard scanned only .ts files, so a deep import across features from a .tsx screen or cell went through. It now scans .tsx as well (test files stay excluded). Next to the barrel, contract and schema/entity, another feature's web barrel (`../B/web`, `../B/web/index.ts`) is allowed, because browser code must not load the server barrel. Consumer note: after the bump, deep imports across feature boundaries in .tsx files fail the guard; import from the feature's barrel, its web barrel or its contract instead.
+  -->
+- 8c2c032: Reading widgets for an inbox: mail thread with attachments, a PDF viewer with thumbnails and search, a step list for AI proposals, and sand and blue surfaces.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Inbox reader widgets (MessageThread, MessageReader, StepList, surfaces, PdfPreview viewer)
+  detail: New web widgets MessageThread and MessageReader (older messages fold to one line, quoted text behind a toggle, HTML bodies in a sandboxed script-free iframe with external images blocked until the reader asks, attachment chips and tabs), StepList (progress header, status icons, per-step actions, collapsedAfter), and the surfaces SenderFrame, SenderSheet and AiSurface backed by new theme tokens sender-frame, sender-frame-border, sender-sheet, ai-surface, radius-sheet and shadow-sheet. PdfPreview gains variant "viewer" (thumbnail rail, page jump, zoom, search with highlighted hits), searchTerm, initialPage and onPageChange; both variants now render pages lazily as they scroll into view. New i18n keys kumiko.widget.pdf-preview.*, message-thread.*, message-reader.* and step-list.* ship in de, es, fr and it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: no-custom-primitives knows the inbox widgets
+  detail: The guard flags app components named MessageThread, MessageReader, StepList, ClampedText, AttachmentChip, HtmlMailFrame, SenderSheet, SenderFrame or AiSurface, so apps use the framework widgets instead of rebuilding them.
+  -->
+- Updated dependencies [1eecc1d]
+- Updated dependencies [4161aa8]
+- Updated dependencies [dcca36c]
+- Updated dependencies [a8e08cf]
+- Updated dependencies [fb68269]
+- Updated dependencies [61cb538]
+- Updated dependencies [86e7f73]
+- Updated dependencies [ef46965]
+- Updated dependencies [41c8953]
+- Updated dependencies [a9c8650]
+- Updated dependencies [d680b38]
+  - @cosmicdrift/kumiko-types@0.409.0
+  - @cosmicdrift/kumiko-framework@0.409.0
+
 ## 0.408.0
 
 ### Patch Changes

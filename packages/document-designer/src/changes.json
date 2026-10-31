@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.409.0",
+    "type": "improvement",
+    "title": "Template dates use the active app locale",
+    "detail": "The modified-at dates in the template list, the origin bar, the version list and the overrides drawer are formatted with the active app locale instead of the browser default."
+  },
+  {
     "version": "0.397.0",
     "type": "fix",
     "title": "Editors skip the branding query without managed-pages",

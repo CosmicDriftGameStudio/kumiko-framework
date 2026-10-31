@@ -1,5 +1,396 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.409.0
+
+### Minor Changes
+
+- 1eecc1d: actionForm `successItems` shows one hint per entry of a success-payload array, each with its own link; Banner gains a `hint` variant.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm successItems, Banner variant hint
+  detail: An actionForm can declare successItems { field, link? }. After a successful submit every entry of that payload array with a string label is shown as its own hint (Banner variant "hint", muted background) with the link on the right; the link resolves like a success link, but idFrom and params read from the entry. While at least one hint is shown it replaces the generic confirmation text. Boot rejects successItems together with redirect and an unknown link target; the role projection drops a link into a screen the role cannot reach and keeps the hints.
+  -->
+- a8e08cf: The contact feature keeps its writes (reply, mark-done, send-test, forward-request, submit, report) away from the AI agent; the agent only reads requests, replies and delivery status.
+  
+  New bundled feature `contact`: a public contact form backend with spam protection, SystemAdmin replies and optional Telegram forwarding.
+  
+  <!-- kumiko-changes
+  feature: contact
+  type: improvement
+  title: New bundled feature contact: public contact form with spam protection, admin replies and Telegram forwarding
+  detail: `createContactFeature({ appName, telegram? })` adds a public contact form backend: the anonymous `contact:write:submit` stores a question, contact request or problem report (honeypot, single-use proof-of-work challenge from `contact:query:challenge`, minimum submit time, per-IP and per-email rate limits; spam gets the same 200 body and nothing is stored), notifies every SystemAdmin by mail and, with option `telegram: true` (default off), in a Telegram chat (adds `channel-telegram` to `requires`, the `telegramChat` config key and `contact:write:send-test`). The notification carries no personal data on any channel: only the kind, the app name and a link into the inbox, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. A website sender gets a fixed acknowledgement that repeats nothing they typed (the form is no mail relay); a signed-in admin report gets a copy. The per-email limit counts only submits that passed the spam checks, `contact:write:report` is limited to 10 per hour and user, and the stored `page` loses its query string and fragment. Phone is off by default (`fields.phone`). Logged-in users file reports with `contact:write:report`; SystemAdmins answer with `contact:write:reply` (mail with Reply-To, optional in-app notice for logged-in reporters), mark requests done, and read `contact:query:request-detail`, `contact:query:replies` and `contact:query:request-delivery` (one row per channel with recipient, time and status email|telegram|reply-email|reply-in-app: pending|delivered|failed|skipped|read). Open means no answer yet: only status `open` counts. The browser client is served at `GET /contact/client.js` (`window.KumikoContact`). Requests are crypto-shredding-ready PII with EXT_USER_DATA export and erasure and a 365 day retention. The feature requires `config`, `delivery`, `user-data-rights` and `files` (a file provider must be mounted).
+  migration: Run `kumiko schema generate`: it adds the `contact-request` and `contact-reply` tables. Apps mounting contact also need the delivery and channel-in-app migrations (`idempotency_key` columns) and a mounted file provider.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Read-only email and phone text fields render as mailto and tel links
+  detail: A read-only text field with `format: "email"` renders its value as a `mailto:` link and `format: "phone"` as a `tel:` link through the Link primitive. The `tel:` href keeps digits and a leading `+` only; empty values and phone values without a digit stay plain text. `isSafeHref` now also accepts `tel:`, which the Link primitive and the markdown renderer share.
+  -->
+  
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: configEdit screens with scope system may map secretKeys
+  detail: `secrets:write:set`, `secrets:write:delete` and `secrets:query:list` accept `scope: "system"`. The target is always the system tenant, chosen on the server, and only a SystemAdmin may use it (everyone else gets 403). The configEdit body sends the scope for system-scope screens; the boot validator now only rejects secretKeys on user-scope screens. The secrets access rule must include `SystemAdmin` for such a screen to work, for example `createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] })`. Values never go to the client.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: configEdit actions: handler buttons between the form fields
+  detail: `ConfigEditScreenDefinition.actions` takes `{ id, handler, label, description?, buttonLabel, afterField, successMessage? }`. The button renders as its own row directly after `afterField`, calls the write handler with `{}` and never saves the form; it is disabled with the hint `kumiko.configEdit.action.saveFirst` (de, en, es, fr, it) while the form has unsaved changes. Success and failure go through the action notifier, with a banner as fallback. The boot validator checks that the handler is a registered write handler, that `afterField` is a layout field and that ids are unique.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-in-app
+  type: improvement
+  title: In-app read state by idempotency key
+  detail: Channels receive the notify `idempotencyKey` as `ChannelContext.idempotencyKey`. The in-app channel stores it in the new nullable column `in_app_messages.idempotency_key` (indexed) and the SystemAdmin query `channel-in-app:query:readStateByKeys` (`{ keys }`, 1 to 50) returns `{ key, readAt }` rows without any content, tenant-scoped. Queued delivery jobs carry the key as `notifyIdempotencyKey` in their payload.
+  migration: Run `kumiko schema generate`: it adds the `idempotency_key` column and its index to `in_app_messages`. Notes sent before the migration have no key.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery attempts remember the notify idempotencyKey; new attempts-by-keys query
+  detail: `store_delivery_attempts` gets a nullable text column `idempotency_key` plus the non-unique index `(tenant_id, idempotency_key)`. Every attempt a `ctx.notify` call logs carries the call's `idempotencyKey` (the first event of an attempt stores it; later sent/failed events keep the row's value). The new SystemAdmin query `delivery:query:attempts-by-keys` (`{ keys: string[] }`, 1 to 50) returns channel, status, error code, time and recipient id of those attempts across tenants, never an address. Attempts logged before this version keep `idempotency_key = null`.
+  migration: Run `kumiko schema generate`. It adds the nullable column `idempotency_key` to `store_delivery_attempts` and the index `store_delivery_attempts_tenant_id_idempotency_key_idx`. No backfill is needed; do not write the column with SQL. Every app that mounts delivery needs this migration when it bumps.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail: formatted header subtitle parts and email/phone fields
+  detail: A `header.subtitle` part `{ field, format }` formats the value with a `FormatSpec` before it is shown. A projectionDetail layout field `{ field, format: "email" | "phone" }` renders its read-only value as a `mailto:` or `tel:` link, like an entity text field with that format.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm summary box on screen forms; detail subtitle and notes use the active locale
+  detail: An actionForm screen with `summary` now renders the context box under the title also when it is a full screen, not only in a drawer. Header subtitle parts with a `format` and the notes section format dates with the active locale (`formatWhen(value, locale?)`; without a locale the old default stays).
+  -->
+  
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: improvement
+  title: createAdminShellFeature extraPlatformPanels
+  detail: `createAdminShellFeature({ extraPlatformPanels })` appends dashboard panels to the platform "Overview" dashboard, so a feature can put a tile (for example the open contact requests) there instead of mounting a dashboard of its own.
+  -->
+  
+  <!-- kumiko-changes
+  feature: contact
+  type: improvement
+  title: contact option reportCancelTarget
+  detail: `createContactFeature({ reportCancelTarget })` sets the screen the Cancel button of the report form navigates to; without it the form shows no Cancel button.
+  -->
+  
+  <!-- kumiko-changes
+  feature: contact
+  type: improvement
+  title: contact option detailLinks; every signed-in user may report a problem
+  detail: `createContactFeature({ detailLinks: { user, tenant } })` sets the screens the sender and tenant links in the request detail header open (short id or `<feature>:screen:<id>`); defaults stay `user-edit` and `tenant-edit`, `false` removes a link. `contact:write:report` and the report screen are now open to every signed-in user (`openToAll`), not only TenantAdmin and Member. The detail layout drops the phone row while `fields.phone` is off and hides it for an empty value, and the contact feature now requires `notes-history` (the detail notes section needs it).
+  -->
+  
+  <!-- kumiko-changes
+  feature: contact
+  type: fix
+  title: The contact website client sends without credentials
+  detail: `GET /contact/client.js` now sends the challenge and submit requests with `credentials: "omit"`, so a visitor who is signed in on the same domain with any role (including app roles) still submits as an anonymous caller instead of getting 403. Name and email come from the form, never from the session.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fully qualified screen targets of another feature boot in navigate actions
+  detail: The boot validator no longer prefixes the owning feature to a navigate target that is already a `<feature>:screen:<id>` name (entityList toolbarActions, row actions, metric and detail links). Before, such a target failed boot with a doubled name like `contact:screen:publicstatus:screen:x`. Unknown qualified targets are still rejected, and a `tab` is checked against the target screen in the other feature. The renderer resolves such qualified targets like short ids: the link or action is offered when the target screen exists and is accessible, and the URL carries the short screen id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: "On this page" navigation lists related-list and extension sections
+  detail: The section navigation next to a screen form (entityEdit, projectionDetail) now also lists titled `relatedList` and `extension` sections, not only field sections, and scrolls to them. A section whose title equals the screen title is still left out.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Stored write-only secrets show a masked "set" row with Replace
+  detail: A write-only field whose value is set (secrets, `writeOnly` entity fields) now renders "•••••••••• set" and a Replace button instead of the empty input. Replace reveals the input (with Remove stored value and the keep-placeholder); after a save the masked row returns. New translation keys `kumiko.field.writeOnly.maskedSet` and `kumiko.field.writeOnly.replace` (de, en, es, fr, it).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: SystemAdmin may read files of the system tenant from any tenant session
+  detail: `GET /files/:id`, `/files/:id/meta` and `/files/:id/download-url` also serve a file owned by SYSTEM_TENANT_ID when the caller has the SystemAdmin role, whatever tenant the session is in; the storage provider is resolved for the file's tenant. The file access guard still decides. Delete, variants and upload stay tenant-equal and files of other tenants stay unreadable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Saved secrets leave the form state; email and phone links are underlined; lists format times in the active locale
+  detail: After a successful configEdit or secrets save, a typed write-only value is replaced by the "set" marker instead of staying as plaintext in the form state. Read-only email and phone values render as underlined links. The delivery time column and the document-designer overview, version list and overrides drawer format times with the active locale.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the contact feature and the configEdit action rows
+  detail: Adds the German copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish strings for the contact feature and the configEdit action rows
+  detail: Adds the Spanish copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-fr
+  type: improvement
+  title: French strings for the contact feature and the configEdit action rows
+  detail: Adds the French copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-it
+  type: improvement
+  title: Italian strings for the contact feature and the configEdit action rows
+  detail: Adds the Italian copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template dates use the active app locale
+  detail: The modified-at dates in the template list, the origin bar, the version list and the overrides drawer are formatted with the active app locale instead of the browser default.
+  -->
+  
+  <!-- kumiko-changes
+  feature: create-kumiko-app
+  type: improvement
+  title: Feature manifest lists contact and its new options
+  detail: `feature-manifest.json` describes the bundled feature `contact` with its config keys and dependencies (`config`, `delivery`, `user-data-rights`, `files`; `channel-telegram` with option `telegram`), so scaffolding and `kumiko check` know it.
+  -->
+- fb68269: The focus rail keeps the sidebar footer and can show a chosen set of entries with a "More" tile for the rest. HTML mails end at their signature.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Focus rail with user menu and a "More" tile
+  detail: A focused screen's icon rail now pins the shell's sidebarFooter (for example the sidebar UserMenu) to its bottom, so profile and logout stay reachable. WorkspaceShell and DefaultAppShell take focusRailNavQns, the top-level nav QNs the rail shows as tiles; the other entries sit behind a "More" tile that opens the full sidebar and is marked active when the current screen lives there. New nav icon keys "warehouse" and "euro". An HTML mail whose quote is folded drops the Gmail separator break and the last paragraph's bottom margin, so the quote toggle sits right under the signature.
+  -->
+- 61cb538: Screen forms pack their fields in flow again, tab content sits 16px below the tab strip, and chromeless screen panels in dashboards get a section head.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Screen forms with declared columns pack fields in flow again
+  detail: Since the declared-columns change a screen form with columns >= 2 rendered as a real CSS grid, so narrow fields (date, select) sat in wide columns and the second column started mid-form. Flow layout is back for every form with flow set and ignores the declared column count, as before. The view-model field columnsDeclared is removed; select width sm:w-60 and full-width cells stay.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Tab content sits 16px below the tab strip
+  detail: projectionDetail with layout.mode tabs left about 10px between the tab strip and the tab content (the embedded list toolbar). The header region wrapper now tops that up to 16px in one place for every tab kind.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Chromeless screen panels in dashboards carry a section head
+  detail: A dashboard panel kind screen with chromeless renders the embedded screen's title (panel label, else screen:<id>.title) and its translated description as a section head, separated from the previous panel by a divider and without extra indentation. The embedded form no longer renders its own title block, and its submit buttons sit left-aligned directly under the fields without a divider footer. The "All fields are required" hint needs at least two shown fields, a lone field keeps its own required mark. The "As of" stamp only shows when the dashboard has a panel that loads data (not only screen, text or custom panels). The account-security dashboard marks its panels chromeless, and the sessions screen my-sessions is now titled "Signed-in devices" with a description (de, en, es, fr, it).
+  -->
+- 2aacb01: PdfViewer with `pagesOnly` shows each page whole (fit-page), and a folded phone thread can show a host-derived mail teaser.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: PdfViewer pagesOnly fits whole pages, ThreadMessage.teaser
+  detail: PdfViewer with pagesOnly now scales each page to the scroller's content height as well as its width (shrink-only), so a search hit opened in a host shows the page whole. ThreadMessage gains an optional teaser: while a foldOlderTogether thread has the mail closed, the plain-text teaser is shown clamped to clampLines lines with the "Read the whole mail" button; a click shows the full body. On phones StepList text and step buttons are 14px, its status icons 20px, and StatusBadge 12px on a 20px pill, in px so an app with a smaller root font keeps the phone reading size.
+  -->
+- 6181f9e: Focused shell mode with an icon rail, plain tabs with counts, step sources, and an icon button inside text inputs.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Focused shell mode and inbox reader building blocks
+  detail: useShellFocusMode() collapses DefaultAppShell and WorkspaceShell to a 56px icon rail and hides the header toggle, bell and header actions while a screen is mounted. Tabs take icon, detail and appearance "plain" (muted counts). StepList rows take sources and highlighted. The text Input primitive and AiTextField/AiTextArea take endAction, an icon button inside the right edge (e.g. a microphone), or with label a small primary text button (e.g. "Antworten"). StepList takes status (badge) and subtitle for the header. PdfPreview variant "viewer" takes matchIndex, onMatchesChange and hideSearchBar so a host can drive hit navigation from its own stepper. MobileTopBar is the phone-only (md:hidden) top bar for focused screens, with label, optional back chevron, status chip and actions, since the shell header is hidden there. StepList takes fill (full container height, footer pinned) and shows done steps with the ok token. progress "count" keeps only the "x of y done" count, "none" hides count and bar. MessageThread html bodies show a quiet "HTML mail, shown sanitized. External images blocked." line with a link-style "Load images" action, hide blocked images instead of a broken frame, and render sanitized tables without outer borders and with thin row dividers. A rejected StepList step uses a neutral grey disc with the secondary text tone for its X icon. PdfViewer search marks only the matched characters in amber (stronger for the active match) and matches phrases across text-layer lines, ignoring whitespace. The focus rail uses 40px rounded-md tiles with muted sidebar icons, 4px spacing and a 32px rounded-md brand tile. PdfPreview/PdfViewer take fill (no 480px floor, the host layout sizes the pane). MessageThread takes showHeaders false to drop author, address and time above open messages.
+  -->
+- 6056229: StepList can fold a filling list only when its steps overflow, a hidden Field label no longer shifts its control, and collapsed thread rows show a chevron.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: StepList collapseWhen "overflow", hidden Field label without gap, thread row chevron, PdfViewer scroll padding
+  detail: StepList gains collapseWhen ("always" by default, the old behaviour). With "overflow" a fill list with collapsedAfter shows every step while they fit its height and folds only when they do not, then shows as many steps as fit but at least collapsedAfter. A Field with hideLabel and no changed marker, appendix or status no longer renders an empty label row, so its control is not pushed down by the column gap and lines up with a button beside it. Collapsed earlier mails in MessageThread show a chevron, a hover background and a pointer cursor. PdfViewer keeps its padding above a page it jumps to (scroll-padding), so the page no longer touches the toolbar.
+  -->
+- 8c2c032: Reading widgets for an inbox: mail thread with attachments, a PDF viewer with thumbnails and search, a step list for AI proposals, and sand and blue surfaces.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Inbox reader widgets (MessageThread, MessageReader, StepList, surfaces, PdfPreview viewer)
+  detail: New web widgets MessageThread and MessageReader (older messages fold to one line, quoted text behind a toggle, HTML bodies in a sandboxed script-free iframe with external images blocked until the reader asks, attachment chips and tabs), StepList (progress header, status icons, per-step actions, collapsedAfter), and the surfaces SenderFrame, SenderSheet and AiSurface backed by new theme tokens sender-frame, sender-frame-border, sender-sheet, ai-surface, radius-sheet and shadow-sheet. PdfPreview gains variant "viewer" (thumbnail rail, page jump, zoom, search with highlighted hits), searchTerm, initialPage and onPageChange; both variants now render pages lazily as they scroll into view. New i18n keys kumiko.widget.pdf-preview.*, message-thread.*, message-reader.* and step-list.* ship in de, es, fr and it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: no-custom-primitives knows the inbox widgets
+  detail: The guard flags app components named MessageThread, MessageReader, StepList, ClampedText, AttachmentChip, HtmlMailFrame, SenderSheet, SenderFrame or AiSurface, so apps use the framework widgets instead of rebuilding them.
+  -->
+- 246fde6: InfinityList takes endContent, shown after the last row inside the scroll area.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: InfinityList can end in content that scrolls with its rows
+  detail: New prop endContent renders after the last loaded row, inside the list's scroll container, for example a "not found what you were looking for?" hint right under search hits. It is not shown while the list shows its empty state; put such a hint into emptyState as well if it should appear there.
+  -->
+- ad58cf2: MessageThread can fold its older messages into one toggle for a phone, where a clamped mail offers "Ganze Mail lesen", and a phone card step list reads the waiting reason as plain text.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Thread folds older mails for a phone, step waiting reason as text on a phone
+  detail: `foldOlderTogether` on MessageThread shows one "2 frühere Mails anzeigen" toggle above the newest mail instead of a row per older message; a click lists them as rows. In such a folded thread the toggle under a clamped mail body reads "Ganze Mail lesen" (en "Read the whole mail"); every other thread keeps "Mehr anzeigen". There an html mail is cut to the same lines by height; html mails in other threads still show whole. A folded thread uses narrow phone padding (SenderSheet `compact`). In every html mail the first block no longer adds its top margin above the text. In a folded thread the last mail's attachments render as full-width `AttachmentCard`s below the thread frame instead of chips (`MessageAttachment.thumbnailUrl` is new). New widget `AttachmentCard` shows a thumbnail or kind icon, name, second line and a "Original ansehen" link or button. New theme tokens `search-hit`, `search-hit-active` and `source-mark` (`bg-search-hit`, `bg-search-hit-active`, `bg-source-mark`) color PDF search hits, the active hit and a host-marked source passage. Plain and filter tab strips use normal weight for inactive tabs. A StepList with `phoneCard` shows a locked step's "Wartet auf" reason as a plain 13px line below the md breakpoint and keeps the badge on desktop. A `StepTag` with `afterWaiting: true` (e.g. "Gerade geändert") renders after the waiting badge; other tags stay before it. The PDF text layer now applies pdf.js's per-span font size and horizontal fit itself, so search hits and source marks sit exactly on the word whatever the app's body font or root font size is. A hit or marked passage is drawn as one band per line (fused across table cells) instead of one chip per text span.
+  -->
+- e16a825: StepList: a step link can sit under the step's text, trailing links are underlined, and the header badge sits at the right edge.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Step links can sit under the step text
+  detail: `StepListItem.link.placement: "below"` renders the link as a link button under the step's description and meta, for an action that changes the step such as taking a rejection back; the default stays the trailing link to what the step made, now underlined. The header title takes the free width, so a status badge without progress sits at the right edge, and the subtitle uses the secondary text tone.
+  -->
+- 8a11519: StepList can read as a card on a phone, and the MobileTopBar sits on the card surface with a 13px label.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: StepList phone card, quieter mobile top bar
+  detail: `phoneCard` on StepList keeps the desktop panel and, below the md breakpoint, puts the header inside the rounded surface and the steps in a framed white box with tighter rows; the progress bar is left out there. MobileTopBar uses the card background instead of the page background, a 13px label and a 4px gap, like the phone reader design.
+  -->
+
+### Patch Changes
+
+- 44d85e4: Quoted text in HTML mails is folded again: the inbound sanitizer keeps the quote markers the reader looks for.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Inbound HTML sanitizer keeps quote markers so the reader can fold quoted text
+  detail: The sanitizer stripped class and type attributes, so the reader never found the quote of Gmail, Apple Mail, Thunderbird, Yahoo or Outlook mails. It now keeps blockquote type="cite", the classes gmail_quote, moz-cite-prefix and yahoo_quoted on div and blockquote, and the ids appendonsend and divRplyFwdMsg on div; every other class, id and type is still removed. The reader's HTML quote detection also folds moz-cite-prefix and yahoo_quoted.
+  -->
+- ee30e47: Tab strips fit narrow panes, and the compact page header keeps the title whole.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Tab strips tighten their spacing in narrow containers
+  detail: DefaultTabs is a size container now. Below a strip width of 32rem (512px) it uses px-2.5 and gap-2, so four counted tabs fit a 400px list pane. Strips 32rem and wider keep px-6 and gap-6, and a strip that grows after mount gets the wide spacing back. A strip that still overflows keeps the edge fade at the cut side.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Compact page header puts the status under the title
+  detail: At phone width the header status slot moves to its own small line below the page title instead of sharing the row with it, so the title no longer truncates while it fits alone. Secondary actions stay in the overflow menu as before.
+  -->
+- 248f1f4: A search hit in the PDF viewer opens with its page top in view, and the zoom label no longer wraps.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: PdfViewer shows the page top of a search hit
+  detail: Stepping to a search hit used to center the hit, which left an empty frame above short pages. The viewer now brings the hit's page top into view and scrolls further only when the hit sits below the fold. The zoom label in the toolbar keeps "100 %" on one line at smaller root font sizes.
+  -->
+- 2e426bf: The PDF viewer can show just its pages, without thumbnail rail and toolbar.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: PdfPreview shows only the pages with pagesOnly
+  detail: PdfPreview and PdfViewer take pagesOnly. The viewer then drops its thumbnail rail and toolbar and keeps the pages on the sand frame, for hosts that step through search hits with their own controls, such as a search result that opens a document on its hit. searchTerm and matchIndex work as with hideSearchBar.
+  -->
+- 3d2702d: The PDF viewer can mark a passage without opening its search, its toolbar buttons are boxed, and badges match the inbox design.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: PdfPreview marks a source passage with markTerm and keeps its search usable
+  detail: PdfPreview and PdfViewer take markTerm, for a passage such as the clause a step was read from. The viewer marks it on the page it opens on, keeps the page top in view instead of centering a search hit, and leaves its search toggle in the toolbar; a term typed into the search replaces the mark while it is set. The zoom and search buttons of the toolbar are now 28px bordered buttons. StatusBadge is 20px high instead of 22px, and a StepList tag that is too long for its column is cut with the full text as tooltip.
+  -->
+- b210415: The StatusBadge dot keeps its round shape when the badge text is truncated.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: StatusBadge dot no longer squashes in a narrow badge
+  detail: A long badge text inside a width-limited container shrank the leading dot to a thin line. The dot now keeps its size and only the text is cut.
+  -->
+- 8903ae3: A collapsed StepList ends in a quiet note for the hidden steps.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The "more steps" row of a collapsed StepList reads as a note
+  detail: The row that reveals hidden steps is now 13px secondary text with 12px/16px padding and no bottom rule, like the inbox design. It still expands the list on click.
+  -->
+- 4f4c995: StepList rows put sources and tags on one line and use the body text size.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Step sources and tags share one line
+  detail: A step's source links (now underlined) and its tags, including "Waiting for", wrap together in one 13px row instead of two stacked rows. The StepList section sets the 14px body size, so step titles no longer inherit a larger host size.
+  -->
+- d680b38: A form success link can open a custom screen with URL params from the result, and apps can read the soft-delete retention period.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: successLinks take params read from the success payload
+  detail: ActionFormSuccessLink gets params, a map from URL search param to success-payload field. `{ screen: "cockpit", params: { cmd: "duplicateOfId" } }` opens the cockpit with `?cmd=<duplicateOfId>`. The link stays hidden while a mapped field is not a string, like a link whose id field is missing.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Soft-delete retention period is exported
+  detail: The engine barrel exports SOFT_DELETE_GRACE_DAYS_KEY, SOFT_DELETE_DEFAULT_GRACE_DAYS (30) and readSoftDeleteGraceDays(ctx.config), which returns the tenant's configured period or the default. A trash screen can show how long deleted rows stay restorable without keeping its own constant.
+  -->
+- d5eeccf: Muted tab strips space their tabs like the inbox design, and list panes get a filter appearance.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Tabs have a filter appearance for the filter strip of a list pane
+  detail: DefaultTabs takes appearance "filter" next to "pill" and "plain". It keeps the plain look (muted count, 40px strip) and insets the strip by 6px with no gap between tabs, so the first label lines up with a list pane's search field. "plain" now sits flush with its content with a 4px gap. Both pad each tab by 10px on either side and space icon, label and count by 6px; before, the count stood 12px after its label. "pill" is unchanged.
+  -->
+- Updated dependencies [1eecc1d]
+- Updated dependencies [4161aa8]
+- Updated dependencies [dcca36c]
+- Updated dependencies [a8e08cf]
+- Updated dependencies [fb68269]
+- Updated dependencies [61cb538]
+- Updated dependencies [86e7f73]
+- Updated dependencies [ef46965]
+- Updated dependencies [41c8953]
+- Updated dependencies [a9c8650]
+- Updated dependencies [d680b38]
+  - @cosmicdrift/kumiko-types@0.409.0
+  - @cosmicdrift/kumiko-framework@0.409.0
+
 ## 0.408.0
 
 ### Minor Changes
