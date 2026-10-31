@@ -55,6 +55,31 @@ describe("Input endAction", () => {
     expect(submits).toBe(0);
   });
 
+  test("kind=text: a labelled end action is a text button that keeps typed text clear of it", () => {
+    let clicks = 0;
+    render(
+      <Input
+        kind="text"
+        id="x"
+        name="x"
+        value=""
+        onChange={noop}
+        testId="tid"
+        endAction={{
+          label: "Antworten",
+          onClick: () => {
+            clicks += 1;
+          },
+        }}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Antworten" });
+    expect(button.textContent).toBe("Antworten");
+    expect(screen.getByTestId("tid").className).toContain("pr-28");
+    fireEvent.click(button);
+    expect(clicks).toBe(1);
+  });
+
   test("kind=text: without endAction no button is rendered", () => {
     render(<Input kind="text" id="x" name="x" value="" onChange={noop} />);
     expect(screen.queryByRole("button")).toBeNull();
