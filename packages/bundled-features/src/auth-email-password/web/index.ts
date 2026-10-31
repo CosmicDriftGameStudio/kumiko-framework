@@ -87,6 +87,11 @@ export type { TenantMenuItemsProps } from "./tenant-menu-items.tsx";
 export { TenantMenuItems } from "./tenant-menu-items.tsx";
 export type { TenantSwitcherProps } from "./tenant-switcher.tsx";
 export { TenantSwitcher } from "./tenant-switcher.tsx";
+export type { UseRedirectAuthedFromLoginOptions } from "./use-redirect-authed-from-login.ts";
+export {
+  isAuthedOnLoginPath,
+  useRedirectAuthedFromLogin,
+} from "./use-redirect-authed-from-login.ts";
 export type { ShellUser } from "./use-shell-user.ts";
 export { useShellUser } from "./use-shell-user.ts";
 export type { UserMenuProps } from "./user-menu.tsx";

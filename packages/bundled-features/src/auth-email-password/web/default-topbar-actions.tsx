@@ -24,6 +24,11 @@ export type DefaultTopbarActionsProps = {
   readonly lightIcon?: ReactNode;
   /** Dark-Mode-Icon. Default: Unicode ☾. */
   readonly darkIcon?: ReactNode;
+  /** Render the UserMenu. Default true; false for apps whose account/logout
+   *  lives elsewhere (for example a sidebar profile). */
+  readonly userMenu?: boolean;
+  /** data-testid forwarded to the ThemeToggle button. */
+  readonly themeToggleTestId?: string;
 };
 
 export function DefaultTopbarActions({
@@ -31,6 +36,8 @@ export function DefaultTopbarActions({
   extras,
   lightIcon,
   darkIcon,
+  userMenu = true,
+  themeToggleTestId,
 }: DefaultTopbarActionsProps = {}): ReactNode {
   return (
     <div className="flex items-center gap-2">
@@ -39,8 +46,9 @@ export function DefaultTopbarActions({
       <ThemeToggle
         {...(lightIcon !== undefined && { lightIcon })}
         {...(darkIcon !== undefined && { darkIcon })}
+        {...(themeToggleTestId !== undefined && { testId: themeToggleTestId })}
       />
-      <UserMenu />
+      {userMenu && <UserMenu />}
     </div>
   );
 }

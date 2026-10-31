@@ -1,4 +1,5 @@
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createLruCache } from "@cosmicdrift/kumiko-framework/utils";
 import { renderSafeMarkdown } from "../page-render/index.ts";
 import { sanitizeDocumentHtml } from "../template-resolver/index.ts";
 import type { BodyFormat } from "./constants.ts";
@@ -29,8 +30,7 @@ export type PageBodyRendererDeps = {
 };
 
 // Every write bumps the version, so a (page, version) key never serves stale
-// HTML. A Map keeps insertion order: delete+reinsert on a hit makes the first
-// key the least recently used one.
+// HTML.
 function cacheKeyOf(page: RenderablePageBody): string {
   return [page.tenantId, page.slug, page.lang, page.version, page.updatedAt, page.bodyFormat].join(
     "\u0000",
@@ -47,7 +47,7 @@ export function createPageBodyRenderer(
   const sanitizeDocument = deps.sanitizeDocument ?? sanitizeDocumentHtml;
   const renderMarkdown = deps.renderMarkdown ?? renderSafeMarkdown;
   const maxEntries = deps.maxEntries ?? MAX_CACHED_BODIES;
-  const cache = new Map<string, string>();
+  const cache = createLruCache<string, string>({ maxEntries });
 
   function renderUncached(page: RenderablePageBody, log: WarnLogger): string {
     if (page.bodyFormat === "markdown") return renderMarkdown(page.body);
@@ -63,18 +63,10 @@ export function createPageBodyRenderer(
   return (page, log = defaultLog) => {
     const key = cacheKeyOf(page);
     const cached = cache.get(key);
-    if (cached !== undefined) {
-      cache.delete(key);
-      cache.set(key, cached);
-      return cached;
-    }
+    if (cached !== undefined) return cached;
     const html = renderUncached(page, log);
     if (html.length > MAX_CACHED_BODY_LENGTH) return html;
     cache.set(key, html);
-    if (cache.size > maxEntries) {
-      const oldest = cache.keys().next();
-      if (!oldest.done) cache.delete(oldest.value);
-    }
     return html;
   };
 }
