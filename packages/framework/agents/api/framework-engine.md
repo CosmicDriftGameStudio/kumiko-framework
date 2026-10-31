@@ -970,9 +970,11 @@ type JobTrigger =
   | {
     cron: string;
     tz?: string;
+    wakesSleepingApp?: false;
   }
   | {
     maintenance: true;
+    wakesSleepingApp?: false;
   }
   | {
     manual: true;

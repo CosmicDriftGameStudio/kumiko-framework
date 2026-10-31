@@ -399,11 +399,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
   }
 
-  function cronSchedulerIdsForLane(lane: JobRunIn): Set<string> {
+  // `superseded`: the id the job would have with the other wake flag. No runner of any version
+  // expects both ids of one job, so a leftover under that id goes without the orphan grace period.
+  function cronSchedulerIdsForLane(lane: JobRunIn, superseded = false): Set<string> {
     const ids = new Set<string>();
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) === lane && isScheduledTrigger(jobDef.trigger)) {
-        ids.add(schedulerIdForJobName(name));
+        const wakesSleepingApp = jobDef.trigger.wakesSleepingApp !== false;
+        ids.add(schedulerIdForJobName(name, superseded ? !wakesSleepingApp : wakesSleepingApp));
       }
     }
     return ids;
@@ -414,7 +417,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (laneForJob(jobDef) !== lane) continue;
       if (isScheduledTrigger(jobDef.trigger)) {
         await queue.upsertJobScheduler(
-          schedulerIdForJobName(name),
+          schedulerIdForJobName(name, jobDef.trigger.wakesSleepingApp !== false),
           scheduleRepeatOptions(jobDef.trigger, options.maintenanceWindow),
           {
             name: jobDef.perTenant ? `${PER_TENANT_PREFIX}${name}` : name,
@@ -552,11 +555,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         });
       });
       await upsertCronSchedulers(consumerQueue, consumerLane);
-      await removeOrphanJobSchedulers(consumerQueue, expectedSchedulerIds, consumerLane, {
-        info: (msg, data) =>
-          context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
-        warn: errorLogger.warn,
-      });
+      await removeOrphanJobSchedulers(
+        consumerQueue,
+        expectedSchedulerIds,
+        cronSchedulerIdsForLane(consumerLane, true),
+        consumerLane,
+        {
+          info: (msg, data) =>
+            context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
+          warn: errorLogger.warn,
+        },
+      );
 
       // Persistent marker outside the swept completed/failed sets: a plain
       // Redis hash at one key per consumer queue, fields = boot job ids

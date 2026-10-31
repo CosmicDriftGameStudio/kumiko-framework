@@ -56,6 +56,15 @@ function assertScheduleTrigger(
         "the only valid value is true; the run time comes from KUMIKO_MAINTENANCE_WINDOW.",
     );
   }
+  if ("wakesSleepingApp" in trigger && trigger.wakesSleepingApp !== undefined) {
+    const isScheduled = "cron" in trigger || "maintenance" in trigger;
+    if (!isScheduled || trigger.wakesSleepingApp !== false) {
+      throw new Error(
+        `[Feature ${featureName}] r.job("${jobName}") declares trigger { wakesSleepingApp: ${JSON.stringify(trigger.wakesSleepingApp)} } — ` +
+          "only false is valid, and only on a cron or maintenance trigger; leave it out to wake the app.",
+      );
+    }
+  }
   if ("cron" in trigger && trigger.tz !== undefined && !isValidIanaTimeZone(trigger.tz)) {
     throw new Error(
       `[Feature ${featureName}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(trigger.tz)} } — ` +

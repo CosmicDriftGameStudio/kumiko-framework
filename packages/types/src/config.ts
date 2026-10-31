@@ -409,11 +409,13 @@ export type JobTrigger =
   // `tz`: IANA zone the cron fields are read in (default: the server process
   // zone, UTC in the standard containers). A wall-clock
   // time skipped by DST runs once, shifted by the gap; a doubled one runs once, at its first occurrence.
-  | { readonly cron: string; readonly tz?: string }
+  // `wakesSleepingApp: false`: a due run does not wake a sleeping shared app; it runs on the next
+  // wake. The waker only sees BullMQ job ids, so the flag becomes the `scheduler-nowake-` id prefix.
+  | { readonly cron: string; readonly tz?: string; readonly wakesSleepingApp?: false }
   // One daily run in the app's maintenance window (KUMIKO_MAINTENANCE_WINDOW, default 03:00 UTC),
   // so a sleeping app wakes once a day for all its cleanup jobs. Use it instead of a fixed cron
   // for housekeeping; the operator can stagger the window per app.
-  | { readonly maintenance: true }
+  | { readonly maintenance: true; readonly wakesSleepingApp?: false }
   | { readonly manual: true };
 
 export type JobBackoffStrategy = "fixed" | "exponential";
