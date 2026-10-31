@@ -61,13 +61,18 @@ const originalObserver = globalThis.IntersectionObserver;
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 const scrolledPages: string[] = [];
 const scrolledHits: string[] = [];
+const scrolledSheets: string[] = [];
 
 beforeEach(() => {
   scrolledPages.length = 0;
   scrolledHits.length = 0;
+  scrolledSheets.length = 0;
   Object.assign(globalThis, { IntersectionObserver: IdleIntersectionObserver });
   Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
     if (this.classList.contains("pdf-hit-active")) scrolledHits.push(this.textContent ?? "");
+    const slot = this.closest("[data-pdf-page]");
+    if (slot !== null && slot !== this)
+      scrolledSheets.push(slot.getAttribute("data-pdf-page") ?? "");
     scrolledPages.push(this.getAttribute("data-pdf-page") ?? "");
   };
 });
@@ -208,7 +213,7 @@ describe("PdfViewer", () => {
     await waitFor(() => expect(scrolledHits).toEqual(["Whg. 4"]));
   });
 
-  test("markTerm marks the passage on its page top and leaves the search closed but usable", async () => {
+  test("markTerm marks the passage, re-anchors its rendered page top and leaves the search closed but usable", async () => {
     Object.assign(globalThis, { IntersectionObserver: undefined });
     renderViewer(<PdfViewer document={fakeDocument()} markTerm="Whg. 4" initialPage={3} />);
     const page = await screen.findByTestId("pdf-page-3");
@@ -216,6 +221,8 @@ describe("PdfViewer", () => {
     expect(page.querySelector(".pdf-hit-active")).toBeNull();
     expect(scrolledHits).toEqual([]);
     expect(scrolledPages).toContain("3");
+    await waitFor(() => expect(scrolledSheets).toContain("3"));
+    expect(scrolledSheets).not.toContain("1");
     expect(screen.queryByRole("searchbox")).toBeNull();
     fireEvent.click(screen.getByLabelText("Search in document"));
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Nutzeinheit" } });

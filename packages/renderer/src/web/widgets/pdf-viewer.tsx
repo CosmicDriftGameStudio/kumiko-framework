@@ -229,6 +229,8 @@ export function PdfViewer({
                             searchedTerm !== "" && activeMatch?.page === pageNumber
                               ? activeMatch.ordinalOnPage
                               : null,
+                          // The mount-time page jump lands on placeholders that shrink once fit-to-width measures, so the marked page re-anchors after it renders.
+                          anchorTop: searchedTerm === "" && pageNumber === initialPage,
                         },
                 }}
               />
