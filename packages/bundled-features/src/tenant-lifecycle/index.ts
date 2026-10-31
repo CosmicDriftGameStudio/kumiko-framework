@@ -11,4 +11,8 @@ export {
   TenantLifecycleHandlers,
 } from "./constants.ts";
 export { createTenantLifecycleFeature } from "./feature.ts";
+export {
+  type RequestTenantDestructionArgs,
+  requestTenantDestruction,
+} from "./request-tenant-destruction.ts";
 export { resolveTenantLifecycleGate } from "./run-tenant-destroy.ts";

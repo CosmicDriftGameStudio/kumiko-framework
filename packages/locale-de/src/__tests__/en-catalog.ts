@@ -620,6 +620,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "your requested data export for {app} is ready. Download it using the link below:",
   "gdpr.mail.exportReady.subject": "{app} — Your data export is ready",
   "gdpr.mail.greeting": "Hi,",
+  "inactivity.mail.warning.after":
+    "Even after the deletion request you can cancel it in the account settings until the waiting period ends.",
+  "inactivity.mail.warning.button": "Keep account",
+  "inactivity.mail.warning.intro":
+    "nobody has signed in to your {app} account {account} for a long time. If that does not change, we will request deletion of the account and all its data on {when}.",
+  "inactivity.mail.warning.keep":
+    "To keep the account, sign in or click the button. The period then starts over.",
+  "inactivity.mail.warning.subject": "{app}: Deletion request for your account {account} on {when}",
   "jobs.detail.field.duration": "Duration (ms)",
   "jobs.detail.field.error": "Error",
   "jobs.detail.field.finished": "Finished",

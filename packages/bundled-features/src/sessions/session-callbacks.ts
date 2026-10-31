@@ -16,6 +16,7 @@ import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framewo
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import { encryptForDirectWrite } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.ts";
@@ -30,6 +31,8 @@ import {
   SESSION_REVOKED_EVENT_QN,
   sessionRevokedSchema,
 } from "./session-revoked-event.ts";
+
+const realClock: Clock = { now: () => Temporal.Now.instant() };
 
 type SettledLookup<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
 
@@ -60,6 +63,8 @@ export type SessionCallbacksOptions = {
   // Session lifetime. MVP uses a single flat window; per-app policies can
   // come later (e.g. longer for "remember me", shorter for admin).
   readonly expiresInMs?: number;
+  // Real time unless a test injects a manual clock to age sessions deterministically.
+  readonly clock?: Clock;
 };
 
 export type SessionCallbacks = {
@@ -73,11 +78,12 @@ export type SessionCallbacks = {
 export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCallbacks {
   const ttlMs = opts.expiresInMs ?? DEFAULT_SESSION_EXPIRY_MS;
   const { db } = opts;
+  const clock = opts.clock ?? realClock;
 
   return {
     async sessionCreator(user: SessionUser, meta: SessionMetadata): Promise<string> {
       const sid = generateId();
-      const now = Temporal.Now.instant();
+      const now = clock.now();
       const expiresAt = now.add({ milliseconds: ttlMs });
       await insertOne(
         db,
@@ -114,7 +120,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         const result = await updateMany<{ userId: string }>(
           tx,
           userSessionTable,
-          { revokedAt: Temporal.Now.instant() },
+          { revokedAt: clock.now() },
           { id: sid, revokedAt: null },
         );
 
@@ -170,7 +176,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       if (row.revokedAt !== null) return "revoked";
       // Temporal-native clock read (Sprint F migration) — keeps the feature
       // free of raw Date.now() for consistency with the rest of the codebase.
-      if (row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds) {
+      if (row.expiresAt.epochMilliseconds <= clock.now().epochMilliseconds) {
         return "expired";
       }
 
@@ -185,15 +191,10 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
 
       // Hourly, not per-request: this check runs on every authenticated
       // request, so a write here has to stay off the hot path.
-      const nowMs = Temporal.Now.instant().epochMilliseconds;
+      const nowMs = clock.now().epochMilliseconds;
       if (!row.lastSeenAt || row.lastSeenAt.epochMilliseconds + LAST_SEEN_REFRESH_MS <= nowMs) {
         try {
-          await updateMany(
-            db,
-            userSessionTable,
-            { lastSeenAt: Temporal.Now.instant() },
-            { id: sid },
-          );
+          await updateMany(db, userSessionTable, { lastSeenAt: clock.now() }, { id: sid });
         } catch {
           // fail-open: a refresh failure must not block the session check
         }
@@ -243,7 +244,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         const result = await updateMany(
           tx,
           userSessionTable,
-          { revokedAt: Temporal.Now.instant() },
+          { revokedAt: clock.now() },
           { userId, revokedAt: null },
         );
 
@@ -280,7 +281,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         const result = await updateMany(
           tx,
           userSessionTable,
-          { revokedAt: Temporal.Now.instant() },
+          { revokedAt: clock.now() },
           currentSid
             ? { userId, revokedAt: null, id: { ne: currentSid } }
             : { userId, revokedAt: null },

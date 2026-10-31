@@ -1635,12 +1635,14 @@ type TemplateScalarVariableDef = (TemplateVariableCommon & { type: "text"; examp
 type TemplateVariableDef = TemplateScalarVariableDef | TemplateListVariableDef | TemplateImagesVariableDef;
 type TemplateVariables = Readonly<Record<string, TemplateVariableDef>>;
 type TenantDataDestroyHook = (ctx: TenantDataHookCtx) => Promise<TenantDestroyHookResult | void>;
+type TenantDataDestroyPhase = "app-data" | "tenant-row";
 interface TenantDataHookCtx {
   db: ExecutorManagedTenantDb;
   registry: Registry;
   tenantId: TenantId;
   deadlineAt?: number;
   fileProviderResolver?: FileProviderResolver;
+  heldFileRefIds?: ReadonlySet<string>;
   log?: (message: string) => void;
 }
 type TenantDestroyHookResult =

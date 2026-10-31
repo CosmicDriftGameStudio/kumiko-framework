@@ -12,6 +12,7 @@ export type {
   ComplianceProfileOverride,
   DurationSpec,
   EffectiveComplianceProfile,
+  RetentionSpec,
 } from "./profiles.ts";
 export {
   COMPLIANCE_PROFILES,

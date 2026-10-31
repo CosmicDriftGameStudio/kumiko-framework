@@ -647,6 +647,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "dein angeforderter Datenexport für {app} ist fertig. Lade ihn über den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Dein Datenexport ist bereit",
   "gdpr.mail.greeting": "Hallo,",
+  "inactivity.mail.warning.after":
+    "Auch nach dem Löschantrag kannst du die Löschung bis zum Ende der Wartefrist in den Kontoeinstellungen abbrechen.",
+  "inactivity.mail.warning.button": "Konto behalten",
+  "inactivity.mail.warning.intro":
+    "in deinem {app}-Konto {account} hat sich lange niemand angemeldet. Bleibt das so, beantragen wir am {when} die Löschung des Kontos mit allen Daten.",
+  "inactivity.mail.warning.keep":
+    "Wenn du das Konto behalten willst, melde dich an oder klick auf den Button. Dann beginnt die Frist neu.",
+  "inactivity.mail.warning.subject": "{app}: Löschantrag für dein Konto {account} am {when}",
   "jobs.detail.field.duration": "Dauer in ms",
   "jobs.detail.field.error": "Fehler",
   "jobs.detail.field.finished": "Beendet",

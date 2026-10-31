@@ -268,6 +268,8 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "template-resolver:write:upsert-system expose=true risk=mid",
   "template-resolver:write:upsert-tenant expose=true risk=mid",
   "tenant-handover:write:claim expose=false risk=mid",
+  "tenant-inactivity:query:state expose=true risk=low",
+  "tenant-inactivity:write:keep-account expose=false risk=mid",
   "tenant-lifecycle:write:cancel-destruction expose=true risk=mid",
   "tenant-lifecycle:write:request-destruction expose=true risk=high",
   "tenant:query:activeTenantIds expose=true risk=low",

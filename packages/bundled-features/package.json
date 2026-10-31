@@ -93,6 +93,8 @@
     "./tenant/constants": "./src/tenant/web/constants.ts",
     "./tenant/web": "./src/tenant/web/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",
+    "./tenant-inactivity": "./src/tenant-inactivity/index.ts",
+    "./tenant-inactivity/email-templates": "./src/tenant-inactivity/email-templates.ts",
     "./tenant-lifecycle": "./src/tenant-lifecycle/index.ts",
     "./tenant-lifecycle/testing": "./src/tenant-lifecycle/testing.ts",
     "./tenant-handover": "./src/tenant-handover/index.ts",
@@ -478,6 +480,14 @@
       "./tenant/seeding": {
         "types": "./dist/tenant/seeding.d.ts",
         "default": "./dist/tenant/seeding.js"
+      },
+      "./tenant-inactivity": {
+        "types": "./dist/tenant-inactivity/index.d.ts",
+        "default": "./dist/tenant-inactivity/index.js"
+      },
+      "./tenant-inactivity/email-templates": {
+        "types": "./dist/tenant-inactivity/email-templates.d.ts",
+        "default": "./dist/tenant-inactivity/email-templates.js"
       },
       "./tenant-lifecycle": {
         "types": "./dist/tenant-lifecycle/index.d.ts",

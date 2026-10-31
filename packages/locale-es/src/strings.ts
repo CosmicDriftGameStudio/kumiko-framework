@@ -642,6 +642,15 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "la exportación de datos que solicitaste para {app} está lista. Descárgala con el siguiente enlace:",
   "gdpr.mail.exportReady.subject": "{app} — Tu exportación de datos está lista",
   "gdpr.mail.greeting": "Hola,",
+  "inactivity.mail.warning.after":
+    "Incluso después de la solicitud de eliminación puedes cancelarla en los ajustes de la cuenta hasta que termine el plazo de espera.",
+  "inactivity.mail.warning.button": "Conservar la cuenta",
+  "inactivity.mail.warning.intro":
+    "hace mucho tiempo que nadie inicia sesión en tu cuenta {account} de {app}. Si eso no cambia, el {when} solicitaremos la eliminación de la cuenta con todos sus datos.",
+  "inactivity.mail.warning.keep":
+    "Si quieres conservar la cuenta, inicia sesión o haz clic en el botón. Así el plazo empieza de nuevo.",
+  "inactivity.mail.warning.subject":
+    "{app}: Solicitud de eliminación de tu cuenta {account} el {when}",
   "jobs.detail.field.duration": "Duración (ms)",
   "jobs.detail.field.error": "Error",
   "jobs.detail.field.finished": "Finalizado",

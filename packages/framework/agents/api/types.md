@@ -948,6 +948,7 @@ interface KumikoExtensionOptionsMap {
 ```ts
 interface TenantDataExtensionHooks {
   destroy: TenantDataDestroyHook;
+  phase?: TenantDataDestroyPhase;
 }
 ```
 

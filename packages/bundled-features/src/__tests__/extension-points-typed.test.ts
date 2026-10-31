@@ -53,6 +53,7 @@ const TYPED_EXTENSION_POINTS = [
   "signupHandover",
   "assignableRole",
   "emailAppTransport",
+  "tenantDestructionHold",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
