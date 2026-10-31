@@ -14,19 +14,23 @@ import {
   toLoginResponse,
 } from "../../auth-email-password/web/index.ts";
 
+const VERIFY_PATH = "/api/auth/mfa/verify";
+const PREAUTH_CONFIRM_PATH = "/api/auth/mfa/preauth-confirm";
+
 export type MfaVerifyResult =
   | { readonly kind: "success"; readonly data: LoginResponse }
   | { readonly kind: "failure"; readonly error: LoginFailure };
 
-export async function verifyMfaChallenge(
-  challengeToken: string,
-  code: string,
+async function postMfaLogin(
+  path: string,
+  payload: Record<string, string>,
+  fallbackReason: string,
 ): Promise<MfaVerifyResult> {
-  const res = await fetch("/api/auth/mfa/verify", {
+  const res = await fetch(path, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ challengeToken, code }),
+    body: JSON.stringify(payload),
   });
   if (res.status === 429) {
     return { kind: "failure", error: { reason: "rate_limited" } };
@@ -45,7 +49,14 @@ export async function verifyMfaChallenge(
       data: toLoginResponse(body.token, body.user, body.landingPath),
     };
   }
-  return { kind: "failure", error: failureFromErrorField(body.error, "mfa_verify_failed") };
+  return { kind: "failure", error: failureFromErrorField(body.error, fallbackReason) };
+}
+
+export async function verifyMfaChallenge(
+  challengeToken: string,
+  code: string,
+): Promise<MfaVerifyResult> {
+  return postMfaLogin(VERIFY_PATH, { challengeToken, code }, "mfa_verify_failed");
 }
 
 export type MfaSetupPreauthStart = {
@@ -106,35 +117,10 @@ export async function startMfaSetupPreauth(
 // Browser side of POST /api/auth/mfa/preauth-confirm — completes both the
 // enrollment started by startMfaSetupPreauth and the login
 // mfa-setup-required block. Its response mirrors /auth/mfa/verify's and is
-// minted via the same mintSessionAndRespond(). It remains a separate function
-// so this file's two already-tested request shapes stay independently
-// editable.
+// minted via the same mintSessionAndRespond(), so both share postMfaLogin.
 export async function confirmMfaSetupPreauth(
   setupToken: string,
   code: string,
 ): Promise<MfaVerifyResult> {
-  const res = await fetch("/api/auth/mfa/preauth-confirm", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ setupToken, code }),
-  });
-  if (res.status === 429) {
-    return { kind: "failure", error: { reason: "rate_limited" } };
-  }
-  // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
-  const body = (await res.json().catch(() => ({}))) as {
-    isSuccess?: boolean;
-    token?: string;
-    user?: LoginResponse["user"];
-    landingPath?: string;
-    error?: unknown;
-  };
-  if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
-    return {
-      kind: "success",
-      data: toLoginResponse(body.token, body.user, body.landingPath),
-    };
-  }
-  return { kind: "failure", error: failureFromErrorField(body.error, "mfa_setup_confirm_failed") };
+  return postMfaLogin(PREAUTH_CONFIRM_PATH, { setupToken, code }, "mfa_setup_confirm_failed");
 }

@@ -29,56 +29,71 @@ async function loadBooks(
   return { accounts: toAccounts(accountRows), entries: toEntries(txRows) };
 }
 
+type ReportPeriod = z.infer<typeof periodSchema>;
+
+function createPeriodReportHandler(
+  report: {
+    readonly name: string;
+    readonly description: string;
+    readonly compute: (
+      accounts: LedgerAccount[],
+      entries: LedgerEntry[],
+      period: ReportPeriod,
+    ) => unknown;
+  },
+  access: AccessRule,
+): QueryHandlerDef {
+  return {
+    name: report.name,
+    schema: periodSchema,
+    access,
+    description: report.description,
+    handler: async (query, ctx) => {
+      const period = periodSchema.parse(query);
+      const { accounts, entries } = await loadBooks(ctx);
+      return report.compute(accounts, entries, period);
+    },
+  };
+}
+
+const BALANCES_REPORT = {
+  name: "report:balances",
+  description:
+    "Returns the per-account balance in its natural sign plus the trial balance over an optional from/to period; use it for a trial balance or to read one account's standing.",
+  compute: accountBalances,
+};
+
+const INCOME_STATEMENT_REPORT = {
+  name: "report:income-statement",
+  description:
+    "Returns income minus expense over an optional from/to period; use it for a profit-and-loss statement.",
+  compute: incomeStatement,
+};
+
+const BALANCE_SHEET_REPORT = {
+  name: "report:balance-sheet",
+  description:
+    "Returns assets, liabilities and equity as of the optional `to` date with the period result folded into equity so the sheet balances; use it for a balance sheet at a point in time.",
+  compute: balanceSheet,
+};
+
 // Per-account balances (natural sign) + the trial balance (Σ raw = 0 invariant).
 export function createBalancesReportHandler(
   access: AccessRule = DEFAULT_LEDGER_ACCESS,
 ): QueryHandlerDef {
-  return {
-    name: "report:balances",
-    schema: periodSchema,
-    access,
-    description:
-      "Returns the per-account balance in its natural sign plus the trial balance over an optional from/to period; use it for a trial balance or to read one account's standing.",
-    handler: async (query, ctx) => {
-      const period = periodSchema.parse(query);
-      const { accounts, entries } = await loadBooks(ctx);
-      return accountBalances(accounts, entries, period);
-    },
-  };
+  return createPeriodReportHandler(BALANCES_REPORT, access);
 }
 
 // GuV — income − expense over the period.
 export function createIncomeStatementHandler(
   access: AccessRule = DEFAULT_LEDGER_ACCESS,
 ): QueryHandlerDef {
-  return {
-    name: "report:income-statement",
-    schema: periodSchema,
-    access,
-    description:
-      "Returns income minus expense over an optional from/to period; use it for a profit-and-loss statement.",
-    handler: async (query, ctx) => {
-      const period = periodSchema.parse(query);
-      const { accounts, entries } = await loadBooks(ctx);
-      return incomeStatement(accounts, entries, period);
-    },
-  };
+  return createPeriodReportHandler(INCOME_STATEMENT_REPORT, access);
 }
 
 // Bilanz as of `to` — current result folded into equity so it balances.
 export function createBalanceSheetHandler(
   access: AccessRule = DEFAULT_LEDGER_ACCESS,
 ): QueryHandlerDef {
-  return {
-    name: "report:balance-sheet",
-    schema: periodSchema,
-    access,
-    description:
-      "Returns assets, liabilities and equity as of the optional `to` date with the period result folded into equity so the sheet balances; use it for a balance sheet at a point in time.",
-    handler: async (query, ctx) => {
-      const period = periodSchema.parse(query);
-      const { accounts, entries } = await loadBooks(ctx);
-      return balanceSheet(accounts, entries, period);
-    },
-  };
+  return createPeriodReportHandler(BALANCE_SHEET_REPORT, access);
 }

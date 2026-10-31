@@ -6,7 +6,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { AuthErrors } from "../../auth-email-password/index.ts";
-import { decryptStoredPii, verifyPassword } from "../../shared/index.ts";
+import { decryptStoredPii, unprocessable, verifyPassword } from "../../shared/index.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
 import { UserProfileErrors } from "../web/constants.ts";
 
@@ -15,11 +15,7 @@ import { UserProfileErrors } from "../web/constants.ts";
 // and i18nKey are stable public API.
 // @wrapper-known error-helper
 function invalidCredentials() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidCredentials, {
-      i18nKey: "auth.errors.invalidCredentials",
-    }),
-  );
+  return unprocessable(AuthErrors.invalidCredentials, "auth.errors.invalidCredentials");
 }
 
 // Change-email — authenticated, self-only. The user confirms with their

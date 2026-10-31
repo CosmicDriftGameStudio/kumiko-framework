@@ -9,6 +9,7 @@ import {
   type FeatureDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createLateBoundSlot, readFeatureExportFn } from "../shared/index.ts";
 import { availabilityQuery } from "./handlers/availability.query.ts";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.ts";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.ts";
@@ -44,15 +45,10 @@ export type BindPatAutoRevokeOnPasswordChange = (
 export function bindPatAutoRevokeOnPasswordChangeFromFeature(
   feature: FeatureDefinition,
 ): BindPatAutoRevokeOnPasswordChange | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
-    const { bindAutoRevokeOnPasswordChange } = exports;
-    if (typeof bindAutoRevokeOnPasswordChange === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindAutoRevokeOnPasswordChange as BindPatAutoRevokeOnPasswordChange;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<BindPatAutoRevokeOnPasswordChange>(
+    feature,
+    "bindAutoRevokeOnPasswordChange",
+  );
 }
 
 export type PersonalAccessTokensOptions = {
@@ -151,12 +147,13 @@ export function createPersonalAccessTokensFeature(
     // run{Prod,Dev}App has a real db handle.
     // Explicit option wins; the runtime binding is replaceable so a second boot of the same
     // feature instance binds its own database.
-    let boundAutoRevoke: ((userId: string) => Promise<number>) | undefined;
+    const autoRevokeSlot = createLateBoundSlot<(userId: string) => Promise<number>>();
     r.hook({
       type: "postSave",
       target: { allOf: "user" },
       handler: async (result) => {
-        const autoRevokeOnPasswordChange = options.autoRevokeOnPasswordChange ?? boundAutoRevoke;
+        const autoRevokeOnPasswordChange =
+          options.autoRevokeOnPasswordChange ?? autoRevokeSlot.current();
         // skip: nothing bound — same late-bind pattern as sessions/feature.ts
         if (!autoRevokeOnPasswordChange) return;
         // skip: brand-new user, no PATs can exist yet
@@ -168,12 +165,7 @@ export function createPersonalAccessTokensFeature(
         await autoRevokeOnPasswordChange(String(result.id));
       },
     });
-    const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = (revoker) => {
-      boundAutoRevoke = revoker;
-      return () => {
-        if (boundAutoRevoke === revoker) boundAutoRevoke = undefined;
-      };
-    };
+    const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = autoRevokeSlot.bind;
 
     const handlers = {
       create: r.writeHandler(createPatCreateHandler({ mfaVerifier: options.mfaVerifier })),

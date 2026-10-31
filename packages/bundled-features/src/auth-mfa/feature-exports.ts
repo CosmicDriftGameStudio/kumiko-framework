@@ -1,4 +1,5 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { readFeatureExportFn } from "../shared/index.ts";
 import type { MfaCodeVerifier } from "./mfa-code-verifier.ts";
 import type { MfaStatusChecker } from "./mfa-status-checker.ts";
 import type { MfaTokenSecretsEnv } from "./token-secrets.ts";
@@ -17,15 +18,7 @@ export type BindMfaRevokeAllOtherSessions = (
 export function bindMfaRevokeAllOtherSessionsFromFeature(
   feature: FeatureDefinition,
 ): BindMfaRevokeAllOtherSessions | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindRevokeAllOtherSessions" in exports) {
-    const { bindRevokeAllOtherSessions } = exports;
-    if (typeof bindRevokeAllOtherSessions === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindRevokeAllOtherSessions as BindMfaRevokeAllOtherSessions;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<BindMfaRevokeAllOtherSessions>(feature, "bindRevokeAllOtherSessions");
 }
 
 // Reads the eagerly-built `checkMfaStatus` off a mounted auth-mfa feature's
@@ -33,15 +26,7 @@ export function bindMfaRevokeAllOtherSessionsFromFeature(
 export function mfaStatusCheckerFromFeature(
   feature: FeatureDefinition,
 ): MfaStatusChecker | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "checkMfaStatus" in exports) {
-    const { checkMfaStatus } = exports;
-    if (typeof checkMfaStatus === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return checkMfaStatus as MfaStatusChecker;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<MfaStatusChecker>(feature, "checkMfaStatus");
 }
 
 // Reads the eagerly-built `verifyMfaCode` off a mounted auth-mfa feature's
@@ -49,15 +34,7 @@ export function mfaStatusCheckerFromFeature(
 // mfaVerifier (re-auth gate for minting a token). Same no-bind-setter
 // reasoning as checkMfaStatus above.
 export function mfaVerifierFromFeature(feature: FeatureDefinition): MfaCodeVerifier | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "verifyMfaCode" in exports) {
-    const { verifyMfaCode } = exports;
-    if (typeof verifyMfaCode === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return verifyMfaCode as MfaCodeVerifier;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<MfaCodeVerifier>(feature, "verifyMfaCode");
 }
 
 export type BindMfaTokenSecrets = (masterSecret: string, env: MfaTokenSecretsEnv) => void;
@@ -68,15 +45,7 @@ export type BindMfaTokenSecrets = (masterSecret: string, env: MfaTokenSecretsEnv
 export function bindMfaTokenSecretsFromFeature(
   feature: FeatureDefinition,
 ): BindMfaTokenSecrets | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindTokenSecrets" in exports) {
-    const { bindTokenSecrets } = exports;
-    if (typeof bindTokenSecrets === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindTokenSecrets as BindMfaTokenSecrets;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<BindMfaTokenSecrets>(feature, "bindTokenSecrets");
 }
 
 export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => () => void;
@@ -88,13 +57,5 @@ export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<numbe
 export function bindRevokeAllPatTokensFromFeature(
   feature: FeatureDefinition,
 ): BindRevokeAllPatTokens | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindRevokeAllPatTokens" in exports) {
-    const { bindRevokeAllPatTokens } = exports;
-    if (typeof bindRevokeAllPatTokens === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindRevokeAllPatTokens as BindRevokeAllPatTokens;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<BindRevokeAllPatTokens>(feature, "bindRevokeAllPatTokens");
 }

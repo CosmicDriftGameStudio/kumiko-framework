@@ -32,9 +32,10 @@ import {
   type HandlerContext,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
+import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
+import { assertBillingLive } from "../shared/index.ts";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants.ts";
 
 const API_KEY_HINT =
@@ -137,12 +138,8 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
     ctx: {
       // @wrapper-known semantic-alias
       clientForCtx: async (ctx) => clientFor(await ctxApiKey(ctx)),
-      assertBillingLive: async (ctx, handlerName = "create-checkout-session") => {
-        const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
-        if (live !== true) {
-          throw new FeatureDisabledError(SUBSCRIPTION_STRIPE_FEATURE, handlerName);
-        }
-      },
+      assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
+        assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_STRIPE_FEATURE, handlerName),
       isBillingEnabled: async (ctx) => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
         if (live !== true) return false;

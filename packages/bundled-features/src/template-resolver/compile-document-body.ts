@@ -259,28 +259,40 @@ function appendStyle(element: ScanElement, style: string): void {
   element.setAttribute("style", existing === null ? style : `${existing};${style}`);
 }
 
+function collectUniqueValidAttributes(
+  html: string,
+  selector: string,
+  attribute: string,
+  isValid: (value: string) => boolean,
+): readonly string[] {
+  return withParsedDocument(html, (root) => {
+    const values = new Set<string>();
+    for (const element of Array.from(root.querySelectorAll(selector))) {
+      const value = element.getAttribute(attribute) ?? "";
+      if (isValid(value)) values.add(value);
+    }
+    return [...values];
+  });
+}
+
 // Unique valid resource keys in document order.
 export function collectDocumentResourceKeys(html: string): readonly string[] {
-  return withParsedDocument(html, (root) => {
-    const keys = new Set<string>();
-    for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
-      const key = element.getAttribute("data-resource") ?? "";
-      if (isDocumentResourceKey(key)) keys.add(key);
-    }
-    return [...keys];
-  });
+  return collectUniqueValidAttributes(
+    html,
+    "img[data-resource]",
+    "data-resource",
+    isDocumentResourceKey,
+  );
 }
 
 // Unique valid names of the images blocks in document order.
 export function collectDocumentImageVariables(html: string): readonly string[] {
-  return withParsedDocument(html, (root) => {
-    const names = new Set<string>();
-    for (const element of Array.from(root.querySelectorAll("div[data-images]"))) {
-      const name = element.getAttribute("data-images") ?? "";
-      if (isDocumentReferenceName(name)) names.add(name);
-    }
-    return [...names];
-  });
+  return collectUniqueValidAttributes(
+    html,
+    "div[data-images]",
+    "data-images",
+    isDocumentReferenceName,
+  );
 }
 
 function rewriteImagesBlock(

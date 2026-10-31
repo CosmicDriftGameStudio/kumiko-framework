@@ -3,6 +3,7 @@
 // root-relative paths pass (no "//host", no "/\host", no scheme).
 
 import { appendReturnTo, NEXT_QUERY_PARAM } from "./login-url.ts";
+import { readPathParam } from "./read-path-param.ts";
 import { isSafeReturnPath, readReturnToFromSearch } from "./return-path.ts";
 
 export { appendReturnTo, NEXT_QUERY_PARAM };
@@ -10,8 +11,7 @@ export { appendReturnTo, NEXT_QUERY_PARAM };
 export const isSafeNextPath = isSafeReturnPath;
 
 export function readNextFromSearch(search: string): string | null {
-  const candidate = new URLSearchParams(search).get(NEXT_QUERY_PARAM);
-  return isSafeNextPath(candidate) ? candidate : null;
+  return readPathParam(search, NEXT_QUERY_PARAM, isSafeNextPath);
 }
 
 // The returnTo a mail link or sibling auth page carried in this page's own URL; null on native, where there is no window.

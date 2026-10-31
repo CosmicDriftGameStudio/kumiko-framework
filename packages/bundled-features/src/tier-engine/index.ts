@@ -8,6 +8,7 @@
 //   - `TierEngineHandlers` / `TierEngineQueries` — qualified handler names
 
 export { tierAssignmentAggregateId } from "./aggregate-id.ts";
+export { capsForTierFromMap } from "./caps-for-tier-from-map.ts";
 export {
   type AddOnDefinition,
   type AddOnMap,

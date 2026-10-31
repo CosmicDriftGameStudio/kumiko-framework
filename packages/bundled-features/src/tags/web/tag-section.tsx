@@ -15,7 +15,7 @@ import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-ren
 import { type ReactNode, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
 import { TagsHandlers, TagsQueries } from "./constants.ts";
-import { TagChip } from "./tag-chip.tsx";
+import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
@@ -130,10 +130,7 @@ export function TagSection({
         {assignedIds.length === 0 ? (
           <Text variant="small">{t("tags.section.none")}</Text>
         ) : (
-          assignedIds.map((id) => {
-            const tag = byId.get(id);
-            return <TagChip key={id} name={tag?.name ?? id} color={tag?.color} />;
-          })
+          assignedIds.map((id) => <TagChipById key={id} id={id} byId={byId} />)
         )}
         <Button
           variant="secondary"

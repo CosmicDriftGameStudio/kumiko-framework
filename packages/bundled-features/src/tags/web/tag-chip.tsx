@@ -47,6 +47,20 @@ const BASE_STYLE: CSSProperties = {
 
 const NEUTRAL = { backgroundColor: "#e5e7eb", color: "#374151" } as const;
 
+export function TagChipById({
+  id,
+  byId,
+}: {
+  readonly id: string;
+  readonly byId: ReadonlyMap<
+    string,
+    { readonly name: string; readonly color?: string | null | undefined }
+  >;
+}): ReactNode {
+  const tag = byId.get(id);
+  return <TagChip name={tag?.name ?? id} color={tag?.color} />;
+}
+
 export function TagChip({
   name,
   color,

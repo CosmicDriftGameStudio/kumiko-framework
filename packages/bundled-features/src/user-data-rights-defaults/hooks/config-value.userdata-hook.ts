@@ -1,12 +1,8 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type UserDataDeleteHook,
-  type UserDataExportHook,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { configValueEntity, configValuesTable } from "../../config/index.ts";
-import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
+import { forgetOwnRowsDeleteHook } from "./forget-own-rows-delete-hook.ts";
 
 // userData-Hooks for config's USER-scoped rows (userId set). Tenant-/system-
 // scope rows carry no per-user subject and stay untouched. Event-sourced
@@ -34,24 +30,9 @@ export const configValueExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const configValueDeleteHook: UserDataDeleteHook = async (ctx) => {
-  // skip: config not mounted — its table doesn't exist, nothing to erase.
-  if (!featureMounted(ctx, "config")) return;
-  const systemUser = createSystemUser(ctx.tenantId);
-  const rows = await ctx.db.selectMany<Record<string, unknown>>(configValuesTable, {
-    tenantId: ctx.tenantId,
-    userId: ctx.userId,
-  });
-  const failures: string[] = [];
-  for (const row of rows) {
-    const id = row["id"]; // @cast-boundary db-row
-    if (typeof id !== "string") continue;
-    collectErasureFailure(
-      await crud.forget({ id }, systemUser, ctx.db),
-      "config-value",
-      id,
-      failures,
-    );
-  }
-  throwIfErasureFailed(failures);
-};
+export const configValueDeleteHook: UserDataDeleteHook = forgetOwnRowsDeleteHook({
+  featureName: "config",
+  entityName: "config-value",
+  table: configValuesTable,
+  executor: crud,
+});

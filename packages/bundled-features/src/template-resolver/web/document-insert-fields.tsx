@@ -123,31 +123,54 @@ function renderImageFields(m: PanelModel): ReactNode {
   );
 }
 
-function renderButtonFields(m: PanelModel): ReactNode {
-  const { t, Field, Input, idPrefix } = m;
+function renderVariableAndTextFields(
+  m: PanelModel,
+  fields: {
+    readonly variableIdSuffix: string;
+    readonly variableLabel: string;
+    readonly textIdSuffix: string;
+    readonly textLabel: string;
+    readonly textName: string;
+    readonly textValue: string;
+    readonly onTextChange: (value: string) => void;
+  },
+): ReactNode {
+  const { Field, Input, idPrefix } = m;
   return (
     !m.noVariables && (
       <>
         <NameSelect
-          id={`${idPrefix}-target`}
-          label={t("template-resolver.documentEditor.buttonTarget")}
+          id={`${idPrefix}-${fields.variableIdSuffix}`}
+          label={fields.variableLabel}
           names={m.selectable}
           labels={m.variableLabels}
           value={m.selectedName}
           onChange={m.setChosenName}
         />
-        <Field id={`${idPrefix}-text`} label={t("template-resolver.documentEditor.buttonText")}>
+        <Field id={`${idPrefix}-${fields.textIdSuffix}`} label={fields.textLabel}>
           <Input
             kind="text"
-            id={`${idPrefix}-text`}
-            name="text"
-            value={m.buttonText}
-            onChange={m.setButtonText}
+            id={`${idPrefix}-${fields.textIdSuffix}`}
+            name={fields.textName}
+            value={fields.textValue}
+            onChange={fields.onTextChange}
           />
         </Field>
       </>
     )
   );
+}
+
+function renderButtonFields(m: PanelModel): ReactNode {
+  return renderVariableAndTextFields(m, {
+    variableIdSuffix: "target",
+    variableLabel: m.t("template-resolver.documentEditor.buttonTarget"),
+    textIdSuffix: "text",
+    textLabel: m.t("template-resolver.documentEditor.buttonText"),
+    textName: "text",
+    textValue: m.buttonText,
+    onTextChange: m.setButtonText,
+  });
 }
 
 function renderRepeatFields(m: PanelModel): ReactNode {
@@ -181,33 +204,15 @@ function renderImagesFields(m: PanelModel): ReactNode {
 }
 
 function renderStepsFields(m: PanelModel): ReactNode {
-  const { t, Field, Input, idPrefix } = m;
-  return (
-    !m.noVariables && (
-      <>
-        <NameSelect
-          id={`${idPrefix}-steps-variable`}
-          label={t("template-resolver.documentEditor.stepsVariable")}
-          names={m.selectable}
-          labels={m.variableLabels}
-          value={m.selectedName}
-          onChange={m.setChosenName}
-        />
-        <Field
-          id={`${idPrefix}-steps-list`}
-          label={t("template-resolver.documentEditor.stepsList")}
-        >
-          <Input
-            kind="text"
-            id={`${idPrefix}-steps-list`}
-            name="steps"
-            value={m.stepsText}
-            onChange={m.setStepsText}
-          />
-        </Field>
-      </>
-    )
-  );
+  return renderVariableAndTextFields(m, {
+    variableIdSuffix: "steps-variable",
+    variableLabel: m.t("template-resolver.documentEditor.stepsVariable"),
+    textIdSuffix: "steps-list",
+    textLabel: m.t("template-resolver.documentEditor.stepsList"),
+    textName: "steps",
+    textValue: m.stepsText,
+    onTextChange: m.setStepsText,
+  });
 }
 
 export const PANEL_FIELDS: Readonly<Record<PanelKind, (m: PanelModel) => ReactNode>> = {

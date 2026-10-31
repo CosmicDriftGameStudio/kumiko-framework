@@ -5,11 +5,10 @@ import {
   type HandlerContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { encryptForDirectWrite, verifyPassword } from "../../shared/index.ts";
+import { encryptForDirectWrite, unprocessable, verifyPassword } from "../../shared/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import { mintPatToken } from "../hash.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
@@ -32,11 +31,7 @@ export type CreatePatOptions = {
 
 // @wrapper-known error-helper
 function reauthFailed() {
-  return writeFailure(
-    new UnprocessableError(PatErrors.reauthRequired, {
-      i18nKey: "errors.reauthRequired",
-    }),
-  );
+  return unprocessable(PatErrors.reauthRequired, "errors.reauthRequired");
 }
 
 // Mint a PAT for the calling user in their active tenant. The plaintext token

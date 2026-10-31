@@ -20,7 +20,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { TagsQueries } from "./constants.ts";
-import { TagChip } from "./tag-chip.tsx";
+import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 
 // Tags chosen but zero matching entities → filter to a value that matches no row
@@ -78,10 +78,9 @@ export function TagFilter({
       <Button variant="secondary" onClick={() => setOpen(true)} testId="tag-filter-open">
         {t("tags.filter.label")}
       </Button>
-      {selected.map((id) => {
-        const tag = byId.get(id);
-        return <TagChip key={id} name={tag?.name ?? id} color={tag?.color} />;
-      })}
+      {selected.map((id) => (
+        <TagChipById key={id} id={id} byId={byId} />
+      ))}
       {selected.length > 0 && (
         <Button variant="secondary" onClick={() => applyFilter([])} testId="tag-filter-clear">
           {t("tags.filter.clear")}
