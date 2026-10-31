@@ -17,12 +17,7 @@ import { useSeenInViewport } from "./use-in-view.ts";
 
 export const RENDER_SCALE = 96 / 72;
 
-export type PdfTextHighlight = {
-  readonly term: string;
-  readonly activeOrdinal: number | null;
-  /** Without an active hit: bring this page's top into view once it has rendered. */
-  readonly anchorTop?: boolean;
-};
+export type PdfTextHighlight = { readonly term: string; readonly activeOrdinal: number | null };
 
 export type PdfPageSize = { readonly width: number; readonly height: number };
 
@@ -39,6 +34,8 @@ export type PageLayout = {
   readonly variant: "stacked" | "viewer";
   readonly zoom: number;
   readonly highlight: PdfTextHighlight | null;
+  /** The page the viewer opened on: its top is brought back into view whenever its size settles, unless a search hit is active. */
+  readonly anchorTop?: boolean;
 };
 
 // Fit-to-width only shrinks; a zoom above 100% is meant to overflow and scroll.
@@ -124,7 +121,7 @@ function PageSheet({
 
   const highlightTerm = layout.highlight?.term ?? "";
   const activeOrdinal = layout.highlight?.activeOrdinal ?? null;
-  const anchorTop = activeOrdinal === null && layout.highlight?.anchorTop === true;
+  const anchorTop = activeOrdinal === null && layout.anchorTop === true;
   const sheetRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const container = textLayerRef.current;
@@ -191,6 +188,12 @@ export function PdfPageSlot({
   const t = useTranslation();
   const { seen, observe } = useSeenInViewport();
   const [availableWidth, setAvailableWidth] = useState<number | null>(null);
+  const slotRef = useRef<HTMLElement | null>(null);
+  const anchorTop = layout.anchorTop === true && layout.highlight?.activeOrdinal == null;
+  // A jump on mount lands on placeholders that only shrink to the pane width once it is measured; re-anchor then.
+  useEffect(() => {
+    if (anchorTop && availableWidth !== null) slotRef.current?.scrollIntoView({ block: "start" });
+  }, [anchorTop, availableWidth]);
   const mountFrame = useCallback(
     (frame: HTMLDivElement | null) => {
       if (frame === null) return undefined;
@@ -221,6 +224,7 @@ export function PdfPageSlot({
 
   return (
     <figure
+      ref={slotRef}
       data-pdf-page={pageNumber}
       data-testid={`pdf-page-${pageNumber}`}
       className={cn(
