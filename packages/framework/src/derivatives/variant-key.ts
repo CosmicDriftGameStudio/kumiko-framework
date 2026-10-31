@@ -51,9 +51,10 @@ export function isDerivativeSuffix(suffix: string): boolean {
   return DERIVATIVE_SUFFIX_PATTERN.test(suffix);
 }
 
-// Mirrors deriveKey's own split so callers get the exact same base/ext this
-// key's derivatives were built from.
-function splitKey(key: string): { readonly base: string; readonly ext: string } {
+// Splits on the last dot of the last path segment only, so `archive.v2/foo.jpg`
+// yields base `archive.v2/foo`. No dot there: the whole key is the base, ext is
+// empty. deriveKey uses the same split, so derivative keys line up with it.
+export function splitKey(key: string): { readonly base: string; readonly ext: string } {
   const lastSlash = key.lastIndexOf("/");
   const lastSegment = lastSlash === -1 ? key : key.slice(lastSlash + 1);
   const lastDot = lastSegment.lastIndexOf(".");
