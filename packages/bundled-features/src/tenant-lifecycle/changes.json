@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.407.0",
+    "type": "improvement",
+    "title": "Tenants with blockDelete rows park in destroyHeld",
+    "detail": "When a destroying tenant owns rows of an entity with strategy blockDelete (entity default, preset, profile or per-tenant override), the destruction pauses before the tenant row in the new tenant status destroyHeld instead of deleting those rows. The sweep ignores destroyHeld tenants and hasTenantDestructionWork does not count them. The daily data-retention cleanup hard-deletes the held rows once their keepFor has passed, including their files, and then moves the tenant back to destroying in the same run. Code that switches exhaustively over the tenant status must handle destroyHeld; it is a transient state between destroying and destroyed and never the final one. The tenant's compliance profile and retention overrides are erased in the tenant-row phase through EXT_TENANT_DATA hooks, so they survive while the tenant is held."
+  },
+  {
+    "version": "0.407.0",
+    "type": "improvement",
+    "title": "requestTenantDestruction extracted",
+    "detail": "The core of the request-destruction handler is exported as requestTenantDestruction({ tenantId, actor, now, db, runner, registry, revokeSessions }) so other features, such as tenant-inactivity, file the same deletion request. The handler behavior is unchanged."
+  },
+  {
     "version": "0.406.0",
     "type": "improvement",
     "title": "Destroy stages can wait on external operations",

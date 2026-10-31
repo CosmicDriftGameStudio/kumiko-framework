@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.407.0",
+    "type": "improvement",
+    "title": "Tenant destruction keeps files of held rows",
+    "detail": "The fileRef destroy hook skips the fileRefs listed in heldFileRefIds, and the files prefix sweep keeps their bytes. Without a configured file provider, the retention cleanup still removes the held fileRef rows after keepFor and logs that no bytes could be deleted, so the tenant does not stay in destroyHeld forever."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Tenant destroy hooks make progress even when the deadline already passed",

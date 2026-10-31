@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.407.0",
+    "type": "improvement",
+    "title": "Warn and delete inactive free accounts",
+    "detail": "createTenantInactivityFeature({ rule } or { resolveTier, rulesByTier }, keepAccountUrl, keepAccountTokenSecret?, activitySources?) mounts a daily maintenance job that warns the tenant owners by mail before the deadline (rule.warnings, for example 30 and 7 days) and then files the normal tenant-lifecycle deletion request, with the wait period of the compliance profile. A new session, an activity source or the keep-account link in the mail restarts the period; a tier whose rule is null is exempt. The query tenant-inactivity:query:state (optional field tenantIdOverride, only for a SystemAdmin, to read another tenant) shows exempt, lastActivityAt, warningsSent, nextStep and nextStepAt. The feature requires sessions, tenant, tenant-lifecycle and delivery, and erases its state with the tenant data. Mail texts exist in en, de, es, fr and it."
+  }
+]
