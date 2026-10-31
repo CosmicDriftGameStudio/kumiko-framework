@@ -1,3 +1,5 @@
+import { bootRuleError } from "./boot-rule.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 // Screen validation entry point. The per-kind validators live in the
 // screens-kind-*.ts siblings and the shared sub-validators in screens-dashboard/
 // forms/lists/actions; dependencies only point one way (screens.ts ->
@@ -62,10 +64,11 @@ function validateCustomScreen(
   screen: CustomScreenDefinition,
 ): void {
   if (!screen.renderer.react && !screen.renderer.native) {
-    throw new Error(
-      `[Feature ${ctx.feature.name}] Screen "${screenId}" has type="custom" but the renderer ` +
+    throw bootRuleError(SCREEN_RULES.customNoComponent, {
+      message:
+        `[Feature ${ctx.feature.name}] Screen "${screenId}" has type="custom" but the renderer ` +
         `declares neither a react nor a native component — at least one platform must be set.`,
-    );
+    });
   }
 }
 
@@ -127,9 +130,9 @@ function rejectUnknownScreenKind(
   screen: ScreenDefinition,
 ): void {
   if (!Object.hasOwn(SCREEN_KIND_VALIDATORS, screen.type)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" has unknown type "${String(screen.type)}".`,
-    );
+    throw bootRuleError(SCREEN_RULES.unknownType, {
+      message: `[Feature ${featureName}] Screen "${screenId}" has unknown type "${String(screen.type)}".`,
+    });
   }
 }
 
@@ -204,10 +207,11 @@ function rejectAuthoredUrlPrefillFields(
       screen.type === "secretMint") &&
     screen.urlPrefillFields !== undefined
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets urlPrefillFields — ` +
+    throw bootRuleError(SCREEN_RULES.urlPrefillFieldsSet, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets urlPrefillFields — ` +
         `it is derived from navigate params by buildAppSchema; declare params on the navigating action instead.`,
-    );
+    });
   }
 }
 
@@ -222,10 +226,11 @@ function rejectSubmitPrefilledOutsideForms(
     "submitPrefilled" in screen &&
     screen.submitPrefilled !== undefined
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets submitPrefilled — ` +
+    throw bootRuleError(SCREEN_RULES.submitPrefilledUnsupported, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets submitPrefilled — ` +
         `only actionForm and secretMint screens support it. Remove it.`,
-    );
+    });
   }
 }
 

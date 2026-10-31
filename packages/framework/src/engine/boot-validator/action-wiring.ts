@@ -13,14 +13,16 @@ import {
   sectionFieldSpecs,
 } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { type BootRule, bootRuleError } from "./boot-rule.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 
 const FUNCTION_DROPPED_HINT =
   "functions are dropped by JSON.stringify when the screen config reaches the client " +
   "bundle — the action/field silently no-ops at runtime instead of failing loudly.";
 
-function throwIfFunction(value: unknown, message: string): void {
+function throwIfFunction(value: unknown, rule: BootRule, message: string): void {
   if (typeof value === "function") {
-    throw new Error(message);
+    throw bootRuleError(rule, { message });
   }
 }
 
@@ -43,6 +45,7 @@ function validateActionNoFunctions(
   for (const field of ACTION_FUNCTION_FIELDS) {
     throwIfFunction(
       record[field],
+      SCREEN_RULES.actionFieldFunction,
       `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${action.id}" ${field} ` +
         `is a function — ${FUNCTION_DROPPED_HINT} Use the declarative DSL ({ pick }, { map }, ` +
         `"fieldName", { field, eq }/{ field, in }) instead.`,
@@ -91,6 +94,7 @@ function validateEditFieldNoFunctions(
   for (const key of EDIT_FIELD_FUNCTION_FIELDS) {
     throwIfFunction(
       record[key],
+      SCREEN_RULES.editFieldConditionFunction,
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) field "${normalized.field}" ` +
         `${key} is a function — ${FUNCTION_DROPPED_HINT} Use a FieldCondition ` +
         `(boolean or { field, eq }/{ field, ne }/{ field, in }/{ field, notIn }) instead.`,
@@ -98,6 +102,7 @@ function validateEditFieldNoFunctions(
   }
   throwIfFunction(
     normalized.renderer,
+    SCREEN_RULES.rendererFunction,
     `[Feature ${featureName}] Screen "${screenId}" (${screenType}) field "${normalized.field}" ` +
       `renderer is a function — ${FUNCTION_DROPPED_HINT} Use a FormatSpec ({ format: "..." }) instead.`,
   );
@@ -113,6 +118,7 @@ function validateColumnsNoFunctions(
     const normalized = normalizeListColumn(col);
     throwIfFunction(
       normalized.renderer,
+      SCREEN_RULES.rendererFunction,
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) column ` +
         `"${normalized.field}" renderer is a function — ${FUNCTION_DROPPED_HINT} ` +
         `Use a FormatSpec ({ format: "..." }) instead.`,

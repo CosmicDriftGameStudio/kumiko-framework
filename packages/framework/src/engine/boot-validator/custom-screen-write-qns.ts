@@ -4,6 +4,8 @@ import {
   extractDispatcherWriteQnsFromSource,
   validateDispatcherWriteQn,
 } from "../write-handler-qn-extract.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 
 const SKIP_SEGMENTS = new Set(["node_modules", ".kumiko", "dist", "dist-server", "__tests__"]);
 
@@ -80,8 +82,9 @@ export function validateAppCustomScreenWriteQns(
   if (violations.length === 0) return;
 
   const lines = violations.map((v) => `  - ${v.file}: "${v.qn}" — ${v.reason}`);
-  throw new Error(
-    `[kumiko:boot] ${violations.length} invalid dispatcher.write QN(s) in app source:\n${lines.join("\n")}\n` +
+  throw bootRuleError(SCREEN_RULES.customWriteQnUnregistered, {
+    message:
+      `[kumiko:boot] ${violations.length} invalid dispatcher.write QN(s) in app source:\n${lines.join("\n")}\n` +
       `  Check spelling against registered write handlers (expected "<feature>:write:<handler>").`,
-  );
+  });
 }

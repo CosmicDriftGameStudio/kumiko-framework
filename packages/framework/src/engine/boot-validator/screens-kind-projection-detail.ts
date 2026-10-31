@@ -16,6 +16,7 @@ import type {
   ProjectionDetailScreenDefinition,
   RecordHeaderSubtitlePart,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
@@ -28,6 +29,7 @@ import {
   validateFormSelectOptions,
   validateTabSections,
 } from "./screens-forms.ts";
+import { PROJECTION_DETAIL_RULES } from "./screens-kind-projection-detail-rules.ts";
 import {
   assertExtensionSectionHasComponent,
   editSectionLabel,
@@ -52,11 +54,12 @@ function validateProjectionDetailFlags(
   screen: ProjectionDetailScreenDefinition,
 ): void {
   if (screen.singleton === true && screen.idParam !== undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.singletonWithIdParam, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
         `and idParam — singleton means the server picks the row from the caller's context, so there ` +
         `is no row id to send under idParam. Remove idParam.`,
-    );
+    });
   }
   // singleton has no row id in the path, but the auto-generated "Edit"
   // action (defaultEditAction in kumiko-screen.tsx) navigates
@@ -65,17 +68,19 @@ function validateProjectionDetailFlags(
   // instead of editing the singleton row. Reject rather than let that
   // win silently, same as the idParam check above.
   if (screen.singleton === true && screen.detailFor !== undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.singletonWithDetailFor, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
         `and detailFor — the auto-generated "Edit" action navigates using the path's row id, which a ` +
         `singleton screen never has. Remove detailFor, or declare an explicit "edit" action instead.`,
-    );
+    });
   }
   if (screen.recordTitleField !== undefined && screen.header !== undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both header and ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.headerWithRecordTitleField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets both header and ` +
         `recordTitleField — header.title already names the record, so drop recordTitleField.`,
-    );
+    });
   }
 }
 
@@ -88,12 +93,13 @@ function validateProjectionDetailTabs(
     validateTabSections(featureName, screenId, "projectionDetail", screen.layout.sections);
     for (const section of screen.layout.sections) {
       if (isFieldsEditSection(section) && "groups" in section && section.actions !== undefined) {
-        throw new Error(
-          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.id}" ` +
+        throw bootRuleError(PROJECTION_DETAIL_RULES.tabsSectionGroupsAndActions, {
+          message:
+            `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.id}" ` +
             `declares both groups and actions in tabs mode — actions has no single group's Card to sit ` +
             `in, and an extra title-less Card around the group cards would nest a Card inside a Card. ` +
             `Move the actions onto one group's title, or drop groups for a flat fields grid.`,
-        );
+        });
       }
     }
   }
@@ -112,10 +118,11 @@ function validateProjectionDetailMetricNavigate(
       navigate.tab !== undefined &&
       !screen.layout.sections.some((section) => section.id === navigate.tab)
     ) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
+      throw bootRuleError(PROJECTION_DETAIL_RULES.metricNavigateTabUnknown, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
           `navigates to tab "${navigate.tab}", which is not a section id on this screen. Navigate to an existing section id or remove navigate.tab.`,
-      );
+      });
     }
   } else {
     // Also runs without `tab`: a typo'd screen/entity or an entity
@@ -142,11 +149,12 @@ function validateProjectionDetailMetric(
   metric: MetricSpec,
 ): void {
   if (typeof metric.label !== "string" || metric.label.length === 0) {
-    throw new Error(
-      `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) metric "${metric.field}" has ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.metricLabelMissing, {
+      message:
+        `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) metric "${metric.field}" has ` +
         `no "label" — every metric needs an i18n label key, ` +
         `there is no fallback to the raw column name.`,
-    );
+    });
   }
   if (metric.navigate !== undefined) {
     validateProjectionDetailMetricNavigate(ctx, screenId, screen, metric.field, metric.navigate);
@@ -160,10 +168,11 @@ function validateProjectionDetailStatusTones(
 ): void {
   for (const [statusValue, tone] of Object.entries(screen.header?.statusTones ?? {})) {
     if (!isSelectOptionTone(tone)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.statusTones["${statusValue}"] ` +
+      throw bootRuleError(PROJECTION_DETAIL_RULES.statusToneInvalid, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.statusTones["${statusValue}"] ` +
           `is "${String(tone)}" — expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
-      );
+      });
     }
   }
 }
@@ -175,10 +184,11 @@ function validateProjectionDetailStatusFormat(
 ): void {
   const header = screen.header;
   if (header?.statusFormat !== undefined && header.status === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets header.statusFormat ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.statusFormatWithoutStatus, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets header.statusFormat ` +
         `without header.status — there is no status badge to format. Set header.status or remove statusFormat.`,
-    );
+    });
   }
 }
 
@@ -190,28 +200,31 @@ function validateProjectionDetailSubtitleParts(
 ): void {
   const featureName = ctx.feature.name;
   if (subtitleHref !== undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets header.subtitleHref ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.subtitleHrefWithMultiPart, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) sets header.subtitleHref ` +
         `together with a multi-part header.subtitle — subtitleHref only works with the string form. Use a single-field subtitle or remove subtitleHref.`,
-    );
+    });
   }
   const seenPartFields = new Set<string>();
   for (const part of parts) {
     const partField = typeof part === "string" ? part : part.field;
     if (seenPartFields.has(partField)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.subtitle ` +
+      throw bootRuleError(PROJECTION_DETAIL_RULES.subtitlePartDuplicate, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.subtitle ` +
           `lists field "${partField}" twice. List each field once.`,
-      );
+      });
     }
     seenPartFields.add(partField);
     const navigate = typeof part === "string" ? undefined : part.navigate;
     if (navigate === undefined) continue;
     if (navigate.screen === undefined && navigate.entity === undefined) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.subtitle part ` +
+      throw bootRuleError(PROJECTION_DETAIL_RULES.subtitlePartNavigateTargetMissing, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) header.subtitle part ` +
           `"${partField}" navigates with neither "screen" nor "entity" — a tab-only navigate has no link target.`,
-      );
+      });
     }
     resolveRowActionNavigateTarget(
       featureName,
@@ -249,12 +262,13 @@ function validateProjectionDetailExtensionSection(
   // (e.g. notes-history NotesSection, via their own dispatcher
   // writes) are fine.
   if (section.contributesToFormSubmit === true) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) extension section ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.extensionContributesToFormSubmit, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) extension section ` +
         `"${section.title}" sets contributesToFormSubmit: true, but projectionDetail has no ` +
         `form submit to contribute to (read-only screen). Omit contributesToFormSubmit and ` +
         `persist through the extension's own dispatcher writes instead.`,
-    );
+    });
   }
   assertExtensionSectionHasComponent(featureName, screenId, "projectionDetail", section);
   // The host-derived entity name on projectionDetail is an internal
@@ -262,11 +276,12 @@ function validateProjectionDetailExtensionSection(
   // persisting extension needs the real domain entity name declared
   // explicitly, or it silently reads/writes against the wrong type.
   if (section.entityName === undefined || section.entityName.trim().length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) extension section ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.extensionEntityNameMissing, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) extension section ` +
         `"${section.title}" has no entityName — projectionDetail has no real entity, so the ` +
         `extension must declare entityName explicitly (the domain entity it persists against).`,
-    );
+    });
   }
 }
 
@@ -277,11 +292,12 @@ function validateProjectionDetailRelatedList(
   section: EditRelatedListSection,
 ): void {
   if (screen.layout.mode === "wizard") {
-    throw new Error(
-      `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.wizardRelatedList, {
+      message:
+        `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
         `is kind "relatedList" in a wizard layout — a read-only list is not supported in a ` +
         `stepped form. Remove mode: "wizard" or drop the relatedList section.`,
-    );
+    });
   }
   validateRelatedListSection({
     featureName: ctx.feature.name,
@@ -307,16 +323,18 @@ function validateProjectionDetailWriteForm(
 ): void {
   const featureName = ctx.feature.name;
   if (Object.keys(section.fieldDefs).length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormFieldDefsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
         `(writeForm) has an empty fieldDefs map — declare at least one field type.`,
-    );
+    });
   }
   if (section.fields.length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormFieldsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
         `(writeForm) has zero fields — drop the section or add fields to it.`,
-    );
+    });
   }
   // A ref to a fieldDef the form never renders would never resolve.
   const writeFormFieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
@@ -340,19 +358,21 @@ function validateProjectionDetailWriteForm(
   for (const f of section.fields) {
     const fieldName = normalizeEditField(f).field;
     if (section.fieldDefs[fieldName] === undefined) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormFieldWithoutDef, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
           `(writeForm) field "${fieldName}" has no entry in fieldDefs — every rendered field needs ` +
           `a type declared there. Add the field to fieldDefs.`,
-      );
+      });
     }
   }
   if (screen.layout.mode === "wizard") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+    throw bootRuleError(PROJECTION_DETAIL_RULES.wizardWriteForm, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
         `is kind "writeForm" in a wizard layout — a self-persisting form is not supported in a ` +
         `stepped form. Remove mode: "wizard" or drop the writeForm section.`,
-    );
+    });
   }
   assertWriteHandlerRegistered(
     featureName,

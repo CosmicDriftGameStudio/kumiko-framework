@@ -44,10 +44,11 @@ export function validateAtMostOneRowClick(
 ): void {
   const rowClickActions = rowActions.filter(isRowClickAction);
   if (rowClickActions.length > 1) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has ${rowClickActions.length} ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.rowClickAtMostOne, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has ${rowClickActions.length} ` +
         "rowActions marked rowClick:true — at most one may fire on a row-body click. Mark at most one rowAction with rowClick: true.",
-    );
+    });
   }
 }
 
@@ -115,12 +116,13 @@ export function validateRowActionNavigateParams(
       (id): id is string => id !== undefined,
     );
     if (readIds.length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardNoReader, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
           `filter, time range or record binding — params would be a no-op. Remove the params extractor, or add a \`filter\` (or a \`record\` binding) to the ` +
           `target dashboard so it has somewhere to read the value from.`,
-      );
+      });
     }
     const extractedKeys = rowFieldExtractorKeys(action.params);
     if (!readIds.some((id) => extractedKeys.includes(id))) {
@@ -128,12 +130,13 @@ export function validateRowActionNavigateParams(
         filter !== undefined && readIds.length === 1
           ? `filter id is "${filter.id}"`
           : `URL params are [${readIds.join(", ")}]`;
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardKeyMismatch, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
           `${readDescriptor} — none of the extracted keys match, so the value would stay ` +
           `unset. Fix the params extractor to produce one of these keys, or remove it.`,
-      );
+      });
     }
     // skip: a read id is present and the extractor's keys cover it — valid dashboard deep-link.
     return;
@@ -150,13 +153,14 @@ export function validateRowActionNavigateParams(
       : `screen type "${target.screen.type}"`;
     const targetDescriptor =
       action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsTargetIgnoresParams, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm, ` +
         `secretMint and entityEdit-create targets read URL search params as initial values. Remove ` +
         `the params extractor or retarget to an actionForm / secretMint / cross-entity ` +
         `entityEdit-create screen.`,
-    );
+    });
   }
 
   const formTarget = target.screen;
@@ -245,10 +249,11 @@ export function validateActionFieldRefs(
     for (const source of sources) {
       if (rowMeta.has(source)) continue;
       if (!fieldNames.has(source)) {
-        throw new Error(
-          `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+        throw bootRuleError(SCREEN_ACTION_RULES.actionUnknownFieldRef, {
+          message:
+            `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
             `${label} references unknown field "${source}". Known fields: ${known()}.`,
-        );
+        });
       }
     }
   };
@@ -260,16 +265,18 @@ export function validateActionFieldRefs(
     !rowMeta.has(visible.field) &&
     !fieldNames.has(visible.field)
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
         `visible.field references unknown field "${visible.field}". Known fields: ${known()}.`,
-    );
+    });
   }
   if (entityId !== undefined && entityId !== "id" && !fieldNames.has(entityId)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.actionEntityIdUnknownField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
         `entityId references unknown field "${entityId}". Known fields: ${known()}.`,
-    );
+    });
   }
 }
 
@@ -288,12 +295,13 @@ export function validateScreenShortIdCollisions(
   for (const [shortId, entries] of screensByShortId) {
     const featureNames = new Set(entries.map((e) => e.featureName));
     if (featureNames.size > 1) {
-      throw new Error(
-        `Screen short-id "${shortId}" is registered by ${featureNames.size} features ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.screenShortIdCollision, {
+        message:
+          `Screen short-id "${shortId}" is registered by ${featureNames.size} features ` +
           `(${[...featureNames].join(", ")}) — the runtime router resolves a bare navigate-target ` +
           `id by taking the first match, so all but one of these screens would be unreachable by ` +
           `that id. Give each screen a distinct id.`,
-      );
+      });
     }
   }
 }
@@ -318,11 +326,12 @@ export function validateScreenNavTarget(
 ): void {
   const candidateQn = resolveScreenTargetQn(featureName, value);
   if (!allScreenQns.has(candidateQn)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${fieldName} "${value}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navTargetUnresolved, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${fieldName} "${value}" ` +
         `does not resolve to a registered screen (checked "${candidateQn}"). Known screens ` +
         `in this feature: ${[...Object.keys(screens)].sort().join(", ") || "(none)"}.`,
-    );
+    });
   }
 }
 
@@ -348,23 +357,25 @@ export function validateDrawerTargetAction(
 ): void {
   const target = screens[action.screen];
   if (target === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.drawerTargetUnresolved, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
         `drawer-target "${action.screen}" does not resolve to a registered screen in this feature. ` +
         `kind:"drawer" only resolves same-feature screens (unlike kind:"navigate", which can target ` +
         `screens in any feature) — the drawer mounts the target inline using this feature's schema. ` +
         `Known screens in this feature: ${[...Object.keys(screens)].sort().join(", ") || "(none)"}.`,
-    );
+    });
   }
   // secretMint is intentionally excluded — a one-time secret reveal belongs on
   // its own page, not layered in a Drawer above a list.
   if (target.type !== "actionForm") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.drawerTargetNotActionForm, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
         `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm. ` +
         `kind:"drawer" mounts an actionForm inside a Drawer widget — point "screen" at an ` +
         `actionForm screen, or use kind:"navigate" for a full-page target.`,
-    );
+    });
   }
   // The renderer (mergeSearchParamsIntoInitial) silently drops a prefill key
   // when the target doesn't declare the field, marks it sensitive/password,
@@ -411,23 +422,26 @@ export function validateDrawerPrefillKeys(
     // A `load` form reads only the record id from these params, never a value.
     if (fieldName === "id" && target.type === "actionForm" && target.load !== undefined) continue;
     if (!Object.hasOwn(target.fields, fieldName)) {
-      throw new Error(
-        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not declare as a ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.prefillParamUnknownField, {
+        message:
+          `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not declare as a ` +
           `field — the renderer would drop it and leave the form empty. Target fields: ` +
           `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
-      );
+      });
     }
     if (isSensitiveOrPasswordField(target.fields[fieldName])) {
-      throw new Error(
-        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" marks as ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.prefillParamSensitiveField, {
+        message:
+          `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" marks as ` +
           `sensitive or password — the renderer never prefills those fields and would leave the form empty. Remove that param or prefill a non-sensitive field.`,
-      );
+      });
     }
     if (!renderedFieldNames.has(fieldName)) {
-      throw new Error(
-        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not render in ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.prefillParamNotRendered, {
+        message:
+          `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not render in ` +
           `its layout — the renderer only prefills fields the layout shows and would drop it.`,
-      );
+      });
     }
   }
 }
@@ -458,27 +472,30 @@ function validateRowActionNavigateTab(
   // skip: no tab declared — nothing to check against the target's sections
   if (action.tab === undefined) return;
   if (target === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateTabTargetUnresolved, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets tab "${action.tab}", but its navigate-target could not be resolved to a screen. Point the navigate-target at a registered screen.`,
-    );
+    });
   }
   if (target.screen.type !== "projectionDetail" || target.screen.layout.mode !== "tabs") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateTabTargetNotTabbed, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets tab "${action.tab}", but navigate-target screen "${target.screen.id}" is not a ` +
         `projectionDetail with layout.mode "tabs" — only those read the tab param. Remove the tab or navigate to a projectionDetail screen with layout.mode "tabs".`,
-    );
+    });
   }
   const sectionIds = target.screen.layout.sections
     .map((section) => section.id)
     .filter((id): id is string => id !== undefined);
   if (!sectionIds.includes(action.tab)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateTabUnknownSection, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `navigates to tab "${action.tab}", which is not a section id on target screen ` +
         `"${target.screen.id}". Available: ${sectionIds.join(", ") || "(none)"}.`,
-    );
+    });
   }
 }
 
@@ -501,10 +518,11 @@ export function resolveRowActionNavigateTarget(
 ): { readonly featureName: string; readonly screen: ScreenDefinition } | undefined {
   if (action.entity !== undefined) {
     if (action.screen !== undefined) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetScreenAndEntity, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
           `sets both "screen" and "entity" — exactly one navigate-target form is allowed.`,
-      );
+      });
     }
     if (screenType !== "entityList" && action.entityId === undefined) {
       // entityList rows are always a real entity record, so row["id"] is a
@@ -512,35 +530,39 @@ export function resolveRowActionNavigateTarget(
       // an arbitrary query projection with no guaranteed "id" field — an
       // entity-target there needs an explicit entityId, or navigation silently
       // opens the detail screen with no entity context at runtime.
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateEntityTargetNeedsEntityId, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
           `navigate-target entity "${action.entity}" needs an explicit "entityId" — ${screenType} rows ` +
           `come from a query projection with no guaranteed "id" field.`,
-      );
+      });
     }
     const detail = detailForScreens.get(action.entity);
     if (detail === undefined) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateEntityTargetNoDetail, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
           `navigate-target entity "${action.entity}" has no screen declaring ` +
           `detailFor: "${action.entity}". Add detailFor: "${action.entity}" to a screen or navigate to a screen directly.`,
-      );
+      });
     }
     validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, detail);
     return detail;
   }
   if (action.screen === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetNeitherScreenNorEntity, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets neither "screen" nor "entity" — exactly one navigate-target form is required.`,
-    );
+    });
   }
   const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
   if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetUnresolved, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
-    );
+    });
   }
   const target = screensByShortId.get(action.screen)?.[0];
   validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, target);
@@ -569,19 +591,21 @@ export function validateRedirectTarget(
     typeof redirect !== "string" &&
     (typeof redirect.idFrom !== "string" || redirect.idFrom.trim() === "")
   ) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is empty or not a string — ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromEmpty, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is empty or not a string — ` +
         `name the success-payload field carrying the navigation id, or use the plain string ` +
         `redirect form to navigate with the handler's own "id".`,
-    );
+    });
   }
   // The renderer reads idFrom verbatim (Object.hasOwn), so stray whitespace
   // never matches and the navigation silently lands without an entityId.
   if (typeof redirect !== "string" && redirect.idFrom !== redirect.idFrom.trim()) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom "${redirect.idFrom}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromWhitespace, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom "${redirect.idFrom}" ` +
         `has leading/trailing whitespace — it would never match a payload field. Remove the whitespace from idFrom.`,
-    );
+    });
   }
   validateScreenNavTarget(
     feature.name,
@@ -602,10 +626,11 @@ export function validateRedirectTarget(
     sameFeatureTarget.type !== "entityEdit" &&
     sameFeatureTarget.type !== "projectionDetail"
   ) {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is set but target screen ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromOnIdlessTarget, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is set but target screen ` +
         `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
-    );
+    });
   }
   if (typeof redirect !== "string" && redirect.tab !== undefined) {
     validateRowActionNavigateTab(
@@ -652,10 +677,11 @@ export function validateIdlessSuccessLink(
   const target = findNavTargetEntry(feature, link.screen, lookups);
   const targetType = target?.screen.type;
   if (targetType === "entityEdit" || targetType === "projectionDetail") {
-    throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath} targets "${link.screen}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.successLinkTargetsRecordScreen, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath} targets "${link.screen}" ` +
         `(${targetType}), a record screen — set ${propertyPath}.idFrom to the success-payload field carrying the record id.`,
-    );
+    });
   }
   if (link.tab !== undefined) {
     validateRowActionNavigateTab(
@@ -689,11 +715,12 @@ export function validateClientActionName(
     isKebabSegment(name);
   // skip: well-formed name, nothing to reject
   if (wellFormed) return;
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
+  throw bootRuleError(SCREEN_ACTION_RULES.clientActionName, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
       `action "${action.action}" is not a client action name — expected "<feature>:<kebab-name>", ` +
       `e.g. "auth-email-password:request-password-reset".`,
-  );
+  });
 }
 
 // redirect is only honored on record actions; on list/related-list row
@@ -710,11 +737,12 @@ export function rejectRedirectOnListRowAction(
     action.kind !== "clientAction" &&
     action.redirect !== undefined
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) rowAction "${action.id}" sets redirect — ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectOnListRowAction, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) rowAction "${action.id}" sets redirect — ` +
         `redirect is only honored on record actions (projectionDetail/entityEdit header and section ` +
         `actions) and is ignored on list row actions. Remove it.`,
-    );
+    });
   }
 }
 
@@ -754,11 +782,12 @@ export function validatePrimaryActionTarget(
   const editIsAvailable = screen.detailFor !== undefined;
   for (const [option, id] of targets) {
     if (declaredIds.includes(id) || (editIsAvailable && id === "edit")) continue;
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) ${option} "${id}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.primaryActionUnknown, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) ${option} "${id}" ` +
         `matches no action — use one of the declared action ids (${declaredIds.join(", ") || "none declared"})` +
         `${editIsAvailable ? ' or "edit"' : ' ("edit" needs detailFor on this screen)'}.`,
-    );
+    });
   }
 }
 
@@ -772,14 +801,14 @@ export function validateScreenVisibleWhen(
   const { visibleWhen, fallback } = screen;
   const context = `[Feature ${feature.name}] Screen "${screenId}" (${screen.type})`;
   if (visibleWhen === undefined && fallback !== undefined) {
-    throw new Error(
-      `${context} declares fallback without visibleWhen. Add visibleWhen or remove fallback.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.fallbackWithoutVisibleWhen, {
+      message: `${context} declares fallback without visibleWhen. Add visibleWhen or remove fallback.`,
+    });
   }
   if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
-    throw new Error(
-      `${context} visibleWhen needs a non-empty query and field. Set both visibleWhen.query and visibleWhen.field.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.visibleWhenEmpty, {
+      message: `${context} visibleWhen needs a non-empty query and field. Set both visibleWhen.query and visibleWhen.field.`,
+    });
   }
   if (fallback !== undefined) {
     validateScreenFallback(feature, screenId, screen.type, fallback, allScreenQns, featureMap);
@@ -789,15 +818,15 @@ export function validateScreenVisibleWhen(
 function assertFallbackMapShape(context: string, fallback: ScreenFallbackByReason): void {
   const reasons = Object.keys(fallback);
   if (reasons.length === 0) {
-    throw new Error(
-      `${context} fallback map is empty. Set at least one of ${SCREEN_FALLBACK_REASONS.join(", ")} or use a screen id string.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.fallbackMapEmpty, {
+      message: `${context} fallback map is empty. Set at least one of ${SCREEN_FALLBACK_REASONS.join(", ")} or use a screen id string.`,
+    });
   }
   const unknownReason = reasons.find((reason) => !isOneOf(SCREEN_FALLBACK_REASONS, reason));
   if (unknownReason !== undefined) {
-    throw new Error(
-      `${context} fallback has unknown reason "${unknownReason}". Use ${SCREEN_FALLBACK_REASONS.join(", ")}.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.fallbackUnknownReason, {
+      message: `${context} fallback has unknown reason "${unknownReason}". Use ${SCREEN_FALLBACK_REASONS.join(", ")}.`,
+    });
   }
 }
 
@@ -840,17 +869,17 @@ function validateFallbackTarget(
   );
   const fallbackQn = resolveScreenTargetQn(feature.name, fallback);
   if (fallbackQn === qualifyEntityName(feature.name, "screen", screenId)) {
-    throw new Error(
-      `${context} fallback points at the screen itself. Point fallback at a different screen.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.fallbackSelf, {
+      message: `${context} fallback points at the screen itself. Point fallback at a different screen.`,
+    });
   }
   // A gated fallback could hide in turn and chain or cycle (A→B→A); one hop keeps the
   // runtime gate trivially terminating.
   const [fallbackFeatureName = "", , fallbackShortId = ""] = fallbackQn.split(":");
   if (featureMap.get(fallbackFeatureName)?.screens[fallbackShortId]?.visibleWhen !== undefined) {
-    throw new Error(
-      `${context} fallback "${fallback}" has its own visibleWhen; a fallback must always render.`,
-    );
+    throw bootRuleError(SCREEN_ACTION_RULES.fallbackHasVisibleWhen, {
+      message: `${context} fallback "${fallback}" has its own visibleWhen; a fallback must always render.`,
+    });
   }
 }
 
@@ -900,10 +929,11 @@ export function assertWriteHandlerRegistered(
   allWriteHandlerQns: ReadonlySet<string>,
 ): void {
   if (!allWriteHandlerQns.has(handler)) {
-    throw new Error(
-      `[Feature ${featureName}] ${subject} handler "${handler}" ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.writeHandlerUnregistered, {
+      message:
+        `[Feature ${featureName}] ${subject} handler "${handler}" ` +
         `is not a registered write-handler. Check the QN spelling (expected ` +
         `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-    );
+    });
   }
 }

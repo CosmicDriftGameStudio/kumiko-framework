@@ -1,3 +1,6 @@
+import { bootRuleError } from "./boot-rule.ts";
+import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 // Checks shared by several screen kinds; each helper takes the kind it reports under.
 // Dependencies point one way: screens-kind-*.ts -> here ->
 // screens-dashboard/forms/lists -> screens-actions.
@@ -99,10 +102,11 @@ export function resolveScreenEntity(
   const hint = crossFeature
     ? ` Entity "${entityName}" is owned by feature "${crossFeature}" — cross-feature screen ownership is not supported.`
     : "";
-  throw new Error(
-    `[Feature ${ctx.feature.name}] Screen "${screenId}" references entity "${entityName}" ` +
+  throw bootRuleError(SCREEN_KIND_RULES.entityNotDeclared, {
+    message:
+      `[Feature ${ctx.feature.name}] Screen "${screenId}" references entity "${entityName}" ` +
       `which is not declared in this feature (known: ${known}).${hint}`,
-  );
+  });
 }
 
 export function rejectMissingQuery(
@@ -112,9 +116,9 @@ export function rejectMissingQuery(
   query: unknown,
 ): void {
   if (!query || typeof query !== "string") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) has empty or non-string query. Set query to a registered query name.`,
-    );
+    throw bootRuleError(SCREEN_KIND_RULES.queryEmpty, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (${kind}) has empty or non-string query. Set query to a registered query name.`,
+    });
   }
 }
 
@@ -127,10 +131,11 @@ export function rejectEmptyColumns(
   columnCount: number,
 ): void {
   if (columnCount === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) has an empty columns list — ` +
+    throw bootRuleError(SCREEN_KIND_RULES.columnsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) has an empty columns list — ` +
         `declare at least one column.`,
-    );
+    });
   }
 }
 
@@ -161,10 +166,11 @@ export function rejectNonArrayInFilter(
   filter: { readonly op: string; readonly value?: unknown },
 ): void {
   if (filter.op === "in" && !Array.isArray(filter.value)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) filter.op "in" requires ` +
+    throw bootRuleError(SCREEN_KIND_RULES.filterInNeedsArray, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) filter.op "in" requires ` +
         `filter.value to be a readonly array. Pass an array as filter.value.`,
-    );
+    });
   }
 }
 
@@ -177,10 +183,11 @@ export function rejectEmptySections(
   sectionCount: number,
 ): void {
   if (sectionCount === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) has an empty sections list — ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.sectionsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) has an empty sections list — ` +
         `declare at least one section.`,
-    );
+    });
   }
 }
 
@@ -191,10 +198,11 @@ export function assertExtensionSectionHasComponent(
   section: EditExtensionSection,
 ): void {
   if (section.component?.react === undefined && section.component?.native === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) extension section ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.extensionSectionNoComponent, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) extension section ` +
         `"${section.title}" has no component — declare a react/native component marker.`,
-    );
+    });
   }
 }
 
@@ -207,17 +215,19 @@ export function rejectProjectionDetailOnlySection(
   section: Exclude<EditSectionSpec, EditExtensionSection>,
 ): asserts section is EditFieldsSection {
   if (section.kind === "relatedList") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) relatedList section ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.relatedListSectionUnsupported, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) relatedList section ` +
         `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
         `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
-    );
+    });
   }
   if (isWriteFormEditSection(section)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${kind}) writeForm section ` +
+    throw bootRuleError(FORM_LAYOUT_RULES.writeFormSectionUnsupported, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${kind}) writeForm section ` +
         `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
-    );
+    });
   }
 }
 
@@ -257,11 +267,12 @@ export function validateRecordHeaderAction(
   const featureName = ctx.feature.name;
   validateRecordActionRedirect(ctx.feature, screenId, kind, action, ctx);
   if (isRowClickAction(action)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${qualifyEntityName(featureName, "screen", screenId)}" ` +
+    throw bootRuleError(SCREEN_KIND_RULES.headerActionRowClick, {
+      message:
+        `[Feature ${featureName}] Screen "${qualifyEntityName(featureName, "screen", screenId)}" ` +
         `(${kind}) action "${action.id}" sets rowClick: true — there is no row to ` +
         `click on ${NO_ROW_SUBJECT[kind]}. Remove rowClick.`,
-    );
+    });
   }
   validateRowActionTarget(
     listActionContext(ctx, screenId, kind, screenEntity, `Screen "${screenId}" (${kind})`),
