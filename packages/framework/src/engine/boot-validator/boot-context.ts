@@ -1,7 +1,9 @@
 import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
 import type { ValidateBootOptions } from "./boot-options.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { collectKnownRoles, collectNavQns, collectWriteHandlerQns } from "./nav.ts";
 import { collectClaimKeys } from "./ownership.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
@@ -73,9 +75,9 @@ export function collectExposedApis(features: readonly FeatureDefinition[]): Map<
     for (const apiName of f.exposedApis) {
       const existing = allExposedApis.get(apiName);
       if (existing && existing !== f.name) {
-        throw new Error(
-          `Cross-feature API "${apiName}" exposed by both "${existing}" and "${f.name}" — API names must be globally unique.`,
-        );
+        throw bootRuleError(BOOT_ENVIRONMENT_RULES.duplicateExposedApi, {
+          message: `Cross-feature API "${apiName}" exposed by both "${existing}" and "${f.name}" — API names must be globally unique.`,
+        });
       }
       allExposedApis.set(apiName, f.name);
     }

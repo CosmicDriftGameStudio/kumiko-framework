@@ -6,6 +6,8 @@ import {
   resolveTransferAdjacency,
 } from "../transfer-adjacency.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
 
 // --- Transfer-graph boot validation ---
 //
@@ -49,14 +51,15 @@ function validateNoMultipleReferenceEdge(
     if (field.type !== "reference" || field.multiple !== true) continue;
     if (field.handover === "stay") continue;
     if (!transferable.has(parseRefTargetEntityName(field.entity))) continue;
-    throw new Error(
-      `[Kumiko TransferGraph] entity "${entry.name}" declares transferable: true and a ` +
+    throw bootRuleError(ENTITY_DECLARATION_RULES.transferMultipleReference, {
+      message:
+        `[Kumiko TransferGraph] entity "${entry.name}" declares transferable: true and a ` +
         `multiple reference field "${fieldName}" -> "${field.entity}" (feature: "${featureName}"). ` +
         `A multiple reference stores a jsonb array, which the tenant-handover transfer graph ` +
         `cannot match rows on — those rows would stay behind in the source tenant. ` +
         `Fix: model the link as a single reference on the owning side, or drop transferable ` +
         `from "${entry.name}".`,
-    );
+    });
   }
 }
 
@@ -81,13 +84,14 @@ export function validateTransferGraph(
     if (entity.transferable !== true) continue;
     const tooDeep = findOverDeepTransferChain(adjacency, [name]);
     if (tooDeep !== undefined) {
-      throw new Error(
-        `[Kumiko TransferGraph] the transfer graph rooted at entity "${name}" is deeper than ` +
+      throw bootRuleError(ENTITY_DECLARATION_RULES.transferGraphTooDeep, {
+        message:
+          `[Kumiko TransferGraph] the transfer graph rooted at entity "${name}" is deeper than ` +
           `the ${MAX_TRANSFER_DEPTH}-level limit (feature: "${feature.name}"): ` +
           `${tooDeep.join(" -> ")}. Beyond that depth tenant-handover would move fewer rows ` +
           `than the declaration implies. Fix: flatten the chain, or mark a reference field on ` +
           `an entity in it that should not move with its host \`handover: "stay"\`.`,
-      );
+      });
     }
   }
 }

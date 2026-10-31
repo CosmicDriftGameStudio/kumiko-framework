@@ -5,6 +5,8 @@ import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { NAV_RULES } from "./nav-rules.ts";
 
 // --- Workspace validation ---
 //
@@ -35,11 +37,12 @@ export function validateWorkspaces(
         // Settings-Hub audience navs are generated post-boot (buildAppSchema), never via r.nav() — exempt so an inline-placement reference doesn't trip the boot validator.
         if (SETTINGS_HUB_AUDIENCE_NAV_QN_SET.has(navQn)) continue;
         if (!allNavQns.has(navQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Workspace "${wsId}" references nav "${navQn}" ` +
+          throw bootRuleError(NAV_RULES.workspaceNavUnregistered, {
+            message:
+              `[Feature ${feature.name}] Workspace "${wsId}" references nav "${navQn}" ` +
               `which is not registered. Expected a qualified name of the form ` +
               `"<feature>:nav:<id>" pointing at an r.nav() declaration.`,
-          );
+          });
         }
       }
     }
@@ -100,9 +103,10 @@ export function validateDefaultWorkspaceUniqueness(
     if (ws.default === true) defaults.push(qn);
   }
   if (defaults.length > 1) {
-    throw new Error(
-      `[Kumiko Workspaces] Multiple workspaces declare default: true — ` +
+    throw bootRuleError(NAV_RULES.multipleDefaultWorkspaces, {
+      message:
+        `[Kumiko Workspaces] Multiple workspaces declare default: true — ` +
         `${defaults.join(", ")}. At most one workspace per app may be the default.`,
-    );
+    });
   }
 }

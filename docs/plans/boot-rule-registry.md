@@ -1,8 +1,8 @@
 ---
 status: in-progress
-verified: 2026-10-29
+verified: 2026-10-31
 issue: kumiko-framework#4124
-next: S2 (Regel-Tabellen) und S4 (boot-rules.md, Drift- und Ratchet-Guard) sind in Arbeit (PR feat/boot-rules-s2-s4); danach S-Studio (validate --json) und S5 bis S8
+next: S1 bis S8 sind gemergt, alle Boot-Throws tragen eine Regel-ID, der Ratchet-Guard ist gelöscht; offen sind S-Studio (validate --json im Designer) und die Folgerunde (Schicht 0, 1, 3, Warnungen als Regeln)
 ---
 
 # Boot-Regel-Registry: alle Boot-Fehler in einem Lauf, mit stabiler Regel-ID
@@ -304,6 +304,7 @@ Vergleich über `_lib/baseline-compare.ts`). Die Zahl darf nur sinken. Bei 0 wer
 Baseline gelöscht. Das widerspricht dem Eintrag vom 2026-10-20 („Error classes are closed by
 types, boot or runtime before a guard") nicht, weil der Guard keine Fehlerklasse der Apps
 abdeckt, sondern eine Migration im Framework-Code begrenzt und mit ihr verschwindet (E7).
+Am 2026-10-31 stand die Baseline nach S5 bis S8 bei 0; Guard und Baseline sind gelöscht.
 
 ### Grenzen der Runde
 
@@ -396,7 +397,9 @@ wertlos für Agenten. Deshalb:
 - **Danach schrittweise** pro Datei-Gruppe, jede Gruppe eine S. Der Ausdruck hinter `throw`
   wird mechanisch ersetzt, Fix-Text und ID schreibt der coder pro Stelle. Grenzen pro Regel
   kommen dazu, wo eine Funktion mehrere unabhängige Prüfungen hintereinander hat. Die
-  Baseline des Ratchet sinkt mit jeder S.
+  Baseline des Ratchet sinkt mit jeder S. S5 bis S8 haben nur den Ausdruck hinter `throw`
+  ersetzt und keine neuen Grenzen eingezogen, damit der Diff verhaltensgleich bleibt; die
+  Grenzen pro Regel in diesen Dateien gehören in die Folgerunde.
 - Die ID-Migration ändert kein Verhalten und keine Meldung. Sie muss deshalb nicht in die
   fw-next-Lane und kann mit normalen Releases ausgeliefert werden.
 
@@ -434,7 +437,7 @@ ohne Release, alle Apps lokal dagegen messen, ein Release am Ende.
 | S2 | FW | Regeltabellen und zentrale Liste; Export `bootRuleError`/Typen aus `engine`; Migration der 40 Stellen aus Abschnitt 5 inkl. Grenzen pro Regel (`FIELD_RULES`, entityList als Regeltabelle, i18n sammelt alle Keys, bootChecks); Test auf eindeutige IDs | Runde 1 |
 | S4 | FW | Generator `agents/boot-rules.md`, Eintrag in `AGENTS.md`; Ratchet-Guard mit Baseline | S2 |
 | S5 bis S8 | FW | ID-Migration in vier Gruppen (Abschnitt 5), Baseline sinkt; bei 0 Guard löschen | S4 |
-| Folgerunde | FW | Schicht 0 (Registrar sammelt), Schicht 1 in validateBoot ziehen, Schicht 3 an den Collector, Warnungen als Regeln | S5 bis S8 |
+| Folgerunde | FW | Schicht 0 (Registrar sammelt), Schicht 1 in validateBoot ziehen, Schicht 3 an den Collector, Warnungen als Regeln, Grenzen pro Regel in den Dateien aus S5 bis S8 | S5 bis S8 |
 
 ## 7. Entscheidungen
 

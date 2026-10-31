@@ -9,6 +9,8 @@ import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { NAV_RULES } from "./nav-rules.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 
@@ -46,27 +48,30 @@ export function validateNavs(
 ): void {
   for (const [navId, navDef] of Object.entries(feature.navs)) {
     if (navDef.screen !== undefined && !allScreenQns.has(navDef.screen)) {
-      throw new Error(
-        `[Feature ${feature.name}] Nav entry "${navId}" references screen "${navDef.screen}" ` +
+      throw bootRuleError(NAV_RULES.screenUnregistered, {
+        message:
+          `[Feature ${feature.name}] Nav entry "${navId}" references screen "${navDef.screen}" ` +
           `which is not registered. Expected a qualified name of the form ` +
           `"<feature>:screen:<id>" pointing at an r.screen() declaration.`,
-      );
+      });
     }
     if (navDef.parent !== undefined && !allNavQns.has(navDef.parent)) {
-      throw new Error(
-        `[Feature ${feature.name}] Nav entry "${navId}" references parent "${navDef.parent}" ` +
+      throw bootRuleError(NAV_RULES.parentUnregistered, {
+        message:
+          `[Feature ${feature.name}] Nav entry "${navId}" references parent "${navDef.parent}" ` +
           `which is not a registered nav entry. Expected a qualified name of the form ` +
           `"<feature>:nav:<id>".`,
-      );
+      });
     }
     if (navDef.workspaces !== undefined) {
       for (const wsQn of navDef.workspaces) {
         if (!allWorkspaceQns.has(wsQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Nav entry "${navId}" self-assigns to workspace "${wsQn}" ` +
+          throw bootRuleError(NAV_RULES.workspaceUnregistered, {
+            message:
+              `[Feature ${feature.name}] Nav entry "${navId}" self-assigns to workspace "${wsQn}" ` +
               `which is not registered. Expected a qualified name of the form ` +
               `"<feature>:workspace:<id>" pointing at an r.workspace() declaration.`,
-          );
+          });
         }
       }
     }
@@ -96,17 +101,19 @@ function validateTreeAction(
   const hasScreen = screen !== undefined;
   const hasTarget = target !== undefined;
   if (hasScreen === hasTarget) {
-    throw new Error(
-      `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} must set exactly one of ` +
+    throw bootRuleError(NAV_RULES.createActionTargetCount, {
+      message:
+        `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} must set exactly one of ` +
         `"screen"/"target" (${hasScreen ? "both are set" : "neither is set"}).`,
-    );
+    });
   }
   if (screen !== undefined && !allScreenQns.has(screen)) {
-    throw new Error(
-      `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} references screen ` +
+    throw bootRuleError(NAV_RULES.createActionScreenUnregistered, {
+      message:
+        `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} references screen ` +
         `"${screen}" which is not registered. Expected a qualified name of the form ` +
         `"<feature>:screen:<id>" pointing at an r.screen() declaration.`,
-    );
+    });
   }
 }
 
@@ -121,9 +128,9 @@ export function validateNavCycles(
 
   function visit(qualified: string, path: string[]): void {
     if (stack.has(qualified)) {
-      throw new Error(
-        `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}. Change or remove the parent of one entry in the cycle.`,
-      );
+      throw bootRuleError(NAV_RULES.parentCycle, {
+        message: `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}. Change or remove the parent of one entry in the cycle.`,
+      });
     }
     // skip: already visited — cycle-detection only needs to traverse each
     // node once, and the `stack` check above catches any actual cycles

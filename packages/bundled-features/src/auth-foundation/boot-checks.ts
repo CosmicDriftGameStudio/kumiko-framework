@@ -13,6 +13,8 @@
 // the right time to catch it).
 
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
+import { AUTH_FOUNDATION_BOOT_RULES } from "./boot-rules.ts";
 import {
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
@@ -32,10 +34,11 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
     for (const usage of feature.extensionUsages) {
       if (usage.extensionName !== EXT_TOKEN_VERIFIER) continue;
       if (!isAuthProviderPlugin(usage.options)) {
-        throw new Error(
-          `[auth-foundation] tokenVerifier provider "${usage.entityName}" (feature "${feature.name}") ` +
+        throw bootRuleError(AUTH_FOUNDATION_BOOT_RULES.tokenVerifierInvalidPlugin, {
+          message:
+            `[auth-foundation] tokenVerifier provider "${usage.entityName}" (feature "${feature.name}") ` +
             `registered without a valid AuthProviderPlugin — options must have a { shape, build } shape.`,
-        );
+        });
       }
       const key = tokenShapeKey(usage.options.shape);
       const names = namesByShape.get(key) ?? [];
@@ -53,20 +56,22 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
         if (usage.extensionName === EXT_SESSION_STORE) return;
       }
     }
-    throw new Error(
-      "[auth-foundation] no tokenVerifier providers and no sessionStore registered — mount " +
+    throw bootRuleError(AUTH_FOUNDATION_BOOT_RULES.noTokenVerifierOrSessionStore, {
+      message:
+        "[auth-foundation] no tokenVerifier providers and no sessionStore registered — mount " +
         "at least one auth-provider-* feature (e.g. auth-provider-jwt / personal-access-tokens) " +
         "or a sessionStore (e.g. sessions) alongside auth-foundation.",
-    );
+    });
   }
 
   for (const [key, names] of namesByShape) {
     if (names.length >= 2) {
-      throw new Error(
-        `[auth-foundation] ${names.length} tokenVerifier providers claim the same shape "${key}" ` +
+      throw bootRuleError(AUTH_FOUNDATION_BOOT_RULES.tokenVerifierShapeCollision, {
+        message:
+          `[auth-foundation] ${names.length} tokenVerifier providers claim the same shape "${key}" ` +
           `(${names.join(", ")}) — resolveTokenVerifier can't route between them unambiguously. ` +
           `Give each provider a distinct shape.`,
-      );
+      });
     }
   }
 }
@@ -97,20 +102,22 @@ function validateSingleProvider(
     for (const usage of feature.extensionUsages) {
       if (usage.extensionName !== ext) continue;
       if (!guard(usage.options)) {
-        throw new Error(
-          `[auth-foundation] ${label} provider "${usage.entityName}" (feature "${feature.name}") ` +
+        throw bootRuleError(AUTH_FOUNDATION_BOOT_RULES.singleProviderInvalidShape, {
+          message:
+            `[auth-foundation] ${label} provider "${usage.entityName}" (feature "${feature.name}") ` +
             `registered without a valid ${shapeHint}.`,
-        );
+        });
       }
       names.push(usage.entityName);
     }
   }
 
   if (names.length >= 2) {
-    throw new Error(
-      `[auth-foundation] ${names.length} ${label} providers registered (${names.join(", ")}) — ` +
+    throw bootRuleError(AUTH_FOUNDATION_BOOT_RULES.singleProviderMultiple, {
+      message:
+        `[auth-foundation] ${names.length} ${label} providers registered (${names.join(", ")}) — ` +
         `only one ${label} provider may be mounted at a time.`,
-    );
+    });
   }
 }
 

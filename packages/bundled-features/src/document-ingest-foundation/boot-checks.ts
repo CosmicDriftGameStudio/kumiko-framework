@@ -3,6 +3,8 @@
 // to it — otherwise requested ingests for that provider never get picked up.
 
 import type { FeatureDefinition, JobDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
+import { DOCUMENT_INGEST_BOOT_RULES } from "./boot-rules.ts";
 import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "./events.ts";
 import { resolveDocumentIngestProviders } from "./providers.ts";
 
@@ -28,20 +30,22 @@ export function validateDocumentIngestProviderWiring(features: readonly FeatureD
       const provider = providerFilterOf(jobDef.trigger);
       if (provider === undefined) continue;
       if (provider === "") {
-        throw new Error(
-          `[kumiko:boot] Job "${jobDef.name}" (feature "${feature.name}") triggers on ` +
+        throw bootRuleError(DOCUMENT_INGEST_BOOT_RULES.jobWithoutProviderFilter, {
+          message:
+            `[kumiko:boot] Job "${jobDef.name}" (feature "${feature.name}") triggers on ` +
             `document-ingest-foundation's documentIngest.requested without a provider filter — every job on ` +
             `this event must route through documentIngestProviderTrigger("<name>"), or it fires for every ` +
             `provider's uploads. Use: trigger: documentIngestProviderTrigger("<name>").`,
-        );
+        });
       }
       if (!registeredProviderNames.has(provider)) {
-        throw new Error(
-          `[kumiko:boot] Job "${jobDef.name}" (feature "${feature.name}") filters documentIngest.requested to ` +
+        throw bootRuleError(DOCUMENT_INGEST_BOOT_RULES.jobUnknownProvider, {
+          message:
+            `[kumiko:boot] Job "${jobDef.name}" (feature "${feature.name}") filters documentIngest.requested to ` +
             `provider "${provider}", but no feature registers that provider via ` +
             `r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "${provider}", ...). Known: ` +
             `${[...registeredProviderNames].join(", ") || "<none>"}.`,
-        );
+        });
       }
       wiredProviderNames.add(provider);
     }
@@ -49,10 +53,11 @@ export function validateDocumentIngestProviderWiring(features: readonly FeatureD
 
   for (const name of registeredProviderNames) {
     if (wiredProviderNames.has(name)) continue;
-    throw new Error(
-      `[kumiko:boot] Provider "${name}" is registered via EXT_DOCUMENT_INGEST_PROVIDER but no job triggers on ` +
+    throw bootRuleError(DOCUMENT_INGEST_BOOT_RULES.providerWithoutJob, {
+      message:
+        `[kumiko:boot] Provider "${name}" is registered via EXT_DOCUMENT_INGEST_PROVIDER but no job triggers on ` +
         `documentIngestProviderTrigger("${name}") — files matching its mimeTypes would be requested for ingest ` +
         `and never processed. Add an r.job with that trigger, or unmount the provider.`,
-    );
+    });
   }
 }

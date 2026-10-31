@@ -11,8 +11,9 @@ import {
 import { SYSTEM_USER_ID } from "../system-user.ts";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
 import type { FeatureDefinition, SessionUser } from "../types/index.ts";
-
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { OWNERSHIP_RULES } from "./ownership-rules.ts";
 
 // --- Ownership rule validation ---
 //
@@ -216,7 +217,9 @@ export function checkLegacyRoleList(
   if (!canValidateRoles(knownRoles)) return;
   for (const roleName of roles) {
     if (!knownRoles.has(roleName)) {
-      throw new Error(buildUnknownRoleMessage(roleName, knownRoles, scope, featureName));
+      throw bootRuleError(OWNERSHIP_RULES.unknownRole, {
+        message: buildUnknownRoleMessage(roleName, knownRoles, scope, featureName),
+      });
     }
   }
 }
@@ -251,9 +254,9 @@ export function checkOwnershipMap(args: {
     // or other map mentions "Admi" would otherwise silently grant nothing.
     // Cross-feature, so it needs a corpus that can answer the question.
     if (canValidateRoles(args.knownRoles) && !args.knownRoles.has(roleName)) {
-      throw new Error(
-        buildUnknownRoleMessage(roleName, args.knownRoles, args.scope, args.featureName),
-      );
+      throw bootRuleError(OWNERSHIP_RULES.unknownRole, {
+        message: buildUnknownRoleMessage(roleName, args.knownRoles, args.scope, args.featureName),
+      });
     }
 
     // @cast-boundary schema-walk — extracted from feature-config inspection
@@ -261,10 +264,14 @@ export function checkOwnershipMap(args: {
     if (rule === "all") continue;
     if (rule.kind === "where") {
       if (args.path === "write") {
-        throw new Error(buildWhereOnWritePathMessage(roleName, args.scope, args.featureName));
+        throw bootRuleError(OWNERSHIP_RULES.whereOnWritePath, {
+          message: buildWhereOnWritePathMessage(roleName, args.scope, args.featureName),
+        });
       }
       if (args.path === "fieldRead") {
-        throw new Error(buildWhereOnFieldReadMessage(roleName, args.scope, args.featureName));
+        throw bootRuleError(OWNERSHIP_RULES.whereOnFieldRead, {
+          message: buildWhereOnFieldReadMessage(roleName, args.scope, args.featureName),
+        });
       }
       probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
       continue; // escape hatch — feature author owns the SQL
@@ -278,12 +285,13 @@ export function checkOwnershipMap(args: {
       const claim = args.allClaimKeys.get(rule.refPath);
       if (!claim) {
         const known = [...args.allClaimKeys.keys()].sort().join(", ") || "(none)";
-        throw new Error(
-          `[Kumiko Ownership] ${args.scope} references unknown claim "${rule.refPath}" ` +
+        throw bootRuleError(OWNERSHIP_RULES.unknownClaim, {
+          message:
+            `[Kumiko Ownership] ${args.scope} references unknown claim "${rule.refPath}" ` +
             `(role: "${roleName}", feature: "${args.featureName}"). ` +
             `Declare it via r.claimKey("...", { type: "..." }) in the owning feature. ` +
             `Known claims: ${known}`,
-        );
+        });
       }
       // String-compatible columns accept string and string[] claims equally
       // (array → inArray). For other claim types we rely on the author
@@ -293,11 +301,12 @@ export function checkOwnershipMap(args: {
 
     if (!args.columnNames.has(rule.column)) {
       const known = [...args.columnNames].sort().join(", ");
-      throw new Error(
-        `[Kumiko Ownership] ${args.scope} references column "${rule.column}" ` +
+      throw bootRuleError(OWNERSHIP_RULES.unknownColumn, {
+        message:
+          `[Kumiko Ownership] ${args.scope} references column "${rule.column}" ` +
           `which does not exist on the entity (role: "${roleName}", feature: ` +
           `"${args.featureName}"). Available columns: ${known}`,
-      );
+      });
     }
   }
 }
@@ -354,13 +363,13 @@ function rejectWhereInEmbeddedRead(
     if (!map || isRoleList(map)) continue;
     for (const [roleName, rule] of Object.entries(map)) {
       if (rule !== "all" && rule.kind === "where") {
-        throw new Error(
-          buildWhereOnFieldReadMessage(
+        throw bootRuleError(OWNERSHIP_RULES.whereOnFieldRead, {
+          message: buildWhereOnFieldReadMessage(
             roleName,
             `${parentScope}.${subName}.access.read`,
             featureName,
           ),
-        );
+        });
       }
     }
   }
