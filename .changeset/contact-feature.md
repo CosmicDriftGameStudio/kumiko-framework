@@ -11,6 +11,8 @@
 "@cosmicdrift/kumiko-types": minor
 ---
 
+The contact feature keeps its writes (reply, mark-done, send-test, forward-request, submit, report) away from the AI agent; the agent only reads requests, replies and delivery status.
+
 New bundled feature `contact`: a public contact form backend with spam protection, SystemAdmin replies and optional Telegram forwarding.
 
 <!-- kumiko-changes

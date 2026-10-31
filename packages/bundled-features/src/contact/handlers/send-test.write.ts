@@ -17,6 +17,7 @@ export function createSendTestHandler(opts: ContactOptions) {
     name: "send-test",
     schema: ContactEmptySchema,
     access: adminAccess,
+    agent: { expose: false },
     description:
       "Sends a test message to the configured Telegram chat; fails with a typed error when no chat is configured or the provider does not accept the message, so a SystemAdmin can verify bot token and chat id.",
     handler: async (event, ctx) => {

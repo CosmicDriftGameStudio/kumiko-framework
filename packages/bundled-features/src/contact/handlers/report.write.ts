@@ -39,6 +39,7 @@ export function createReportHandler(opts: ContactOptions, settings: ContactSetti
     schema: ContactReportSchema,
     access: REPORT_ACCESS,
     rateLimit: REPORT_RATE_LIMIT,
+    agent: { expose: false },
     description:
       "A signed-in user reports a problem, asks a question or voices a wish to the platform operators; name, email and tenant come from the session, never from the payload. Forwards the request to the SystemAdmins and mails the reporter a copy.",
     handler: async (event, ctx) => {

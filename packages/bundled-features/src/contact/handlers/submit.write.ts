@@ -121,6 +121,7 @@ export function createSubmitHandler(opts: ContactOptions, settings: ContactSetti
     schema: ContactSubmitSchema,
     access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
+    agent: { expose: false },
     description:
       "Public contact form: stores a question, contact request or problem report from a website visitor after a single-use proof-of-work challenge, forwards it to the SystemAdmins (mail, optional Telegram) and mails the sender a copy. Spam (honeypot, unknown or reused challenge, too fast, wrong proof of work) gets the same success body but nothing is stored or sent.",
     handler: async (event, ctx) => {

@@ -14,6 +14,7 @@ export const markDoneHandler = defineWriteHandler<
   name: "mark-done",
   schema: ContactMarkDoneSchema,
   access: adminAccess,
+  agent: { expose: false },
   description:
     "Marks one contact request as done without sending a reply; a finished request is left as it is.",
   handler: async (event, ctx) => {

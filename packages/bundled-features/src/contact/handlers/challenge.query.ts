@@ -19,6 +19,7 @@ export function createChallengeQuery(settings: ContactSettings) {
     schema: ContactEmptySchema,
     access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
     rateLimit: CHALLENGE_RATE_LIMIT,
+    agent: { expose: false },
     description:
       "Public contact form bootstrap: issues a single-use proof-of-work challenge and reports which fields the form shows (phone mode, request kinds).",
     handler: async (_event, ctx): Promise<ContactChallengeData> => {

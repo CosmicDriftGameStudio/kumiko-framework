@@ -142,8 +142,8 @@ export function createReplyHandler() {
     access: adminAccess,
     description:
       "A SystemAdmin answers a contact request: stores the reply (uploaded files are taken over into the system tenant), mails it to the reporter (Reply-To set, optional attachments, quoting the original request) and, for a signed-in reporter, adds an in-app note in the reporter's tenant. Marks the request answered, or done when markDone is set.",
-    // The reply mail leaves the platform and cannot be recalled.
-    agent: { risk: "high" },
+    // The reply mail leaves the platform and cannot be recalled; reporter text may carry prompt injection.
+    agent: { expose: false },
     handler: async (event, ctx) => {
       const { requestId, message, markDone } = event.payload;
       const db = contactDb(ctx);
