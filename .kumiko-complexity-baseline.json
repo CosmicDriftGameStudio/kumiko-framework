@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-25",
-  "total": 130,
+  "generated": "2026-10-31",
+  "total": 127,
   "perFile": {
     "packages/bundled-features/src/auth-email-password/web/login-screen.tsx": 1,
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
@@ -15,7 +15,6 @@
     "packages/bundled-features/src/folders/web/folder-manager.tsx": 1,
     "packages/bundled-features/src/subscription-mollie/verify-webhook.ts": 1,
     "packages/bundled-features/src/tags/web/tag-manager.tsx": 1,
-    "packages/bundled-features/src/template-resolver/web/client-plugin.tsx": 1,
     "packages/bundled-features/src/tenant/handlers/team-list.query.ts": 1,
     "packages/bundled-features/src/user-data-rights/feature.ts": 1,
     "packages/dev-server/src/build-server-bundle.ts": 1,
@@ -42,8 +41,6 @@
     "packages/framework/src/db/replay-migration-sql.ts": 1,
     "packages/framework/src/engine/boot-validator/custom-screen-write-qns.ts": 1,
     "packages/framework/src/engine/boot-validator/entity-handler.ts": 2,
-    "packages/framework/src/engine/boot-validator/entity-list-screens.ts": 1,
-    "packages/framework/src/engine/boot-validator/index.ts": 1,
     "packages/framework/src/engine/boot-validator/screens-actions.ts": 1,
     "packages/framework/src/engine/build-app-schema.ts": 2,
     "packages/framework/src/engine/create-app.ts": 1,

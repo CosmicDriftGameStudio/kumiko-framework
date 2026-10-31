@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "generated": "2026-10-23",
-  "totalSuspect": 74,
+  "generated": "2026-10-31",
+  "totalSuspect": 69,
   "perFile": {
     "packages/bundled-features/src/billing-foundation/checkout-core.ts": {
       "SubscriptionProviderPlugin": 1
@@ -10,7 +10,7 @@
       "SubscriptionProviderPlugin | undefined": 1
     },
     "packages/bundled-features/src/inbound-provider-imap/feature.ts": {
-      "MailboxObject": 2
+      "MailboxObject": 1
     },
     "packages/bundled-features/src/inbound-provider-imap/imap-client.ts": {
       "string": 1
@@ -27,11 +27,6 @@
     },
     "packages/bundled-features/src/shared/run-in-sub-transaction.ts": {
       "{ begin?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>; s": 1
-    },
-    "packages/bundled-features/src/tenant/seeding.ts": {
-      "{ hasFeature?: (n: string) => Promise<boolean> }": 1,
-      "{ user?: SessionUser }": 1,
-      "| (((tenantId: TenantId) => ReadonlySet<string>) & { trialGa": 1
     },
     "packages/bundled-features/src/user/handlers/list.query.ts": {
       "{ rows: readonly Record<string, unknown>[] }": 1
@@ -86,7 +81,6 @@
       "Record<string, unknown>": 2
     },
     "packages/framework/src/pipeline/dispatch-shared.ts": {
-      "JobRunnerRef": 1,
       "TenantDb": 1
     },
     "packages/guards/src/_lib/guard-kit.ts": {
