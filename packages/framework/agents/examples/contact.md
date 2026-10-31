@@ -71,6 +71,7 @@ import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/deli
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
+import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -100,6 +101,7 @@ beforeAll(async () => {
       createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
+      createNotesHistoryFeature(),
       contactFeature,
     ],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
