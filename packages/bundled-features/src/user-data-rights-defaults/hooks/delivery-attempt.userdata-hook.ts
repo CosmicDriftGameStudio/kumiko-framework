@@ -22,14 +22,17 @@ export const deliveryAttemptExportHook: UserDataExportHook = async (ctx) => {
   if (rows.length === 0) return null;
   return {
     entity: "delivery-attempt",
-    rows: rows.map((r) => ({
-      notificationType: r["notificationType"],
-      channel: r["channel"],
-      status: r["status"],
-      recipientAddress: r["recipientAddress"],
-      priority: r["priority"],
-      createdAt: r["createdAt"],
-    })),
+    rows: rows.map(
+      // guard:dup-ok export field selection for this entity; only the object-literal shape matches other mappers
+      (r) => ({
+        notificationType: r["notificationType"],
+        channel: r["channel"],
+        status: r["status"],
+        recipientAddress: r["recipientAddress"],
+        priority: r["priority"],
+        createdAt: r["createdAt"],
+      }),
+    ),
   };
 };
 

@@ -18,6 +18,7 @@ export type OperatorNoticePlan = {
   readonly providerCancel?: ProviderCancelOutcome;
 };
 
+// guard:dup-ok narrows one optional ctx member with this feature's own mount hint
 export function requireNotify(ctx: HandlerContext): NonNullable<HandlerContext["notify"]> {
   if (!ctx.notify) {
     throw new InternalError({

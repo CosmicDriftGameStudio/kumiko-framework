@@ -44,14 +44,17 @@ export const byTenantQuery = defineQueryHandler({
     const policy = deliveryPolicyOf(ctx.registry);
     const served = await filterDeliveredTo(ctx.db, policy, query.user, rows);
     return {
-      blocks: served.map((row) => ({
-        slug: row.slug,
-        locale: row.locale,
-        title: row.title,
-        content: row.content,
-        folder: row.folder,
-        modifiedAt: row.modifiedAt,
-      })),
+      blocks: served.map(
+        // guard:dup-ok block field selection; only the object-literal shape matches other mappers
+        (row) => ({
+          slug: row.slug,
+          locale: row.locale,
+          title: row.title,
+          content: row.content,
+          folder: row.folder,
+          modifiedAt: row.modifiedAt,
+        }),
+      ),
     };
   },
 });

@@ -42,6 +42,7 @@ export type StockCapSpec<TCaps> = {
 
 // Lock on the counted set, not on `code`: two handlers capping the same rows under
 // different codes must still serialize against each other.
+// guard:dup-ok lock key of one counted set; only the sorted-entries shape matches other key builders
 function countedSetKey(spec: Pick<StockCapSpec<unknown>, "table" | "where">): string {
   const where = Object.entries(spec.where ?? {}).sort(([a], [b]) => a.localeCompare(b));
   return `${spec.table.tableName}:${JSON.stringify(where)}`;

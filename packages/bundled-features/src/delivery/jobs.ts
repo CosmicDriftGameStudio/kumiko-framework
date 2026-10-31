@@ -284,6 +284,7 @@ async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
 // Deliver via the channel using the rendered payload (if any). On failure:
 // record the terminal failed event and rethrow so BullMQ retries the send with
 // the same already-rendered HTML — no re-render needed.
+// guard:dup-ok one job entry point per step; payload schema and step differ from deliveryRenderJob
 export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
   const p = sendJobPayloadSchema.parse(payload);
   return releasingKeyOnTerminalFailure(ctx, p, () => sendStep(p, ctx));

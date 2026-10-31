@@ -85,6 +85,7 @@ function collapseUnsafe(s: string): string {
  * tenantId and fileRefId have UUID shapes and are safe; fileName is passed
  * through sanitizeZipFilename. Path traversal is guaranteed to be excluded.
  */
+// guard:dup-ok one sanitized template-literal path; only the shape matches unrelated string builders
 export function buildFileRefZipPath(args: {
   readonly tenantId: TenantId;
   readonly fileRefId: string;

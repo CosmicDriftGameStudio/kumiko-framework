@@ -61,6 +61,7 @@ function linkHtml(link: MailChromeLink): string {
 
 // The style block is static apart from the validated hex accent and the markup carries
 // no style attributes, so the CSP admits exactly this block by its hash.
+// guard:dup-ok one template-literal stylesheet; only the shape matches unrelated string builders
 function pageStyle(accent: string): string {
   return `@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url("${FONT_URL_PREFIX}400.woff2") format("woff2")}
 @font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:swap;src:url("${FONT_URL_PREFIX}600.woff2") format("woff2")}
@@ -125,6 +126,7 @@ function footerHtml(chrome: MailChrome): string {
   return linesHtml === "" ? "" : `<footer class="footer">${linesHtml}</footer>`;
 }
 
+// guard:dup-ok one escaped template-literal form; only the shape matches other HTML snippets
 function tokenForm(action: string, token: string, label: string, variant: string): string {
   return `<form method="post" action="${escapeHtmlAttr(action)}">
 <input type="hidden" name="token" value="${escapeHtmlAttr(token)}">

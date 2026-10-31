@@ -119,6 +119,7 @@ export function makeArchiveWrite(policy: TemplateEditPolicy) {
     "Sets one template resource of the caller's tenant to archived so the resolver stops serving it while the row and its content survive; use it to retire a template reversibly instead of deleting it. An open draft stays. Outside the templates the app lists in tenantEditable only a SystemAdmin may use it.",
   );
 }
+// guard:dup-ok one configured createStatusUpdateHandler instance; only name, scope, status and description differ
 export function makePublishWrite(policy: TemplateEditPolicy) {
   return createStatusUpdateHandler(
     policy,
@@ -128,6 +129,7 @@ export function makePublishWrite(policy: TemplateEditPolicy) {
     "Sets one template resource of the caller's tenant to active so the resolver starts serving it; use it to release a draft written by upsert-tenant (a draft saved beside an active version replaces it), or to bring an archived template back; a version with unknown placeholders or unused required variables is refused and the served version stays. Outside the templates the app lists in tenantEditable only a SystemAdmin may use it.",
   );
 }
+// guard:dup-ok one configured createStatusUpdateHandler instance; only name, scope, status and description differ
 export function makeArchiveSystemWrite(policy: TemplateEditPolicy) {
   return createStatusUpdateHandler(
     policy,
@@ -137,6 +139,7 @@ export function makeArchiveSystemWrite(policy: TemplateEditPolicy) {
     "Sets one system-default template to archived so the resolver stops serving it to every tenant that has no override; SystemAdmin only, reversible with publish-system.",
   );
 }
+// guard:dup-ok one configured createStatusUpdateHandler instance; only name, scope, status and description differ
 export function makePublishSystemWrite(policy: TemplateEditPolicy) {
   return createStatusUpdateHandler(
     policy,

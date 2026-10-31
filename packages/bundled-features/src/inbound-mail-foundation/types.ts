@@ -246,6 +246,7 @@ export type InboundMailProviderPlugin = {
 // `options` in the extension usage is an engine payload (unknown), so
 // validate its structure instead of casting blindly (patterned after
 // isMailTransportPlugin).
+// guard:dup-ok type guard over this plugin's own two members; only the guard shape is shared
 export function isInboundMailProviderPlugin(o: unknown): o is InboundMailProviderPlugin {
   return (
     typeof o === "object" &&

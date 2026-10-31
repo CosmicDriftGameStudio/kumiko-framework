@@ -158,6 +158,7 @@ export async function resolveJobTz(
 export function missingDbProxy(jobName: string): TenantDb {
   // @cast-boundary db-operator — every access throws, so no TenantDb member is ever returned
   return new Proxy({} as TenantDb, {
+    // guard:dup-ok a throw-only proxy trap; the message is its whole content
     get() {
       throw new InternalError({
         message: `[jobs] job runner constructed without a db connection — ctx.db is unavailable for "${jobName}"`,

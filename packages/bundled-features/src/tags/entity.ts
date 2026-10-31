@@ -55,6 +55,7 @@ export const tagEntity = createEntity({
 // Cross-entity views compose in the read-layer (no JOIN):
 //   - tags of an entity   → list assignments filter { field: "entityId", op: "eq" }
 //   - entities with a tag  → list assignments filter { field: "tagId",   op: "eq" }
+// guard:dup-ok own table and fields; a shared definition would couple the schemas and migrations of tags and folders
 export function createTagAssignmentEntity(
   access?: EntityDefinition["access"],
   parents?: readonly string[],
