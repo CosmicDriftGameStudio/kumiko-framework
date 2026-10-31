@@ -5,6 +5,21 @@ import { type ReactElement, type ReactNode, Suspense } from "react";
 import { render, screen } from "../../__tests__/test-utils.tsx";
 import { PdfViewer } from "../pdf-viewer.tsx";
 
+// Stands in for pdf.js' TextLayer: writes the page's text items as spans, like the real layer.
+class FakeTextLayer {
+  constructor(private readonly options: { container: HTMLElement; textContentSource: string[] }) {}
+  render(): Promise<void> {
+    for (const text of this.options.textContentSource) {
+      const span = document.createElement("span");
+      span.textContent = text;
+      this.options.container.append(span);
+    }
+    return Promise.resolve();
+  }
+  cancel(): void {}
+}
+mock.module("pdfjs-dist", () => ({ TextLayer: FakeTextLayer }));
+
 function renderViewer(viewer: ReactNode): void {
   render(<Suspense fallback={null}>{viewer}</Suspense>);
 }
@@ -25,6 +40,8 @@ function fakeDocument(): PDFDocumentProxy {
   const pages = PAGE_TEXTS.map((items) => ({
     getViewport: ({ scale }: { scale: number }) => ({ width: 595 * scale, height: 842 * scale }),
     getTextContent: async () => ({ items: items.map((str) => ({ str })) }),
+    streamTextContent: () => items,
+    render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
   }));
   const document = {
     numPages: pages.length,
@@ -43,11 +60,14 @@ class IdleIntersectionObserver {
 const originalObserver = globalThis.IntersectionObserver;
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 const scrolledPages: string[] = [];
+const scrolledHits: string[] = [];
 
 beforeEach(() => {
   scrolledPages.length = 0;
+  scrolledHits.length = 0;
   Object.assign(globalThis, { IntersectionObserver: IdleIntersectionObserver });
   Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+    if (this.classList.contains("pdf-hit-active")) scrolledHits.push(this.textContent ?? "");
     scrolledPages.push(this.getAttribute("data-pdf-page") ?? "");
   };
 });
@@ -168,5 +188,23 @@ describe("PdfViewer", () => {
     rerender(view(2));
     await waitFor(() => expect(onMatchesChange).toHaveBeenCalledWith({ count: 3, index: 2 }));
     expect(scrolledPages).toContain("3");
+  });
+
+  test("pages share the pane width at 100% so fit-to-width can measure it, and only overflow when zoomed in", async () => {
+    renderViewer(<PdfViewer document={fakeDocument()} />);
+    const pages = await screen.findByTestId("pdf-pages");
+    expect(pages.className).toContain("w-full");
+    expect(pages.className).not.toContain("w-max");
+    fireEvent.click(screen.getByLabelText("Zoom in"));
+    expect(screen.getByTestId("pdf-pages").className).toContain("w-max");
+  });
+
+  test("the active hit itself is scrolled into view once its page has rendered", async () => {
+    // Without IntersectionObserver every slot counts as seen, so the pages render.
+    Object.assign(globalThis, { IntersectionObserver: undefined });
+    renderViewer(
+      <PdfViewer document={fakeDocument()} searchTerm="Whg. 4" matchIndex={0} hideSearchBar />,
+    );
+    await waitFor(() => expect(scrolledHits).toEqual(["Whg. 4"]));
   });
 });

@@ -12,7 +12,7 @@ import {
 import { useTranslation } from "../../i18n.tsx";
 import { cn } from "../lib/cn.ts";
 import { pageFor } from "./pdf-document.ts";
-import { markTextLayer } from "./pdf-search.ts";
+import { ACTIVE_HIT_CLASS, markTextLayer } from "./pdf-search.ts";
 import { useSeenInViewport } from "./use-in-view.ts";
 
 export const RENDER_SCALE = 96 / 72;
@@ -123,6 +123,10 @@ function PageSheet({
     const container = textLayerRef.current;
     if (container === null || !textLayerReady) return;
     markTextLayer(container, highlightTerm, activeOrdinal);
+    // Scrolling to the page top is not enough: the hit can sit below the fold, and pages above it change height once rendered.
+    if (activeOrdinal !== null) {
+      container.querySelector(`.${ACTIVE_HIT_CLASS}`)?.scrollIntoView({ block: "center" });
+    }
   }, [highlightTerm, activeOrdinal, textLayerReady]);
 
   return (
