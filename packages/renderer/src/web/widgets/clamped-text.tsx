@@ -8,12 +8,15 @@ export function ClampedText({
   children,
   lines = DEFAULT_CLAMP_LINES,
   moreLabelKey = "kumiko.widget.message-thread.showMore",
+  maxHeightPx,
   testId,
 }: {
   readonly children: ReactNode;
   readonly lines?: number;
   /** Translation key of the toggle while the content is clamped. */
   readonly moreLabelKey?: string;
+  /** Clamps by height instead of lines, for content line-clamp cannot reach such as a framed html mail. */
+  readonly maxHeightPx?: number;
   readonly testId?: string;
 }): ReactNode {
   const t = useTranslation();
@@ -41,12 +44,14 @@ export function ClampedText({
         style={
           expanded
             ? undefined
-            : {
-                display: "-webkit-box",
-                WebkitBoxOrient: "vertical",
-                WebkitLineClamp: lines,
-                overflow: "hidden",
-              }
+            : maxHeightPx !== undefined
+              ? { maxHeight: maxHeightPx, overflow: "hidden" }
+              : {
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: lines,
+                  overflow: "hidden",
+                }
         }
       >
         {children}

@@ -62,14 +62,20 @@ function TextBody({
   );
 }
 
+// The frame sets its text at 15px with a 1.55 line height.
+const HTML_MAIL_LINE_PX = 15 * 1.55;
+
 function HtmlBody({
   html,
   title,
   remoteImages,
+  clamp,
 }: {
   readonly html: string;
   readonly title: string;
   readonly remoteImages: "blocked" | "allowed";
+  /** Unset: the html mail shows whole, as it always has; a folded phone thread cuts it short. */
+  readonly clamp: { readonly lines: number; readonly moreLabelKey: string } | undefined;
 }): ReactNode {
   const t = useTranslation();
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -81,9 +87,18 @@ function HtmlBody({
   );
   return (
     <div className="flex flex-col items-start gap-3">
-      <div className="w-full">
-        <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
-      </div>
+      {clamp === undefined ? (
+        <div className="w-full">
+          <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
+        </div>
+      ) : (
+        <ClampedText
+          maxHeightPx={clamp.lines * HTML_MAIL_LINE_PX}
+          moreLabelKey={clamp.moreLabelKey}
+        >
+          <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
+        </ClampedText>
+      )}
       {showImageBar && (
         <p
           role="note"
@@ -129,11 +144,17 @@ export function MessageBodyView({
   readonly title: string;
   readonly clampLines: number;
   readonly remoteImages: "blocked" | "allowed";
+  /** Only a folded phone thread sets it; then an html mail is cut short too. */
   readonly moreLabelKey?: string;
 }): ReactNode {
   return body.kind === "text" ? (
     <TextBody text={body.text} clampLines={clampLines} moreLabelKey={moreLabelKey} />
   ) : (
-    <HtmlBody html={body.html} title={title} remoteImages={remoteImages} />
+    <HtmlBody
+      html={body.html}
+      title={title}
+      remoteImages={remoteImages}
+      clamp={moreLabelKey === undefined ? undefined : { lines: clampLines, moreLabelKey }}
+    />
   );
 }

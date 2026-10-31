@@ -12,5 +12,5 @@ MessageThread can fold its older messages into one toggle for a phone, where a c
 feature: renderer
 type: feature
 title: Thread folds older mails for a phone, step waiting reason as text on a phone
-detail: `foldOlderTogether` on MessageThread shows one "2 frühere Mails anzeigen" toggle above the newest mail instead of a row per older message; a click lists them as rows. In such a folded thread the toggle under a clamped mail body reads "Ganze Mail lesen" (en "Read the whole mail"); every other thread keeps "Mehr anzeigen". A StepList with `phoneCard` shows a locked step's "Wartet auf" reason as a plain 13px line below the md breakpoint and keeps the badge on desktop.
+detail: `foldOlderTogether` on MessageThread shows one "2 frühere Mails anzeigen" toggle above the newest mail instead of a row per older message; a click lists them as rows. In such a folded thread the toggle under a clamped mail body reads "Ganze Mail lesen" (en "Read the whole mail"); every other thread keeps "Mehr anzeigen". There an html mail is cut to the same lines by height; html mails in other threads still show whole. A StepList with `phoneCard` shows a locked step's "Wartet auf" reason as a plain 13px line below the md breakpoint and keeps the badge on desktop.
 -->

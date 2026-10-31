@@ -32,7 +32,7 @@ export type ThreadMessage = {
 export type MessageThreadProps = {
   /** Oldest first. All but the last start collapsed to one line (author, first line, time); click expands. */
   readonly messages: readonly ThreadMessage[];
-  /** Lines before "Mehr anzeigen" on a long text body. Default 16. */
+  /** Lines before "Mehr anzeigen" on a long text body. Default 16. A folded thread also cuts an html mail to these lines. */
   readonly clampLines?: number;
   /** External images in html bodies. Default "blocked" with a "Bilder anzeigen" bar. */
   readonly remoteImages?: "blocked" | "allowed";
