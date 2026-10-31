@@ -1397,6 +1397,9 @@ type Dispatcher = {
 ## packages/framework/src/pipeline/event-dispatcher.ts
 
 ```ts
+type BatchTurnControl = {
+  holdForRetry: (eventIds: string[], reason: string) => void;
+};
 type DispatcherPassResult = {
   processed: number;
   failed: number;
@@ -1411,7 +1414,7 @@ type EventConsumer = {
   delivery?: "shared" | "per-instance";
   startFrom?: "beginning" | "now";
 };
-type EventConsumerBatchHandler = (events: StoredEvent[], ctx: AppContext) => Promise<void>;
+type EventConsumerBatchHandler = (events: StoredEvent[], ctx: AppContext, turn: BatchTurnControl) => Promise<void>;
 type EventConsumerErrorPolicy = {
   skipApplyErrors?: boolean;
   maxAttempts?: number;

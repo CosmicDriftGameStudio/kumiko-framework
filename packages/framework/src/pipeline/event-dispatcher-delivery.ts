@@ -358,32 +358,7 @@ export async function deliverEvents(
 
   if (consumer.batchHandler && events.length > 0) {
     const batch = await tryApplyBatch(consumer, events, context);
-    if (batch.applied) {
-      const heldNewIds: bigint[] = [];
-      for (const row of events) {
-        if (!batch.held.has(String(row.id))) {
-          resolve(row.id);
-          processed += 1;
-          continue;
-        }
-        failed += 1;
-        failedEventId ??= row.id;
-        if (row.id > startCursor) heldNewIds.push(row.id);
-        if (row.id > cursor) cursor = row.id;
-      }
-      if (batch.heldReason !== null && failed > 0) lastError = batch.heldReason;
-      return {
-        cursor,
-        attempts,
-        lastError,
-        deadLettered,
-        processed,
-        failed,
-        failedEventId,
-        resolvedPendingIds,
-        heldNewIds,
-      };
-    }
+    if (batch.applied) return outcomeOfAppliedBatch(events, state, batch);
     // fall through to the per-event loop below; the batch failure itself
     // does NOT bump attempts — only a per-event failure does.
   }
@@ -420,6 +395,34 @@ export async function deliverEvents(
     failedEventId,
     resolvedPendingIds,
     heldNewIds: [],
+  };
+}
+
+// Held rows count as failed and leave lastError set, but the cursor still moves past them:
+// the caller turns the new ones into pending gaps.
+function outcomeOfAppliedBatch(
+  events: ReadonlyArray<StoredEventRow>,
+  state: ConsumerStateRow,
+  batch: Extract<BatchApplyResult, { applied: true }>,
+): DeliveryOutcome {
+  const startCursor = state.lastProcessedEventId;
+  const isHeld = (row: StoredEventRow): boolean => batch.held.has(String(row.id));
+  const deliveredIds = events.filter((row) => !isHeld(row)).map((row) => row.id);
+  const heldIds = events.filter(isHeld).map((row) => row.id);
+  const newIds = events.map((row) => row.id).filter((id) => id > startCursor);
+  const anyDelivered = deliveredIds.length > 0;
+  let lastError: string | null = anyDelivered ? null : (state.lastError ?? null);
+  if (heldIds.length > 0 && batch.heldReason !== null) lastError = batch.heldReason;
+  return {
+    cursor: newIds.at(-1) ?? startCursor,
+    attempts: anyDelivered ? 0 : state.attempts,
+    lastError,
+    deadLettered: false,
+    processed: deliveredIds.length,
+    failed: heldIds.length,
+    failedEventId: heldIds[0] ?? null,
+    resolvedPendingIds: deliveredIds.filter((id) => id <= startCursor),
+    heldNewIds: heldIds.filter((id) => id > startCursor),
   };
 }
 
