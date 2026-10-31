@@ -391,3 +391,35 @@ describe("MessageThread folded older messages", () => {
     expect(screen.queryByTestId("message-thread-earlier")).toBeNull();
   });
 });
+
+describe("MessageThread attachments on a folded thread", () => {
+  const withThumbnail: ThreadMessage = {
+    ...annaLast,
+    attachments: [
+      {
+        id: "a1",
+        name: "vertrag.pdf",
+        meta: "PDF, 4 Seiten",
+        kind: "pdf",
+        href: "/files/vertrag.pdf",
+        thumbnailUrl: "/thumbs/vertrag.png",
+      },
+    ],
+  };
+
+  test("foldOlderTogether renders the last mail's attachments as cards after the frame, not as chips", () => {
+    render(<MessageThread messages={[reply, withThumbnail]} foldOlderTogether />);
+    const attachments = screen.getByTestId("message-thread-attachments");
+    expect(attachments.textContent).toContain("vertrag.pdf");
+    expect(attachments.textContent).toContain("View original");
+    expect(screen.getByTestId("message-thread").contains(attachments)).toBe(false);
+    expect(screen.getByTestId("message-open-m3").textContent).not.toContain("vertrag.pdf");
+  });
+
+  test("without foldOlderTogether the attachments stay chips inside the sheet", () => {
+    render(<MessageThread messages={[reply, withThumbnail]} />);
+    expect(screen.queryByTestId("message-thread-attachments")).toBeNull();
+    expect(screen.getByTestId("message-open-m3").textContent).toContain("vertrag.pdf");
+    expect(screen.queryByText("View original")).toBeNull();
+  });
+});

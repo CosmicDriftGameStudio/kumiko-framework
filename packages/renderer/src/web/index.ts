@@ -271,6 +271,7 @@ export {
   AiSurface,
   AiTextArea,
   AiTextField,
+  AttachmentCard,
   AttachmentChip,
   BooleanField,
   ChoiceCards,

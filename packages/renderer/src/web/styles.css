@@ -142,6 +142,11 @@
   --color-sender-sheet: #1a1a19;
   --color-ai-surface: #14262e;
 
+  /* Highlights on the PDF sheet, which stays white in both themes, so dark equals light. */
+  --color-search-hit: #fbe3a6;
+  --color-search-hit-active: #f5c04a;
+  --color-source-mark: #fbf0d9;
+
   /* JSON-Syntax-Highlighting (JsonView). Eigene, gedämpfte Palette statt der
      Status-Ampel — ein `false` oder eine Zahl ist kein Fehler-/Warn-Signal.
      Dark-Werte; Light-Overrides unten. Kontrast gegen bg-muted geprüft (>=6:1
@@ -378,6 +383,10 @@
     --color-sender-frame-border: #e2e0d9;
     --color-sender-sheet: #ffffff;
     --color-ai-surface: #f3f7f9;
+
+    --color-search-hit: #fbe3a6;
+    --color-search-hit-active: #f5c04a;
+    --color-source-mark: #fbf0d9;
 
     /* JSON-Syntax-Highlighting Light — dunkler/gesättigter, Kontrast gegen
        bg-muted geprüft (>=6:1). */

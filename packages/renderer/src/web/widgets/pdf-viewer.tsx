@@ -227,6 +227,7 @@ export function PdfViewer({
                       ? null
                       : {
                           term: highlightTerm,
+                          source: searchedTerm === "",
                           activeOrdinal:
                             searchedTerm !== "" && activeMatch?.page === pageNumber
                               ? activeMatch.ordinalOnPage

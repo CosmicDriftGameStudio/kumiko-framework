@@ -10,6 +10,7 @@ export {
   AiTextField,
   type AiTextFieldProps,
 } from "./ai-text-field.tsx";
+export { AttachmentCard } from "./attachment-card.tsx";
 export { AttachmentChip } from "./attachment-chip.tsx";
 export type {
   StackedAreaDateFormat,
