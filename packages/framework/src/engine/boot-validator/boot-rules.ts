@@ -7,6 +7,10 @@ import { I18N_RULES } from "./i18n-keys-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
+import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
+import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
+import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
+import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
 
 export const FRAMEWORK_BOOT_RULE_TABLES = [
   PII_RULES,
@@ -17,6 +21,10 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   SCREEN_ACTION_RULES,
   API_EXT_RULES,
   BOOT_CHECK_RULES,
+  DASHBOARD_RULES,
+  DASHBOARD_CHART_RULES,
+  FORM_FIELD_RULES,
+  FORM_LAYOUT_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(
