@@ -206,7 +206,7 @@
     "@cosmicdrift/kumiko-types": "workspace:*",
     "bullmq": "^5.81.5",
     "hono": "^4.13.14",
-    "i18next": "^26.5.11",
+    "i18next": "^26.5.12",
     "ioredis": "^5.11.1",
     "jose": "^6.2.14",
     "pino": "^10.4.0",
