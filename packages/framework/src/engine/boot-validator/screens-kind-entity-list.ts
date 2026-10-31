@@ -1,7 +1,6 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
 import { rowMetaFieldNames } from "../../db/table-builder.ts";
-import { qualifyEntityName } from "../qualified-name.ts";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
@@ -16,6 +15,7 @@ import {
   assertWriteHandlerRegistered,
   rejectRedirectOnListRowAction,
   resolveRowActionNavigateTarget,
+  resolveScreenTargetQn,
   validateActionFieldRefs,
   validateAtMostOneRowClick,
   validateDrawerTargetAction,
@@ -305,7 +305,7 @@ function validateEntityListToolbarAction(
     action.visibleWhen,
   );
   if (action.kind === "navigate") {
-    const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
+    const candidateQn = resolveScreenTargetQn(featureName, action.screen);
     if (!ctx.allScreenQns.has(candidateQn) && !ctx.navTargetShortIds.has(action.screen)) {
       throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetUnresolved, {
         message:

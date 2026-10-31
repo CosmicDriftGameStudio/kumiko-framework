@@ -126,7 +126,7 @@ export const CONTACT_CLIENT_SOURCE = `(function () {
     if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
     return fetch(path, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: "omit",
       headers: headers,
       body: JSON.stringify(body)
     }).then(function (response) {

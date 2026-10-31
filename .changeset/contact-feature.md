@@ -96,6 +96,20 @@ detail: `createContactFeature({ detailLinks: { user, tenant } })` sets the scree
 -->
 
 <!-- kumiko-changes
+feature: contact
+type: fix
+title: The contact website client sends without credentials
+detail: `GET /contact/client.js` now sends the challenge and submit requests with `credentials: "omit"`, so a visitor who is signed in on the same domain with any role (including app roles) still submits as an anonymous caller instead of getting 403. Name and email come from the form, never from the session.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Fully qualified screen targets of another feature boot in navigate actions
+detail: The boot validator no longer prefixes the owning feature to a navigate target that is already a `<feature>:screen:<id>` name (entityList toolbarActions, row actions, metric and detail links). Before, such a target failed boot with a doubled name like `contact:screen:publicstatus:screen:x`. Unknown qualified targets are still rejected, and a `tab` is checked against the target screen in the other feature.
+-->
+
+<!-- kumiko-changes
 feature: renderer
 type: improvement
 title: "On this page" navigation lists related-list and extension sections

@@ -1,6 +1,6 @@
 import { access } from "@cosmicdrift/kumiko-framework/engine";
 
-// Logged-in callers carry no anonymous role, so every signed-in role must be listed.
+// The website client sends without a session (credentials: "omit"), so it always arrives as anonymous; the signed-in roles only cover other callers.
 export const SUBMIT_ROLES = access.roles(
   ...access.anonymous,
   ...access.authenticated,

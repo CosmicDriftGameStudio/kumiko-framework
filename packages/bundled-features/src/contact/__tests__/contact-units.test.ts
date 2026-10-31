@@ -61,7 +61,11 @@ type ContactClient = {
   submit(fields: Record<string, unknown>): Promise<ClientResult>;
 };
 
-type FetchCall = { path: string; body: { type: string; payload: Record<string, unknown> } };
+type FetchCall = {
+  path: string;
+  credentials: string;
+  body: { type: string; payload: Record<string, unknown> };
+};
 
 function loadClient(
   fetchImpl: (call: FetchCall) => { status: number; json: unknown; retryAfter?: string },
@@ -69,8 +73,12 @@ function loadClient(
   const calls: FetchCall[] = [];
   const windowStub: { KumikoContact?: ContactClient } = {};
   const documentStub = { cookie: "kumiko_csrf=tok%20en", documentElement: { lang: "de" } };
-  const fetchStub = async (path: string, init: { body: string }) => {
-    const call: FetchCall = { path, body: JSON.parse(init.body) };
+  const fetchStub = async (path: string, init: { body: string; credentials: string }) => {
+    const call: FetchCall = {
+      path,
+      credentials: init.credentials,
+      body: JSON.parse(init.body),
+    };
     calls.push(call);
     const result = fetchImpl(call);
     return {
@@ -115,6 +123,20 @@ describe("browser client", () => {
         bits: 12,
       }),
     ).toBe(true);
+  });
+
+  test("challenge and submit requests go out without credentials", async () => {
+    const { client, calls } = loadClient((call) =>
+      call.body.type === "contact:query:challenge"
+        ? { status: 200, json: { data: { challenge, bits: 4, phone: "off", kinds: [] } } }
+        : { status: 200, json: { isSuccess: true } },
+    );
+    await client.submit({ kind: "question" });
+    expect(calls.map((call) => call.body.type)).toEqual([
+      "contact:query:challenge",
+      "contact:write:submit",
+    ]);
+    expect(calls.map((call) => call.credentials)).toEqual(["omit", "omit"]);
   });
 
   test("maps 429 to rate-limited with the Retry-After seconds", async () => {
