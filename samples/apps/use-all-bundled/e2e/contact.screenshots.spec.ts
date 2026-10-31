@@ -6,6 +6,7 @@
 // SCREENSHOT_DIR=<dir> bun run contact-shots writes <dir>/b02-report.png ... b05-forwarding.png.
 
 import { createServer, type Server } from "node:http";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { CSRF_COOKIE_NAME, captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { E2E_PORTS } from "../../../e2e/e2e-ports";
@@ -272,6 +273,17 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await expect(page.getByText("Altfall 13")).toBeHidden();
 
   await page.getByText(MONITOR_SUBJECT).click();
+  const detailUrl = page.url();
+  // Notes are stored in the tenant of the writer's session, even on a platform-wide request.
+  // The dev tenant carries the cap overview's note count (cap overview specs), so the
+  // operator who writes the note works from a tenant of their own.
+  const operations = await seedTenant({ name: "Cosmic Drift Betrieb" });
+  const operator = await operations.addUser([ROLES.SystemAdmin], {
+    displayName: "Marc Operator",
+    email: "operator@cosmic-drift.example",
+  });
+  await operations.loginAs(page, operator);
+  await page.goto(detailUrl);
   await expect(page.getByRole("button", { name: "Antworten" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Antworten" }).first().click();
   await expect(page.getByRole("heading", { name: "Antworten" })).toBeVisible();
@@ -285,11 +297,10 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await page.locator("#notes-section-draft").fill(NOTE_TEXT);
   await page.getByTestId("notes-section-add").click();
   await expect(page.getByText(NOTE_TEXT)).toBeVisible();
-  const detailUrl = page.url();
 
   await acme.loginAs(page, acme.admin);
   await readInAppReply(page);
-  await loginAsAdmin(page);
+  await operations.loginAs(page, operator);
   await page.goto(detailUrl);
   await expect(page.getByText("Zugestellt").first()).toBeVisible();
   await expect(page.getByText("Gelesen").first()).toBeVisible();
