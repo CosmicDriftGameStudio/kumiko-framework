@@ -94,6 +94,15 @@ describe("MessageThread", () => {
     expect(screen.getByText("Foto, 1,2 MB")).toBeTruthy();
   });
 
+  test("showHeaders false drops author, address and time but keeps body and attachments", () => {
+    render(<MessageThread messages={[annaLast]} showHeaders={false} />);
+    expect(screen.queryByTestId("message-header-m3")).toBeNull();
+    const open = screen.getByTestId("message-open-m3");
+    expect(open.textContent).not.toContain("a.schneider@mieter.test");
+    expect(open.textContent).toContain("Der Monteur ist nicht gekommen.");
+    expect(screen.getByText("thermometer-kinderzimmer.jpg")).toBeTruthy();
+  });
+
   describe("html bodies", () => {
     const htmlMessage: ThreadMessage = {
       ...annaLast,

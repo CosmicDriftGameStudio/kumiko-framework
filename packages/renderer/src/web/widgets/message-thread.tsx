@@ -64,26 +64,30 @@ function OpenMessage({
   message,
   clampLines,
   remoteImages,
+  showHeader,
 }: {
   readonly message: ThreadMessage;
   readonly clampLines: number;
   readonly remoteImages: "blocked" | "allowed";
+  readonly showHeader: boolean;
 }): ReactNode {
   const attachments = message.attachments ?? [];
   return (
     <div data-testid={`message-open-${message.id}`} className="flex flex-col gap-3">
-      <div data-testid={`message-header-${message.id}`} className="flex items-baseline gap-2">
-        <span className="shrink-0 whitespace-nowrap font-semibold">{message.author}</span>
-        {message.address !== undefined && (
-          <span className="min-w-0 truncate text-[13px] text-muted-foreground">
-            {message.address}
+      {showHeader && (
+        <div data-testid={`message-header-${message.id}`} className="flex items-baseline gap-2">
+          <span className="shrink-0 whitespace-nowrap font-semibold">{message.author}</span>
+          {message.address !== undefined && (
+            <span className="min-w-0 truncate text-[13px] text-muted-foreground">
+              {message.address}
+            </span>
+          )}
+          <span className="grow" />
+          <span className="shrink-0 whitespace-nowrap text-[13px] text-muted-foreground">
+            {message.timeLabel}
           </span>
-        )}
-        <span className="grow" />
-        <span className="shrink-0 whitespace-nowrap text-[13px] text-muted-foreground">
-          {message.timeLabel}
-        </span>
-      </div>
+        </div>
+      )}
       <MessageBodyView
         body={message.body}
         title={message.author}
@@ -106,6 +110,7 @@ export function MessageThread({
   messages,
   clampLines = DEFAULT_CLAMP_LINES,
   remoteImages = "blocked",
+  showHeaders = true,
   testId = "message-thread",
 }: MessageThreadProps): ReactNode {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
@@ -131,7 +136,12 @@ export function MessageThread({
         return (
           <div key={message.id} className={index > 0 ? "mt-3" : undefined}>
             <SenderSheet>
-              <OpenMessage message={message} clampLines={clampLines} remoteImages={remoteImages} />
+              <OpenMessage
+                message={message}
+                clampLines={clampLines}
+                remoteImages={remoteImages}
+                showHeader={showHeaders}
+              />
             </SenderSheet>
           </div>
         );
