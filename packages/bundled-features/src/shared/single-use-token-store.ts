@@ -38,14 +38,14 @@
 // permanently tax Redis, long enough to catch replays inside any realistic
 // race window).
 
-import { createHash } from "node:crypto";
+import { hashOpaqueTokenSync } from "@cosmicdrift/kumiko-framework/crypto";
 import type { Redis } from "ioredis";
 
 // Exported so a caller that needs a byte-compatible key in a sibling Redis
 // namespace (e.g. a token↔binding side-mapping) can derive it without
 // re-implementing sha256-of-token — see auth-email-password/signup-token-store.ts.
 export function hashSingleUseToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return hashOpaqueTokenSync(token);
 }
 
 export function createSingleUseTokenStore(prefixes: {

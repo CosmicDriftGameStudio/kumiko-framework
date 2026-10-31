@@ -13,10 +13,8 @@
 // **Multi-use within TTL:** The token is NOT "consumed" on download, so the user
 // can download repeatedly until expiresAt. This matches Google-Takeout (7d) and
 // Facebook-Data-Download (4d).
-//
-// **Universal Web-Crypto API:** crypto.getRandomValues + crypto.subtle.digest
-// runs identically in Bun, Node 19+, and browsers, avoiding platform-specific
-// imports.
+
+import { hashOpaqueToken } from "@cosmicdrift/kumiko-framework/crypto";
 
 /**
  * Generates a new download token. The plain token is sent to the user by email;
@@ -41,9 +39,7 @@ export async function generateDownloadToken(): Promise<{
  * database (no constant-time comparison, see the header comment).
  */
 export async function hashDownloadToken(plain: string): Promise<string> {
-  const encoded = new TextEncoder().encode(plain);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return uint8ArrayToHex(new Uint8Array(digest));
+  return hashOpaqueToken(plain);
 }
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {
@@ -53,12 +49,4 @@ function uint8ArrayToBase64Url(bytes: Uint8Array): string {
     binary += String.fromCharCode(bytes[i] as number); // @cast-boundary dynamic-key
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function uint8ArrayToHex(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i++) {
-    out += (bytes[i] as number).toString(16).padStart(2, "0"); // @cast-boundary dynamic-key
-  }
-  return out;
 }

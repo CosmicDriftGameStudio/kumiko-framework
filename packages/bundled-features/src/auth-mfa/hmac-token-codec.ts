@@ -1,21 +1,26 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-
-function hmacSign(input: string, secret: string): string {
-  return createHmac("sha256", secret).update(input).digest("base64url");
-}
+import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/hmac-signature.ts";
 
 export type HmacTokenVerifyResult<TPayload> =
   | { readonly ok: true; readonly payload: TPayload; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
+export type UserTenantPayload = { readonly userId: string; readonly tenantId: TenantId };
+
+export function isUserTenantPayload(value: unknown): value is UserTenantPayload {
+  if (!isPlainObject(value)) return false;
+  return typeof value["userId"] === "string" && typeof value["tenantId"] === "string";
+}
+
 // `domain` is part of the signed input: it is the only thing that stops a token
 // minted for one MFA step from verifying as another (e.g. a preauth-setup token
 // replayed as a challenge token), since both share the same secret and payload shape.
-export function createHmacTokenCodec<
-  TPayload extends { readonly userId: string; readonly tenantId: string },
->(domain: string, isPayload: (value: unknown) => value is TPayload) {
+export function createHmacTokenCodec<TPayload extends { readonly userId: string }>(
+  domain: string,
+  isPayload: (value: unknown) => value is TPayload,
+) {
   type EncodedBody = TPayload & { readonly expiresAtMs: number };
 
   function splitEncodedBody(
@@ -38,7 +43,7 @@ export function createHmacTokenCodec<
       const expiresAt = now.add({ minutes: ttlMinutes });
       const body: EncodedBody = { ...payload, expiresAtMs: expiresAt.epochMilliseconds };
       const bodyB64 = Buffer.from(JSON.stringify(body)).toString("base64url");
-      const signature = hmacSign(`${domain}:${bodyB64}`, secret);
+      const signature = signHmacSha256Base64Url(`${domain}:${bodyB64}`, secret);
       return { token: `${bodyB64}.${signature}`, expiresAt };
     },
 
@@ -52,11 +57,9 @@ export function createHmacTokenCodec<
       const [bodyB64, providedSig] = parts;
       if (!bodyB64 || !providedSig) return { ok: false, reason: "malformed" };
 
-      const expected = hmacSign(`${domain}:${bodyB64}`, secret);
-      const expectedBuf = Buffer.from(expected, "base64url");
-      const providedBuf = Buffer.from(providedSig, "base64url");
-      if (expectedBuf.length !== providedBuf.length) return { ok: false, reason: "bad_signature" };
-      if (!timingSafeEqual(expectedBuf, providedBuf)) return { ok: false, reason: "bad_signature" };
+      const expected = signHmacSha256Base64Url(`${domain}:${bodyB64}`, secret);
+      if (!hmacSignatureMatches(expected, providedSig))
+        return { ok: false, reason: "bad_signature" };
 
       let parsed: unknown;
       try {

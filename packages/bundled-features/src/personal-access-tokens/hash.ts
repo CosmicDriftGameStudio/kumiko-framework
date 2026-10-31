@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { generateToken, PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
+import { hashOpaqueTokenSync } from "@cosmicdrift/kumiko-framework/crypto";
 import { PAT_PREFIX_DISPLAY_LENGTH } from "./web/constants.ts";
 
 // A PAT is high-entropy (32 random bytes from generateToken). A single SHA-256
@@ -8,7 +8,7 @@ import { PAT_PREFIX_DISPLAY_LENGTH } from "./web/constants.ts";
 // passwords). Only the hash is persisted — the plaintext exists once, in the
 // create response.
 export function hashPatToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken).digest("hex");
+  return hashOpaqueTokenSync(rawToken);
 }
 
 export function mintPatToken(): { raw: string; hash: string; prefix: string } {

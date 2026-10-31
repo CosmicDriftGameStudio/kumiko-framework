@@ -11,9 +11,10 @@
 // in the HMAC input, timing-safe comparison, expiry in the clear-text
 // segment).
 
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/hmac-signature.ts";
 
 const STATE_PURPOSE = "inbound-mail-oauth-connect";
 
@@ -34,10 +35,6 @@ export type VerifyOAuthStateResult =
   | { readonly ok: true; readonly payload: OAuthStatePayload }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
-function sign(input: string, secret: string): string {
-  return createHmac("sha256", secret).update(input).digest("base64url");
-}
-
 function hmacInput(payloadB64: string, expiresAtMs: number): string {
   return `${STATE_PURPOSE}:${payloadB64}.${expiresAtMs}`;
 }
@@ -51,7 +48,7 @@ export function signOAuthState(
   const full: OAuthStatePayload = { ...payload, nonce: randomUUID() };
   const payloadB64 = Buffer.from(JSON.stringify(full), "utf8").toString("base64url");
   const expiresAtMs = now.add({ minutes: ttlMinutes }).epochMilliseconds;
-  const signature = sign(hmacInput(payloadB64, expiresAtMs), secret);
+  const signature = signHmacSha256Base64Url(hmacInput(payloadB64, expiresAtMs), secret);
   return `${payloadB64}.${expiresAtMs}.${signature}`;
 }
 
@@ -70,13 +67,8 @@ export function verifyOAuthState(
     return { ok: false, reason: "malformed" };
   }
 
-  const expected = sign(hmacInput(payloadB64, expiresAtMs), secret);
-  const expectedBuf = Buffer.from(expected, "base64url");
-  const providedBuf = Buffer.from(providedSig, "base64url");
-  // Check the length before timingSafeEqual: it throws on a length mismatch,
-  // and the throw itself leaks information through timing.
-  if (expectedBuf.length !== providedBuf.length) return { ok: false, reason: "bad_signature" };
-  if (!timingSafeEqual(expectedBuf, providedBuf)) return { ok: false, reason: "bad_signature" };
+  const expected = signHmacSha256Base64Url(hmacInput(payloadB64, expiresAtMs), secret);
+  if (!hmacSignatureMatches(expected, providedSig)) return { ok: false, reason: "bad_signature" };
 
   if (Temporal.Instant.compare(now, Temporal.Instant.fromEpochMilliseconds(expiresAtMs)) > 0) {
     return { ok: false, reason: "expired" };
