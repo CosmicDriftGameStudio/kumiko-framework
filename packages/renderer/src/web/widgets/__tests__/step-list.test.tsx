@@ -194,6 +194,17 @@ describe("StepList source links and highlight", () => {
     expect(screen.getByTestId("step-case-title").parentElement?.contains(trailing)).toBe(false);
   });
 
+  test("phoneCard frames the steps on a phone only, the desktop panel keeps its rows", () => {
+    const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
+    const steps = (): string => screen.getByTestId("step-case").parentElement?.className ?? "";
+    expect(steps()).not.toContain("max-md:border");
+    rerender(<StepList title="Plan" steps={heatingSteps} phoneCard />);
+    expect(steps()).toContain("max-md:border");
+    expect(steps()).toContain("max-md:bg-card");
+    expect(screen.getByTestId("step-list").className).toContain("max-md:rounded-md");
+    expect(screen.getByRole("progressbar").closest(".max-md\\:hidden")).not.toBeNull();
+  });
+
   test("done step icon uses the ok token and fill stretches the list to its container", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
     const doneIcon = within(screen.getByTestId("step-case")).getByRole("img");

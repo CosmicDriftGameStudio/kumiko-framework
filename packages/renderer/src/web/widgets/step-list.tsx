@@ -31,6 +31,8 @@ export type StepListProps = {
   /** "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done. */
   readonly progress?: "full" | "count" | "none";
   readonly emptyContent?: ReactNode;
+  /** On a phone the list reads as a card: the header sits inside the surface and the steps in a framed white box. */
+  readonly phoneCard?: boolean;
   readonly testId?: string;
 };
 
@@ -46,6 +48,7 @@ export function StepList({
   fill = false,
   progress = "full",
   emptyContent,
+  phoneCard = false,
   testId = "step-list",
 }: StepListProps): ReactNode {
   const t = useTranslation();
@@ -69,6 +72,7 @@ export function StepList({
         "flex min-h-0 flex-col text-sm",
         fill && "h-full",
         surface === "ai" && "bg-ai-surface",
+        phoneCard && "max-md:rounded-md max-md:p-3",
       )}
     >
       <StepListHeader
@@ -78,12 +82,19 @@ export function StepList({
         progress={progress}
         done={done}
         total={total}
+        phoneCard={phoneCard}
         testId={testId}
       />
       {steps.length === 0 ? (
         emptyContent
       ) : (
-        <ol className="m-0 min-h-0 grow list-none overflow-y-auto p-0">
+        <ol
+          className={cn(
+            "m-0 min-h-0 grow list-none overflow-y-auto p-0",
+            phoneCard &&
+              "max-md:rounded-md max-md:border max-md:border-border max-md:bg-card max-md:[&>li:last-child]:border-b-0 max-md:[&>li]:px-3 max-md:[&>li]:py-2.5",
+          )}
+        >
           {visibleSteps.map((step) => (
             <StepRow key={step.id} step={step} />
           ))}
@@ -125,8 +136,10 @@ function StepListHeader({
   progress,
   done,
   total,
+  phoneCard,
   testId,
 }: Pick<StepListProps, "title" | "subtitle" | "status"> & {
+  readonly phoneCard: boolean;
   readonly progress: NonNullable<StepListProps["progress"]>;
   readonly done: number;
   readonly total: number;
@@ -134,7 +147,12 @@ function StepListHeader({
 }): ReactNode {
   const t = useTranslation();
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5">
+    <div
+      className={cn(
+        "flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5",
+        phoneCard && "max-md:border-b-0 max-md:px-0 max-md:pb-1.5 max-md:pt-0",
+      )}
+    >
       <div className="flex items-baseline gap-2">
         <h3 className="m-0 grow text-[15px] font-semibold">{title}</h3>
         {status !== undefined && (
@@ -154,11 +172,13 @@ function StepListHeader({
         </p>
       )}
       {progress === "full" && (
-        <ProgressBar
-          size="thin"
-          value={total === 0 ? 0 : done / total}
-          ariaLabel={t("kumiko.widget.step-list.progressLabel")}
-        />
+        <div className={cn(phoneCard && "max-md:hidden")}>
+          <ProgressBar
+            size="thin"
+            value={total === 0 ? 0 : done / total}
+            ariaLabel={t("kumiko.widget.step-list.progressLabel")}
+          />
+        </div>
       )}
     </div>
   );
