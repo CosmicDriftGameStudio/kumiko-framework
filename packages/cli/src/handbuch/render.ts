@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { raw } from "@cosmicdrift/kumiko-renderer/headless";
+import { escapeHtmlAttr, raw } from "@cosmicdrift/kumiko-renderer/headless";
 import { Marked } from "marked";
 import { type BuildInfo, buildInfoLines } from "./buildinfo";
 import { chromeFor } from "./chrome";
@@ -46,17 +46,8 @@ export function createImagePlan(withLarge: boolean): ImagePlan {
   return { jobs: new Map(), withLarge };
 }
 
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function missingImageBox(href: string, locale: string): string {
-  return `<p class="gap-box gap-image"><span class="tag warn">${escapeHtml(chromeFor(locale).imageMissing)}</span> <code>${escapeHtml(href)}</code></p>`;
+  return `<p class="gap-box gap-image"><span class="tag warn">${escapeHtmlAttr(chromeFor(locale).imageMissing)}</span> <code>${escapeHtmlAttr(href)}</code></p>`;
 }
 
 export function renderMarkdown(
@@ -72,14 +63,14 @@ export function renderMarkdown(
     gfm: true,
     renderer: {
       image({ href, text }) {
-        const alt = escapeHtml(text ?? "");
+        const alt = escapeHtmlAttr(text ?? "");
         if (!isLocalImageRef(href))
-          return `<img src="${escapeHtml(href)}" alt="${alt}" loading="lazy">`;
+          return `<img src="${escapeHtmlAttr(href)}" alt="${alt}" loading="lazy">`;
         const source = resolveImagePath(context.textsRoot, href);
         if (!existsSync(source)) return missingImageBox(href, context.locale);
         const dest = inlineImageDest(context.locale, context.textsRoot, source);
         const large = registerImage(context.images, dest, source, 1600);
-        return `<figure class="shot"><a href="${escapeHtml(large)}" data-large="${escapeHtml(large)}" target="_blank" rel="noopener"><img src="${escapeHtml(dest)}" alt="${alt}" loading="lazy"></a>${text ? `<figcaption>${alt}</figcaption>` : ""}</figure>`;
+        return `<figure class="shot"><a href="${escapeHtmlAttr(large)}" data-large="${escapeHtmlAttr(large)}" target="_blank" rel="noopener"><img src="${escapeHtmlAttr(dest)}" alt="${alt}" loading="lazy"></a>${text ? `<figcaption>${alt}</figcaption>` : ""}</figure>`;
       },
       paragraph({ tokens }) {
         const innerHtml = this.parser.parseInline(tokens);
@@ -95,8 +86,8 @@ export function renderMarkdown(
         const innerHtml = this.parser.parseInline(tokens);
         const target = href.replace(/\.md$/, "");
         if (href.endsWith(".md") && context.chapterIds.has(target))
-          return `<a href="#${escapeHtml(target)}">${innerHtml}</a>`;
-        return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${innerHtml}</a>`;
+          return `<a href="#${escapeHtmlAttr(target)}">${innerHtml}</a>`;
+        return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer">${innerHtml}</a>`;
       },
     },
   });
@@ -129,18 +120,18 @@ function framesHtml(
       const notice =
         picked.shotsLocale === locale
           ? ""
-          : `<p class="notice">${escapeHtml(chromeFor(model.defaultLocale).shotsFallbackNotice(picked.shotsLocale.toUpperCase()))}</p>`;
+          : `<p class="notice">${escapeHtmlAttr(chromeFor(model.defaultLocale).shotsFallbackNotice(picked.shotsLocale.toUpperCase()))}</p>`;
       const frames = VIEWPORTS.flatMap((viewport) => {
         const source = picked.shots[viewport];
         if (!source) return [];
         const dest = `shots/${destBase}/${picked.shotsLocale}/${viewport}.webp`;
         const large = registerImage(images, dest, source, VIEWPORT_WIDTH[viewport]);
-        const labelHtml = escapeHtml(chromeFor(model.defaultLocale).viewports[viewport]);
+        const labelHtml = escapeHtmlAttr(chromeFor(model.defaultLocale).viewports[viewport]);
         return [
-          `<figure class="frame" data-vp="${viewport}"><figcaption>${labelHtml}</figcaption><div class="dev ${viewport}"><a href="${escapeHtml(large)}" data-large="${escapeHtml(large)}" target="_blank" rel="noopener"><img src="${escapeHtml(dest)}" alt="${escapeHtml(altBase)} (${labelHtml})" loading="lazy"></a></div></figure>`,
+          `<figure class="frame" data-vp="${viewport}"><figcaption>${labelHtml}</figcaption><div class="dev ${viewport}"><a href="${escapeHtmlAttr(large)}" data-large="${escapeHtmlAttr(large)}" target="_blank" rel="noopener"><img src="${escapeHtmlAttr(dest)}" alt="${escapeHtmlAttr(altBase)} (${labelHtml})" loading="lazy"></a></div></figure>`,
         ];
       });
-      return `<div class="stage-loc" data-loc="${escapeHtml(locale)}">${notice}<div class="frames">${raw(frames.join(""))}</div></div>`;
+      return `<div class="stage-loc" data-loc="${escapeHtmlAttr(locale)}">${notice}<div class="frames">${raw(frames.join(""))}</div></div>`;
     })
     .join("\n");
 }
@@ -174,10 +165,10 @@ function stepsHtml(chapter: Chapter, model: Model, images: ImagePlan): string {
                   chapterIds,
                 })
               : "";
-          return `<div data-loc="${escapeHtml(locale)}">${body ? `<div class="prose step-text">${raw(body)}</div>` : ""}</div>`;
+          return `<div data-loc="${escapeHtmlAttr(locale)}">${body ? `<div class="prose step-text">${raw(body)}</div>` : ""}</div>`;
         })
         .join("");
-      return `<article class="step"><h3>${escapeHtml(step.label)}</h3><div class="stage-col">${framesHtml(`${chapter.id}/${step.id}`, `${step.label}`, step.shots, model, images)}</div>${raw(texts)}</article>`;
+      return `<article class="step"><h3>${escapeHtmlAttr(step.label)}</h3><div class="stage-col">${framesHtml(`${chapter.id}/${step.id}`, `${step.label}`, step.shots, model, images)}</div>${raw(texts)}</article>`;
     })
     .join("\n");
 }
@@ -192,8 +183,10 @@ function localeTextHtml(chapter: Chapter, locale: string, model: Model, images: 
   const textLocale = own ? locale : model.defaultLocale;
   const notice = own
     ? ""
-    : `<p class="notice">${escapeHtml(c.textFallbackNotice(model.defaultLocale.toUpperCase()))}</p>`;
-  const badges = text.prozesse.map((p) => `<span class="badge">${escapeHtml(p)}</span>`).join("");
+    : `<p class="notice">${escapeHtmlAttr(c.textFallbackNotice(model.defaultLocale.toUpperCase()))}</p>`;
+  const badges = text.prozesse
+    .map((p) => `<span class="badge">${escapeHtmlAttr(p)}</span>`)
+    .join("");
   const chapterIds = new Set(model.groups.flatMap((g) => g.chapters.map((c) => c.id)));
   const bodyMd = chapter.steps
     ? splitStepSections(text.bodyMd, new Set(chapter.steps.map((step) => step.slug))).intro
@@ -206,7 +199,7 @@ function localeTextHtml(chapter: Chapter, locale: string, model: Model, images: 
   });
   const stale =
     text.staleTerms.length > 0
-      ? `<div class="gap-box"><span class="tag warn">${raw(c.textStale)}</span> ${raw(c.staleBody)} ${text.staleTerms.map((term) => `<code>${escapeHtml(term)}</code>`).join(", ")}</div>`
+      ? `<div class="gap-box"><span class="tag warn">${raw(c.textStale)}</span> ${raw(c.staleBody)} ${text.staleTerms.map((term) => `<code>${escapeHtmlAttr(term)}</code>`).join(", ")}</div>`
       : "";
   return `${notice}${stale}${badges ? `<p class="badges">${badges}</p>` : ""}<div class="prose">${raw(body)}</div>`;
 }
@@ -225,17 +218,17 @@ function chapterHtml(chapter: Chapter, model: Model, images: ImagePlan): string 
   const head = model.locales
     .map(
       (locale) =>
-        `<div data-loc="${escapeHtml(locale)}"><h2>${escapeHtml(chapterTitle(chapter, locale, model.defaultLocale))}</h2></div>`,
+        `<div data-loc="${escapeHtmlAttr(locale)}"><h2>${escapeHtmlAttr(chapterTitle(chapter, locale, model.defaultLocale))}</h2></div>`,
     )
     .join("");
   const text = model.locales
     .map(
       (locale) =>
-        `<div data-loc="${escapeHtml(locale)}">${localeTextHtml(chapter, locale, model, images)}</div>`,
+        `<div data-loc="${escapeHtmlAttr(locale)}">${localeTextHtml(chapter, locale, model, images)}</div>`,
     )
     .join("\n");
-  return `<section class="chapter${matrix && !chapter.steps ? " has-matrix" : ""}${isTextMissing(chapter) ? " no-text" : ""}" id="${escapeHtml(chapter.id)}" data-nav="${escapeHtml(chapter.id)}"${raw(matrix ? ` data-matrix="1" data-vps="${availableViewports(chapter).join(" ")}"` : "")}>
-<header class="chapter-head">${head}<p class="meta"><code>${escapeHtml(chapter.id)}</code>${raw(flags)}</p></header>
+  return `<section class="chapter${matrix && !chapter.steps ? " has-matrix" : ""}${isTextMissing(chapter) ? " no-text" : ""}" id="${escapeHtmlAttr(chapter.id)}" data-nav="${escapeHtmlAttr(chapter.id)}"${raw(matrix ? ` data-matrix="1" data-vps="${availableViewports(chapter).join(" ")}"` : "")}>
+<header class="chapter-head">${head}<p class="meta"><code>${escapeHtmlAttr(chapter.id)}</code>${raw(flags)}</p></header>
 ${matrix && !chapter.steps ? `<div class="stage-col">${framesHtml(chapter.id, chapter.id, chapter.matrix, model, images)}</div>` : ""}
 <div class="text-col">${text}</div>
 ${chapter.steps ? `<div class="steps">${stepsHtml(chapter, model, images)}</div>` : ""}
@@ -251,7 +244,7 @@ function overviewHtml(model: Model): string {
       : `<h3>${raw(title)}</h3><ul class="gap-list">${chapters
           .map(
             (c) =>
-              `<li><a href="#${escapeHtml(c.id)}">${escapeHtml(chapterTitle(c, model.defaultLocale, model.defaultLocale))}</a>${detail ? ` <code>${escapeHtml(detail(c))}</code>` : ""}</li>`,
+              `<li><a href="#${escapeHtmlAttr(c.id)}">${escapeHtmlAttr(chapterTitle(c, model.defaultLocale, model.defaultLocale))}</a>${detail ? ` <code>${escapeHtmlAttr(detail(c))}</code>` : ""}</li>`,
           )
           .join("")}</ul>`;
   const documented = model.groups.flatMap((group) => group.chapters);
@@ -285,7 +278,7 @@ function plannedHtml(model: Model): string {
   const rows = model.planned
     .map(
       ({ chapter, groupLabel }) =>
-        `<tr><td>${escapeHtml(chapter.screenTitle ?? chapter.id)}</td><td><code>${escapeHtml(chapter.id)}</code></td><td>${escapeHtml(groupLabel)}</td></tr>`,
+        `<tr><td>${escapeHtmlAttr(chapter.screenTitle ?? chapter.id)}</td><td><code>${escapeHtmlAttr(chapter.id)}</code></td><td>${escapeHtmlAttr(groupLabel)}</td></tr>`,
     )
     .join("");
   const table =
@@ -300,14 +293,14 @@ function plannedHtml(model: Model): string {
 function navHtml(model: Model): { nav: string; select: string } {
   const c = chromeFor(model.defaultLocale);
   const link = (id: string, label: string, tags = "") =>
-    `<a href="#${escapeHtml(id)}" data-nav-link="${escapeHtml(id)}"><span>${escapeHtml(label)}</span>${raw(tags)}</a>`;
+    `<a href="#${escapeHtmlAttr(id)}" data-nav-link="${escapeHtmlAttr(id)}"><span>${escapeHtmlAttr(label)}</span>${raw(tags)}</a>`;
   const option = (id: string, label: string) =>
-    `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+    `<option value="${escapeHtmlAttr(id)}">${escapeHtmlAttr(label)}</option>`;
   const navParts = [link("uebersicht", c.overview)];
   const selectParts = [option("uebersicht", c.overview)];
   for (const group of model.groups) {
-    navParts.push(`<h3>${escapeHtml(group.label)}</h3>`);
-    selectParts.push(`<optgroup label="${escapeHtml(group.label)}">`);
+    navParts.push(`<h3>${escapeHtmlAttr(group.label)}</h3>`);
+    selectParts.push(`<optgroup label="${escapeHtmlAttr(group.label)}">`);
     for (const chapter of group.chapters) {
       const title = chapterTitle(chapter, model.defaultLocale, model.defaultLocale);
       const tags =
@@ -350,11 +343,11 @@ export function renderPage(
     )
     .join("\n");
   return `<!doctype html>
-<html lang="${escapeHtml(model.defaultLocale)}" data-locale="${escapeHtml(model.defaultLocale)}" data-vp="desktop">
+<html lang="${escapeHtmlAttr(model.defaultLocale)}" data-locale="${escapeHtmlAttr(model.defaultLocale)}" data-vp="desktop">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)}</title>
+<title>${escapeHtmlAttr(title)}</title>
 <style>
 ${PAGE_STYLES}
 ${raw(localeRules)}
@@ -363,8 +356,8 @@ ${raw(localeRules)}
 <body>
 <div class="app">
 <aside>
-<div class="brand"><h1>${escapeHtml(title)}</h1>
-<p class="build-info">${raw(buildInfoLines(info, c.builtAt).map(escapeHtml).join(" · "))}</p>
+<div class="brand"><h1>${escapeHtmlAttr(title)}</h1>
+<p class="build-info">${raw(buildInfoLines(info, c.builtAt).map(escapeHtmlAttr).join(" · "))}</p>
 <div class="stats"><span><b>${stats.chapters}</b> ${raw(c.chapters)}</span><span><b>${stats.textMissing}</b> ${raw(c.textMissing)}</span><span><b>${stats.imageMissing}</b> ${raw(c.imageMissing)}</span><span><b>${stats.staleText}</b> ${raw(c.staleShort)}</span><span><b>${stats.planned}</b> ${raw(c.plannedShort)}</span></div></div>
 <div class="mobile-pick"><label for="pick">${raw(c.chapters)}</label><select id="pick">${raw(select)}</select></div>
 <nav id="nav" aria-label="${raw(c.chapters)}">${raw(nav)}</nav>

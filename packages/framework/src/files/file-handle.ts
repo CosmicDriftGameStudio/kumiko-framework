@@ -16,7 +16,7 @@ import type {
   FileProviderResolver,
   FileUploadLedger,
 } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import { derivativeListPrefix, isDerivativeSuffix } from "../derivatives/variant-key.ts";
+import { derivativeListPrefix, isDerivativeSuffix, splitKey } from "../derivatives/variant-key.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
@@ -130,26 +130,13 @@ export function createTenantFileContext(
   );
 }
 
-// Splits a key into the part before the last dot of its last path segment
-// (the "stem") and the extension including the dot. No dot in the last
-// segment: the whole key is the stem, extension is empty.
-function splitKeyExtension(key: string): { readonly stem: string; readonly ext: string } {
-  const lastSlash = key.lastIndexOf("/");
-  const lastSegment = lastSlash === -1 ? key : key.slice(lastSlash + 1);
-  const lastDot = lastSegment.lastIndexOf(".");
-  if (lastDot === -1) return { stem: key, ext: "" };
-  const stem = key.slice(0, key.length - lastSegment.length + lastDot);
-  const ext = lastSegment.slice(lastDot);
-  return { stem, ext };
-}
-
 // Inserts a suffix before the file extension. Keys without an extension get
 // the suffix appended with a dot: `foo/bar` + `"small"` → `foo/bar.small`.
 // Keys with a dot earlier in the path (e.g. `archive.v2/foo.jpg`) correctly
 // split on the LAST segment only.
 export function deriveKey(key: string, suffix: string): string {
-  const { stem, ext } = splitKeyExtension(key);
-  return ext === "" ? `${key}.${suffix}` : `${stem}.${suffix}${ext}`;
+  const { base, ext } = splitKey(key);
+  return ext === "" ? `${key}.${suffix}` : `${base}.${suffix}${ext}`;
 }
 
 // The prefix that covers a key AND every `derive()`d variant of it — `foo/bar.jpg` → `foo/bar.`,
