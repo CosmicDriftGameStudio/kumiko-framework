@@ -19,7 +19,10 @@ export const SESSIONS_I18N: Readonly<Record<string, LocalizedString>> = {
   "sessions.detail.field.revokedAt": { en: "Revoked" },
   "sessions.detail.field.ip": { en: "IP address" },
   "sessions.detail.field.userAgent": { en: "User agent" },
-  "screen:my-sessions.title": { en: "Your sessions" },
+  "screen:my-sessions.title": { en: "Signed-in devices" },
+  "sessions.mine.description": {
+    en: "Devices you are currently signed in on. Sign out unfamiliar devices here.",
+  },
   "sessions.mine.col.ip": { en: "IP address" },
   "sessions.mine.col.userAgent": { en: "Device" },
   "sessions.mine.col.current": { en: "Session" },

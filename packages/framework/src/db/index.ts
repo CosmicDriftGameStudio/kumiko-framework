@@ -86,7 +86,10 @@ export { readDatabaseNow } from "./queries/database-now.ts";
 export { listEventTenantIds } from "./queries/event-tenants.ts";
 export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 export { executeRawQuery } from "./queries/raw-sql.ts";
-export { withSessionAdvisoryLock } from "./queries/session-advisory-lock.ts";
+export {
+  tryWithSessionAdvisoryLock,
+  withSessionAdvisoryLock,
+} from "./queries/session-advisory-lock.ts";
 export type {
   JsonTextMatch,
   SelectOptions,

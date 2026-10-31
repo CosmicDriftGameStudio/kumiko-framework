@@ -26,6 +26,11 @@ import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef, useState }
 import type { AiTextRewriteStyle } from "../../index.ts";
 import { useAiTextAction, useCompletion, usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import {
+  type AiTextEndAction,
+  AiTextEndActionButton,
+  endActionPaddingClass,
+} from "./ai-text-end-action.tsx";
 import { ModeSwitch } from "./mode-switch.tsx";
 
 type AiTextAction = "correct" | "translate" | "rewrite";
@@ -51,6 +56,8 @@ interface AiTextFieldBaseProps {
   /** Target languages the translate action offers. First is preselected.
    *  Default `["en", "de", "fr", "es"]`. */
   readonly translateLanguages?: readonly string[];
+  /** Icon button inside the right edge of the control (e.g. a microphone). */
+  readonly endAction?: AiTextEndAction;
 }
 
 export interface AiTextFieldProps extends AiTextFieldBaseProps {}
@@ -90,6 +97,7 @@ function AiTextCore({
   completionDebounceMs = 500,
   actions = DEFAULT_ACTIONS,
   translateLanguages = DEFAULT_LANGUAGES,
+  endAction,
 }: AiTextFieldBaseProps & { readonly multiline: boolean; readonly rows?: number }): ReactNode {
   const { Field, Button, Dialog, Text } = usePrimitives();
   const t = useTranslation();
@@ -218,6 +226,7 @@ function AiTextCore({
                 sharedTextClass,
                 multilineWrapClass,
                 "relative resize-y bg-transparent",
+                endActionPaddingClass(endAction),
               )}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
@@ -239,8 +248,21 @@ function AiTextCore({
               onScroll={(e) => {
                 if (overlayRef.current) overlayRef.current.scrollLeft = e.currentTarget.scrollLeft;
               }}
-              className={cn(sharedTextClass, singleLineWrapClass, "relative bg-transparent")}
+              className={cn(
+                sharedTextClass,
+                singleLineWrapClass,
+                "relative bg-transparent",
+                endActionPaddingClass(endAction),
+              )}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
+            />
+          )}
+          {endAction !== undefined && (
+            <AiTextEndActionButton
+              action={endAction}
+              multiline={multiline}
+              disabled={disabled === true || unavailable}
+              testId={testId}
             />
           )}
         </div>

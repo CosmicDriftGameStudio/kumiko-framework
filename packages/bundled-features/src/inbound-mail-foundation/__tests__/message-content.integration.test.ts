@@ -107,11 +107,14 @@ describe("content stored at ingest", () => {
     expect(content?.contentState).toBe("complete");
   });
 
-  test("message:list carries no body text, the column is encrypted at rest", async () => {
+  test("message:list carries no body text or HTML, the column is encrypted at rest", async () => {
     const admin = adminFor(6103);
     const accountId = await connectInMemoryAccount(env.stack, admin);
     const secretText = "confidential body text";
-    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "list-1", text: secretText }));
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "list-1", text: secretText, html: "<p>confidential html</p>" }),
+    );
 
     await createMailSupervisor(env.stack).pollOnce();
 
@@ -122,6 +125,7 @@ describe("content stored at ingest", () => {
     );
     expect(list.rows).toHaveLength(1);
     expect(list.rows[0]).not.toHaveProperty("bodyText");
+    expect(list.rows[0]).not.toHaveProperty("bodyHtml");
     const [stored] = await selectMany(env.stack.db, inboundMessagesProjectionTable, { accountId });
     expect(stored?.["bodyText"]).not.toBe(secretText);
     expect(String(stored?.["bodyText"])).not.toContain(secretText);
@@ -248,6 +252,63 @@ describe("retention removes the attachments of a purged mail", () => {
   });
 });
 
+describe("sanitized HTML body", () => {
+  test("only the sanitized HTML is stored and returned by message:content", async () => {
+    const admin = adminFor(6140);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "html-1",
+        text: "Hello",
+        html: '<p onclick="steal()">Hello</p><script>alert(1)</script><img src="cid:logo">',
+      }),
+    );
+    await createMailSupervisor(env.stack).pollOnce();
+
+    const content = await contentOf(admin, accountId, "html-1");
+    expect(content?.bodyHtml).toBe("<p>Hello</p>");
+  });
+
+  test("multi-byte HTML near the byte cap is stored, beyond it the mail arrives without HTML", async () => {
+    const admin = adminFor(6142);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    // "€" takes three UTF-8 bytes: the first mail stays just under 500,000 bytes. The second has only
+    // 400,000 characters but 1.2 MB, whose ciphertext would exceed the event's bodyHtml maximum.
+    const nearCap = `<p>${"€".repeat(166_000)}</p>`;
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "euro-near", text: "near", html: nearCap }),
+    );
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "euro-over",
+        text: "over",
+        html: `<p>${"€".repeat(400_000)}</p>`,
+      }),
+    );
+    await createMailSupervisor(env.stack).pollOnce();
+
+    expect((await contentOf(admin, accountId, "euro-near"))?.bodyHtml).toBe(nearCap);
+    const over = await contentOf(admin, accountId, "euro-over");
+    expect(over?.bodyText).toBe("over");
+    expect(over?.bodyHtml).toBeNull();
+  });
+
+  test("a mail without HTML reads bodyHtml null", async () => {
+    const admin = adminFor(6141);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await seedInboundMessage(
+      accountId,
+      rawMsg({ providerMessageId: "plain-1", text: "Only text" }),
+    );
+    await createMailSupervisor(env.stack).pollOnce();
+
+    expect((await contentOf(admin, accountId, "plain-1"))?.bodyHtml).toBeNull();
+  });
+});
+
 describe("event versions", () => {
   test("a v1 received event reads with the content defaults", async () => {
     const upcasters = env.stack.registry.getEventUpcasters();
@@ -283,8 +344,9 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
+      bodyHtml: null,
       bodyText: "",
       bodyTextTruncated: false,
       attachmentFileIds: [],
@@ -322,7 +384,7 @@ describe("event versions", () => {
       tenantId: v1.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
       contentUnavailableReason: null,
       accountId: null,
@@ -359,7 +421,7 @@ describe("event versions", () => {
       tenantId: v2.tenantId,
     });
 
-    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.eventVersion).toBe(4);
     expect(upcast.payload).toMatchObject({
       contentUnavailableReason: "gone_from_server",
       accountId: null,

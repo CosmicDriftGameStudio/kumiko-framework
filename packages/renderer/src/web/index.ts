@@ -136,6 +136,7 @@ export type { NavTreeProps } from "./layout/nav-tree.tsx";
 export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.tsx";
 export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.tsx";
 export { ProfileMenu } from "./layout/profile-menu.tsx";
+export { useShellFocusMode } from "./layout/shell-focus.tsx";
 export type { SidebarProps } from "./layout/sidebar.tsx";
 export { Sidebar } from "./layout/sidebar.tsx";
 export type { SidebarBrandProps } from "./layout/sidebar-brand.tsx";
@@ -204,6 +205,7 @@ export type { KumikoBuild } from "./version/update-checker.tsx";
 export { readLoadedBuild } from "./version/update-checker.tsx";
 export type {
   AiTextAreaProps,
+  AiTextEndAction,
   AiTextFieldProps,
   BooleanFieldProps,
   ComparisonMetric,
@@ -215,8 +217,16 @@ export type {
   FloatingPanelProps,
   InfinityListProps,
   InfinityListSelection,
+  MessageAttachment,
+  MessageBody,
+  MessageReaderProps,
+  MessageReaderTab,
+  MessageThreadProps,
+  MobileTopBarProps,
   ModeSwitchVariant,
   NumberFieldProps,
+  PdfMatchInfo,
+  PdfPreviewProps,
   PdfPreviewSource,
   PhotoSlotSpec,
   PhotoSlotsProps,
@@ -241,8 +251,15 @@ export type {
   StatusBadgeTone,
   StatusBarEntry,
   StatusTone,
+  StepAction,
+  StepListItem,
+  StepListProps,
+  StepSource,
+  StepStatus,
+  StepTag,
   TextareaFieldProps,
   TextFieldProps,
+  ThreadMessage,
   TimeseriesHeight,
   TimeseriesPoint,
   TimeseriesReferenceLine,
@@ -251,10 +268,14 @@ export type {
   UploadZoneProps,
 } from "./widgets/index.ts";
 export {
+  AiSurface,
   AiTextArea,
   AiTextField,
+  AttachmentCard,
+  AttachmentChip,
   BooleanField,
   ChoiceCards,
+  ClampedText,
   CollapsibleSection,
   ComparisonTable,
   DateField,
@@ -267,7 +288,10 @@ export {
   FloatingPanel,
   InfinityList,
   LoadingState,
+  MessageReader,
+  MessageThread,
   MiniStat,
+  MobileTopBar,
   ModeSwitch,
   MoneyField,
   NumberField,
@@ -285,6 +309,8 @@ export {
   ResultTable,
   SectionCard,
   SelectField,
+  SenderFrame,
+  SenderSheet,
   SideBySideTable,
   Sparkline,
   STATUS_TONE_TEXT,
@@ -292,6 +318,7 @@ export {
   StatusBadge,
   StatusBarChart,
   StepBar,
+  StepList,
   smoothPath,
   TextareaField,
   TextField,

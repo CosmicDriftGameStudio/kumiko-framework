@@ -225,6 +225,14 @@ export const boomScreen: CustomScreenDefinition = {
   renderer: { react: { __component: "Boom" } },
 };
 
+export const INBOX_PANE_SCREEN_ID = "inbox-pane";
+
+export const inboxPaneScreen: CustomScreenDefinition = {
+  id: INBOX_PANE_SCREEN_ID,
+  type: "custom",
+  renderer: { react: { __component: "InboxPane" } },
+};
+
 export const e2eSchema: AppSchema = {
   features: [
     {
@@ -232,6 +240,7 @@ export const e2eSchema: AppSchema = {
       translations: {
         "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" },
         "screen:boom.title": { en: "Broken screen", de: "Kaputter Screen" },
+        "screen:inbox-pane.title": { en: "Inbox", de: "Posteingang" },
         "test:entity:task:field:title": { en: "Title", de: "Titel" },
         "test:entity:task:field:owner": { en: "Owner", de: "Zuständig" },
         "test:entity:task:field:priority": { en: "Priority", de: "Priorität" },
@@ -253,6 +262,7 @@ export const e2eSchema: AppSchema = {
         rolesAvailabilityScreen,
         dashboardScreen,
         boomScreen,
+        inboxPaneScreen,
         failingListScreen,
         failingEditScreen,
         taskListScreen,

@@ -34,7 +34,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
-import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
+import { useDispatchedWrites } from "../../shared/web/index.ts";
 import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.ts";
 

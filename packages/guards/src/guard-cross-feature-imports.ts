@@ -7,9 +7,10 @@
  * What's enforced:
  *   - A file inside feature A may not import from feature B's internals.
  *   - Allowed cross-feature imports: the barrel (`from "../B"`, or
- *     `"../B/index"` / `"../B/index.ts"`), and two side-effect-free public
- *     surface modules — `"../B/contract"` and `"../B/schema/entity"` (with
- *     or without extension). Anything else — `from "../B/types"`,
+ *     `"../B/index"` / `"../B/index.ts"`), the client barrel (`"../B/web"`,
+ *     `"../B/web/index"`), and two side-effect-free public surface modules,
+ *     `"../B/contract"` and `"../B/schema/entity"` (with or without
+ *     extension). Anything else — `from "../B/types"`,
  *     `from "../B/handlers/foo"`, `from "../B/feature"` — is rejected.
  *   - Same-feature relative imports (`./x`, `../sibling-in-same-feature`)
  *     stay unrestricted.
@@ -19,6 +20,10 @@
  * Why: deep imports couple feature B's file layout to feature A's call
  * sites. A rename inside B silently breaks A. The barrel is B's public
  * contract — A only sees what B chose to export.
+ *
+ * The web barrel is B's client contract. Browser code (.tsx screens, cells)
+ * must not load B's server barrel, which pulls the whole server graph into
+ * the client bundle, so without it a screen would have no allowed path.
  *
  * Feature-boundary inference:
  *   - packages/bundled-features/src/<feature>/...
@@ -46,11 +51,11 @@ const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
   scope: "source",
-  extensions: ["ts"],
+  extensions: ["ts", "tsx"],
   frameworkWithin: ["packages/*/src/**", "samples/recipes/*/src/**", "samples/apps/*/src/**"],
 };
 
-const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$|\.g\.ts$)/;
+const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.ts$|\.d\.ts$|\.g\.ts$)/;
 
 // Files with an explicit, documented exception. Each entry must come with a
 // TODO naming the planned refactor — the allowlist exists to turn the guard
@@ -136,6 +141,10 @@ const PUBLIC_SURFACE_MODULES = new Set([
   "schema/entity",
   "schema/entity.ts",
   "schema/entity.tsx",
+  "web",
+  "web/index",
+  "web/index.ts",
+  "web/index.tsx",
 ]);
 
 // True when the resolved import path points inside `featureRoot` AND

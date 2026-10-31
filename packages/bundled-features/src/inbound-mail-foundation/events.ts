@@ -118,6 +118,8 @@ export const skippedAttachmentSchema = z.object({
 const inboundMessageContentShape = {
   bodyText: z.string().max(200_000),
   bodyTextTruncated: z.boolean(),
+  /** Sanitized HTML body, PII ciphertext (500_000 characters become roughly 1.2 MB). Null: none or too large. */
+  bodyHtml: z.string().max(1_500_000).nullable(),
   /** file-foundation FileRef ids (plaintext uuids). Attachments outlive the mail: apps turn them
    *  into documents, so the retention sweep never deletes them. */
   attachmentFileIds: z.array(z.uuid()).max(50),

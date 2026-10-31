@@ -19,7 +19,7 @@ import {
 import { postWithDownload } from "@cosmicdrift/kumiko-renderer/web";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
-import { type SectionStatus, StatusBanner } from "../../shared/web/status-banner.tsx";
+import { type SectionStatus, StatusBanner } from "../../shared/web/index.ts";
 import {
   EXPORT_JOB_STATUS,
   type ExportJobStatus,

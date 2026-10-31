@@ -55,6 +55,8 @@ export type {
   JobLifecycle,
 } from "./handler-context-services.ts";
 
+import type { AgentHandlerHints } from "./agent-hints.ts";
+
 // --- Access ---
 
 // "tenant-members": signed-in members may write personal data not bound to the caller by an owner rule.
@@ -726,6 +728,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   // payload's `includeDeleted` field — visibility (tenant/ownership) filters
   // still apply, so this never widens what a user may see beyond the live list.
   readonly includeDeleted?: boolean;
+  // Trash list opt-in: only soft-deleted rows, set from the query payload's `onlyDeleted`.
+  // Never combined with includeDeleted (the dispatcher rejects that); visibility filters still apply.
+  readonly onlyDeleted?: boolean;
 
   readonly dispatch: HandlerDispatch;
 
@@ -1272,22 +1277,13 @@ export function isRateLimitDisabled(v: RateLimitDeclaration | undefined): v is R
   return v !== undefined && !Array.isArray(v) && "disabled" in v && v.disabled === true;
 }
 
-export type AgentRisk = "low" | "mid" | "high";
-
-/** Per-handler hints for the AI-agent manifest. `expose` overrides the
- *  default derived from `description`; `risk` overrides the per-kind default. */
-export type AgentHandlerHints = {
-  readonly expose?: boolean;
-  readonly risk?: AgentRisk;
-};
-
-/** Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here. */
-export type AgentScreenHints = Pick<AgentHandlerHints, "expose">;
-
-export type AgentExposure = {
-  readonly expose: boolean;
-  readonly risk: AgentRisk;
-};
+export type {
+  AgentEffect,
+  AgentExposure,
+  AgentHandlerHints,
+  AgentRisk,
+  AgentScreenHints,
+} from "./agent-hints.ts";
 
 /** Undoes a reservation made before the handler transaction. */
 export type ReservationRelease = () => Promise<void>;

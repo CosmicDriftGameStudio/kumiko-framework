@@ -51,6 +51,7 @@ export type {
 export { emailPasswordClient } from "./client-plugin.ts";
 export type { ConfirmAccountUnlockScreenProps } from "./confirm-account-unlock-screen.tsx";
 export { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen.tsx";
+export { AuthHandlers } from "./constants.ts";
 export type { DefaultTopbarActionsProps } from "./default-topbar-actions.tsx";
 export { DefaultTopbarActions } from "./default-topbar-actions.tsx";
 export type { ForgotPasswordScreenProps } from "./forgot-password-screen.tsx";

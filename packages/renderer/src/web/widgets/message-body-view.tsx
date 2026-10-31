@@ -1,0 +1,160 @@
+import { type ReactNode, useMemo, useState } from "react";
+import { usePrimitives, useTranslation } from "../../index.ts";
+import { ClampedText } from "./clamped-text.tsx";
+import { HtmlMailFrame } from "./html-mail-frame.tsx";
+import type { MessageBody } from "./message-types.ts";
+import { hasRemoteImages, splitQuotedHtml, splitQuotedText } from "./quoted-text.ts";
+
+function QuoteToggle({
+  lines,
+  open,
+  onToggle,
+}: {
+  readonly lines: number;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  return (
+    <Button variant="secondary" size="sm" expanded={open} onClick={onToggle}>
+      {open
+        ? t("kumiko.widget.message-thread.hideQuoted")
+        : t("kumiko.widget.message-thread.showQuoted", { lines })}
+    </Button>
+  );
+}
+
+function TextBody({
+  text,
+  clampLines,
+  moreLabelKey,
+}: {
+  readonly text: string;
+  readonly clampLines: number;
+  readonly moreLabelKey: string | undefined;
+}): ReactNode {
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const split = useMemo(() => splitQuotedText(text), [text]);
+  return (
+    <div className="flex flex-col items-start gap-3 text-[15px] leading-[1.55]">
+      <ClampedText lines={clampLines} {...(moreLabelKey !== undefined && { moreLabelKey })}>
+        <p className="m-0 whitespace-pre-wrap">{split.main}</p>
+      </ClampedText>
+      {split.quoted !== null && (
+        <>
+          <QuoteToggle
+            lines={split.quotedLineCount}
+            open={quoteOpen}
+            onToggle={() => setQuoteOpen((open) => !open)}
+          />
+          {quoteOpen && (
+            <p
+              data-testid="message-quoted"
+              className="m-0 w-full whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-muted-foreground"
+            >
+              {split.quoted}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// The frame sets its text at 15px with a 1.55 line height.
+const HTML_MAIL_LINE_PX = 15 * 1.55;
+
+function HtmlBody({
+  html,
+  title,
+  remoteImages,
+  clamp,
+}: {
+  readonly html: string;
+  readonly title: string;
+  readonly remoteImages: "blocked" | "allowed";
+  /** Unset: the html mail shows whole, as it always has; a folded phone thread cuts it short. */
+  readonly clamp: { readonly lines: number; readonly moreLabelKey: string } | undefined;
+}): ReactNode {
+  const t = useTranslation();
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [imagesAllowed, setImagesAllowed] = useState(remoteImages === "allowed");
+  const split = useMemo(() => splitQuotedHtml(html), [html]);
+  const showImageBar = useMemo(
+    () => !imagesAllowed && hasRemoteImages(html),
+    [html, imagesAllowed],
+  );
+  const content = (
+    <>
+      <div className="w-full">
+        <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
+      </div>
+      {showImageBar && (
+        <p
+          role="note"
+          data-testid="message-images-bar"
+          className="m-0 text-xs text-muted-foreground"
+        >
+          {t("kumiko.widget.message-thread.imagesBlocked")}{" "}
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-primary underline hover:text-primary/80"
+            onClick={() => setImagesAllowed(true)}
+          >
+            {t("kumiko.widget.message-thread.showImages")}
+          </button>
+        </p>
+      )}
+      {split.quoted !== null && (
+        <>
+          <QuoteToggle
+            lines={split.quotedLineCount}
+            open={quoteOpen}
+            onToggle={() => setQuoteOpen((open) => !open)}
+          />
+          {quoteOpen && (
+            <div className="w-full border-l-2 border-border pl-3">
+              <HtmlMailFrame html={split.quoted} title={title} allowRemoteImages={imagesAllowed} />
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+  if (clamp === undefined) {
+    return <div className="flex flex-col items-start gap-3">{content}</div>;
+  }
+  // The quote toggle sits inside the cut: it only matters once the whole mail is open.
+  return (
+    <ClampedText maxHeightPx={clamp.lines * HTML_MAIL_LINE_PX} moreLabelKey={clamp.moreLabelKey}>
+      <div className="flex flex-col items-start gap-3">{content}</div>
+    </ClampedText>
+  );
+}
+
+export function MessageBodyView({
+  body,
+  title,
+  clampLines,
+  remoteImages,
+  moreLabelKey,
+}: {
+  readonly body: MessageBody;
+  readonly title: string;
+  readonly clampLines: number;
+  readonly remoteImages: "blocked" | "allowed";
+  /** Only a folded phone thread sets it; then an html mail is cut short too. */
+  readonly moreLabelKey?: string;
+}): ReactNode {
+  return body.kind === "text" ? (
+    <TextBody text={body.text} clampLines={clampLines} moreLabelKey={moreLabelKey} />
+  ) : (
+    <HtmlBody
+      html={body.html}
+      title={title}
+      remoteImages={remoteImages}
+      clamp={moreLabelKey === undefined ? undefined : { lines: clampLines, moreLabelKey }}
+    />
+  );
+}

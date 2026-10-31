@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
+import { createMeilisearchAdapter, listIndexUids } from "../meilisearch-adapter.ts";
 import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 
 import type { SearchAdapter } from "../types.ts";
@@ -308,11 +308,10 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
   });
 
   afterAll(async () => {
-    const indices = await lazyClient.getIndexes();
-    for (const idx of indices.results) {
-      if (idx.uid.startsWith(lazyPrefix)) {
+    for (const uid of await listIndexUids(lazyClient)) {
+      if (uid.startsWith(lazyPrefix)) {
         try {
-          await lazyClient.index(idx.uid).delete().waitTask();
+          await lazyClient.index(uid).delete().waitTask();
         } catch {
           /* ok */
         }
@@ -457,6 +456,35 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a", "x"]);
   });
+
+  test("a kept index without the delete attributes gains them, so remove still works", async () => {
+    const tenant = uuid();
+    const options = { url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix: lazyPrefix };
+    // Stored by an older deploy: a field that has since lost find: "fuzzy" keeps the searchable
+    // list foreign, and the filterable list predates _entityId and _chunk.
+    const uid = meilisearchTenantIndex(lazyPrefix, tenant);
+    await lazyClient.createIndex(uid, { primaryKey: "_id" }).waitTask();
+    const stored = lazyClient.index(uid);
+    await stored.updateSearchableAttributes(["a", "dropped"]).waitTask();
+    await stored.updateFilterableAttributes(["_type", "_weight", "custom"]).waitTask();
+    await stored.updateSortableAttributes(["_weight"]).waitTask();
+
+    const afterDeploy = createMeilisearchAdapter(options);
+    afterDeploy.setDefaultConfig?.({ searchableFields: ["a"] });
+    await afterDeploy.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "keepme" },
+    });
+    await afterDeploy.remove(tenant, "user", 1);
+
+    expect(await afterDeploy.search(tenant, "keepme", { filterType: "user" })).toEqual([]);
+    expect(await stored.getSearchableAttributes()).toEqual(["a", "dropped"]);
+    expect(await stored.getFilterableAttributes()).toEqual(
+      expect.arrayContaining(["_type", "_weight", "custom", "_entityId", "_chunk"]),
+    );
+  });
 });
 
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
@@ -476,16 +504,16 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
   }
 
   async function indexUids(prefix: string): Promise<string[]> {
-    const all = await dropClient.getIndexes({ limit: 1000 });
-    return all.results.map((i) => i.uid).filter((uid) => uid.startsWith(prefix));
+    return (await listIndexUids(dropClient)).filter((uid) => uid.startsWith(prefix));
   }
 
   afterAll(async () => {
-    for (const prefix of createdPrefixes) {
-      for (const uid of await indexUids(prefix)) {
-        await dropClient.deleteIndex(uid).waitTask();
-      }
-    }
+    const leftovers = (await listIndexUids(dropClient)).filter((uid) =>
+      createdPrefixes.some((prefix) => uid.startsWith(prefix)),
+    );
+    await dropClient.tasks.waitForTasks(
+      await Promise.all(leftovers.map((uid) => dropClient.deleteIndex(uid))),
+    );
   });
 
   const doc = { entityType: "user", entityId: 1, weight: 1, fields: { firstName: "Dropme" } };

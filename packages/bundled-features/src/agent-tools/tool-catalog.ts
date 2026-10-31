@@ -575,6 +575,7 @@ function addWriteHandlerTools(
         op: "write",
         qn: handler.qn,
         risk: handler.risk,
+        ...(handler.effect !== undefined && { effect: handler.effect }),
         ...(handler.entity !== undefined && { entity: handler.entity }),
         ...(detailQn !== undefined && { detailQn }),
         ...(injectsVersion && { injectsVersion: true as const }),

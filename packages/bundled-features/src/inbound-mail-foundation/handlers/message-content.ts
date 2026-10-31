@@ -219,6 +219,25 @@ export async function encryptMessageBodyText(
   return encrypted.bodyText;
 }
 
+// Same, for the sanitized HTML body (null stays null: nothing to encrypt).
+export async function encryptMessageBodyHtml(
+  tenantId: string,
+  messageAggId: string,
+  bodyHtml: string | null,
+): Promise<string | null> {
+  const piiKms = configuredPiiSubjectKms();
+  if (!piiKms || bodyHtml === null) return bodyHtml;
+  const encrypted = await encryptPiiFieldValues(
+    { tenantId, bodyHtml },
+    inboundMessageEntity,
+    INBOUND_MESSAGE_PII_FIELDS,
+    piiKms,
+    { requestId: `inbound-mail-foundation:message-content:${messageAggId}`, tenantId },
+    { tenantId, entityName: INBOUND_MESSAGE_AGGREGATE_TYPE },
+  );
+  return encrypted.bodyHtml;
+}
+
 export function contentStateOf(args: {
   readonly bodyText: string;
   readonly hasOriginal: boolean;

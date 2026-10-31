@@ -43,6 +43,7 @@ import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
 import {
   runStreamTenantBackfillOnBoot,
   type SearchBackendDeclaration,
@@ -322,6 +323,13 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   startPiiEventBackfillOnBoot({
     db,
     registry,
+    lifecycle: entrypoint.lifecycle,
+    envSource,
+  });
+  startSearchReindexOnBoot({
+    db,
+    registry,
+    extraContext: boot.extraContext,
     lifecycle: entrypoint.lifecycle,
     envSource,
   });

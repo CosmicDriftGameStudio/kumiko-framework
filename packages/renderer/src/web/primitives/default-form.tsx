@@ -1,5 +1,10 @@
 import { type ReactNode, useContext } from "react";
-import { type FormProps, InsideDrawerProvider, useInsideDrawer } from "../../index.ts";
+import {
+  type FormProps,
+  InsideDrawerProvider,
+  useInsideDrawer,
+  useTranslation,
+} from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { screenFormColumnWidthClassName, screenPaddingClassName } from "./layout.tsx";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
@@ -23,6 +28,7 @@ import {
   isPinnedFooter,
   SECTION_NAV_MIN_ITEMS,
 } from "./form.tsx";
+import { unsavedStatusText } from "./form-footer-parts.tsx";
 
 // Form inside the Drawer primitive: the drawer header carries the title, so
 // only the description (as help text), the scrolling sections and a pinned
@@ -123,6 +129,7 @@ export function DefaultForm({
   summary,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
+  const t = useTranslation();
   const isEmbeddedForm = useContext(EmbeddedFormContext);
   const contextWidth = useContext(ScreenWidthContext);
   // Embedded (AuthCard etc.): bare <form>, stacked fields with gap; the
@@ -176,29 +183,28 @@ export function DefaultForm({
         testId={testId}
         className="flex w-full flex-col gap-6"
       >
-        <FormTitleBlock
-          title={title}
-          subtitle={subtitle}
-          titleAction={titleAction}
-          testId={testId}
-          bordered={false}
-          fillHeight={false}
-        />
         <FormSections chromeless stickyActions={undefined} fillHeight={false} screenForm>
           {children}
         </FormSections>
-        {/* Divider spans only the settings-list width (max-w-4xl), not the page. */}
         {(actions !== undefined || secondaryActions !== undefined) && (
-          <div className="max-w-4xl border-t border-border">
-            <FormFooter
-              actions={actions}
-              secondaryActions={secondaryActions}
-              testId={testId}
-              chromeless
-              stickyActions={undefined}
-              fillHeight={false}
-              {...(unsavedCount !== undefined && { unsavedCount })}
-            />
+          <div
+            data-testid={testId !== undefined ? `${testId}-footer` : undefined}
+            className="flex flex-wrap items-center gap-2"
+          >
+            {actions}
+            {secondaryActions}
+            {unsavedCount !== undefined && unsavedCount > 0 && (
+              <span
+                data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
+                className="flex items-center gap-2 text-[13px] text-foreground-secondary"
+              >
+                <span
+                  className="size-1.5 shrink-0 rounded-full bg-status-active"
+                  aria-hidden="true"
+                />
+                {unsavedStatusText(t, unsavedCount)}
+              </span>
+            )}
           </div>
         )}
       </FormRoot>
@@ -307,7 +313,11 @@ export function DefaultForm({
           className={cn("!p-0", pinnedShellClassName)}
         >
           {headerRegion !== undefined && (
-            <div className={cn("flex flex-col", fillHeight === true && "shrink-0")}>
+            // The list toolbar under the tab strip brings ~10px of its own; pb-1.5 tops that up to the 16px content gap.
+            <div
+              data-testid={testId !== undefined ? `${testId}-header-region` : undefined}
+              className={cn("flex flex-col pb-1.5", fillHeight === true && "shrink-0")}
+            >
               {headerRegion}
             </div>
           )}

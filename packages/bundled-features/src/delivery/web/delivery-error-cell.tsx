@@ -4,7 +4,7 @@
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { HTTP_ERROR_CODE_PATTERN } from "@cosmicdrift/kumiko-types/handlers";
 import type { ReactNode } from "react";
-import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
+import { translateOrRaw } from "../../shared/web/index.ts";
 
 export function DeliveryErrorCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();

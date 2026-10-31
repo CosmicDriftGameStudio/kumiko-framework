@@ -229,20 +229,28 @@ function DefaultFieldBody({
       {...(belowControl && fieldAppendix !== undefined && { "data-appendix-below": "" })}
       className="flex flex-col gap-1.5"
     >
-      <div className="flex items-center justify-between gap-2">
-        {changedMarker !== null ? (
-          <div className="flex min-w-0 items-center gap-2">
-            {labelEl}
-            {changedMarker}
-          </div>
-        ) : (
-          labelEl
-        )}
-        {/* appendix next to the <label>, not inside it: interactive content
+      {/* A hidden label alone is out of flow; its row would still take the column gap above the control. */}
+      {hideLabel === true &&
+      changedMarker === null &&
+      labelAppendix === undefined &&
+      statusEl === null ? (
+        labelEl
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          {changedMarker !== null ? (
+            <div className="flex min-w-0 items-center gap-2">
+              {labelEl}
+              {changedMarker}
+            </div>
+          ) : (
+            labelEl
+          )}
+          {/* appendix next to the <label>, not inside it: interactive content
             (disclosure button) does not belong in a label element. */}
-        {labelAppendix !== undefined && labelAppendix}
-        {statusEl}
-      </div>
+          {labelAppendix !== undefined && labelAppendix}
+          {statusEl}
+        </div>
+      )}
       {description !== undefined && (
         <div
           id={fieldDescriptionId(id)}

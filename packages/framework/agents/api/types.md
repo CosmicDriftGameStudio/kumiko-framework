@@ -617,6 +617,20 @@ type DeleteRowsWithoutReplayableStreamArgs = {
 type PostgresArrayElement = string | number | bigint | null;
 ```
 
+## packages/framework/src/db/queries/session-advisory-lock.ts
+
+```ts
+type TryAdvisoryLockResult<T> =
+  | {
+    acquired: true;
+    value: T;
+  }
+  | {
+    acquired: false;
+  }
+;
+```
+
 ## packages/framework/src/db/query.ts
 
 ```ts
@@ -2374,6 +2388,10 @@ type FormSectionNavItem = { // One entry of a form's "on this page" navigation: 
   id: string;
   title: string;
 };
+type InputEndAction = ({ icon: ReactNode; ariaLabel: string; label?: undefined; } | { label: string; icon?: undefined; ariaLabel?: undefined; }) & { // Button inside the right edge of a text input: an icon (e.g. a microphone) or, with `label`, a small primary text button that submits what was typed.
+  onClick: () => void;
+  pressed?: boolean; // Toggle state, e.g. a microphone that is currently recording.
+};
 type InputFillAction = { // Button beside a single-line text/number input that fills it with a suggestion.
   label: string;
   onPress: () => void;
@@ -2478,13 +2496,11 @@ type ShareButtonProps = ({ target: "whatsapp"; phone?: string; } | { target: "sy
   className?: string; // Layout extras, merged via cn().
   testId?: string;
 };
-type StatusBadgeOptionTone = StatusTone | "accent"; // Tones a select option can request: the status tones plus the brand `accent`.
 type StatusBadgeProps = { // Status pill.
   value: string;
   tone?: StatusBadgeOptionTone;
   testId?: string;
 };
-type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 type StepBarProps = { // Wizard step overview — numbered chips, one per step label, with the active step highlighted.
   steps: string[];
   currentIndex: number;
@@ -2514,9 +2530,10 @@ type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinn
   testId?: string;
 };
 type TabsProps = { // Tab strip for a projectionDetail `layout.mode: "tabs"`.
-  items: { id: string; label: string; count?: number; }[];
+  items: { id: string; label: string; count?: number; icon?: ReactNode; detail?: string; }[];
   activeId: string;
   onSelect: (id: string) => void;
+  appearance?: "pill" | "plain" | "filter"; // "pill" (default) = count badge, 44px strip.
   testId?: string;
 };
 type TrailingInputAction = {
@@ -2530,6 +2547,13 @@ type WizardStepGroupProps = { // Wraps a single wizard step so it stays mounted 
   inset?: boolean; // Pads the step content (tab panels sit full-bleed under the tab strip).
   children: ReactNode;
 };
+```
+
+## packages/renderer/src/status-tone.ts
+
+```ts
+type StatusBadgeOptionTone = StatusTone | "accent"; // Tones a select option can request: the status tones plus the brand `accent`.
+type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 ```
 
 ## packages/renderer/src/web/app/client-plugin.tsx
@@ -2653,6 +2677,7 @@ interface AiTextFieldBaseProps {
   completionDebounceMs?: number; // Debounce for ghost-text requests, ms.
   actions?: AiTextAction[]; // Toolbar actions to expose.
   translateLanguages?: string[]; // Target languages the translate action offers.
+  endAction?: AiTextEndAction; // Icon button inside the right edge of the control (e.g. a microphone).
 }
 ```
 
@@ -2886,6 +2911,17 @@ type BatchCommand = {
 type RequestHelperOptions = {
   sessionCreator?: SessionCreator;
 };
+```
+
+## packages/types/src/agent-hints.ts
+
+```ts
+type AgentExposure = {
+  expose: boolean;
+  risk: AgentRisk;
+  effect?: AgentEffect;
+};
+type AgentScreenHints = Pick<AgentHandlerHints, "expose">; // Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here.
 ```
 
 ## packages/types/src/aggregate-types.ts
@@ -3274,6 +3310,7 @@ type ListFilterOption = {
 type ListRuntimeOptions = {
   searchAdapter?: SearchAdapter;
   includeDeleted?: boolean;
+  onlyDeleted?: boolean;
   referenceSearch?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
@@ -3608,7 +3645,6 @@ type EntityIndexDef = { // Composite index on an entity.
   where?: unknown; // Optional SQL fragment for a partial index — `CREATE [UNIQUE] INDEX ...
 };
 type EntityLongTextFieldDef = LongTextFieldDef & ResolvedPiiStance;
-type EntityPiiAbsentSubject = "tenant" | "self";
 type EntityTextFieldDef = TextFieldDef & ResolvedPiiStance;
 type FieldAccess = {
   read?: OwnershipMap | string[];
@@ -3634,7 +3670,6 @@ type FilesFieldDef = PiiAndFieldState & {
   display?: "list" | "dropzone"; // `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a drag-and-drop zone with one status row per file, a remove action per file and the field's `maxCount`/`accept`/`maxSize` as hints.
   access?: FieldAccess;
 };
-type Findability = "exact" | "fuzzy" | "none" | "secret";
 type FormFieldDefinition = Exclude<FieldDefinition, MoneyFieldDef> | (MoneyFieldDef & { currency: MoneyCurrencySource; }); // FieldDefinition as an entity-less inline form screen (actionForm, secretMint) may declare it: a `money` field there has no entity to borrow `defaultCurrency` from, so it must name its own currency source, or the form seeds a bare `0` that the handler's zod schema then rejects .
 type ImageFieldDef = PiiAndFieldState & {
   type: "image";
@@ -3681,11 +3716,11 @@ type LongTextFieldDef = PiiAndFieldState & { // Long-form text content — sourc
   encrypted?: boolean;
   sensitive?: boolean;
   readAsInstruction?: boolean; // A later run reads this field's value as an instruction — prompt, rule, template.
+  searchable?: boolean; // Set by `find: "fuzzy"`: the value goes into the SearchAdapter document.
   default?: string;
   access?: FieldAccess;
   multiline?: boolean | { rows?: number; };
 };
-type LongTextFindability = "none" | "secret";
 type MoneyCurrencySource = // Where a money field's currency comes from.
   | {
     kind: "tenant";
@@ -3720,12 +3755,6 @@ type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldStat
   maxRows?: number; // Renderer metadata: how many grid rows stay visible before the `"checkboxes"` grid becomes scrollable.
   optionsAvailabilityQuery?: string; // Query returning `{ rows: { value, disabled?, hint?
 };
-type NoPersonalAnnotation = {
-  personal?: never;
-  find?: never;
-  reason?: never;
-  anonymize?: never;
-};
 type NumberFieldDef = PiiAndFieldState & { // Storage: `integer` flag decides the Postgres column type, not just Zod validation.
   type: "number";
   description?: string;
@@ -3749,59 +3778,6 @@ type OptionsQueryPayloadValue = // One `optionsQueryPayload` entry: a literal, o
   | {
     field: string;
   }
-;
-type PersonalAnnotations =
-  | {
-    personal: PersonalSubject;
-    find: Findability;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-;
-type PersonalAnnotationsLongText =
-  | {
-    personal: PersonalSubject;
-    find: LongTextFindability;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-;
-type PersonalAnnotationsNoFind =
-  | {
-    personal: PersonalSubject;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | NoPersonalAnnotation
-;
-type PersonalSubject =
-  | "self"
-  | {
-    of: string;
-    whenAbsent?: EntityPiiAbsentSubject;
-  }
-  | "tenant"
 ;
 type PiiAndFieldState = ResolvedPiiFlags & FieldStateConditions;
 type ReferenceFieldDef = PiiAndFieldState & {
@@ -4026,11 +4002,6 @@ type ActiveMembershipResult =
     reason: ActiveMembershipRejection;
   }
 ;
-type AgentExposure = {
-  expose: boolean;
-  risk: AgentRisk;
-};
-type AgentScreenHints = Pick<AgentHandlerHints, "expose">; // Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here.
 type AggregateStreamHandle = {
   events: StoredEvent[];
   version: number;
@@ -4571,6 +4542,73 @@ type WhereRuleContext<TTable = unknown> = {
   tableName: string;
   paramStart: number;
 };
+```
+
+## packages/types/src/personal-annotations.ts
+
+```ts
+type EntityPiiAbsentSubject = "tenant" | "self";
+type Findability = "exact" | "fuzzy" | "none" | "secret";
+type LongTextFindability = "none" | "fuzzy" | "secret";
+type NoPersonalAnnotation = {
+  personal?: never;
+  find?: never;
+  reason?: never;
+  anonymize?: never;
+};
+type PersonalAnnotations =
+  | {
+    personal: PersonalSubject;
+    find: Findability;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+;
+type PersonalAnnotationsLongText =
+  | {
+    personal: PersonalSubject;
+    find: LongTextFindability;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+;
+type PersonalAnnotationsNoFind =
+  | {
+    personal: PersonalSubject;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | NoPersonalAnnotation
+;
+type PersonalSubject =
+  | "self"
+  | {
+    of: string;
+    whenAbsent?: EntityPiiAbsentSubject;
+  }
+  | "tenant"
+;
 ```
 
 ## packages/types/src/projection.ts

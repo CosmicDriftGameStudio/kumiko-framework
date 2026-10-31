@@ -83,14 +83,12 @@ function useFilteredSections(
 
 function useAllFieldsRequired(filteredSections: readonly EditSectionViewModel[]): boolean {
   return useMemo(() => {
-    const fillable = filteredSections.flatMap((section) =>
-      section.kind === "fields"
-        ? section.fields.filter(
-            (field) => field.visible && !field.readOnly && field.type !== "boolean",
-          )
-        : [],
+    const shown = filteredSections.flatMap((section) =>
+      section.kind === "fields" ? section.fields.filter((field) => field.visible) : [],
     );
-    return fillable.length > 0 && fillable.every((field) => field.required);
+    const fillable = shown.filter((field) => !field.readOnly && field.type !== "boolean");
+    // A lone field carries its own required marker; "all required" only says something for several.
+    return shown.length >= 2 && fillable.length > 0 && fillable.every((field) => field.required);
   }, [filteredSections]);
 }
 

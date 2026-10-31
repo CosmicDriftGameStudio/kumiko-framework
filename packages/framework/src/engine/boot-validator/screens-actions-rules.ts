@@ -189,4 +189,9 @@ export const SCREEN_ACTION_RULES = {
     summary: "A handler reference resolves to a registered write handler.",
     fix: 'Check the QN spelling ("<feature>:write:<short>") and that r.writeHandler(...) declares it.',
   },
+  actionFormSuccessItemsRedirect: {
+    id: "screen/action-form-success-items-redirect",
+    summary: "An actionForm shows successItems or redirects after submit, not both.",
+    fix: "Drop redirect to show the successItems on the screen, or drop successItems to leave it.",
+  },
 } as const satisfies BootRuleTable;

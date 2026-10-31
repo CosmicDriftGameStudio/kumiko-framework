@@ -30,6 +30,21 @@ export const UptimeChart = () => <svg />;`,
     expect(guard.run([sf]).violations).toHaveLength(3);
   });
 
+  test("flags rebuilt inbox and surface widgets by name", () => {
+    const sf = parse(
+      `export function MessageThread() { return <div />; }
+export const MessageReader = () => <div />;
+export const StepList = () => <ol />;
+export const ClampedText = () => <p />;
+export const AttachmentChip = () => <span />;
+export const HtmlMailFrame = () => <iframe />;
+export const SenderSheet = () => <div />;
+export const SenderFrame = () => <div />;
+export const AiSurface = () => <div />;`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(9);
+  });
+
   test("allows domain components without a primitive name", () => {
     const sf = parse(
       `export function CreditCalculatorScreen() { return <div />; }

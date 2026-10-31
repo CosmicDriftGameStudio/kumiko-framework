@@ -63,6 +63,9 @@ export type ListRuntimeOptions = {
   // — includeDeleted only relaxes the soft-delete predicate, never the
   // visibility ones, so it can ride untrusted query input safely.
   readonly includeDeleted?: boolean;
+  // Trash list: only soft-deleted rows. Same visibility rules as includeDeleted;
+  // mutually exclusive with it and only valid for softDelete entities.
+  readonly onlyDeleted?: boolean;
   // A text search also matches `searchable: true` reference
   // fields (and the implicit tenantId→tenant.name row-meta reference) by
   // their target row's labelField, not just the raw FK column. Only

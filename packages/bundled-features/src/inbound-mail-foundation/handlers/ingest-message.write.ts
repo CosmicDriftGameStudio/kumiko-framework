@@ -38,6 +38,7 @@ import {
   type InboundMessageEventHeaders,
   type InboundMessageEventPayload,
 } from "../events.ts";
+import { sanitizeInboundHtml } from "../sanitize-inbound-html.ts";
 import {
   finalizePreparedContent,
   type PreparedIngest,
@@ -145,9 +146,13 @@ export const ingestMessageHandler = defineWriteHandler({
       payload.contentUnavailableReason ??
       (content.contentStorage === "unavailable" ? ("no_file_storage" as const) : null);
     const piiKms = configuredPiiSubjectKms();
+    // Only the sanitized HTML reaches the event; the unsanitized original stays in the file store.
+    const sanitizedHtml =
+      payload.bodyHtml === undefined ? null : sanitizeInboundHtml(payload.bodyHtml);
     const messagePlainPii = {
       tenantId,
       bodyText: payload.bodyText,
+      bodyHtml: sanitizedHtml,
       from: payload.from,
       to: JSON.stringify(payload.to),
       cc: JSON.stringify(payload.cc),
@@ -185,6 +190,7 @@ export const ingestMessageHandler = defineWriteHandler({
       senderAuthentication: payload.senderAuthentication ?? null,
       bodyText: encryptedMessageFields.bodyText,
       bodyTextTruncated: payload.bodyTextTruncated,
+      bodyHtml: encryptedMessageFields.bodyHtml,
       attachmentFileIds: content.attachmentFileIds,
       skippedAttachments: content.skippedAttachments,
       contentState:

@@ -44,7 +44,7 @@ const IGNORE_TAG = "kumiko-lint-ignore no-custom-primitives";
 
 // PascalCase + primitive suffix, or a known widget name.
 const PRIMITIVE_NAME =
-  /^[A-Z]\w*(Card|Table|Badge|Button|Chart|Modal|Dialog|Tooltip|Spinner|Sparkline)$|^(ProgressBar|MiniStat|StatCard|EmptyState|LoadingState|ErrorState|ModeSwitch|Collapsible\w*|DetailList)$/;
+  /^[A-Z]\w*(Card|Table|Badge|Button|Chart|Modal|Dialog|Tooltip|Spinner|Sparkline)$|^(ProgressBar|MiniStat|StatCard|EmptyState|LoadingState|ErrorState|ModeSwitch|Collapsible\w*|DetailList|MessageThread|MessageReader|StepList|MobileTopBar|ClampedText|AttachmentChip|AttachmentCard|HtmlMailFrame|SenderSheet|SenderFrame|AiSurface)$/;
 
 const RAW_FORM_TAGS = new Set(["input", "select", "textarea", "label"]);
 

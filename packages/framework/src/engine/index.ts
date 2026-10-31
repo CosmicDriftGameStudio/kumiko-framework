@@ -60,6 +60,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
+  AgentEffect,
   AgentHandlerHints,
   AgentRisk,
   AuthClaimsContext,
@@ -424,6 +425,11 @@ export {
   normalizeListColumn,
   sectionFieldSpecs,
 } from "./screen-helpers.ts";
+export {
+  DEFAULT_GRACE_DAYS as SOFT_DELETE_DEFAULT_GRACE_DAYS,
+  readSoftDeleteGraceDays,
+  SOFT_DELETE_GRACE_DAYS_KEY,
+} from "./soft-delete-cleanup.ts";
 export type { TransitionGraph } from "./state-machine.ts";
 export { defineTransitions, guardTransition } from "./state-machine.ts";
 export { evaluateEventMatch } from "./steps/_event-match.ts";

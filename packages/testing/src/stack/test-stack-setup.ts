@@ -1,6 +1,10 @@
 // @runtime dev
 import { createHash } from "node:crypto";
-import { buildServer, createSseBroker } from "@cosmicdrift/kumiko-framework/api";
+import {
+  buildServer,
+  createSseBroker,
+  withFileProviderResolver,
+} from "@cosmicdrift/kumiko-framework/api";
 import {
   assertRowLevelSecurityBootState,
   type DbConnection,
@@ -308,6 +312,7 @@ export async function buildStackServices(
   options: TestStackOptions,
   testDb: StackStorage["testDb"],
   testRedis: TestRedis,
+  cacheSync: ClosableCacheSyncBus,
 ) {
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
@@ -353,17 +358,25 @@ export async function buildStackServices(
           redis: testRedis.redis,
         })
       : options.extraContext;
-  const appContext = {
-    db: testDb.db,
-    redis: testRedis.redis,
-    searchAdapter,
-    entityCache,
+  // The prod entrypoint resolves the mounted file-provider plugins before the job runner sees
+  // the context; without it a job's ctx.services.files is undefined only in tests.
+  const appContext = withFileProviderResolver(
     registry,
-    ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
-    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-    ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
-    ...extraContext,
-  };
+    {
+      db: testDb.db,
+      redis: testRedis.redis,
+      searchAdapter,
+      entityCache,
+      registry,
+      ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
+      ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
+      ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+      ...extraContext,
+    },
+    // Same bus buildServer gets: the resolver built here is the one it reuses, so config and
+    // secret writes must reach its per-tenant provider cache through it.
+    cacheSync,
+  );
   extraContextClock.current = extraContext?.["clock"];
   return { searchAdapter, events, registry, sseBroker, entityCache, observability, appContext };
 }
@@ -429,7 +442,7 @@ function collectSearchableFields(features: TestStackOptions["features"]): string
   for (const feature of features) {
     for (const [, entity] of Object.entries(feature.entities ?? {})) {
       for (const [fieldName, field] of Object.entries(entity.fields)) {
-        if (field.type === "text" && field.searchable) {
+        if ((field.type === "text" || field.type === "longText") && field.searchable) {
           searchableFields.push(fieldName);
         }
         if (field.type === "embedded") {

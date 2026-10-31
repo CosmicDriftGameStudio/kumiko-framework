@@ -4,8 +4,8 @@ import { defaultPrimitives } from "../index.tsx";
 
 const { Grid, GridCell } = defaultPrimitives;
 
-describe("field flow keeps declared columns", () => {
-  test("a flow grid with two declared columns lays out as a two-track grid", () => {
+describe("field flow packs fields regardless of declared columns", () => {
+  test("a flow grid with two declared columns still wraps its fields in a flex row", () => {
     const { getByTestId } = render(
       <Grid columns={2} flow testId="g">
         <GridCell width="select">a</GridCell>
@@ -14,9 +14,9 @@ describe("field flow keeps declared columns", () => {
     );
     const grid = getByTestId("g");
 
-    expect(grid.className).toContain("grid");
-    expect(grid.className).not.toContain("flex-wrap");
-    expect(grid.style.getPropertyValue("--grid-cols")).toBe("repeat(2, minmax(0, 1fr))");
+    expect(grid.className).toContain("flex-wrap");
+    expect(grid.className).not.toContain("grid-cols");
+    expect(grid.style.getPropertyValue("--grid-cols")).toBe("");
   });
 
   test("a flow grid with a single column keeps the wrapping flow", () => {

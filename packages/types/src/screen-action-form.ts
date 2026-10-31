@@ -139,6 +139,11 @@ export type ActionFormScreenDefinition = {
    *  while the screen stays put (e.g. charged/skipped/failed of a batch run).
    *  Mutually exclusive with `redirect`. */
   readonly successFacts?: readonly ActionFormSuccessFact[];
+  /** One hint per entry of a success-payload array, each with its own link
+   *  (e.g. "this file is already in the inbox" with "Open" per uploaded file).
+   *  While at least one entry is shown, the hints replace the generic
+   *  confirmation text. Mutually exclusive with `redirect`. */
+  readonly successItems?: ActionFormSuccessItems;
   /** Reset the form to its initial values after a successful submit (prefill
    *  kept, typed values cleared). Only applies while the screen stays put,
    *  i.e. without `redirect`. */
@@ -223,12 +228,26 @@ export type ActionFormSuccessFact = {
   readonly label: string;
 };
 
+/** Per-entry hints of the success box, read from an array in the handler's success payload. */
+export type ActionFormSuccessItems = {
+  /** Flat field name of an array in the success payload. An entry is shown
+   *  when it is an object with a string `label` (the sentence of the hint). */
+  readonly field: string;
+  /** Link of each hint. `idFrom` and `params` read from the entry, not from
+   *  the whole payload; an entry whose link does not resolve shows without one. */
+  readonly link?: ActionFormSuccessLink;
+};
+
 /** A redirect target rendered as a link in the success box. */
 export type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & {
   /** Success-payload field carrying the navigation id. Required for a record
    *  target (`entityEdit`, `projectionDetail`); omit it for a list, dashboard
    *  or form target, which opens without an id. */
   readonly idFrom?: string;
+  /** URL search params of the target, each read from a success-payload field
+   *  (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`). The link is
+   *  hidden while one of these fields is not a string. */
+  readonly params?: Readonly<Record<string, string>>;
   /** Link text (i18n key). */
   readonly label: string;
 };

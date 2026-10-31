@@ -8,6 +8,7 @@ import {
   KumikoScreen,
   useEmbeddedScreen,
 } from "../../index.ts";
+import { screenTitleKey } from "../layout/shell-breadcrumb.ts";
 import { cn } from "../lib/cn.ts";
 import { EmbeddedFormProvider } from "../primitives/index.tsx";
 import { SectionCard } from "../widgets/section-card.tsx";
@@ -17,6 +18,13 @@ import {
   VisibilityQueryContext,
   visibilityGate,
 } from "./dashboard-visibility.tsx";
+
+// A raw description is agent-facing prose; only an i18n key is user-facing copy.
+function embeddedDescription(raw: string | undefined, translate: Translate): string | undefined {
+  if (raw === undefined) return undefined;
+  const translated = translate(raw);
+  return translated !== raw ? translated : undefined;
+}
 
 function EmbeddedScreenPanelTile({
   recordId,
@@ -39,26 +47,43 @@ function EmbeddedScreenPanelTile({
       {...(entityId !== undefined && { entityId })}
     />
   );
-  const embedded =
-    panel.chromeless === true ? (
-      <EmbeddedFormProvider>
-        <EmbeddedScreenProvider>{screenBody}</EmbeddedScreenProvider>
-      </EmbeddedFormProvider>
-    ) : (
-      screenBody
+  const label = panel.label !== undefined ? translate(panel.label) : undefined;
+  if (panel.chromeless !== true) {
+    return (
+      <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
+        {label !== undefined ? <SectionCard title={label}>{screenBody}</SectionCard> : screenBody}
+      </div>
     );
+  }
+  // The tile owns the section head, so the embedded form drops its own title block.
+  const titleKey = screenTitleKey(target.screenId);
+  const translatedTitle = translate(titleKey);
+  const title = label ?? (translatedTitle === titleKey ? target.screenId : translatedTitle);
+  const description = embeddedDescription(target.description, translate);
   return (
-    <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
-      {panel.label !== undefined && panel.chromeless !== true ? (
-        <SectionCard title={translate(panel.label)}>{embedded}</SectionCard>
-      ) : (
-        <>
-          {panel.label !== undefined && (
-            <h3 className="mb-3 text-sm font-semibold text-foreground">{translate(panel.label)}</h3>
-          )}
-          {embedded}
-        </>
+    <div
+      className={cn("min-w-0 border-t border-border pt-6 first:border-t-0 first:pt-0", WIDE_PANEL)}
+      data-testid={`dashboard-panel-${panel.id}`}
+    >
+      <h3
+        data-testid={`dashboard-panel-${panel.id}-title`}
+        className="text-sm font-semibold text-foreground"
+      >
+        {title}
+      </h3>
+      {description !== undefined && (
+        <p
+          data-testid={`dashboard-panel-${panel.id}-description`}
+          className="mt-1 text-sm text-muted-foreground"
+        >
+          {description}
+        </p>
       )}
+      <div className="mt-3">
+        <EmbeddedFormProvider>
+          <EmbeddedScreenProvider>{screenBody}</EmbeddedScreenProvider>
+        </EmbeddedFormProvider>
+      </div>
     </div>
   );
 }

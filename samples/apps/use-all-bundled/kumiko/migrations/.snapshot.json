@@ -1313,6 +1313,11 @@
           "defaultSql": "false"
         },
         {
+          "name": "body_html",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "attachment_file_ids",
           "pgType": "jsonb",
           "notNull": true,
@@ -4111,6 +4116,50 @@
       "source": "unmanaged"
     },
     {
+      "tableName": "store_document_ingest_progress",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "file_ref_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "pages_done",
+          "pgType": "integer",
+          "notNull": true
+        },
+        {
+          "name": "pages_total",
+          "pgType": "integer",
+          "notNull": true
+        },
+        {
+          "name": "updated_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_document_ingest_progress_tenant_id_file_ref_id_idx",
+          "columns": ["tenant_id", "file_ref_id"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_file_upload_ledger",
       "columns": [
         {
@@ -5883,6 +5932,25 @@
       ]
     },
     "store_delivery_attempts": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "store_document_ingest_progress": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

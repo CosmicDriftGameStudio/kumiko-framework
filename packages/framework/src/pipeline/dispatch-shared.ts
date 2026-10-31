@@ -203,6 +203,7 @@ export type BuildHandlerContextOptions = {
   tx?: DbTx;
   afterCommitHooks?: AfterCommitHook[];
   includeDeleted?: boolean;
+  onlyDeleted?: boolean;
   transactionScope?: HandlerTransactionScope;
   // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
   // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
@@ -247,6 +248,7 @@ export async function buildHandlerContext(
     tx,
     afterCommitHooks,
     includeDeleted,
+    onlyDeleted,
     outerNotifySink,
     phase = "handler",
     transactionScope = tx ? "inTransaction" : "withoutTransaction",
@@ -310,6 +312,7 @@ export async function buildHandlerContext(
     // ctx.user as a convenience alias for event.user. Identity switches still use queryAs/writeAs.
     user,
     ...(includeDeleted && { includeDeleted: true }),
+    ...(onlyDeleted && { onlyDeleted: true }),
     dispatch: dispatchFacet.dispatch,
     events: eventStoreFacet.events,
     auth: authFacet.auth,

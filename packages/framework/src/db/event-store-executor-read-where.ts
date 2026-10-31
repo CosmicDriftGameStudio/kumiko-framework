@@ -5,6 +5,7 @@ import {
 } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser } from "../engine/types/index.ts";
+import { ValidationError } from "../errors/index.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
 import {
@@ -32,7 +33,7 @@ function appendTenantAndSoftDeleteScope(
   where: ListWhere,
   ctx: Pick<ExecutorContext, "table" | "softDelete">,
   db: TenantDb,
-  includeDeleted: boolean,
+  trash: "live" | "withDeleted" | "onlyDeleted",
 ): void {
   if (ctx.table["tenantId"] !== undefined && db.mode === "tenant") {
     where.params.push(db.tenantId, SYSTEM_TENANT_ID);
@@ -40,8 +41,10 @@ function appendTenantAndSoftDeleteScope(
       `${where.colSql("tenantId")} IN ($${where.params.length - 1}, $${where.params.length})`,
     );
   }
-  if (ctx.softDelete && ctx.table["isDeleted"] && !includeDeleted) {
-    where.whereSql.push(`${where.colSql("isDeleted")} = FALSE`);
+  if (ctx.softDelete && ctx.table["isDeleted"] && trash !== "withDeleted") {
+    where.whereSql.push(
+      `${where.colSql("isDeleted")} = ${trash === "onlyDeleted" ? "TRUE" : "FALSE"}`,
+    );
   }
 }
 
@@ -84,7 +87,16 @@ export async function buildListWhere(
 ): Promise<ListWhereBuild> {
   const { table, entity, entityName, searchAdapter, streamTenantFor } = ctx;
   const tableName = String(schemaTableName(table));
-  const includeDeleted = runtimeOptions?.includeDeleted === true;
+  const onlyDeleted = runtimeOptions?.onlyDeleted === true;
+  if (onlyDeleted && !ctx.softDelete) {
+    throw new ValidationError({
+      fields: [
+        { path: "onlyDeleted", code: "not_soft_delete", i18nKey: "errors.validation.onlyDeleted" },
+      ],
+    });
+  }
+  // The parent-visibility gate lifts its deleted-host predicate for a trash list the same way.
+  const includeDeleted = onlyDeleted || runtimeOptions?.includeDeleted === true;
 
   // Decide before touching search or the DB: an `empty` ownership skips both paths.
   const ownership = resolveReadOwnership(
@@ -132,7 +144,12 @@ export async function buildListWhere(
     searchTruncated = search.searchTruncated;
   }
 
-  appendTenantAndSoftDeleteScope(where, ctx, db, includeDeleted);
+  appendTenantAndSoftDeleteScope(
+    where,
+    ctx,
+    db,
+    onlyDeleted ? "onlyDeleted" : includeDeleted ? "withDeleted" : "live",
+  );
   if (ownership.kind === "sql") appendShiftedClause(where, ownership);
   for (const f of collectListFilters(payload)) {
     applyListFilter(where, f, table, entity, fieldReadClause);

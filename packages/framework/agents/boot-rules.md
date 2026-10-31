@@ -4,6 +4,13 @@
 
 `validateBoot` reports every violation as `- [<id>] <message>`, followed by a `Fix:` and a `Rule:` line that links the entry below. Violations with an `unclassified/<check>` id have no entry yet. `kumiko-schema validate --json` returns the same ids.
 
+## agent-effect
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="agent-effect-proposal-needs-low-risk"></a>`agent-effect/proposal-needs-low-risk` | A write handler with agent.effect "proposal" declares agent.risk "low". | Set agent.risk to "low", or drop agent.effect so the agent asks for approval. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
+| <a id="agent-effect-write-only"></a>`agent-effect/write-only` | Only write handlers declare agent.effect; a query has nothing to approve. | Drop agent.effect from the query handler. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
+
 ## api
 
 | Rule | Summary | Fix | Source |
@@ -720,6 +727,7 @@
 | --- | --- | --- | --- |
 | <a id="screen-action-entity-id-unknown-field"></a>`screen/action-entity-id-unknown-field` | An action's entityId references an existing entity field or the id column. | Point entityId at a known field. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-field-function"></a>`screen/action-field-function` | Action payload, params, entityId and visible are declarative values, not functions. | Use the declarative DSL ({ pick }, { map }, field name, { field, eq }). | `packages/framework/src/engine/boot-validator/screens-rules.ts` |
+| <a id="screen-action-form-success-items-redirect"></a>`screen/action-form-success-items-redirect` | An actionForm shows successItems or redirects after submit, not both. | Drop redirect to show the successItems on the screen, or drop successItems to leave it. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-icon"></a>`screen/action-icon` | Every screen action resolves to a registered icon. | Set icon to a registered NAV_ICONS key or use an action id that resolves one via the default icon map. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-unknown-field-ref"></a>`screen/action-unknown-field-ref` | Action payload and params extractors reference existing entity fields. | Name a known field in the pick/map extractor. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-visible-unknown-field"></a>`screen/action-visible-unknown-field` | An action's visible.field references an existing entity field. | Point visible.field at a known field. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |

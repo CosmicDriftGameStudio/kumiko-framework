@@ -137,10 +137,18 @@ export type ResolvedSuccessFact = {
   readonly lines: readonly string[];
 };
 
+export type ResolvedSuccessItem = {
+  readonly key: string;
+  readonly label: string;
+  readonly link?: ResolvedSuccessLink;
+};
+
 export type ActionFormSuccessState = {
   readonly text: string;
   readonly links: readonly ResolvedSuccessLink[];
   readonly facts: readonly ResolvedSuccessFact[];
+  /** Per-entry hints; while any is shown they replace `text`. */
+  readonly items?: readonly ResolvedSuccessItem[];
 };
 
 function factLine(entry: unknown, locale: string): string | undefined {
@@ -177,17 +185,53 @@ function positionedLines(
   return lines.map((line, position) => ({ position: String(position), line }));
 }
 
+function SuccessItemHints({
+  items,
+}: {
+  readonly items: readonly ResolvedSuccessItem[];
+}): ReactNode {
+  const { Banner, Grid, Link, Text } = usePrimitives();
+  return (
+    <Grid columns={1} testId="action-form-success-items">
+      {items.map((item) => (
+        <Banner
+          key={item.key}
+          variant="hint"
+          testId={`action-form-success-item-${item.key}`}
+          {...(item.link !== undefined && {
+            actions: (
+              <Link
+                href={item.link.href}
+                onPress={item.link.onPress}
+                className="underline"
+                testId={`action-form-success-item-${item.key}-link`}
+              >
+                {item.link.label}
+              </Link>
+            ),
+          })}
+        >
+          <Text>{item.label}</Text>
+        </Banner>
+      ))}
+    </Grid>
+  );
+}
+
 export function ActionFormSuccessBanner({
   success,
 }: {
   readonly success: ActionFormSuccessState;
 }): ReactNode {
   const { Banner, Grid, Link, Text } = usePrimitives();
+  const items = success.items ?? [];
+  const hasFactsOrLinks = success.facts.length > 0 || success.links.length > 0;
+  if (items.length > 0 && !hasFactsOrLinks) return <SuccessItemHints items={items} />;
   // Text renders inline, so the message and each fact sit in a one-column grid to get their own lines.
-  return (
+  const banner = (
     <Banner variant="info" testId="action-form-success">
       <Grid columns={1}>
-        <Text testId="action-form-success-text">{success.text}</Text>
+        {items.length === 0 && <Text testId="action-form-success-text">{success.text}</Text>}
         {success.facts.map((fact) => {
           const factTestId = `action-form-success-fact-${fact.key}`;
           if (fact.lines.length === 1) {
@@ -221,5 +265,12 @@ export function ActionFormSuccessBanner({
         </Link>
       ))}
     </Banner>
+  );
+  if (items.length === 0) return banner;
+  return (
+    <Grid columns={1}>
+      <SuccessItemHints items={items} />
+      {banner}
+    </Grid>
   );
 }

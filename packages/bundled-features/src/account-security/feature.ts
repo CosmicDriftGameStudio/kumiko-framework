@@ -66,23 +66,31 @@ export function createAccountSecurityFeature(
       panels: [
         {
           kind: "screen",
+          chromeless: true,
           id: "mfa-enable",
           screen: `auth-mfa:screen:${MFA_ENABLE_SCREEN_ID}`,
           visibleWhen: { ...accountSecurityMfaStatusVisibility, eq: false },
         },
         {
           kind: "screen",
+          chromeless: true,
           id: "mfa-regenerate",
           screen: `auth-mfa:screen:${MFA_REGENERATE_RECOVERY_SCREEN_ID}`,
           visibleWhen: { ...accountSecurityMfaStatusVisibility, eq: true },
         },
         {
           kind: "screen",
+          chromeless: true,
           id: "mfa-disable",
           screen: `auth-mfa:screen:${MFA_DISABLE_SCREEN_ID}`,
           visibleWhen: { ...accountSecurityMfaStatusVisibility, eq: true },
         },
-        { kind: "screen", id: "sessions", screen: `sessions:screen:${SESSION_MINE_SCREEN_ID}` },
+        {
+          kind: "screen",
+          chromeless: true,
+          id: "sessions",
+          screen: `sessions:screen:${SESSION_MINE_SCREEN_ID}`,
+        },
       ],
     });
 

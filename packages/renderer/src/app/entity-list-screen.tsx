@@ -112,6 +112,15 @@ export function EntityListScreen({
   );
 }
 
+// An embedding tile already shows the description in its section head.
+function toolbarDescriptionOf(
+  description: string | undefined,
+  isEmbedded: boolean,
+  translate: Translate,
+): string | undefined {
+  return description === undefined || isEmbedded ? undefined : translate(description);
+}
+
 function EntityListBody({
   schema,
   screen,
@@ -167,6 +176,11 @@ function EntityListBody({
   // otherwise the hook slots collide between renders.
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const toolbarDescription = toolbarDescriptionOf(
+    screen.description,
+    isEmbeddedScreen,
+    effectiveTranslate,
+  );
   const range = useEntityRangeFacets({
     fields: entity.fields,
     screen,
@@ -643,9 +657,7 @@ function EntityListBody({
           isListNarrowed(urlState.q, urlState.filters, defaultFilters)
         }
         defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
-        {...(screen.description !== undefined && {
-          description: effectiveTranslate(screen.description),
-        })}
+        {...(toolbarDescription !== undefined && { description: toolbarDescription })}
         {...(emptyContent !== undefined && { emptyContent })}
         searchValue={urlState.q}
         onSearchChange={urlState.setQ}

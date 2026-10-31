@@ -194,11 +194,18 @@ describe("createLongTextField — restricted find (PersonalAnnotationsLongText)"
     expect(f).not.toHaveProperty("searchable");
   });
 
+  test('find: "fuzzy" on longText sets searchable but no blind-index lookup', () => {
+    const f = createLongTextField({ personal: "tenant", find: "fuzzy" });
+    expect(f.tenantOwned).toBe(true);
+    expect(f.searchable).toBe(true);
+    expect(f).not.toHaveProperty("lookupable");
+  });
+
   test('find: "exact" is a createTextField-only value — createLongTextField rejects it', () => {
     expect(() =>
       createLongTextField({
         personal: "self",
-        // @ts-expect-error "exact"/"fuzzy" don't exist on LongTextFindability
+        // @ts-expect-error "exact" doesn't exist on LongTextFindability
         find: "exact",
       }),
     ).toThrow(/must declare an explicit personal-data stance/);

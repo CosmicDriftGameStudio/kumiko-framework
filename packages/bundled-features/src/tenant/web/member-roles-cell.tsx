@@ -4,7 +4,7 @@
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { translateOrRaw } from "../../shared/web/translate-or-raw.ts";
+import { translateOrRaw } from "../../shared/web/index.ts";
 
 export function MemberRolesCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();

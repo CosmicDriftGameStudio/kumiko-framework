@@ -14,8 +14,7 @@
 //      ingest-message (programmatic, SystemAdmin), account:list +
 //      message:list (PII-decrypted; personal mail only for its owner).
 //
-// **Not here:** business semantics (intent, ticket, assignment, read/completed) belong to the
-// app consumer, for example an event job on inbound-message-received with its own projection.
+// **Not here:** business semantics (intent, ticket, assignment, read/completed) belong to the app consumer (e.g. an event job on inbound-message-received).
 //
 // **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`, encrypted BEFORE every
 // event append (the only write path), so event log AND projections carry ciphertext; tenant-destroy
@@ -142,11 +141,10 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
         version: 2,
         migrations: mailAccountMigrations,
       });
-      // v1 mails carry the snippet only: bodyText "" and contentState "snippet" let the content
-      // refetch find them. v3 adds the reason a message has no content.
+      // v1 mails carry the snippet only (contentState "snippet" lets the refetch find them); v3 adds the unavailable reason, v4 the sanitized HTML body.
       r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
         piiFields: "none",
-        version: 3,
+        version: 4,
         migrations: [
           {
             fromVersion: 1,
@@ -167,6 +165,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
             toVersion: 3,
             transform: { default: { contentUnavailableReason: null } },
           },
+          { fromVersion: 3, toVersion: 4, transform: { default: { bodyHtml: null } } },
         ],
       });
       r.defineEvent(
@@ -174,7 +173,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
         inboundMessageContentFetchedEventPayloadSchema,
         {
           piiFields: "none",
-          version: 3,
+          version: 4,
           migrations: [
             {
               fromVersion: 1,
@@ -186,6 +185,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
               toVersion: 3,
               transform: { default: { accountId: null, ownerUserId: null } },
             },
+            { fromVersion: 3, toVersion: 4, transform: { default: { bodyHtml: null } } },
           ],
         },
       );

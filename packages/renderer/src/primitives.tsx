@@ -60,6 +60,7 @@ import type {
   RuntimeRenderer,
 } from "./headless/index.ts";
 import type { MetricBandProps, MetricProps } from "./metric-types.ts";
+import type { StatusBadgeOptionTone, StatusTone } from "./status-tone.ts";
 
 export type {
   EmbeddedListCellType,
@@ -187,8 +188,10 @@ export type BannerProps = {
    *  placeholders (not-found, loading), "loading" for load states, "warning"
    *  for a non-blocking but attention-grabbing notice (e.g. secretMint's
    *  "this is shown only once"), "primary" for a call-to-action notice (neutral
-   *  background, accent in the primary color; pair it with `title` and `actions`). */
-  readonly variant?: "error" | "info" | "loading" | "warning" | "primary";
+   *  background, accent in the primary color; pair it with `title` and `actions`),
+   *  "hint" for a quiet aside on a muted background (e.g. per-entry results of
+   *  a submit, with an "Open" link in `actions`). */
+  readonly variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint";
   /** Bold heading above `children`, inside the text column. */
   readonly title?: ReactNode;
   readonly titleTestId?: string;
@@ -254,6 +257,17 @@ export type FieldProps = {
  *  signature. Custom implementations can dispatch internally, render a
  *  different control (toggle instead of checkbox), or customize individual
  *  kinds. */
+/** Button inside the right edge of a text input: an icon (e.g. a microphone)
+ *  or, with `label`, a small primary text button that submits what was typed. */
+export type InputEndAction = {
+  readonly onClick: () => void;
+  /** Toggle state, e.g. a microphone that is currently recording. */
+  readonly pressed?: boolean;
+} & (
+  | { readonly icon: ReactNode; readonly ariaLabel: string; readonly label?: undefined }
+  | { readonly label: string; readonly icon?: undefined; readonly ariaLabel?: undefined }
+);
+
 /** Button beside a single-line text/number input that fills it with a
  *  suggestion. Stays usable on a `disabled` input (the readOnly+fill case). */
 export type InputFillAction = {
@@ -311,6 +325,7 @@ export type InputProps =
       readonly prefix?: string;
       readonly suffix?: string;
       readonly fill?: InputFillAction;
+      readonly endAction?: InputEndAction;
       readonly dataAttributes?: DataAttributes;
       /** Raw keydown access (e.g. Enter-to-submit at the field instead of
        *  the surrounding Form). Forwarded to the element. */
@@ -1399,16 +1414,26 @@ export type TabsProps = {
     /** Shown dimmed after the label (e.g. an open-items count). Omit for
      *  tabs without a counter. */
     readonly count?: number;
+    /** Rendered before the label. */
+    readonly icon?: ReactNode;
+    /** Small muted text after the label, e.g. "4 Seiten". */
+    readonly detail?: string;
   }[];
   readonly activeId: string;
   readonly onSelect: (id: string) => void;
+  /** "pill" (default) = count badge, 44px strip. "plain" = count as plain muted number, 40px strip
+   *  flush with its content (tabs that switch a reader). "filter" = the plain look inset by 6px with
+   *  no gap between tabs (the filter strip of a list pane). */
+  readonly appearance?: "pill" | "plain" | "filter";
   readonly testId?: string;
 };
 
-export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
-
-/** Tones a select option can request: the status tones plus the brand `accent`. */
-export type StatusBadgeOptionTone = StatusTone | "accent";
+export {
+  type StatusBadgeOptionTone,
+  type StatusTone,
+  statusToneForOptionTone,
+  statusToneForValue,
+} from "./status-tone.ts";
 
 /** Status pill. `value` is the raw column value — tone-mapping is the app's job. */
 export type StatusBadgeProps = {
@@ -1416,61 +1441,6 @@ export type StatusBadgeProps = {
   readonly tone?: StatusBadgeOptionTone;
   readonly testId?: string;
 };
-
-// Status value -> StatusTone heuristic, shared by every surface that shows a
-// raw status value without a tone of its own (projectionDetail header badge,
-// list cells). Covers the common status vocabularies; unknown values stay
-// undefined so the caller keeps its own neutral default.
-const STATUS_TONE_BY_VALUE: Readonly<Record<string, StatusTone>> = {
-  ok: "ok",
-  active: "ok",
-  done: "ok",
-  complete: "ok",
-  completed: "ok",
-  paid: "ok",
-  approved: "ok",
-  published: "ok",
-  success: "ok",
-  pending: "warn",
-  processing: "warn",
-  review: "warn",
-  "in-review": "warn",
-  waiting: "warn",
-  open: "warn",
-  draft: "warn",
-  failed: "bad",
-  error: "bad",
-  overdue: "bad",
-  rejected: "bad",
-  blocked: "bad",
-  critical: "bad",
-};
-
-const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusBadgeOptionTone>> = {
-  ok: "ok",
-  warn: "warn",
-  bad: "bad",
-  critical: "critical",
-  accent: "accent",
-  neutral: "muted",
-};
-
-// Own-key check: an unknown tone from an untyped definition must yield undefined so callers fall back to the value heuristic.
-export function statusToneForOptionTone(tone: SelectOptionTone): StatusBadgeOptionTone | undefined {
-  return Object.hasOwn(STATUS_TONE_BY_OPTION_TONE, tone)
-    ? STATUS_TONE_BY_OPTION_TONE[tone]
-    : undefined;
-}
-
-export function statusToneForValue(value: string): StatusTone | undefined {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, "-");
-  // Own-key check: the value comes from row data, and a plain object lookup
-  // would hand back `Object.prototype.constructor` & friends as a "tone".
-  return Object.hasOwn(STATUS_TONE_BY_VALUE, slug) ? STATUS_TONE_BY_VALUE[slug] : undefined;
-}
 
 /** Structured JSON display (audit payload/metadata, job logs, unsupported
  *  jsonb/embedded field fallback). Takes the raw value, not a pre-stringified

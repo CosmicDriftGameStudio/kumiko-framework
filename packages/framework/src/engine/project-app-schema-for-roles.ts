@@ -714,24 +714,49 @@ function projectEntityEditScreen(
   };
 }
 
+function projectSuccessLinks(
+  featureName: string,
+  successLinks: ActionFormScreenDefinition["successLinks"],
+  keptScreenQns: ReadonlySet<string>,
+): ActionFormScreenDefinition["successLinks"] {
+  if (successLinks === undefined) return undefined;
+  const kept = successLinks.filter((link) =>
+    isRedirectTargetKept(featureName, link, keptScreenQns),
+  );
+  if (kept.length === successLinks.length) return successLinks;
+  return kept.length === 0 ? undefined : kept;
+}
+
+// The hints stay without their link: what they say is still true for the role.
+function projectSuccessItems(
+  featureName: string,
+  successItems: ActionFormScreenDefinition["successItems"],
+  keptScreenQns: ReadonlySet<string>,
+): ActionFormScreenDefinition["successItems"] {
+  if (successItems?.link === undefined) return successItems;
+  return isRedirectTargetKept(featureName, successItems.link, keptScreenQns)
+    ? successItems
+    : { field: successItems.field };
+}
+
 function projectActionFormScreen(
   screen: ActionFormScreenDefinition,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): ScreenDefinition {
-  const { redirect, successLinks, cancelTarget, layout, listScreenId, ...rest } = screen;
+  const { redirect, successLinks, successItems, cancelTarget, layout, listScreenId, ...rest } =
+    screen;
   const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
-  const keptSuccessLinks = successLinks?.filter((link) =>
-    isRedirectTargetKept(feature.featureName, link, keptScreenQns),
-  );
-  const nextSuccessLinks = keptSuccessLinks?.length === 0 ? undefined : keptSuccessLinks;
+  const nextSuccessLinks = projectSuccessLinks(feature.featureName, successLinks, keptScreenQns);
+  const nextSuccessItems = projectSuccessItems(feature.featureName, successItems, keptScreenQns);
   const nextCancelTarget = projectCancelTarget(feature.featureName, cancelTarget, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
   const unchanged =
     nextRedirect === redirect &&
-    nextSuccessLinks?.length === successLinks?.length &&
+    nextSuccessLinks === successLinks &&
+    nextSuccessItems === successItems &&
     nextCancelTarget === cancelTarget &&
     nextLayout === layout &&
     nextListScreenId === listScreenId;
@@ -741,6 +766,7 @@ function projectActionFormScreen(
     layout: nextLayout,
     ...(nextRedirect !== undefined && { redirect: nextRedirect }),
     ...(nextSuccessLinks !== undefined && { successLinks: nextSuccessLinks }),
+    ...(nextSuccessItems !== undefined && { successItems: nextSuccessItems }),
     ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
     ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
   };

@@ -28,6 +28,7 @@ import type { DerivedFieldsMap } from "./fields-derived.ts";
 import type { EventUpcastCtx } from "./handlers.ts";
 import type { NamedListFilterDef } from "./named-list-filters.ts";
 import type { OwnershipMap } from "./ownership.ts";
+import type { EntityPiiAbsentSubject } from "./personal-annotations.ts";
 import type { EntityTenancy } from "./tenancy-brand.ts";
 
 export type {
@@ -132,8 +133,9 @@ export type FieldAccess = {
 //   - `find: "fuzzy"`  → `lookupable: true, searchable: true`. substring/
 //                        full-text via the Meilisearch consumer.
 //   - `find: "none"`   → neither.
-//   - `find: "secret"` → `sensitive: true`. longText fields only allow
-//                        "none" | "secret" — no lookup/search machinery there.
+//   - `find: "secret"` → `sensitive: true`. longText fields allow
+//                        "none" | "fuzzy" | "secret" (no "exact": no blind index
+//                        on long values; "fuzzy" there means `searchable: true` only).
 //
 // Worked examples, all live in this repo:
 //
@@ -194,82 +196,15 @@ export type ResolvedPiiFlags = {
 
 type PiiAndFieldState = ResolvedPiiFlags & FieldStateConditions;
 
-// --- Author-facing PII API ---
-//
-// Two questions instead of the twelve raw flags above: whose data is this
-// (`personal`, resolved to a subject key) and how findable must it stay
-// (`find`, resolved to the search/lookup flags). Field factories expand
-// these into `ResolvedPiiFlags` — see packages/framework/src/engine/factories.ts.
-// Entity fields have no plaintext fallback for an ownerless row: stored PII
-// must stay shreddable.
-export type EntityPiiAbsentSubject = "tenant" | "self";
-export type PersonalSubject =
-  | "self"
-  | { readonly of: string; readonly whenAbsent?: EntityPiiAbsentSubject }
-  | "tenant";
-export type Findability = "exact" | "fuzzy" | "none" | "secret";
-
-// Marks "no personal annotation given" — plain `Record<string, never>` would
-// force every OTHER intersected property (e.g. a factory's `required?: R`)
-// to `never` too, since its index signature applies to all string keys.
-// Naming the three annotation keys explicitly avoids that trap.
-//
-// No longer part of PersonalAnnotations /
-// PersonalAnnotationsLongText — text and longText fields must declare an
-// explicit stance. It still applies to PersonalAnnotationsNoFind, whose
-// factories keep `personal` optional.
-type NoPersonalAnnotation = {
-  readonly personal?: never;
-  readonly find?: never;
-  readonly reason?: never;
-  readonly anonymize?: never;
-};
-
-export type PersonalAnnotations =
-  | {
-      readonly personal: PersonalSubject;
-      readonly find: Findability;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | { readonly personal: "ref" }
-  | {
-      readonly personal: false;
-      readonly reason: string;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    };
-
-// longText has no lookupable/searchable machinery ("Kein searchable" — see
-// LongTextFieldDef doc) — only "does this need to stay a secret" applies.
-// Kept mandatory like `find` on PersonalAnnotations: no silent default.
-export type LongTextFindability = "none" | "secret";
-
-export type PersonalAnnotationsLongText =
-  | {
-      readonly personal: PersonalSubject;
-      readonly find: LongTextFindability;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | { readonly personal: "ref" }
-  | {
-      readonly personal: false;
-      readonly reason: string;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    };
-
-// Same as PersonalAnnotations but without `find` — for field types with no
-// full-text/blind-index machinery (everything except text and longText).
-export type PersonalAnnotationsNoFind =
-  | {
-      readonly personal: PersonalSubject;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | { readonly personal: "ref" }
-  | {
-      readonly personal: false;
-      readonly reason: string;
-      readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | NoPersonalAnnotation;
+export type {
+  EntityPiiAbsentSubject,
+  Findability,
+  LongTextFindability,
+  PersonalAnnotations,
+  PersonalAnnotationsLongText,
+  PersonalAnnotationsNoFind,
+  PersonalSubject,
+} from "./personal-annotations.ts";
 
 // --- Retention (GDPR Art. 5(1)(e) + statutory retention requirements) ---
 //
@@ -360,9 +295,9 @@ export type TextFieldDef = {
  *
  *   - **No `sortable`**: ordering 100 KB strings costs I/O without useful UX;
  *     lexicographic ordering of code is not meaningful.
- *   - **No `searchable`**: ILIKE/substring searches do not scale on long text.
- *     Full-text search should use the SearchAdapter (Meilisearch), which has
- *     its own tokenizer and index rather than this field flag.
+ *   - **`searchable` only through `find: "fuzzy"`**: ILIKE/substring searches
+ *     do not scale on long text, so the value is full-text indexed by the
+ *     SearchAdapter (Meilisearch, chunked) and never searched in SQL.
  *   - **No `filterable`**: filtering long strings has the same issue as sorting.
  *   - **No `format`**: email/url/phone are short, structured inputs, whereas
  *     longText is unstructured by definition.
@@ -386,6 +321,8 @@ export type LongTextFieldDef = {
    *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
    *  run that already read the compromised value. See irreversible-operation-gate. */
   readonly readAsInstruction?: boolean;
+  /** Set by `find: "fuzzy"`: the value goes into the SearchAdapter document. */
+  readonly searchable?: boolean;
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };

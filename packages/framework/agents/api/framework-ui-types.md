@@ -74,8 +74,13 @@ type ActionFormSuccessFact = { // One key figure of the success box, read from t
   field: string; // Flat field name in the handler's success payload.
   label: string; // Label (i18n key).
 };
+type ActionFormSuccessItems = { // Per-entry hints of the success box, read from an array in the handler's success payload.
+  field: string; // Flat field name of an array in the success payload.
+  link?: ActionFormSuccessLink; // Link of each hint.
+};
 type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & { // A redirect target rendered as a link in the success box.
   idFrom?: string; // Success-payload field carrying the navigation id.
+  params?: Readonly<Record<string, string>>; // URL search params of the target, each read from a success-payload field (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`).
   label: string; // Link text (i18n key).
 };
 type AppSchema = {

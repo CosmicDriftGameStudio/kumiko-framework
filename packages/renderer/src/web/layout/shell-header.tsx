@@ -49,6 +49,7 @@ import {
   resolveDetailBreadcrumb,
   screenTitleKey,
 } from "./shell-breadcrumb.ts";
+import { useShellFocused } from "./shell-focus.tsx";
 import { SHELL_HEADER_CONTROLS_CLASSES } from "./uniform-bar-controls.ts";
 
 type ShellHeaderUser = {
@@ -59,7 +60,7 @@ type ShellHeaderUser = {
 export function ShellHeader({
   schema,
   user,
-  headerActions,
+  headerActions: appHeaderActions,
   allowedNavQns,
 }: {
   readonly schema: AppSchema | FeatureSchema;
@@ -70,6 +71,8 @@ export function ShellHeader({
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
+  const focused = useShellFocused();
+  const headerActions = focused ? undefined : appHeaderActions;
   const appSchema = toAppSchema(schema);
   const tree = useMemo(() => {
     const source = buildNavRegistrySliceForApp(appSchema);
@@ -132,66 +135,72 @@ export function ShellHeader({
       className={cn(
         "flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6",
         compact && "relative",
+        focused && "max-md:hidden",
       )}
     >
       {/* A size container: what the actions leave over decides whether the parent crumb still fits. */}
       <div className="@container flex min-w-0 flex-1 items-center gap-3">
-        <SidebarTrigger label={t("kumiko.sidebar.toggle")} />
-        {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
-          <Breadcrumb className="min-w-0" aria-label={t("kumiko.breadcrumb.label")}>
-            <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
-              {shownCrumbs.map((crumb, index) => {
-                const screenId = crumb.screenId;
-                const isLast = index === shownCrumbs.length - 1;
-                return (
-                  <Fragment key={screenId ?? crumb.label}>
-                    {index > 0 && (
-                      <BreadcrumbSeparator className="hidden text-muted-foreground @xs:inline-flex [&>svg]:size-3.5" />
-                    )}
-                    {/* Only the page title truncates; a shrinking parent crumb would slide under it,
-                        so it stays whole and leaves when the space gets too narrow for both. */}
-                    <BreadcrumbItem
-                      className={cn(isLast ? "min-w-0" : "hidden shrink-0 @xs:inline-flex")}
-                    >
-                      {screenId !== undefined && !isLast ? (
-                        <BreadcrumbLink
-                          href="#"
-                          className="whitespace-nowrap text-foreground-secondary"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            nav.navigate({ screenId });
-                          }}
-                        >
-                          {crumb.label}
-                        </BreadcrumbLink>
-                      ) : isLast ? (
-                        <h1
-                          aria-current="page"
-                          title={titleOverride ?? crumb.label}
-                          className="truncate text-lg font-semibold text-foreground"
-                        >
-                          {titleOverride ?? crumb.label}
-                        </h1>
-                      ) : (
-                        <BreadcrumbPage className="whitespace-nowrap text-foreground-secondary">
-                          {crumb.label}
-                        </BreadcrumbPage>
-                      )}
-                    </BreadcrumbItem>
-                  </Fragment>
-                );
-              })}
-            </BreadcrumbList>
-          </Breadcrumb>
-        )}
+        {!focused && <SidebarTrigger label={t("kumiko.sidebar.toggle")} />}
+        {/* Compact: the status goes on its own line under the title, so the title keeps the width. */}
         <div
-          ref={setStatusElement}
-          data-kumiko-layout="page-header-status"
-          className={cn(
-            "flex items-center gap-2 empty:hidden",
-            compact ? "min-w-0 overflow-hidden" : "shrink-0",
+          className={cn("flex min-w-0", compact ? "flex-col justify-center" : "items-center gap-3")}
+        >
+          {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
+            <Breadcrumb className="min-w-0" aria-label={t("kumiko.breadcrumb.label")}>
+              <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
+                {shownCrumbs.map((crumb, index) => {
+                  const screenId = crumb.screenId;
+                  const isLast = index === shownCrumbs.length - 1;
+                  return (
+                    <Fragment key={screenId ?? crumb.label}>
+                      {index > 0 && (
+                        <BreadcrumbSeparator className="hidden text-muted-foreground @xs:inline-flex [&>svg]:size-3.5" />
+                      )}
+                      {/* Only the page title truncates; a shrinking parent crumb would slide under it,
+                          so it stays whole and leaves when the space gets too narrow for both. */}
+                      <BreadcrumbItem
+                        className={cn(isLast ? "min-w-0" : "hidden shrink-0 @xs:inline-flex")}
+                      >
+                        {screenId !== undefined && !isLast ? (
+                          <BreadcrumbLink
+                            href="#"
+                            className="whitespace-nowrap text-foreground-secondary"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              nav.navigate({ screenId });
+                            }}
+                          >
+                            {crumb.label}
+                          </BreadcrumbLink>
+                        ) : isLast ? (
+                          <h1
+                            aria-current="page"
+                            title={titleOverride ?? crumb.label}
+                            className="truncate text-lg font-semibold text-foreground"
+                          >
+                            {titleOverride ?? crumb.label}
+                          </h1>
+                        ) : (
+                          <BreadcrumbPage className="whitespace-nowrap text-foreground-secondary">
+                            {crumb.label}
+                          </BreadcrumbPage>
+                        )}
+                      </BreadcrumbItem>
+                    </Fragment>
+                  );
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
           )}
-        />
+          <div
+            ref={setStatusElement}
+            data-kumiko-layout="page-header-status"
+            className={cn(
+              "flex items-center gap-2 empty:hidden",
+              compact ? "min-w-0 max-w-full overflow-hidden whitespace-nowrap text-xs" : "shrink-0",
+            )}
+          />
+        </div>
       </div>
       <div
         className={cn(
@@ -208,7 +217,9 @@ export function ShellHeader({
             compact && "overflow-hidden",
           )}
         />
-        {user !== undefined && hasInAppChannel && <NotificationBell screens={allScreens} />}
+        {!focused && user !== undefined && hasInAppChannel && (
+          <NotificationBell screens={allScreens} />
+        )}
         {!compact && headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
             {headerActions}

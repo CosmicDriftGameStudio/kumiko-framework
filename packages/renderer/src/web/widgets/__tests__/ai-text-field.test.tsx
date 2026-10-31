@@ -265,3 +265,49 @@ describe("AiTextArea", () => {
     expect(el.getAttribute("rows")).toBe("6");
   });
 });
+
+describe("AiTextField endAction", () => {
+  test("renders an icon button inside the control and fires onClick without touching the value", () => {
+    const onClick = mock(() => {});
+    const onChangeSpy = mock((_v: string) => {});
+    renderWithDispatcher(
+      <ControlledAiTextField
+        label="Task"
+        id="task"
+        name="task"
+        initialValue="Termin"
+        onChangeSpy={onChangeSpy}
+        actions={[]}
+        completion={false}
+        testId="task"
+        endAction={{ icon: <svg data-testid="mic" />, ariaLabel: "Dictate", onClick }}
+      />,
+      (async () => ({ isSuccess: false })) as never,
+    );
+    const button = screen.getByRole("button", { name: "Dictate" });
+    expect(screen.getByTestId("task-input").className).toContain("pr-11");
+    expect(button.parentElement?.contains(screen.getByTestId("task-input"))).toBe(true);
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).not.toHaveBeenCalled();
+  });
+
+  test("pressed state is exposed as aria-pressed", () => {
+    renderWithDispatcher(
+      <ControlledAiTextField
+        label="Task"
+        id="task"
+        name="task"
+        initialValue=""
+        actions={[]}
+        completion={false}
+        testId="task"
+        endAction={{ icon: <svg />, ariaLabel: "Dictate", onClick: () => {}, pressed: true }}
+      />,
+      (async () => ({ isSuccess: false })) as never,
+    );
+    expect(screen.getByRole("button", { name: "Dictate" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+});
