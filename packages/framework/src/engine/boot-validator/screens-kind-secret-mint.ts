@@ -1,5 +1,7 @@
 import type { SecretMintScreenDefinition } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { validateInlineFormScreen, validateSecretMintConfirm } from "./screens-forms.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 import type { ScreenValidationContext } from "./screens-kind-shared.ts";
 
 function validateSecretMintRevealFields(
@@ -8,31 +10,35 @@ function validateSecretMintRevealFields(
   screen: SecretMintScreenDefinition,
 ): void {
   if (screen.reveal.fields.length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (secretMint) has an empty reveal.fields ` +
+    throw bootRuleError(SCREEN_KIND_RULES.secretMintRevealFieldsEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (secretMint) has an empty reveal.fields ` +
         `list — declare at least one field to reveal.`,
-    );
+    });
   }
   const revealFieldNames = new Set<string>();
   for (const revealField of screen.reveal.fields) {
     if (typeof revealField.field !== "string" || revealField.field.trim() === "") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (secretMint) has a reveal.fields entry ` +
+      throw bootRuleError(SCREEN_KIND_RULES.secretMintRevealFieldNameEmpty, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (secretMint) has a reveal.fields entry ` +
           `with an empty or non-string "field". Set field to a non-empty string.`,
-      );
+      });
     }
     if (revealFieldNames.has(revealField.field)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (secretMint) reveal.fields has a ` +
+      throw bootRuleError(SCREEN_KIND_RULES.secretMintRevealFieldDuplicate, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (secretMint) reveal.fields has a ` +
           `duplicate field "${revealField.field}" — each revealed field must be unique.`,
-      );
+      });
     }
     revealFieldNames.add(revealField.field);
     if (typeof revealField.label !== "string" || revealField.label.trim() === "") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (secretMint) reveal.fields entry ` +
+      throw bootRuleError(SCREEN_KIND_RULES.secretMintRevealFieldLabelEmpty, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (secretMint) reveal.fields entry ` +
           `"${revealField.field}" has an empty or non-string "label". Set label to a non-empty string.`,
-      );
+      });
     }
   }
 }

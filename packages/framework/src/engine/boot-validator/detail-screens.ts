@@ -1,7 +1,9 @@
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type { ScreenDefinition } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { findEntityFeature } from "./screens-kind-shared.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 
 // Entity name → the one screen that declares detailFor: "<entity>". Built
 // once, up front (before the per-feature validateScreens loop) so both this
@@ -27,18 +29,20 @@ export function collectDetailForScreens(
 
       const existingQn = screenQnByEntity.get(detailFor);
       if (existingQn !== undefined) {
-        throw new Error(
-          `[detailFor] Screens "${existingQn}" and "${qualified}" both declare ` +
+        throw bootRuleError(SCREEN_RULES.detailForDuplicate, {
+          message:
+            `[detailFor] Screens "${existingQn}" and "${qualified}" both declare ` +
             `detailFor: "${detailFor}" — only one screen may be the detail view for an entity.`,
-        );
+        });
       }
       screenQnByEntity.set(detailFor, qualified);
 
       if (findEntityFeature(detailFor, featureMap) === undefined) {
-        throw new Error(
-          `[detailFor] Screen "${qualified}" declares detailFor: "${detailFor}", ` +
+        throw bootRuleError(SCREEN_RULES.detailForUnknownEntity, {
+          message:
+            `[detailFor] Screen "${qualified}" declares detailFor: "${detailFor}", ` +
             `but no feature registers an entity with that name. Set detailFor to a registered entity name or remove it.`,
-        );
+        });
       }
 
       result.set(detailFor, { featureName: feature.name, screen });

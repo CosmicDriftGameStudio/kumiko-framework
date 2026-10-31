@@ -10,7 +10,6 @@ import {
   resolveNavParentScreen,
 } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
 import type {
   EditRelatedListSection,
   ListColumnSpec,
@@ -18,6 +17,8 @@ import type {
   RowAction,
   ScreenDefinition,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import { validateRelatedListGroupingRules } from "./related-list-table-rules.ts";
@@ -31,6 +32,9 @@ import {
   validateDrawerTargetAction,
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
+import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
+import { LIST_SCREEN_RULES } from "./screens-lists-rules.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
 
 type NavAreaIndex = {
@@ -86,10 +90,11 @@ export function validateExplicitListScreenExists(
   const shortId = listScreenId.slice(listScreenId.lastIndexOf(":") + 1);
   // skip: the explicit listScreenId resolves to a mounted screen
   if (screensByShortId.has(shortId)) return;
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) listScreenId "${listScreenId}" ` +
+  throw bootRuleError(LIST_SCREEN_RULES.listScreenIdUnresolved, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) listScreenId "${listScreenId}" ` +
       `matches no mounted screen — fix the id or mount the list screen.`,
-  );
+  });
 }
 
 // Every screen must resolve nav via `nav`, `r.nav()`, a parent list, or
@@ -113,12 +118,13 @@ export function validateScreenHasNavArea(
   if (navTargetQns.has(targetQn)) return;
   // skip: resolves to a parent list via listScreenId/rowAction-target/same-entity.
   if (resolveNavParentScreen(allScreens, screen, (s) => s.id) !== undefined) return;
-  throw new Error(
-    `[Feature ${feature.name}] Screen "${targetQn}" has no nav entry and no resolvable list — ` +
+  throw bootRuleError(LIST_SCREEN_RULES.screenNoNavEntry, {
+    message:
+      `[Feature ${feature.name}] Screen "${targetQn}" has no nav entry and no resolvable list — ` +
       `declare listScreenId (or a rowAction/toolbarAction navigate target from a list screen), add ` +
       `a standalone r.nav() pointing at it, or set dormant: true if it's intentionally reachable ` +
       `only via a direct link/redirect or a consuming app's own r.nav().`,
-  );
+  });
 }
 
 type RelatedListSectionValidation = {
@@ -164,18 +170,18 @@ function assertReadOnlyHasNoRowInteraction(args: RelatedListSectionValidation): 
   const { section } = args;
   const interactive = section.rowClick !== undefined || (section.rowActions?.length ?? 0) > 0;
   if (section.readOnly === true && interactive) {
-    throw new Error(
-      `[Feature ${args.featureName}] ${args.where} is readOnly but declares rowClick/rowActions. Remove readOnly or the row interaction.`,
-    );
+    throw bootRuleError(LIST_SCREEN_RULES.relatedReadOnlyWithRowInteraction, {
+      message: `[Feature ${args.featureName}] ${args.where} is readOnly but declares rowClick/rowActions. Remove readOnly or the row interaction.`,
+    });
   }
 }
 
 export function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
-    throw new Error(
-      `[Feature ${featureName}] ${where} has empty or non-string query. Set query to a registered query name.`,
-    );
+    throw bootRuleError(SCREEN_KIND_RULES.queryEmpty, {
+      message: `[Feature ${featureName}] ${where} has empty or non-string query. Set query to a registered query name.`,
+    });
   }
   assertReadOnlyHasNoRowInteraction(args);
   if (section.entity !== undefined) {
@@ -206,11 +212,12 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
       Object.values(f.screens).some((s) => s.detailFor === targetEntity),
     );
     if (!hasDetailScreen) {
-      throw new Error(
-        `[Feature ${featureName}] ${where} ` +
+      throw bootRuleError(LIST_SCREEN_RULES.relatedRowClickNoDetail, {
+        message:
+          `[Feature ${featureName}] ${where} ` +
           `rowClick targets entity "${targetEntity}", but no screen declares ` +
           `detailFor: "${targetEntity}". Add detailFor: "${targetEntity}" to the screen that shows it.`,
-      );
+      });
     }
   }
   validateRelatedListTableAndBulk(args);
@@ -247,10 +254,11 @@ function rejectEmptyStateActionParams(
 ): void {
   const params = action.kind === "navigate" || action.kind === "drawer" ? action.params : undefined;
   if (params !== undefined) {
-    throw new Error(
-      `[Feature ${ctx.featureName}] ${ctx.where} ${actionLabel} "${action.id}" sets params — an empty list ` +
+    throw bootRuleError(LIST_SCREEN_RULES.emptyStateActionParams, {
+      message:
+        `[Feature ${ctx.featureName}] ${ctx.where} ${actionLabel} "${action.id}" sets params — an empty list ` +
         `has no row to read them from, so they would resolve against an empty record. Remove the params.`,
-    );
+    });
   }
 }
 
@@ -354,11 +362,12 @@ function validateRelatedListRowActions(
   const rowClickActionCount = rowActions.filter(isRowClickAction).length;
   const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
   if (rowClickActionCount + legacyRowClickCount > 1) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} ` +
+    throw bootRuleError(SCREEN_ACTION_RULES.rowClickAtMostOne, {
+      message:
+        `[Feature ${featureName}] ${where} ` +
         `has both a rowClick and ${rowClickActionCount} rowActions marked ` +
         `rowClick:true — at most one may fire on a row-body click.`,
-    );
+    });
   }
 }
 
@@ -370,17 +379,19 @@ function validateRelatedListDefaultSort(
   const sortField = defaultSort.field;
   const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
   if (col === undefined) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} ` +
+    throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotListed, {
+      message:
+        `[Feature ${featureName}] ${where} ` +
         `defaultSort.field "${sortField}" is not a listed column. Use a listed column as defaultSort.field.`,
-    );
+    });
   }
   if (normalizeListColumn(col).sortable !== true) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} ` +
+    throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotSortable, {
+      message:
+        `[Feature ${featureName}] ${where} ` +
         `defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
         `the column or pick another field.`,
-    );
+    });
   }
 }
 
@@ -402,9 +413,9 @@ function validateRelatedListToolbarActions(
   } = args;
   for (const action of toolbarActions) {
     if (action.visibleWhen !== undefined) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList toolbarAction "${action.id}" sets visibleWhen, which only list-screen toolbars support. Use visible (a condition on the enclosing record) instead.`,
-      );
+      throw bootRuleError(LIST_SCREEN_RULES.relatedToolbarVisibleWhen, {
+        message: `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList toolbarAction "${action.id}" sets visibleWhen, which only list-screen toolbars support. Use visible (a condition on the enclosing record) instead.`,
+      });
     }
     if (action.kind === "drawer") {
       validateDrawerTargetAction(
@@ -449,10 +460,11 @@ export function rejectInertColumnSortable(
     screenType === "entityList"
       ? "set sortable: true on the entity field instead"
       : "sorting is derived from the query's Zod schema; only sortable: false is honored";
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (${screenType}) column "${column.field}" sets sortable — ` +
+  throw bootRuleError(LIST_SCREEN_RULES.columnSortableInert, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) column "${column.field}" sets sortable — ` +
       `it is ignored here; ${source}. Remove sortable from this column.`,
-  );
+  });
 }
 
 // Form check for ListColumn renderers in the PlatformComponent form
@@ -478,10 +490,11 @@ export function validateColumnRendererForm(
   // both outside this check.
   if (react === undefined || react === null) return;
   if (typeof react !== "object") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
+    throw bootRuleError(LIST_SCREEN_RULES.columnRendererReactNotObject, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
         `a non-object \`react\` branch — expected \`{ react: { __component: "Name" } }\`.`,
-    );
+    });
   }
   // @cast-boundary schema-walk — feature-config react-branch introspection
   const component = (react as { __component?: unknown }).__component;
@@ -489,11 +502,12 @@ export function validateColumnRendererForm(
   // (e.g. a future direct component ref); not our domain.
   if (component === undefined) return;
   if (typeof component !== "string" || component.length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
+    throw bootRuleError(LIST_SCREEN_RULES.columnRendererComponentInvalid, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
         `\`react.__component\` = ${JSON.stringify(component)} — expected a non-empty string identifying ` +
         `a client-side columnRenderers entry.`,
-    );
+    });
   }
 }
 
@@ -517,10 +531,11 @@ export function validateEnumOptionTones(
           .filter((tone) => !isSelectOptionTone(tone))
           .map(String);
   if (invalid.length > 0) {
-    throw new Error(
-      `${prefix} column "${column.field}" has enumOption tones ${invalid.join(", ")} — ` +
+    throw bootRuleError(LIST_SCREEN_RULES.enumOptionTonesInvalid, {
+      message:
+        `${prefix} column "${column.field}" has enumOption tones ${invalid.join(", ")} — ` +
         `expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
-    );
+    });
   }
 }
 
@@ -536,21 +551,23 @@ export function assertRefTargetRegistered(
   const target = parseRefTarget(refTarget, currentFeatureName);
   const targetFeature = featureMap.get(target.featureName);
   if (targetFeature === undefined) {
-    throw new Error(
-      `${prefix} ${subject} targets entity "${refTarget}", but feature "${target.featureName}" is not ` +
+    throw bootRuleError(LIST_SCREEN_RULES.refTargetFeatureNotMounted, {
+      message:
+        `${prefix} ${subject} targets entity "${refTarget}", but feature "${target.featureName}" is not ` +
         `mounted — mount it and declare r.requires({ features: ["${target.featureName}"] }).`,
-    );
+    });
   }
   if (targetFeature.entities?.[target.entityName] === undefined) {
-    throw new Error(
-      `${prefix} ${subject} targets entity "${refTarget}", which does not resolve to a ` +
+    throw bootRuleError(LIST_SCREEN_RULES.refTargetEntityUnknown, {
+      message:
+        `${prefix} ${subject} targets entity "${refTarget}", which does not resolve to a ` +
         `registered entity. Known entities in feature "${target.featureName}": ` +
         `${
           Object.keys(targetFeature.entities ?? {})
             .sort()
             .join(", ") || "(none)"
         }.`,
-    );
+    });
   }
 }
 
@@ -582,22 +599,24 @@ export function validateListFacets(
   const seenFacetFields = new Set<string>();
   for (const facet of facets) {
     if (seenFacetFields.has(facet.field)) {
-      throw new Error(
-        `${prefix} declares facet "${facet.field}" more than once. Declare each facet field once.`,
-      );
+      throw bootRuleError(LIST_SCREEN_RULES.facetDuplicate, {
+        message: `${prefix} declares facet "${facet.field}" more than once. Declare each facet field once.`,
+      });
     }
     seenFacetFields.add(facet.field);
     if (facet.type !== "reference" && !columnFieldNames.has(facet.field)) {
-      throw new Error(
-        `${prefix} facet references field "${facet.field}" which is not a declared column. ` +
+      throw bootRuleError(LIST_SCREEN_RULES.facetUnknownColumn, {
+        message:
+          `${prefix} facet references field "${facet.field}" which is not a declared column. ` +
           `Known columns: ${[...columnFieldNames].sort().join(", ")}`,
-      );
+      });
     }
     if (facet.type === "select" && facet.options.length === 0) {
-      throw new Error(
-        `${prefix} facet "${facet.field}" (type "select") has an empty options list — ` +
+      throw bootRuleError(LIST_SCREEN_RULES.facetSelectNoOptions, {
+        message:
+          `${prefix} facet "${facet.field}" (type "select") has an empty options list — ` +
           `declare at least one option.`,
-      );
+      });
     }
     if (facet.type === "reference") {
       assertRefTargetRegistered(
@@ -640,8 +659,9 @@ function assertReferenceListHandlerRegistered(
       if (qualifyEntityName(feature.name, "query", handlerName) === expectedQn) return;
     }
   }
-  throw new Error(
-    `${prefix} ${subject} loads its options from query "${expectedQn}", which is not a registered ` +
+  throw bootRuleError(LIST_SCREEN_RULES.facetQueryUnregistered, {
+    message:
+      `${prefix} ${subject} loads its options from query "${expectedQn}", which is not a registered ` +
       `query handler — register the entity's list handler (defineEntityListHandler) or the facet renders an empty dropdown.`,
-  );
+  });
 }

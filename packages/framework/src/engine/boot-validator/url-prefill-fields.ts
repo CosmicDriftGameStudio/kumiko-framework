@@ -8,12 +8,14 @@ import type {
   RowFieldExtractor,
   ScreenDefinition,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import {
   collectScreensByShortId,
   readsNavigateParamsAsFormPrefill,
   rowFieldExtractorKeys,
   validateDrawerPrefillKeys,
 } from "./screens.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 
 type NavigateParamsSource = {
   readonly screen?: string;
@@ -234,13 +236,14 @@ function assertHiddenRequiredFieldsSeeded(
         continue;
       }
       if (seeded.has(spec.field)) continue;
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets submitPrefilled but ` +
+      throw bootRuleError(SCREEN_RULES.submitPrefilledHiddenRequired, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) sets submitPrefilled but ` +
           `hides required field "${spec.field}" (visible: false) and no navigate action passes it in ` +
           `params — the field could never get a value and the form could never submit. Add ` +
           `"${spec.field}" to the params of a navigate action targeting this screen, make the field ` +
           `visible, or drop required.`,
-      );
+      });
     }
   }
 }

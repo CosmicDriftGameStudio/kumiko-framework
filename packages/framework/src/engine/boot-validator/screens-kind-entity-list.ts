@@ -4,11 +4,12 @@ import { rowMetaFieldNames } from "../../db/table-builder.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
-
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { validateEntityListAggregateOptions } from "./entity-list-aggregate-options.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
@@ -20,7 +21,9 @@ import {
   validateDrawerTargetAction,
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
+import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 import { validateDashboardPanelVisibleWhen } from "./screens-dashboard.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 import {
   buildUnknownFieldMessage,
   listActionContext,
@@ -85,15 +88,15 @@ function validateEntityListColumns(
       !LIST_ROW_META_COLUMN_NAMES.has(normalized.field) &&
       !(normalized.label !== undefined && normalized.renderer !== undefined)
     ) {
-      throw new Error(
-        buildUnknownFieldMessage(
+      throw bootRuleError(SCREEN_KIND_RULES.unknownFieldReference, {
+        message: buildUnknownFieldMessage(
           featureName,
           screenId,
           normalized.field,
           screen.entity,
           fields.columnFieldNames,
         ),
-      );
+      });
     }
     validateListColumnRendering(ctx, screenId, "entityList", normalized);
   }
@@ -108,10 +111,11 @@ function validateEntityListDefaultSort(
   const sortField = defaultSort.field;
   const sortsOnDerived = isSortableSqlDerivedField(fields.entityDef, sortField);
   if (!fields.fieldNames.has(sortField) && !sortsOnDerived) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort references unknown ` +
+    throw bootRuleError(SCREEN_KIND_RULES.defaultSortUnknownField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort references unknown ` +
         `field "${sortField}". Known fields: ${[...fields.fieldNames].sort().join(", ")}`,
-    );
+    });
   }
   // `sortable: true` is required so the UI never sorts on a column that has
   // no server-side DB index or that the schema deliberately keeps unsortable
@@ -125,10 +129,11 @@ function validateEntityListDefaultSort(
     sortsOnDerived ||
     (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
   if (!isSortable) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort.field "${sortField}" ` +
+    throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotSortable, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) defaultSort.field "${sortField}" ` +
         `is not sortable. Set sortable: true on the field definition or pick another field.`,
-    );
+    });
   }
 }
 
@@ -148,35 +153,39 @@ function validateEntityListFilter(
 ): void {
   const filterField = filter.field;
   if (!fields.fieldNames.has(filterField)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references unknown ` +
+    throw bootRuleError(SCREEN_KIND_RULES.filterUnknownField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references unknown ` +
         `field "${filterField}". Known fields: ${[...fields.fieldNames].sort().join(", ")}`,
-    );
+    });
   }
   if (!isListFilterAllowed(fields.entityDef, filterField, filter)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references field ` +
+    throw bootRuleError(SCREEN_KIND_RULES.filterFieldNotAllowed, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references field ` +
         `"${filterField}" which is encrypted, personal or secret, so the list handler rejects ` +
         `this filter at runtime. Only op "eq" works on a personal field with find: "exact" or ` +
         `"fuzzy"; otherwise drop the filter or filter on another field.`,
-    );
+    });
   }
   const fieldDef = fields.entityDef.fields[filterField];
   if (fieldDef !== undefined && !isFieldFilterable(fieldDef)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references field ` +
+    throw bootRuleError(SCREEN_KIND_RULES.filterFieldNotFilterable, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) filter references field ` +
         `"${filterField}" which is not filterable. Set filterable: true on the field ` +
         `definition or pick another field.`,
-    );
+    });
   }
   if (fieldDef !== undefined) {
     const allowedOps = getAllowedFilterOps(fieldDef);
     if (!allowedOps.includes(filter.op)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (entityList) filter.op ` +
+      throw bootRuleError(SCREEN_KIND_RULES.filterOpNotAllowed, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (entityList) filter.op ` +
           `"${filter.op}" is not allowed on field "${filterField}" ` +
           `(type "${fieldDef.type}"). Allowed ops: ${allowedOps.join(", ") || "(none)"}.`,
-      );
+      });
     }
   }
   rejectNonArrayInFilter(featureName, screenId, "entityList", filter);
@@ -202,13 +211,14 @@ function rejectCrossFeatureEditTargetWithoutEntityId(
     target.screen.type === "entityEdit" &&
     action.entityId === undefined
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+    throw bootRuleError(SCREEN_KIND_RULES.crossFeatureEditNeedsEntityId, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
         `navigates cross-feature to entityEdit screen "${action.screen}" (feature ` +
         `"${target.featureName}") without an explicit entityId field — the renderer's ` +
         `same-feature row["id"] fallback does not apply across features. Set entityId to ` +
         `the row field that names the target entity's id.`,
-    );
+    });
   }
 }
 
@@ -297,10 +307,11 @@ function validateEntityListToolbarAction(
   if (action.kind === "navigate") {
     const candidateQn = qualifyEntityName(featureName, "screen", action.screen);
     if (!ctx.allScreenQns.has(candidateQn) && !ctx.navTargetShortIds.has(action.screen)) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
+      throw bootRuleError(SCREEN_ACTION_RULES.navigateTargetUnresolved, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
           `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
-      );
+      });
     }
     if (action.tab !== undefined) {
       resolveRowActionNavigateTarget(
@@ -388,10 +399,11 @@ export function validateEntityListScreen(
   // Validate pagination, sorting, and search at boot so authoring errors
   // fail before runtime debugging of empty or incorrectly sorted lists.
   if (screen.pageSize !== undefined && screen.pageSize <= 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) has pageSize=${screen.pageSize} — ` +
+    throw bootRuleError(SCREEN_KIND_RULES.pageSizeInvalid, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) has pageSize=${screen.pageSize} — ` +
         `must be a positive integer.`,
-    );
+    });
   }
   const where = `[Feature ${featureName}] Screen "${screenId}" (entityList)`;
   validateListTableOptions(where, screen.table, screen.columns, true);
@@ -403,11 +415,12 @@ export function validateEntityListScreen(
     screen.createScreen !== undefined &&
     !Object.hasOwn(ctx.feature.screens, screen.createScreen)
   ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityList) createScreen ` +
+    throw bootRuleError(SCREEN_KIND_RULES.createScreenUnresolved, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityList) createScreen ` +
         `"${screen.createScreen}" does not resolve to a registered screen in this feature. ` +
         `Known screens in this feature: ${Object.keys(ctx.feature.screens).sort().join(", ") || "(none)"}.`,
-    );
+    });
   }
   if (screen.filter !== undefined) {
     validateEntityListFilter(featureName, screenId, screen.filter, fields);

@@ -11,6 +11,10 @@ import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
 import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
+import { PROJECTION_DETAIL_RULES } from "./screens-kind-projection-detail-rules.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
+import { LIST_SCREEN_RULES } from "./screens-lists-rules.ts";
+import { SCREEN_RULES } from "./screens-rules.ts";
 
 export const FRAMEWORK_BOOT_RULE_TABLES = [
   PII_RULES,
@@ -25,6 +29,10 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   DASHBOARD_CHART_RULES,
   FORM_FIELD_RULES,
   FORM_LAYOUT_RULES,
+  LIST_SCREEN_RULES,
+  SCREEN_KIND_RULES,
+  PROJECTION_DETAIL_RULES,
+  SCREEN_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(

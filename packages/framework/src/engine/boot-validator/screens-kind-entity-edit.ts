@@ -4,8 +4,8 @@ import {
   normalizeEditField,
   sectionFieldSpecs,
 } from "../screen-helpers.ts";
-
 import type { EditSectionSpec, EntityEditScreenDefinition } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { validateRedirectTarget } from "./screens-actions.ts";
 import {
   validateEditFieldExtras,
@@ -15,6 +15,7 @@ import {
   validateNoWidgetRequiredField,
   validateWizardLayout,
 } from "./screens-forms.ts";
+import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 import {
   assertExtensionSectionHasComponent,
   buildUnknownFieldMessage,
@@ -36,9 +37,15 @@ function validateEntityEditField(
 ): void {
   const normalized = normalizeEditField(fieldSpec);
   if (!fieldNames.has(normalized.field)) {
-    throw new Error(
-      buildUnknownFieldMessage(featureName, screenId, normalized.field, entityName, fieldNames),
-    );
+    throw bootRuleError(SCREEN_KIND_RULES.unknownFieldReference, {
+      message: buildUnknownFieldMessage(
+        featureName,
+        screenId,
+        normalized.field,
+        entityName,
+        fieldNames,
+      ),
+    });
   }
   validateNoWidgetRequiredField(featureName, screenId, entityDef, normalized);
   validateEditFieldExtras(featureName, screenId, entityDef, normalized);
@@ -92,18 +99,20 @@ export function validateEntityEditScreen(
     validateRecordHeaderAction(ctx, screenId, "entityEdit", screen.entity, action);
   }
   if (screen.recordTitleField !== undefined && !fieldNames.has(screen.recordTitleField)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityEdit) recordTitleField ` +
+    throw bootRuleError(SCREEN_KIND_RULES.entityEditRecordTitleFieldUnknown, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityEdit) recordTitleField ` +
         `"${screen.recordTitleField}" is not a field of entity "${screen.entity}" ` +
         `(known: ${[...fieldNames].sort().join(", ")}).`,
-    );
+    });
   }
   if (typeof screen.readOnly === "object" && !fieldNames.has(screen.readOnly.field)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (entityEdit) readOnly condition field ` +
+    throw bootRuleError(SCREEN_KIND_RULES.entityEditReadOnlyFieldUnknown, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (entityEdit) readOnly condition field ` +
         `"${screen.readOnly.field}" is not a field of entity "${screen.entity}" ` +
         `(known: ${[...fieldNames].sort().join(", ")}).`,
-    );
+    });
   }
   if (screen.redirect !== undefined) {
     validateRedirectTarget(ctx.feature, screenId, "entityEdit", screen.redirect, ctx);
