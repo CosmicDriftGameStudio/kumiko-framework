@@ -51,7 +51,7 @@ export function StatusBadge({
         className,
       )}
     >
-      <span aria-hidden="true" data-status-dot className="size-1.5 rounded-full bg-current" />
+      <span aria-hidden="true" data-status-dot className="size-1.5 shrink-0 rounded-full bg-current" />
       {children}
     </span>
   );
