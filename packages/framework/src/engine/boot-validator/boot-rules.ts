@@ -1,3 +1,4 @@
+import { AGENT_EFFECT_RULES } from "./agent-effect-rules.ts";
 import { API_EXT_RULES } from "./api-ext-rules.ts";
 import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
 import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
@@ -71,6 +72,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   HANDLER_DECLARATION_RULES,
   NAV_RULES,
   OWNERSHIP_RULES,
+  AGENT_EFFECT_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(
