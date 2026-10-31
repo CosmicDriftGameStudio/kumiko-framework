@@ -62,14 +62,22 @@ const originalScrollIntoView = Element.prototype.scrollIntoView;
 const scrolledPages: string[] = [];
 const scrolledHits: string[] = [];
 const scrolledSheets: string[] = [];
+const scrollOrder: string[] = [];
 
 beforeEach(() => {
   scrolledPages.length = 0;
   scrolledHits.length = 0;
   scrolledSheets.length = 0;
+  scrollOrder.length = 0;
   Object.assign(globalThis, { IntersectionObserver: IdleIntersectionObserver });
-  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
-    if (this.classList.contains("pdf-hit-active")) scrolledHits.push(this.textContent ?? "");
+  Element.prototype.scrollIntoView = function scrollIntoView(
+    this: Element,
+    options?: boolean | ScrollIntoViewOptions,
+  ) {
+    const block = typeof options === "object" ? (options.block ?? "") : "";
+    const isHit = this.classList.contains("pdf-hit-active");
+    scrollOrder.push(`${isHit ? "hit" : (this.getAttribute("data-pdf-page") ?? "sheet")}:${block}`);
+    if (isHit) scrolledHits.push(this.textContent ?? "");
     const slot = this.closest("[data-pdf-page]");
     if (slot !== null && slot !== this)
       scrolledSheets.push(slot.getAttribute("data-pdf-page") ?? "");
@@ -222,13 +230,15 @@ describe("PdfViewer", () => {
     expect(screen.getByTestId("pdf-pages").className).toContain("w-max");
   });
 
-  test("the active hit itself is scrolled into view once its page has rendered", async () => {
+  test("the active hit's page top comes into view first, then the hit itself", async () => {
     // Without IntersectionObserver every slot counts as seen, so the pages render.
     Object.assign(globalThis, { IntersectionObserver: undefined });
     renderViewer(
       <PdfViewer document={fakeDocument()} searchTerm="Whg. 4" matchIndex={0} hideSearchBar />,
     );
     await waitFor(() => expect(scrolledHits).toEqual(["Whg. 4"]));
+    const hitAt = scrollOrder.indexOf("hit:nearest");
+    expect(scrollOrder[hitAt - 1]).toBe("sheet:start");
   });
 
   test("the opening page re-anchors once rendered, until the reader jumps elsewhere", async () => {
