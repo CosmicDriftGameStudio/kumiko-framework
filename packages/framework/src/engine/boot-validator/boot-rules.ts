@@ -2,7 +2,15 @@ import { API_EXT_RULES } from "./api-ext-rules.ts";
 import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
 import type { BootRule } from "./boot-rule.ts";
 import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
+import { DERIVED_SQL_FIELD_RULES } from "./derived-sql-fields-rules.ts";
+import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
+import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
+import { ENTITY_SELECT_IMAGE_RULES } from "./entity-select-image-rules.ts";
+import { ENTITY_STRUCTURE_RULES } from "./entity-structure-rules.ts";
+import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
+import { FORM_DERIVATION_RULES } from "./form-derivations-rules.ts";
+import { HANDLER_FIELD_REFERENCE_RULES } from "./handler-field-references-rules.ts";
 import { I18N_RULES } from "./i18n-keys-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
@@ -33,6 +41,14 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   SCREEN_KIND_RULES,
   PROJECTION_DETAIL_RULES,
   SCREEN_RULES,
+  DERIVED_SQL_FIELD_RULES,
+  HANDLER_ACCESS_RULES,
+  ENTITY_REFERENCE_EMBEDDED_RULES,
+  ENTITY_SELECT_IMAGE_RULES,
+  ENTITY_STRUCTURE_RULES,
+  FIELD_CONDITION_RULES,
+  FORM_DERIVATION_RULES,
+  HANDLER_FIELD_REFERENCE_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(

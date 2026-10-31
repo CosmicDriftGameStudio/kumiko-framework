@@ -16,6 +16,12 @@ import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
+import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
+import { ENTITY_SELECT_IMAGE_RULES } from "./entity-select-image-rules.ts";
+import { ENTITY_STRUCTURE_RULES } from "./entity-structure-rules.ts";
+import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
 import {
   validateBeforeTransactionWhenNested,
@@ -123,11 +129,12 @@ export function validateExtensionPreSaveWiring(features: readonly FeatureDefinit
     for (const usage of f.extensionUsages) {
       if (!extensionsWithPreSave.has(usage.extensionName)) continue;
       if (!entitiesWithMappedWrites.has(usage.entityName)) {
-        throw new Error(
-          `Feature "${f.name}" uses extension "${usage.extensionName}" with preSave on entity "${usage.entityName}" ` +
+        throw bootRuleError(HANDLER_ACCESS_RULES.presaveWithoutMappedWrite, {
+          message:
+            `Feature "${f.name}" uses extension "${usage.extensionName}" with preSave on entity "${usage.entityName}" ` +
             `but no write handler is entity-mapped to "${usage.entityName}". ` +
             `Use create/update/delete on a matching entity or name the handler "entity:verb".`,
-        );
+        });
       }
     }
   }
@@ -153,10 +160,11 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   for (const { kind, label, handlers } of kinds) {
     for (const [name, handler] of Object.entries(handlers)) {
       if (!handler.access) {
-        throw new Error(
-          `${label} handler "${feature.name}:${kind}:${name}" is missing an access rule. ` +
+        throw bootRuleError(HANDLER_ACCESS_RULES.accessMissing, {
+          message:
+            `${label} handler "${feature.name}:${kind}:${name}" is missing an access rule. ` +
             `Set { roles: [...] } for role-based access, or { openToAll: { reason: "..." } } for any authenticated user.`,
-        );
+        });
       }
       validateNoAllRoleInHandlerAccess(feature.name, kind, name, handler.access);
       validateRateLimitBucketList(feature.name, kind, name, handler.rateLimit);
@@ -188,7 +196,9 @@ export function validateAdditionalRateLimits(
   if (additionalRateLimits === undefined) return;
   const where = `write handler "${featureName}:write:${handlerName}" declares additionalRateLimits`;
   if (additionalRateLimits.length === 0) {
-    throw new Error(`${where} as an empty array — declare at least one bucket or drop the option.`);
+    throw bootRuleError(HANDLER_ACCESS_RULES.additionalBucketsEmpty, {
+      message: `${where} as an empty array — declare at least one bucket or drop the option.`,
+    });
   }
   validateAnonymousHasIpBucket(where, handler);
   const shape = handler.schema instanceof ZodObject ? handler.schema.shape : undefined;
@@ -199,10 +209,11 @@ export function validateAdditionalRateLimits(
     // Two entries on one field hash the same value into the same Redis key, so enforceAll
     // would deduct only one of the costs.
     if (seenFields.has(field)) {
-      throw new Error(
-        `${where} with payloadField "${field}" more than once — both entries would share one ` +
+      throw bootRuleError(HANDLER_ACCESS_RULES.additionalPayloadFieldDuplicate, {
+        message:
+          `${where} with payloadField "${field}" more than once — both entries would share one ` +
           `Redis bucket per value. Keep one entry per payloadField.`,
-      );
+      });
     }
     seenFields.add(field);
   }
@@ -220,10 +231,11 @@ function validateAnonymousHasIpBucket(
     IP_BUCKETED_RATE_LIMIT_PER.has(option.per),
   );
   if (!hasIpBucket) {
-    throw new Error(
-      `${where} and allows anonymous callers, but has no ip-keyed rateLimit ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.additionalWithoutIpBucket, {
+      message:
+        `${where} and allows anonymous callers, but has no ip-keyed rateLimit ` +
         `(per: "ip" or "ip+handler", not disabled). Payload buckets only complement the IP bucket. Set rateLimit: { per: "ip", ... } on the handler.`,
-    );
+    });
   }
 }
 
@@ -234,20 +246,21 @@ function validatePayloadBucket(
 ): void {
   const field = entry.per.payloadField;
   if (shape === undefined || !Object.hasOwn(shape, field)) {
-    throw new Error(
-      `${where} with payloadField "${field}", which is not a field of the handler's schema ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.payloadFieldUnknown, {
+      message:
+        `${where} with payloadField "${field}", which is not a field of the handler's schema ` +
         `(the schema must be a Zod object containing it).`,
-    );
+    });
   }
   if (!Number.isInteger(entry.limit) || entry.limit <= 0) {
-    throw new Error(
-      `${where} for "${field}" with limit ${entry.limit} — must be a positive integer.`,
-    );
+    throw bootRuleError(HANDLER_ACCESS_RULES.payloadLimitInvalid, {
+      message: `${where} for "${field}" with limit ${entry.limit} — must be a positive integer.`,
+    });
   }
   if (!Number.isInteger(entry.windowSeconds) || entry.windowSeconds <= 0) {
-    throw new Error(
-      `${where} for "${field}" with windowSeconds ${entry.windowSeconds} — must be a positive integer.`,
-    );
+    throw bootRuleError(HANDLER_ACCESS_RULES.payloadWindowInvalid, {
+      message: `${where} for "${field}" with windowSeconds ${entry.windowSeconds} — must be a positive integer.`,
+    });
   }
 }
 
@@ -265,24 +278,27 @@ export function validateTenantlessAnonymous(
   const isAnonymousOnly =
     "roles" in access && access.roles.length === 1 && access.roles[0] === "anonymous";
   if (!isAnonymousOnly) {
-    throw new Error(
-      `${where} but its access is not exactly { roles: ["anonymous"] } — a tenantless request ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.tenantlessAnonymousAccess, {
+      message:
+        `${where} but its access is not exactly { roles: ["anonymous"] } — a tenantless request ` +
         `carries no principal beyond the anonymous visitor. Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous.`,
-    );
+    });
   }
   const options = declaredRateLimitOptions(handler.rateLimit);
   if (options.length === 0) {
-    throw new Error(
-      `${where} without a rateLimit — a handler reachable on hosts that resolve no tenant ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.tenantlessAnonymousWithoutRateLimit, {
+      message:
+        `${where} without a rateLimit — a handler reachable on hosts that resolve no tenant ` +
         `needs a real upper bound (rateLimit: { per: "ip", ... }); { disabled: true } does not count.`,
-    );
+    });
   }
   for (const { per } of options) {
     if (IP_SCOPED_RATE_LIMIT_PER.includes(per)) continue;
-    throw new Error(
-      `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.tenantlessAnonymousRateLimitPer, {
+      message:
+        `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
         `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((allowed) => `"${allowed}"`).join(" or ")}.`,
-    );
+    });
   }
 }
 
@@ -294,21 +310,23 @@ export function validateRateLimitCost(
   // skip: no payload-derived cost declared
   if (!handler.rateLimitCost) return;
   if (handler.rateLimit === undefined || isRateLimitDisabled(handler.rateLimit)) {
-    throw new Error(
-      `write handler "${featureName}:write:${handlerName}" declares rateLimitCost without an active rateLimit — ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.costWithoutRateLimit, {
+      message:
+        `write handler "${featureName}:write:${handlerName}" declares rateLimitCost without an active rateLimit — ` +
         `the cost is booked on the rateLimit buckets, so declare rateLimit or drop rateLimitCost.`,
-    );
+    });
   }
   const isAnonymous = "roles" in handler.access && handler.access.roles.includes("anonymous");
   const hasIpBucket = declaredRateLimitOptions(handler.rateLimit).some(({ per }) =>
     IP_SCOPED_RATE_LIMIT_PER.includes(per),
   );
   if (isAnonymous || hasIpBucket) {
-    throw new Error(
-      `write handler "${featureName}:write:${handlerName}" declares rateLimitCost on an anonymous or ip-limited handler — ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.costOnAnonymousHandler, {
+      message:
+        `write handler "${featureName}:write:${handlerName}" declares rateLimitCost on an anonymous or ip-limited handler — ` +
         `rateLimitCost books after the parse, so such a handler would lose its pre-parse protection against junk floods. ` +
         `Bulk handlers are authenticated: use a user/tenant bucket and drop "anonymous", or drop rateLimitCost.`,
-    );
+    });
   }
 }
 
@@ -321,11 +339,12 @@ export function validateRateLimitDisabledReason(
   // skip: rate limit isn't disabled, so no reason is required
   if (!isRateLimitDisabled(rateLimit)) return;
   if (rateLimit.reason.trim().length === 0) {
-    throw new Error(
-      `${kind} handler "${featureName}:${kind}:${handlerName}" declares rateLimit: { disabled: true } ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.disabledWithoutReason, {
+      message:
+        `${kind} handler "${featureName}:${kind}:${handlerName}" declares rateLimit: { disabled: true } ` +
         `without a reason. Provide { disabled: true, reason: "..." } explaining why this handler must not ` +
         `be rate-limited.`,
-    );
+    });
   }
 }
 
@@ -339,17 +358,18 @@ export function validateRateLimitBucketList(
   if (!Array.isArray(rateLimit)) return;
   const where = `${kind} handler "${featureName}:${kind}:${handlerName}"`;
   if (rateLimit.length === 0) {
-    throw new Error(
-      `${where} declares rateLimit as an empty array — declare at least one bucket or drop the option.`,
-    );
+    throw bootRuleError(HANDLER_ACCESS_RULES.bucketListEmpty, {
+      message: `${where} declares rateLimit as an empty array — declare at least one bucket or drop the option.`,
+    });
   }
   const seen = new Set<RateLimitPer>();
   for (const { per } of rateLimit) {
     if (seen.has(per)) {
-      throw new Error(
-        `${where} declares rateLimit with per "${per}" more than once — both entries would share one ` +
+      throw bootRuleError(HANDLER_ACCESS_RULES.bucketPerDuplicate, {
+        message:
+          `${where} declares rateLimit with per "${per}" more than once — both entries would share one ` +
           `Redis bucket with conflicting limits. Keep one entry per "per".`,
-      );
+      });
     }
     seen.add(per);
   }
@@ -366,12 +386,13 @@ export function validateNoAllRoleInHandlerAccess(
   if (!("roles" in access)) return;
   // skip: no "all" in the roles list, nothing unreachable to report
   if (!accessPresets.all.some((role) => access.roles.includes(role))) return;
-  throw new Error(
-    `${kind} handler "${featureName}:${kind}:${handlerName}" declares access: { roles: ["all"] } — ` +
+  throw bootRuleError(HANDLER_ACCESS_RULES.accessAllRole, {
+    message:
+      `${kind} handler "${featureName}:${kind}:${handlerName}" declares access: { roles: ["all"] } — ` +
       `no session ever carries the role "all", so this handler is unreachable by any caller. ` +
       `Use access: { roles: ["anonymous"] } plus rateLimit: { per: "ip", ... } (or "ip+handler") ` +
       `for unauthenticated callers, or access: { openToAll: { reason: "..." } } for any signed-in user.`,
-  );
+  });
 }
 
 export function validateAnonymousRateLimit(
@@ -390,22 +411,24 @@ export function validateAnonymousRateLimit(
   if (isRateLimitDisabled(rateLimit)) return;
   const options = declaredRateLimitOptions(rateLimit);
   if (options.length === 0) {
-    throw new Error(
-      `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but declares no ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.anonymousWithoutRateLimit, {
+      message:
+        `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but declares no ` +
         `rateLimit — an anonymous, internet-facing endpoint needs an upper bound. Set rateLimit: ` +
         `{ per: "ip", limit: ..., windowSeconds: ... }, or the documented exception ` +
         `rateLimit: { disabled: true, reason: "..." }.`,
-    );
+    });
   }
   for (const { per } of options) {
     // skip: this bucket is keyed on something safe (ip / tenant)
     if (!USER_BUCKETED_RATE_LIMIT_PER.has(per)) continue;
-    throw new Error(
-      `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but uses ` +
+    throw bootRuleError(HANDLER_ACCESS_RULES.anonymousUserBucket, {
+      message:
+        `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but uses ` +
         `rateLimit.per="${per}" — every anonymous request shares user.id="anonymous", ` +
         `so this bucket would be a single global tap any caller could drain. ` +
         `Use rateLimit.per="ip" or "ip+handler" for anonymous endpoints.`,
-    );
+    });
   }
 }
 
@@ -424,11 +447,12 @@ export function validateAnonymousRateLimit(
 export function validateMultiStreamProjections(feature: FeatureDefinition): void {
   for (const [name, msp] of Object.entries(feature.multiStreamProjections)) {
     if (msp.delivery === "per-instance" && msp.table !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] MultiStreamProjection "${name}" has delivery="per-instance" AND a backing table — ` +
+      throw bootRuleError(HANDLER_ACCESS_RULES.perInstanceWithTable, {
+        message:
+          `[Feature ${feature.name}] MultiStreamProjection "${name}" has delivery="per-instance" AND a backing table — ` +
           `that combination would make every dispatcher-instance write the same rows (duplicate INSERTs), and rebuild would reset only the shared cursor while live cursors live per-instance (cursor divergence). ` +
           `Use delivery="shared" (default) for table-materializing projections, or drop the table for side-effect-only consumers (SSE, in-memory caches).`,
-      );
+      });
     }
   }
 }
@@ -453,19 +477,21 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
       if (field.type !== "timestamp" || field.locatedBy === undefined) continue;
       const referenced = fields[field.locatedBy];
       if (!referenced) {
-        throw new Error(
-          `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.locatedByMissingField, {
+          message:
+            `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
             `locatedBy: "${field.locatedBy}" but no field with that name exists in the entity. ` +
             `Either declare the tz-field, or use createLocatedTimestampField() ` +
             `to create a single located-timestamp field instead.`,
-        );
+        });
       }
       if (referenced.type !== "tz") {
-        throw new Error(
-          `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.locatedByNotTz, {
+          message:
+            `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
             `locatedBy: "${field.locatedBy}" but that field is type "${referenced.type}", ` +
             `expected "tz". The locatedBy marker must point to a tz-field (IANA-zone slot).`,
-        );
+        });
       }
     }
   }
@@ -490,15 +516,18 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
     for (const [idx, def] of entity.indexes.entries()) {
       const where = `Feature "${feature.name}", entity "${entityName}", indexes[${idx}]`;
       if (def.columns.length === 0) {
-        throw new Error(`${where}: empty columns list. An index needs at least one column.`);
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.indexColumnsEmpty, {
+          message: `${where}: empty columns list. An index needs at least one column.`,
+        });
       }
       for (const col of def.columns) {
         if (col === "tenantId" || col === "id" || col === "version") continue; // base columns
         if (!fieldNames.has(col)) {
-          throw new Error(
-            `${where}: column "${col}" does not match any field in the entity. ` +
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexUnknownColumn, {
+            message:
+              `${where}: column "${col}" does not match any field in the entity. ` +
               `Available fields: ${[...fieldNames].join(", ")}.`,
-          );
+          });
         }
         const field = entity.fields[col];
         if (
@@ -507,10 +536,11 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
             field.type === "images" ||
             (field.type === "reference" && field.multiple === true))
         ) {
-          throw new Error(
-            `${where}: column "${col}" is a multi-value field (${field.type}) — ` +
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexMultiValueColumn, {
+            message:
+              `${where}: column "${col}" is a multi-value field (${field.type}) — ` +
               `a jsonb array cannot be indexed as a column. Use a single-value field or remove from the index.`,
-          );
+          });
         }
         if (field && field.type === "longText") {
           // longText semantically means "potentially-megabytes content" — a
@@ -520,10 +550,11 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
           // that longText has no sortable/searchable/filterable flags. Anyone
           // who truly needs indexing should use `text` with the
           // corresponding scaling trade-offs.
-          throw new Error(
-            `${where}: column "${col}" is a longText field — these cannot be indexed. ` +
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexLongTextColumn, {
+            message:
+              `${where}: column "${col}" is a longText field — these cannot be indexed. ` +
               `Use \`text\` if you need indexing, or rely on the SearchAdapter (Meilisearch) for full-text search on long content.`,
-          );
+          });
         }
       }
       // A UNIQUE constraint on tenantId is semantically meaningful (1:1 tenant→entity)
@@ -531,10 +562,11 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
       // performance hint, not a constraint. Only the tenantId-only,
       // single-column, non-unique form is rejected.
       if (def.columns.length === 1 && def.columns[0] === "tenantId" && !def.unique) {
-        throw new Error(
-          `${where}: single-column index on "tenantId" is redundant — ` +
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.indexTenantIdOnly, {
+          message:
+            `${where}: single-column index on "tenantId" is redundant — ` +
             `buildEntityTable always creates one automatically. Remove this entry.`,
-        );
+        });
       }
       // AES-GCM's random-IV ciphertext is never equal to itself across two
       // writes of the same plaintext, so a unique index on an encrypted
@@ -543,10 +575,11 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
         for (const col of def.columns) {
           const field = entity.fields[col];
           if (field && (field.type === "text" || field.type === "longText") && field.encrypted) {
-            throw new Error(
-              `${where}: column "${col}" is encrypted — a unique index on it can never detect ` +
+            throw bootRuleError(ENTITY_STRUCTURE_RULES.indexUniqueEncryptedColumn, {
+              message:
+                `${where}: column "${col}" is encrypted — a unique index on it can never detect ` +
                 `duplicates (non-deterministic ciphertext). Remove \`unique\` or \`encrypted\`.`,
-            );
+            });
           }
         }
       }
@@ -569,23 +602,24 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
 
       if (field.type === "text") {
         if (field.searchable) {
-          throw new Error(
-            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable. Drop searchable: true or remove the encryption.`,
-          );
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.encryptedSearchable, {
+            message: `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable. Drop searchable: true or remove the encryption.`,
+          });
         }
         if (field.sortable) {
-          throw new Error(
-            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable. Drop sortable: true or remove the encryption.`,
-          );
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.encryptedSortable, {
+            message: `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable. Drop sortable: true or remove the encryption.`,
+          });
         }
         // AES-GCM draws a fresh random IV per call, so the ciphertext is
         // non-deterministic — an equality filter on it never matches, even
         // against the identical plaintext.
         if (field.filterable) {
-          throw new Error(
-            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and filterable ` +
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.encryptedFilterable, {
+            message:
+              `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and filterable ` +
               `— non-deterministic ciphertext never matches an equality filter. Drop filterable: true or remove the encryption.`,
-          );
+          });
         }
       }
     }
@@ -654,11 +688,12 @@ function validateReferenceTarget(
   const targetFeature = featureMap.get(target.featureName);
   if (!targetFeature) {
     const knownFeatures = [...featureMap.keys()].sort().join(", ");
-    throw new Error(
-      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceUnknownFeature, {
+      message:
+        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
         `targets unknown feature "${target.featureName}" via "${refString}". ` +
         `Known features: ${knownFeatures}.`,
-    );
+    });
   }
   const targetEntity = targetFeature.entities?.[target.entityName];
   if (!targetEntity) {
@@ -670,21 +705,23 @@ function validateReferenceTarget(
       target.featureName === feature.name
         ? `in this feature`
         : `in feature "${target.featureName}"`;
-    throw new Error(
-      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceUnknownEntity, {
+      message:
+        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
         `targets unknown entity "${target.entityName}" ${where}. ` +
         `Known entities: ${known}.`,
-    );
+    });
   }
   if (labelField !== undefined) {
     const knownFields = Object.keys(targetEntity.fields);
     // "id" always exists, even without an explicit field definition (PK).
     if (labelField !== "id" && !knownFields.includes(labelField)) {
-      throw new Error(
-        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceUnknownLabelField, {
+        message:
+          `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
           `references labelField "${labelField}" which does not exist on entity ` +
           `"${target.entityName}". Known fields: ${[...knownFields, "id"].sort().join(", ")}.`,
-      );
+      });
     }
   }
   // Pins query-handler existence. The renderer fires
@@ -694,13 +731,14 @@ function validateReferenceTarget(
   // "<entity>:list" in feature.queryHandlers.
   const expectedHandlerShortName = `${target.entityName}:list`;
   if (targetFeature.queryHandlers[expectedHandlerShortName] === undefined) {
-    throw new Error(
-      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceTargetWithoutListHandler, {
+      message:
+        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
         `targets entity "${target.entityName}" but no list-query-handler is registered ` +
         `there. Add r.queryHandler(defineEntityListHandler("${target.entityName}", ` +
         `${target.entityName}Entity)) to feature "${target.featureName}", or pick a ` +
         `different label/entity.`,
-    );
+    });
   }
   // The check above still applies when optionsQuery is set: optionsQuery only
   // replaces the picker's option list, while list cells keep resolving the
@@ -723,18 +761,20 @@ function validateReferenceOptionsQuery(
   // skip: a field without optionsQuery keeps the entity-table option source.
   if (optionsQuery === undefined) return;
   if (optionsQuery.length === 0) {
-    throw new Error(
-      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceOptionsQueryEmpty, {
+      message:
+        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
         `has an empty optionsQuery. Drop the property or name a query handler.`,
-    );
+    });
   }
   if (!queryHandlers.has(optionsQuery)) {
-    throw new Error(
-      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.referenceOptionsQueryUnregistered, {
+      message:
+        `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
         `declares optionsQuery "${optionsQuery}" which is not a registered query-handler. ` +
         `Check the QN spelling (expected "<feature>:query:<short>") and that the handler ` +
         `is declared via r.queryHandler(...).`,
-    );
+    });
   }
 }
 
@@ -774,26 +814,26 @@ export function validateEmbeddedFields(
       if (field.type !== "embedded") continue;
 
       if (!field.schema || Object.keys(field.schema).length === 0) {
-        throw new Error(
-          `Embedded field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has an empty schema. Declare at least one sub-field in the embedded schema.`,
-        );
+        throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedSchemaEmpty, {
+          message: `Embedded field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has an empty schema. Declare at least one sub-field in the embedded schema.`,
+        });
       }
 
       for (const [subName, subField] of Object.entries(field.schema)) {
         if (!VALID_EMBEDDED_SUB_TYPES.has(subField.type)) {
-          throw new Error(
-            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
-          );
+          throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedSubFieldTypeInvalid, {
+            message: `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
+          });
         }
         if (subField.type === "decimal" && !isValidEmbeddedDecimalScale(subField.scale)) {
-          throw new Error(
-            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid scale ${subField.scale}. Must be an integer between 0 and 15.`,
-          );
+          throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedDecimalScaleInvalid, {
+            message: `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid scale ${subField.scale}. Must be an integer between 0 and 15.`,
+          });
         }
         if (subField.type === "select" && subField.options.length === 0) {
-          throw new Error(
-            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has empty options. Add at least one option.`,
-          );
+          throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedSelectOptionsEmpty, {
+            message: `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has empty options. Add at least one option.`,
+          });
         }
         // Reference sub-fields get the same target/labelField/query-handler
         // checks as a top-level reference field — same failure mode
@@ -824,32 +864,32 @@ function validateEmbeddedListBounds(
   field: EmbeddedFieldDef,
 ): void {
   if (field.minItems !== undefined && field.minItems < 0) {
-    throw new Error(
-      `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid minItems ${field.minItems}. Must be >= 0.`,
-    );
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedMinItemsNegative, {
+      message: `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid minItems ${field.minItems}. Must be >= 0.`,
+    });
   }
   if (field.maxItems !== undefined && field.maxItems < 1) {
-    throw new Error(
-      `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid maxItems ${field.maxItems}. Must be >= 1.`,
-    );
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedMaxItemsTooSmall, {
+      message: `Embedded-list field "${fieldName}" on entity "${entityName}" has invalid maxItems ${field.maxItems}. Must be >= 1.`,
+    });
   }
   if (
     field.minItems !== undefined &&
     field.maxItems !== undefined &&
     field.minItems > field.maxItems
   ) {
-    throw new Error(
-      `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}. Set minItems at or below maxItems.`,
-    );
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedMinItemsAboveMax, {
+      message: `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}. Set minItems at or below maxItems.`,
+    });
   }
   // required:true means "at least one row" (schema-builder.ts falls back to
   // minItems:1 for that); an explicit minItems:0 would silently win over
   // that and let a required list submit empty — reject the contradiction
   // instead of picking one side of it for the caller.
   if (field.required === true && field.minItems === 0) {
-    throw new Error(
-      `Embedded-list field "${fieldName}" on entity "${entityName}" sets required:true and minItems:0 — these contradict each other. Drop minItems (defaults to 1) or set required:false.`,
-    );
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedRequiredMinItemsZero, {
+      message: `Embedded-list field "${fieldName}" on entity "${entityName}" sets required:true and minItems:0 — these contradict each other. Drop minItems (defaults to 1) or set required:false.`,
+    });
   }
 }
 
@@ -862,25 +902,25 @@ function validateEmbeddedDerivedCells(
   if (field.derived === undefined) return;
   for (const [derivedName, derivedDef] of Object.entries(field.derived)) {
     if (!(derivedName in field.schema)) {
-      throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema. Add the sub-field to the schema or remove the derived cell.`,
-      );
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedDerivedCellNotInSchema, {
+        message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema. Add the sub-field to the schema or remove the derived cell.`,
+      });
     }
     if (derivedDef.op === "percent" && derivedDef.from.length !== 2) {
-      throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" with op "percent", which needs exactly two sources (base, rate).`,
-      );
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedPercentNeedsTwoSources, {
+        message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" with op "percent", which needs exactly two sources (base, rate).`,
+      });
     }
     for (const sourceName of derivedDef.from) {
       if (!(sourceName in field.schema)) {
-        throw new Error(
-          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}". Read only sub-fields that exist in the schema.`,
-        );
+        throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedDerivedSourceUnknown, {
+          message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}". Read only sub-fields that exist in the schema.`,
+        });
       }
       if (sourceName in field.derived) {
-        throw new Error(
-          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading derived sub-field "${sourceName}". Read only stored sub-fields, not other derived cells.`,
-        );
+        throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedDerivedSourceIsDerived, {
+          message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading derived sub-field "${sourceName}". Read only stored sub-fields, not other derived cells.`,
+        });
       }
     }
   }
@@ -895,16 +935,16 @@ function validateEmbeddedTotalsColumns(
   if (field.totals === undefined) return;
   for (const total of field.totals) {
     if (typeof total !== "string" && total.from.length === 0) {
-      throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totals entry "${total.label}" with an empty "from". List at least one number, money or decimal sub-field.`,
-      );
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedTotalsFromEmpty, {
+        message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a totals entry "${total.label}" with an empty "from". List at least one number, money or decimal sub-field.`,
+      });
     }
     for (const totalName of typeof total === "string" ? [total] : total.from) {
       const totalSubField = field.schema[totalName];
       if (!totalSubField || !NUMERIC_EMBEDDED_SUB_TYPES.has(totalSubField.type)) {
-        throw new Error(
-          `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field. List only number, money or decimal sub-fields in totals.`,
-        );
+        throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedTotalsNotNumeric, {
+          message: `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field. List only number, money or decimal sub-fields in totals.`,
+        });
       }
     }
   }
@@ -921,15 +961,15 @@ function validateEmbeddedTotalsMatch(
   for (const [subFieldName, siblingFieldName] of Object.entries(field.totalsMatch)) {
     const subField = field.schema[subFieldName];
     if (subField?.type !== "money") {
-      throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry for "${subFieldName}", which is not a money sub-field in its schema. Use a money sub-field as the totalsMatch key.`,
-      );
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedTotalsMatchKeyNotMoney, {
+        message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry for "${subFieldName}", which is not a money sub-field in its schema. Use a money sub-field as the totalsMatch key.`,
+      });
     }
     const siblingField = entity.fields[siblingFieldName];
     if (siblingField?.type !== "money") {
-      throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry mapping "${subFieldName}" to sibling field "${siblingFieldName}", which is not a money field on entity "${entityName}". Map it to a money field of the entity.`,
-      );
+      throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedTotalsMatchSiblingNotMoney, {
+        message: `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry mapping "${subFieldName}" to sibling field "${siblingFieldName}", which is not a money field on entity "${entityName}". Map it to a money field of the entity.`,
+      });
     }
   }
 }
@@ -960,9 +1000,9 @@ function validateEmbeddedListMetadata(
       field.totals !== undefined ||
       field.totalsMatch !== undefined)
   ) {
-    throw new Error(
-      `Embedded field "${fieldName}" on entity "${entityName}" sets minItems/maxItems/derived/totals/totalsMatch, which is only valid on an embedded LIST field (multiple: true).`,
-    );
+    throw bootRuleError(ENTITY_REFERENCE_EMBEDDED_RULES.embeddedListOptionsOnNonList, {
+      message: `Embedded field "${fieldName}" on entity "${entityName}" sets minItems/maxItems/derived/totals/totalsMatch, which is only valid on an embedded LIST field (multiple: true).`,
+    });
   }
   validateEmbeddedDerivedAndTotals(fieldName, entityName, field, entity);
 }
@@ -989,27 +1029,27 @@ function validateCheckboxDisplayOptions(
 ): void {
   if (field.display === "checkboxes") {
     if (field.columns !== undefined && !(field.columns in CHECKBOX_COLUMN_COUNTS)) {
-      throw new Error(
-        `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid columns "${field.columns}" — must be ${Object.keys(CHECKBOX_COLUMN_COUNTS).join(", ")}.`,
-      );
+      throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectColumnsInvalid, {
+        message: `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid columns "${field.columns}" — must be ${Object.keys(CHECKBOX_COLUMN_COUNTS).join(", ")}.`,
+      });
     }
     if (field.maxRows !== undefined && (!Number.isInteger(field.maxRows) || field.maxRows < 1)) {
-      throw new Error(
-        `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,
-      );
+      throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectMaxRowsInvalid, {
+        message: `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,
+      });
     }
     // skip: checkboxes is the valid display for these options — the checks below only apply to other displays
     return;
   }
   if (field.columns !== undefined) {
-    throw new Error(
-      `MultiSelect field "${fieldName}" on entity "${entityName}" sets columns, which is only valid with display: "checkboxes".`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectColumnsWithoutCheckboxes, {
+      message: `MultiSelect field "${fieldName}" on entity "${entityName}" sets columns, which is only valid with display: "checkboxes".`,
+    });
   }
   if (field.maxRows !== undefined) {
-    throw new Error(
-      `MultiSelect field "${fieldName}" on entity "${entityName}" sets maxRows, which is only valid with display: "checkboxes".`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectMaxRowsWithoutCheckboxes, {
+      message: `MultiSelect field "${fieldName}" on entity "${entityName}" sets maxRows, which is only valid with display: "checkboxes".`,
+    });
   }
 }
 
@@ -1021,10 +1061,11 @@ function assertSelectOptionTones(
   const tones = field.type === "select" ? Object.entries(field.optionTones ?? {}) : [];
   for (const [optionValue, tone] of tones) {
     if (!isSelectOptionTone(tone)) {
-      throw new Error(
-        `[Feature ${featureName}] Entity select field "${path}" optionTones["${optionValue}"] is ` +
+      throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.selectOptionToneInvalid, {
+        message:
+          `[Feature ${featureName}] Entity select field "${path}" optionTones["${optionValue}"] is ` +
           `"${String(tone)}" — expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
-      );
+      });
     }
   }
 }
@@ -1055,9 +1096,9 @@ function assertNoSelectOptionsQuery(
   };
   const declaresOptionsQuery = optionsQuery !== undefined || optionsQueryPayload !== undefined;
   if (field.type === "select" && declaresOptionsQuery) {
-    throw new Error(
-      `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.selectOptionsQueryUnsupported, {
+      message: `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
+    });
   }
 }
 
@@ -1076,12 +1117,13 @@ export function validateEntitySelectAvailabilityQuery(
         continue;
       const query = field.optionsAvailabilityQuery;
       if (query.length === 0 || !queryHandlers.has(query)) {
-        throw new Error(
-          `[Feature ${feature.name}] ${field.type === "select" ? "Select" : "MultiSelect"} field "${fieldName}" on entity "${entityName}" ` +
+        throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.selectAvailabilityQueryUnregistered, {
+          message:
+            `[Feature ${feature.name}] ${field.type === "select" ? "Select" : "MultiSelect"} field "${fieldName}" on entity "${entityName}" ` +
             `declares optionsAvailabilityQuery "${query}" which is not a registered query-handler. ` +
             `Check the QN spelling (expected "<feature>:query:<short>") and that the handler ` +
             `is declared via r.queryHandler(...).`,
-        );
+        });
       }
     }
   }
@@ -1102,55 +1144,57 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
       if (field.type !== "select" || field.conditionalOptions === undefined) continue;
       const where = `[Feature ${feature.name}] Select field "${fieldName}" on entity "${entityName}"`;
       if (field.optionsQuery !== undefined) {
-        throw new Error(
-          `${where} combines conditionalOptions with optionsQuery — conditionalOptions filters the static options only. Remove either conditionalOptions or optionsQuery.`,
-        );
+        throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalOptionsWithOptionsQuery, {
+          message: `${where} combines conditionalOptions with optionsQuery — conditionalOptions filters the static options only. Remove either conditionalOptions or optionsQuery.`,
+        });
       }
       const knownOptions = new Set<string>(field.options);
       const ruleOfOption = new Map<string, number>();
       field.conditionalOptions.forEach((rule, ruleIndex) => {
         const ruleLabel = `conditionalOptions[${ruleIndex}]`;
         if (rule.options.length === 0) {
-          throw new Error(`${where} has an empty ${ruleLabel}.options — drop the rule.`);
+          throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalOptionsRuleEmpty, {
+            message: `${where} has an empty ${ruleLabel}.options — drop the rule.`,
+          });
         }
         for (const option of rule.options) {
           if (!knownOptions.has(option)) {
-            throw new Error(
-              `${where} lists "${option}" in ${ruleLabel} which is not in options (${field.options.join(", ")}).`,
-            );
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalOptionUnknown, {
+              message: `${where} lists "${option}" in ${ruleLabel} which is not in options (${field.options.join(", ")}).`,
+            });
           }
           const otherRule = ruleOfOption.get(option);
           if (otherRule !== undefined) {
-            throw new Error(
-              `${where} lists "${option}" in conditionalOptions[${otherRule}] and ${ruleLabel} — an option may belong to one rule only. Remove the option from one of the rules.`,
-            );
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalOptionDuplicate, {
+              message: `${where} lists "${option}" in conditionalOptions[${otherRule}] and ${ruleLabel} — an option may belong to one rule only. Remove the option from one of the rules.`,
+            });
           }
           ruleOfOption.set(option, ruleIndex);
           if (option === field.default) {
-            throw new Error(
-              `${where} has default "${option}" inside ${ruleLabel} — the default must be available unconditionally.`,
-            );
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalOptionDefault, {
+              message: `${where} has default "${option}" inside ${ruleLabel} — the default must be available unconditionally.`,
+            });
           }
         }
         const conditionField = rule.when.field;
         if (conditionField === fieldName) {
-          throw new Error(
-            `${where} has ${ruleLabel}.when on its own field. Make the condition depend on a different field.`,
-          );
+          throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenOwnField, {
+            message: `${where} has ${ruleLabel}.when on its own field. Make the condition depend on a different field.`,
+          });
         }
         if (!(conditionField in entity.fields)) {
-          throw new Error(
-            `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
-          );
+          throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenUnknownField, {
+            message: `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
+          });
         }
         const conditionFieldDef = entity.fields[conditionField];
         if (conditionFieldDef?.type === "select" || conditionFieldDef?.type === "multiSelect") {
           const conditionOptions: readonly string[] = conditionFieldDef.options;
           for (const value of conditionComparisonValues(rule.when)) {
             if (typeof value !== "string" || !conditionOptions.includes(value)) {
-              throw new Error(
-                `${where} has ${ruleLabel}.when value "${String(value)}" which is not an option of "${conditionField}" (${conditionOptions.join(", ")}).`,
-              );
+              throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenValueNotOption, {
+                message: `${where} has ${ruleLabel}.when value "${String(value)}" which is not an option of "${conditionField}" (${conditionOptions.join(", ")}).`,
+              });
             }
           }
         }
@@ -1165,18 +1209,18 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
       if (field.type !== "multiSelect") continue;
 
       if (field.options.length === 0) {
-        throw new Error(
-          `MultiSelect field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has empty options. Add at least one option.`,
-        );
+        throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectOptionsEmpty, {
+          message: `MultiSelect field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has empty options. Add at least one option.`,
+        });
       }
 
       if (field.default !== undefined) {
         const validOptions = new Set<string>(field.options);
         for (const value of field.default) {
           if (!validOptions.has(value)) {
-            throw new Error(
-              `MultiSelect default "${value}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${field.options.join(", ")}`,
-            );
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.multiSelectDefaultNotOption, {
+              message: `MultiSelect default "${value}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${field.options.join(", ")}`,
+            });
           }
         }
       }
@@ -1219,12 +1263,14 @@ function isValidBlurRegion(region: BlurRegion): boolean {
 // kumiko-lint-ignore complexity-budget blur/size bounds added for boot-time DoS guard
 function assertValidVariantSpec(name: string, spec: VariantSpec, where: string): void {
   if (!VARIANT_NAME_PATTERN.test(name)) {
-    throw new Error(
-      `Image variant "${name}" ${where} must match ${VARIANT_NAME_PATTERN.source} — the name becomes part of a storage key and a URL segment.`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantName, {
+      message: `Image variant "${name}" ${where} must match ${VARIANT_NAME_PATTERN.source} — the name becomes part of a storage key and a URL segment.`,
+    });
   }
   if (spec.size !== undefined && spec.maxEdge !== undefined) {
-    throw new Error(`Image variant "${name}" ${where} sets both "size" and "maxEdge" — pick one.`);
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantSizeAndMaxEdge, {
+      message: `Image variant "${name}" ${where} sets both "size" and "maxEdge" — pick one.`,
+    });
   }
   if (
     spec.size !== undefined &&
@@ -1235,37 +1281,37 @@ function assertValidVariantSpec(name: string, spec: VariantSpec, where: string):
       spec.size.height <= MAX_VARIANT_EDGE_PX
     )
   ) {
-    throw new Error(
-      `Image variant "${name}" ${where} has an invalid "size" (${spec.size.width}x${spec.size.height}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px per edge.`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantSizeInvalid, {
+      message: `Image variant "${name}" ${where} has an invalid "size" (${spec.size.width}x${spec.size.height}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px per edge.`,
+    });
   }
   if (
     spec.maxEdge !== undefined &&
     !(isPositiveInt(spec.maxEdge) && spec.maxEdge <= MAX_VARIANT_EDGE_PX)
   ) {
-    throw new Error(
-      `Image variant "${name}" ${where} has an invalid "maxEdge" (${spec.maxEdge}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px.`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantMaxEdgeInvalid, {
+      message: `Image variant "${name}" ${where} has an invalid "maxEdge" (${spec.maxEdge}) — must be a positive integer up to ${MAX_VARIANT_EDGE_PX}px.`,
+    });
   }
   if (spec.quality !== undefined && !(isPositiveInt(spec.quality) && spec.quality <= 100)) {
-    throw new Error(
-      `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantQualityInvalid, {
+      message: `Image variant "${name}" ${where} has "quality" ${spec.quality} — must be an integer in 1..100.`,
+    });
   }
   if (
     spec.blur !== undefined &&
     !(Number.isFinite(spec.blur) && spec.blur > 0 && spec.blur <= MAX_BLUR_SIGMA)
   ) {
-    throw new Error(
-      `Image variant "${name}" ${where} has "blur" ${spec.blur} — must be a finite number in (0, ${MAX_BLUR_SIGMA}].`,
-    );
+    throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantBlurInvalid, {
+      message: `Image variant "${name}" ${where} has "blur" ${spec.blur} — must be a finite number in (0, ${MAX_BLUR_SIGMA}].`,
+    });
   }
   if (spec.blurRegions !== undefined) {
     for (const region of spec.blurRegions) {
       if (!isValidBlurRegion(region)) {
-        throw new Error(
-          `Image variant "${name}" ${where} has an invalid "blurRegions" entry ${JSON.stringify(region)} — x/y/width/height must be within 0..1 and x+width/y+height must not exceed 1.`,
-        );
+        throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.imageVariantBlurRegionInvalid, {
+          message: `Image variant "${name}" ${where} has an invalid "blurRegions" entry ${JSON.stringify(region)} — x/y/width/height must be within 0..1 and x+width/y+height must not exceed 1.`,
+        });
       }
     }
   }
@@ -1317,24 +1363,24 @@ export function validateLockedWhen(feature: FeatureDefinition): void {
     const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${lockedWhen.field}"`;
     const field = entity.fields[lockedWhen.field];
     if (!field) {
-      throw new Error(
-        `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,
-      );
+      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenUnknownField, {
+        message: `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,
+      });
     }
     if (isCiphertextAtRest(field)) {
-      throw new Error(
-        `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
-      );
+      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenCiphertextField, {
+        message: `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
+      });
     }
     if (field.access?.read !== undefined) {
-      throw new Error(
-        `${where} has a read restriction — roles that cannot read it get records without it, and the client would show every record as locked. Drop field access.read or use another field.`,
-      );
+      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenReadRestricted, {
+        message: `${where} has a read restriction — roles that cannot read it get records without it, and the client would show every record as locked. Drop field access.read or use another field.`,
+      });
     }
     if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
-      throw new Error(
-        `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
-      );
+      throw bootRuleError(FIELD_CONDITION_RULES.conditionFieldTypeNotComparable, {
+        message: `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
+      });
     }
   }
 }
@@ -1349,15 +1395,15 @@ export function validateTransitions(feature: FeatureDefinition): void {
       const field = entity.fields[fieldName];
 
       if (!field) {
-        throw new Error(
-          `Transitions defined for unknown field "${fieldName}" on entity "${entityName}" in feature "${feature.name}"`,
-        );
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.transitionUnknownField, {
+          message: `Transitions defined for unknown field "${fieldName}" on entity "${entityName}" in feature "${feature.name}"`,
+        });
       }
 
       if (field.type !== "select") {
-        throw new Error(
-          `Transitions defined for field "${fieldName}" on entity "${entityName}" but field type is "${field.type}" (must be "select")`,
-        );
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.transitionFieldNotSelect, {
+          message: `Transitions defined for field "${fieldName}" on entity "${entityName}" but field type is "${field.type}" (must be "select")`,
+        });
       }
 
       const validOptions = new Set(field.options);
@@ -1365,15 +1411,15 @@ export function validateTransitions(feature: FeatureDefinition): void {
       // Check all states in the transition map
       for (const [from, targets] of Object.entries(transitionMap)) {
         if (!validOptions.has(from)) {
-          throw new Error(
-            `Transition state "${from}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
-          );
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.transitionStateNotOption, {
+            message: `Transition state "${from}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+          });
         }
         for (const to of targets) {
           if (!validOptions.has(to)) {
-            throw new Error(
-              `Transition target "${to}" (from "${from}") on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
-            );
+            throw bootRuleError(ENTITY_STRUCTURE_RULES.transitionTargetNotOption, {
+              message: `Transition target "${to}" (from "${from}") on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+            });
           }
         }
       }
@@ -1393,9 +1439,9 @@ export function validateExtendSchemaCollisions(feature: FeatureDefinition): void
       const extraFields = ext.extendSchema(entityName);
       for (const fieldName of Object.keys(extraFields)) {
         if (existingFields.has(fieldName)) {
-          throw new Error(
-            `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}". Rename the extension column or the entity field.`,
-          );
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.extendSchemaCollision, {
+            message: `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}". Rename the extension column or the entity field.`,
+          });
         }
       }
     }
@@ -1415,10 +1461,11 @@ export function validateDerivedFieldCollisions(feature: FeatureDefinition): void
     const fieldNames = new Set(Object.keys(entity.fields));
     for (const derivedName of Object.keys(entity.derivedFields)) {
       if (fieldNames.has(derivedName)) {
-        throw new Error(
-          `Entity "${entityName}": derivedFields key "${derivedName}" conflicts with a stored ` +
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.derivedFieldCollision, {
+          message:
+            `Entity "${entityName}": derivedFields key "${derivedName}" conflicts with a stored ` +
             `field of the same name — the derived value would silently overwrite the real one on every read. Rename the derivedFields key or the stored field.`,
-        );
+        });
       }
     }
   }
@@ -1437,11 +1484,12 @@ function isUnrestrictedReadAccess(access: FieldAccess | undefined): boolean {
 }
 
 function throwSearchableRestricted(subject: string, entityName: string): never {
-  throw new Error(
-    `${subject} on entity "${entityName}" cannot be searchable with a restricted ` +
+  throw bootRuleError(ENTITY_STRUCTURE_RULES.searchableRestrictedRead, {
+    message:
+      `${subject} on entity "${entityName}" cannot be searchable with a restricted ` +
       "access.read — the search index is not filtered per role, so search matches would leak " +
       'the value to roles that cannot read it. Drop `searchable`/`find: "fuzzy"` or `access.read`.',
-  );
+  });
 }
 
 export function validateSearchableFieldReadAccess(feature: FeatureDefinition): void {

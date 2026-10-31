@@ -3,6 +3,8 @@ import { parseQn } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/feature.ts";
 import type { ActionFormScreenDefinition, FormFieldDerivation } from "../types/screen.ts";
 import { formDerivationsOfSchema } from "../with-form-derivations.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { FORM_DERIVATION_RULES } from "./form-derivations-rules.ts";
 
 const NUMERIC_FORM_FIELD_TYPES: readonly string[] = ["money", "number", "decimal"];
 const NUMERIC_SUB_FIELD_TYPES: readonly string[] = ["money", "number", "decimal"];
@@ -28,27 +30,27 @@ function validateUnitCompatibility(
   const moneyCount = moneyFlags.filter(Boolean).length;
   if (derivation.op === "sum" || derivation.op === "subtract") {
     if (moneyCount !== 0 && moneyCount !== moneyFlags.length) {
-      throw new Error(
-        `${prefix}.${target}: "${derivation.op}" sources must be all money or all number/decimal.`,
-      );
+      throw bootRuleError(FORM_DERIVATION_RULES.sourcesMoneyMixed, {
+        message: `${prefix}.${target}: "${derivation.op}" sources must be all money or all number/decimal.`,
+      });
     }
     if (moneyCount > 0 !== targetIsMoney) {
-      throw new Error(
-        `${prefix}.${target}: a "${derivation.op}" over ${moneyCount > 0 ? "money" : "number/decimal"} sources needs a ${moneyCount > 0 ? "money" : "number/decimal"} target.`,
-      );
+      throw bootRuleError(FORM_DERIVATION_RULES.targetKindMismatch, {
+        message: `${prefix}.${target}: a "${derivation.op}" over ${moneyCount > 0 ? "money" : "number/decimal"} sources needs a ${moneyCount > 0 ? "money" : "number/decimal"} target.`,
+      });
     }
     // skip: sum/subtract fully validated above.
     return;
   }
   if (moneyCount > 1 || (derivation.op === "percent" && moneyFlags[1] === true)) {
-    throw new Error(
-      `${prefix}.${target}: "${derivation.op}" takes at most one money source${derivation.op === "percent" ? " (the base, not the rate)" : ""}.`,
-    );
+    throw bootRuleError(FORM_DERIVATION_RULES.tooManyMoneySources, {
+      message: `${prefix}.${target}: "${derivation.op}" takes at most one money source${derivation.op === "percent" ? " (the base, not the rate)" : ""}.`,
+    });
   }
   if ((moneyCount === 1) !== targetIsMoney) {
-    throw new Error(
-      `${prefix}.${target}: the target must be money exactly when a "${derivation.op}" source is money.`,
-    );
+    throw bootRuleError(FORM_DERIVATION_RULES.targetKindMismatch, {
+      message: `${prefix}.${target}: the target must be money exactly when a "${derivation.op}" source is money.`,
+    });
   }
 }
 
@@ -57,19 +59,21 @@ function validateFromList(
   derivation: Extract<FormFieldDerivation, { from: unknown }>,
 ): void {
   if (derivation.op === "percent" && derivation.from.length !== 2) {
-    throw new Error(`${prefix}.${target}: "percent" needs exactly two sources (base, rate).`);
+    throw bootRuleError(FORM_DERIVATION_RULES.percentNeedsTwoSources, {
+      message: `${prefix}.${target}: "percent" needs exactly two sources (base, rate).`,
+    });
   }
   for (const source of derivation.from) {
     const sourceField = screen.fields[source];
     if (sourceField === undefined) {
-      throw new Error(
-        `${prefix}.${target}: unknown source field "${source}". Name a field of this screen.`,
-      );
+      throw bootRuleError(FORM_DERIVATION_RULES.unknownSourceField, {
+        message: `${prefix}.${target}: unknown source field "${source}". Name a field of this screen.`,
+      });
     }
     if (!NUMERIC_FORM_FIELD_TYPES.includes(sourceField.type)) {
-      throw new Error(
-        `${prefix}.${target}: source "${source}" must be money, number or decimal, not "${sourceField.type}".`,
-      );
+      throw bootRuleError(FORM_DERIVATION_RULES.sourceNotNumeric, {
+        message: `${prefix}.${target}: source "${source}" must be money, number or decimal, not "${sourceField.type}".`,
+      });
     }
   }
   validateUnitCompatibility({ prefix, screen, target }, derivation);
@@ -82,30 +86,34 @@ function validateListSum(
   const { prefix, screen, target } = check;
   const listField = screen.fields[derivation.list];
   if (listField === undefined) {
-    throw new Error(`${prefix}.${target}: unknown list field "${derivation.list}".`);
+    throw bootRuleError(FORM_DERIVATION_RULES.unknownListField, {
+      message: `${prefix}.${target}: unknown list field "${derivation.list}".`,
+    });
   }
   if (listField.type !== "embedded" || listField.multiple !== true) {
-    throw new Error(
-      `${prefix}.${target}: "${derivation.list}" must be an embedded list field (multiple: true).`,
-    );
+    throw bootRuleError(FORM_DERIVATION_RULES.listNotEmbeddedList, {
+      message: `${prefix}.${target}: "${derivation.list}" must be an embedded list field (multiple: true).`,
+    });
   }
   const cellType = listField.schema[derivation.cell]?.type;
   if (cellType === undefined || !NUMERIC_SUB_FIELD_TYPES.includes(cellType)) {
-    throw new Error(
-      `${prefix}.${target}: "${derivation.cell}" must be a money, number or decimal sub-field of "${derivation.list}".`,
-    );
+    throw bootRuleError(FORM_DERIVATION_RULES.cellNotNumeric, {
+      message: `${prefix}.${target}: "${derivation.cell}" must be a money, number or decimal sub-field of "${derivation.list}".`,
+    });
   }
   if (isMoneyType(cellType) !== isMoneyType(screen.fields[target]?.type)) {
-    throw new Error(
-      `${prefix}.${target}: a listSum of a ${isMoneyType(cellType) ? "money" : "number/decimal"} cell needs a ${isMoneyType(cellType) ? "money" : "number/decimal"} target.`,
-    );
+    throw bootRuleError(FORM_DERIVATION_RULES.listSumKindMismatch, {
+      message: `${prefix}.${target}: a listSum of a ${isMoneyType(cellType) ? "money" : "number/decimal"} cell needs a ${isMoneyType(cellType) ? "money" : "number/decimal"} target.`,
+    });
   }
   const { whenEmpty } = derivation;
   // skip: whenEmpty is optional
   if (whenEmpty === undefined) return;
   // Type forbids a nested listSum; JS/cast callers can still pass one.
   if (!("from" in whenEmpty)) {
-    throw new Error(`${prefix}.${target}: whenEmpty must not be a listSum.`);
+    throw bootRuleError(FORM_DERIVATION_RULES.whenEmptyListSum, {
+      message: `${prefix}.${target}: whenEmpty must not be a listSum.`,
+    });
   }
   validateFromList(check, whenEmpty);
 }
@@ -125,12 +133,14 @@ export function validateFormDerivations(
   for (const [target, derivation] of Object.entries(derive)) {
     const targetField = screen.fields[target];
     if (targetField === undefined) {
-      throw new Error(`${prefix}: key "${target}" is not a field of this screen.`);
+      throw bootRuleError(FORM_DERIVATION_RULES.unknownTarget, {
+        message: `${prefix}: key "${target}" is not a field of this screen.`,
+      });
     }
     if (!NUMERIC_FORM_FIELD_TYPES.includes(targetField.type)) {
-      throw new Error(
-        `${prefix}.${target}: a derived field must be money, number or decimal, not "${targetField.type}".`,
-      );
+      throw bootRuleError(FORM_DERIVATION_RULES.targetNotNumeric, {
+        message: `${prefix}.${target}: a derived field must be money, number or decimal, not "${targetField.type}".`,
+      });
     }
     const check = { prefix, screen, target };
     if (derivation.op === "listSum") validateListSum(check, derivation);
@@ -140,7 +150,9 @@ export function validateFormDerivations(
   try {
     orderFormDerivations(derive);
   } catch (error) {
-    throw new Error(`${prefix}: ${error instanceof Error ? error.message : String(error)}`);
+    throw bootRuleError(FORM_DERIVATION_RULES.invalidOrder, {
+      message: `${prefix}: ${error instanceof Error ? error.message : String(error)}`,
+    });
   }
 }
 
@@ -158,9 +170,10 @@ export function validateFormDerivationsEnforced(
   const schema = featureMap.get(scope)?.writeHandlers[name]?.schema;
   // skip: wrapped with this screen
   if (formDerivationsOfSchema(schema) === screen.derive) return;
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (actionForm) declares derive, but handler ` +
+  throw bootRuleError(FORM_DERIVATION_RULES.handlerNotWrapped, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (actionForm) declares derive, but handler ` +
       `"${screen.handler}" does not recompute it on the server. Wrap the handler schema: ` +
       `withFormDerivations(schema, screen) with this screen object.`,
-  );
+  });
 }

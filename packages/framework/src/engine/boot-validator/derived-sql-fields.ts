@@ -11,6 +11,8 @@ import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
 import { holdsCiphertextOrSecret } from "../../db/entity-field-encryption.ts";
 import { parseRefTargetEntityName } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { DERIVED_SQL_FIELD_RULES } from "./derived-sql-fields-rules.ts";
 
 export function isSortableSqlDerivedField(entity: EntityDefinition, name: string): boolean {
   const def = entity.derivedFields?.[name];
@@ -43,23 +45,27 @@ function valueTypeOfField(entity: EntityDefinition, field: string): DerivedValue
 
 function requireUsableField(site: Site, entity: EntityDefinition, field: string, role: string) {
   if (field !== "id" && entity.fields[field] === undefined) {
-    throw new Error(`${site.where}: ${role} "${field}" is not a field of the entity.`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.unknownField, {
+      message: `${site.where}: ${role} "${field}" is not a field of the entity.`,
+    });
   }
   if (valueTypeOfField(entity, field) === undefined) {
-    throw new Error(
-      `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (compound types are not supported; money only as the measure of a related first).`,
-    );
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.unsupportedFieldType, {
+      message: `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (compound types are not supported; money only as the measure of a related first).`,
+    });
   }
   if (holdsCiphertextOrSecret(entity, field)) {
-    throw new Error(
-      `${site.where}: ${role} "${field}" is encrypted or secret; a SQL derived field would expose or order by it.`,
-    );
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.encryptedField, {
+      message: `${site.where}: ${role} "${field}" is encrypted or secret; a SQL derived field would expose or order by it.`,
+    });
   }
 }
 
 function requireValueType(site: Site, def: SqlDerivedFieldDef, expected: DerivedValueType): void {
   if (def.valueType !== expected) {
-    throw new Error(`${site.where}: valueType must be "${expected}", got "${def.valueType}".`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.valueTypeMismatch, {
+      message: `${site.where}: valueType must be "${expected}", got "${def.valueType}".`,
+    });
   }
 }
 
@@ -70,12 +76,14 @@ function requireMoneyMeasure(
   measure: Extract<DerivedRelatedMeasure, { readonly kind: "first" }>,
 ): void {
   if (measure.label === true) {
-    throw new Error(`${site.where}: label: true needs a reference field, not money.`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.labelNeedsReference, {
+      message: `${site.where}: label: true needs a reference field, not money.`,
+    });
   }
   if (holdsCiphertextOrSecret(related, measure.field)) {
-    throw new Error(
-      `${site.where}: measure field "${measure.field}" is encrypted or secret; a SQL derived field would expose or order by it.`,
-    );
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.encryptedField, {
+      message: `${site.where}: measure field "${measure.field}" is encrypted or secret; a SQL derived field would expose or order by it.`,
+    });
   }
   requireUsableField(site, related, measure.orderBy, "measure orderBy");
   requireValueType(site, def, "money");
@@ -86,7 +94,9 @@ function validateCondition(site: Site, related: EntityDefinition, condition: Der
     for (const field of [condition.activeOn.from, condition.activeOn.to]) {
       requireUsableField(site, related, field, "activeOn field");
       if (valueTypeOfField(related, field) !== "date") {
-        throw new Error(`${site.where}: activeOn field "${field}" must be a date field.`);
+        throw bootRuleError(DERIVED_SQL_FIELD_RULES.activeOnNotDate, {
+          message: `${site.where}: activeOn field "${field}" must be a date field.`,
+        });
       }
     }
     // skip: activeOn carries no op/value to check
@@ -96,19 +106,21 @@ function validateCondition(site: Site, related: EntityDefinition, condition: Der
   const { value, op } = condition;
   const isList = Array.isArray(value);
   if ((op === "in") !== isList) {
-    throw new Error(
-      `${site.where}: where "${condition.field}": op "in" takes a list, and only "in" does.`,
-    );
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.inOperatorList, {
+      message: `${site.where}: where "${condition.field}": op "in" takes a list, and only "in" does.`,
+    });
   }
   if (value === null && op !== "eq" && op !== "ne") {
-    throw new Error(`${site.where}: where "${condition.field}": null is only valid with eq/ne.`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.nullOperator, {
+      message: `${site.where}: where "${condition.field}": null is only valid with eq/ne.`,
+    });
   }
   if (typeof value === "object" && value !== null && !isList) {
     const expected = "today" in value ? "date" : "timestamp";
     if (valueTypeOfField(related, condition.field) !== expected) {
-      throw new Error(
-        `${site.where}: where "${condition.field}": ${expected === "date" ? "today" : "now"} needs a ${expected} field.`,
-      );
+      throw bootRuleError(DERIVED_SQL_FIELD_RULES.relativeDateFieldType, {
+        message: `${site.where}: where "${condition.field}": ${expected === "date" ? "today" : "now"} needs a ${expected} field.`,
+      });
     }
   }
 }
@@ -132,9 +144,9 @@ function requireJoinIndex(
       return first === field || (first === "tenantId" && second === field);
     });
   if (!indexed) {
-    throw new Error(
-      `${site.where}: sortable needs an index on the related table's "${field}"; declare indexes: [{ columns: ["${field}"] }] (or ["tenantId", "${field}"]) on that entity.`,
-    );
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.sortableNeedsJoinIndex, {
+      message: `${site.where}: sortable needs an index on the related table's "${field}"; declare indexes: [{ columns: ["${field}"] }] (or ["tenantId", "${field}"]) on that entity.`,
+    });
   }
 }
 
@@ -149,7 +161,9 @@ function validateRelated(
   const relatedName = parseRefTargetEntityName(spec.entity);
   const related = allEntities.get(relatedName);
   if (related === undefined) {
-    throw new Error(`${site.where}: related entity "${spec.entity}" is not registered.`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.unknownRelatedEntity, {
+      message: `${site.where}: related entity "${spec.entity}" is not registered.`,
+    });
   }
   requireUsableField(site, related, spec.on.field, "on.field");
   if (def.sortable === true) {
@@ -187,7 +201,9 @@ function requireMeasureValueType(
   if (measure.label === true) {
     const measured = related.fields[measure.field];
     if (measured?.type !== "reference" || measured.labelField === undefined) {
-      throw new Error(`${site.where}: label: true needs a reference field with a labelField.`);
+      throw bootRuleError(DERIVED_SQL_FIELD_RULES.labelNeedsReference, {
+        message: `${site.where}: label: true needs a reference field with a labelField.`,
+      });
     }
     requireValueType(site, def, "text");
     // skip: a label is always text, the measured field's own type does not apply
@@ -203,14 +219,19 @@ function validateCoalesce(
   def: SqlDerivedFieldDef,
   fields: readonly string[],
 ): void {
-  if (fields.length === 0) throw new Error(`${site.where}: coalesce needs at least one field.`);
+  if (fields.length === 0)
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.coalesceEmpty, {
+      message: `${site.where}: coalesce needs at least one field.`,
+    });
   const types = new Set<DerivedValueType | undefined>();
   for (const field of fields) {
     requireUsableField(site, own, field, "coalesce field");
     types.add(valueTypeOfField(own, field));
   }
   if (types.size !== 1) {
-    throw new Error(`${site.where}: coalesce fields must all have the same type.`);
+    throw bootRuleError(DERIVED_SQL_FIELD_RULES.coalesceMixedTypes, {
+      message: `${site.where}: coalesce fields must all have the same type.`,
+    });
   }
   const [only] = types;
   if (only !== undefined) requireValueType(site, def, only);
@@ -231,14 +252,14 @@ export function validateSqlDerivedFields(features: readonly FeatureDefinition[])
       const site: Site = { where: `Entity "${entityName}" derived field "${key}"` };
       if (!isSqlDerivedField(def)) {
         if (def.valueType === "money") {
-          throw new Error(
-            `${site.where}: valueType "money" needs a sql derived field (related first on a money field); a JS derive has no currency column.`,
-          );
+          throw bootRuleError(DERIVED_SQL_FIELD_RULES.moneyNeedsSql, {
+            message: `${site.where}: valueType "money" needs a sql derived field (related first on a money field); a JS derive has no currency column.`,
+          });
         }
         if ("sortable" in def) {
-          throw new Error(
-            `${site.where}: sortable needs a sql derived field; a JS derive cannot order in SQL.`,
-          );
+          throw bootRuleError(DERIVED_SQL_FIELD_RULES.sortableNeedsSql, {
+            message: `${site.where}: sortable needs a sql derived field; a JS derive cannot order in SQL.`,
+          });
         }
         continue;
       }

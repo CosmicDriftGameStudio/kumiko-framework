@@ -11,7 +11,9 @@ import { isFileSubField } from "../../files/file-field-slots.ts";
 import { parseMaxSize } from "../../files/types.ts";
 import { isFileField } from "../field-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { conditionComparisonValues, LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
+import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
 
 type Condition = Exclude<FieldCondition, boolean>;
 type StateKey = keyof FieldStateConditions;
@@ -37,14 +39,14 @@ function assertNoRequiredConflict(
   // skip: a field that is not statically required cannot conflict with requiredWhen
   if (!required) return;
   if (def.requiredWhen !== undefined) {
-    throw new Error(
-      `${where} sets required: true together with requiredWhen — drop required (requiredWhen covers the conditional case).`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.requiredWithRequiredWhen, {
+      message: `${where} sets required: true together with requiredWhen — drop required (requiredWhen covers the conditional case).`,
+    });
   }
   if (def.visibleWhen !== undefined) {
-    throw new Error(
-      `${where} sets required: true together with visibleWhen — a hidden field cannot be required; use requiredWhen with the same condition.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.requiredWithVisibleWhen, {
+      message: `${where} sets required: true together with visibleWhen — a hidden field cannot be required; use requiredWhen with the same condition.`,
+    });
   }
 }
 
@@ -56,9 +58,9 @@ function assertComparisonValuesAreOptions(
 ): void {
   for (const value of conditionComparisonValues(condition)) {
     if (typeof value !== "string" || !options.includes(value)) {
-      throw new Error(
-        `${where} has ${key} value "${String(value)}" which is not an option of "${condition.field}" (${options.join(", ")}).`,
-      );
+      throw bootRuleError(FIELD_CONDITION_RULES.comparisonValueNotOption, {
+        message: `${where} has ${key} value "${String(value)}" which is not an option of "${condition.field}" (${options.join(", ")}).`,
+      });
     }
   }
 }
@@ -72,19 +74,19 @@ function assertTopLevelCondition(
 ): void {
   const target = entity.fields[condition.field];
   if (condition.field === fieldName) {
-    throw new Error(
-      `${where} has ${key} on its own field. Make the condition depend on a different field.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.conditionOnOwnField, {
+      message: `${where} has ${key} on its own field. Make the condition depend on a different field.`,
+    });
   }
   if (target === undefined) {
-    throw new Error(
-      `${where} has ${key}.field "${condition.field}" which is not a field of the entity. Use an existing field of the entity.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.unknownConditionField, {
+      message: `${where} has ${key}.field "${condition.field}" which is not a field of the entity. Use an existing field of the entity.`,
+    });
   }
   if (!LOCKABLE_FIELD_TYPES.has(target.type)) {
-    throw new Error(
-      `${where} has ${key}.field "${condition.field}" of type "${target.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.conditionFieldTypeNotComparable, {
+      message: `${where} has ${key}.field "${condition.field}" of type "${target.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
+    });
   }
   if (target.type === "select") {
     assertComparisonValuesAreOptions(where, key, condition, target.options);
@@ -100,19 +102,19 @@ function assertSubFieldCondition(
 ): void {
   const target = embedded.schema[condition.field];
   if (condition.field === subName) {
-    throw new Error(
-      `${where} has ${key} on its own sub-field. Make the condition depend on a sibling.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.conditionOnOwnField, {
+      message: `${where} has ${key} on its own sub-field. Make the condition depend on a sibling.`,
+    });
   }
   if (target === undefined) {
-    throw new Error(
-      `${where} has ${key}.field "${condition.field}" which is not a sub-field of the same row. Use a sibling sub-field.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.unknownConditionField, {
+      message: `${where} has ${key}.field "${condition.field}" which is not a sub-field of the same row. Use a sibling sub-field.`,
+    });
   }
   if (!SUB_CONDITION_TYPES.has(target.type)) {
-    throw new Error(
-      `${where} has ${key}.field "${condition.field}" of type "${target.type}", which cannot be compared. Use a text, number, decimal, money, boolean, date, select or reference sub-field.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.conditionFieldTypeNotComparable, {
+      message: `${where} has ${key}.field "${condition.field}" of type "${target.type}", which cannot be compared. Use a text, number, decimal, money, boolean, date, select or reference sub-field.`,
+    });
   }
   if (target.type === "select") {
     const stateKey = key === "when" ? "visibleWhen" : key;
@@ -122,16 +124,22 @@ function assertSubFieldCondition(
 
 function assertFileSubField(where: string, sub: EmbeddedFileSubFieldDef): void {
   if (sub.searchable === true) {
-    throw new Error(`${where} is a ${sub.type} sub-field and cannot be searchable.`);
+    throw bootRuleError(FIELD_CONDITION_RULES.fileSubFieldSearchable, {
+      message: `${where} is a ${sub.type} sub-field and cannot be searchable.`,
+    });
   }
   if (sub.maxCount !== undefined && !(Number.isInteger(sub.maxCount) && sub.maxCount > 0)) {
-    throw new Error(`${where} has invalid maxCount ${sub.maxCount}. Must be a positive integer.`);
+    throw bootRuleError(FIELD_CONDITION_RULES.fileMaxCountInvalid, {
+      message: `${where} has invalid maxCount ${sub.maxCount}. Must be a positive integer.`,
+    });
   }
   if (sub.maxSize !== undefined) {
     try {
       parseMaxSize(sub.maxSize);
     } catch {
-      throw new Error(`${where} has invalid maxSize "${sub.maxSize}". Use e.g. "10mb", "500kb".`);
+      throw bootRuleError(FIELD_CONDITION_RULES.fileMaxSizeInvalid, {
+        message: `${where} has invalid maxSize "${sub.maxSize}". Use e.g. "10mb", "500kb".`,
+      });
     }
   }
   assertAcceptEntries(where, sub.accept);
@@ -143,13 +151,15 @@ const BARE_EXTENSION = /^[a-z0-9]+$/;
 
 function assertAcceptEntries(where: string, accept: readonly string[] | undefined): void {
   if (accept?.some((ext) => ext.length === 0)) {
-    throw new Error(`${where} has an empty entry in accept. List file extensions like "pdf".`);
+    throw bootRuleError(FIELD_CONDITION_RULES.acceptEntryEmpty, {
+      message: `${where} has an empty entry in accept. List file extensions like "pdf".`,
+    });
   }
   const offender = accept?.find((entry) => !BARE_EXTENSION.test(entry));
   if (offender !== undefined) {
-    throw new Error(
-      `${where} has accept entry "${offender}", which can never match an uploaded file. accept takes bare lower-case file extensions without dot, MIME type or wildcard: use "pdf" instead of ".pdf" or "application/pdf".`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.acceptEntryNotBareExtension, {
+      message: `${where} has accept entry "${offender}", which can never match an uploaded file. accept takes bare lower-case file extensions without dot, MIME type or wildcard: use "pdf" instead of ".pdf" or "application/pdf".`,
+    });
   }
 }
 
@@ -158,9 +168,9 @@ function assertSelectSubFieldTones(where: string, sub: EmbeddedSubFieldDef): voi
   if (sub.type !== "select" || sub.optionTones === undefined) return;
   for (const option of Object.keys(sub.optionTones)) {
     if (!sub.options.includes(option)) {
-      throw new Error(
-        `${where} has optionTones["${option}"] which is not an option (${sub.options.join(", ")}).`,
-      );
+      throw bootRuleError(FIELD_CONDITION_RULES.optionToneNotAnOption, {
+        message: `${where} has optionTones["${option}"] which is not an option (${sub.options.join(", ")}).`,
+      });
     }
   }
 }
@@ -188,9 +198,9 @@ function assertNumericSources(
   for (const source of from) {
     const sourceType = embedded.schema[source]?.type;
     if (sourceType === undefined || !NUMERIC_SUB_TYPES.has(sourceType)) {
-      throw new Error(
-        `${where} has a derived cell "${derivedName}" reading "${source}", which is not a number, decimal or money sub-field.`,
-      );
+      throw bootRuleError(FIELD_CONDITION_RULES.derivedSourceNotNumeric, {
+        message: `${where} has a derived cell "${derivedName}" reading "${source}", which is not a number, decimal or money sub-field.`,
+      });
     }
   }
 }
@@ -201,30 +211,30 @@ function assertDerivedCells(where: string, embedded: EmbeddedFieldDef): void {
     assertNumericSources(where, name, embedded, cell.from);
     if (cell.op === "inRange") {
       if (cell.from.length !== 3) {
-        throw new Error(
-          `${where} has a derived cell "${name}" with op "inRange", which needs exactly three sources (value, min, max).`,
-        );
+        throw bootRuleError(FIELD_CONDITION_RULES.inRangeNeedsThreeSources, {
+          message: `${where} has a derived cell "${name}" with op "inRange", which needs exactly three sources (value, min, max).`,
+        });
       }
       if (
         target?.type !== "select" ||
         !target.options.includes(cell.inside) ||
         !target.options.includes(cell.outside)
       ) {
-        throw new Error(
-          `${where} has a derived cell "${name}" with op "inRange", whose target must be a select sub-field with the options "${cell.inside}" and "${cell.outside}".`,
-        );
+        throw bootRuleError(FIELD_CONDITION_RULES.inRangeTargetNotSelect, {
+          message: `${where} has a derived cell "${name}" with op "inRange", whose target must be a select sub-field with the options "${cell.inside}" and "${cell.outside}".`,
+        });
       }
     } else if (target === undefined || !NUMERIC_SUB_TYPES.has(target.type)) {
-      throw new Error(
-        `${where} has a derived cell "${name}" with op "${cell.op}", whose target must be a number, decimal or money sub-field.`,
-      );
+      throw bootRuleError(FIELD_CONDITION_RULES.derivedTargetNotNumeric, {
+        message: `${where} has a derived cell "${name}" with op "${cell.op}", whose target must be a number, decimal or money sub-field.`,
+      });
     }
     if (cell.when !== undefined) {
       assertSubFieldCondition(`${where}.${name}`, "when", undefined, cell.when, embedded);
       if (cell.when.field in (embedded.derived ?? {})) {
-        throw new Error(
-          `${where} has a derived cell "${name}" whose when reads the derived cell "${cell.when.field}". Read a stored sub-field.`,
-        );
+        throw bootRuleError(FIELD_CONDITION_RULES.derivedWhenReadsDerived, {
+          message: `${where} has a derived cell "${name}" whose when reads the derived cell "${cell.when.field}". Read a stored sub-field.`,
+        });
       }
     }
   }
@@ -245,9 +255,9 @@ function assertFileSubFieldsAreNotWired(where: string, embedded: EmbeddedFieldDe
   ];
   const offender = wired.find((name) => fileSubs.has(name));
   if (offender !== undefined) {
-    throw new Error(
-      `${where} uses file sub-field "${offender}" in derived or totals, which only take number, decimal or money sub-fields.`,
-    );
+    throw bootRuleError(FIELD_CONDITION_RULES.fileSubFieldInDerived, {
+      message: `${where} uses file sub-field "${offender}" in derived or totals, which only take number, decimal or money sub-fields.`,
+    });
   }
 }
 

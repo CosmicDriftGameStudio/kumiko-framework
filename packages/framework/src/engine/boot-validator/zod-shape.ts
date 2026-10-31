@@ -22,6 +22,8 @@ import {
   ZodXor,
 } from "zod";
 import type { $ZodType } from "zod/v4/core";
+import { bootRuleError } from "./boot-rule.ts";
+import { HANDLER_FIELD_REFERENCE_RULES } from "./handler-field-references-rules.ts";
 
 // Drills through wrapper types (.nullable(), .optional(), .default()) a
 // handler's schema may use around its actual object/array shape — e.g. a
@@ -144,10 +146,11 @@ export function collectZodObjectKeys(schema: $ZodType | undefined): ReadonlySet<
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     if (visited.has(next)) continue;
     if (visited.size >= MAX_WALKED_SCHEMAS) {
-      throw new Error(
-        `collectZodObjectKeys: schema has more than ${MAX_WALKED_SCHEMAS} nodes — ` +
+      throw bootRuleError(HANDLER_FIELD_REFERENCE_RULES.zodWalkLimit, {
+        message:
+          `collectZodObjectKeys: schema has more than ${MAX_WALKED_SCHEMAS} nodes — ` +
           "a z.lazy() getter probably returns a new schema on every call; hoist it into a constant.",
-      );
+      });
     }
     visited.add(next);
     if (next instanceof ZodObject) {
