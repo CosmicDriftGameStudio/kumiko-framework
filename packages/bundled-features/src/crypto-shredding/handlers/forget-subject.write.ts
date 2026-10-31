@@ -24,8 +24,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
-  type EntityDefinition,
   type FeatureDefinition,
+  findEntity,
   type HandlerContext,
   parseTenantId,
   type SessionUser,
@@ -111,19 +111,6 @@ function subjectAggregateId(raw: SubjectIdInput): string {
   }
 }
 
-// The record subject names its own entity — resolve it against the registry
-// instead of trusting the payload straight into resolveTableName/SQL.
-function findRegisteredEntity(
-  features: ReadonlyMap<string, FeatureDefinition>,
-  entityName: string,
-): EntityDefinition | undefined {
-  for (const feature of features.values()) {
-    const entity = feature.entities?.[entityName];
-    if (entity) return entity;
-  }
-  return undefined;
-}
-
 // Tenant-scope guard: DataProtectionOfficer is a tenant-scoped role,
 // but the handler otherwise erases ANY subject cross-tenant on a raw
 // (un-scoped) client — a Tenant-A DPO who learns a Tenant-B subject id
@@ -148,7 +135,9 @@ async function resolveTenantScopeDenial(
     // Same fail-open rule as the user branch below — without the tenant
     // feature there is no tenant concept to enforce.
     if (!features.has("tenant")) return undefined;
-    const entity = findRegisteredEntity(features, raw.entity);
+    // The record subject names its own entity — resolve it against the registry
+    // instead of trusting the payload straight into resolveTableName/SQL.
+    const entity = findEntity(features, raw.entity);
     const rowInTenant =
       entity !== undefined &&
       (await recordRowExistsInTenant(db, features, raw.entity, raw.id, user.tenantId));
@@ -202,7 +191,7 @@ async function resolveRetentionDenial(
     writeFailure(
       new AccessDeniedError({ details: { reason: TARGET_RECORD_RETENTION_BLOCK_DELETE } }),
     );
-  const entity = findRegisteredEntity(features, raw.entity);
+  const entity = findEntity(features, raw.entity);
   if (entity?.retention?.strategy === "blockDelete") return deny();
   if (!features.has("data-retention")) return undefined;
 

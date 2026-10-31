@@ -34,6 +34,7 @@ import { resolveNavigation } from "../../headless/index.ts";
 import { createLiveRefetchScheduler } from "../../hooks/live-refetch-scheduler.ts";
 import type { AppSchema, FeatureSchema } from "../../index.ts";
 import { lastSegment, toAppSchema, useLiveEvents, useNav, useTranslation } from "../../index.ts";
+import { toggleSetMember } from "../../toggle-set-member.ts";
 import { KumikoLink } from "../app/nav.tsx";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context.tsx";
 import { NAV_ICONS } from "../icons.tsx";
@@ -159,12 +160,7 @@ export function NavTree({
   // without requiring the user to click first.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const onToggle = useCallback((qn: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(qn)) next.delete(qn);
-      else next.add(qn);
-      return next;
-    });
+    setCollapsed((prev) => toggleSetMember(prev, qn));
   }, []);
 
   const t = useTranslation();

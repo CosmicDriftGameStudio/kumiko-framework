@@ -62,6 +62,27 @@ describe("createKumikoServer — public/ static files", () => {
     }
   });
 
+  test("a .webp file under public/ is served as image/webp", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-")));
+    mkdirSync(join(tmpDir, "public"), { recursive: true });
+    writeFileSync(join(tmpDir, "public", "photo.webp"), "WEBPDATA");
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/photo.webp"));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test("traversal attempts never serve a file from outside public/", async () => {
     const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-traversal-")));
     const publicDir = join(tmpDir, "public");

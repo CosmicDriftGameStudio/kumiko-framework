@@ -347,6 +347,7 @@ export type {
   LiveEventsProviderProps,
 } from "./sse/live-events.tsx";
 export { LIVE_RESYNC_EVENT_TYPE, LiveEventsProvider, useLiveEvents } from "./sse/live-events.tsx";
+export { toggleSetMember } from "./toggle-set-member.ts";
 export type {
   AppTokens,
   ColorTokens,

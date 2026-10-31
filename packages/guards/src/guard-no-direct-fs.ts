@@ -115,6 +115,8 @@ const ALLOWLIST: readonly AllowEntry[] = [
     repo: "kumiko-framework",
     pattern: /^packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
   },
+  // Writes app build output (static HTML pages) under the caller's outDir; page paths are traversal-checked.
+  { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/static-html-pages\.ts$/ },
   // Package lookup for the build and the dev server: existence check for
   // node_modules/<pkg>/package.json above a directory, no request input as a path.
   {

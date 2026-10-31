@@ -367,6 +367,7 @@ export {
   maskWriteOnlyFields,
 } from "./field-access.ts";
 export { DEFAULT_CURRENCIES, DEFAULT_LOCALES } from "./field-helpers.ts";
+export { findEntity } from "./find-entity.ts";
 export { handlerFieldReference } from "./handler-field-references.ts";
 export { withResponseData } from "./handler-helpers.ts";
 export { HookPhases } from "./hook-helpers.ts";
