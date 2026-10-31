@@ -2,8 +2,8 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
-import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { parseSubject } from "../parse-subject.ts";
 import { type TenantJobRunStatus, tenantJobRunsTable } from "../tenant-job-run-table.ts";
 
 type TenantJobRunRow = {
@@ -18,19 +18,6 @@ type TenantJobRunRow = {
 };
 
 const DEFAULT_LIMIT = 50;
-
-function isSubjectEntry(value: unknown): value is [string, unknown] {
-  return Array.isArray(value) && typeof value[0] === "string";
-}
-
-function parseSubject(stored: string | null): Record<string, unknown> | null {
-  if (stored === null) return null;
-  // A corrupt subject must not fail the whole list; parseJsonSafe only
-  // survives a SyntaxError, so the shape needs its own check.
-  const parsed = parseJsonSafe<unknown>(stored, null);
-  if (!Array.isArray(parsed)) return null;
-  return Object.fromEntries(parsed.filter(isSubjectEntry));
-}
 
 export function createTenantRunsQuery(readRoles: readonly string[]) {
   return defineQueryHandler({

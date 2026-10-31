@@ -19,6 +19,7 @@ import {
 import { postWithDownload } from "@cosmicdrift/kumiko-renderer/web";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
+import { type SectionStatus, StatusBanner } from "../../shared/web/status-banner.tsx";
 import {
   EXPORT_JOB_STATUS,
   type ExportJobStatus,
@@ -41,12 +42,6 @@ type ExportStatusResult =
   | { readonly hasJob: false }
   | { readonly hasJob: true; readonly job: ExportJob };
 
-type SectionStatus =
-  | { kind: "idle" }
-  | { kind: "submitting" }
-  | { kind: "success"; messageKey: string }
-  | { kind: "error"; messageKey: string };
-
 // Dispatcher failures include i18nKey only when the handler sets one; read it
 // at the boundary with a generic fallback.
 function failureKey(error: unknown): string {
@@ -61,18 +56,6 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return EMPTY_VALUE_PLACEHOLDER;
   const tIndex = iso.indexOf("T");
   return tIndex > 0 ? iso.slice(0, tIndex) : iso;
-}
-
-function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode {
-  const t = useTranslation();
-  const { Banner } = usePrimitives();
-  if (status.kind === "success") {
-    return <Banner variant="info">{t(status.messageKey)}</Banner>;
-  }
-  if (status.kind === "error") {
-    return <Banner variant="error">{t(status.messageKey)}</Banner>;
-  }
-  return null;
 }
 
 // Mounted by the renderer's ExtensionSectionMount (already wrapped in

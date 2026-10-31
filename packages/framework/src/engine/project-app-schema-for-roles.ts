@@ -379,85 +379,45 @@ function keepTreeAction(action: TreeAction, keptScreenQns: ReadonlySet<string>):
 // `undefined` (never an empty array) when everything was — same JSON-safety
 // convention as buildAppSchema.
 
-function keepRowAction(
-  action: RowAction,
+type ScreenTargetAction = RowAction | ToolbarAction | RelatedListToolbarAction;
+
+function keepScreenTargetAction(
+  action: ScreenTargetAction,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): boolean {
   if (action.kind === "drawer") return isDrawerTargetKept(feature, action.screen, keptScreenQns);
   if (action.kind === "navigate") return isNavigateTargetKept(action, indices, keptScreenQns);
-  return true; // writeHandler — no screen target
+  return true; // no screen target
 }
 
-function projectRowActionArray<TAction extends RowAction>(
+function filterKeptActions<TAction>(
+  actions: readonly TAction[] | undefined,
+  keep: (action: TAction) => boolean,
+): readonly TAction[] | undefined {
+  if (actions === undefined) return undefined;
+  const kept = actions.filter(keep);
+  if (kept.length === actions.length) return actions;
+  return kept.length > 0 ? kept : undefined;
+}
+
+function projectActionArray<TAction extends ScreenTargetAction>(
   actions: readonly TAction[] | undefined,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): readonly TAction[] | undefined {
-  if (actions === undefined) return undefined;
-  const kept = actions.filter((a) => keepRowAction(a, feature, indices, keptScreenQns));
-  if (kept.length === actions.length) return actions;
-  return kept.length > 0 ? kept : undefined;
-}
-
-function keepToolbarAction(
-  action: ToolbarAction,
-  feature: FeatureSchema,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): boolean {
-  if (action.kind === "navigate") return isNavigateTargetKept(action, indices, keptScreenQns);
-  if (action.kind === "drawer") return isDrawerTargetKept(feature, action.screen, keptScreenQns);
-  return true;
-}
-
-function projectToolbarActionArray(
-  actions: readonly ToolbarAction[] | undefined,
-  feature: FeatureSchema,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): readonly ToolbarAction[] | undefined {
-  if (actions === undefined) return undefined;
-  const kept = actions.filter((a) => keepToolbarAction(a, feature, indices, keptScreenQns));
-  if (kept.length === actions.length) return actions;
-  return kept.length > 0 ? kept : undefined;
-}
-
-function keepRelatedListToolbarAction(
-  action: RelatedListToolbarAction,
-  feature: FeatureSchema,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): boolean {
-  if (action.kind === "navigate") return isNavigateTargetKept(action, indices, keptScreenQns);
-  if (action.kind === "drawer") return isDrawerTargetKept(feature, action.screen, keptScreenQns);
-  return true;
-}
-
-function projectRelatedListToolbarActionArray(
-  actions: readonly RelatedListToolbarAction[] | undefined,
-  feature: FeatureSchema,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): readonly RelatedListToolbarAction[] | undefined {
-  if (actions === undefined) return undefined;
-  const kept = actions.filter((a) =>
-    keepRelatedListToolbarAction(a, feature, indices, keptScreenQns),
+  return filterKeptActions(actions, (a) =>
+    keepScreenTargetAction(a, feature, indices, keptScreenQns),
   );
-  if (kept.length === actions.length) return actions;
-  return kept.length > 0 ? kept : undefined;
 }
 
 function projectTreeActionArray(
   actions: readonly TreeAction[] | undefined,
   keptScreenQns: ReadonlySet<string>,
 ): readonly TreeAction[] | undefined {
-  if (actions === undefined) return undefined;
-  const kept = actions.filter((a) => keepTreeAction(a, keptScreenQns));
-  if (kept.length === actions.length) return actions;
-  return kept.length > 0 ? kept : undefined;
+  return filterKeptActions(actions, (a) => keepTreeAction(a, keptScreenQns));
 }
 
 function projectTreeAction(
@@ -488,7 +448,7 @@ function projectEmptyState(
 ): EditRelatedListSection["emptyState"] {
   if (emptyState === undefined) return undefined;
   if (emptyState.action === undefined) return emptyState;
-  if (keepRowAction(emptyState.action, feature, indices, keptScreenQns)) return emptyState;
+  if (keepScreenTargetAction(emptyState.action, feature, indices, keptScreenQns)) return emptyState;
   const { action, ...rest } = emptyState;
   return rest;
 }
@@ -503,14 +463,9 @@ function projectRelatedListSection(
   keptScreenQns: ReadonlySet<string>,
 ): EditRelatedListSection | EntityListExpandableRow {
   const { actions, rowActions, toolbarActions, rowClick, emptyState, ...rest } = section;
-  const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
-  const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);
-  const nextToolbarActions = projectRelatedListToolbarActionArray(
-    toolbarActions,
-    feature,
-    indices,
-    keptScreenQns,
-  );
+  const nextActions = projectActionArray(actions, feature, indices, keptScreenQns);
+  const nextRowActions = projectActionArray(rowActions, feature, indices, keptScreenQns);
+  const nextToolbarActions = projectActionArray(toolbarActions, feature, indices, keptScreenQns);
   const nextRowClick =
     rowClick === undefined || isRowClickEntityKept(rowClick.entity, indices, keptScreenQns)
       ? rowClick
@@ -546,18 +501,18 @@ function projectEditSection(
       return projectRelatedListSection(section, feature, indices, keptScreenQns);
     case "extension": {
       const { actions, ...rest } = section;
-      const kept = projectRowActionArray(actions, feature, indices, keptScreenQns);
+      const kept = projectActionArray(actions, feature, indices, keptScreenQns);
       return kept === actions ? section : { ...rest, ...(kept !== undefined && { actions: kept }) };
     }
     case "writeForm": {
       const { actions, ...rest } = section;
-      const kept = projectRowActionArray(actions, feature, indices, keptScreenQns);
+      const kept = projectActionArray(actions, feature, indices, keptScreenQns);
       return kept === actions ? section : { ...rest, ...(kept !== undefined && { actions: kept }) };
     }
     default: {
       // kind undefined or "fields"
       const { actions, ...rest } = section;
-      const kept = projectRowActionArray(actions, feature, indices, keptScreenQns);
+      const kept = projectActionArray(actions, feature, indices, keptScreenQns);
       return kept === actions ? section : { ...rest, ...(kept !== undefined && { actions: kept }) };
     }
   }
@@ -690,13 +645,8 @@ function projectListScreen(
 ): ScreenDefinition {
   const screen = dropUnreachableCreateScreen(original, feature, keptScreenQns);
   const { rowActions, toolbarActions, ...rest } = screen;
-  const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);
-  const nextToolbarActions = projectToolbarActionArray(
-    toolbarActions,
-    feature,
-    indices,
-    keptScreenQns,
-  );
+  const nextRowActions = projectActionArray(rowActions, feature, indices, keptScreenQns);
+  const nextToolbarActions = projectActionArray(toolbarActions, feature, indices, keptScreenQns);
   const expandableRow = screen.type === "entityList" ? screen.expandableRow : undefined;
   const nextExpandableRow =
     expandableRow === undefined
@@ -726,7 +676,7 @@ function projectProjectionDetailScreen(
   const { metrics, header, actions, layout, listScreenId, ...rest } = screen;
   const nextMetrics = projectMetrics(metrics, indices, keptScreenQns);
   const nextHeader = projectHeader(header, indices, keptScreenQns);
-  const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+  const nextActions = projectActionArray(actions, feature, indices, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
   const unchanged =
@@ -754,7 +704,7 @@ function projectEntityEditScreen(
 ): ScreenDefinition {
   const { redirect, actions, layout, listScreenId, ...rest } = screen;
   const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
-  const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+  const nextActions = projectActionArray(actions, feature, indices, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
   const unchanged =
@@ -852,7 +802,7 @@ function projectScreen(
     case "dashboard": {
       const { actions, ...rest } = screen;
       const nextPanels = projectDashboardPanels(screen.panels, feature, keptScreenQns);
-      const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+      const nextActions = projectActionArray(actions, feature, indices, keptScreenQns);
       if (nextPanels === screen.panels && nextActions === actions) return screen;
       return {
         ...rest,

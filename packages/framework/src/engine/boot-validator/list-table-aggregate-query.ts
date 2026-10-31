@@ -1,15 +1,14 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { resolveEntityBehindListQuery } from "../entity-list-searchability.ts";
+import { findEntity } from "../find-entity.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
 import type { ListColumnSpec, ListTableOptions } from "../types/screen.ts";
 import {
   type AggregateFieldInfo,
   entityAggregateFieldLookup,
   validateListTableAggregateFieldTypes,
 } from "./list-table-aggregate-options.ts";
-import { findEntity } from "./parent-ref.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
 
 function columnValueTypeLookup(

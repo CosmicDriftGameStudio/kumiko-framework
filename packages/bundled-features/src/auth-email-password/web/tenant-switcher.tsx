@@ -24,6 +24,7 @@ import {
 import { Building2, ChevronDown } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useSession } from "./session.tsx";
+import { tenantLabel } from "./tenant-label.ts";
 
 export type TenantSwitcherProps = {
   /** Optional: provides a human-readable name for each tenant ID.
@@ -55,22 +56,14 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
     [activeTenantId, switchTenant],
   );
 
-  // Label priority: app-provided resolver (prop) > server-provided
-  // name/key from /auth/tenants > UUID prefix. The latter is only a
-  // last resort — it is indistinguishable for seeded tenants (00000000-…).
-  const nameOf = (tenantId: string): string => {
-    if (tenantName !== undefined) return tenantName(tenantId);
-    const membership = tenants.find((m) => m.tenantId === tenantId);
-    // || instead of ??: an empty name/key string must not be used as a label.
-    return membership?.name || membership?.key || tenantId.slice(0, 8);
-  };
-
   // Rendering gate: no user → nothing; only one tenant → nothing as well
   // (single-tenant apps do not need a switcher).
   if (user === null || tenants.length <= 1) return null;
 
   const activeLabel =
-    activeTenantId !== null ? nameOf(activeTenantId) : t("auth.tenant.switcher.none");
+    activeTenantId !== null
+      ? tenantLabel(tenants, activeTenantId, tenantName)
+      : t("auth.tenant.switcher.none");
 
   return (
     <DropdownMenu>
@@ -105,7 +98,9 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
               }}
             >
               <div className="flex flex-col items-start min-w-0">
-                <span className="truncate font-medium">{nameOf(membership.tenantId)}</span>
+                <span className="truncate font-medium">
+                  {tenantLabel(tenants, membership.tenantId, tenantName)}
+                </span>
                 {membership.roles.length > 0 && (
                   <span className="text-xs text-muted-foreground truncate">
                     {membership.roles.join(", ")}

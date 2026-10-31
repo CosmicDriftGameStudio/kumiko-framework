@@ -1,5 +1,6 @@
 import type { ResolvedPiiFlags } from "@cosmicdrift/kumiko-types/fields";
 import { type EventPiiSubject, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
+import { isFileField } from "../engine/field-helpers.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { isSelfPiiField } from "./is-self-pii-field.ts";
@@ -250,20 +251,11 @@ export function collectPiiSubjectFields(entity: EntityDefinition): readonly stri
     .map(([name]) => name);
 }
 
-function isFileReferenceField(field: EntityDefinition["fields"][string]): boolean {
-  return (
-    field.type === "file" ||
-    field.type === "image" ||
-    field.type === "files" ||
-    field.type === "images"
-  );
-}
-
 // File columns hold only the fileRef uuid; the binary is erased by the file-ref
 // user-data hook, so these stay annotated (forget) but are never ciphertext.
 export function collectPiiEncryptedFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
-    .filter(([, field]) => hasSubjectAnnotation(field) && !isFileReferenceField(field))
+    .filter(([, field]) => hasSubjectAnnotation(field) && !isFileField(field))
     .map(([name]) => name);
 }
 
@@ -271,7 +263,7 @@ export function collectPiiEncryptedFields(entity: EntityDefinition): readonly st
 // old backfill (which encrypted them) still carry it and must replay.
 export function collectPiiFileReferenceFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
-    .filter(([, field]) => hasSubjectAnnotation(field) && isFileReferenceField(field))
+    .filter(([, field]) => hasSubjectAnnotation(field) && isFileField(field))
     .map(([name]) => name);
 }
 

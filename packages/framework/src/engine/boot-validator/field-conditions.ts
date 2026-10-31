@@ -9,6 +9,7 @@ import type {
 import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
 import { isFileSubField } from "../../files/file-field-slots.ts";
 import { parseMaxSize } from "../../files/types.ts";
+import { isFileField } from "../field-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { conditionComparisonValues, LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
 
@@ -270,18 +271,7 @@ function assertField(
     if (condition !== undefined) assertTopLevelCondition(where, key, fieldName, condition, entity);
   }
   if (field.type === "embedded") assertEmbeddedField(where, field);
-  if (isFileAcceptField(field)) assertAcceptEntries(where, field.accept);
-}
-
-function isFileAcceptField(
-  field: FieldDefinition,
-): field is Extract<FieldDefinition, { type: "file" | "files" | "image" | "images" }> {
-  return (
-    field.type === "file" ||
-    field.type === "files" ||
-    field.type === "image" ||
-    field.type === "images"
-  );
+  if (isFileField(field)) assertAcceptEntries(where, field.accept);
 }
 
 export function validateFieldConditions(feature: FeatureDefinition): void {

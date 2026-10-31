@@ -28,7 +28,6 @@ import {
   createSystemDbView,
   createTenantDb,
   type DbConnection,
-  type TenantDb,
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -45,6 +44,7 @@ import {
   classifyStoredEnvelope,
   runChunkedMigration,
 } from "../../shared/index.ts";
+import { createSystemTenantDbCache } from "../../shared/system-tenant-db-cache.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 
 const DEFAULT_MAX_FAILURES = 10;
@@ -121,20 +121,10 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     });
   }
 
-  const tdbCache = new Map<TenantId, TenantDb>();
-  function tdbFor(tenantId: TenantId): TenantDb {
-    let existing = tdbCache.get(tenantId);
-    if (!existing) {
-      existing = createTenantDb({
-        db,
-        tenantId,
-        mode: "system",
-        reason: "KEK rotation job re-encrypts config values of every tenant",
-      });
-      tdbCache.set(tenantId, existing);
-    }
-    return existing;
-  }
+  const tdbFor = createSystemTenantDbCache(
+    db,
+    "KEK rotation job re-encrypts config values of every tenant",
+  );
 
   const sdbCache = new Map<TenantId, UncheckedSystemDb>();
   function sdbFor(tenantId: TenantId): UncheckedSystemDb {

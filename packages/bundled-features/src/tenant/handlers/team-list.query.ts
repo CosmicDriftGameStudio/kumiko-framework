@@ -14,8 +14,11 @@ import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
-
-const KMS_POOL_CONCURRENCY = 4;
+import {
+  decryptMemberUsers,
+  KMS_POOL_CONCURRENCY,
+  type MemberUserRow,
+} from "./decrypt-member-users.ts";
 
 type TeamStatus = "active" | "pending";
 
@@ -115,11 +118,7 @@ export const teamListQuery = definePagedQueryHandler({
     const membershipRows = await selectMany(db, tenantMembershipsTable, { tenantId });
     const userIds = [...new Set(membershipRows.map((row) => String(row["userId"])))];
     const users =
-      userIds.length > 0
-        ? await selectMany<{ id: unknown; email?: unknown; displayName?: unknown }>(db, userTable, {
-            id: userIds,
-          })
-        : [];
+      userIds.length > 0 ? await selectMany<MemberUserRow>(db, userTable, { id: userIds }) : [];
 
     const lastSeenByUserId = new Map<string, Temporal.Instant>();
     if (userIds.length > 0) {
@@ -147,21 +146,10 @@ export const teamListQuery = definePagedQueryHandler({
     }
 
     // Bounded, not Promise.all/sequential-per-item: shares the KMS
-    // adapter's small dedicated pool (max 4, see members.query.ts) with the
+    // adapter's small dedicated pool (max 4, see decrypt-member-users.ts) with the
     // invitations decrypt below — the two passes run one after the other
     // (await, not Promise.all), so combined concurrency never exceeds 4.
-    const decryptedUsers = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
-      const email =
-        typeof user.email === "string"
-          ? await decryptStoredPii(user.email, "email", "tenant:team-list")
-          : null;
-      const displayName =
-        typeof user.displayName === "string"
-          ? await decryptStoredPii(user.displayName, "displayName", "tenant:team-list")
-          : null;
-      return { userId: String(user.id), email, displayName };
-    });
-    const decryptedByUserId = new Map(decryptedUsers.map((d) => [d.userId, d]));
+    const decryptedByUserId = await decryptMemberUsers(users, "tenant:team-list");
 
     const memberRows: TeamRow[] = membershipRows.map((row) => {
       const userId = String(row["userId"]);

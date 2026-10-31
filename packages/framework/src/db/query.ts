@@ -620,24 +620,10 @@ export async function insertOne<TRow = AnyRow>(
   const managedDenied = executorManagedWriteDenied(db, table, "insertOne");
   if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
-  const entries = Object.entries(values)
-    .filter(([k]) => info.hasColumn(k))
-    .map(([k, v]) => {
-      const col = info.columnOf(k);
-      const pgType = info.pgTypeOf(col);
-      return { col, prepared: prepareValue(v, pgType) };
-    });
+  const entries = insertEntries(info, values);
   if (entries.length === 0) throw new Error("insertOne: empty values object");
-  const cols = entries.map((e) => quoteIdent(e.col)).join(", ");
-  const params: unknown[] = [];
-  const placeholders = entries
-    .map((e) => {
-      if (e.prepared.kind === "literal") return e.prepared.literal;
-      params.push(e.prepared.bound);
-      return `$${params.length}${e.prepared.sql}`;
-    })
-    .join(", ");
-  const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
+  const { sqlPrefix, params } = buildInsertSql(info, entries);
+  const sqlText = `${sqlPrefix} RETURNING *`;
   const rows = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "insertOne",
     table: info.name,

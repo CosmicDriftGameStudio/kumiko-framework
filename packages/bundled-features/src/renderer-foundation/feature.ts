@@ -1,4 +1,5 @@
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { collectExtensionOptions } from "../shared/collect-extension-options.ts";
 import { RENDERER_EXTENSION } from "./constants.ts";
 import { isRendererRegistrationPlugin, type RendererPlugin } from "./types.ts";
 
@@ -22,13 +23,7 @@ export function createRendererFoundationFeature() {
     });
     r.requires({ features: ["template-resolver"] });
 
-    r.extendsRegistrar(RENDERER_EXTENSION, {
-      onRegister: () => {
-        // Plugin conformance check could go here: validate the shape of
-        // options (kinds, render function present). No shape check currently —
-        // the caller's TypeScript type safety applies.
-      },
-    });
+    r.extendsRegistrar(RENDERER_EXTENSION, {});
 
     return {};
   });
@@ -40,13 +35,5 @@ export function createRendererFoundationFeature() {
 //
 // Symmetric to collectChannels / collectRenderers in delivery-service.
 export function collectRendererPlugins(registry: Registry): RendererPlugin[] {
-  const usages = registry.getExtensionUsages(RENDERER_EXTENSION);
-  return usages.map((usage) => {
-    if (!isRendererRegistrationPlugin(usage.options)) {
-      throw new Error(
-        `${RENDERER_EXTENSION} registration for "${usage.entityName}" has invalid options`,
-      );
-    }
-    return { name: usage.entityName, ...usage.options };
-  });
+  return collectExtensionOptions(registry, RENDERER_EXTENSION, isRendererRegistrationPlugin);
 }

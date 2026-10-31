@@ -26,14 +26,10 @@
 // src (node_modules is ignored by default) or these classes never compile. money-
 // horse already does; that scan is a real shipping requirement for any host.
 
-import {
-  useDispatcher,
-  usePrimitives,
-  useQuery,
-  useTranslation,
-} from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
+import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
 import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.ts";
 
@@ -99,13 +95,15 @@ export function FolderManager({
 }): ReactNode {
   const { Banner, Button, Dialog, Input, Text } = usePrimitives();
   const t = useTranslation();
-  const dispatcher = useDispatcher();
   const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {});
   const [pending, setPending] = useState<Pending>(null);
   const [draftName, setDraftName] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(loadCollapsed);
-  const [busy, setBusy] = useState(false);
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const { busy, setBusy, errorKey, setErrorKey, writeOk, apply } = useDispatchedWrites(async () => {
+    setPending(null);
+    await catalog.refetch();
+    await filing?.onReassigned();
+  });
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<FolderNode | null>(null);
 
@@ -175,29 +173,6 @@ export function FolderManager({
     setErrorKey(null);
     setDraftName(folder.name);
     setPending({ mode: "rename", id: folder.id, version: folder.version });
-  };
-
-  const apply = async (write: () => Promise<boolean>): Promise<void> => {
-    setBusy(true);
-    setErrorKey(null);
-    try {
-      if (await write()) {
-        setPending(null);
-        await catalog.refetch();
-        await filing?.onReassigned();
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
-    const result = await dispatcher.write(type, payload);
-    if (!result.isSuccess) {
-      setErrorKey(result.error.i18nKey);
-      return false;
-    }
-    return true;
   };
 
   const saveDraft = (): void => {

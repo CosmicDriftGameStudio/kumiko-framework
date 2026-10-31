@@ -4,6 +4,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { isExpiredAt } from "../expiry.ts";
+import { parseScopeNames } from "../parse-scope-names.ts";
 import { apiTokenTable } from "../schema/api-token.ts";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy has
@@ -26,15 +27,6 @@ function tokenStatus(row: {
   if (row.revokedAt !== null) return "revoked";
   if (isExpiredAt(row.expiresAt)) return "expired";
   return "active";
-}
-
-function parseScopeNames(raw: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : [];
-  } catch {
-    return [];
-  }
 }
 
 // The caller's own tokens — metadata only, never the hash or plaintext.

@@ -26,6 +26,7 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
+import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
@@ -148,12 +149,6 @@ export type FoldersFeatureOptions = {
   readonly parents?: readonly string[];
 };
 
-function resolveAccess(opts: FoldersFeatureOptions): AccessRule {
-  if (opts.access !== undefined) return opts.access;
-  if (opts.roles !== undefined) return { roles: opts.roles };
-  return DEFAULT_FOLDER_ACCESS;
-}
-
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/toggleable build a fresh feature-definition.
 export function createFoldersFeature(
@@ -177,7 +172,7 @@ export function createFoldersFeature(
         "admissible as a host instead.",
     );
   }
-  const access = resolveAccess(opts);
+  const access = resolveFeatureAccess(opts, DEFAULT_FOLDER_ACCESS);
   return defineFeature(FOLDERS_FEATURE_NAME, (r) =>
     registerFolders(r, access, opts.toggleable, opts.ownership, opts.parents),
   );

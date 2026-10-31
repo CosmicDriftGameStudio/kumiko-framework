@@ -31,10 +31,8 @@ import {
 import {
   configuredEntityFieldEncryption,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
-  type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
@@ -44,6 +42,7 @@ import {
   classifyStoredEnvelope,
   runChunkedMigration,
 } from "../../shared/index.ts";
+import { createSystemTenantDbCache } from "../../shared/system-tenant-db-cache.ts";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -105,20 +104,10 @@ export async function mfaReencryptJob(
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
-  const tdbCache = new Map<TenantId, TenantDb>();
-  function tdbFor(tenantId: TenantId): TenantDb {
-    let existing = tdbCache.get(tenantId);
-    if (!existing) {
-      existing = createTenantDb({
-        db,
-        tenantId,
-        mode: "system",
-        reason: "MFA key re-encryption job rewrites enrollments of every tenant",
-      });
-      tdbCache.set(tenantId, existing);
-    }
-    return existing;
-  }
+  const tdbFor = createSystemTenantDbCache(
+    db,
+    "MFA key re-encryption job rewrites enrollments of every tenant",
+  );
 
   type UserMfaRow = {
     id: string;

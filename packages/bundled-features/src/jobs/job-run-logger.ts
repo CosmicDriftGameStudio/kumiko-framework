@@ -153,6 +153,27 @@ async function encryptLogMessages<T extends { readonly message: string }>(
   }));
 }
 
+async function insertEncryptedRunLogs(
+  db: DbConnection,
+  runId: string,
+  triggeredById: string | null,
+  logs: readonly { readonly level: string; readonly message: string; readonly timestamp: string }[],
+): Promise<void> {
+  // skip: empty log batch — the worker ran silent, no child rows to insert
+  if (logs.length === 0) return;
+  const encryptedLogs = await encryptLogMessages(logs, triggeredById);
+  await insertMany(
+    db,
+    jobRunLogsTable,
+    encryptedLogs.map((log) => ({
+      runId,
+      level: log.level,
+      message: log.message,
+      timestamp: parseJobInstant(log.timestamp),
+    })),
+  );
+}
+
 // Mirrors encryptFailureError for the failure-path `error` column:
 // stored alongside logs[].message under the same triggering user's DEK, so
 // a log/error pair from the same failed run decrypt together or erase
@@ -349,14 +370,7 @@ async function recordTenantRunOutcome(
   // A failed attempt BullMQ will retry goes back to waiting: the tenant keeps
   // seeing pending work, not a failure the next attempt may still resolve.
   if (result === "failed" && !outcome.finalAttempt) {
-    await inTenantScope(key.tenantId, () =>
-      updateMany(
-        db,
-        tenantJobRunsTable,
-        { status: "queued", startedAt: null, finishedAt: null, updatedAt: now },
-        { tenantId: key.tenantId, jobName, bullJobId },
-      ),
-    );
+    await markTenantRunQueued(db, key.tenantId, jobName, bullJobId, now);
     // skip: retry pending, the row stays active until the final attempt
     return;
   }
@@ -403,12 +417,22 @@ async function requeueTenantRun(
   const key = tenantRunKey(jobName, meta.tenantVisibleRun.tenantId, meta.tenantVisibleRun.subject);
   // skip: system-tenant run, no tenant-scoped query reads it
   if (!key) return;
-  await inTenantScope(key.tenantId, () =>
+  await markTenantRunQueued(db, key.tenantId, jobName, bullJobId, Temporal.Now.instant());
+}
+
+async function markTenantRunQueued(
+  db: DbConnection,
+  tenantId: string,
+  jobName: string,
+  bullJobId: string,
+  updatedAt: Temporal.Instant,
+): Promise<void> {
+  await inTenantScope(tenantId, () =>
     updateMany(
       db,
       tenantJobRunsTable,
-      { status: "queued", startedAt: null, finishedAt: null, updatedAt: Temporal.Now.instant() },
-      { tenantId: key.tenantId, jobName, bullJobId },
+      { status: "queued", startedAt: null, finishedAt: null, updatedAt },
+      { tenantId, jobName, bullJobId },
     ),
   );
 }
@@ -672,21 +696,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         },
         { id: runId },
       );
-      // skip: empty log batch — the worker ran silent. No child rows to
-      // insert; the status update above already recorded completion.
-      if (payload.logs.length > 0) {
-        const encryptedLogs = await encryptLogMessages(payload.logs, triggeredById);
-        await insertMany(
-          db,
-          jobRunLogsTable,
-          encryptedLogs.map((log) => ({
-            runId,
-            level: log.level,
-            message: log.message,
-            timestamp: parseJobInstant(log.timestamp),
-          })),
-        );
-      }
+      await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
       runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
     },
 
@@ -746,20 +756,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         },
         { id: runId },
       );
-      // skip: empty log batch — mirror of onJobComplete
-      if (payload.logs.length > 0) {
-        const encryptedLogs = await encryptLogMessages(payload.logs, triggeredById);
-        await insertMany(
-          db,
-          jobRunLogsTable,
-          encryptedLogs.map((log) => ({
-            runId,
-            level: log.level,
-            message: log.message,
-            timestamp: parseJobInstant(log.timestamp),
-          })),
-        );
-      }
+      await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
       runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
     },
   };

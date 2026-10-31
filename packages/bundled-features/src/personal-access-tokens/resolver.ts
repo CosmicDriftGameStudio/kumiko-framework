@@ -4,6 +4,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { isExpiredAt } from "./expiry.ts";
 import { hashPatToken } from "./hash.ts";
+import { parseScopeNames } from "./parse-scope-names.ts";
 import { resolvePatRoles } from "./roles.ts";
 import { apiTokenTable } from "./schema/api-token.ts";
 import { expandScopes, type PatScopeConfig } from "./web/scopes.ts";
@@ -41,13 +42,4 @@ export function createPatResolver(opts: {
       pat: { tokenId: row.id, scopes: granted, allowedQns: expandScopes(scopes, granted) },
     };
   };
-}
-
-function parseScopeNames(raw: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : [];
-  } catch {
-    return [];
-  }
 }

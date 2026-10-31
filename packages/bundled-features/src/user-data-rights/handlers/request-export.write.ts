@@ -23,9 +23,9 @@
 
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { isUniqueConstraintFailure } from "../../shared/is-unique-constraint-failure.ts";
 import {
   ACTIVE_JOB_CONSTRAINT,
   EXPORT_JOB_STATUS,
@@ -39,23 +39,6 @@ const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
 
 const REQUEST_EXPORT_REASON =
   "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant";
-
-/**
- * `createEventStoreExecutor.create` catches 23505 internally and returns
- * `WriteFailure(UniqueViolationError)` rather than throwing. Check the
- * failure code and constraintName to distinguish the app-side and race
- * paths; propagate other failures (validation, version conflicts, ...)
- * unchanged.
- */
-function isActiveJobConflict(failure: WriteFailure): boolean {
-  const error = failure.error as {
-    code?: string;
-    details?: { constraintName?: string };
-  }; // @cast-boundary error-details
-  return (
-    error.code === "unique_violation" && error.details?.constraintName === ACTIVE_JOB_CONSTRAINT
-  );
-}
 
 export const requestExportWrite = defineWriteHandler({
   name: "request-export",
@@ -115,7 +98,7 @@ export const requestExportWrite = defineWriteHandler({
       // crud.create, causing UniqueViolationError for our constraint. Re-fetch
       // and return the existing job with isExisting=true. Propagate other
       // failures (validation, version conflicts, ...) unchanged.
-      if (isActiveJobConflict(result)) {
+      if (isUniqueConstraintFailure(result, ACTIVE_JOB_CONSTRAINT)) {
         const winner = await findActiveJob(exportJobRunner, userId);
         if (!winner) {
           // This should be impossible: a constraint violation without an existing

@@ -21,6 +21,7 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
+import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
 import { createNoteEntryExecutor } from "./executor.ts";
 import { createAddNoteHandler } from "./handlers/add-note.write.ts";
@@ -104,12 +105,6 @@ export type NotesHistoryFeatureOptions = {
   readonly parents?: readonly string[];
 };
 
-function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
-  if (opts.access !== undefined) return opts.access;
-  if (opts.roles !== undefined) return { roles: opts.roles };
-  return DEFAULT_NOTES_HISTORY_ACCESS;
-}
-
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/ownership build a fresh feature-definition.
 export function createNotesHistoryFeature(
@@ -135,6 +130,11 @@ export function createNotesHistoryFeature(
     );
   }
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-    registerNotesHistory(r, resolveAccess(opts), opts.ownership, opts.parents),
+    registerNotesHistory(
+      r,
+      resolveFeatureAccess(opts, DEFAULT_NOTES_HISTORY_ACCESS),
+      opts.ownership,
+      opts.parents,
+    ),
   );
 }

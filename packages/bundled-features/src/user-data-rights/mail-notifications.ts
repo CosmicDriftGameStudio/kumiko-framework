@@ -1,19 +1,14 @@
 import {
   type FeatureRegistrar,
-  type NotificationLocalizedTemplate,
   QnTypes,
   qn,
   type TemplateVariables,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  hasMailTranslationKey,
-  listMailLocales,
-  mailT,
-  resolveMailLocale,
-} from "@cosmicdrift/kumiko-framework/i18n";
+import { mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { mailParagraph } from "../shared/index.ts";
+import { createMailLocaleTemplates } from "../shared/mail-locale-templates.ts";
 import { USER_DATA_RIGHTS_FEATURE } from "./web/constants.ts";
 
 const ALL_GDPR_MAIL_KINDS = [
@@ -49,18 +44,14 @@ function subjectKey(kind: GdprMailKind): string {
   return `gdpr.mail.${GDPR_MAIL_KINDS[kind].translationKey}.subject`;
 }
 
-const SUBJECT_KEY_BY_TYPE: ReadonlyMap<string, string> = new Map(
-  ALL_GDPR_MAIL_KINDS.map((kind) => [GdprMailNotificationTypes[kind], subjectKey(kind)]),
-);
+const mailLocaleTemplates = createMailLocaleTemplates({
+  kinds: ALL_GDPR_MAIL_KINDS,
+  notificationTypes: GdprMailNotificationTypes,
+  subjectKey,
+  bodyFor: (kind, locale) => mailBody(kind, locale),
+});
 
-// A registered locale whose bundle lacks the subject key has no template (see
-// gdprMailLocalizedTemplate); the renderer has no locale fallback, so the
-// sender must pick a locale that has one or the mail would not go out at all.
-export function gdprMailTemplateLocale(notificationType: string, requestedLocale: string): string {
-  const locale = resolveMailLocale(requestedLocale);
-  const key = SUBJECT_KEY_BY_TYPE.get(notificationType);
-  return key !== undefined && hasMailTranslationKey(locale, key) ? locale : "en";
-}
+export const gdprMailTemplateLocale = mailLocaleTemplates.templateLocale;
 
 const appName = () => templateVariable.text({ required: true });
 
@@ -119,33 +110,7 @@ function mailBody(kind: GdprMailKind, locale: string): string {
   }
 }
 
-// Evaluated when the registry is built, after every locale feature has
-// registered its mail translations. English always ships; another locale only
-// gets a template when it has its own subject, so a missing translation never
-// silently becomes an English mail in that locale's slot.
-export function gdprMailLocalizedTemplate(kind: GdprMailKind): () => NotificationLocalizedTemplate {
-  const kindSubjectKey = subjectKey(kind);
-  return () => {
-    const locales = [
-      "en",
-      ...listMailLocales().filter(
-        (locale) => locale !== "en" && hasMailTranslationKey(locale, kindSubjectKey),
-      ),
-    ];
-    return Object.fromEntries(
-      locales.map((locale) => [
-        locale,
-        {
-          body: mailBody(kind, locale),
-          meta: {
-            subject: mailT(locale, kindSubjectKey, { app: "{{appName}}" }),
-            category: "transactional" as const,
-          },
-        },
-      ]),
-    );
-  };
-}
+export const gdprMailLocalizedTemplate = mailLocaleTemplates.localizedTemplate;
 
 export function registerGdprMails(r: FeatureRegistrar): void {
   for (const kind of ALL_GDPR_MAIL_KINDS) {

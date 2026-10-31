@@ -18,6 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
+import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
 import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { type FolderRow, folderPath } from "./tree.ts";
 
@@ -58,8 +59,10 @@ export function FolderSection({
     { enabled },
   );
   const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const refetch = async (): Promise<void> => {
+    await Promise.all([catalog.refetch(), assignments.refetch()]);
+  };
+  const { busy, errorKey, setErrorKey, writeOk, apply } = useDispatchedWrites(refetch);
 
   if (entityId === null) {
     return (
@@ -94,29 +97,6 @@ export function FolderSection({
     { value: NO_FOLDER, label: t("folders.section.none") },
     ...folders.map((f) => ({ value: f.id, label: folderPath(folders, f.id) })),
   ];
-
-  const refetch = async (): Promise<void> => {
-    await Promise.all([catalog.refetch(), assignments.refetch()]);
-  };
-
-  const apply = async (write: () => Promise<boolean>): Promise<void> => {
-    setBusy(true);
-    setErrorKey(null);
-    try {
-      if (await write()) await refetch();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
-    const result = await dispatcher.write(type, payload);
-    if (!result.isSuccess) {
-      setErrorKey(result.error.i18nKey);
-      return false;
-    }
-    return true;
-  };
 
   const onSelect = (next: string): void => {
     if (next === currentFolderId) return;

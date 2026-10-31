@@ -141,13 +141,9 @@ export function createMailFoundationFeature() {
       // Plugin extension-point. Provider-features register here. The
       // entityName at registration time becomes the value tenants pick in
       // `provider` config-key (e.g. "smtp", "brevo-api").
-      r.extendsRegistrar(MAIL_TRANSPORT_EXTENSION, {
-        onRegister: () => {
-          // No side-effects at register-time — the registry stores the
-          // usage, factory looks it up at request-time. Same shape as
-          // delivery's extendsRegistrar.
-        },
-      });
+      // The registry stores the usage, factory looks it up at request-time. Same shape as
+      // delivery's extendsRegistrar.
+      r.extendsRegistrar(MAIL_TRANSPORT_EXTENSION, {});
 
       // Empty = this tenant has no own provider: tenantMailTransport yields null and
       // channel-email uses the app transport, so empty is a valid choice a tenant can

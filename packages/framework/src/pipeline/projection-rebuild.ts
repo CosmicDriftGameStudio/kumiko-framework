@@ -26,18 +26,13 @@ import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
-import type { EventMetadata } from "../event-store/event-store.ts";
-import {
-  eventsTable,
-  getEventsHighWaterMark,
-  type StoredEvent,
-  upcastStoredEvent,
-} from "../event-store/index.ts";
+import { eventsTable, getEventsHighWaterMark, upcastStoredEvent } from "../event-store/index.ts";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
 } from "../event-store/rebuild-dead-letter.ts";
+import { toStoredEvent } from "../event-store/row-to-stored-event.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { emitProjectionRebuild } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/metric.ts";
@@ -57,36 +52,6 @@ export const REBUILD_BATCH_SIZE = 1000;
 const MAX_UNLOCKED_BATCHES = 10_000;
 
 const DEFAULT_FENCE_LOCK_TIMEOUT_MS = 5_000;
-
-type StoredEventRow = {
-  id: bigint;
-  aggregateId: string;
-  aggregateType: string;
-  tenantId: string;
-  version: number;
-  type: string;
-  eventVersion: number;
-  payload: Record<string, unknown>;
-  metadata: EventMetadata;
-  createdAt: Temporal.Instant;
-  createdBy: string;
-};
-
-function rowToStoredEvent(row: StoredEventRow): StoredEvent {
-  return {
-    id: String(row.id),
-    aggregateId: row.aggregateId,
-    aggregateType: row.aggregateType,
-    tenantId: row.tenantId,
-    version: row.version,
-    type: row.type,
-    eventVersion: row.eventVersion,
-    payload: row.payload,
-    metadata: row.metadata,
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-  };
-}
 
 // Rebuild a projection from the event log — online, via a shadow swap with a
 // live-tail catch-up.
@@ -282,8 +247,8 @@ async function replayProjectionIntoShadow(
     const applyTx = withExecutorManagedWrites(tx);
     for (const r of rawEvents) {
       deps.signal?.throwIfAborted();
-      const row = coerceRow<StoredEventRow>(r, eventsInfo);
-      const storedEvent = await upcastStoredEvent(rowToStoredEvent(row), upcasters, {
+      const row = coerceRow<Parameters<typeof toStoredEvent>[0]>(r, eventsInfo);
+      const storedEvent = await upcastStoredEvent(toStoredEvent(row), upcasters, {
         db: tx,
         tenantId: row.tenantId as TenantId, // @cast-boundary db-row
       });

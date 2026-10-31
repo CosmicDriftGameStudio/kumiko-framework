@@ -1,6 +1,6 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import { findEntity } from "../find-entity.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 
 // --- Parent-ref boot validation ---
@@ -12,17 +12,6 @@ import type { FeatureDefinition } from "../types/index.ts";
 // was supplied — throwing there would 500 every custom handler and
 // framework-internal detail() call that doesn't wire it, so the enforcement
 // has to happen loudly here instead, once, at boot.
-
-export function findEntity(
-  featureMap: ReadonlyMap<string, FeatureDefinition>,
-  entityName: string,
-): EntityDefinition | undefined {
-  for (const f of featureMap.values()) {
-    const entity = f.entities?.[entityName];
-    if (entity) return entity;
-  }
-  return undefined;
-}
 
 function findQueryHandler(
   featureMap: ReadonlyMap<string, FeatureDefinition>,

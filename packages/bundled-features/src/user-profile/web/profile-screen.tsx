@@ -16,31 +16,14 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { requestEmailVerification } from "../../auth-email-password/web/index.ts";
+import { type SectionStatus, StatusBanner } from "../../shared/web/status-banner.tsx";
 import { UserProfileHandlers } from "./constants.ts";
-
-type SectionStatus =
-  | { kind: "idle" }
-  | { kind: "submitting" }
-  | { kind: "success"; messageKey: string }
-  | { kind: "error"; messageKey: string };
 
 // Dispatcher failures carry an i18nKey only when the handler sets one —
 // boundary read with a generic fallback.
 function failureKey(error: unknown): string {
   const key = propertyOf(error, "i18nKey");
   return typeof key === "string" ? key : "profile.errors.generic";
-}
-
-function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode {
-  const t = useTranslation();
-  const { Banner } = usePrimitives();
-  if (status.kind === "success") {
-    return <Banner variant="info">{t(status.messageKey)}</Banner>;
-  }
-  if (status.kind === "error") {
-    return <Banner variant="error">{t(status.messageKey)}</Banner>;
-  }
-  return null;
 }
 
 // Mounted by the renderer's ExtensionSectionMount (already wrapped in
