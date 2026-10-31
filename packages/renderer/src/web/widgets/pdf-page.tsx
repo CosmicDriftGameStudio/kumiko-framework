@@ -168,12 +168,13 @@ function PageSheet({
         <div
           ref={mountTextLayer}
           className={cn(
-            "absolute inset-0 overflow-hidden leading-none [&_span]:absolute [&_span]:origin-top-left [&_span]:cursor-text [&_span]:whitespace-pre [&_span]:text-transparent [&_span::selection]:bg-primary/30",
-            // The sheet is always white, so the marker colors are theme-independent; multiply keeps the canvas glyphs readable.
-            "[&_mark]:rounded-[2px] [&_mark]:px-px [&_mark]:text-transparent [&_mark]:mix-blend-multiply [&_.pdf-hit-active]:bg-search-hit-active",
+            // pdf.js's own text-layer stylesheet is not loaded, so size, horizontal fit and rotation come from the per-span custom properties here; without them glyph positions follow the host app's font and inherited font-size.
+            "absolute inset-0 overflow-hidden leading-none tracking-normal [&_span]:absolute [&_span]:origin-top-left [&_span]:cursor-text [&_span]:whitespace-pre [&_span]:text-transparent [&_span]:[font-size:calc(var(--total-scale-factor)*var(--font-height))] [&_span]:[transform:rotate(var(--rotate,0deg))_scaleX(var(--scale-x,1))] [&_span::selection]:bg-primary/30",
+            // The sheet is always white, so the marker colors are theme-independent; multiply keeps the canvas glyphs readable. Marks stay unpainted (no padding: it would shift the text behind them); the bands carry the color.
+            "[&_mark]:bg-transparent [&_mark]:text-transparent [&_.pdf-hit-band]:rounded-[2px] [&_.pdf-hit-band]:mix-blend-multiply [&_.pdf-hit-band-active]:bg-search-hit-active",
             layout.highlight?.source === true
-              ? "[&_.pdf-hit:not(.pdf-hit-active)]:bg-source-mark"
-              : "[&_.pdf-hit:not(.pdf-hit-active)]:bg-search-hit",
+              ? "[&_.pdf-hit-band:not(.pdf-hit-band-active)]:bg-source-mark"
+              : "[&_.pdf-hit-band:not(.pdf-hit-band-active)]:bg-search-hit",
           )}
         />
       </div>
