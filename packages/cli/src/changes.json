@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "handbuch escapes HTML through the renderer helper",
+    "detail": "The handbuch renderer uses escapeHtmlAttr from @cosmicdrift/kumiko-renderer/headless instead of its own copy. The escaped characters are the same as before, including the single quote."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "handbuch build no longer wipes its own inputs",

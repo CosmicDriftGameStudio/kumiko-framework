@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "archiveAndDeleteTenantRows for tenant-destroy hooks",
+    "detail": "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle exports archiveAndDeleteTenantRows(ctx, table, aggregateType, escapeHatchReason), which archives each row's event stream and then deletes the tenant's rows, plus the TENANT_DESTROY_ARCHIVED_BY and TENANT_DESTROY_ARCHIVE_REASON constants. inbound-mail-foundation uses the helper, billing-foundation the constants."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "Tenant destroy keeps user keys of members in other live tenants",

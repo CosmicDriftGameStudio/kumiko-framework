@@ -1,5 +1,38 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.405.0
+
+### Patch Changes
+
+- 6a35c7c: The handbuch renderer uses the renderer's escapeHtmlAttr, and deriveKey shares its key split with the derivative helpers.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: handbuch escapes HTML through the renderer helper
+  detail: The handbuch renderer uses escapeHtmlAttr from @cosmicdrift/kumiko-renderer/headless instead of its own copy. The escaped characters are the same as before, including the single quote.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: One key split for file variants and derivatives
+  detail: deriveKey and the derivative key helpers split a storage key into base and extension through the same function, so both always agree on where the extension starts. No behavior change.
+  -->
+- Updated dependencies [c0b5f51]
+- Updated dependencies [403f98c]
+- Updated dependencies [5f46e2b]
+- Updated dependencies [6a35c7c]
+- Updated dependencies [b3c8bc5]
+  - @cosmicdrift/kumiko-framework@0.405.0
+  - @cosmicdrift/kumiko-bundled-features@0.405.0
+  - @cosmicdrift/kumiko-dev-server@0.405.0
+  - @cosmicdrift/kumiko-feature-ast@0.405.0
+  - @cosmicdrift/kumiko-guards@0.405.0
+  - @cosmicdrift/kumiko-renderer@0.405.0
+  - @cosmicdrift/kumiko-server-runtime@0.405.0
+  - @cosmicdrift/kumiko-testing@0.405.0
+
 ## 0.404.1
 
 ### Patch Changes

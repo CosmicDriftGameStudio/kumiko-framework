@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "Login-path redirect hook and topbar without UserMenu",
+    "detail": "auth-email-password/web exports useRedirectAuthedFromLogin({ loginPath, target }), which replaces the URL with target while a signed-in user sits on the login path, also after Browser-Back, and isAuthedOnLoginPath. DefaultTopbarActions takes userMenu (default true) to hide the UserMenu and themeToggleTestId for the ThemeToggle button."
+  },
+  {
     "version": "0.394.0",
     "type": "improvement",
     "title": "static-login subpath for static sites",

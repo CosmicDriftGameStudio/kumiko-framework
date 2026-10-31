@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.405.0",
+    "type": "improvement",
+    "title": "Provider helpers shared through billing-foundation",
+    "detail": "billing-foundation exports validateOneOffPriceIds, parseStoredSecret, createTtlPriceCache and hasSeenProviderEvent. subscription-stripe and subscription-paddle use them instead of their own copies, with the same error texts as before. The subscription projection reuses one apply body for created/updated and one for canceled/invoice-paid; the exported apply names stay."
+  },
+  {
     "version": "0.399.0",
     "type": "improvement",
     "title": "Shorter documents checkbox text in the consent box",
