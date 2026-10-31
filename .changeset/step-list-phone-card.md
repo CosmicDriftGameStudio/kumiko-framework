@@ -6,7 +6,7 @@ StepList can read as a card on a phone, and the MobileTopBar sits on the card su
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: StepList phone card, quieter mobile top bar
 detail: `phoneCard` on StepList keeps the desktop panel and, below the md breakpoint, puts the header inside the rounded surface and the steps in a framed white box with tighter rows; the progress bar is left out there. MobileTopBar uses the card background instead of the page background, a 13px label and a 4px gap, like the phone reader design.
 -->
