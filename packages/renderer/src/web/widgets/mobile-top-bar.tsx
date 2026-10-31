@@ -26,7 +26,7 @@ export function MobileTopBar({
   return (
     <div
       data-testid={testId}
-      className="flex h-13 shrink-0 items-center gap-2 border-b border-border bg-background px-2 md:hidden"
+      className="flex h-13 shrink-0 items-center gap-1 border-b border-border bg-card px-2 md:hidden"
     >
       {back !== undefined && (
         <button
@@ -41,7 +41,7 @@ export function MobileTopBar({
       )}
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[15px] font-normal text-foreground-secondary",
+          "min-w-0 flex-1 truncate text-[13px] font-normal text-foreground-secondary",
           back === undefined && "pl-2",
         )}
       >
