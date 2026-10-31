@@ -10,8 +10,14 @@ import {
 } from "react";
 import { cn } from "../lib/cn.ts";
 import { pageTextItemsFor } from "./pdf-document.ts";
-import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
-import { clampPage, findMatches, mostVisiblePage, type PdfMatchInfo } from "./pdf-search.ts";
+import { PdfPageSlot, type PdfTextHighlight, useFirstPageSize } from "./pdf-page.tsx";
+import {
+  clampPage,
+  findMatches,
+  mostVisiblePage,
+  type PdfMatch,
+  type PdfMatchInfo,
+} from "./pdf-search.ts";
 import { PdfThumbnails } from "./pdf-thumbnails.tsx";
 import { PdfViewerToolbar } from "./pdf-viewer-toolbar.tsx";
 
@@ -79,6 +85,33 @@ function usePageTexts(document: PDFDocumentProxy, wanted: boolean) {
     };
   }, [document, wanted]);
   return pageTexts;
+}
+
+type HighlightTerms = { readonly highlight: string; readonly searched: string };
+
+/** A term counts as searched once the search is visible to the reader or driven by the host. */
+function highlightTermsOf(input: {
+  readonly term: string;
+  readonly markTerm: string;
+  readonly searchVisible: boolean;
+}): HighlightTerms {
+  const searched = input.searchVisible ? input.term.trim() : "";
+  return { searched, highlight: searched === "" ? input.markTerm.trim() : searched };
+}
+
+/** The search term wins over the passage mark; only the searched page with the active hit gets an ordinal. */
+function pageHighlightOf(
+  pageNumber: number,
+  terms: HighlightTerms,
+  activeMatch: PdfMatch | undefined,
+): PdfTextHighlight | null {
+  if (terms.highlight === "") return null;
+  const isSearch = terms.searched !== "";
+  return {
+    term: terms.highlight,
+    source: !isSearch,
+    activeOrdinal: isSearch && activeMatch?.page === pageNumber ? activeMatch.ordinalOnPage : null,
+  };
 }
 
 /** Thumbnail rail, toolbar (page jump, zoom, search) and lazily rendered pages on a sand frame;
@@ -169,10 +202,13 @@ export function PdfViewer({
     setMatchIndex((index) => (index + direction + matches.length) % matches.length);
   };
 
-  const searchedTerm = searchOpen || hideSearchBar || pagesOnly ? term.trim() : "";
-  const highlightTerm = searchedTerm === "" ? markTerm.trim() : searchedTerm;
+  const terms = highlightTermsOf({
+    term,
+    markTerm,
+    searchVisible: searchOpen || hideSearchBar || pagesOnly,
+  });
   const anchorPage =
-    searchedTerm === "" && initialPage > 1 && leftPage !== initialPage
+    terms.searched === "" && initialPage > 1 && leftPage !== initialPage
       ? clampPage(initialPage, pageCount)
       : null;
   return (
@@ -230,17 +266,7 @@ export function PdfViewer({
                 layout={{
                   variant: "viewer",
                   zoom,
-                  highlight:
-                    highlightTerm === ""
-                      ? null
-                      : {
-                          term: highlightTerm,
-                          source: searchedTerm === "",
-                          activeOrdinal:
-                            searchedTerm !== "" && activeMatch?.page === pageNumber
-                              ? activeMatch.ordinalOnPage
-                              : null,
-                        },
+                  highlight: pageHighlightOf(pageNumber, terms, activeMatch),
                   anchorTop: pageNumber === anchorPage,
                 }}
               />
