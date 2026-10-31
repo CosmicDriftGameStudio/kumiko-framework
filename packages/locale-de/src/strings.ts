@@ -889,6 +889,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.page-header.actions": "Seitenaktionen",
   "kumiko.list.actions": "Aktionen",
   "kumiko.sidebar.toggle": "Seitenleiste ein- oder ausblenden",
+  "kumiko.focusRail.more": "Mehr",
   "kumiko.sidebar.title": "Navigation",
   "kumiko.sidebar.description": "Die Hauptnavigation der App.",
   "kumiko.breadcrumb.label": "Navigationspfad",

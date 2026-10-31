@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ReactNode } from "react";
 import type { FeatureSchema } from "../../../index.ts";
-import { render, screen } from "../../__tests__/test-utils.tsx";
+import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
 import { useShellFocusMode } from "../shell-focus.tsx";
 import { SidebarBrand } from "../sidebar-brand.tsx";
 import { WorkspaceShell } from "../workspace-shell.tsx";
@@ -47,17 +47,39 @@ describe("WorkspaceShell focus mode", () => {
     expect(screen.getByText("Global action")).toBeTruthy();
   });
 
-  test("a focused screen collapses to the icon rail without labels, footer or header actions", () => {
+  test("a focused screen collapses to the icon rail without labels or header actions, the footer pinned below", () => {
     render(<Harness focused />);
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
     expect(rail).not.toBeNull();
     expect(rail?.querySelectorAll("nav > *").length).toBe(2);
     expect(screen.queryByPlaceholderText("Search navigation…")).toBeNull();
-    expect(screen.queryByText("Footer row")).toBeNull();
+    expect(rail?.querySelector('[data-kumiko-layout="focus-rail-footer"]')?.textContent).toBe(
+      "Footer row",
+    );
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
     expect(screen.queryByText("Global action")).toBeNull();
     expect(screen.queryByText("Posteingang")).toBeNull();
     expect(document.querySelector('[data-kumiko-layout="sidebar-footer"]')).toBeNull();
     expect(screen.getByRole("banner").querySelector('button[data-sidebar="trigger"]')).toBeNull();
+  });
+
+  test("focusRailNavQns keeps the listed tiles, the rest sits behind More, which opens the sidebar", () => {
+    render(
+      <WorkspaceShell
+        brand={<span>Brand</span>}
+        schema={schema}
+        focusRailNavQns={["inbox:nav:inbox"]}
+      >
+        <FocusedScreen />
+      </WorkspaceShell>,
+    );
+    const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
+    expect(rail?.querySelectorAll("nav > *").length).toBe(1);
+    expect(screen.getByRole("link", { name: "Posteingang" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Bestand" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
+    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
   });
 
   test("rail tiles and brand tile follow the design: 40px md tiles, muted icons, 32px md brand tile", () => {

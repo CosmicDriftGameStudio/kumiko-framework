@@ -883,6 +883,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.page-header.actions": "Acciones de la página",
   "kumiko.list.actions": "Acciones",
   "kumiko.sidebar.toggle": "Mostrar u ocultar la barra lateral",
+  "kumiko.focusRail.more": "Más",
   "kumiko.sidebar.title": "Navegación",
   "kumiko.sidebar.description": "La navegación principal de la aplicación.",
   "kumiko.breadcrumb.label": "Ruta de navegación",

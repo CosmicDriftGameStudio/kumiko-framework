@@ -223,6 +223,15 @@ describe("MessageThread", () => {
       expect(screen.getAllByTitle("Anna Schneider").length).toBe(1);
       expect(screen.getByText(/^Show quoted text \(\d+ lines\)$/)).toBeTruthy();
     });
+
+    test("the folded main part ends at the signature: no Gmail separator break, no trailing margin", () => {
+      const html =
+        '<div dir="ltr"><p>Danke!</p><p>Anna</p></div>\n<br><div class="gmail_quote"><blockquote class="gmail_quote"><p>Der Monteur kommt.</p></blockquote></div>';
+      render(<MessageThread messages={[{ ...annaLast, body: { kind: "html", html } }]} />);
+      const srcdoc = screen.getByTitle("Anna Schneider").getAttribute("srcdoc") ?? "";
+      expect(srcdoc).toContain("<p>Anna</p></div></body>");
+      expect(srcdoc).toContain("body>:last-child,body>:last-child>:last-child{margin-bottom:0}");
+    });
   });
 });
 
