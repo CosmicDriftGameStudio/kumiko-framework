@@ -200,7 +200,7 @@ Contact inbox: an anonymous browser client (GET /contact/client.js) submits ques
 
 Category: communication
 
-Requires: `config`, `delivery`, `user-data-rights`, `files`, `channel-telegram`
+Requires: `config`, `delivery`, `user-data-rights`, `files`, `notes-history`, `channel-telegram`
 
 Config keys:
 

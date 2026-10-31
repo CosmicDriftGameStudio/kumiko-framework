@@ -704,6 +704,7 @@
         "delivery",
         "user-data-rights",
         "files",
+        "notes-history",
         "channel-telegram"
       ],
       "optionalRequires": [],
