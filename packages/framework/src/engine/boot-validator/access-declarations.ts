@@ -13,6 +13,8 @@ import {
 } from "../personal-data-fields.ts";
 import { ANONYMOUS_ROLE } from "../system-user.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { HANDLER_DECLARATION_RULES } from "./handler-declaration-rules.ts";
 
 import { collectZodObjectKeys } from "./zod-shape.ts";
 
@@ -75,11 +77,12 @@ function validateOpenToAllReason(
   const problem = reasonProblem(reason);
   // skip: reason is well-formed, nothing to validate
   if (problem === undefined) return;
-  throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid ` +
+  throw bootRuleError(HANDLER_DECLARATION_RULES.openToAllReasonInvalid, {
+    message:
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid ` +
       `{ openToAll: ... } — ${problem}. Must be { reason: "<explanation>" } for why any ` +
       "authenticated user may call this handler. `{ openToAll: true }` is no longer accepted.",
-  );
+  });
 }
 
 function validateEscapeHatchReason(
@@ -94,15 +97,15 @@ function validateEscapeHatchReason(
   if (escapeHatch) {
     const grantsProblem = escapeHatchGrantsProblem(escapeHatch);
     if (grantsProblem !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
-      );
+      throw bootRuleError(HANDLER_DECLARATION_RULES.escapeHatchGrantsInvalid, {
+        message: `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
+      });
     }
     const problem = reasonProblem(escapeHatch.reason);
     if (problem !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${problem}`,
-      );
+      throw bootRuleError(HANDLER_DECLARATION_RULES.escapeHatchReasonInvalid, {
+        message: `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${problem}`,
+      });
     }
   }
 }
@@ -126,9 +129,9 @@ function validatePersonalDataSupportedForKind(
       ? 'only access.personalData: "public-intake" applies to query handlers, which write ' +
         "personal data through nested writes of an anonymous request."
       : "it only applies to write handlers, whose input is checked for personal-data fields.";
-  throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ${property} — ${onlyAllowed} Remove the personalData declaration from this handler.`,
-  );
+  throw bootRuleError(HANDLER_DECLARATION_RULES.personalDataUnsupportedForKind, {
+    message: `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ${property} — ${onlyAllowed} Remove the personalData declaration from this handler.`,
+  });
 }
 
 function validatePersonalDataValue(
@@ -143,25 +146,28 @@ function validatePersonalDataValue(
   if ("openToAll" in access) {
     // skip: the one supported value on openToAll
     if (declared === "tenant-members") return;
-    throw new Error(
-      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
+    throw bootRuleError(HANDLER_DECLARATION_RULES.openToAllPersonalDataUnknown, {
+      message:
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
         `openToAll.personalData ${JSON.stringify(declared)} — the only supported value is "tenant-members".`,
-    );
+    });
   }
   if (declared !== "public-intake") {
-    throw new Error(
-      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
+    throw bootRuleError(HANDLER_DECLARATION_RULES.accessPersonalDataUnknown, {
+      message:
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
         `access.personalData ${JSON.stringify(declared)} — the only supported value is "public-intake".`,
-    );
+    });
   }
   // skip: roles include "anonymous", which personalData: "public-intake" requires
   if (accessAllowsAnonymous(access)) return;
-  throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
+  throw bootRuleError(HANDLER_DECLARATION_RULES.publicIntakeWithoutAnonymous, {
+    message:
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" but its roles do not include ' +
       `"${ANONYMOUS_ROLE}" — personalData: "public-intake" only applies to handlers ` +
       "that allow anonymous callers. Add the anonymous role to access.roles or remove personalData.",
-  );
+  });
 }
 
 function handlerInputKeys(
@@ -173,7 +179,9 @@ function handlerInputKeys(
     return collectZodObjectKeys(handler.schema);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`[Feature ${feature.name}] write handler "${handlerName}": ${reason}`);
+    throw bootRuleError(HANDLER_DECLARATION_RULES.inputSchemaNotIntrospectable, {
+      message: `[Feature ${feature.name}] write handler "${handlerName}": ${reason}`,
+    });
   }
 }
 
@@ -190,8 +198,9 @@ function validateOpenToAllPersonalData(
   const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
   if (offending.length === 0) return;
-  throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" declares openToAll and ` +
+  throw bootRuleError(HANDLER_DECLARATION_RULES.openToAllPersonalDataUnbound, {
+    message:
+      `[Feature ${feature.name}] write handler "${handlerName}" declares openToAll and ` +
       `accepts personal-data field(s) ${offending.map((f) => `"${f}"`).join(", ")} that are ` +
       "not bound to the caller. Choose one: (1) bind rows to the caller — every role in the " +
       'entity\'s access.write is from("user:id", "<ownerField>") for a personal: { of: "<ownerField>" } ' +
@@ -199,7 +208,7 @@ function validateOpenToAllPersonalData(
       "handler and no r.systemScope() on its feature; (2) restrict access to roles; (3) declare " +
       '{ openToAll: { reason: "<why any signed-in tenant member may write this personal data>", ' +
       'personalData: "tenant-members" } }.',
-  );
+  });
 }
 
 // Anonymous callers all share one user.id, so honorOwnerBindingOverride is always false here.
@@ -216,14 +225,15 @@ function validateAnonymousPersonalData(
   const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
   if (offending.length === 0) return;
-  throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" allows anonymous callers ` +
+  throw bootRuleError(HANDLER_DECLARATION_RULES.anonymousPersonalDataUndeclared, {
+    message:
+      `[Feature ${feature.name}] write handler "${handlerName}" allows anonymous callers ` +
       `("${ANONYMOUS_ROLE}" in access.roles) and accepts personal-data field(s) ` +
       `${offending.map((f) => `"${f}"`).join(", ")}. Declare ` +
       'access: { roles: [..., "anonymous"], personalData: "public-intake" } — every anonymous ' +
       'request shares one caller identity, so owner-binding via from("user:id", ...) does not ' +
       "vouch for it; protection comes from the handler's required rateLimit (per ip).",
-  );
+  });
 }
 
 // The rateLimit is the only protection of a public-intake handler, so the
@@ -238,12 +248,13 @@ function validatePublicIntakeRateLimit(
   if (declaredPersonalData(handler.access) !== "public-intake") return;
   // skip: rateLimit is active
   if (!isRateLimitDisabled(handler.rateLimit)) return;
-  throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
+  throw bootRuleError(HANDLER_DECLARATION_RULES.publicIntakeRateLimitDisabled, {
+    message:
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" with rateLimit: { disabled: true } — the rateLimit ' +
       'is the only protection for anonymous personal-data writes. Declare rateLimit: { per: "ip" ' +
       'or "ip+handler", ... } instead.',
-  );
+  });
 }
 
 export function validateAccessDeclarations(feature: FeatureDefinition): void {

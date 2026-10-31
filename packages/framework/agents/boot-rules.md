@@ -8,9 +8,20 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="api-duplicate-exposed-name"></a>`api/duplicate-exposed-name` | A cross-feature API name is exposed by exactly one feature. | Rename the API in one of the exposing features. | `packages/framework/src/engine/boot-validator/boot-environment-rules.ts` |
 | <a id="api-provider-not-mounted"></a>`api/provider-not-mounted` | The feature exposing a used API is part of the app's feature list. | Register the provider feature in the app's feature list. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="api-provider-not-required"></a>`api/provider-not-required` | A feature using an API lists the exposing feature in requires or optionalRequires. | Add the exposing feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="api-unknown-api"></a>`api/unknown-api` | Every r.usesApi name is exposed by some mounted feature. | Mount the feature that exposes the API or fix the API name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
+
+## auth-foundation
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="auth-foundation-no-token-verifier-or-session-store"></a>`auth-foundation/no-token-verifier-or-session-store` | At least one tokenVerifier provider or a sessionStore is registered alongside auth-foundation. | Mount an auth-provider-* feature (e.g. auth-provider-jwt / personal-access-tokens) or a sessionStore (e.g. sessions). | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
+| <a id="auth-foundation-single-provider-invalid-shape"></a>`auth-foundation/single-provider-invalid-shape` | A single-provider extension registration carries the options shape its provider type requires. | Register the provider with the options shape named in the error message. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
+| <a id="auth-foundation-single-provider-multiple"></a>`auth-foundation/single-provider-multiple` | At most one provider of a single-provider extension is mounted at a time. | Unmount all but one provider. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
+| <a id="auth-foundation-token-verifier-invalid-plugin"></a>`auth-foundation/token-verifier-invalid-plugin` | A tokenVerifier provider registers a valid AuthProviderPlugin with a { shape, build } options shape. | Register the provider with options of shape { shape, build }. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
+| <a id="auth-foundation-token-verifier-shape-collision"></a>`auth-foundation/token-verifier-shape-collision` | No two tokenVerifier providers claim the same token shape, so resolveTokenVerifier can route unambiguously. | Give each provider a distinct shape. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
 
 ## boot-check
 
@@ -40,6 +51,33 @@
 | <a id="config-edit-layout-unknown-field"></a>`config-edit/layout-unknown-field` | A configEdit layout names a declared field. | Name a declared field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="config-edit-secret-key-unknown-field"></a>`config-edit/secret-key-unknown-field` | secretKeys names declared fields. | Name a declared field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="config-edit-write-only-not-encrypted"></a>`config-edit/write-only-not-encrypted` | A writeOnly configEdit field maps to an encrypted config key. | Declare the key with encrypted: true or backing: "secrets". | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
+
+## config-key
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="config-key-bounds-min-above-max"></a>`config-key/bounds-min-above-max` | A config key's bounds.min is at or below its bounds.max. | Set bounds.min to a value at or below bounds.max. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-bounds-non-number"></a>`config-key/bounds-non-number` | A config key declares bounds only when its type is number. | Remove bounds or change the key type to "number". | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-computed-and-encrypted"></a>`config-key/computed-and-encrypted` | A config key is either encrypted (encrypted or backing="secrets") or computed, never both. | Use either encrypted/backing="secrets" or a computed resolver on the key. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-conditional-options"></a>`config-key/conditional-options` | A config key does not declare conditionalOptions, which only entity select fields support. | Remove conditionalOptions from the config key. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-default-above-max"></a>`config-key/default-above-max` | A config key's default is not above its bounds.max. | Lower the default or raise bounds.max. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-default-below-min"></a>`config-key/default-below-min` | A config key's default is not below its bounds.min. | Raise the default or lower bounds.min. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-and-options-query"></a>`config-key/options-and-options-query` | A config key declares either static options or optionsQuery, not both. | Remove options or optionsQuery. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-empty"></a>`config-key/options-query-empty` | A config key's optionsQuery is a non-empty query name when present. | Set it to a query name or remove it. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-not-select"></a>`config-key/options-query-not-select` | A config key declares optionsQuery only when its type is "select". | Change the key type to "select" or remove optionsQuery. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-payload-self-reference"></a>`config-key/options-query-payload-self-reference` | A config key's optionsQueryPayload does not reference the key itself. | Reference a different config key. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-payload-unknown-key"></a>`config-key/options-query-payload-unknown-key` | A config key's optionsQueryPayload references only config keys of the same feature. | Reference an existing config key of the feature or remove the entry. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-payload-without-query"></a>`config-key/options-query-payload-without-query` | A config key that declares optionsQueryPayload also declares optionsQuery. | Set optionsQuery or remove optionsQueryPayload. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-options-query-per-request"></a>`config-key/options-query-per-request` | A config key with optionsQuery does not set allowPerRequest, which would bypass the option set unchecked. | Remove allowPerRequest or optionsQuery. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-per-request-encrypted"></a>`config-key/per-request-encrypted` | A config key with encrypted/backing="secrets" does not set allowPerRequest. | Remove allowPerRequest or the secrets storage from the key. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-per-request-text"></a>`config-key/per-request-text` | A config key of type "text" does not set allowPerRequest (XSS/injection risk). | Remove allowPerRequest or change the key type. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-pii-encrypted-and-encrypted"></a>`config-key/pii-encrypted-and-encrypted` | A config key uses piiEncrypted or encrypted/backing="secrets", never both. | Pick one of piiEncrypted (subject-KMS) or encrypted (shared cipher). | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-pii-encrypted-not-text"></a>`config-key/pii-encrypted-not-text` | A config key with piiEncrypted has type "text". | Use type="text" or remove piiEncrypted. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-pii-encrypted-system-scope"></a>`config-key/pii-encrypted-system-scope` | A config key with piiEncrypted is not system-scoped, because system scope has no subject to encrypt under. | Use scope="tenant" or "user", or remove piiEncrypted. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-required-with-computed"></a>`config-key/required-with-computed` | A computed config key is not marked required, because it can never be missing. | Drop required or the computed resolver. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-required-with-default"></a>`config-key/required-with-default` | A required config key has no non-empty default, otherwise it can never be unset and readiness never flags it. | Use default "" or drop required. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-secrets-scope-not-system"></a>`config-key/secrets-scope-not-system` | A config key with backing="secrets" has scope "system", because secrets storage does not cascade. | Set scope to "system" or drop backing="secrets". | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="config-key-unknown-config-read"></a>`config-key/unknown-config-read` | A feature reads only config keys that some feature defines. | Declare the key via r.config(...) in a feature, or fix the key name. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 
 ## dashboard
 
@@ -128,6 +166,14 @@
 | <a id="derived-field-unsupported-field-type"></a>`derived-field/unsupported-field-type` | A SQL derived field reads only scalar field types. | Read a text, number, decimal, boolean, date or timestamp field; money only as the measure of a related first. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
 | <a id="derived-field-value-type-mismatch"></a>`derived-field/value-type-mismatch` | The derived field's valueType matches the type of the value it computes. | Set valueType to the expected value type. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
 
+## document-ingest
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="document-ingest-job-unknown-provider"></a>`document-ingest/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-job-without-provider-filter"></a>`document-ingest/job-without-provider-filter` | A job triggered by documentIngest.requested filters to one provider, so it does not fire for every provider's uploads. | Use trigger: documentIngestProviderTrigger("<name>"). | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-provider-without-job"></a>`document-ingest/provider-without-job` | A registered document-ingest provider has a job triggered by documentIngestProviderTrigger, otherwise requested files are never processed. | Add an r.job with that trigger, or unmount the provider. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+
 ## embedded-field
 
 | Rule | Summary | Fix | Source |
@@ -166,6 +212,8 @@
 | <a id="entity-encrypted-searchable"></a>`entity/encrypted-searchable` | An encrypted text field is not searchable. | Drop searchable: true or remove the encryption. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-encrypted-sortable"></a>`entity/encrypted-sortable` | An encrypted text field is not sortable. | Drop sortable: true or remove the encryption. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-extend-schema-collision"></a>`entity/extend-schema-collision` | An extendSchema column does not collide with an entity field. | Rename the extension column or the entity field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-global-without-system-scope"></a>`entity/global-without-system-scope` | A feature that owns an entity with tenancy "global" declares r.systemScope(). | Declare r.systemScope() in the owning feature. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="entity-global-without-system-stream"></a>`entity/global-without-system-stream` | An entity with tenancy "global" also declares systemStream: true. | Declare systemStream: true on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="entity-located-by-missing-field"></a>`entity/located-by-missing-field` | A timestamp locatedBy names a field of the same entity. | Declare the tz field or use createLocatedTimestampField(). | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-located-by-not-tz"></a>`entity/located-by-not-tz` | A timestamp locatedBy points at a tz field. | Point locatedBy at a field of type tz. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-searchable-restricted-read"></a>`entity/searchable-restricted-read` | A searchable field has no restricted access.read. | Drop searchable/find: "fuzzy" or access.read. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
@@ -216,6 +264,12 @@
 | <a id="extension-provider-not-required"></a>`extension/provider-not-required` | A feature using an extension lists the defining feature in requires or optionalRequires. | Add the defining feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="extension-unknown-extension"></a>`extension/unknown-extension` | Every extension a feature uses is defined by some mounted feature. | Register the feature that defines the extension or fix the extension name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 
+## feature
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="feature-circular-dependency"></a>`feature/circular-dependency` | Feature requires() links form no cycle. | Break the cycle by removing one requires() link. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+
 ## field-condition
 
 | Rule | Summary | Fix | Source |
@@ -236,6 +290,12 @@
 | <a id="file-field-max-count-invalid"></a>`file-field/max-count-invalid` | A file sub-field maxCount is a positive integer. | Set maxCount to a positive integer. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
 | <a id="file-field-max-size-invalid"></a>`file-field/max-size-invalid` | A file sub-field maxSize is a parseable size string. | Use a size like "10mb" or "500kb". | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
 | <a id="file-field-sub-field-searchable"></a>`file-field/sub-field-searchable` | A file or image sub-field is not searchable. | Remove searchable from the file sub-field. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+
+## file-storage
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="file-storage-provider-env-missing"></a>`file-storage/provider-env-missing` | An app with file or image fields sets the FILE_STORAGE_PROVIDER environment variable. | Set FILE_STORAGE_PROVIDER in the environment. | `packages/framework/src/engine/boot-validator/boot-environment-rules.ts` |
 
 ## form
 
@@ -322,6 +382,20 @@
 | --- | --- | --- | --- |
 | <a id="handler-access-all-role"></a>`handler/access-all-role` | Handler access does not list the role "all". | Use roles: ["anonymous"] plus an ip rateLimit, or openToAll: { reason }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-access-missing"></a>`handler/access-missing` | Every write, query and stream handler declares an access rule. | Set access: { roles: [...] } or { openToAll: { reason } }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-access-personal-data-unknown"></a>`handler/access-personal-data-unknown` | access.personalData is "public-intake" when set. | Use personalData: "public-intake" or remove it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-anonymous-personal-data-undeclared"></a>`handler/anonymous-personal-data-undeclared` | A write handler that allows anonymous callers and accepts personal-data fields declares access.personalData "public-intake". | Declare access: { roles: [..., "anonymous"], personalData: "public-intake" }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-escape-hatch-grants-invalid"></a>`handler/escape-hatch-grants-invalid` | An escapeHatch declares valid grants. | Correct the escapeHatch grants as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-escape-hatch-reason-invalid"></a>`handler/escape-hatch-reason-invalid` | An escapeHatch carries a valid reason. | Write an escapeHatch reason that explains the bypass. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-input-schema-not-introspectable"></a>`handler/input-schema-not-introspectable` | A write handler's input schema is a Zod shape whose keys boot can collect. | Use an object schema the boot validator can walk, as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-nested-skip-with-reserve-before-transaction"></a>`handler/nested-skip-with-reserve-before-transaction` | A write handler with beforeTransactionWhenNested does not declare reserveBeforeTransaction, because a nested run would run unreserved. | Remove reserveBeforeTransaction or beforeTransactionWhenNested. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-nested-skip-without-before-transaction"></a>`handler/nested-skip-without-before-transaction` | A write handler with beforeTransactionWhenNested also declares beforeTransaction. | Declare beforeTransaction or remove beforeTransactionWhenNested. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-open-to-all-personal-data-unbound"></a>`handler/open-to-all-personal-data-unbound` | An openToAll write handler accepts personal-data fields only when they are bound to the caller or explicitly declared tenant-members. | Bind rows to the caller, restrict access to roles, or declare openToAll: { reason, personalData: "tenant-members" }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-open-to-all-personal-data-unknown"></a>`handler/open-to-all-personal-data-unknown` | openToAll.personalData is "tenant-members" when set. | Use personalData: "tenant-members" or remove it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-open-to-all-reason-invalid"></a>`handler/open-to-all-reason-invalid` | An openToAll declaration is an object with a valid reason explaining why any authenticated user may call the handler. | Declare { openToAll: { reason: "<explanation>" } }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-per-command-with-phase"></a>`handler/per-command-with-phase` | A write handler with transaction "perCommand" declares neither beforeTransaction nor reserveBeforeTransaction. | Move the phase into the commands the handler issues via ctx.dispatch.write. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-personal-data-unsupported-for-kind"></a>`handler/personal-data-unsupported-for-kind` | A personalData declaration appears only on handler kinds whose input is checked for personal-data fields. | Remove the personalData declaration from this handler. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-public-intake-rate-limit-disabled"></a>`handler/public-intake-rate-limit-disabled` | A handler with access.personalData "public-intake" keeps its rateLimit enabled, because it is the only protection for anonymous personal-data writes. | Declare rateLimit: { per: "ip" or "ip+handler", ... } instead of disabling it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-public-intake-without-anonymous"></a>`handler/public-intake-without-anonymous` | A handler with access.personalData "public-intake" allows the anonymous role. | Add the anonymous role to access.roles or remove personalData. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-tenantless-anonymous-access"></a>`handler/tenantless-anonymous-access` | A tenantlessAnonymous handler allows exactly the anonymous role. | Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-rate-limit-per"></a>`handler/tenantless-anonymous-rate-limit-per` | A tenantlessAnonymous handler rate-limits per ip or ip+handler. | Use per "ip" or "ip+handler". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-without-rate-limit"></a>`handler/tenantless-anonymous-without-rate-limit` | A tenantlessAnonymous handler declares an active rateLimit. | Set rateLimit: { per: "ip", ... }; disabled does not count. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
@@ -485,6 +559,37 @@
 | <a id="named-filter-stat-navigate-static-filter"></a>`named-filter/stat-navigate-static-filter` | A stat repeats the target screen's static filter in params.filter. | Set params.filter to the target screen's filter. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 | <a id="named-filter-stat-navigate-target"></a>`named-filter/stat-navigate-target` | A stat navigate.screen resolves to an entityList or projectionList screen. | Point navigate.screen at a registered list screen. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 
+## nav
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="nav-create-action-screen-unregistered"></a>`nav/create-action-screen-unregistered` | A nav createAction screen is a registered screen qualified name. | Use "<feature>:screen:<id>" pointing at an r.screen() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-create-action-target-count"></a>`nav/create-action-target-count` | A nav createAction sets exactly one of "screen" and "target". | Set either "screen" or "target" on the action. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-parent-cycle"></a>`nav/parent-cycle` | Nav entry parents form no cycle. | Change or remove the parent of one entry in the cycle. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-parent-unregistered"></a>`nav/parent-unregistered` | A nav entry's parent is a registered nav entry qualified name. | Use "<feature>:nav:<id>" pointing at a registered nav entry. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-screen-unregistered"></a>`nav/screen-unregistered` | A nav entry's screen is a registered screen qualified name. | Use "<feature>:screen:<id>" pointing at an r.screen() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-workspace-unregistered"></a>`nav/workspace-unregistered` | A nav entry self-assigns only to registered workspaces. | Use "<feature>:workspace:<id>" pointing at an r.workspace() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+
+## ownership
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="ownership-unknown-claim"></a>`ownership/unknown-claim` | A from(...) ownership rule references only claims declared via r.claimKey. | Declare it via r.claimKey("...", { type: "..." }) in the owning feature. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-unknown-column"></a>`ownership/unknown-column` | A from(...) ownership rule references only columns that exist on the entity. | Use one of the entity's columns. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-unknown-role"></a>`ownership/unknown-role` | An access map names only roles that some feature defines. | Use a defined role name or declare the role. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-where-on-field-read"></a>`ownership/where-on-field-read` | A field-level read access map uses from(...) rules, not where(...). | Replace the where rule with a from rule on the field read path. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-where-on-write-path"></a>`ownership/where-on-write-path` | A write access map uses from(...) rules, not where(...), because where is read-only SQL. | Replace the where rule with a from rule on the write path. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+
+## parent-ref
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="parent-ref-allowed-type-has-parent-ref"></a>`parent-ref/allowed-type-has-parent-ref` | A parentRef host entity does not itself declare a parentRef (no recursive gating). | Remove the host from allowedTypes, or drop its own parentRef. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-allowed-type-unregistered"></a>`parent-ref/allowed-type-unregistered` | parentRef.allowedTypes names only registered entities. | Remove the name from allowedTypes, or register the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-entity-id-field-unknown"></a>`parent-ref/entity-id-field-unknown` | parentRef.entityIdField names a declared field of the entity. | Point entityIdField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-entity-type-field-unknown"></a>`parent-ref/entity-type-field-unknown` | parentRef.entityTypeField names a declared field of the entity. | Point entityTypeField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-hand-written-query-handler"></a>`parent-ref/hand-written-query-handler` | Query handlers on an entity with parentRef carry the entity-convention brand, so the parent-ref read-gate applies. | Register the handler via defineEntityListHandler/defineEntityDetailHandler, or pass parentVisibility to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+
 ## pii
 
 | Rule | Summary | Fix | Source |
@@ -501,6 +606,7 @@
 | <a id="pii-personal-of-owner-type"></a>`pii/personal-of-owner-type` | The owner field named by personal: { of } is a reference or text field. | Use a reference or text field as owner. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-personal-of-unknown-owner"></a>`pii/personal-of-unknown-owner` | The owner field named by personal: { of } exists on the entity. | Point personal.of at an existing field of the entity. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-plaintext-user-reference"></a>`pii/plaintext-user-reference` | A reference to the user entity is never plaintext. | Use the default reference field or personal: "ref" instead of personal: false. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
+| <a id="pii-record-owned-serial-id"></a>`pii/record-owned-serial-id` | A recordOwned (or whenAbsent: "self") field lives only on entities with idType "uuid", because forgetSubject validates the record id as a UUID. | Set idType: "uuid" on the entity, or give the field a different personal stance. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="pii-sensitive-searchable"></a>`pii/sensitive-searchable` | A sensitive field is never searchable. | Drop searchable, or add writeOnly to never return the value. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-sensitive-without-ciphertext"></a>`pii/sensitive-without-ciphertext` | A sensitive field is stored as ciphertext at rest. | Add a subject annotation or encrypted: true. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-subject-key-sortable"></a>`pii/subject-key-sortable` | A field with a subject-key annotation is not sortable, its column is ciphertext. | Drop sortable, use find: "exact" for equality lookups, or keep the field plaintext. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
@@ -568,6 +674,19 @@
 | <a id="rate-limit-payload-field-unknown"></a>`rate-limit/payload-field-unknown` | Every additionalRateLimits payloadField is a field of the handler schema. | Name a field of the handler Zod object schema. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="rate-limit-payload-limit-invalid"></a>`rate-limit/payload-limit-invalid` | An additionalRateLimits limit is a positive integer. | Set limit to a positive integer. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="rate-limit-payload-window-invalid"></a>`rate-limit/payload-window-invalid` | An additionalRateLimits windowSeconds is a positive integer. | Set windowSeconds to a positive integer. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+
+## read-gate
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="read-gate-any-and-all-links"></a>`read-gate/any-and-all-links` | A readGate declares anyLink or allLinks, not both. | Pick one of anyLink and allLinks. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-file-owner-field-type"></a>`read-gate/file-owner-field-type` | readGate.fileOwner.field is a single file or image field. | Point fileOwner.field at a single file or image field. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-file-owner-needs-files-feature"></a>`read-gate/file-owner-needs-files-feature` | readGate.fileOwner requires the files feature to be mounted. | Mount the files feature. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-hand-written-reader"></a>`read-gate/hand-written-reader` | A gated entity's list and detail query handlers are entity-convention handlers, so they cannot bypass the readGate. | Register them via defineEntityListHandler/defineEntityDetailHandler. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-link-entity-unregistered"></a>`read-gate/link-entity-unregistered` | A readGate link names a registered entity. | Register the entity or fix the readGate link entity name. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-link-entity-without-parent-ref"></a>`read-gate/link-entity-without-parent-ref` | A readGate link entity declares a parentRef, because its host visibility is what the gate checks. | Declare a parentRef on the link entity or use another entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-link-field-unknown"></a>`read-gate/link-field-unknown` | A readGate link field is a field of the link entity. | Point the link field at a real field of the link entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="read-gate-with-parent-ref"></a>`read-gate/with-parent-ref` | An entity with readGate does not also declare parentRef. | Drop readGate or parentRef. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## reference
 
@@ -679,6 +798,20 @@
 | <a id="select-option-tone-invalid"></a>`select/option-tone-invalid` | Every select optionTones value is a known tone. | Use one of the listed tones. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
+## tenant-lifecycle
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="tenant-lifecycle-destroy-function-missing"></a>`tenant-lifecycle/destroy-function-missing` | A tenant data or tenant resource extension registration provides its destroy function, otherwise tenant destroy fails at that stage. | Provide destroy (EXT_TENANT_DATA) or destroyTenant (tenant resource extensions) in the registration options. | `packages/bundled-features/src/tenant-lifecycle/boot-rules.ts` |
+| <a id="tenant-lifecycle-tenant-subject-without-destroy-hook"></a>`tenant-lifecycle/tenant-subject-without-destroy-hook` | An entity with tenant-subject fields has an EXT_TENANT_DATA destroy hook, so tenant destroy erases its data. | Register r.useExtension(EXT_TENANT_DATA, "<entity>", { destroy }) or a documented no-op if crypto-shredding covers it. | `packages/bundled-features/src/tenant-lifecycle/boot-rules.ts` |
+
+## transfer
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="transfer-graph-too-deep"></a>`transfer/graph-too-deep` | The tenant-handover transfer graph is not deeper than the maximum depth. | Flatten the chain, or mark a reference field that should not move with its host `handover: "stay"`. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="transfer-multiple-reference-field"></a>`transfer/multiple-reference-field` | A transferable entity declares no multiple reference field to another transferable entity, since the transfer graph cannot match jsonb array rows. | Model the link as a single reference on the owning side, or drop transferable from the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+
 ## transition
 
 | Rule | Summary | Fix | Source |
@@ -695,3 +828,10 @@
 | <a id="user-data-rights-empty-hook"></a>`user-data-rights/empty-hook` | An EXT_USER_DATA registration declares at least one of an export or a delete hook. | Register at least one hook. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-export-without-delete"></a>`user-data-rights/export-without-delete` | An entity exported via EXT_USER_DATA also registers a delete hook. | Add a delete hook, or a documented no-op delete if erasure is handled elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-missing-hook"></a>`user-data-rights/missing-hook` | An entity with user-subject fields registers an EXT_USER_DATA hook. | Register r.useExtension(EXT_USER_DATA, ...) for the entity, or a documented no-op hook if it is covered elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
+
+## workspace
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="workspace-multiple-defaults"></a>`workspace/multiple-defaults` | At most one workspace per app declares default: true. | Remove default: true from all but one workspace. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="workspace-nav-unregistered"></a>`workspace/nav-unregistered` | A workspace references only registered nav entries. | Use "<feature>:nav:<id>" pointing at an r.nav() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |

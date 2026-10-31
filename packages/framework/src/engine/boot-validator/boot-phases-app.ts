@@ -5,8 +5,10 @@ import type { Registry } from "../types/index.ts";
 import { validateProjectionAllowlist } from "../validate-projection-allowlist.ts";
 import { runFeatureBootCheck } from "./boot-check.ts";
 import type { BootContext } from "./boot-context.ts";
+import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
 import type { FeatureFlags } from "./boot-phases.ts";
 import type { BootReport } from "./boot-report.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import { validateCardMetaOverflow } from "./card-meta-overflow.ts";
 import { validateConfigReads } from "./config-deps.ts";
 import { validateDashboardStatNavigate } from "./dashboard-stat-navigate.ts";
@@ -144,9 +146,9 @@ export function runEnvironmentPhase(
   }
   report.check("fileStorageProvider", undefined, () => {
     if (flags.hasFileFields && !(options?.env ?? process.env)[FILE_STORAGE_PROVIDER_ENV]) {
-      throw new Error(
-        `${FILE_STORAGE_PROVIDER_ENV} environment variable is required (file/image fields in use)`,
-      );
+      throw bootRuleError(BOOT_ENVIRONMENT_RULES.fileStorageProviderMissing, {
+        message: `${FILE_STORAGE_PROVIDER_ENV} environment variable is required (file/image fields in use)`,
+      });
     }
   });
 }

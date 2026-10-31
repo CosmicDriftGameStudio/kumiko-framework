@@ -63,10 +63,10 @@ describe("validateBoot collects violations", () => {
       ["fileStorageProvider", undefined],
     ]);
     expect(violations.map((v) => v.ruleId)).toEqual([
-      "unclassified/validateNavs",
-      "unclassified/validateNavs",
+      "nav/screen-unregistered",
+      "nav/screen-unregistered",
       "boot-check/failed",
-      "unclassified/fileStorageProvider",
+      "file-storage/provider-env-missing",
     ]);
     const message = messageOf(run);
     expect(message).toContain("Boot validation failed: 4 violations");
@@ -78,9 +78,7 @@ describe("validateBoot collects violations", () => {
 
   test("a single violation still carries the header", () => {
     const message = messageOf(() => validateBoot([danglingNav("alpha")]));
-    expect(message).toStartWith(
-      "Boot validation failed: 1 violation\n- [unclassified/validateNavs]",
-    );
+    expect(message).toStartWith("Boot validation failed: 1 violation\n- [nav/screen-unregistered]");
   });
 
   test("two failing bootChecks in two features are both reported with their prefix", () => {

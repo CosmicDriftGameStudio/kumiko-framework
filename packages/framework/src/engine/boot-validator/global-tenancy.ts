@@ -1,4 +1,6 @@
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
 
 // Boot-time twin of event-store-executor-context.ts's buildExecutorContext check —
 // surfaces the systemStream invariant once across all features before any dispatch.
@@ -10,19 +12,21 @@ export function validateGlobalTenancyEntities(features: readonly FeatureDefiniti
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       if (entity.tenancy !== "global") continue;
       if (entity.systemStream !== true) {
-        throw new Error(
-          `Feature "${feature.name}" entity "${entityName}": tenancy: "global" entities must ` +
+        throw bootRuleError(ENTITY_DECLARATION_RULES.globalWithoutSystemStream, {
+          message:
+            `Feature "${feature.name}" entity "${entityName}": tenancy: "global" entities must ` +
             "also declare systemStream: true — a global aggregate's event stream must live on " +
             "the system tenant, not the creating tenant's.",
-        );
+        });
       }
       if (!feature.systemScope) {
-        throw new Error(
-          `Feature "${feature.name}" entity "${entityName}": tenancy: "global" entities require ` +
+        throw bootRuleError(ENTITY_DECLARATION_RULES.globalWithoutSystemScope, {
+          message:
+            `Feature "${feature.name}" entity "${entityName}": tenancy: "global" entities require ` +
             "their owning feature to declare r.systemScope() — without it, convention writes run " +
             "in tenant-mode and a global row could end up carrying the creating tenant's id " +
             "instead of the system tenant's.",
-        );
+        });
       }
     }
   }

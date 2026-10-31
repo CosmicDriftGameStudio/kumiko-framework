@@ -3,6 +3,9 @@ import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handler
 import { FILE_REF_ENTITY_NAME } from "../../files/types.ts";
 import { findEntity } from "../find-entity.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import type { BootRule } from "./boot-rule.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
 
 // Boot half of the read-gate guarantee (db/read-gate-clause.ts): the gate names registered
 // entities and fields, and a hand-written list/detail handler cannot silently skip it.
@@ -14,10 +17,10 @@ type GateCheck = {
   readonly entity: EntityDefinition;
 };
 
-function fail(check: GateCheck, message: string): never {
-  throw new Error(
-    `[Kumiko ReadGate] entity "${check.entityName}" (feature: "${check.feature.name}"): ${message}`,
-  );
+function fail(check: GateCheck, rule: BootRule, message: string): never {
+  throw bootRuleError(rule, {
+    message: `[Kumiko ReadGate] entity "${check.entityName}" (feature: "${check.feature.name}"): ${message}`,
+  });
 }
 
 function validateLink(
@@ -27,17 +30,23 @@ function validateLink(
 ): void {
   const link = findEntity(check.featureMap, gateLink.entity);
   if (link === undefined) {
-    fail(check, `readGate.${key}.entity "${gateLink.entity}" is not registered.`);
+    fail(
+      check,
+      ENTITY_DECLARATION_RULES.readGateLinkEntityUnregistered,
+      `readGate.${key}.entity "${gateLink.entity}" is not registered.`,
+    );
   }
   if (link.parentRef === undefined) {
     fail(
       check,
+      ENTITY_DECLARATION_RULES.readGateLinkWithoutParentRef,
       `readGate.${key}.entity "${gateLink.entity}" must declare a parentRef; its host visibility is what the gate checks.`,
     );
   }
   if (link.fields[gateLink.field] === undefined) {
     fail(
       check,
+      ENTITY_DECLARATION_RULES.readGateLinkFieldUnknown,
       `readGate.${key}.field "${gateLink.field}" is not a field of "${gateLink.entity}".`,
     );
   }
@@ -48,11 +57,16 @@ function validateFileOwner(check: GateCheck, fileOwner: { field: string }): void
   if (fileField?.type !== "file" && fileField?.type !== "image") {
     fail(
       check,
+      ENTITY_DECLARATION_RULES.readGateFileOwnerFieldType,
       `readGate.fileOwner.field "${fileOwner.field}" must be a single file or image field.`,
     );
   }
   if (findEntity(check.featureMap, FILE_REF_ENTITY_NAME) === undefined) {
-    fail(check, `readGate.fileOwner needs the files feature (entity "${FILE_REF_ENTITY_NAME}").`);
+    fail(
+      check,
+      ENTITY_DECLARATION_RULES.readGateFileOwnerNeedsFiles,
+      `readGate.fileOwner needs the files feature (entity "${FILE_REF_ENTITY_NAME}").`,
+    );
   }
 }
 
@@ -64,6 +78,7 @@ function validateNoHandWrittenReaders(check: GateCheck): void {
       if (handler !== undefined && handler[ENTITY_CONVENTION_QUERY_BRAND] !== true) {
         fail(
           check,
+          ENTITY_DECLARATION_RULES.readGateHandWrittenReader,
           `query handler "${handlerName}" is hand-written and would bypass the readGate. Fix: register it via defineEntityListHandler/defineEntityDetailHandler.`,
         );
       }
@@ -83,11 +98,16 @@ export function validateReadGates(
     if (entity.parentRef !== undefined) {
       fail(
         check,
+        ENTITY_DECLARATION_RULES.readGateWithParentRef,
         "readGate and parentRef cannot be combined; a gated entity cannot be a join row.",
       );
     }
     if (gate.anyLink !== undefined && gate.allLinks !== undefined) {
-      fail(check, "readGate declares both anyLink and allLinks; pick one.");
+      fail(
+        check,
+        ENTITY_DECLARATION_RULES.readGateAnyAndAllLinks,
+        "readGate declares both anyLink and allLinks; pick one.",
+      );
     }
     if (gate.anyLink !== undefined) validateLink(check, "anyLink", gate.anyLink);
     if (gate.allLinks !== undefined) validateLink(check, "allLinks", gate.allLinks);

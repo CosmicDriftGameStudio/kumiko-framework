@@ -1,4 +1,6 @@
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { HANDLER_DECLARATION_RULES } from "./handler-declaration-rules.ts";
 
 function perCommandConflict(
   handler: FeatureDefinition["writeHandlers"][string],
@@ -16,10 +18,11 @@ export function validatePerCommandTransaction(
 ): void {
   const conflicting = perCommandConflict(handler);
   if (conflicting !== undefined) {
-    throw new Error(
-      `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
+    throw bootRuleError(HANDLER_DECLARATION_RULES.perCommandWithPhase, {
+      message:
+        `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
         "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.dispatch.write.",
-    );
+    });
   }
 }
 
@@ -32,11 +35,13 @@ export function validateBeforeTransactionWhenNested(
   if (handler.beforeTransactionWhenNested === undefined) return;
   const where = `write handler "${featureName}:write:${handlerName}" declares beforeTransactionWhenNested`;
   if (!handler.beforeTransaction) {
-    throw new Error(`${where} without beforeTransaction — there is no phase to skip.`);
+    throw bootRuleError(HANDLER_DECLARATION_RULES.nestedSkipWithoutPhase, {
+      message: `${where} without beforeTransaction — there is no phase to skip.`,
+    });
   }
   if (handler.reserveBeforeTransaction) {
-    throw new Error(
-      `${where} together with reserveBeforeTransaction — a nested run cannot skip the reservation, it would run unreserved.`,
-    );
+    throw bootRuleError(HANDLER_DECLARATION_RULES.nestedSkipWithReservation, {
+      message: `${where} together with reserveBeforeTransaction — a nested run cannot skip the reservation, it would run unreserved.`,
+    });
   }
 }

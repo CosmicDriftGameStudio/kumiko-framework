@@ -1,4 +1,5 @@
 import {
+  bootRuleError,
   EXT_EXTERNAL_RESOURCE,
   EXT_INFRA_RESOURCE,
   EXT_SEARCH_ADAPTER,
@@ -11,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { entitiesOf } from "../shared/index.ts";
+import { TENANT_LIFECYCLE_BOOT_RULES } from "./boot-rules.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 
@@ -46,9 +48,9 @@ export function validateTenantDataHookCoverage(features: readonly FeatureDefinit
         .filter(([, field]) => hasTenantOwned(field))
         .map(([name]) => name);
       if (tenantSubjectFields.length === 0) continue;
-      throw new Error(
-        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has tenant-subject fields (${tenantSubjectFields.join(", ")}) but no feature registers an EXT_TENANT_DATA destroy hook for it — tenant destroy never erases this data. Register r.useExtension(EXT_TENANT_DATA, "${entityName}", { destroy }) or a documented no-op if crypto-shredding covers it.`,
-      );
+      throw bootRuleError(TENANT_LIFECYCLE_BOOT_RULES.tenantSubjectWithoutDestroyHook, {
+        message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has tenant-subject fields (${tenantSubjectFields.join(", ")}) but no feature registers an EXT_TENANT_DATA destroy hook for it — tenant destroy never erases this data. Register r.useExtension(EXT_TENANT_DATA, "${entityName}", { destroy }) or a documented no-op if crypto-shredding covers it.`,
+      });
     }
   }
 }
@@ -74,9 +76,9 @@ export function validateTenantDestroyHookShapes(features: readonly FeatureDefini
         : isTenantResourceExtensionHooks(usage.options);
       if (isValid) continue;
       const requiredFn = isTenantData ? "destroy" : "destroyTenant";
-      throw new Error(
-        `[kumiko:boot] ${usage.extensionName} registration for "${usage.entityName}" (feature "${feature.name}") has no ${requiredFn} function — tenant destroy would fail at this stage.`,
-      );
+      throw bootRuleError(TENANT_LIFECYCLE_BOOT_RULES.destroyFunctionMissing, {
+        message: `[kumiko:boot] ${usage.extensionName} registration for "${usage.entityName}" (feature "${feature.name}") has no ${requiredFn} function — tenant destroy would fail at this stage.`,
+      });
     }
   }
 }

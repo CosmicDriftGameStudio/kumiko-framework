@@ -3,6 +3,8 @@ import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import { isEncryptedAtRest } from "../config-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
 
 const log = createFallbackLogger("kumiko:boot");
 
@@ -45,30 +47,30 @@ export function validateConfigKeyBounds(feature: FeatureDefinition): void {
     // already rejects this, but catch it at boot as defence in depth (e.g.
     // a hand-rolled key definition that bypasses createTenantConfig).
     if (keyDef.type !== "number") {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has bounds but type is "${keyDef.type}" — bounds are only valid for type="number"`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.boundsNonNumber, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has bounds but type is "${keyDef.type}" — bounds are only valid for type="number"`,
+      });
     }
 
     const { min, max } = bounds;
 
     if (min !== undefined && max !== undefined && min > max) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has bounds.min (${min}) > bounds.max (${max}). Set bounds.min to a value at or below bounds.max.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.boundsMinAboveMax, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has bounds.min (${min}) > bounds.max (${max}). Set bounds.min to a value at or below bounds.max.`,
+      });
     }
 
     if (keyDef.default !== undefined) {
       const defaultNum = keyDef.default as number; // @cast-boundary engine-payload
       if (min !== undefined && defaultNum < min) {
-        throw new Error(
-          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min}). Raise the default or lower bounds.min.`,
-        );
+        throw bootRuleError(CONFIG_KEY_RULES.defaultBelowMin, {
+          message: `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min}). Raise the default or lower bounds.min.`,
+        });
       }
       if (max !== undefined && defaultNum > max) {
-        throw new Error(
-          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max}). Lower the default or raise bounds.max.`,
-        );
+        throw bootRuleError(CONFIG_KEY_RULES.defaultAboveMax, {
+          message: `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max}). Lower the default or raise bounds.max.`,
+        });
       }
     }
   }
@@ -85,9 +87,9 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
     // cascade doesn't know which one to prefer on write. Rejecting at boot
     // is cheaper than surprising behaviour at runtime.
     if (isEncryptedAtRest(keyDef)) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms. Use either encrypted/backing="secrets" or a computed resolver on one key.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.computedAndEncrypted, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms. Use either encrypted/backing="secrets" or a computed resolver on one key.`,
+      });
     }
   }
 }
@@ -101,16 +103,16 @@ export function validateConfigKeyRequired(feature: FeatureDefinition): void {
     // or computed resolver means the key can never be unset, so readiness could
     // never report the omission and the flag would be misleading.
     if (keyDef.computed !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a computed resolver — a computed key can never be missing; drop one of the two`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.requiredWithComputed, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a computed resolver — a computed key can never be missing; drop one of the two`,
+      });
     }
     const d = keyDef.default;
     const nonEmptyDefault = d !== undefined && !(typeof d === "string" && d.trim().length === 0);
     if (nonEmptyDefault) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a non-empty default (${JSON.stringify(d)}) — the key can never be unset, readiness would never flag it; use default "" or drop required`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.requiredWithDefault, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a non-empty default (${JSON.stringify(d)}) — the key can never be unset, readiness would never flag it; use default "" or drop required`,
+      });
     }
   }
 }
@@ -125,18 +127,18 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
     // anyway, but declaring allowPerRequest on a text key is a
     // misconfiguration that should fail loudly at boot.
     if (keyDef.type === "text") {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk). Remove allowPerRequest or change the key type.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.perRequestText, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk). Remove allowPerRequest or change the key type.`,
+      });
     }
 
     // encrypted + per-request would expose a cipher-text interpretation
     // to query-strings. The secret-value shouldn't be transported this
     // way — reject as a paradigm-mismatch.
     if (isEncryptedAtRest(keyDef)) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted/backing="secrets" — secret values may not be set via query-params`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.perRequestEncrypted, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted/backing="secrets" — secret values may not be set via query-params`,
+      });
     }
   }
 }
@@ -147,33 +149,37 @@ export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void 
   for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
     const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
     if ("conditionalOptions" in keyDef) {
-      throw new Error(
-        `${prefix} declares conditionalOptions — conditionalOptions is only supported on entity select fields (enforced by the entity write path). Remove conditionalOptions from the config key.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.conditionalOptions, {
+        message: `${prefix} declares conditionalOptions — conditionalOptions is only supported on entity select fields (enforced by the entity write path). Remove conditionalOptions from the config key.`,
+      });
     }
     if (keyDef.optionsQuery === undefined) {
       if (keyDef.optionsQueryPayload !== undefined) {
-        throw new Error(
-          `${prefix} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
-        );
+        throw bootRuleError(CONFIG_KEY_RULES.optionsQueryPayloadWithoutQuery, {
+          message: `${prefix} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
+        });
       }
       continue;
     }
     if (keyDef.optionsQuery.length === 0) {
-      throw new Error(`${prefix} has an empty optionsQuery. Set it to a query name or remove it.`);
+      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryEmpty, {
+        message: `${prefix} has an empty optionsQuery. Set it to a query name or remove it.`,
+      });
     }
     if (keyDef.type !== "select") {
-      throw new Error(
-        `${prefix} has optionsQuery but type="${keyDef.type}" — optionsQuery is only valid on select keys`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryNotSelect, {
+        message: `${prefix} has optionsQuery but type="${keyDef.type}" — optionsQuery is only valid on select keys`,
+      });
     }
     if (keyDef.options !== undefined && keyDef.options.length > 0) {
-      throw new Error(`${prefix} declares both options and optionsQuery — pick one`);
+      throw bootRuleError(CONFIG_KEY_RULES.optionsAndOptionsQuery, {
+        message: `${prefix} declares both options and optionsQuery — pick one`,
+      });
     }
     if (keyDef.allowPerRequest) {
-      throw new Error(
-        `${prefix} has optionsQuery AND allowPerRequest=true — a per-request value would bypass the option set unchecked`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryPerRequest, {
+        message: `${prefix} has optionsQuery AND allowPerRequest=true — a per-request value would bypass the option set unchecked`,
+      });
     }
     validateOptionsQueryKeyRefs(feature, keyName, keyDef);
   }
@@ -187,14 +193,14 @@ function validateOptionsQueryKeyRefs(
   const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
   for (const ref of optionsQueryFieldRefs(keyDef.optionsQueryPayload)) {
     if (ref === keyName) {
-      throw new Error(
-        `${prefix} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different config key.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryPayloadSelfReference, {
+        message: `${prefix} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different config key.`,
+      });
     }
     if (feature.configKeys[ref] === undefined) {
-      throw new Error(
-        `${prefix} optionsQueryPayload references unknown config key "${ref}" of feature "${feature.name}"`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryPayloadUnknownKey, {
+        message: `${prefix} optionsQueryPayload references unknown config key "${ref}" of feature "${feature.name}"`,
+      });
     }
   }
 }
@@ -209,9 +215,9 @@ export function validateConfigKeyBacking(feature: FeatureDefinition): void {
     // so a tenant- or user-scoped secret could never inherit a system default.
     // Permanent rule: secrets-backed keys must be system-scoped.
     if (keyDef.scope !== "system") {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has backing="secrets" but scope="${keyDef.scope}" — secrets storage is flat per (tenant,key) and does not cascade; backing="secrets" requires scope="system"`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.secretsScopeNotSystem, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has backing="secrets" but scope="${keyDef.scope}" — secrets storage is flat per (tenant,key) and does not cascade; backing="secrets" requires scope="system"`,
+      });
     }
 
     // system-scoped backing="secrets" is wired end-to-end: reads dispatch
@@ -230,17 +236,17 @@ export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void 
     if (!keyDef.piiEncrypted) continue;
 
     if (keyDef.type !== "text") {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys. Use type="text" or remove piiEncrypted.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.piiEncryptedNotText, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys. Use type="text" or remove piiEncrypted.`,
+      });
     }
 
     // system scope has no subject (no tenant, no user) for the subject-KMS
     // to encrypt under.
     if (keyDef.scope === "system") {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under. Use scope="tenant" or "user", or remove piiEncrypted.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.piiEncryptedSystemScope, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under. Use scope="tenant" or "user", or remove piiEncrypted.`,
+      });
     }
 
     // Mutually exclusive with the shared-cipher path: a config value is
@@ -251,9 +257,9 @@ export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void 
     // layers. Config values have no such pipeline; picking one keeps the
     // resolver simple.
     if (isEncryptedAtRest(keyDef)) {
-      throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has both piiEncrypted=true and encrypted/backing="secrets" — pick one: piiEncrypted (subject-KMS, user-visible) or encrypted (shared cipher, server-only values)`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.piiEncryptedAndEncrypted, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has both piiEncrypted=true and encrypted/backing="secrets" — pick one: piiEncrypted (subject-KMS, user-visible) or encrypted (shared cipher, server-only values)`,
+      });
     }
   }
 }
@@ -267,9 +273,9 @@ export function validateConfigReads(
   for (const feature of features) {
     for (const key of feature.configReads) {
       if (!allConfigKeys.has(key)) {
-        throw new Error(
-          `Feature "${feature.name}" reads config "${key}" but no feature defines that key. Declare the key via r.config(...) in a feature, or fix the key name.`,
-        );
+        throw bootRuleError(CONFIG_KEY_RULES.unknownConfigRead, {
+          message: `Feature "${feature.name}" reads config "${key}" but no feature defines that key. Declare the key via r.config(...) in a feature, or fix the key name.`,
+        });
       }
     }
   }
@@ -286,9 +292,9 @@ export function validateCircularDeps(
 
   function visit(name: string, path: string[]): void {
     if (stack.has(name)) {
-      throw new Error(
-        `Circular dependency: ${[...path, name].join(" → ")}. Break the cycle by removing one requires() link.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.circularDependency, {
+        message: `Circular dependency: ${[...path, name].join(" → ")}. Break the cycle by removing one requires() link.`,
+      });
     }
     // skip: node already visited in DFS traversal
     if (visited.has(name)) return;
