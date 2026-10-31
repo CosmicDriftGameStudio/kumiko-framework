@@ -303,6 +303,7 @@ describe("event-dispatcher — batchHandler", () => {
     expect(dead?.status).toBe("dead");
     expect(dead?.lastProcessedEventId).toBe(cursorAtLimit);
     expect(dead?.lastError).toContain("3 pending gap ranges reached the limit of 2");
+    expect(dead?.lastError).toContain(`held events of tenant ${admin.tenantId}`);
     expect(delivered).toEqual([other1, other2, other3]);
 
     holding = false;
