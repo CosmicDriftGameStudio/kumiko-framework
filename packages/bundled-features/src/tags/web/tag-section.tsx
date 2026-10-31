@@ -11,13 +11,9 @@
 //                   component: { react: { __component: TAGS_SECTION_EXTENSION_NAME } }
 //                   (RenderEdit passes { entityName, entityId }).
 
-import {
-  useDispatcher,
-  usePrimitives,
-  useQuery,
-  useTranslation,
-} from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
+import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
 import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
@@ -53,7 +49,6 @@ export function TagSection({
 }): ReactNode {
   const { Banner, Button, Text } = usePrimitives();
   const t = useTranslation();
-  const dispatcher = useDispatcher();
   const enabled = entityId !== null;
   const catalog = useQuery<TagListResponse>(TagsQueries.tagList, {}, { enabled });
   // entityType server-side, not just entityId: it collapses the parent-ref
@@ -69,8 +64,7 @@ export function TagSection({
     { enabled },
   );
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const { busy, setBusy, errorKey, setErrorKey, writeOk } = useDispatchedWrites();
 
   if (entityId === null) {
     return (
@@ -103,15 +97,6 @@ export function TagSection({
 
   const refetch = async (): Promise<void> => {
     await Promise.all([catalog.refetch(), assignments.refetch()]);
-  };
-
-  const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
-    const result = await dispatcher.write(type, payload);
-    if (!result.isSuccess) {
-      setErrorKey(result.error.i18nKey);
-      return false;
-    }
-    return true;
   };
 
   const onPicked = (next: readonly string[]): void => {

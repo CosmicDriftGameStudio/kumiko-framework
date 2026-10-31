@@ -7,15 +7,14 @@ import {
   isListQueryWithoutSearchableFields,
   resolveEntityBehindListQuery,
 } from "../entity-list-searchability.ts";
+import { findEntity } from "../find-entity.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import { isEditLayoutScreen } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
 import { bootRuleError } from "./boot-rule.ts";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
 import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
-import { findEntity } from "./parent-ref.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
 
 // Sibling to entity-list-screens.ts rather than an extension of it:

@@ -120,27 +120,15 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
       // time variant() runs.
       r.requires({ features: ["files"] });
 
-      r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {
-        onRegister: () => {
-          // No side-effects at register-time — resolution (exact MIME match,
-          // then `<type>/*` wildcard) happens at request-time in
-          // resolveRenderer, mirrors file-foundation's fileProvider point.
-        },
-      });
-      r.extendsRegistrar(EXT_DERIVATIVE_PUBLIC_PREDICATE, {
-        onRegister: () => {
-          // No side-effects at register-time — resolution happens at
-          // request-time in publicVariantQuery, keyed by the FileRef's
-          // entityType.
-        },
-      });
-      r.extendsRegistrar(EXT_DERIVATIVE_OVERLAY_RESOLVER, {
-        onRegister: () => {
-          // No side-effects at register-time — resolution happens in
-          // variant(), keyed by the FileRef's entityType, before the spec
-          // hash is computed.
-        },
-      });
+      // Resolution (exact MIME match, then `<type>/*` wildcard) happens at request-time in
+      // resolveRenderer, mirrors file-foundation's fileProvider point.
+      r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {});
+      // Resolution happens at request-time in publicVariantQuery, keyed by the FileRef's
+      // entityType.
+      r.extendsRegistrar(EXT_DERIVATIVE_PUBLIC_PREDICATE, {});
+      // Resolution happens in variant(), keyed by the FileRef's entityType, before the spec
+      // hash is computed.
+      r.extendsRegistrar(EXT_DERIVATIVE_OVERLAY_RESOLVER, {});
 
       // Registered ONLY when resolveApexTenant is supplied — r.queryHandler
       // registers publicVariantQuery into the feature's dispatch table as a

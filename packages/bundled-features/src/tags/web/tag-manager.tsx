@@ -17,6 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
+import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
 import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
@@ -117,8 +118,10 @@ export function TagManager({
   const [editColor, setEditColor] = useState("");
   const [editScope, setEditScope] = useState("");
   const [deleting, setDeleting] = useState<TagRow | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const refetch = async (): Promise<void> => {
+    await Promise.all([catalog.refetch(), assignments.refetch()]);
+  };
+  const { busy, errorKey, setErrorKey, writeOk, apply } = useDispatchedWrites(refetch);
 
   if (catalog.loading && catalog.data === null) {
     return (
@@ -148,29 +151,6 @@ export function TagManager({
         return scope === "" || scope === entityType;
       })
     : allTags;
-
-  const refetch = async (): Promise<void> => {
-    await Promise.all([catalog.refetch(), assignments.refetch()]);
-  };
-
-  const apply = async (writes: () => Promise<boolean>): Promise<void> => {
-    setBusy(true);
-    setErrorKey(null);
-    try {
-      if (await writes()) await refetch();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
-    const result = await dispatcher.write(type, payload);
-    if (!result.isSuccess) {
-      setErrorKey(result.error.i18nKey);
-      return false;
-    }
-    return true;
-  };
 
   const createTag = (): void => {
     const name = newName.trim();

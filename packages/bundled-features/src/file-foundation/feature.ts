@@ -54,12 +54,8 @@ export function createFileFoundationFeature() {
       });
       r.requires({ features: ["config"] });
 
-      r.extendsRegistrar(EXT_FILE_PROVIDER, {
-        onRegister: () => {
-          // No side-effects at register-time — registry stores the usage,
-          // factory looks it up at request-time.
-        },
-      });
+      // Registry stores the usage, factory looks it up at request-time.
+      r.extendsRegistrar(EXT_FILE_PROVIDER, {});
 
       const providerConfigKey = r.config(
         "provider",

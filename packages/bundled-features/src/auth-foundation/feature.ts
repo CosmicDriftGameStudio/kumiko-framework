@@ -58,33 +58,20 @@ export function createAuthFoundationFeature() {
         recommended: false,
       });
 
-      r.extendsRegistrar(EXT_TOKEN_VERIFIER, {
-        onRegister: () => {
-          // No side-effects at register-time — registry stores the usage,
-          // resolveTokenVerifier looks it up at request-time.
-        },
-      });
+      // Registry stores the usage, resolveTokenVerifier looks it up at request-time.
+      r.extendsRegistrar(EXT_TOKEN_VERIFIER, {});
       r.bootCheck(({ features }) => validateTokenVerifierMultiplicity(features));
 
-      r.extendsRegistrar(EXT_SESSION_STORE, {
-        onRegister: () => {
-          // No side-effects at register-time — resolveSessionStore at boot/request.
-        },
-      });
+      // resolveSessionStore looks the usage up at boot/request-time.
+      r.extendsRegistrar(EXT_SESSION_STORE, {});
       r.bootCheck(({ features }) => validateSessionStoreMultiplicity(features));
 
-      r.extendsRegistrar(EXT_TENANT_RESOLVER, {
-        onRegister: () => {
-          // Optional — zero providers is fine (single-tenant / header-cookie).
-        },
-      });
+      // Optional — zero providers is fine (single-tenant / header-cookie).
+      r.extendsRegistrar(EXT_TENANT_RESOLVER, {});
       r.bootCheck(({ features }) => validateTenantResolverMultiplicity(features));
 
-      r.extendsRegistrar(EXT_TENANT_EXISTENCE, {
-        onRegister: () => {
-          // Optional — zero providers skips the existence check.
-        },
-      });
+      // Optional — zero providers skips the existence check.
+      r.extendsRegistrar(EXT_TENANT_EXISTENCE, {});
       r.bootCheck(({ features }) => validateTenantExistenceMultiplicity(features));
     },
     { dedupeOptions: {} },

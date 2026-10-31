@@ -14,7 +14,7 @@
 import { collectLookupableFields } from "../crypto/blind-index.ts";
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
-import type { EntityDefinition } from "../engine/types/fields.ts";
+import { findEntity } from "../engine/find-entity.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 import { toSnakeCase } from "../utils/case.ts";
 import type { DbRunner } from "./connection.ts";
@@ -148,17 +148,6 @@ export async function subjectRowExistsInTenant(
   });
 }
 
-function findEntityByExactName(
-  features: ReadonlyMap<string, FeatureDefinition>,
-  entityName: string,
-): EntityDefinition | undefined {
-  for (const feature of features.values()) {
-    const entity = feature.entities?.[entityName];
-    if (entity) return entity;
-  }
-  return undefined;
-}
-
 // Tighter than subjectRowExistsInTenant: the record subject names its own
 // entity, so this is a single-table lookup instead of a self-PII scan
 // across the whole registry.
@@ -174,7 +163,7 @@ export async function recordRowExistsInTenant(
   tenantId: string,
 ): Promise<boolean> {
   return runInSystemRowLevelSecurityScope("record existence check spans tenants", async () => {
-    const entity = findEntityByExactName(features, entityName);
+    const entity = findEntity(features, entityName);
     if (!entity) return false;
     const tableName = resolveTableName(entityName, entity, undefined);
     if (!(await tableExists(db, tableName))) return false;
@@ -222,7 +211,7 @@ export async function recordRowOwningTenantId(
   recordId: string,
 ): Promise<string | undefined> {
   return runInSystemRowLevelSecurityScope("record owner lookup spans tenants", async () => {
-    const entity = findEntityByExactName(features, entityName);
+    const entity = findEntity(features, entityName);
     if (!entity) return undefined;
     const tableName = resolveTableName(entityName, entity, undefined);
     if (!(await tableExists(db, tableName))) return undefined;

@@ -1,4 +1,4 @@
-import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // User data export pipeline — GDPR Art. 15 (access) +
 // Art. 20 (data portability).
 //
@@ -29,7 +29,6 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectEncryptedFieldNames,
   configuredEntityFieldEncryption,
-  createTenantDb,
   decryptEntityFieldValues,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -44,12 +43,9 @@ import {
   type UserDataExportSnippet,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import {
-  createEscapeHatchReporter,
-  UNATTRIBUTED_ACTOR,
-} from "@cosmicdrift/kumiko-framework/pipeline";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantMembershipsTable } from "../tenant/index.ts";
+import { buildHookDb } from "./build-hook-db.ts";
 import { buildFileRefZipPath } from "./zip-path.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
@@ -106,31 +102,6 @@ interface HookEntry {
   readonly entityName: string;
   readonly exportHook: UserDataExportHook;
   readonly escapeHatchReason: string | undefined;
-}
-
-function buildHookDb(
-  db: DbRunner,
-  tenantId: TenantId,
-  entry: HookEntry,
-  args: Pick<RunUserExportArgs, "escapeHatchAuditSink" | "escapeHatchAuditLog" | "actor">,
-) {
-  const report = createEscapeHatchReporter({
-    handler: `${EXT_USER_DATA}:${entry.entityName}`,
-    tenantId,
-    actor: args.actor ?? UNATTRIBUTED_ACTOR,
-    sink: args.escapeHatchAuditSink,
-    log: args.escapeHatchAuditLog ?? createFallbackLogger("user-data-rights"),
-  });
-  return createTenantDb({
-    db,
-    tenantId,
-    mode: "tenant",
-    grants: {
-      unsafeRaw:
-        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
-      report,
-    },
-  });
 }
 
 /**

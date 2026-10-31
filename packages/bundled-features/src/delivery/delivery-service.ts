@@ -33,6 +33,7 @@ import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framewo
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
+import { collectExtensionOptions } from "../shared/collect-extension-options.ts";
 import { redactErrorText } from "../shared/index.ts";
 import { hashUnsubscribeAddress } from "./address-opt-out.ts";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.ts";
@@ -120,15 +121,7 @@ export type DeliveryServiceOptions = {
 
 // Build channel list from registry extension usages
 export function collectChannels(registry: Registry): DeliveryChannel[] {
-  const usages = registry.getExtensionUsages(DELIVERY_CHANNEL_EXTENSION);
-  return usages.map((usage) => {
-    if (!isDeliveryChannelPlugin(usage.options)) {
-      throw new Error(
-        `${DELIVERY_CHANNEL_EXTENSION} registration for "${usage.entityName}" has invalid options`,
-      );
-    }
-    return { name: usage.entityName, ...usage.options };
-  });
+  return collectExtensionOptions(registry, DELIVERY_CHANNEL_EXTENSION, isDeliveryChannelPlugin);
 }
 
 export function createDeliveryService(options: DeliveryServiceOptions): DeliveryService {

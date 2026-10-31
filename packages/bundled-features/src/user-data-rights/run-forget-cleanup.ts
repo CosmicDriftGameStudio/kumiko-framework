@@ -1,4 +1,4 @@
-import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // Forget-cleanup runner — pure-function pipeline.
 //
 // After the grace period, this runner processes users in DeletionRequested
@@ -34,7 +34,6 @@ import {
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
-  createTenantDb,
   type DbRunner,
   entityEventName,
   executeRawQuery,
@@ -58,10 +57,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
-  createEscapeHatchReporter,
-  UNATTRIBUTED_ACTOR,
-} from "@cosmicdrift/kumiko-framework/pipeline";
-import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
@@ -78,6 +73,7 @@ import {
 } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { USER_STATUS, userTable } from "../user/index.ts";
+import { buildHookDb } from "./build-hook-db.ts";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.ts";
 import { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
 
@@ -203,35 +199,6 @@ interface HookEntry {
    * order so it precedes owner-nulling hooks on the same entity (see sort below). */
   readonly order: number;
   readonly escapeHatchReason: string | undefined;
-}
-
-function buildHookDb(
-  db: DbRunner,
-  tenantId: TenantId,
-  entry: HookEntry,
-  args: {
-    readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
-    readonly escapeHatchAuditLog?: Logger;
-    readonly actor?: string;
-  },
-) {
-  const report = createEscapeHatchReporter({
-    handler: `${EXT_USER_DATA}:${entry.entityName}`,
-    tenantId,
-    actor: args.actor ?? UNATTRIBUTED_ACTOR,
-    sink: args.escapeHatchAuditSink,
-    log: args.escapeHatchAuditLog ?? createFallbackLogger("user-data-rights"),
-  });
-  return createTenantDb({
-    db,
-    tenantId,
-    mode: "tenant",
-    grants: {
-      unsafeRaw:
-        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
-      report,
-    },
-  });
 }
 
 // EXT_USER_DATA delete-hooks default here; a hook that redacts data keyed on an

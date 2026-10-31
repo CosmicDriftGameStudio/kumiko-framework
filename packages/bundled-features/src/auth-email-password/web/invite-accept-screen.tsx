@@ -109,15 +109,15 @@ export function InviteAcceptScreen({
     );
   };
 
-  const acceptLoggedIn = async (): Promise<void> => {
+  const postInviteAccept = async (path: string, body: Record<string, string>): Promise<void> => {
     setSubmitting(true);
     setError(null);
     // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-    const res = await fetch("/api/auth/invite-accept", {
+    const res = await fetch(path, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", ...csrfHeader() },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify(body),
     });
     setSubmitting(false);
     if (res.ok) {
@@ -129,45 +129,14 @@ export function InviteAcceptScreen({
     setError(t("auth.errors.invalidInviteToken"));
   };
 
-  const acceptAnonExisting = async (): Promise<void> => {
-    setSubmitting(true);
-    setError(null);
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-    const res = await fetch("/api/auth/invite-accept-with-login", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", ...csrfHeader() },
-      body: JSON.stringify({ token, email, password }),
-    });
-    setSubmitting(false);
-    if (res.ok) {
-      // @cast-boundary engine-payload — auth route JSON
-      const data = (await res.json()) as InviteAcceptResponse;
-      finishAccept(data);
-      return;
-    }
-    setError(t("auth.errors.invalidInviteToken"));
-  };
+  const acceptLoggedIn = (): Promise<void> =>
+    postInviteAccept("/api/auth/invite-accept", { token });
 
-  const acceptAnonNew = async (): Promise<void> => {
-    setSubmitting(true);
-    setError(null);
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-    const res = await fetch("/api/auth/invite-signup-complete", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", ...csrfHeader() },
-      body: JSON.stringify({ token, password }),
-    });
-    setSubmitting(false);
-    if (res.ok) {
-      // @cast-boundary engine-payload — auth route JSON
-      const data = (await res.json()) as InviteAcceptResponse;
-      finishAccept(data);
-      return;
-    }
-    setError(t("auth.errors.invalidInviteToken"));
-  };
+  const acceptAnonExisting = (): Promise<void> =>
+    postInviteAccept("/api/auth/invite-accept-with-login", { token, email, password });
+
+  const acceptAnonNew = (): Promise<void> =>
+    postInviteAccept("/api/auth/invite-signup-complete", { token, password });
 
   const onSubmit = (e?: FormEvent): void => {
     e?.preventDefault();

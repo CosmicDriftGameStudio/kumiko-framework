@@ -1,6 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { failUnprocessable, type WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { isUniqueConstraintFailure } from "../../shared/is-unique-constraint-failure.ts";
 import { countDraftsByOwner } from "../db/queries/draft-count.ts";
 import { formDraftExecutor } from "../executor.ts";
 import { lookupDraft } from "../lookup.ts";
@@ -11,6 +12,9 @@ import {
   FORM_DRAFT_UNIQUE_KEY_CONSTRAINT,
 } from "../web/constants.ts";
 
+const SAVE_DRAFT_COUNT_REASON =
+  "COUNT(*) of the caller's own drafts without loading 64KB value blobs";
+
 /**
  * save is an upsert keyed on (tenantId, ownerId, draftKey) — same
  * lookup-then-create|update-with-race-retry idiom as
@@ -20,20 +24,6 @@ import {
  * winner's row, and updates it (with the winner's version) instead of
  * erroring.
  */
-function isDraftKeyConflict(failure: WriteFailure): boolean {
-  const error = failure.error as {
-    code?: string;
-    details?: { constraintName?: string };
-  }; // @cast-boundary error-details
-  return (
-    error.code === "unique_violation" &&
-    error.details?.constraintName === FORM_DRAFT_UNIQUE_KEY_CONSTRAINT
-  );
-}
-
-const SAVE_DRAFT_COUNT_REASON =
-  "COUNT(*) of the caller's own drafts without loading 64KB value blobs";
-
 export const saveDraftWrite = defineWriteHandler({
   name: "save",
   schema: saveDraftPayloadSchema,
@@ -69,7 +59,7 @@ export const saveDraftWrite = defineWriteHandler({
 
     const result = await formDraftExecutor.create({ ownerId, draftKey, draft }, event.user, ctx.db);
     if (result.isSuccess) return result;
-    if (!isDraftKeyConflict(result)) return result;
+    if (!isUniqueConstraintFailure(result, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT)) return result;
 
     const winner = await lookupDraft(ctx.db, event.user.tenantId, ownerId, draftKey);
     if (!winner) return result;

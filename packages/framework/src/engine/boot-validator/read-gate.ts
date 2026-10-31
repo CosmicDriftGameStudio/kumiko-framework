@@ -1,8 +1,8 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { FILE_REF_ENTITY_NAME } from "../../files/types.ts";
+import { findEntity } from "../find-entity.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-import { findEntity } from "./parent-ref.ts";
 
 // Boot half of the read-gate guarantee (db/read-gate-clause.ts): the gate names registered
 // entities and fields, and a hand-written list/detail handler cannot silently skip it.

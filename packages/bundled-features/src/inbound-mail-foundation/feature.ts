@@ -228,12 +228,8 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
 
       // Plugin extension point — providers register via
       // r.useExtension("inboundMailProvider", "<key>", plugin).
-      r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {
-        onRegister: () => {
-          // No side-effects at register-time — lookup happens at runtime
-          // via resolveInboundProviderForKey/-Account.
-        },
-      });
+      // Lookup happens at runtime via resolveInboundProviderForKey/-Account.
+      r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {});
 
       // Sync machinery: high-frequency tick state, deliberately NOT
       // event-sourced — r.storeTable keeps the migration DDL but excludes the

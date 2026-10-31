@@ -200,11 +200,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       });
 
       // Plugin extension point. Provider plugins register here.
-      r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
-        onRegister: () => {
-          // No side-effects at register-time.
-        },
-      });
+      r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {});
 
       // Custom write handlers:
       //   - process-event: programmatic entry point called by the webhook

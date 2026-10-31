@@ -28,6 +28,7 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
+import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
 import { createTagAssignmentEntity, tagEntity } from "./entity.ts";
 import { createTagAssignmentExecutor } from "./executor.ts";
 import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
@@ -175,12 +176,6 @@ export type TagsFeatureOptions = {
   readonly parents?: readonly string[];
 };
 
-function resolveAccess(opts: TagsFeatureOptions): AccessRule {
-  if (opts.access !== undefined) return opts.access;
-  if (opts.roles !== undefined) return { roles: opts.roles };
-  return DEFAULT_TAG_ACCESS;
-}
-
 // Backwards-compat / options wrapper. Without options returns the module-level
 // singleton (no rebuild). access/roles/toggleable/ownership build a fresh
 // feature-definition.
@@ -203,7 +198,7 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof default
     );
   }
   assertNoWhereRuleInOwnershipWrite("createTagsFeature", opts.ownership?.write);
-  const access = resolveAccess(opts);
+  const access = resolveFeatureAccess(opts, DEFAULT_TAG_ACCESS);
   return defineFeature(TAGS_FEATURE_NAME, (r) =>
     registerTags(r, access, opts.toggleable, opts.ownership, opts.parents),
   );

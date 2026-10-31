@@ -21,6 +21,7 @@ import {
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
 import { accountEntity, scheduleEntity, transactionEntity } from "./entity.ts";
 import { createConfirmSchedulePeriodHandler } from "./handlers/confirm-schedule-period.write.ts";
 import { createCreateTransactionHandler } from "./handlers/create-transaction.write.ts";
@@ -166,18 +167,12 @@ export type LedgerFeatureOptions = {
   readonly toggleable?: LedgerToggleable;
 };
 
-function resolveAccess(opts: LedgerFeatureOptions): AccessRule {
-  if (opts.access !== undefined) return opts.access;
-  if (opts.roles !== undefined) return { roles: opts.roles };
-  return DEFAULT_LEDGER_ACCESS;
-}
-
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/toggleable build a fresh feature-definition.
 export function createLedgerFeature(opts: LedgerFeatureOptions = {}): typeof defaultLedgerFeature {
   if (opts.access === undefined && opts.roles === undefined && opts.toggleable === undefined) {
     return defaultLedgerFeature;
   }
-  const access = resolveAccess(opts);
+  const access = resolveFeatureAccess(opts, DEFAULT_LEDGER_ACCESS);
   return defineFeature(LEDGER_FEATURE_NAME, (r) => registerLedger(r, access, opts.toggleable));
 }
