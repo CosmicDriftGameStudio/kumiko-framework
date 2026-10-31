@@ -16,6 +16,7 @@ import {
 import {
   append,
   loadAggregate,
+  type StoredEvent,
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
@@ -24,6 +25,7 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantEntity, tenantTable } from "../tenant/index.ts";
 import {
+  DESTRUCTION_STAGE_MAX_PENDING_MS,
   DESTRUCTION_STAGE_MIN_SLICE_MS,
   DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
@@ -104,6 +106,33 @@ function isStageContinuation(
     (event) => stageEventTypes.has(event.type) && event.payload["stage"] === stageName,
   );
   return lastStageEvent?.type === qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT);
+}
+
+// Stage-started events written before startedAt existed fall back to their append time.
+function currentAttemptStartedAt(
+  events: readonly StoredEvent[],
+  stageName: string,
+): Temporal.Instant | undefined {
+  const started = events.findLast(
+    (event) =>
+      event.type === qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT) &&
+      event.payload["stage"] === stageName,
+  );
+  if (!started) return undefined;
+  const startedAt = started.payload["startedAt"];
+  return typeof startedAt === "string" ? getTemporal().Instant.from(startedAt) : started.createdAt;
+}
+
+function isPendingWindowOpen(
+  events: readonly StoredEvent[],
+  stageName: string,
+  now: Temporal.Instant,
+): boolean {
+  const startedAt = currentAttemptStartedAt(events, stageName);
+  return (
+    startedAt !== undefined &&
+    now.epochMilliseconds - startedAt.epochMilliseconds <= DESTRUCTION_STAGE_MAX_PENDING_MS
+  );
 }
 
 function lastEventVersion(events: ReadonlyArray<{ version: number }>): number {
@@ -255,6 +284,7 @@ type StageTickResult = {
   readonly error?: string;
   readonly halted?: boolean;
   readonly progressed?: boolean;
+  readonly pending?: boolean;
 };
 
 // `version` differs per caller: the catch path appends against the pre-run
@@ -287,6 +317,41 @@ async function recordFailedStageAttempt(args: {
   return { done: false, error: args.error };
 }
 
+// A tick that neither finishes nor processes anything would otherwise loop forever,
+// because progressed events do not count as attempts. A pending tick still appends a
+// progressed event: without it the next tick would open a new stage-started and the
+// pending window would never close.
+async function recordIdleStageTick(args: {
+  readonly db: DbRunner;
+  readonly tenantId: TenantId;
+  readonly stage: DestructionStage;
+  readonly attempt: number;
+  readonly pending: boolean;
+  readonly events: readonly StoredEvent[];
+  readonly now: Temporal.Instant;
+}): Promise<StageTickResult> {
+  if (args.pending && isPendingWindowOpen(args.events, args.stage.name, args.now)) {
+    await appendTenantStageEvent(
+      args.db,
+      args.tenantId,
+      qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
+      { stage: args.stage.name, attempts: args.attempt, processed: 0, pending: true },
+      lastEventVersion(args.events),
+    );
+    return { done: false, pending: true };
+  }
+  return await recordFailedStageAttempt({
+    db: args.db,
+    tenantId: args.tenantId,
+    stage: args.stage,
+    attempt: args.attempt,
+    error: args.pending
+      ? `stage "${args.stage.name}" still pending after ${DESTRUCTION_STAGE_MAX_PENDING_MS / 60_000} min`
+      : `stage "${args.stage.name}" made no progress`,
+    version: lastEventVersion(args.events),
+  });
+}
+
 export async function runNextDestructionStage(args: {
   readonly db: DbRunner;
   readonly registry: Registry;
@@ -298,7 +363,9 @@ export async function runNextDestructionStage(args: {
   readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
   readonly deadlineAt?: number;
+  readonly now?: Temporal.Instant;
 }): Promise<StageTickResult> {
+  const now = args.now ?? getTemporal().Now.instant();
   const events = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
 
@@ -333,7 +400,7 @@ export async function runNextDestructionStage(args: {
       args.db,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT),
-      { stage: next.name, attempts: attempt },
+      { stage: next.name, attempts: attempt, startedAt: now.toString() },
       version,
       stageOutcomeRecorded(events, next.name, TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT),
     );
@@ -346,16 +413,15 @@ export async function runNextDestructionStage(args: {
     // the version fresh instead of trusting the pre-run `version`, or this
     // append throws VersionConflictError on every stage whose run() writes.
     const eventsAfterRun = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
-    // A tick that neither finishes nor processes anything would otherwise loop
-    // forever, because progressed events do not count as attempts.
     if (!outcome.done && outcome.processed === 0) {
-      return await recordFailedStageAttempt({
+      return await recordIdleStageTick({
         db: args.db,
         tenantId: args.tenantId,
         stage: next,
         attempt,
-        error: `stage "${next.name}" made no progress`,
-        version: lastEventVersion(eventsAfterRun),
+        pending: outcome.pending === true,
+        events: eventsAfterRun,
+        now,
       });
     }
     if (!outcome.done) {
@@ -482,6 +548,7 @@ export async function runTenantDestructionSweep(args: {
     try {
       const result = await runNextDestructionStage({
         deadlineAt: tenantDeadlineAt,
+        now,
         db: args.db,
         registry: args.registry,
         tenantId: row.id,

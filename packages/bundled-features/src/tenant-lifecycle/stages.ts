@@ -69,7 +69,11 @@ export type DestructionStageCtx = {
   readonly deadlineAt: number;
 };
 
-export type StageRunOutcome = { readonly done: boolean; readonly processed: number };
+export type StageRunOutcome = {
+  readonly done: boolean;
+  readonly processed: number;
+  readonly pending?: boolean;
+};
 
 const STAGE_DONE: StageRunOutcome = { done: true, processed: 0 };
 
@@ -97,13 +101,15 @@ function newOutcomeAccumulator(): {
   outcome: () => StageRunOutcome;
 } {
   let allDone = true;
+  let pending = false;
   let processed = 0;
   return {
     add: (result) => {
       if (result?.done === false) allDone = false;
+      if (result?.done === false && result.pending === true) pending = true;
       processed += result?.processed ?? 0;
     },
-    outcome: () => ({ done: allDone, processed }),
+    outcome: () => ({ done: allDone, processed, pending }),
   };
 }
 

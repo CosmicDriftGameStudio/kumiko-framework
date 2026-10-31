@@ -16,10 +16,12 @@ import type { TenantId } from "../types/index.ts";
 
 // done:false asks the runner to call the hook again next tick; processed feeds the
 // destroy progress event. A tick with processed 0 counts as a failed attempt, so a
-// stuck hook is abandoned instead of looping forever.
+// stuck hook is abandoned instead of looping forever. pending:true marks a hook that
+// waits on an external operation: those ticks are no attempts, but the stage may stay
+// pending only for a bounded time after its stage-started event.
 export type TenantDestroyHookResult =
   | { readonly done: true; readonly processed?: number }
-  | { readonly done: false; readonly processed: number };
+  | { readonly done: false; readonly processed: number; readonly pending?: boolean };
 
 export interface TenantResourceHookCtx {
   readonly tenantId: TenantId;

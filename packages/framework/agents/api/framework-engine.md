@@ -1649,6 +1649,7 @@ type TenantDestroyHookResult =
   | {
     done: false;
     processed: number;
+    pending?: boolean;
   }
 ;
 type TenantId = string;
