@@ -3,7 +3,7 @@
 // The anonymous handler only routes to the declaration's tenant; the system
 // handler checks the token and does the work.
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { hashOpaqueTokenSync, opaqueTokenHashMatches } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
   createSystemUser,
@@ -45,17 +45,7 @@ export function createRevocationToken(): { readonly token: string; readonly toke
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES))).toString(
     "base64url",
   );
-  return { token, tokenHash: hashRevocationToken(token) };
-}
-
-function hashRevocationToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function tokenMatchesHash(token: string, expectedHash: string): boolean {
-  const actual = Buffer.from(hashRevocationToken(token));
-  const expected = Buffer.from(expectedHash);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
+  return { token, tokenHash: hashOpaqueTokenSync(token) };
 }
 
 export function revocationUrl(args: {
@@ -154,7 +144,7 @@ export function createRecordContractTerminationRevocationHandler(
         .find((candidate) => candidate?.requestId === payload.requestId);
       if (
         declared?.revocationTokenHash === undefined ||
-        !tokenMatchesHash(payload.token, declared.revocationTokenHash)
+        !opaqueTokenHashMatches(payload.token, declared.revocationTokenHash)
       ) {
         return outcome("invalid");
       }

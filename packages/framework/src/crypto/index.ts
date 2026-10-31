@@ -30,6 +30,11 @@ export {
   resolveKmsWiringAsync,
 } from "./kms-wiring.ts";
 export {
+  hashOpaqueToken,
+  hashOpaqueTokenSync,
+  opaqueTokenHashMatches,
+} from "./opaque-token-hash.ts";
+export {
   createPgKmsAdapter,
   rewrapSubjectKeys,
 } from "./pg-kms-adapter.ts";

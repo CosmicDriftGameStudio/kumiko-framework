@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import * as z from "zod";
+import { hashOpaqueTokenSync } from "../crypto/opaque-token-hash.ts";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
@@ -43,7 +43,7 @@ const MfaPreauthConfirmBody = z.object({
 // login.write.ts), so hashing it into a bucket key still caps the replay
 // even when the IP-based bucket is bypassed via header rotation.
 function preauthTokenKeyOf(token: string): string {
-  return `preauth-token:${createHash("sha256").update(token).digest("hex")}`;
+  return `preauth-token:${hashOpaqueTokenSync(token)}`;
 }
 
 export function registerMfaVerifyRoute(ctx: AuthRouteContext): void {

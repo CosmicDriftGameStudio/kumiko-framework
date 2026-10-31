@@ -1,23 +1,21 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { createHmacTokenCodec, type HmacTokenVerifyResult } from "./hmac-token-codec.ts";
+import {
+  createHmacTokenCodec,
+  type HmacTokenVerifyResult,
+  isUserTenantPayload,
+} from "./hmac-token-codec.ts";
 
 export type MfaChallengePayload = {
   readonly userId: string;
   readonly tenantId: TenantId;
 };
 
-function isPayload(value: unknown): value is MfaChallengePayload {
-  if (!isPlainObject(value)) return false;
-  return typeof value["userId"] === "string" && typeof value["tenantId"] === "string";
-}
-
 // Domain-separated from mfa-preauth-setup (see hmac-token-codec). Single-use is
 // enforced by the consumer via burnToken (purpose "mfa-challenge"); this codec
 // only signs and verifies. Brute-forcing the code behind a valid token is
 // limited separately in mfa-verify-attempts.ts.
-const codec = createHmacTokenCodec("mfa-challenge", isPayload);
+const codec = createHmacTokenCodec("mfa-challenge", isUserTenantPayload);
 
 export function signMfaChallengeToken(
   payload: MfaChallengePayload,

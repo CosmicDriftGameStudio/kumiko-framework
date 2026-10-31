@@ -12,16 +12,12 @@
 // Timing-safe comparison on verify so a valid-length forgery can't leak
 // signal through a short-circuit.
 
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";
 
 export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
-
-function sign(input: string, secret: string): string {
-  return createHmac("sha256", secret).update(input).digest("base64url");
-}
 
 function payload(purpose: string, userId: string, expiresAtMs: number): string {
   return `${purpose}:${userId}.${expiresAtMs}`;
@@ -36,7 +32,7 @@ export function signToken(
 ): { token: string; expiresAt: Temporal.Instant } {
   const expiresAt = now.add({ minutes: ttlMinutes });
   const expiresAtMs = expiresAt.epochMilliseconds;
-  const signature = sign(payload(purpose, userId, expiresAtMs), secret);
+  const signature = signHmacSha256Base64Url(payload(purpose, userId, expiresAtMs), secret);
   return {
     token: `${userId}.${expiresAtMs}.${signature}`,
     expiresAt,
@@ -74,14 +70,8 @@ export function verifyToken(
     return { ok: false, reason: "malformed" };
   }
 
-  const expected = sign(payload(purpose, userId, expiresAtMs), secret);
-  const expectedBuf = Buffer.from(expected, "base64url");
-  const providedBuf = Buffer.from(providedSig, "base64url");
-  // Length mismatch fails BEFORE timingSafeEqual, which throws on different
-  // lengths — but that throw itself leaks via timing. Explicit length check
-  // keeps the path uniform.
-  if (expectedBuf.length !== providedBuf.length) return { ok: false, reason: "bad_signature" };
-  if (!timingSafeEqual(expectedBuf, providedBuf)) return { ok: false, reason: "bad_signature" };
+  const expected = signHmacSha256Base64Url(payload(purpose, userId, expiresAtMs), secret);
+  if (!hmacSignatureMatches(expected, providedSig)) return { ok: false, reason: "bad_signature" };
 
   if (Temporal.Instant.compare(now, Temporal.Instant.fromEpochMilliseconds(expiresAtMs)) > 0) {
     return { ok: false, reason: "expired" };
