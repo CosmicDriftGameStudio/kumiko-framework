@@ -67,3 +67,9 @@ export const DESTRUCTION_STAGE_TICK_BUDGET_MS = 30_000;
 // without a guaranteed first batch processes nothing, and a no-progress stage
 // counts as a failed attempt, which would abandon the pipeline under load.
 export const DESTRUCTION_STAGE_MIN_SLICE_MS = 2_000;
+
+// How long one stage attempt may report pending (a hook waiting on an external
+// operation) after its stage-started event before the wait counts as a failed attempt.
+// Sized for a queued app teardown (pod drain up to 330 s, database drop up to 180 s,
+// two teardowns in parallel) with headroom for several apps per tenant.
+export const DESTRUCTION_STAGE_MAX_PENDING_MS = 60 * 60_000;

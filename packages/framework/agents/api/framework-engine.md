@@ -970,9 +970,11 @@ type JobTrigger =
   | {
     cron: string;
     tz?: string;
+    wakesSleepingApp?: false;
   }
   | {
     maintenance: true;
+    wakesSleepingApp?: false;
   }
   | {
     manual: true;
@@ -1649,6 +1651,7 @@ type TenantDestroyHookResult =
   | {
     done: false;
     processed: number;
+    pending?: boolean;
   }
 ;
 type TenantId = string;

@@ -28,9 +28,13 @@ export const ACTIVE_TENANT_IDS_QUERY_NAME = "tenant:query:active-tenant-ids";
  * leaking permanent `repeat:*` hashes (taskforcesh/bullmq#3828,
  * publicstatus Redis OOM). Strip `.` and `:` from the job QN.
  */
-export function schedulerIdForJobName(jobName: string): string {
-  return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
+export function schedulerIdForJobName(jobName: string, wakesSleepingApp = true): string {
+  const prefix = wakesSleepingApp ? "scheduler-" : NO_WAKE_SCHEDULER_PREFIX;
+  return `${prefix}${jobName.replace(/[.:]/g, "-")}`;
 }
+
+// Contract with the infra waker of sleeping shared apps: it skips due jobs under this prefix.
+const NO_WAKE_SCHEDULER_PREFIX = "scheduler-nowake-";
 
 // Same colon-in-BullMQ-id hazard as schedulerIdForJobName —
 // a QN like "publicstatus:job:uptime-probe" must not leave ":" in the id.
@@ -75,6 +79,7 @@ type OrphanSchedulerLog = {
 export async function removeOrphanJobSchedulers(
   queue: Queue,
   expectedSchedulerIds: ReadonlySet<string>,
+  supersededSchedulerIds: ReadonlySet<string>,
   lane: JobRunIn,
   log: OrphanSchedulerLog,
 ): Promise<void> {
@@ -92,7 +97,8 @@ export async function removeOrphanJobSchedulers(
     for (const key of existingKeys) {
       if (expectedSchedulerIds.has(key)) continue;
       const lastSeen = Number(seenAt[key]);
-      if (key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS) continue;
+      const isWithinGrace = key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS;
+      if (isWithinGrace && !supersededSchedulerIds.has(key)) continue;
       await queue.removeJobScheduler(key);
       await client.hdel(schedulerSeenKey(queue), key);
       log.info("removed orphan job scheduler", { schedulerId: key, lane });

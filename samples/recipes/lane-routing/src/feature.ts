@@ -108,5 +108,13 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
       pruneRuns.push(Date.now());
     });
+
+    // Optional upkeep: `wakesSleepingApp: false` keeps a sleeping shared app asleep when a run is
+    // due; the run happens on the next wake instead.
+    r.job(
+      "warm-receipt-cache",
+      { trigger: { cron: "*/15 * * * *", wakesSleepingApp: false }, runIn: "worker" },
+      async () => {},
+    );
   });
 }

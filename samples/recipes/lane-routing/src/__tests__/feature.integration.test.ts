@@ -109,6 +109,10 @@ describe("lane-routing sample", () => {
     expect(registry.getJob("orders:job:prune-old-receipts")?.trigger).toEqual({
       maintenance: true,
     });
+    expect(registry.getJob("orders:job:warm-receipt-cache")?.trigger).toEqual({
+      cron: "*/15 * * * *",
+      wakesSleepingApp: false,
+    });
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
       rowLevelSecurity: "off",
