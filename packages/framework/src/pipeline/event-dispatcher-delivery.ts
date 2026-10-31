@@ -417,17 +417,22 @@ function isIntakePausedByPendingGapLimit(
   return consumer.batchHandler !== undefined && pendingGapCount >= maxPendingGapRanges;
 }
 
+// Skipping the first held event frees one range only and the next pass is back at the limit,
+// so the message points at the held tenant, whose index has to be fixed.
 function escalateIntakePausedOutcome(
   outcome: DeliveryOutcome,
   state: ConsumerStateRow,
+  deliverable: ReadonlyArray<StoredEventRow>,
   pendingGapCount: number,
   maxPendingGapRanges: number,
   effectiveMaxAttempts: number,
 ): DeliveryOutcome {
   const firstHeld = outcome.failedEventId ?? state.lastFailedEventId;
+  const heldTenant = deliverable.find((event) => event.id === firstHeld)?.tenantId ?? "unknown";
   const lastError =
     `${pendingGapCount} pending gap ranges reached the limit of ${maxPendingGapRanges}; ` +
-    `new events wait until held events drain or event ${firstHeld ?? "unknown"} is skipped`;
+    `no new events are taken until the held events of tenant ${heldTenant} drain ` +
+    `(first held event ${firstHeld ?? "unknown"})`;
   if (outcome.processed > 0) return { ...outcome, lastError };
   const attempts = state.attempts + 1;
   return {
@@ -490,6 +495,7 @@ export async function deliverConsumerTurn(input: ConsumerTurnInput): Promise<{
     ? escalateIntakePausedOutcome(
         delivered,
         state,
+        deliverable,
         input.pendingGapCount,
         input.maxPendingGapRanges,
         consumer.errorPolicy?.maxAttempts ?? maxAttempts,
