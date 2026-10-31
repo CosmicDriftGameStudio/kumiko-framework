@@ -39,7 +39,7 @@ import {
   type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state.ts";
-import type { EventConsumer } from "./event-dispatcher.ts";
+import type { BatchTurnControl, EventConsumer } from "./event-dispatcher.ts";
 import { parseWriteOrigin } from "./write-origin.ts";
 
 // Fails closed without throwing: a throw would poison the event for every consumer.
@@ -282,6 +282,9 @@ export type DeliveryOutcome = {
   // caller (event-dispatcher.ts) splits exactly these out of pending_gaps;
   // everything else in the input batch was a "new" row past the old cursor.
   readonly resolvedPendingIds: readonly bigint[];
+  // Ids past the starting cursor the batch handler held for a later turn. The cursor moves over
+  // them, so the caller must add them to pending_gaps; held pending ids simply stay there.
+  readonly heldNewIds: readonly bigint[];
 };
 
 // Deliver events to the consumer's handler in events.id order, or — when
@@ -321,10 +324,21 @@ export async function deliverEvents(
   };
 
   if (consumer.batchHandler && events.length > 0) {
-    const batchSucceeded = await tryApplyBatch(consumer, events, context);
-    if (batchSucceeded) {
-      for (const row of events) resolve(row.id);
-      processed = events.length;
+    const batch = await tryApplyBatch(consumer, events, context);
+    if (batch.applied) {
+      const heldNewIds: bigint[] = [];
+      for (const row of events) {
+        if (!batch.held.has(String(row.id))) {
+          resolve(row.id);
+          processed += 1;
+          continue;
+        }
+        failed += 1;
+        failedEventId ??= row.id;
+        if (row.id > startCursor) heldNewIds.push(row.id);
+        if (row.id > cursor) cursor = row.id;
+      }
+      if (batch.heldReason !== null && failed > 0) lastError = batch.heldReason;
       return {
         cursor,
         attempts,
@@ -334,6 +348,7 @@ export async function deliverEvents(
         failed,
         failedEventId,
         resolvedPendingIds,
+        heldNewIds,
       };
     }
     // fall through to the per-event loop below; the batch failure itself
@@ -371,6 +386,7 @@ export async function deliverEvents(
     failed,
     failedEventId,
     resolvedPendingIds,
+    heldNewIds: [],
   };
 }
 
@@ -421,20 +437,36 @@ async function applyEvent(
 // false on failure instead of rethrowing — the caller falls back to
 // per-event delivery for the exact same events, so a batch failure must
 // not itself count as an applyEvent failure or bump attempts.
+type BatchApplyResult =
+  | { readonly applied: false }
+  | {
+      readonly applied: true;
+      readonly held: ReadonlySet<string>;
+      readonly heldReason: string | null;
+    };
+
 async function tryApplyBatch(
   consumer: EventConsumer,
   events: ReadonlyArray<StoredEventRow>,
   context: AppContext,
-): Promise<boolean> {
+): Promise<BatchApplyResult> {
+  const held = new Set<string>();
+  let heldReason: string | null = null;
+  const turn: BatchTurnControl = {
+    holdForRetry: (eventIds, reason) => {
+      for (const id of eventIds) held.add(id);
+      heldReason ??= reason;
+    },
+  };
   try {
-    await applyBatch(consumer, events, context);
-    return true;
+    await applyBatch(consumer, events, context, turn);
+    return { applied: true, held, heldReason };
   } catch (e) {
     const errMessage = e instanceof Error ? e.message : String(e);
     context.log?.warn(
       `event-dispatcher: ${consumer.name} batch of ${events.length} failed, falling back to per-event delivery: ${errMessage}`,
     );
-    return false;
+    return { applied: false };
   }
 }
 
@@ -442,6 +474,7 @@ async function applyBatch(
   consumer: EventConsumer,
   events: ReadonlyArray<StoredEventRow>,
   context: AppContext,
+  turn: BatchTurnControl,
 ): Promise<void> {
   const batchHandler = consumer.batchHandler;
   // skip: deliverEvents only calls this for consumers that wire a batchHandler.
@@ -455,7 +488,7 @@ async function applyBatch(
   // skip: deliverEvents never calls this with an empty turn.
   if (!lastStored) return;
   await requestContext.run(buildConsumerRequestScope(consumer, lastStored), async () => {
-    await batchHandler(stored, context);
+    await batchHandler(stored, context, turn);
   });
 }
 

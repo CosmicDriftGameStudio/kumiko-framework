@@ -70,7 +70,9 @@ import {
 // Order guarantee: per-consumer, events are applied in events.id order. We
 // don't skip past a failing event — ops has to fix it or mark the consumer
 // disabled. This matches Marten's subscription semantics (and EventStoreDB's
-// persistent subscriptions): strictly-ordered + halt-on-poison.
+// persistent subscriptions): strictly-ordered + halt-on-poison. The one
+// exception is a batch handler holding a partition's events for a later turn
+// (BatchTurnControl): those move to pending_gaps and are re-delivered first.
 //
 // Delivery semantics: **at-least-once**. If a handler runs but the cursor
 // update fails (crash mid-pass), the same event is delivered again next pass.
@@ -96,7 +98,17 @@ export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Prom
 export type EventConsumerBatchHandler = (
   events: readonly StoredEvent[],
   ctx: AppContext,
+  turn: BatchTurnControl,
 ) => Promise<void>;
+
+// Lets a batch handler hold back the events of one failing partition (a tenant whose search
+// index rejects writes) while the rest of the turn goes through. Held events are kept in
+// pending_gaps, so they survive restarts and come back first, in id order, on every later turn
+// until the handler stops holding them. The consumer stays idle with lastError set; holding
+// never counts towards maxAttempts.
+export type BatchTurnControl = {
+  readonly holdForRetry: (eventIds: readonly string[], reason: string) => void;
+};
 
 // Per-consumer error policy. When skipApplyErrors is true and handler throws,
 // the dispatcher logs the error, advances the cursor past the offending event,
@@ -668,6 +680,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
                 failed: 0,
                 failedEventId: acquired.state.lastFailedEventId,
                 resolvedPendingIds: [],
+                heldNewIds: [],
               };
         processed = outcome.processed;
         failed = outcome.failed;
@@ -690,8 +703,12 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           if (id > prev + 1n) newGapBounds.push([prev + 1n, id - 1n]);
           prev = id;
         }
-        const xmaxNow = newGapBounds.length > 0 ? await selectSnapshotXmax(tx) : "";
-        const newGaps: PendingGapEntry[] = newGapBounds.map(([from, to]) => ({
+        // Held ids are visible rows, so partitionBurntGaps never burns them; xmax only keeps
+        // the entry shape uniform.
+        const heldBounds = outcome.heldNewIds.map((id) => [id, id] as const);
+        const xmaxNow =
+          newGapBounds.length > 0 || heldBounds.length > 0 ? await selectSnapshotXmax(tx) : "";
+        const newGaps: PendingGapEntry[] = [...newGapBounds, ...heldBounds].map(([from, to]) => ({
           from: from.toString(),
           to: to.toString(),
           xmax: xmaxNow,

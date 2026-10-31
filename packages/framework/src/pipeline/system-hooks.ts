@@ -164,10 +164,16 @@ function searchOperationKey(op: SearchOperation): string {
   return `${op.tenantId}\u0000${entityType}\u0000${String(entityId)}`;
 }
 
-type SearchOperationsByTenant = Map<
-  TenantId,
-  { toIndex: SearchDocument[]; toRemove: { entityType: string; entityId: EntityId }[] }
->;
+type SourcedSearchOperation = { readonly op: SearchOperation; readonly sourceEventId: string };
+
+type TenantSearchBucket = {
+  toIndex: SearchDocument[];
+  toRemove: { entityType: string; entityId: EntityId }[];
+  // The collapsed ops in ascending order of the event each one came from.
+  sourcedOps: SourcedSearchOperation[];
+};
+
+type SearchOperationsByTenant = Map<TenantId, TenantSearchBucket>;
 
 // Resolves every event's op sequentially (the named-event path does DB
 // reads, so resolving in parallel would fan out uncapped concurrent
@@ -179,20 +185,25 @@ async function resolveSearchOperationsByTenant(
   ctx: AppContext,
   registry: Registry,
 ): Promise<SearchOperationsByTenant> {
-  const byKey = new Map<string, SearchOperation>();
+  const byKey = new Map<string, SourcedSearchOperation>();
   for (const event of events) {
     const op = await resolveSearchOperation(event, ctx, registry);
     if (!op) continue;
-    byKey.set(searchOperationKey(op), op);
+    const key = searchOperationKey(op);
+    // Re-insert so the map order follows the winning event: per-tenant ops stay in event order.
+    byKey.delete(key);
+    byKey.set(key, { op, sourceEventId: event.id });
   }
 
   const perTenant: SearchOperationsByTenant = new Map();
-  for (const op of byKey.values()) {
+  for (const sourced of byKey.values()) {
+    const op = sourced.op;
     let bucket = perTenant.get(op.tenantId);
     if (!bucket) {
-      bucket = { toIndex: [], toRemove: [] };
+      bucket = { toIndex: [], toRemove: [], sourcedOps: [] };
       perTenant.set(op.tenantId, bucket);
     }
+    bucket.sourcedOps.push(sourced);
     if (op.kind === "index") bucket.toIndex.push(op.doc);
     else bucket.toRemove.push({ entityType: op.entityType, entityId: op.entityId });
   }
@@ -207,7 +218,7 @@ async function resolveSearchOperationsByTenant(
 async function flushSearchOperationsForTenant(
   searchAdapter: SearchAdapter,
   tenantId: TenantId,
-  bucket: { toIndex: SearchDocument[]; toRemove: { entityType: string; entityId: EntityId }[] },
+  bucket: TenantSearchBucket,
 ): Promise<void> {
   if (bucket.toIndex.length > 0) {
     if (searchAdapter.indexBatch) {
@@ -227,10 +238,74 @@ async function flushSearchOperationsForTenant(
   }
 }
 
+type HeldTenantOperations = { readonly eventIds: readonly string[]; readonly error: unknown };
+
+// A failed tenant batch is replayed op by op in event order, like the dispatcher's per-event
+// fallback but scoped to the tenant: ops before the failing one land, and only the failing op
+// and the tenant's later ops are held, so skipPoisonEvent's lastFailedEventId is the culprit.
+async function flushTenantHoldingFromFirstFailure(
+  searchAdapter: SearchAdapter,
+  tenantId: TenantId,
+  bucket: TenantSearchBucket,
+): Promise<HeldTenantOperations | null> {
+  try {
+    await flushSearchOperationsForTenant(searchAdapter, tenantId, bucket);
+    return null;
+  } catch (batchError) {
+    // skip: a single op would only repeat the request that just failed.
+    if (bucket.sourcedOps.length === 1) {
+      return { eventIds: bucket.sourcedOps.map((s) => s.sourceEventId), error: batchError };
+    }
+  }
+  for (const [position, sourced] of bucket.sourcedOps.entries()) {
+    try {
+      await applySearchOperation(searchAdapter, sourced.op);
+    } catch (error) {
+      const eventIds = bucket.sourcedOps.slice(position).map((s) => s.sourceEventId);
+      return { eventIds, error };
+    }
+  }
+  return null;
+}
+
+// Spacing for a tenant whose index keeps rejecting writes: its held events come back on every
+// dispatcher turn, but Meilisearch is only asked again once the delay has passed.
+const TENANT_RETRY_BASE_DELAY_MS = 1_000;
+const TENANT_RETRY_MAX_DELAY_MS = 60_000;
+
+type TenantRetryState = {
+  readonly consecutiveFailures: number;
+  readonly retryAtMs: number;
+  readonly reason: string;
+};
+
+export type SearchEventConsumerOptions = {
+  readonly now?: () => number;
+};
+
 export function createSearchEventConsumer(
   searchAdapter: SearchAdapter,
   registry: Registry,
+  options: SearchEventConsumerOptions = {},
 ): EventConsumer {
+  const now = options.now ?? Date.now;
+  // Process memory only: after a restart a held tenant is simply retried at once.
+  const tenantRetries = new Map<TenantId, TenantRetryState>();
+
+  function recordTenantFailure(tenantId: TenantId, err: unknown): string {
+    const previous = tenantRetries.get(tenantId);
+    const consecutiveFailures = (previous?.consecutiveFailures ?? 0) + 1;
+    const delayMs = Math.min(
+      TENANT_RETRY_BASE_DELAY_MS * 2 ** (consecutiveFailures - 1),
+      TENANT_RETRY_MAX_DELAY_MS,
+    );
+    const message = err instanceof Error ? err.message : String(err);
+    const reason = `search index of tenant ${tenantId} rejected the write, held for retry: ${message}`;
+    tenantRetries.set(tenantId, { consecutiveFailures, retryAtMs: now() + delayMs, reason });
+    if (!previous) log.warn(reason);
+    return reason;
+  }
+
   return {
     name: SEARCH_CONSUMER_NAME,
     // ponytail: count-based maxAttempts, not real backoff — retries hammer
@@ -244,10 +319,28 @@ export function createSearchEventConsumer(
       const op = await resolveSearchOperation(event, ctx, registry);
       if (op) await applySearchOperation(searchAdapter, op);
     },
-    batchHandler: async (events, ctx) => {
+    // One tenant's failing index must not stall the others: its ops are held for a later turn
+    // (in id order, so per-entity order survives) while every other tenant is flushed.
+    batchHandler: async (events, ctx, turn) => {
       const perTenant = await resolveSearchOperationsByTenant(events, ctx, registry);
       for (const [tenantId, bucket] of perTenant) {
-        await flushSearchOperationsForTenant(searchAdapter, tenantId, bucket);
+        const retry = tenantRetries.get(tenantId);
+        if (retry && retry.retryAtMs > now()) {
+          turn.holdForRetry(
+            bucket.sourcedOps.map((s) => s.sourceEventId),
+            retry.reason,
+          );
+          continue;
+        }
+        const held = await flushTenantHoldingFromFirstFailure(searchAdapter, tenantId, bucket);
+        if (held) {
+          turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held.error));
+          continue;
+        }
+        if (retry) {
+          tenantRetries.delete(tenantId);
+          log.info(`search index of tenant ${tenantId} accepts writes again`);
+        }
       }
     },
   };

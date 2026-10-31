@@ -192,6 +192,20 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     }
   }
 
+  // A rejected write can mean another writer recreated or reconfigured the index since this
+  // process configured it; forgetting the tenant makes the next write re-check its settings.
+  async function writeForgettingConfigOnFailure(
+    tenantId: TenantId,
+    write: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await write();
+    } catch (err) {
+      configuredTenants.delete(tenantId);
+      throw err;
+    }
+  }
+
   return {
     setDefaultConfig(config) {
       defaultConfig = config;
@@ -204,20 +218,22 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async index(tenantId, doc) {
       await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await awaitSucceededTask(
-        index.addDocuments(
-          [
-            {
-              _id: meilisearchDocId(doc.entityType, doc.entityId),
-              _type: doc.entityType,
-              _weight: doc.weight,
-              _entityId: doc.entityId,
-              ...doc.fields,
-            },
-          ],
-          { primaryKey: "_id" },
-        ),
-      );
+      await writeForgettingConfigOnFailure(tenantId, async () => {
+        await awaitSucceededTask(
+          index.addDocuments(
+            [
+              {
+                _id: meilisearchDocId(doc.entityType, doc.entityId),
+                _type: doc.entityType,
+                _weight: doc.weight,
+                _entityId: doc.entityId,
+                ...doc.fields,
+              },
+            ],
+            { primaryKey: "_id" },
+          ),
+        );
+      });
     },
 
     async indexBatch(tenantId, docs) {
@@ -235,7 +251,9 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       // Single Meilisearch task covering all N docs. Meilisearch processes
       // the payload server-side as one indexing job — waitTask blocks until
       // that job is done, but it's one round-trip instead of N.
-      await awaitSucceededTask(index.addDocuments(payload, { primaryKey: "_id" }));
+      await writeForgettingConfigOnFailure(tenantId, async () => {
+        await awaitSucceededTask(index.addDocuments(payload, { primaryKey: "_id" }));
+      });
     },
 
     async dropAllIndexes() {
@@ -269,7 +287,9 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       if (items.length === 0) return;
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       const ids = items.map((i) => meilisearchDocId(i.entityType, i.entityId));
-      await awaitSucceededTask(index.deleteDocuments(ids), REMOVE_TOLERATED_ERROR_CODES);
+      await writeForgettingConfigOnFailure(tenantId, async () => {
+        await awaitSucceededTask(index.deleteDocuments(ids), REMOVE_TOLERATED_ERROR_CODES);
+      });
     },
 
     async search(tenantId, query, options) {
@@ -299,10 +319,12 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
     async remove(tenantId, entityType, entityId) {
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await awaitSucceededTask(
-        index.deleteDocument(meilisearchDocId(entityType, entityId)),
-        REMOVE_TOLERATED_ERROR_CODES,
-      );
+      await writeForgettingConfigOnFailure(tenantId, async () => {
+        await awaitSucceededTask(
+          index.deleteDocument(meilisearchDocId(entityType, entityId)),
+          REMOVE_TOLERATED_ERROR_CODES,
+        );
+      });
     },
   };
 }
