@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.406.0",
+    "type": "improvement",
+    "title": "Destroy stages can wait on external operations",
+    "detail": "A tick in which a hook reports pending is recorded as a progressed event with pending true and does not count as a failed attempt. The wait is bounded: once 60 minutes (DESTRUCTION_STAGE_MAX_PENDING_MS) have passed since the attempt's stage-started event, a pending tick fails the attempt with \"still pending\", and the stage is abandoned after its usual maxAttempts, so a stage waits at most maxAttempts x 60 minutes. Ticks without progress and without pending still count as failed attempts. stage-started events now carry startedAt from the sweep clock."
+  },
+  {
+    "version": "0.406.0",
+    "type": "improvement",
+    "title": "Destruction sweep no longer wakes a sleeping app",
+    "detail": "The run-tenant-destruction cron declares wakesSleepingApp false, so its per-minute schedule does not keep a sleeping shared app awake. A due destruction runs on the next wake, for example the daily maintenance window. Its scheduler id changes to scheduler-nowake-tenant-lifecycle-job-run-tenant-destruction; the old scheduler is removed on the first start."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "archiveAndDeleteTenantRows for tenant-destroy hooks",
