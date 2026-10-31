@@ -19,6 +19,7 @@
 
 import {
   createEventStoreExecutor,
+  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -29,8 +30,11 @@ import {
   encodeStoredEnvelope,
   rewrapDek,
 } from "@cosmicdrift/kumiko-framework/secrets";
-import { type ChunkedMigrationStopReason, runChunkedMigration } from "../../shared/index.ts";
-import { createSystemTenantDbCache } from "../../shared/system-tenant-db-cache.ts";
+import {
+  type ChunkedMigrationStopReason,
+  createTenantDbCache,
+  runChunkedMigration,
+} from "../../shared/index.ts";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table.ts";
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -73,9 +77,13 @@ export async function rotateJob(
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
-  const tdbFor = createSystemTenantDbCache(
-    db,
-    "secret key rotation job re-encrypts secrets of every tenant",
+  const tdbFor = createTenantDbCache((tenantId) =>
+    createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "secret key rotation job re-encrypts secrets of every tenant",
+    }),
   );
 
   type SecretRow = {

@@ -1,7 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { isUniqueConstraintFailure } from "../../shared/is-unique-constraint-failure.ts";
+import { isUniqueConstraintFailure } from "../../shared/index.ts";
 import { countDraftsByOwner } from "../db/queries/draft-count.ts";
 import { formDraftExecutor } from "../executor.ts";
 import { lookupDraft } from "../lookup.ts";

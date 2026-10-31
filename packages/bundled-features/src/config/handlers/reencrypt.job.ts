@@ -42,9 +42,9 @@ import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   type ChunkedMigrationStopReason,
   classifyStoredEnvelope,
+  createTenantDbCache,
   runChunkedMigration,
 } from "../../shared/index.ts";
-import { createSystemTenantDbCache } from "../../shared/system-tenant-db-cache.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 
 const DEFAULT_MAX_FAILURES = 10;
@@ -121,9 +121,13 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     });
   }
 
-  const tdbFor = createSystemTenantDbCache(
-    db,
-    "KEK rotation job re-encrypts config values of every tenant",
+  const tdbFor = createTenantDbCache((tenantId) =>
+    createTenantDb({
+      db,
+      tenantId,
+      mode: "system",
+      reason: "KEK rotation job re-encrypts config values of every tenant",
+    }),
   );
 
   const sdbCache = new Map<TenantId, UncheckedSystemDb>();

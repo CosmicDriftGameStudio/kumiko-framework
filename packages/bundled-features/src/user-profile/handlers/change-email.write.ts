@@ -5,10 +5,22 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { invalidCredentials } from "../../auth-email-password/errors.ts";
+import { AuthErrors } from "../../auth-email-password/index.ts";
 import { decryptStoredPii, verifyPassword } from "../../shared/index.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
 import { UserProfileErrors } from "../web/constants.ts";
+
+// Same failure shape as auth-email-password (anti-enumeration):
+// its errors.ts is not part of the feature barrel, but the reason code
+// and i18nKey are stable public API.
+// @wrapper-known error-helper
+function invalidCredentials() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.invalidCredentials, {
+      i18nKey: "auth.errors.invalidCredentials",
+    }),
+  );
+}
 
 // Change-email — authenticated, self-only. The user confirms with their
 // current password (re-authentication as with change-password); the new

@@ -1,7 +1,7 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/hmac-signature.ts";
+import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/index.ts";
 
 export type HmacTokenVerifyResult<TPayload> =
   | { readonly ok: true; readonly payload: TPayload; readonly expiresAtMs: number }

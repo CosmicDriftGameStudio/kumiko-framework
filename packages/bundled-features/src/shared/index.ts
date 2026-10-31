@@ -15,13 +15,17 @@ export {
   classifyStoredEnvelope,
   type StoredEnvelopeClassification,
 } from "./classify-stored-envelope.ts";
+export { collectExtensionOptions } from "./collect-extension-options.ts";
 export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
+export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.ts";
 export { isTenantDb } from "./is-tenant-db.ts";
+export { isUniqueConstraintFailure } from "./is-unique-constraint-failure.ts";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.ts";
+export { createMailLocaleTemplates } from "./mail-locale-templates.ts";
 export {
   mailHeading,
   mailParagraph,
@@ -59,6 +63,7 @@ export {
 } from "./redact.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";
 export { requireForTenant } from "./require-for-tenant.ts";
+export { resolveFeatureAccess } from "./resolve-feature-access.ts";
 export {
   extensionForResourceContentType,
   isResourceImageContentType,
@@ -108,4 +113,5 @@ export {
   stepFailures,
 } from "./stream-tenant-derived-state.ts";
 export type { SystemQueryFn } from "./system-query.ts";
+export { createTenantDbCache } from "./tenant-db-cache.ts";
 export { type BurnResult, burnToken, unburnToken } from "./token-burn-store.ts";

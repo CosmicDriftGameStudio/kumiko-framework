@@ -4,7 +4,7 @@ import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
 import {
   TENANT_DESTROY_ARCHIVE_REASON,
   TENANT_DESTROY_ARCHIVED_BY,
-} from "../tenant-lifecycle/archive-and-delete-tenant-rows.ts";
+} from "../tenant-lifecycle/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.ts";
 import { PAYMENT_AGGREGATE_TYPE, SUBSCRIPTION_AGGREGATE_TYPE } from "./events.ts";
 import { paymentsProjectionMeta, subscriptionsProjectionMeta } from "./projection.ts";

@@ -14,7 +14,7 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/hmac-signature.ts";
+import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/index.ts";
 
 const STATE_PURPOSE = "inbound-mail-oauth-connect";
 

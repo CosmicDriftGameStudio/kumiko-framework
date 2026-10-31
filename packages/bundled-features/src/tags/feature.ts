@@ -27,8 +27,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { resolveFeatureAccess } from "../shared/resolve-feature-access.ts";
+import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
 import { createTagAssignmentEntity, tagEntity } from "./entity.ts";
 import { createTagAssignmentExecutor } from "./executor.ts";
 import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";

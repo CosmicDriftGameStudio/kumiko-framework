@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signHmacSha256Base64Url } from "../../shared/hmac-signature.ts";
+import { signHmacSha256Base64Url } from "../../shared/index.ts";
 import { signMfaChallengeToken } from "../mfa-challenge-token.ts";
 import { signMfaSetupToken, verifyMfaSetupToken } from "../mfa-setup-token.ts";
 

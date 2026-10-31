@@ -25,7 +25,7 @@ export function createChannelEmailFeature(options: EmailChannelOptions) {
     r.envSchema(smtpEnvSchema);
 
     r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
-    r.extendsRegistrar(EMAIL_APP_TRANSPORT_EXTENSION, { onRegister: () => {} });
+    r.extendsRegistrar(EMAIL_APP_TRANSPORT_EXTENSION, {});
     r.useExtension(EMAIL_APP_TRANSPORT_EXTENSION, EMAIL_APP_TRANSPORT_USAGE, {
       transport: appTransport,
     });

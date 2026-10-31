@@ -33,8 +33,7 @@ import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framewo
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
-import { collectExtensionOptions } from "../shared/collect-extension-options.ts";
-import { redactErrorText } from "../shared/index.ts";
+import { collectExtensionOptions, redactErrorText } from "../shared/index.ts";
 import { hashUnsubscribeAddress } from "./address-opt-out.ts";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";
