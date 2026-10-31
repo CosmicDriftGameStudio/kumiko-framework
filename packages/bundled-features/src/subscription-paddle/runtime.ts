@@ -17,8 +17,9 @@ import {
   type HandlerContext,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
+import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import { assertBillingLive } from "../shared/index.ts";
 import { createPaddleHttp, type PaddleRequest, type PaddleSend } from "./client.ts";
 import {
   PADDLE_BASE_URLS,
@@ -154,12 +155,8 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
           },
           request,
         ),
-      assertBillingLive: async (ctx, handlerName = "create-checkout-session") => {
-        const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
-        if (live !== true) {
-          throw new FeatureDisabledError(SUBSCRIPTION_PADDLE_FEATURE, handlerName);
-        }
-      },
+      assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
+        assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_PADDLE_FEATURE, handlerName),
       isBillingEnabled: async (ctx) => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
         if (live !== true) return false;

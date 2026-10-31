@@ -455,6 +455,27 @@ async function dropTenantRunQueued(
 
 const log = createFallbackLogger("job-run-logger");
 
+async function isolateTenantWrite(
+  write: () => Promise<void>,
+  jobName: string,
+  bullJobId: string,
+  messages: { readonly rejected: string; readonly failed: string },
+): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    if (isRowLevelSecurityViolation(e)) {
+      log.error(messages.rejected, { jobName, bullJobId });
+      return;
+    }
+    log.error(messages.failed, {
+      jobName,
+      bullJobId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 // The tenant run state is an optional side write: a throw here must not
 // fail the enqueue, skip the run-row write or turn a completed run into a
 // BullMQ retry. A row-level-security rejection is logged louder (a missing or wrong tenant scope), never rethrown.
@@ -463,22 +484,11 @@ export async function isolateTenantRunWrite(
   jobName: string,
   bullJobId: string,
 ): Promise<void> {
-  try {
-    await write();
-  } catch (e) {
-    if (isRowLevelSecurityViolation(e)) {
-      log.error(
-        "tenant job run state write rejected by row level security: missing or wrong tenant scope",
-        { jobName, bullJobId },
-      );
-      return;
-    }
-    log.error("tenant job run state write failed", {
-      jobName,
-      bullJobId,
-      error: e instanceof Error ? e.message : String(e),
-    });
-  }
+  await isolateTenantWrite(write, jobName, bullJobId, {
+    rejected:
+      "tenant job run state write rejected by row level security: missing or wrong tenant scope",
+    failed: "tenant job run state write failed",
+  });
 }
 
 // The tenant failure record is an optional side write: a throw here must not
@@ -489,22 +499,11 @@ async function isolateTenantFailureWrite(
   jobName: string,
   bullJobId: string,
 ): Promise<void> {
-  try {
-    await write();
-  } catch (e) {
-    if (isRowLevelSecurityViolation(e)) {
-      log.error(
-        "tenant job failure record write rejected by row level security: missing or wrong tenant scope",
-        { jobName, bullJobId },
-      );
-      return;
-    }
-    log.error("tenant job failure record write failed", {
-      jobName,
-      bullJobId,
-      error: e instanceof Error ? e.message : String(e),
-    });
-  }
+  await isolateTenantWrite(write, jobName, bullJobId, {
+    rejected:
+      "tenant job failure record write rejected by row level security: missing or wrong tenant scope",
+    failed: "tenant job failure record write failed",
+  });
 }
 
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {

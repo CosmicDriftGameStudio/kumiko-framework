@@ -178,6 +178,22 @@ async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
   return { reason };
 }
 
+type AuthTokenResult = { ok: true } | { ok: false; error: AuthTokenFailure };
+
+async function postTokenRequest(
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<AuthTokenResult> {
+  const res = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
 // POST /api/auth/request-password-reset. 200 silent-success: even if the
 // email doesn't exist, the caller sees `{ ok: true }` — no account
 // enumeration. Server only triggers the mail internally when a user is
@@ -185,15 +201,11 @@ async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
 export async function requestPasswordReset(
   email: string,
   returnTo?: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/request-password-reset", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email, ...(returnTo !== undefined && { returnTo }) }),
+): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/request-password-reset", {
+    email,
+    ...(returnTo !== undefined && { returnTo }),
   });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
 }
 
 // POST /api/auth/reset-password. The token comes from the URL and the
@@ -202,64 +214,27 @@ export async function requestPasswordReset(
 // single code `invalid_reset_token` to prevent enumeration. Zod validation
 // failures (newPassword < 8) use a separate 4xx code, "validation_failed".
 // The UI maps reason to an i18n key.
-export async function resetPassword(
-  token: string,
-  newPassword: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/reset-password", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ token, newPassword }),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+export async function resetPassword(token: string, newPassword: string): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/reset-password", { token, newPassword });
 }
 
 // POST /api/auth/request-email-verification. Same silent-success
 // semantics as request-password-reset. 429 → rate-limit failure.
-export async function requestEmailVerification(
-  email: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/request-email-verification", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email }),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+export async function requestEmailVerification(email: string): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/request-email-verification", { email });
 }
 
 // POST /api/auth/verify-email. VerifyEmailScreen submits this automatically
 // after parsing `?token=...`. The server collapses all verification failures
 // into `invalid_verification_token` to prevent enumeration, as with reset.
-export async function verifyEmail(
-  token: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/verify-email", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ token }),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+export async function verifyEmail(token: string): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/verify-email", { token });
 }
 
 // POST /api/auth/request-account-unlock. Same silent-success semantics as
 // request-password-reset. 429 → rate-limit failure.
-export async function requestAccountUnlock(
-  email: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/request-account-unlock", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email }),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+export async function requestAccountUnlock(email: string): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/request-account-unlock", { email });
 }
 
 // POST /api/auth/confirm-account-unlock. Auto-submitted by
@@ -267,17 +242,8 @@ export async function requestAccountUnlock(
 // every verify failure into `invalid_unlock_token` (anti-enumeration,
 // parallel to reset/verify). Only clears the Redis lockout state, no
 // entity write.
-export async function confirmAccountUnlock(
-  token: string,
-): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/confirm-account-unlock", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ token }),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+export async function confirmAccountUnlock(token: string): Promise<AuthTokenResult> {
+  return postTokenRequest("/api/auth/confirm-account-unlock", { token });
 }
 
 // POST /api/auth/signup-request. Always returns 200 to prevent enumeration;

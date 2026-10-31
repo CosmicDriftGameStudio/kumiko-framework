@@ -21,7 +21,11 @@ import {
   uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
 import { fileContextForTenant, readFileRefContent } from "../file-foundation/index.ts";
-import { extensionForResourceContentType, requireForTenant } from "../shared/index.ts";
+import {
+  extensionForResourceContentType,
+  requireForTenant,
+  unprocessable,
+} from "../shared/index.ts";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
   MAX_FILE_ATTACHMENTS_PER_TEMPLATE,
@@ -303,10 +307,9 @@ function copiedFileName(key: string, entry: LinkedResourceEntry, contentType: st
 }
 
 function sourceUnreadable(): WriteResult<never> {
-  return writeFailure(
-    new UnprocessableError(TemplateResolverErrors.resourceSourceUnreadable, {
-      i18nKey: "templateResolver.errors.resource.sourceUnreadable",
-    }),
+  return unprocessable(
+    TemplateResolverErrors.resourceSourceUnreadable,
+    "templateResolver.errors.resource.sourceUnreadable",
   );
 }
 
@@ -667,14 +670,14 @@ export type LinkedTemplatePdfAttachment = {
   readonly fileName: string;
 };
 
-function pdfAttachmentInvalid(code: string): WriteResult<never> {
-  return writeFailure(
-    new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
-      i18nKey: "templateResolver.errors.attachment.invalid",
-      details: { code },
-    }),
+const pdfAttachmentInvalid = (code: string): WriteResult<never> =>
+  unprocessable(
+    TemplateResolverErrors.attachmentInvalid,
+    "templateResolver.errors.attachment.invalid",
+    {
+      code,
+    },
   );
-}
 
 // Links a PDF that is rendered from a document template at send time into a mail template of the
 // target tenant. Nothing is stored besides the link entry. The caller authorizes tenantId.

@@ -17,7 +17,7 @@
 import { type ColumnRendererProps, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { TagsQueries } from "./constants.ts";
-import { TagChip } from "./tag-chip.tsx";
+import { TagChipById } from "./tag-chip.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
 type AssignmentRow = { readonly tagId: string; readonly entityId: string };
@@ -36,10 +36,9 @@ export function TagsCell({ row }: ColumnRendererProps): ReactNode {
   if (tagIds.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1" data-testid="tags-cell">
-      {tagIds.map((id) => {
-        const tag = byId.get(id);
-        return <TagChip key={id} name={tag?.name ?? id} color={tag?.color} />;
-      })}
+      {tagIds.map((id) => (
+        <TagChipById key={id} id={id} byId={byId} />
+      ))}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { createDocumentImagesNode } from "./document-images.ts";
 import { isDocumentReferenceName } from "./document-reference-name.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
+import { attributeParseRule } from "./tiptap-attribute-parse-rule.ts";
 
 const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
 const RESOURCE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
@@ -95,13 +96,12 @@ export const DocumentVariable = Node.create({
   },
   parseHTML() {
     return [
-      {
+      attributeParseRule({
         tag: "span[data-variable]",
-        getAttrs: (element) => {
-          const name = element.getAttribute("data-variable");
-          return name !== null && isDocumentReferenceName(name) ? { name } : false;
-        },
-      },
+        attribute: "data-variable",
+        key: "name",
+        isValid: isDocumentReferenceName,
+      }),
     ];
   },
   renderHTML({ node }) {
@@ -152,15 +152,14 @@ export const DocumentButton = Node.create({
   },
   parseHTML() {
     return [
-      {
+      attributeParseRule({
         tag: "a[data-button]",
+        attribute: "href",
+        key: "href",
+        isValid: isDocumentPlaceholderHref,
         // Must win against the Link mark's `a[href]` rule.
         priority: 1000,
-        getAttrs: (element) => {
-          const href = element.getAttribute("href");
-          return href !== null && isDocumentPlaceholderHref(href) ? { href } : false;
-        },
-      },
+      }),
     ];
   },
   renderHTML({ node }) {

@@ -2,14 +2,11 @@
 // it to /api/auth/confirm-account-unlock on mount, shows success/error.
 // Idempotent server-side (clearLockoutState is a no-op when already
 // unlocked), so no re-submit risk. Mirrors VerifyEmailScreen 1:1.
-//
-// useEffect with empty deps + a once-guard so React Strict Mode's double
-// useEffect dispatch in dev fires the confirm call only once.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { ReactNode } from "react";
 import { confirmAccountUnlock } from "./auth-client.ts";
-import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
+import { TokenConfirmScreen } from "./token-confirm-screen.tsx";
 
 export type ConfirmAccountUnlockScreenProps = {
   readonly title?: string;
@@ -19,71 +16,28 @@ export type ConfirmAccountUnlockScreenProps = {
   readonly loginHref?: string;
 };
 
-type Status = "verifying" | "success" | "error" | "missing-token";
-
+// guard:dup-ok TokenConfirmScreen holds the logic; each screen only supplies its own literal label keys
 export function ConfirmAccountUnlockScreen({
   title,
-  token: tokenProp,
+  token,
   loginHref = "/login",
 }: ConfirmAccountUnlockScreenProps): ReactNode {
   const t = useTranslation();
-  const { Link } = usePrimitives();
-  const token = useUrlToken(tokenProp);
-  const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
-  const startedRef = useRef(false);
-
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
-  useEffect(() => {
-    if (status !== "verifying") return;
-    if (startedRef.current) return;
-    startedRef.current = true;
-    void (async () => {
-      const res = await confirmAccountUnlock(token);
-      setStatus(res.ok ? "success" : "error");
-    })();
-  }, [status, token]);
-
-  if (status === "missing-token") {
-    return (
-      <AuthCard title={title ?? t("auth.unlockAccount.errorTitle")}>
-        <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.missingToken")}</p>
-        <Link href={loginHref} variant="muted">
-          {t("auth.unlockAccount.goToLogin")}
-        </Link>
-      </AuthCard>
-    );
-  }
-
-  if (status === "verifying") {
-    return (
-      <AuthCard>
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground" role="status">
-            {t("auth.unlockAccount.verifying")}
-          </p>
-        </div>
-      </AuthCard>
-    );
-  }
-
-  if (status === "success") {
-    return (
-      <AuthCard title={title ?? t("auth.unlockAccount.successTitle")}>
-        <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.successBody")}</p>
-        <Link href={loginHref} variant="button">
-          {t("auth.unlockAccount.goToLogin")}
-        </Link>
-      </AuthCard>
-    );
-  }
-
-  // status === "error"
   return (
-    <AuthCard title={title ?? t("auth.unlockAccount.errorTitle")}>
-      <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.errorBody")}</p>
-      <Link href={loginHref} variant="muted">
-        {t("auth.unlockAccount.goToLogin")}
-      </Link>
-    </AuthCard>
+    <TokenConfirmScreen
+      title={title}
+      token={token}
+      loginHref={loginHref}
+      confirm={confirmAccountUnlock}
+      labels={{
+        errorTitle: t("auth.unlockAccount.errorTitle"),
+        missingToken: t("auth.unlockAccount.missingToken"),
+        goToLogin: t("auth.unlockAccount.goToLogin"),
+        verifying: t("auth.unlockAccount.verifying"),
+        successTitle: t("auth.unlockAccount.successTitle"),
+        successBody: t("auth.unlockAccount.successBody"),
+        errorBody: t("auth.unlockAccount.errorBody"),
+      }}
+    />
   );
 }

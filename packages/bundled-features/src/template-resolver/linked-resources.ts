@@ -73,20 +73,25 @@ export function imageLinksOf(
   return images;
 }
 
+function entriesOfKind<TEntry extends LinkedResourceEntry>(
+  entries: Readonly<Record<string, LinkedResourceEntry>>,
+  isKind: (entry: LinkedResourceEntry) => entry is TEntry,
+): TEntry[] {
+  return Object.entries(entries)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([, entry]) => (isKind(entry) ? [entry] : []));
+}
+
 export function fileAttachmentsOf(
   entries: Readonly<Record<string, LinkedResourceEntry>>,
 ): FileAttachmentRef[] {
-  return Object.entries(entries)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .flatMap(([, entry]) => (isFileAttachmentEntry(entry) ? [entry] : []));
+  return entriesOfKind(entries, isFileAttachmentEntry);
 }
 
 export function pdfAttachmentLinksOf(
   entries: Readonly<Record<string, LinkedResourceEntry>>,
 ): TemplatePdfAttachmentLink[] {
-  return Object.entries(entries)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .flatMap(([, entry]) => (isPdfAttachmentLink(entry) ? [entry] : []));
+  return entriesOfKind(entries, isPdfAttachmentLink);
 }
 
 export function attachmentEntriesOf(

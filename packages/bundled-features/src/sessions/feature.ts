@@ -10,6 +10,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
+import { createLateBoundSlot, readFeatureExportFn } from "../shared/index.ts";
 import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
 import { cleanupJob } from "./handlers/cleanup.job.ts";
 import { createDetailQuery } from "./handlers/detail.query.ts";
@@ -78,15 +79,10 @@ export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => (
 export function bindAutoRevokeFromFeature(
   feature: FeatureDefinition,
 ): BindAutoRevokeOnPasswordChange | undefined {
-  const exports = feature.exports;
-  if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
-    const { bindAutoRevokeOnPasswordChange } = exports;
-    if (typeof bindAutoRevokeOnPasswordChange === "function") {
-      // @cast-boundary feature-exports — feature.exports is untyped by design
-      return bindAutoRevokeOnPasswordChange as BindAutoRevokeOnPasswordChange;
-    }
-  }
-  return undefined;
+  return readFeatureExportFn<BindAutoRevokeOnPasswordChange>(
+    feature,
+    "bindAutoRevokeOnPasswordChange",
+  );
 }
 
 // The sessions feature registers the store_user_sessions table (as an
@@ -228,12 +224,12 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // Explicit option wins; the runtime binding is replaceable so a second boot of the same
       // feature instance (a new app or test stack in one process) binds its own database.
       const explicitAutoRevoke = options?.autoRevokeOnPasswordChange;
-      let boundAutoRevoke: SessionMassRevoker | undefined;
+      const autoRevokeSlot = createLateBoundSlot<SessionMassRevoker>();
       r.hook({
         type: "postSave",
         target: { allOf: "user" },
         handler: async (ctx) => {
-          const autoRevoke = explicitAutoRevoke ?? boundAutoRevoke;
+          const autoRevoke = explicitAutoRevoke ?? autoRevokeSlot.current();
           // skip: nothing bound — stateless-JWT deployments without a runtime
           // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
           if (!autoRevoke) return;
@@ -248,12 +244,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         },
       });
 
-      const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
-        boundAutoRevoke = revoker;
-        return () => {
-          if (boundAutoRevoke === revoker) boundAutoRevoke = undefined;
-        };
-      };
+      const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = autoRevokeSlot.bind;
 
       r.translations({ keys: SESSIONS_I18N });
 

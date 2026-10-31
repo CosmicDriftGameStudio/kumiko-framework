@@ -1,6 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { unprocessable } from "../../shared/index.ts";
 import {
   refuseTemplateEdit,
   type TemplateEditPolicy,
@@ -20,11 +21,10 @@ const TEST_MAIL_RATE_LIMIT = { limit: 10, windowSeconds: 3600 } as const;
 
 // Transport errors can carry provider responses or the address, so the client only gets a fixed code.
 function testMailFailed(code: "channel_error" | "not_sent") {
-  return writeFailure(
-    new UnprocessableError(TemplateResolverErrors.testMailFailed, {
-      i18nKey: "templateResolver.errors.testMail.failed",
-      details: { code },
-    }),
+  return unprocessable(
+    TemplateResolverErrors.testMailFailed,
+    "templateResolver.errors.testMail.failed",
+    { code },
   );
 }
 

@@ -1,6 +1,8 @@
 // Shared by the server (mail link) and the web pages (landing page), so it is plain string logic:
 // no DOM, no window, no `new URL` (React Native's URL getters throw).
 
+import { readPathParam } from "./read-path-param.ts";
+
 export const RETURN_TO_QUERY_PARAM = "returnTo";
 export const MAX_RETURN_PATH_LENGTH = 2048;
 
@@ -30,6 +32,5 @@ export function isSafeReturnPath(candidate: unknown): candidate is string {
 }
 
 export function readReturnToFromSearch(search: string): string | null {
-  const candidate = new URLSearchParams(search).get(RETURN_TO_QUERY_PARAM);
-  return isSafeReturnPath(candidate) ? candidate : null;
+  return readPathParam(search, RETURN_TO_QUERY_PARAM, isSafeReturnPath);
 }

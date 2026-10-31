@@ -5,18 +5,31 @@ type Recurrence = {
   readonly intervalCount: number | null;
 };
 
-export function intervalKey(price: Recurrence | null): string | undefined {
+function recurrenceKey(
+  price: Recurrence | null,
+  everyPrefix: string,
+  singlePrefix: string,
+): string | undefined {
   if (price === null || price.interval === null) return undefined;
   return price.intervalCount !== null && price.intervalCount > 1
-    ? `billing-foundation.plans.everyInterval.${price.interval}`
-    : `billing-foundation.plans.perInterval.${price.interval}`;
+    ? `${everyPrefix}.${price.interval}`
+    : `${singlePrefix}.${price.interval}`;
+}
+
+export function intervalKey(price: Recurrence | null): string | undefined {
+  return recurrenceKey(
+    price,
+    "billing-foundation.plans.everyInterval",
+    "billing-foundation.plans.perInterval",
+  );
 }
 
 export function renewalKey(price: Recurrence | null): string | undefined {
-  if (price === null || price.interval === null) return undefined;
-  return price.intervalCount !== null && price.intervalCount > 1
-    ? `billing-foundation.consent.renewsEvery.${price.interval}`
-    : `billing-foundation.consent.renews.${price.interval}`;
+  return recurrenceKey(
+    price,
+    "billing-foundation.consent.renewsEvery",
+    "billing-foundation.consent.renews",
+  );
 }
 
 type PlanPrice = NonNullable<BillingPlanView["price"]>;

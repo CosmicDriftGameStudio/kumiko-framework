@@ -44,6 +44,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
+import { priceEnvSchema } from "../shared/index.ts";
 import {
   STRIPE_API_KEY_CONFIG,
   STRIPE_BILLING_LIVE_CONFIG,
@@ -92,9 +93,11 @@ export const subscriptionStripeEnvSchema = z.object({
     .optional(),
 });
 
-type StripePriceEnvShape<TPrice extends string> = {
-  [Key in `STRIPE_PRICE_${TPrice}`]: z.ZodOptional<z.ZodString>;
-};
+const STRIPE_PRICE_ENV = {
+  envPrefix: "STRIPE",
+  label: "Stripe",
+  priceIdPrefix: "price_",
+} as const;
 
 /** Stripe env block plus one `STRIPE_PRICE_<NAME>` slot per price the app
  *  maps to a tier, e.g. `stripeEnvSchema({ prices: ["PRO", "TEAM"] })`.
@@ -104,18 +107,7 @@ type StripePriceEnvShape<TPrice extends string> = {
 export function stripeEnvSchema<const TPrice extends string>(options: {
   readonly prices: readonly TPrice[];
 }) {
-  const priceShape = Object.fromEntries(
-    options.prices.map((price) => [
-      `STRIPE_PRICE_${price}`,
-      z
-        .string()
-        .regex(/^price_/, `STRIPE_PRICE_${price} must start with 'price_'`)
-        .optional()
-        .describe(`Stripe price id (\`price_...\`) of the ${price} plan.`),
-    ]),
-    // @cast-boundary schema-walk — Object.fromEntries widens to an index signature; the entries are exactly one optional string per listed price.
-  ) as StripePriceEnvShape<TPrice>;
-  return z.object({ ...subscriptionStripeEnvSchema.shape, ...priceShape });
+  return priceEnvSchema(subscriptionStripeEnvSchema, STRIPE_PRICE_ENV, options.prices);
 }
 
 export type SubscriptionStripeOptions = {

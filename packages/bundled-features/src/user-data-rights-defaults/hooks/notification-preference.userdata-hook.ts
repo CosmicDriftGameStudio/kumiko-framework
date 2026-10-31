@@ -1,15 +1,11 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type UserDataDeleteHook,
-  type UserDataExportHook,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import {
   notificationPreferenceEntity,
   notificationPreferencesTable,
 } from "../../delivery/index.ts";
-import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
+import { forgetOwnRowsDeleteHook } from "./forget-own-rows-delete-hook.ts";
 
 // userData-Hooks for delivery's notification-preference rows. Event-sourced
 // entity → forget goes through the executor so a rebuild replays the erasure.
@@ -40,24 +36,9 @@ export const notificationPreferenceExportHook: UserDataExportHook = async (ctx) 
   };
 };
 
-export const notificationPreferenceDeleteHook: UserDataDeleteHook = async (ctx) => {
-  // skip: delivery not mounted — its table doesn't exist, nothing to erase.
-  if (!featureMounted(ctx, "delivery")) return;
-  const systemUser = createSystemUser(ctx.tenantId);
-  const rows = await ctx.db.selectMany<Record<string, unknown>>(notificationPreferencesTable, {
-    tenantId: ctx.tenantId,
-    userId: ctx.userId,
-  });
-  const failures: string[] = [];
-  for (const row of rows) {
-    const id = row["id"]; // @cast-boundary db-row
-    if (typeof id !== "string") continue;
-    collectErasureFailure(
-      await crud.forget({ id }, systemUser, ctx.db),
-      "notification-preference",
-      id,
-      failures,
-    );
-  }
-  throwIfErasureFailed(failures);
-};
+export const notificationPreferenceDeleteHook: UserDataDeleteHook = forgetOwnRowsDeleteHook({
+  featureName: "delivery",
+  entityName: "notification-preference",
+  table: notificationPreferencesTable,
+  executor: crud,
+});

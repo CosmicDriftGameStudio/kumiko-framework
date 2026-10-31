@@ -20,6 +20,7 @@ import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/ku
 import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { priceEnvSchema } from "../shared/index.ts";
 import { makeCheckoutConfigQuery } from "./checkout-config.query.ts";
 import {
   createPaddleCancelSubscription,
@@ -78,9 +79,11 @@ export const subscriptionPaddleEnvSchema = z.object({
     .optional(),
 });
 
-type PaddlePriceEnvShape<TPrice extends string> = {
-  [Key in `PADDLE_PRICE_${TPrice}`]: z.ZodOptional<z.ZodString>;
-};
+const PADDLE_PRICE_ENV = {
+  envPrefix: "PADDLE",
+  label: "Paddle",
+  priceIdPrefix: "pri_",
+} as const;
 
 /** Paddle env block plus one `PADDLE_PRICE_<NAME>` slot per plan price the app
  *  maps to a tier, e.g. `paddleEnvSchema({ prices: ["PRO", "TEAM"] })`.
@@ -90,18 +93,7 @@ type PaddlePriceEnvShape<TPrice extends string> = {
 export function paddleEnvSchema<const TPrice extends string>(options: {
   readonly prices: readonly TPrice[];
 }) {
-  const priceShape = Object.fromEntries(
-    options.prices.map((price) => [
-      `PADDLE_PRICE_${price}`,
-      z
-        .string()
-        .regex(/^pri_/, `PADDLE_PRICE_${price} must start with 'pri_'`)
-        .optional()
-        .describe(`Paddle price id (\`pri_...\`) of the ${price} plan.`),
-    ]),
-    // @cast-boundary schema-walk — Object.fromEntries widens to an index signature; the entries are exactly one optional string per listed price.
-  ) as PaddlePriceEnvShape<TPrice>;
-  return z.object({ ...subscriptionPaddleEnvSchema.shape, ...priceShape });
+  return priceEnvSchema(subscriptionPaddleEnvSchema, PADDLE_PRICE_ENV, options.prices);
 }
 
 export type SubscriptionPaddleOptions = {

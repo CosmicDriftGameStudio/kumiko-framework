@@ -88,6 +88,21 @@ export type ComposedApp<TCaps extends Readonly<Record<string, unknown>>> = {
  * **No production callers, and that is not rot** — see
  * docs/reference/tier-composition-boot-vs-runtime.md for why.
  */
+function lookupOrThrow<TValue>(
+  map: Readonly<Record<string, TValue>>,
+  name: string,
+  kind: string,
+  knownLabel: string,
+): TValue {
+  const value = map[name];
+  if (!value) {
+    throw new Error(
+      `composeApp: unknown ${kind} "${name}". ${knownLabel}: ${Object.keys(map).join(", ")}`,
+    );
+  }
+  return value;
+}
+
 export function composeApp<TCaps extends Readonly<Record<string, unknown>>>(
   input: ComposeAppInput<TCaps>,
 ): ComposedApp<TCaps> {
@@ -99,31 +114,17 @@ export function composeApp<TCaps extends Readonly<Record<string, unknown>>>(
     );
   }
 
-  const addOnDefs = input.addOns.map((name) => {
-    const def = input.addOnMap[name];
-    if (!def) {
-      throw new Error(
-        `composeApp: unknown add-on "${name}". Known add-ons: ` +
-          `${Object.keys(input.addOnMap).join(", ")}`,
-      );
-    }
-    return def;
-  });
+  const addOnDefs = input.addOns.map((name) =>
+    lookupOrThrow(input.addOnMap, name, "add-on", "Known add-ons"),
+  );
 
   const tierFeatureNames = tierDef.features;
   const addOnFeatureNames = addOnDefs.flatMap((d) => d.features);
   const allFeatureNames = [...tierFeatureNames, ...addOnFeatureNames];
 
-  const additionalFeatures = allFeatureNames.map((name) => {
-    const feature = input.featureRegistry[name];
-    if (!feature) {
-      throw new Error(
-        `composeApp: unknown feature "${name}". Registered features: ` +
-          `${Object.keys(input.featureRegistry).join(", ")}`,
-      );
-    }
-    return feature;
-  });
+  const additionalFeatures = allFeatureNames.map((name) =>
+    lookupOrThrow(input.featureRegistry, name, "feature", "Registered features"),
+  );
 
   // Dedupe — a feature listed in both the tier and an add-on should only
   // mount once. Order-preserving: first occurrence wins.

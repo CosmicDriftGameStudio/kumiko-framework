@@ -1,6 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { createLateBoundSlot } from "../shared/index.ts";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.ts";
 import { authMfaEnvSchema } from "./env.ts";
 import type {
@@ -111,19 +112,18 @@ export function createAuthMfaFeature(
     // sessions' own bindAutoRevokeOnPasswordChange. Shared by every handler
     // that changes MFA state (enable/disable/regenerate), so each one's
     // "log out every other session" behavior tracks the same wiring.
-    let revokeAllOtherSessions:
-      | ((userId: string, currentSid: string | undefined) => Promise<number>)
-      | undefined;
+    const otherSessionsRevokerSlot =
+      createLateBoundSlot<(userId: string, currentSid: string | undefined) => Promise<number>>();
     const sharedRevoker = (userId: string, currentSid: string | undefined): Promise<number> =>
-      revokeAllOtherSessions?.(userId, currentSid) ?? Promise.resolve(0);
+      otherSessionsRevokerSlot.current()?.(userId, currentSid) ?? Promise.resolve(0);
 
     // Same late-bind shape as sharedRevoker above, for the personal-access-
     // tokens feature (if mounted). Wired to enable-confirm(-preauth)/disable
     // only — regenerate-recovery doesn't change enrollment state, so it's
     // out of scope for the "MFA-enable/disable" finding this mirrors.
-    let revokeAllPatTokens: ((userId: string) => Promise<number>) | undefined;
+    const patTokensRevokerSlot = createLateBoundSlot<(userId: string) => Promise<number>>();
     const sharedPatRevoker = (userId: string): Promise<number> =>
-      revokeAllPatTokens?.(userId) ?? Promise.resolve(0);
+      patTokensRevokerSlot.current()?.(userId) ?? Promise.resolve(0);
 
     // Handlers and the status checker read the secrets through these getters
     // on each call, so the boot can bind them after env validation. Never
@@ -218,19 +218,8 @@ export function createAuthMfaFeature(
     // HandlerContext the caller already has.
     const verifyMfaCode = createMfaCodeVerifier();
 
-    const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = (revoker) => {
-      revokeAllOtherSessions = revoker;
-      return () => {
-        if (revokeAllOtherSessions === revoker) revokeAllOtherSessions = undefined;
-      };
-    };
-
-    const bindRevokeAllPatTokens: BindRevokeAllPatTokens = (revoker) => {
-      revokeAllPatTokens = revoker;
-      return () => {
-        if (revokeAllPatTokens === revoker) revokeAllPatTokens = undefined;
-      };
-    };
+    const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = otherSessionsRevokerSlot.bind;
+    const bindRevokeAllPatTokens: BindRevokeAllPatTokens = patTokensRevokerSlot.bind;
 
     return {
       handlers,
