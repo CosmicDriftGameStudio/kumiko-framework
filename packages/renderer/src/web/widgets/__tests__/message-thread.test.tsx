@@ -269,6 +269,22 @@ describe("ClampedText", () => {
     expect(screen.getByText("Show more")).toBeTruthy();
   });
 
+  test("a folded thread cuts an html mail short by height, a plain thread shows it whole", () => {
+    mockBoxHeights(400, 90);
+    const htmlLast: ThreadMessage = {
+      ...annaLast,
+      body: { kind: "html", html: "<p>Der Monteur ist <b>nicht</b> gekommen.</p>" },
+    };
+    const { rerender } = render(
+      <MessageThread messages={[reply, htmlLast]} clampLines={4} foldOlderTogether />,
+    );
+    fireEvent.click(screen.getByText("Read the whole mail"));
+    expect(screen.getByText("Show less")).toBeTruthy();
+    rerender(<MessageThread messages={[reply, htmlLast]} clampLines={4} />);
+    expect(screen.queryByText("Read the whole mail")).toBeNull();
+    expect(screen.queryByText("Show more")).toBeNull();
+  });
+
   test("short content gets no toggle", () => {
     mockBoxHeights(60, 60);
     render(<ClampedText lines={4}>kurz</ClampedText>);
