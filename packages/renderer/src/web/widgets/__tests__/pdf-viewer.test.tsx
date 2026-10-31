@@ -195,6 +195,24 @@ describe("PdfViewer", () => {
     expect(scrolledPages).toContain("3");
   });
 
+  test("pagesOnly shows the pages and the host-stepped hit without thumbnail rail and toolbar", async () => {
+    const onMatchesChange = mock((_info: { count: number; index: number }) => {});
+    renderViewer(
+      <PdfViewer
+        document={fakeDocument()}
+        searchTerm="Whg. 4"
+        matchIndex={0}
+        onMatchesChange={onMatchesChange}
+        pagesOnly
+      />,
+    );
+    expect(await screen.findByTestId("pdf-page-3")).toBeTruthy();
+    await waitFor(() => expect(onMatchesChange).toHaveBeenCalledWith({ count: 1, index: 0 }));
+    expect(scrolledPages).toContain("3");
+    expect(screen.queryByTestId("pdf-toolbar")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull();
+  });
+
   test("pages share the pane width at 100% so fit-to-width can measure it, and only overflow when zoomed in", async () => {
     renderViewer(<PdfViewer document={fakeDocument()} />);
     const pages = await screen.findByTestId("pdf-pages");

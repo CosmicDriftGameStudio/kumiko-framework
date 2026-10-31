@@ -31,6 +31,8 @@ export type PdfPreviewProps = {
   readonly markTerm?: string;
   /** Viewer only: take the container's height without the 480px floor, for hosts whose layout sizes the pane. */
   readonly fill?: boolean;
+  /** Viewer only: just the pages on the frame, without thumbnail rail and toolbar. */
+  readonly pagesOnly?: boolean;
 };
 
 function StackedPages({ document }: { document: PDFDocumentProxy }): ReactNode {

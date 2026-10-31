@@ -81,7 +81,8 @@ function usePageTexts(document: PDFDocumentProxy, wanted: boolean) {
   return pageTexts;
 }
 
-/** Thumbnail rail, toolbar (page jump, zoom, search) and lazily rendered pages on a sand frame. */
+/** Thumbnail rail, toolbar (page jump, zoom, search) and lazily rendered pages on a sand frame;
+ *  `pagesOnly` keeps just the pages on the frame. */
 export function PdfViewer({
   document,
   searchTerm = "",
@@ -92,6 +93,7 @@ export function PdfViewer({
   hideSearchBar = false,
   markTerm = "",
   fill = false,
+  pagesOnly = false,
 }: {
   readonly document: PDFDocumentProxy;
   readonly searchTerm?: string;
@@ -105,6 +107,8 @@ export function PdfViewer({
   /** Marks a passage, e.g. the clause a step was read from, without opening the search; the toolbar search stays usable and wins while it has a term. */
   readonly markTerm?: string;
   readonly fill?: boolean;
+  /** Only the pages on the frame, without thumbnail rail and toolbar, for hosts that step through the hits themselves. */
+  readonly pagesOnly?: boolean;
 }): ReactNode {
   const pageCount = document.numPages;
   const firstPageSize = useFirstPageSize(document);
@@ -165,7 +169,7 @@ export function PdfViewer({
     setMatchIndex((index) => (index + direction + matches.length) % matches.length);
   };
 
-  const searchedTerm = searchOpen || hideSearchBar ? term.trim() : "";
+  const searchedTerm = searchOpen || hideSearchBar || pagesOnly ? term.trim() : "";
   const highlightTerm = searchedTerm === "" ? markTerm.trim() : searchedTerm;
   const anchorPage =
     searchedTerm === "" && initialPage > 1 && leftPage !== initialPage
@@ -179,34 +183,38 @@ export function PdfViewer({
         fill ? "min-h-0" : "min-h-[480px]",
       )}
     >
-      <PdfThumbnails
-        document={document}
-        firstPageSize={firstPageSize}
-        currentPage={currentPage}
-        onSelect={goToPage}
-      />
-      <div className="flex min-w-0 grow flex-col bg-sender-frame">
-        <PdfViewerToolbar
+      {!pagesOnly && (
+        <PdfThumbnails
+          document={document}
+          firstPageSize={firstPageSize}
           currentPage={currentPage}
-          pageCount={pageCount}
-          onGoToPage={goToPage}
-          zoom={zoom}
-          onZoomOut={() => setZoomIndex((index) => Math.max(0, index - 1))}
-          onZoomIn={() => setZoomIndex((index) => Math.min(ZOOM_STEPS.length - 1, index + 1))}
-          search={{
-            open: searchOpen,
-            term,
-            matchCount: matches.length,
-            matchIndex: clampedMatchIndex,
-          }}
-          onToggleSearch={() => setSearchOpen((open) => !open)}
-          onTermChange={(next) => {
-            setTerm(next);
-            setMatchIndex(0);
-          }}
-          onStepMatch={stepMatch}
-          hideSearch={hideSearchBar}
+          onSelect={goToPage}
         />
+      )}
+      <div className="flex min-w-0 grow flex-col bg-sender-frame">
+        {!pagesOnly && (
+          <PdfViewerToolbar
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onGoToPage={goToPage}
+            zoom={zoom}
+            onZoomOut={() => setZoomIndex((index) => Math.max(0, index - 1))}
+            onZoomIn={() => setZoomIndex((index) => Math.min(ZOOM_STEPS.length - 1, index + 1))}
+            search={{
+              open: searchOpen,
+              term,
+              matchCount: matches.length,
+              matchIndex: clampedMatchIndex,
+            }}
+            onToggleSearch={() => setSearchOpen((open) => !open)}
+            onTermChange={(next) => {
+              setTerm(next);
+              setMatchIndex(0);
+            }}
+            onStepMatch={stepMatch}
+            hideSearch={hideSearchBar}
+          />
+        )}
         <div ref={scrollerRef} className="min-h-0 grow overflow-auto p-5">
           <div
             data-testid="pdf-pages"
