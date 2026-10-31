@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "fix",
+    "title": "webp content type for public files",
+    "detail": "The dev server serves .webp files from public/ with content-type image/webp, the same as prod."
+  },
+  {
     "version": "0.403.0",
     "type": "fix",
     "title": "Dev watcher ignores restart events on unchanged files",

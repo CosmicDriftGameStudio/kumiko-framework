@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.408.0
+
+### Patch Changes
+
+- Updated dependencies [d7a16a4]
+  - @cosmicdrift/kumiko-framework@0.408.0
+  - @cosmicdrift/kumiko-guards@0.408.0
+  - @cosmicdrift/kumiko-types@0.408.0
+
 ## 0.407.0
 
 ### Patch Changes

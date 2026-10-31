@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "improvement",
+    "title": "writeStaticHtmlPages and webp content type",
+    "detail": "writeStaticHtmlPages(outDir, pages) from @cosmicdrift/kumiko-server-runtime writes each { path, html } to <outDir>/<path>/index.html (an empty path writes <outDir>/index.html) and creates the directories. Before writing anything it rejects absolute paths, backslashes and \"..\" segments. Apps that render marketing pages per locale into dist/pages can use it instead of their own node:fs code. The prod static file server now answers .webp files with content-type image/webp instead of application/octet-stream."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
     "title": "runProdApp and runWorkerApp use the Redis prefix and drain running jobs on SIGTERM",

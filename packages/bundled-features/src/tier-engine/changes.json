@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.408.0",
+    "type": "improvement",
+    "title": "capsForTierFromMap",
+    "detail": "capsForTierFromMap(tierMap, isTierName, defaultTier) returns a capsForTier function for createTierResolver. An unknown tier name falls back to defaultTier; if the map has no entry for the resolved name it throws. Apps with a hand-written capsForTier over their tier map can switch to it."
+  },
+  {
     "version": "0.395.0",
     "type": "fix",
     "title": "The tier resolver no longer keeps tier writes made before its build",
