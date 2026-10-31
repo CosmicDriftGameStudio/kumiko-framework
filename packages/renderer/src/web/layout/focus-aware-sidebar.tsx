@@ -24,6 +24,8 @@ export function FocusAwareSidebarBody({
   schema,
   user,
   allowedNavQns,
+  railNavQns,
+  footer,
   children,
 }: {
   readonly focused: boolean;
@@ -31,6 +33,8 @@ export function FocusAwareSidebarBody({
   readonly schema: AppSchema | FeatureSchema;
   readonly user: { readonly id: string; readonly roles: readonly string[] } | undefined;
   readonly allowedNavQns?: ReadonlySet<string> | undefined;
+  readonly railNavQns?: readonly string[] | undefined;
+  readonly footer?: ReactNode;
   readonly children: ReactNode;
 }): ReactNode {
   const { state, isMobile } = useSidebar();
@@ -41,6 +45,8 @@ export function FocusAwareSidebarBody({
         schema={schema}
         {...(user !== undefined && { user })}
         {...(allowedNavQns !== undefined && { allowedNavQns })}
+        {...(railNavQns !== undefined && { railNavQns })}
+        {...(footer !== undefined && { footer })}
       />
     );
   }

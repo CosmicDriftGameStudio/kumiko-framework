@@ -884,6 +884,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.page-header.actions": "Azioni della pagina",
   "kumiko.list.actions": "Azioni",
   "kumiko.sidebar.toggle": "Mostra o nascondi la barra laterale",
+  "kumiko.focusRail.more": "Altro",
   "kumiko.sidebar.title": "Navigazione",
   "kumiko.sidebar.description": "La navigazione principale dell'app.",
   "kumiko.breadcrumb.label": "Percorso di navigazione",

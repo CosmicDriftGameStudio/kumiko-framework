@@ -163,6 +163,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.page-header.actions": "Page actions",
     "kumiko.list.actions": "Actions",
     "kumiko.sidebar.toggle": "Toggle sidebar",
+    "kumiko.focusRail.more": "More",
     "kumiko.sidebar.title": "Navigation",
     "kumiko.sidebar.description": "The app's main navigation.",
     "kumiko.breadcrumb.label": "Breadcrumb",

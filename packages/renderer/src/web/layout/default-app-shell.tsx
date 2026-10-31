@@ -70,6 +70,9 @@ export type DefaultAppShellProps = {
   /** Footer slot at the bottom of the sidebar — profile row, help link,
    *  or plan banner. */
   readonly sidebarFooter?: ReactNode;
+  /** Top-level nav QNs the focus rail shows as tiles; the others sit behind a
+   *  "More" tile that opens the full sidebar. Unset: every top-level entry. */
+  readonly focusRailNavQns?: readonly string[];
   /** Viewport-fit shell. true → fixed viewport height (`h-svh`); content
    *  scrolls inside instead of the whole page. Defaults to true — `fill={false}`
    *  switches back to page scrolling. */
@@ -86,6 +89,7 @@ export function DefaultAppShell({
   headerActions,
   navBadges,
   sidebarFooter,
+  focusRailNavQns,
   fill = true,
   children,
 }: DefaultAppShellProps): ReactNode {
@@ -110,6 +114,8 @@ export function DefaultAppShell({
               brand={brand}
               schema={schema}
               user={user}
+              railNavQns={focusRailNavQns}
+              footer={sidebarFooter}
             >
               <SidebarHeader data-kumiko-layout="sidebar-header">{brand}</SidebarHeader>
               {sidebarActions !== undefined && (

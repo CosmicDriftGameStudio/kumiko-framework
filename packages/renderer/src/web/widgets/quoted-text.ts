@@ -52,6 +52,20 @@ function parseHtmlBody(html: string): HTMLElement | null {
   return new DOMParser().parseFromString(html, "text/html").body;
 }
 
+function isBlankTail(node: ChildNode): boolean {
+  return (
+    node.nodeName === "BR" || (node.nodeName === "#text" && (node.textContent ?? "").trim() === "")
+  );
+}
+
+// Gmail puts a <br> between the reply and its quote; once the quote is folded away it
+// would only leave an empty line under the signature.
+function dropTrailingBlanks(body: HTMLElement): void {
+  for (let node = body.lastChild; node !== null && isBlankTail(node); node = body.lastChild) {
+    node.remove();
+  }
+}
+
 /** Cuts the first quote container and its following siblings out of the body; browser only. */
 export function splitQuotedHtml(html: string): QuotedHtmlSplit {
   const body = parseHtmlBody(html);
@@ -64,6 +78,7 @@ export function splitQuotedHtml(html: string): QuotedHtmlSplit {
   const quoted = quotedNodes.map((node) => node.outerHTML).join("");
   const quotedText = quotedNodes.map((node) => node.textContent ?? "").join("\n");
   for (const node of quotedNodes) node.remove();
+  dropTrailingBlanks(body);
   return {
     main: body.innerHTML,
     quoted,

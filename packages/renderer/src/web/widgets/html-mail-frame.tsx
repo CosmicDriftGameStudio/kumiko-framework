@@ -18,7 +18,7 @@ export function buildMailSrcDoc(
     : 'img:not([src^="data:"]){display:none}';
   const tableStyle =
     "table{border-collapse:collapse;border:0}td,th{border:0;border-top:1px solid color-mix(in srgb,currentColor 15%,transparent);padding:4px 8px 4px 0;text-align:left;font-variant-numeric:tabular-nums}tr:first-child>td,tr:first-child>th{border-top-color:currentColor}";
-  const baseStyle = `html,body{margin:0;background:transparent}body>:first-child,body>:first-child>:first-child{margin-top:0}body{font-family:${stripMarkup(fontFamily)};font-size:15px;line-height:1.55;color:${stripMarkup(color)};overflow-wrap:anywhere}img{max-width:100%;height:auto}${hideBlockedImages}${tableStyle}a{color:inherit}`;
+  const baseStyle = `html,body{margin:0;background:transparent}body>:first-child,body>:first-child>:first-child{margin-top:0}body>:last-child,body>:last-child>:last-child{margin-bottom:0}body{font-family:${stripMarkup(fontFamily)};font-size:15px;line-height:1.55;color:${stripMarkup(color)};overflow-wrap:anywhere}img{max-width:100%;height:auto}${hideBlockedImages}${tableStyle}a{color:inherit}`;
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${csp}">`,

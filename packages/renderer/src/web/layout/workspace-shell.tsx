@@ -86,6 +86,9 @@ export type WorkspaceShellProps = {
    *  build information. It stays at the bottom via `mt-auto` (see
    *  Sidebar.footer). Symmetric with DefaultAppShell.sidebarFooter. */
   readonly sidebarFooter?: ReactNode;
+  /** Top-level nav QNs the focus rail shows as tiles; the others sit behind a
+   *  "More" tile that opens the full sidebar. Unset: every top-level entry. */
+  readonly focusRailNavQns?: readonly string[];
   /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
   /** Viewport-fit shell. true → fixed viewport height (`h-svh`), content
@@ -103,6 +106,7 @@ export function WorkspaceShell({
   user,
   initialWorkspaceId,
   sidebarFooter,
+  focusRailNavQns,
   navBadges,
   fill = true,
   children,
@@ -255,6 +259,8 @@ export function WorkspaceShell({
               schema={app}
               user={user}
               allowedNavQns={allowedNavQns}
+              railNavQns={focusRailNavQns}
+              footer={sidebarFooter}
             >
               <SidebarHeader data-kumiko-layout="sidebar-header">
                 {brand}
