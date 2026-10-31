@@ -263,37 +263,43 @@ export async function fetchPendingEvents(
   cursor: bigint,
   batchSize: number,
   pendingRanges: readonly PendingIdRange[] = [],
+  pendingLimit: number = batchSize,
 ): Promise<ReadonlyArray<StoredEventRow>> {
   const rawRows = await selectPendingAndNewEventRows(
     tx,
     cursor,
     pendingRanges,
     batchSize,
-    pendingFetchLimit(batchSize),
+    pendingLimit,
   );
   const info = extractTableInfo(eventsTable);
   return rawRows.map((row) => coerceRow<StoredEventRow>(row, info));
 }
 
-// Pending ids get at most half the batch: a batch handler that keeps holding events must not
-// starve every newer event of the consumer.
-export function pendingFetchLimit(batchSize: number): number {
+// Pending ids of a batch consumer get at most half the batch: a batch handler that keeps
+// holding events must not starve every newer event of the consumer. Per-event consumers never
+// hold, so their pending ids are late commits that drain on their own and keep the full batch.
+export function pendingFetchLimit(consumer: EventConsumer, batchSize: number): number {
+  if (!consumer.batchHandler) return batchSize;
   return Math.max(1, Math.floor(batchSize / 2));
 }
 
-// When the pending part of a fetch was capped, newer events of a tenant with pending events
-// left out of it are withheld this turn; they fall between delivered ids and so become pending
-// gaps themselves. No consumer sees a tenant's event before an older one it is still holding.
-export async function withholdNewEventsOfTenantsWithUnfetchedPending(
+// When the pending part of a batch consumer's fetch was capped, newer events of a tenant with
+// pending events left out of it are withheld this turn; they fall between delivered ids and so
+// become pending gaps themselves. No consumer sees a tenant's event before an older one it is
+// still holding.
+async function withholdNewEventsOfTenantsWithUnfetchedPending(
   tx: DbTx,
+  consumer: EventConsumer,
   events: ReadonlyArray<StoredEventRow>,
   cursor: bigint,
   pendingRanges: readonly PendingIdRange[],
-  batchSize: number,
+  pendingLimit: number,
 ): Promise<ReadonlyArray<StoredEventRow>> {
+  if (!consumer.batchHandler) return events;
   const pendingIds = events.filter((event) => event.id <= cursor).map((event) => event.id);
   const lastPendingId = pendingIds.at(-1);
-  if (lastPendingId === undefined || pendingIds.length < pendingFetchLimit(batchSize)) {
+  if (lastPendingId === undefined || pendingIds.length < pendingLimit) {
     return events;
   }
   const tenantsLeftOut = await selectTenantIdsInRangesAbove(tx, pendingRanges, lastPendingId);
@@ -396,6 +402,100 @@ export async function deliverEvents(
     resolvedPendingIds,
     heldNewIds: [],
   };
+}
+
+// Only a batch consumer that holds events can pile up pending gaps faster than they burn: a
+// tenant stuck for days leaves one range per run of its events between other tenants' events.
+// Past the limit the consumer takes no new events, so the set cannot grow, and a pass that
+// delivers nothing counts as a failed attempt. That ends in the existing dead, rearm and
+// rearm-exhausted path instead of an unbounded cursor row; every tenant then waits.
+function isIntakePausedByPendingGapLimit(
+  consumer: EventConsumer,
+  pendingGapCount: number,
+  maxPendingGapRanges: number,
+): boolean {
+  return consumer.batchHandler !== undefined && pendingGapCount >= maxPendingGapRanges;
+}
+
+function escalateIntakePausedOutcome(
+  outcome: DeliveryOutcome,
+  state: ConsumerStateRow,
+  pendingGapCount: number,
+  maxPendingGapRanges: number,
+  effectiveMaxAttempts: number,
+): DeliveryOutcome {
+  const firstHeld = outcome.failedEventId ?? state.lastFailedEventId;
+  const lastError =
+    `${pendingGapCount} pending gap ranges reached the limit of ${maxPendingGapRanges}; ` +
+    `new events wait until held events drain or event ${firstHeld ?? "unknown"} is skipped`;
+  if (outcome.processed > 0) return { ...outcome, lastError };
+  const attempts = state.attempts + 1;
+  return {
+    ...outcome,
+    attempts,
+    lastError,
+    failedEventId: firstHeld,
+    deadLettered: attempts >= effectiveMaxAttempts,
+  };
+}
+
+export type ConsumerTurnInput = {
+  readonly tx: DbTx;
+  readonly consumer: EventConsumer;
+  readonly events: ReadonlyArray<StoredEventRow>;
+  readonly state: ConsumerStateRow;
+  readonly context: AppContext;
+  readonly maxAttempts: number;
+  readonly pendingRanges: readonly PendingIdRange[];
+  readonly pendingLimit: number;
+  readonly pendingGapCount: number;
+  readonly maxPendingGapRanges: number;
+};
+
+export async function deliverConsumerTurn(input: ConsumerTurnInput): Promise<{
+  readonly deliverable: ReadonlyArray<StoredEventRow>;
+  readonly outcome: DeliveryOutcome;
+}> {
+  const { tx, consumer, events, state, context, maxAttempts } = input;
+  const cursor = state.lastProcessedEventId;
+  const intakePaused = isIntakePausedByPendingGapLimit(
+    consumer,
+    input.pendingGapCount,
+    input.maxPendingGapRanges,
+  );
+  const withheld = await withholdNewEventsOfTenantsWithUnfetchedPending(
+    tx,
+    consumer,
+    events,
+    cursor,
+    input.pendingRanges,
+    input.pendingLimit,
+  );
+  const deliverable = intakePaused ? withheld.filter((event) => event.id <= cursor) : withheld;
+  const delivered: DeliveryOutcome =
+    deliverable.length > 0
+      ? await deliverEvents(consumer, deliverable, context, maxAttempts, state)
+      : {
+          cursor,
+          attempts: state.attempts,
+          lastError: state.lastError,
+          deadLettered: false,
+          processed: 0,
+          failed: 0,
+          failedEventId: state.lastFailedEventId,
+          resolvedPendingIds: [],
+          heldNewIds: [],
+        };
+  const outcome = intakePaused
+    ? escalateIntakePausedOutcome(
+        delivered,
+        state,
+        input.pendingGapCount,
+        input.maxPendingGapRanges,
+        consumer.errorPolicy?.maxAttempts ?? maxAttempts,
+      )
+    : delivered;
+  return { deliverable, outcome };
 }
 
 // Held rows count as failed and leave lastError set, but the cursor still moves past them:
