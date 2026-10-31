@@ -202,7 +202,11 @@ export function PdfViewer({
           hideSearch={hideSearchBar}
         />
         <div ref={scrollerRef} className="min-h-0 grow overflow-auto p-5">
-          <div className="mx-auto flex w-max min-w-full flex-col gap-3">
+          <div
+            data-testid="pdf-pages"
+            // w-max would size the column to the unshrunk page, so the fit-to-width measurement could never be smaller than the page.
+            className={cn("mx-auto flex flex-col gap-3", zoom > 1 ? "w-max min-w-full" : "w-full")}
+          >
             {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
               <PdfPageSlot
                 key={pageNumber}
