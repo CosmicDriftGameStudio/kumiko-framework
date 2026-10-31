@@ -10,6 +10,7 @@
 // serving the old value, hence the short default.
 
 import type { TenantId } from "../engine/types/identifiers.ts";
+import { createLruCache } from "../utils/lru-cache.ts";
 
 const DEFAULT_TTL_MS = 30 * 1000;
 const DEFAULT_MAX_ENTRIES = 1000;
@@ -54,37 +55,19 @@ export function createTenantTimezoneCache(
   // 0 or negative would never evict (size < max is never true) and grow unbounded.
   const maxEntries = Math.max(1, opts.maxEntries ?? DEFAULT_MAX_ENTRIES);
   const now = opts.now ?? (() => Date.now());
-  // Map insertion order doubles as LRU order: touch = delete+re-insert.
-  const entries = new Map<TenantId, { value: string | undefined; expiresAt: number }>();
+  const entries = createLruCache<TenantId, TenantTimezoneCacheEntry>({
+    maxEntries,
+    ttlMs,
+    now,
+  });
   let generation = 0;
 
-  function evictOldestIfFull(): void {
-    // skip: cache has room, nothing to evict
-    if (entries.size < maxEntries) return;
-    const oldestKey = entries.keys().next().value;
-    // skip: defensive — maxEntries >= 1 guarantees a non-empty map here
-    if (oldestKey === undefined) return;
-    entries.delete(oldestKey);
-  }
-
   function set(tenantId: TenantId, value: string | undefined): void {
-    entries.delete(tenantId);
-    evictOldestIfFull();
-    entries.set(tenantId, { value, expiresAt: now() + ttlMs });
+    entries.set(tenantId, { value });
   }
 
   return {
-    get(tenantId) {
-      const hit = entries.get(tenantId);
-      if (!hit) return undefined;
-      if (hit.expiresAt <= now()) {
-        entries.delete(tenantId);
-        return undefined;
-      }
-      entries.delete(tenantId);
-      entries.set(tenantId, hit);
-      return { value: hit.value };
-    },
+    get: (tenantId) => entries.get(tenantId),
 
     set,
 

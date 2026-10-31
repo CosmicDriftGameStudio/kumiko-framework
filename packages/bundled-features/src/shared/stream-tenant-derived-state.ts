@@ -5,7 +5,11 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
-import { reindexEntity, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import {
+  isEntitySearchable,
+  reindexEntity,
+  type SearchAdapter,
+} from "@cosmicdrift/kumiko-framework/search";
 import type { StreamBackfillCandidate, StreamBackfillFailure } from "./stream-tenant-backfill.ts";
 
 export type StreamBackfillStepFailure = StreamBackfillFailure & { readonly step: string };
@@ -86,13 +90,6 @@ export async function rebuildAndReindex(deps: {
     }
   }
   return { projectionsRebuilt, reindexedRows, failures };
-}
-
-function isEntitySearchable(registry: Registry, entityName: string): boolean {
-  return (
-    registry.getSearchableFields(entityName).length > 0 ||
-    registry.getSearchPayloadExtensions(entityName).length > 0
-  );
 }
 
 export function stepFailures(

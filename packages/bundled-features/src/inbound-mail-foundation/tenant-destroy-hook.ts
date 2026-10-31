@@ -16,8 +16,8 @@
 // unreadable. These hooks dispose of the rows.
 
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
+import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
+import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/archive-and-delete-tenant-rows.ts";
 import { seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
@@ -32,31 +32,21 @@ import {
 } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 
-const ARCHIVED_BY = "tenant-lifecycle:destroy";
-const REASON = "tenant_destroy";
-
 // archiveStream sits outside TenantDb's own methods — needs the escape hatch.
 export const INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON =
   "tenant-destroy archives each inbound-mail entity's event-streams before the projection rows are deleted";
 
-async function archiveAndDeleteRows(
+function archiveAndDeleteRows(
   ctx: TenantDataHookCtx,
   table: EntityTableMeta,
   aggregateType: string,
 ): Promise<readonly string[]> {
-  declareEscapeHatch({ reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON });
-  const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
-  for (const row of rows) {
-    await archiveStream(ctx.db.unsafeRaw(), {
-      tenantId: ctx.tenantId,
-      aggregateId: row.id,
-      aggregateType,
-      archivedBy: ARCHIVED_BY,
-      reason: REASON,
-    });
-  }
-  await ctx.db.deleteMany(table, { tenantId: ctx.tenantId });
-  return rows.map((row) => row.id);
+  return archiveAndDeleteTenantRows(
+    ctx,
+    table,
+    aggregateType,
+    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
+  );
 }
 
 export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {

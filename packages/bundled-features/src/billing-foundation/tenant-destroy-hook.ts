@@ -1,6 +1,10 @@
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
+import {
+  TENANT_DESTROY_ARCHIVE_REASON,
+  TENANT_DESTROY_ARCHIVED_BY,
+} from "../tenant-lifecycle/archive-and-delete-tenant-rows.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.ts";
 import { PAYMENT_AGGREGATE_TYPE, SUBSCRIPTION_AGGREGATE_TYPE } from "./events.ts";
 import { paymentsProjectionMeta, subscriptionsProjectionMeta } from "./projection.ts";
@@ -42,8 +46,8 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
     tenantId: ctx.tenantId,
     aggregateId,
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
-    archivedBy: "tenant-lifecycle:destroy",
-    reason: "tenant_destroy",
+    archivedBy: TENANT_DESTROY_ARCHIVED_BY,
+    reason: TENANT_DESTROY_ARCHIVE_REASON,
   });
 }
 
@@ -74,7 +78,7 @@ export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<
     tenantId: ctx.tenantId,
     aggregateId,
     aggregateType: PAYMENT_AGGREGATE_TYPE,
-    archivedBy: "tenant-lifecycle:destroy",
-    reason: "tenant_destroy",
+    archivedBy: TENANT_DESTROY_ARCHIVED_BY,
+    reason: TENANT_DESTROY_ARCHIVE_REASON,
   });
 }

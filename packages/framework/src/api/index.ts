@@ -1,4 +1,6 @@
 export { DEFAULT_GLOBAL_RATE_LIMIT } from "../rate-limit/middleware.ts";
+export type { TimedRunResult } from "../utils/run-with-timeout.ts";
+export { runWithTimeout } from "../utils/run-with-timeout.ts";
 export { setTenantCookie } from "./anonymous-cookie.ts";
 export { collectAnonymousLiveEntities } from "./anonymous-live-entities.ts";
 export { LOCALE_HEADER_NAME, NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants.ts";
@@ -59,8 +61,6 @@ export type {
   PostAuthLandingArgs,
   PostAuthLandingResolver,
 } from "./post-auth-landing.ts";
-export type { TimedRunResult } from "./readiness.ts";
-export { runWithTimeout } from "./readiness.ts";
 export type { RedisSseBroker } from "./redis-sse-broker.ts";
 export {
   createDefaultSseBroker,
