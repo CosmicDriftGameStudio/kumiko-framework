@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.406.0",
+    "type": "improvement",
+    "title": "pending flag on TenantDestroyHookResult",
+    "detail": "A destroy hook may return { done: false, processed: 0, pending: true } when it waits on an external operation it has already started, for example a remote teardown job. The field is optional, so existing hooks keep compiling and keep their behavior."
+  },
+  {
+    "version": "0.406.0",
+    "type": "improvement",
+    "title": "wakesSleepingApp false on cron and maintenance triggers",
+    "detail": "A job declared with trigger { cron, wakesSleepingApp: false } or { maintenance: true, wakesSleepingApp: false } is scheduled under the BullMQ scheduler id scheduler-nowake-<job> instead of scheduler-<job>, so its delayed jobs are repeat:scheduler-nowake-<job>:<ts> and the waker of sleeping shared apps skips them; the run happens on the next wake. Leaving the flag out keeps waking the app. Any other value, or the flag on an event or manual trigger, stops the registration. On start the runner removes the scheduler the job had under its other id at once, without the orphan grace period, so flipping the flag never leaves the old scheduler firing."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "chunk in framework utils",
