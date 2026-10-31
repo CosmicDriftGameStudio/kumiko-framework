@@ -2,7 +2,7 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 import { Input as UiInput } from "../ui/input.tsx";
 import { Textarea } from "../ui/textarea.tsx";
-import { AiTextEndActionButton, END_ACTION_PADDING_CLASS } from "../widgets/ai-text-end-action.tsx";
+import { AiTextEndActionButton, endActionPaddingClass } from "../widgets/ai-text-end-action.tsx";
 import { CodeInput } from "./code-input.tsx";
 import {
   fieldIconFor,
@@ -49,7 +49,7 @@ export const renderTextKind: KindRenderer<"text"> = (props, { common, textInputR
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
           className={cn(
             fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
-            props.endAction !== undefined ? END_ACTION_PADDING_CLASS : undefined,
+            endActionPaddingClass(props.endAction),
           )}
         />,
       ),

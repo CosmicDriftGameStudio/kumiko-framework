@@ -29,7 +29,7 @@ import { cn } from "../lib/cn.ts";
 import {
   type AiTextEndAction,
   AiTextEndActionButton,
-  END_ACTION_PADDING_CLASS,
+  endActionPaddingClass,
 } from "./ai-text-end-action.tsx";
 import { ModeSwitch } from "./mode-switch.tsx";
 
@@ -226,7 +226,7 @@ function AiTextCore({
                 sharedTextClass,
                 multilineWrapClass,
                 "relative resize-y bg-transparent",
-                endAction !== undefined && END_ACTION_PADDING_CLASS,
+                endActionPaddingClass(endAction),
               )}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
@@ -252,7 +252,7 @@ function AiTextCore({
                 sharedTextClass,
                 singleLineWrapClass,
                 "relative bg-transparent",
-                endAction !== undefined && END_ACTION_PADDING_CLASS,
+                endActionPaddingClass(endAction),
               )}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
