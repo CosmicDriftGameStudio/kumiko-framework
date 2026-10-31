@@ -59,7 +59,7 @@ describe("kumiko-schema validate boot output", () => {
     expect(exitCode).toBe(1);
     const bootLines = stderr.filter((line) => line.startsWith("  ✗ boot"));
     expect(bootLines).toHaveLength(2);
-    expect(bootLines[0]).toContain("[unclassified/validateNavs]");
+    expect(bootLines[0]).toContain("[nav/screen-unregistered]");
     expect(bootLines[0]).toContain("alpha:screen:missing");
     expect(bootLines[1]).toContain("beta:screen:missing");
   });
@@ -80,11 +80,6 @@ describe("kumiko-schema validate boot output", () => {
     }
   });
 
-  test("an unclassified violation prints no rule link", async () => {
-    const { stderr } = await runValidate(appDir, []);
-    expect(stderr.some((line) => line.includes("Rule: "))).toBe(false);
-  });
-
   test("--json prints exactly one parsable document on stdout and the human lines on stderr", async () => {
     const { exitCode, stdout, stderr } = await runValidate(appDir, ["--json"]);
     expect(exitCode).toBe(1);
@@ -94,8 +89,8 @@ describe("kumiko-schema validate boot output", () => {
       boot: {
         ok: false,
         violations: [
-          { ruleId: "unclassified/validateNavs", check: "validateNavs", feature: "alpha" },
-          { ruleId: "unclassified/validateNavs", check: "validateNavs", feature: "beta" },
+          { ruleId: "nav/screen-unregistered", check: "validateNavs", feature: "alpha" },
+          { ruleId: "nav/screen-unregistered", check: "validateNavs", feature: "beta" },
         ],
       },
     });

@@ -166,13 +166,13 @@
 | <a id="derived-field-unsupported-field-type"></a>`derived-field/unsupported-field-type` | A SQL derived field reads only scalar field types. | Read a text, number, decimal, boolean, date or timestamp field; money only as the measure of a related first. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
 | <a id="derived-field-value-type-mismatch"></a>`derived-field/value-type-mismatch` | The derived field's valueType matches the type of the value it computes. | Set valueType to the expected value type. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
 
-## document-ingest
+## document-ingest-foundation
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="document-ingest-job-unknown-provider"></a>`document-ingest/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
-| <a id="document-ingest-job-without-provider-filter"></a>`document-ingest/job-without-provider-filter` | A job triggered by documentIngest.requested filters to one provider, so it does not fire for every provider's uploads. | Use trigger: documentIngestProviderTrigger("<name>"). | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
-| <a id="document-ingest-provider-without-job"></a>`document-ingest/provider-without-job` | A registered document-ingest provider has a job triggered by documentIngestProviderTrigger, otherwise requested files are never processed. | Add an r.job with that trigger, or unmount the provider. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-foundation-job-unknown-provider"></a>`document-ingest-foundation/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-foundation-job-without-provider-filter"></a>`document-ingest-foundation/job-without-provider-filter` | A job triggered by documentIngest.requested filters to one provider, so it does not fire for every provider's uploads. | Use trigger: documentIngestProviderTrigger("<name>"). | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-foundation-provider-without-job"></a>`document-ingest-foundation/provider-without-job` | A registered document-ingest provider has a job triggered by documentIngestProviderTrigger, otherwise requested files are never processed. | Add an r.job with that trigger, or unmount the provider. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 
 ## embedded-field
 
