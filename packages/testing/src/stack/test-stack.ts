@@ -271,7 +271,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   await validateStackFeatures(options, jwtSecret);
   const { testDb, testRedis } = await provisionStackStorage(options);
   const cacheSync = createStackCacheSync(options, testRedis);
-  const services = await buildStackServices(options, testDb, testRedis);
+  const services = await buildStackServices(options, testDb, testRedis, cacheSync);
   // Fed to the job runner's onJobComplete/onJobFailed so drainJobs()
   // can tell a job's final outcome apart from an attempt that will retry —
   // built regardless of whether a runner ends up existing, so the returned

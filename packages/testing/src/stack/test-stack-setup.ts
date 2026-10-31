@@ -312,6 +312,7 @@ export async function buildStackServices(
   options: TestStackOptions,
   testDb: StackStorage["testDb"],
   testRedis: TestRedis,
+  cacheSync: ClosableCacheSyncBus,
 ) {
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
@@ -359,17 +360,23 @@ export async function buildStackServices(
       : options.extraContext;
   // The prod entrypoint resolves the mounted file-provider plugins before the job runner sees
   // the context; without it a job's ctx.services.files is undefined only in tests.
-  const appContext = withFileProviderResolver(registry, {
-    db: testDb.db,
-    redis: testRedis.redis,
-    searchAdapter,
-    entityCache,
+  const appContext = withFileProviderResolver(
     registry,
-    ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
-    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-    ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
-    ...extraContext,
-  });
+    {
+      db: testDb.db,
+      redis: testRedis.redis,
+      searchAdapter,
+      entityCache,
+      registry,
+      ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
+      ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
+      ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+      ...extraContext,
+    },
+    // Same bus buildServer gets: the resolver built here is the one it reuses, so config and
+    // secret writes must reach its per-tenant provider cache through it.
+    cacheSync,
+  );
   extraContextClock.current = extraContext?.["clock"];
   return { searchAdapter, events, registry, sseBroker, entityCache, observability, appContext };
 }
