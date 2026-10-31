@@ -90,6 +90,7 @@ function extensionUsageEscapeHatchReason(usage: Pick<RegistrarExtensionRegistrat
 function fieldToZod(field: FieldDefinition, currencies: string[], opts?: { applyDefaults?: boolean; isUpdate?: boolean; }): z.ZodTypeAny;
 function filterEntriesAfter(entries: ChangelogEntry[], version: string): ChangelogEntry[];
 function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser): Record<string, unknown>;
+function findEntity(features: ReadonlyMap<string, FeatureDefinition>, entityName: string): EntityDefinition | undefined;
 function findForbiddenMembershipRole(roles: string[]): string | undefined;
 function findForbiddenRoleAssignment(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles?: AssignableAppRoles): string | undefined;
 function findOverDeepTransferChain(adjacency: TransferAdjacency, onPath: string[]): string[] | undefined;

@@ -26,7 +26,12 @@
 // src (node_modules is ignored by default) or these classes never compile. money-
 // horse already does; that scan is a real shipping requirement for any host.
 
-import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  toggleSetMember,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
@@ -153,13 +158,7 @@ export function FolderManager({
     }
   }
 
-  const toggleCollapse = (id: string): void =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleCollapse = (id: string): void => setCollapsed((prev) => toggleSetMember(prev, id));
 
   const openCreate = (parentId: string | null): void => {
     setErrorKey(null);

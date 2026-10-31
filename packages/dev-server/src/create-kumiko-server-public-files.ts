@@ -50,6 +50,7 @@ const PUBLIC_FILE_MIME_TYPES = new Map<string, string>([
   ["json", "application/json; charset=utf-8"],
   ["svg", "image/svg+xml"],
   ["png", "image/png"],
+  ["webp", "image/webp"],
   ["jpg", "image/jpeg"],
   ["jpeg", "image/jpeg"],
   ["ico", "image/x-icon"],

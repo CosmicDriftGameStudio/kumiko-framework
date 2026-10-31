@@ -164,6 +164,8 @@ export function mimeTypeFor(filePath: string): string {
       return "image/svg+xml";
     case "png":
       return "image/png";
+    case "webp":
+      return "image/webp";
     case "jpg":
     case "jpeg":
       return "image/jpeg";

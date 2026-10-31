@@ -20,6 +20,7 @@ import { useListUrlState } from "../hooks/use-list-url-state.ts";
 import { useTranslation } from "../i18n.tsx";
 import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
+import { toggleSetMember } from "../toggle-set-member.ts";
 import { DrawerHost, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
@@ -523,12 +524,7 @@ function EntityListBody({
   );
   const [expandedRowIds, setExpandedRowIds] = useState<ReadonlySet<string>>(() => new Set());
   const toggleRowExpanded = useCallback((rowId: string) => {
-    setExpandedRowIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
-      return next;
-    });
+    setExpandedRowIds((prev) => toggleSetMember(prev, rowId));
   }, []);
   // Bumped after a write that ran outside the sub-list (drawer submit,
   // title-row action) so open sub-lists remount and reload.

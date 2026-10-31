@@ -37,6 +37,7 @@ describe("mimeTypeFor", () => {
     ["x.json", "application/json; charset=utf-8"],
     ["x.svg", "image/svg+xml"],
     ["x.png", "image/png"],
+    ["x.webp", "image/webp"],
     ["x.jpg", "image/jpeg"],
     ["x.jpeg", "image/jpeg"],
     ["x.ico", "image/x-icon"],
