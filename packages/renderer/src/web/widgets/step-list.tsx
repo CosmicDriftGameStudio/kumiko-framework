@@ -3,6 +3,7 @@ import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { ProgressBar } from "./progress-bar.tsx";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
+import { useStepFold } from "./step-list-fit.ts";
 import { type StepAction, StepActionButton, type StepListItem, StepRow } from "./step-list-row.tsx";
 
 export type {
@@ -24,6 +25,8 @@ export type StepListProps = {
   readonly footerActions?: readonly StepAction[];
   /** Show only the first n steps plus "und k weitere Schritte" (expands on click). */
   readonly collapsedAfter?: number;
+  /** "always" (default) folds after `collapsedAfter`; "overflow" folds a `fill` list only when its steps do not fit its height, then shows as many as fit but at least `collapsedAfter`. */
+  readonly collapseWhen?: "always" | "overflow";
   /** "ai" (default) = AiSurface background, "plain" = no background. */
   readonly surface?: "ai" | "plain";
   /** Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom. */
@@ -44,6 +47,7 @@ export function StepList({
   steps,
   footerActions,
   collapsedAfter,
+  collapseWhen = "always",
   surface = "ai",
   fill = false,
   progress = "full",
@@ -57,9 +61,16 @@ export function StepList({
 
   const total = steps.filter((step) => step.status !== "rejected").length;
   const done = steps.filter((step) => step.status === "done").length;
+  const fold = useStepFold({
+    stepIds: steps.map((step) => step.id),
+    collapsedAfter,
+    foldsOnOverflow: fill && collapseWhen === "overflow",
+    expanded,
+  });
+  const foldAfter = fold.foldAfter;
   const hiddenCount =
-    collapsedAfter !== undefined && !expanded ? Math.max(0, steps.length - collapsedAfter) : 0;
-  const visibleSteps = hiddenCount > 0 ? steps.slice(0, collapsedAfter) : steps;
+    foldAfter !== undefined && !expanded ? Math.max(0, steps.length - foldAfter) : 0;
+  const visibleSteps = hiddenCount > 0 ? steps.slice(0, foldAfter) : steps;
   const footer = footerActions ?? [];
   const leadingFooter = footer.filter((action) => action.variant === "ghost");
   const trailingFooter = footer.filter((action) => action.variant !== "ghost");
@@ -90,6 +101,7 @@ export function StepList({
         emptyContent
       ) : (
         <ol
+          ref={fold.listRef}
           className={cn(
             "m-0 min-h-0 grow list-none overflow-y-auto p-0",
             phoneCard &&

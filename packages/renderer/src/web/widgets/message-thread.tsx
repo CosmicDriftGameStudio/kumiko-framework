@@ -1,4 +1,4 @@
-import { CornerUpLeft } from "lucide-react";
+import { ChevronRight, CornerUpLeft } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
@@ -44,7 +44,8 @@ function CollapsedRow({
       type="button"
       data-testid={`message-row-${message.id}`}
       onClick={onExpand}
-      className="flex w-full items-center gap-2.5 border-0 border-b border-sender-frame-border bg-transparent py-2.5 text-left text-foreground"
+      // The negative inset lets the hover band reach past the text without shifting it.
+      className="-mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-center gap-2.5 border-0 border-b border-sender-frame-border bg-transparent px-2 py-2.5 text-left text-foreground hover:bg-muted/50"
     >
       <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold">
         {message.direction === "outgoing" && (
@@ -58,6 +59,11 @@ function CollapsedRow({
       </span>
       <span className="min-w-0 grow truncate text-muted-foreground">{previewOf(message)}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{message.timeLabel}</span>
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+        data-testid="message-row-chevron"
+      />
     </button>
   );
 }
