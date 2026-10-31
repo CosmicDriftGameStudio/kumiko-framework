@@ -29,11 +29,12 @@
   ],
   "packageRules": [
     {
+      "description": "Minor, patch and digest bumps ride in the shared all-non-major PR (the action falls back to upstream until the mirror has the new pin); majors of the service images come together",
       "groupName": "ci-service-images",
       "matchFileNames": [
         ".github/actions/kumiko-services/service-images.txt"
       ],
-      "automerge": false
+      "matchUpdateTypes": ["major"]
     },
     {
       "description": "v2 renames inputs and outputs, ignores the GITHUB_TOKEN env (the version PR would no longer trigger CI), drops the NPM_TOKEN .npmrc handling and pushes tags via the API; the release job needs a deliberate migration first",
