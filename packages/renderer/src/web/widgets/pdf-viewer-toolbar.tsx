@@ -137,7 +137,10 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
       >
         −
       </Button>
-      <span className="w-11 text-center text-muted-foreground" data-testid="pdf-zoom">
+      <span
+        className="min-w-11 whitespace-nowrap text-center text-muted-foreground"
+        data-testid="pdf-zoom"
+      >
         {Math.round(props.zoom * 100)} %
       </span>
       <Button

@@ -132,9 +132,11 @@ function PageSheet({
     const container = textLayerRef.current;
     if (container === null || !textLayerReady) return;
     markTextLayer(container, highlightTerm, activeOrdinal);
-    // Scrolling to the page top is not enough: the hit can sit below the fold, and pages above it change height once rendered.
+    // The page top first, so the hit reads in its page; then the hit itself, which can sit below the fold.
+    // Runs after render because pages above it change height once rendered.
     if (activeOrdinal !== null) {
-      container.querySelector(`.${ACTIVE_HIT_CLASS}`)?.scrollIntoView({ block: "center" });
+      sheetRef.current?.scrollIntoView({ block: "start" });
+      container.querySelector(`.${ACTIVE_HIT_CLASS}`)?.scrollIntoView({ block: "nearest" });
     } else if (anchorTop) {
       sheetRef.current?.scrollIntoView({ block: "start" });
     }
