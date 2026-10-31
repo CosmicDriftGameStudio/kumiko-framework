@@ -1,5 +1,5 @@
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import type { EnqueuedTaskPromise, Task } from "meilisearch";
+import type { EnqueuedTaskPromise, FilterableAttributes, Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
 import { importOptionalPeer } from "../utils/import-optional-peer.ts";
 import {
@@ -108,6 +108,11 @@ function isOutdatedDefault(
   );
 }
 
+type ConfigAction =
+  | { readonly kind: "apply-default" }
+  | { readonly kind: "keep" }
+  | { readonly kind: "add-filterable"; readonly filterable: NonNullable<FilterableAttributes> };
+
 function isIndexNotFound(err: unknown): boolean {
   const cause = typeof err === "object" && err !== null && "cause" in err ? err.cause : null;
   return errorCodeOf(cause) === ErrorStatusCode.INDEX_NOT_FOUND;
@@ -200,10 +205,12 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   // configure() must not be overwritten by the registry default, so the default is applied only
   // to an index that is missing, carries Meilisearch's factory settings, or holds an older
   // default that is a strict subset of the current one (fields were added by a deploy).
-  async function indexNeedsDefaultConfig(
+  // A kept index still gets the default filterable attributes merged in: remove, purge and the
+  // stale-piece delete filter on them, and an index without them rejects every delete.
+  async function configActionFor(
     tenantId: TenantId,
     config: SearchAdapterConfig,
-  ): Promise<boolean> {
+  ): Promise<ConfigAction> {
     try {
       const settings = await client.index(meilisearchTenantIndex(prefix, tenantId)).getSettings();
       const searchable = settings.searchableAttributes ?? [MEILI_ALL_ATTRIBUTES];
@@ -212,7 +219,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
         searchable.length === 1 &&
         searchable[0] === MEILI_ALL_ATTRIBUTES &&
         !filterable.includes("_type");
-      return (
+      const needsDefault =
         factorySettings ||
         isOutdatedDefault(
           { searchable, filterable, sortable: settings.sortableAttributes ?? [] },
@@ -222,10 +229,16 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
             sortable: DEFAULT_SORTABLE_ATTRIBUTES,
           },
           settings.distinctAttribute !== DISTINCT_ATTRIBUTE,
-        )
+        );
+      if (needsDefault) return { kind: "apply-default" };
+      const missing = DEFAULT_FILTERABLE_ATTRIBUTES.filter(
+        (attribute) => !filterable.includes(attribute),
       );
+      return missing.length === 0
+        ? { kind: "keep" }
+        : { kind: "add-filterable", filterable: [...filterable, ...missing] };
     } catch (err) {
-      if (isIndexNotFound(err)) return true;
+      if (isIndexNotFound(err)) return { kind: "apply-default" };
       throw err;
     }
   }
@@ -241,7 +254,15 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     }
     const config = defaultConfig;
     await trackConfigure(tenantId, async () => {
-      if (await indexNeedsDefaultConfig(tenantId, config)) await applyConfig(tenantId, config);
+      const action = await configActionFor(tenantId, config);
+      if (action.kind === "apply-default") await applyConfig(tenantId, config);
+      if (action.kind === "add-filterable") {
+        await awaitSucceededTask(
+          client
+            .index(meilisearchTenantIndex(prefix, tenantId))
+            .updateFilterableAttributes(action.filterable),
+        );
+      }
     });
   }
 

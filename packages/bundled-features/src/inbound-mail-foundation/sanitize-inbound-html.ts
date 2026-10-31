@@ -3,7 +3,9 @@
 
 import sanitizeHtml from "sanitize-html";
 
-export const BODY_HTML_MAX_LENGTH = 500_000;
+// Counted in UTF-8 bytes, not characters: the ciphertext grows with the bytes, and a CJK or emoji
+// mail of 500,000 characters would encrypt past the event's bodyHtml maximum.
+export const BODY_HTML_MAX_BYTES = 500_000;
 
 const ALLOWED_TAGS = [
   "p",
@@ -142,5 +144,7 @@ export function sanitizeInboundHtml(html: string): string | null {
     // An image whose src was stripped (cid:, data:, other scheme) is only a broken placeholder.
     exclusiveFilter: (frame) => frame.tag === "img" && frame.attribs["src"] === undefined,
   }).trim();
-  return clean.length === 0 || clean.length > BODY_HTML_MAX_LENGTH ? null : clean;
+  return clean.length === 0 || Buffer.byteLength(clean, "utf8") > BODY_HTML_MAX_BYTES
+    ? null
+    : clean;
 }

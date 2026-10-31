@@ -120,4 +120,11 @@ describe("sanitizeInboundHtml", () => {
   test("result above the length cap is null instead of cut", () => {
     expect(sanitizeInboundHtml(`<p>${"a".repeat(500_001)}</p>`)).toBeNull();
   });
+
+  test("the cap counts UTF-8 bytes: a multi-byte mail under 500,000 characters can still be too large", () => {
+    // "€" takes three bytes: 200,000 characters are 600,000 bytes.
+    expect(sanitizeInboundHtml(`<p>${"€".repeat(200_000)}</p>`)).toBeNull();
+    const nearCap = `<p>${"€".repeat(166_000)}</p>`;
+    expect(sanitizeInboundHtml(nearCap)).toBe(nearCap);
+  });
 });

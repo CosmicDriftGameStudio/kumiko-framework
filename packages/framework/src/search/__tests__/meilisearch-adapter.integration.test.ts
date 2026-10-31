@@ -457,6 +457,35 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a", "x"]);
   });
+
+  test("a kept index without the delete attributes gains them, so remove still works", async () => {
+    const tenant = uuid();
+    const options = { url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix: lazyPrefix };
+    // Stored by an older deploy: a field that has since lost find: "fuzzy" keeps the searchable
+    // list foreign, and the filterable list predates _entityId and _chunk.
+    const uid = meilisearchTenantIndex(lazyPrefix, tenant);
+    await lazyClient.createIndex(uid, { primaryKey: "_id" }).waitTask();
+    const stored = lazyClient.index(uid);
+    await stored.updateSearchableAttributes(["a", "dropped"]).waitTask();
+    await stored.updateFilterableAttributes(["_type", "_weight", "custom"]).waitTask();
+    await stored.updateSortableAttributes(["_weight"]).waitTask();
+
+    const afterDeploy = createMeilisearchAdapter(options);
+    afterDeploy.setDefaultConfig?.({ searchableFields: ["a"] });
+    await afterDeploy.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "keepme" },
+    });
+    await afterDeploy.remove(tenant, "user", 1);
+
+    expect(await afterDeploy.search(tenant, "keepme", { filterType: "user" })).toEqual([]);
+    expect(await stored.getSearchableAttributes()).toEqual(["a", "dropped"]);
+    expect(await stored.getFilterableAttributes()).toEqual(
+      expect.arrayContaining(["_type", "_weight", "custom", "_entityId", "_chunk"]),
+    );
+  });
 });
 
 const INDEX_PAGE_SIZE = 1000;
