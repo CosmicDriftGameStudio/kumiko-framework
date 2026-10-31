@@ -7,8 +7,9 @@ import type {
 } from "@cosmicdrift/kumiko-types/screen";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
+import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
+import { QUERY_RULES } from "./query-rules.ts";
 
 const NOT_REGISTERED_SUFFIX =
   "is not a registered query-handler. Check the QN spelling (expected " +
@@ -26,7 +27,9 @@ export function checkQueryRef(
   // skip: empty/non-string queries get their own message in screens.ts;
   // a registered query has nothing left to check.
   if (!isNonEmptyQueryString(query) || queryHandlers.has(query)) return;
-  throw new Error(`${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`);
+  throw bootRuleError(QUERY_RULES.notRegistered, {
+    message: `${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`,
+  });
 }
 
 const PROBE_ROUTE_ID = "00000000-0000-4000-8000-000000000000";
@@ -47,13 +50,14 @@ function checkVisibleWhenQueryRef(
   const probe = idParam === undefined ? {} : { [idParam]: PROBE_ROUTE_ID };
   // skip: the query parses what the gate sends
   if (handler.schema.safeParse(probe).success) return;
-  throw new Error(
-    idParam === undefined
-      ? `${buildPrefix()} query "${query}" requires input; visibleWhen queries run with an empty payload. ` +
+  throw bootRuleError(QUERY_RULES.visibleWhenRequiresInput, {
+    message:
+      idParam === undefined
+        ? `${buildPrefix()} query "${query}" requires input; visibleWhen queries run with an empty payload. ` +
           "Make the query's input fields optional, use a query without required input, or (projectionDetail only) set visibleWhen.idParam to receive the route id."
-      : `${buildPrefix()} query "${query}" requires input beyond idParam "${idParam}"; visibleWhen queries run with only the route id under that key. ` +
+        : `${buildPrefix()} query "${query}" requires input beyond idParam "${idParam}"; visibleWhen queries run with only the route id under that key. ` +
           `Make the other input fields optional or fix idParam "${idParam}".`,
-  );
+  });
 }
 
 // relatedList is currently only reachable on projectionDetail — screens.ts
@@ -202,10 +206,11 @@ function checkEditFormScreenQueryRefs(
       loadHandler !== undefined &&
       !loadHandler.schema.safeParse({}).success
     ) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (actionForm) load.singleton query "${screen.load.query}" ` +
+      throw bootRuleError(QUERY_RULES.singletonLoadRequiresInput, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (actionForm) load.singleton query "${screen.load.query}" ` +
           "requires input; a singleton load runs with an empty payload. Make the query's input fields optional.",
-      );
+      });
     }
   }
   if (screen.type !== "entityEdit") {
@@ -248,10 +253,11 @@ function checkScreenQueryRefs(
   if (screen.visibleWhen !== undefined) {
     const { idParam } = screen.visibleWhen;
     if (idParam !== undefined && screen.type !== "projectionDetail") {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen.idParam is only supported on projectionDetail, ` +
+      throw bootRuleError(QUERY_RULES.visibleWhenIdParamUnsupported, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen.idParam is only supported on projectionDetail, ` +
           "where the route always carries a record id. Remove idParam or use a projectionDetail screen.",
-      );
+      });
     }
     checkVisibleWhenQueryRef(
       queryHandlers,
