@@ -84,10 +84,12 @@ export function StepList({
             <StepRow key={step.id} step={step} />
           ))}
           {hiddenCount > 0 && (
-            <li className="border-b border-border-row px-4 py-2">
+            <li className="px-4 py-3">
+              {/* Reads as a quiet note under the steps; it still expands them on click. */}
               <Button
                 variant="link"
                 size="sm"
+                className="text-[13px] font-normal text-foreground-secondary hover:text-foreground"
                 onClick={() => setExpanded(true)}
                 testId={`${testId}-more`}
               >
