@@ -15,8 +15,7 @@
 
 import type { DbConnection, DbRunner } from "../db/connection.ts";
 import { bigint, index, jsonb, table as pgTable, text, timestamp, uuid } from "../db/dialect.ts";
-import { tableExists } from "../db/schema-inspection.ts";
-import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
+import { ensureDeadLetterTable } from "./ensure-dead-letter-table.ts";
 import type { StoredEvent } from "./event-store.ts";
 
 export const rebuildDeadLetterTable = pgTable(
@@ -47,12 +46,12 @@ export const rebuildDeadLetterTable = pgTable(
 // tx whenever quarantine mode is active, so the opt-in works on databases
 // provisioned before this table existed.
 export async function createRebuildDeadLetterTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — bootstrap called from multiple paths
-  if (await tableExists(db, "public.kumiko_rebuild_dead_letters")) {
-    await ensureTableRowLevelSecurity(db, rebuildDeadLetterTable);
-    return;
-  }
-  await unsafePushTables(db, { kumikoRebuildDeadLetters: rebuildDeadLetterTable });
+  await ensureDeadLetterTable(
+    db,
+    "public.kumiko_rebuild_dead_letters",
+    "kumikoRebuildDeadLetters",
+    rebuildDeadLetterTable,
+  );
 }
 
 export type SkippedApply = {

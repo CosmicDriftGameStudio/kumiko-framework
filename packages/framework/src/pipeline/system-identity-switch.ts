@@ -66,6 +66,7 @@ export function isIdentitySwitchAllowed(
   return isSelfDelegation(caller, asUser);
 }
 
+// guard:dup-ok error factory; only message and reason differ from unsafeAllTenantsDenied
 export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
@@ -132,18 +133,18 @@ export function createGatedIdentitySwitch(
   ungated: IdentitySwitch,
   audit?: IdentitySwitchAudit,
 ): IdentitySwitch {
-  const queryAs: QueryAsFn = async (asUser, qn, payload) => {
+  const assertSwitchAllowed = (asUser: SessionUser): void => {
     if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
       throw identitySwitchDenied(callerLabel, asUser);
     }
     reportGrantedSwitch(caller, asUser, hasGrant, audit);
+  };
+  const queryAs: QueryAsFn = async (asUser, qn, payload) => {
+    assertSwitchAllowed(asUser);
     return ungated.queryAs(asUser, qn, payload);
   };
   const writeAs: WriteAsFn = async (asUser, qn, payload) => {
-    if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
-      throw identitySwitchDenied(callerLabel, asUser);
-    }
-    reportGrantedSwitch(caller, asUser, hasGrant, audit);
+    assertSwitchAllowed(asUser);
     return ungated.writeAs(asUser, qn, payload);
   };
   const gated: IdentitySwitch = { queryAs, writeAs };
@@ -225,11 +226,14 @@ function readFunctionMember<
 }
 
 function unavailableIdentitySwitchFn(callerLabel: string, kind: "queryAs" | "writeAs") {
-  return async () => {
-    throw new InternalError({
-      message: `${callerLabel}: this context has no ${kind} to switch identity with.`,
-    });
-  };
+  return (
+    // guard:dup-ok a throw-only stub; the message is its whole content
+    async () => {
+      throw new InternalError({
+        message: `${callerLabel}: this context has no ${kind} to switch identity with.`,
+      });
+    }
+  );
 }
 
 function deniedResolveActiveMembership(callerLabel: string): ResolveActiveMembershipFn {

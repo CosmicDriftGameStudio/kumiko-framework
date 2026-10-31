@@ -4,7 +4,6 @@ import type {
   ParentVisibilityOption,
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import { collectEntityDetailAccess, collectEntityReadAccess } from "../api/entity-read-access.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
@@ -17,27 +16,22 @@ import { IMPLICIT_PROJECTION_SUFFIX } from "./registry-state.ts";
 import type { HandlerContext, Registry, SessionUser } from "./types/index.ts";
 
 // The rules only change with the registry, so they are collected once, not per request.
-const readAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, readonly AccessRule[]>>();
-
-const detailAccessByRegistry = new WeakMap<Registry, ReadonlyMap<string, AccessRule>>();
-
-function detailAccessOf(registry: Registry): ReadonlyMap<string, AccessRule> {
-  let rules = detailAccessByRegistry.get(registry);
-  if (rules === undefined) {
-    rules = collectEntityDetailAccess(registry);
-    detailAccessByRegistry.set(registry, rules);
-  }
-  return rules;
+function memoizePerRegistry<T extends object>(
+  collect: (registry: Registry) => T,
+): (registry: Registry) => T {
+  const cache = new WeakMap<Registry, T>();
+  return (registry) => {
+    let value = cache.get(registry);
+    if (value === undefined) {
+      value = collect(registry);
+      cache.set(registry, value);
+    }
+    return value;
+  };
 }
 
-function readAccessOf(registry: Registry): ReadonlyMap<string, readonly AccessRule[]> {
-  let rules = readAccessByRegistry.get(registry);
-  if (rules === undefined) {
-    rules = collectEntityReadAccess(registry);
-    readAccessByRegistry.set(registry, rules);
-  }
-  return rules;
-}
+const detailAccessOf = memoizePerRegistry(collectEntityDetailAccess);
+const readAccessOf = memoizePerRegistry(collectEntityReadAccess);
 
 // An entity with a backingTable is read from that table; the implicit projection holds it.
 function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
@@ -47,6 +41,14 @@ function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefi
       projection.name.endsWith(`:projection:${entityName}${IMPLICIT_PROJECTION_SUFFIX}`),
     );
   return implicit?.table ?? buildEntityTable(entityName, entity);
+}
+
+function readTableResolver(ctx: HandlerContext, label: string) {
+  return (name: string) => {
+    const entity = ctx.registry.getEntity(name);
+    if (entity === undefined) throw new Error(`${label}: unknown entity "${name}"`);
+    return readTableOf(ctx, name, entity);
+  };
 }
 
 // The join-row and read gates resolve hosts and file owners against the registry, which only
@@ -62,11 +64,7 @@ export function parentVisibilityFor(
       const rule = detailRules.get(name);
       return rule !== undefined && hasAccess(user, rule);
     },
-    resolveTable: (name) => {
-      const entity = ctx.registry.getEntity(name);
-      if (entity === undefined) throw new Error(`parentVisibility: unknown entity "${name}"`);
-      return readTableOf(ctx, name, entity);
-    },
+    resolveTable: readTableResolver(ctx, "parentVisibility"),
   };
 }
 
@@ -84,11 +82,7 @@ export function entityListRuntime(
 } {
   const parentVisibility = parentVisibilityFor(ctx, user);
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
-  const resolveTable = (name: string) => {
-    const entity = ctx.registry.getEntity(name);
-    if (entity === undefined) throw new Error(`entityListRuntime: unknown entity "${name}"`);
-    return readTableOf(ctx, name, entity);
-  };
+  const resolveTable = readTableResolver(ctx, "entityListRuntime");
   const readRules = readAccessOf(ctx.registry);
   return {
     runtimeOptions: {

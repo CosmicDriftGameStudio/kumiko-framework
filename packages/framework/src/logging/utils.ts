@@ -7,6 +7,9 @@ type FallbackLogger = {
   debug(msg: string, data?: Record<string, unknown>): void;
 };
 
+type LogLevel = keyof FallbackLogger;
+type OptionalSinkLevel = Exclude<LogLevel, "error">;
+
 let processLogger: Logger | null = null;
 
 // Fallback loggers created at module level before boot must pick this up, so it is read per call.
@@ -39,32 +42,34 @@ export function createFallbackLogger(
       debug: (msg, data) => child.debug(msg, data),
     };
   }
+  type Sink = (msg: string, data?: Record<string, unknown>) => void;
+  const levelLogger = <L extends LogLevel>(
+    level: L,
+    sinkFor: () => Sink | undefined,
+  ): FallbackLogger[L] => {
+    return (msg, data) => {
+      const sink = sinkFor();
+      if (sink) {
+        sink(msg, data);
+      } else {
+        writeConsole(console[level], `[${namespace}] ${msg}`, data);
+      }
+    };
+  };
   if (logger) {
+    const prefixedSink = (level: OptionalSinkLevel): (() => Sink | undefined) => {
+      return () => {
+        const write = logger[level];
+        return write && ((msg, data) => write.call(logger, `[${namespace}] ${msg}`, data));
+      };
+    };
     return {
-      info(msg, data) {
-        if (logger.info) {
-          logger.info(`[${namespace}] ${msg}`, data);
-        } else {
-          writeConsole(console.info, `[${namespace}] ${msg}`, data);
-        }
-      },
+      info: levelLogger("info", prefixedSink("info")),
       error(msg, data) {
         logger.error(`[${namespace}] ${msg}`, data);
       },
-      warn(msg, data) {
-        if (logger.warn) {
-          logger.warn(`[${namespace}] ${msg}`, data);
-        } else {
-          writeConsole(console.warn, `[${namespace}] ${msg}`, data);
-        }
-      },
-      debug(msg, data) {
-        if (logger.debug) {
-          logger.debug(`[${namespace}] ${msg}`, data);
-        } else {
-          writeConsole(console.debug, `[${namespace}] ${msg}`, data);
-        }
-      },
+      warn: levelLogger("warn", prefixedSink("warn")),
+      debug: levelLogger("debug", prefixedSink("debug")),
     };
   }
   let cachedParent: Logger | null = null;
@@ -77,39 +82,17 @@ export function createFallbackLogger(
     }
     return cachedChild;
   };
+  const processChildSink = (level: LogLevel): (() => Sink | undefined) => {
+    return () => {
+      const child = resolveProcessChild();
+      return child ? (msg, data) => child[level](msg, data) : undefined;
+    };
+  };
   return {
-    info(msg, data) {
-      const child = resolveProcessChild();
-      if (child) {
-        child.info(msg, data);
-      } else {
-        writeConsole(console.info, `[${namespace}] ${msg}`, data);
-      }
-    },
-    error(msg, data) {
-      const child = resolveProcessChild();
-      if (child) {
-        child.error(msg, data);
-      } else {
-        writeConsole(console.error, `[${namespace}] ${msg}`, data);
-      }
-    },
-    warn(msg, data) {
-      const child = resolveProcessChild();
-      if (child) {
-        child.warn(msg, data);
-      } else {
-        writeConsole(console.warn, `[${namespace}] ${msg}`, data);
-      }
-    },
-    debug(msg, data) {
-      const child = resolveProcessChild();
-      if (child) {
-        child.debug(msg, data);
-      } else {
-        writeConsole(console.debug, `[${namespace}] ${msg}`, data);
-      }
-    },
+    info: levelLogger("info", processChildSink("info")),
+    error: levelLogger("error", processChildSink("error")),
+    warn: levelLogger("warn", processChildSink("warn")),
+    debug: levelLogger("debug", processChildSink("debug")),
   };
 }
 

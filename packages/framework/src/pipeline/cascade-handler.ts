@@ -205,14 +205,22 @@ const THROUGH_ON_DELETE: OnDeleteHandlers<ThroughLink> = {
   setNull: leaveChildrenUnchanged,
 };
 
+async function rejectIfReferenced(
+  run: CascadeRun,
+  table: HasManyLink["table"],
+  key: string,
+  blockingEntity: string,
+): Promise<void> {
+  const row = await fetchOne(run.db, table, { [key]: run.parentId });
+  if (row) throw deleteRestrictedError(run, blockingEntity);
+}
+
 async function rejectReferencedParent(run: CascadeRun, link: HasManyLink): Promise<void> {
-  const row = await fetchOne(run.db, link.table, { [link.foreignKey]: run.parentId });
-  if (row) throw deleteRestrictedError(run, link.target);
+  await rejectIfReferenced(run, link.table, link.foreignKey, link.target);
 }
 
 async function rejectReferencedThroughRows(run: CascadeRun, link: ThroughLink): Promise<void> {
-  const row = await fetchOne(run.db, link.table, { [link.sourceKey]: run.parentId });
-  if (row) throw deleteRestrictedError(run, link.throughTable);
+  await rejectIfReferenced(run, link.table, link.sourceKey, link.throughTable);
 }
 
 function deleteRestrictedError(run: CascadeRun, blockingEntity: string): ConflictError {

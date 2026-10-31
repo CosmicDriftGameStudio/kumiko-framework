@@ -184,6 +184,14 @@ async function runLifecycle(
     return;
   }
   const result = data;
+  const queueAfterCommit = (run: (afterCommitContext: HandlerContext) => Promise<void>): void => {
+    afterCommitHooks.push(async () => {
+      const afterCommitContext = await buildHandlerContext(ctx, type, user, origin, {
+        transactionScope: "postCommit",
+      });
+      await run(afterCommitContext);
+    });
+  };
 
   // Projections run FIRST, inside the tx, before any user postSave/postDelete
   // hooks. If a projection apply() throws, the whole tx rolls back — the
@@ -194,21 +202,15 @@ async function runLifecycle(
   if (result.kind === "save") {
     await settleSaveFileRefs(handlerContext, result, user);
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
-    afterCommitHooks.push(async () => {
-      const afterCommitContext = await buildHandlerContext(ctx, type, user, origin, {
-        transactionScope: "postCommit",
-      });
-      await lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit);
-    });
+    queueAfterCommit((afterCommitContext) =>
+      lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit),
+    );
   } else if (result.kind === "delete") {
     await lifecycle.runPreDelete(type, result, handlerContext);
     await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
-    afterCommitHooks.push(async () => {
-      const afterCommitContext = await buildHandlerContext(ctx, type, user, origin, {
-        transactionScope: "postCommit",
-      });
-      await lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit);
-    });
+    queueAfterCommit((afterCommitContext) =>
+      lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit),
+    );
   }
 }
 

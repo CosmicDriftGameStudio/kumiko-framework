@@ -331,12 +331,10 @@ function isDrawerTargetKept(
   return keptScreenQns.has(qualifyEntityName(feature.featureName, "screen", shortId));
 }
 
-function isListScreenIdKept(
-  listScreenId: string,
-  indices: IndexedSchema,
+function isTargetKept(
+  target: ScreenLocation | undefined,
   keptScreenQns: ReadonlySet<string>,
 ): boolean {
-  const target = indices.screensByShortId.get(listScreenId);
   if (target === undefined) return false;
   return keptScreenQns.has(qualifyEntityName(target.featureName, "screen", target.screen.id));
 }
@@ -428,16 +426,6 @@ function projectTreeAction(
   return keepTreeAction(action, keptScreenQns) ? action : undefined;
 }
 
-function isRowClickEntityKept(
-  entity: string,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): boolean {
-  const target = indices.detailForScreens.get(entity);
-  if (target === undefined) return false;
-  return keptScreenQns.has(qualifyEntityName(target.featureName, "screen", target.screen.id));
-}
-
 // --- EditLayout / EditSectionSpec projection ---
 
 function projectEmptyState(
@@ -467,7 +455,8 @@ function projectRelatedListSection(
   const nextRowActions = projectActionArray(rowActions, feature, indices, keptScreenQns);
   const nextToolbarActions = projectActionArray(toolbarActions, feature, indices, keptScreenQns);
   const nextRowClick =
-    rowClick === undefined || isRowClickEntityKept(rowClick.entity, indices, keptScreenQns)
+    rowClick === undefined ||
+    isTargetKept(indices.detailForScreens.get(rowClick.entity), keptScreenQns)
       ? rowClick
       : undefined;
   const nextEmptyState = projectEmptyState(emptyState, feature, indices, keptScreenQns);
@@ -603,9 +592,12 @@ function projectListScreenId(
   keptScreenQns: ReadonlySet<string>,
 ): string | undefined {
   if (listScreenId === undefined) return undefined;
-  return isListScreenIdKept(listScreenId, indices, keptScreenQns) ? listScreenId : undefined;
+  return isTargetKept(indices.screensByShortId.get(listScreenId), keptScreenQns)
+    ? listScreenId
+    : undefined;
 }
 
+// guard:dup-ok sibling of projectListScreenId for a different reference kind with its own keep check
 function projectRedirect<Redirect extends string | ActionFormRedirect>(
   featureName: string,
   redirect: Redirect | undefined,

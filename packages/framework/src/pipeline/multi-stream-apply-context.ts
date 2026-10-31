@@ -44,38 +44,29 @@ export type MultiStreamApplyContextDeps = {
 export function createMultiStreamApplyContext(
   deps: MultiStreamApplyContextDeps,
 ): MultiStreamApplyContext {
+  const appendWithLabel = async (callSiteLabel: string, args: AppendEventArgs): Promise<void> => {
+    await appendDomainEventCore(
+      {
+        registry: deps.registry,
+        db: deps.db,
+        tenantId: deps.tenantId,
+        userId: deps.userId,
+        callSiteLabel,
+        ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
+      },
+      args,
+    );
+  };
   return {
     registry: deps.registry,
     ...(deps.files ? { files: deps.files } : {}),
     ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
     ...(deps.secrets ? { secrets: deps.secrets } : {}),
     ...(deps.jobs ? { jobs: deps.jobs } : {}),
-    appendEvent: asTypedAppendEventFn(async (args: AppendEventArgs) => {
-      await appendDomainEventCore(
-        {
-          registry: deps.registry,
-          db: deps.db,
-          tenantId: deps.tenantId,
-          userId: deps.userId,
-          callSiteLabel: "MSP-apply ctx.appendEvent",
-          ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
-        },
-        args,
-      );
-    }),
-    unsafeAppendEvent: async (args) => {
-      await appendDomainEventCore(
-        {
-          registry: deps.registry,
-          db: deps.db,
-          tenantId: deps.tenantId,
-          userId: deps.userId,
-          callSiteLabel: "MSP-apply ctx.unsafeAppendEvent",
-          ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
-        },
-        args,
-      );
-    },
+    appendEvent: asTypedAppendEventFn((args: AppendEventArgs) =>
+      appendWithLabel("MSP-apply ctx.appendEvent", args),
+    ),
+    unsafeAppendEvent: (args) => appendWithLabel("MSP-apply ctx.unsafeAppendEvent", args),
 
     loadAggregate: async (aggregateId, options) => {
       const events = options?.asOf

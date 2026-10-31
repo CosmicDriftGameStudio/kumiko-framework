@@ -306,9 +306,9 @@ async function runCodemodScript(
 
 // One codemod can back the breaking entries of many features in the same release
 // (each feature's changelog names its own removed export); it runs once per version.
-function uniqueCodemodRunsPerVersion<E extends ChangelogEntry & { codemod: string }>(
-  entries: readonly E[],
-): E[] {
+function uniqueCodemodRunsPerVersion<
+  E extends { readonly version: string; readonly codemod: string },
+>(entries: readonly E[]): E[] {
   const seenRuns = new Set<string>();
   return entries.filter((e) => {
     const runKey = `${e.version}\0${e.codemod}`;
@@ -364,21 +364,6 @@ function carryOverManual(
     ...(pendingManual.length > 0 && { pendingManual }),
     ...(previous.resolvedManual.length > 0 && { resolvedManual: previous.resolvedManual }),
   };
-}
-
-// The marker records every codemod ever applied, not just the last bump's, so the
-// CI guard and a resumed run see the whole history.
-function accumulateCodemods(
-  previous: readonly UpgradeMarkerCodemod[],
-  ran: readonly UpgradeMarkerCodemod[],
-): UpgradeMarkerCodemod[] {
-  const seen = new Set<string>();
-  return [...previous, ...ran].filter((entry) => {
-    const key = `${entry.version}\0${entry.codemod}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
@@ -516,7 +501,8 @@ function writePartialMarker(
   writeUpgradeMarker(targetDir, {
     version,
     appliedAt: Temporal.Now.instant().toString(),
-    codemods: accumulateCodemods(previous.codemods, ran),
+    // The marker keeps every codemod ever applied, so the CI guard and a resumed run see the whole history.
+    codemods: uniqueCodemodRunsPerVersion([...previous.codemods, ...ran]),
     ...carryOverManual(previous, manualEntries.map(toMarkerManual)),
   });
   out.err(
@@ -646,7 +632,7 @@ async function applyCodemods(
   writeUpgradeMarker(targetDir, {
     version: markerVersion,
     appliedAt: Temporal.Now.instant().toString(),
-    codemods: accumulateCodemods(previous.codemods, ran),
+    codemods: uniqueCodemodRunsPerVersion([...previous.codemods, ...ran]),
     ...carried,
   });
   writeUpgradeChangelog(targetDir, {
