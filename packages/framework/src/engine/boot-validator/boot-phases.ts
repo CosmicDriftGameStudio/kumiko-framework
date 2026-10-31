@@ -22,21 +22,23 @@ import {
   validateEmbeddedFields,
   validateEncryptedFields,
   validateEntityIndexes,
-  validateEntitySelectAvailabilityQuery,
-  validateEntitySelectConditionalOptions,
-  validateEntitySelectOptionsQuery,
   validateExtendSchemaCollisions,
   validateFileFields,
   validateHandlerAccess,
-  validateImageVariants,
   validateLocatedTimestamps,
   validateLockedWhen,
-  validateMultiSelectFields,
   validateMultiStreamProjections,
   validateReferenceFields,
   validateSearchableFieldReadAccess,
   validateTransitions,
 } from "./entity-handler.ts";
+import { validateImageVariants } from "./entity-image-variants.ts";
+import {
+  validateEntitySelectAvailabilityQuery,
+  validateEntitySelectConditionalOptions,
+  validateEntitySelectOptionsQuery,
+  validateMultiSelectFields,
+} from "./entity-select.ts";
 import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
 import { validateNavs } from "./nav.ts";

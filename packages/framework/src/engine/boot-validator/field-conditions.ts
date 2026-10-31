@@ -12,7 +12,8 @@ import { parseMaxSize } from "../../files/types.ts";
 import { isFileField } from "../field-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
-import { conditionComparisonValues, LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
+import { LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
+import { conditionComparisonValues } from "./entity-select.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
 
 type Condition = Exclude<FieldCondition, boolean>;
