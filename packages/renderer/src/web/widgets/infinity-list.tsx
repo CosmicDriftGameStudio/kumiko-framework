@@ -28,6 +28,8 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
   readonly rowId: (row: TRow, index: number) => string;
   readonly renderRow: (row: TRow) => ReactNode;
   readonly emptyState?: ReactNode;
+  /** Scrolls with the rows, after the last loaded one, e.g. a hint under search hits. Not shown with the empty state. */
+  readonly endContent?: ReactNode;
   readonly className?: string;
   readonly testId?: string;
   /** Subscribe to SSE events for the entity parsed from `query`
@@ -64,6 +66,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   rowId,
   renderRow,
   emptyState,
+  endContent,
   className,
   testId,
   live = false,
@@ -300,6 +303,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
         <div key={rowId(row, index)}>{renderRow(row)}</div>
       ))}
       <div ref={sentinelRef} className="h-px" />
+      {endContent}
     </div>
   );
 }

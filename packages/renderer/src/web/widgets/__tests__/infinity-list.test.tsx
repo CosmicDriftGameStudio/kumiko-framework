@@ -112,6 +112,43 @@ function SearchList({ search }: { readonly search: string }) {
 }
 
 describe("InfinityList", () => {
+  test("endContent follows the rows inside the scroll area and stays out of the empty state", async () => {
+    const pages: Page[] = [
+      { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
+      { rows: [], nextCursor: null },
+    ];
+    let call = 0;
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: pages[call++],
+      })) as unknown as Dispatcher["query"],
+    });
+    const view = (query: string) => (
+      <InfinityList<Page, Row>
+        query={query}
+        rows={(data) => data.rows}
+        nextCursor={(data) => data.nextCursor}
+        rowId={(row) => row.id}
+        renderRow={(row) => <span>{row.subject}</span>}
+        emptyState={<p>Leer</p>}
+        endContent={<p>Nicht gefunden?</p>}
+        testId="inbox"
+      />
+    );
+    const { rerender } = renderWithDispatcher(view("inbox:query:message:list"), dispatcher);
+    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    const hint = screen.getByText("Nicht gefunden?");
+    expect(screen.getByTestId("inbox").lastElementChild).toBe(hint);
+    rerender(
+      <DispatcherProvider dispatcher={dispatcher}>
+        {view("inbox:query:message:search")}
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("Leer")).toBeTruthy());
+    expect(screen.queryByText("Nicht gefunden?")).toBeNull();
+  });
+
   test("rendert die erste Seite", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
