@@ -1,6 +1,10 @@
 // @runtime dev
 import { createHash } from "node:crypto";
-import { buildServer, createSseBroker } from "@cosmicdrift/kumiko-framework/api";
+import {
+  buildServer,
+  createSseBroker,
+  withFileProviderResolver,
+} from "@cosmicdrift/kumiko-framework/api";
 import {
   assertRowLevelSecurityBootState,
   type DbConnection,
@@ -353,7 +357,9 @@ export async function buildStackServices(
           redis: testRedis.redis,
         })
       : options.extraContext;
-  const appContext = {
+  // The prod entrypoint resolves the mounted file-provider plugins before the job runner sees
+  // the context; without it a job's ctx.services.files is undefined only in tests.
+  const appContext = withFileProviderResolver(registry, {
     db: testDb.db,
     redis: testRedis.redis,
     searchAdapter,
@@ -363,7 +369,7 @@ export async function buildStackServices(
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
     ...extraContext,
-  };
+  });
   extraContextClock.current = extraContext?.["clock"];
   return { searchAdapter, events, registry, sseBroker, entityCache, observability, appContext };
 }

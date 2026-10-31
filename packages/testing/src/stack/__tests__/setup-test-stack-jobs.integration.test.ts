@@ -4,13 +4,22 @@
 // context slot and isn't guaranteed by this test passing.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { randomBytes } from "node:crypto";
+import {
+  buildEnvConfigOverrides,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { defineFeature, FILE_STORAGE_PROVIDER_ENV } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { waitFor } from "../../helpers/index.ts";
+import { createTestEnvelopeCipher, waitFor } from "../../helpers/index.ts";
 import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
@@ -56,6 +65,21 @@ const jobContextFeature = defineFeature("jobcontextcheck", (r) => {
       hasSearchAdapter: context.services.searchAdapter !== undefined,
       hasEffectiveFeatures: context.services.effectiveFeatures !== undefined,
     });
+  });
+});
+
+const jobFileReads: string[] = [];
+
+const jobFilesFeature = defineFeature("jobfilescheck", (r) => {
+  r.job("roundtrip", { trigger: { manual: true }, runIn: "worker" }, async (_payload, context) => {
+    const files = context.services.files;
+    if (!files) {
+      jobFileReads.push("no ctx.services.files");
+      return;
+    }
+    const handle = files.ref(`${context.systemUser.tenantId}/job-roundtrip.txt`);
+    await handle.write(new TextEncoder().encode("stored by the job"), "text/plain");
+    jobFileReads.push(new TextDecoder().decode(await handle.read()));
   });
 });
 
@@ -181,6 +205,38 @@ describe("setupTestStack({ jobs }) job context matches the request-path context"
       hasMetricsFor: true,
       hasSearchAdapter: true,
       hasEffectiveFeatures: false,
+    });
+  });
+
+  test("a job reaches the mounted file provider through ctx.services.files, as in prod", async () => {
+    jobFileReads.length = 0;
+    stack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createFileFoundationFeature(),
+        createFileProviderInMemoryFeature(),
+        jobFilesFeature,
+      ],
+      jobs: { consumerLane: "worker" },
+      // No `files` option: the provider comes from the mounted plugin, selected over config.
+      extraContext: ({ registry }) => {
+        const resolver = createConfigResolver({
+          cipher: createTestEnvelopeCipher(randomBytes(32).toString("base64")),
+          appOverrides: new Map(
+            buildEnvConfigOverrides(registry, { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" }),
+          ),
+        });
+        return {
+          configResolver: resolver,
+          configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        };
+      },
+    });
+
+    await stack.jobRunner?.dispatch("jobfilescheck:job:roundtrip");
+
+    await waitFor(() => {
+      expect(jobFileReads).toEqual(["stored by the job"]);
     });
   });
 });
