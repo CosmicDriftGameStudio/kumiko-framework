@@ -51,7 +51,7 @@ export async function driveDestructionToCompletion(
     });
     const rows = await selectMany(db, tenantTable, { id: tenantId });
     status = String(rows[0]?.["status"]);
-    if (status === "destroyed" || status === "destroyFailed") break;
+    if (status === "destroyed" || status === "destroyFailed" || status === "destroyHeld") break;
   }
   return status;
 }

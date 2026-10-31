@@ -3,6 +3,7 @@ import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framew
 import {
   createEventStoreExecutor,
   createTenantDb,
+  fetchOne,
   selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -23,7 +24,9 @@ import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantEntity, tenantTable } from "../tenant/index.ts";
+import { tenantHasBlockDeleteRows } from "../data-retention/index.ts";
+import type { TenantDestructionHoldProvider } from "../shared/index.ts";
+import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../tenant/index.ts";
 import {
   DESTRUCTION_STAGE_MAX_PENDING_MS,
   DESTRUCTION_STAGE_MIN_SLICE_MS,
@@ -202,7 +205,11 @@ async function appendTenantStageEventIdempotent(
   return lastEventVersion(events);
 }
 
-async function markTenantDestroyFailed(db: DbRunner, tenantId: TenantId): Promise<void> {
+async function setTenantLifecycleStatus(
+  db: DbRunner,
+  tenantId: TenantId,
+  status: TenantLifecycleStatus,
+): Promise<void> {
   const user = createSystemUser(tenantId);
   const scopedDb = createTenantDb({
     db,
@@ -213,13 +220,24 @@ async function markTenantDestroyFailed(db: DbRunner, tenantId: TenantId): Promis
   await tenantCrud.update(
     {
       id: tenantId,
-      changes: { status: "destroyFailed" },
+      changes: { status },
     },
     user,
     scopedDb,
     { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
   );
   invalidateTenantLifecycleGate(tenantId);
+}
+
+// True while the tenant still owns rows whose blockDelete retention has not run out.
+async function tenantOwnsRetentionHeldRows(args: {
+  readonly db: DbRunner;
+  readonly registry: Registry;
+  readonly tenantId: TenantId;
+  readonly now: Temporal.Instant;
+}): Promise<boolean> {
+  if (!args.registry.features.has("data-retention")) return false;
+  return await tenantHasBlockDeleteRows(args);
 }
 
 async function haltPipelineOnAbandon(args: {
@@ -252,7 +270,7 @@ async function haltPipelineOnAbandon(args: {
     { stage: args.stage, error: args.error, failedAt: failedAt.toString() },
     versionAfterAbandon,
   );
-  await markTenantDestroyFailed(args.db, args.tenantId);
+  await setTenantLifecycleStatus(args.db, args.tenantId, "destroyFailed");
 }
 
 async function maybeAppendDestructionCompleted(
@@ -285,6 +303,7 @@ type StageTickResult = {
   readonly halted?: boolean;
   readonly progressed?: boolean;
   readonly pending?: boolean;
+  readonly held?: boolean;
 };
 
 // `version` differs per caller: the catch path appends against the pre-run
@@ -379,6 +398,20 @@ export async function runNextDestructionStage(args: {
     return { done: isDestructionPipelineComplete(completed) };
   }
 
+  // Parking is no stage attempt: no stage-started event, no attempt count, no failure.
+  if (
+    next.name === "tenant-row" &&
+    (await tenantOwnsRetentionHeldRows({
+      db: args.db,
+      registry: args.registry,
+      tenantId: args.tenantId,
+      now,
+    }))
+  ) {
+    await setTenantLifecycleStatus(args.db, args.tenantId, "destroyHeld");
+    return { done: false, held: true };
+  }
+
   const priorAttempts = attemptsByStage.get(next.name) ?? 0;
   const attempt = priorAttempts + 1;
   const ctx: DestructionStageCtx = {
@@ -392,6 +425,7 @@ export async function runNextDestructionStage(args: {
     escapeHatchAuditLog: args.escapeHatchAuditLog,
     actor: args.actor,
     deadlineAt: args.deadlineAt ?? Date.now() + DESTRUCTION_STAGE_TICK_BUDGET_MS,
+    now,
   };
 
   let version = lastEventVersion(events);
@@ -482,6 +516,25 @@ export async function hasTenantDestructionWork(
   return due > 0 || destroying > 0;
 }
 
+// A destroyHeld tenant is not sweep work: the daily retention run releases it once its last held row
+// is gone, and the sweep then runs tenant-row as a fresh first attempt.
+export const tenantDestructionHoldProvider: TenantDestructionHoldProvider = {
+  async isParked({ db, tenantId }) {
+    return (await tenantStatusOf(db, tenantId)) === "destroyHeld";
+  },
+  async releaseIfFree({ db, registry, tenantId, now }) {
+    if ((await tenantStatusOf(db, tenantId)) !== "destroyHeld") return false;
+    if (await tenantOwnsRetentionHeldRows({ db, registry, tenantId, now })) return false;
+    await setTenantLifecycleStatus(db, tenantId, "destroying");
+    return true;
+  },
+};
+
+async function tenantStatusOf(db: DbRunner, tenantId: TenantId): Promise<string | undefined> {
+  const row = await fetchOne<{ status: string }>(db, tenantTable, { id: tenantId });
+  return row?.status;
+}
+
 /** Cron entry: start destruction for tenants past grace, then advance stages. */
 export async function runTenantDestructionSweep(args: {
   readonly db: DbRunner;
@@ -559,7 +612,7 @@ export async function runTenantDestructionSweep(args: {
         escapeHatchAuditLog: args.escapeHatchAuditLog,
         actor: args.actor,
       });
-      if (!result.error && !result.halted) advanced++;
+      if (!result.error && !result.halted && !result.held) advanced++;
     } catch (err) {
       // Isolate the failure to this tenant — an uncaught throw here must not
       // abort the whole sweep tick and starve every other "destroying" tenant

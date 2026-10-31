@@ -1494,6 +1494,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "tenant:entity:tenant:field:status": "Status",
   "tenant:entity:tenant:field:status:option:active": "Active",
   "tenant:entity:tenant:field:status:option:destroyFailed": "Destroy failed",
+  "tenant:entity:tenant:field:status:option:destroyHeld": "Destroy held by retention",
   "tenant:entity:tenant:field:status:option:destroyRequested": "Destroy requested",
   "tenant:entity:tenant:field:status:option:destroyed": "Destroyed",
   "tenant:entity:tenant:field:status:option:destroying": "Destroying",

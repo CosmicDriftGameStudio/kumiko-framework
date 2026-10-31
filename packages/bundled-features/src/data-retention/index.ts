@@ -25,3 +25,8 @@ export {
   type RunRetentionCleanupResult,
   runRetentionCleanup,
 } from "./run-retention-cleanup.ts";
+export {
+  type DestructionHold,
+  holdBlockDeleteRowsForDestruction,
+  tenantHasBlockDeleteRows,
+} from "./tenant-destruction-hold.ts";

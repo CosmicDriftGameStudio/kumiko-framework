@@ -52,6 +52,9 @@ export const TENANT_I18N: Readonly<Record<string, LocalizedString>> = {
   "tenant:entity:tenant:field:status:option:destroying": {
     en: "Destroying",
   },
+  "tenant:entity:tenant:field:status:option:destroyHeld": {
+    en: "Destroy held by retention",
+  },
   "tenant:entity:tenant:field:status:option:destroyFailed": {
     en: "Destroy failed",
   },

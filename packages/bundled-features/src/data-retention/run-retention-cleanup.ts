@@ -40,9 +40,11 @@
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
+  isPiiCiphertext,
   isRecordKeyedField,
   isSelfPiiField,
   type KmsAdapter,
+  PII_ERASED_SENTINEL,
   resolveSubjectForField,
   type SubjectId,
   subjectIdToKey,
@@ -73,9 +75,11 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   collectSingleFileHolders,
+  decryptStoredPii,
   planFileFields,
   purgeRowFileRefs,
   runInSubTransaction,
@@ -86,8 +90,10 @@ import type { RetentionPresetKey } from "./presets.ts";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant.ts";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override.ts";
 
+const log = createFallbackLogger("data-retention");
+
 const DEFAULT_BATCH_LIMIT = 1000;
-const DEFAULT_REFERENCE_FIELD = "createdAt";
+export const DEFAULT_REFERENCE_FIELD = "createdAt";
 
 // The boot validator (boot-validator/pii-retention.ts FRAMEWORK_TIMESTAMP_FIELDS)
 // permits these aliases as retention.reference even when they are not declared in
@@ -96,7 +102,7 @@ const DEFAULT_REFERENCE_FIELD = "createdAt";
 // during cleanup; otherwise the column existence check below would cause the cron
 // to do nothing silently. deletedAt/lastSeenAt are real fields (softDelete and
 // session respectively) and need no translation.
-const FRAMEWORK_REFERENCE_ALIAS: Readonly<Record<string, string>> = {
+export const FRAMEWORK_REFERENCE_ALIAS: Readonly<Record<string, string>> = {
   createdAt: "insertedAt",
   updatedAt: "modifiedAt",
 };
@@ -113,6 +119,9 @@ export interface RunRetentionCleanupArgs {
    */
   readonly now: Instant;
   readonly batchLimit?: number;
+  /** Tenant is being destroyed and only kept alive by its blockDelete rows: expired ones are
+   *  deleted instead of anonymized. */
+  readonly purgeExpiredBlockDelete?: boolean;
   /** Storage access for hardDelete entities with file/image/files/images fields.
    *  Missing while fileRefs are due → the row stays (skipped "missing_file_storage"),
    *  fail-closed instead of orphaning bytes. */
@@ -314,6 +323,7 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly tdb: TenantDb;
   readonly kms: KmsAdapter | undefined;
   readonly registry: Registry;
+  readonly deleteWithoutFileStorage: boolean;
   readonly onSkip: (reason: "missing_file_storage" | "file_delete_failed") => void;
 }): Promise<boolean> {
   const logContext = `tenant=${args.tenantId} entity=${args.entityName} row=${String(args.rowId)}`;
@@ -326,7 +336,14 @@ async function purgeHardDeleteRowWithFiles(args: {
     table: args.table,
     fileHolders: args.fileHolders,
     row: args.row,
-    deleteBytes: files ? (key) => deleteFileFailingClosed(key, files, logContext) : undefined,
+    deleteBytes: files
+      ? (key) => deleteFileFailingClosed(key, files, logContext)
+      : args.deleteWithoutFileStorage
+        ? async (key) => {
+            log.warn(`${logContext} no file storage wired, bytes of ${key} are not deleted`);
+            return [];
+          }
+        : undefined,
     fileRefForget: async (fileRefId) =>
       (await args.fileRefExecutor.forget({ id: fileRefId }, args.systemUser, args.tdb)).isSuccess,
     onBytesDeleteFailed: (failedKeys) => {
@@ -376,6 +393,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
   readonly tdb: TenantDb;
   readonly kms: KmsAdapter | undefined;
   readonly registry: Registry;
+  readonly deleteWithoutFileStorage: boolean;
   readonly skipped: RetentionCleanupSkip[];
 }): Promise<number> {
   const reasonsSeen = new Set<RetentionCleanupSkip["reason"]>();
@@ -424,6 +442,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
         tdb: args.tdb,
         kms: args.kms,
         registry: args.registry,
+        deleteWithoutFileStorage: args.deleteWithoutFileStorage,
         onSkip,
       });
       if (ok) count++;
@@ -440,7 +459,7 @@ type AnonymizeCapableField = { readonly anonymize?: () => unknown | Promise<unkn
 // Evaluate the entity's per-field anonymize functions ONCE — they are
 // row-independent by signature, so the result doubles as the idempotency
 // probe: a row already carrying these values needs no event.
-async function resolveAnonymizeTargets(
+export async function resolveAnonymizeTargets(
   fields: Readonly<Record<string, unknown>>,
 ): Promise<Record<string, unknown> | null> {
   const targets: Record<string, unknown> = {};
@@ -451,11 +470,20 @@ async function resolveAnonymizeTargets(
   return Object.keys(targets).length > 0 ? targets : null;
 }
 
-function rowNeedsAnonymize(
+// Encrypted PII is stored as ciphertext, so the diff has to compare the decrypted value; an erased
+// subject key reads back as the sentinel and counts as anonymized already.
+async function rowNeedsAnonymize(
   row: Record<string, unknown>,
   targets: Record<string, unknown>,
-): boolean {
-  return Object.entries(targets).some(([field, value]) => row[field] !== value);
+): Promise<boolean> {
+  for (const [field, target] of Object.entries(targets)) {
+    const stored = row[field];
+    const current = isPiiCiphertext(stored)
+      ? await decryptStoredPii(stored, field, "retention-anonymize")
+      : stored;
+    if (current !== PII_ERASED_SENTINEL && current !== target) return true;
+  }
+  return false;
 }
 
 // Anonymize every matching row via the executor (event → rebuild-safe).
@@ -464,7 +492,7 @@ function rowNeedsAnonymize(
 // UPDATES per run, not the scan.
 // ponytail: scans all past-cutoff rows per run — add an anonymized-marker
 // column if a hot entity accumulates millions of held rows.
-async function anonymizeMatchingRows(
+export async function anonymizeMatchingRows(
   db: DbRunner,
   table: Parameters<typeof selectMany>[1],
   where: WhereObject,
@@ -483,13 +511,88 @@ async function anonymizeMatchingRows(
     if (rows.length === 0) break;
     for (const row of rows) {
       cursor = row["id"] as EntityId; // @cast-boundary db-row
-      if (!rowNeedsAnonymize(row, targets)) continue;
+      if (!(await rowNeedsAnonymize(row, targets))) continue;
       const res = await op(cursor, targets);
       if (res.isSuccess) count++;
       if (count >= batchLimit) break;
     }
   }
   return count;
+}
+
+export async function loadOverrideByEntity(
+  db: DbRunner,
+  tenantId: TenantId,
+): Promise<ReadonlyMap<string, { config: string | null }>> {
+  const overrideRows = await selectMany<{ entityName: string; config: string | null }>(
+    db,
+    tenantRetentionOverrideTable,
+    { tenantId },
+  );
+  return new Map(overrideRows.map((r) => [r.entityName, { config: r.config }]));
+}
+
+async function hardDeleteMatchingRows(args: {
+  readonly db: DbRunner;
+  readonly table: Parameters<typeof selectMany>[1];
+  readonly where: WhereObject;
+  readonly batchLimit: number;
+  readonly tenantId: TenantId;
+  readonly entityName: string;
+  readonly entity: EntityDefinition;
+  readonly files: FileContext | undefined;
+  readonly systemUser: SessionUser;
+  readonly tdb: TenantDb;
+  readonly kms: KmsAdapter | undefined;
+  readonly registry: Registry;
+  readonly fileHolders: readonly SingleFileHolder[];
+  // A tenant being destroyed has nothing left to keep file bytes for; without storage the rows go
+  // anyway, otherwise the destruction would wait forever for a provider that is not coming.
+  readonly deleteWithoutFileStorage: boolean;
+  readonly skipped: RetentionCleanupSkip[];
+}): Promise<number> {
+  const executor = createEventStoreExecutor(args.table, args.entity, {
+    entityName: args.entityName,
+  });
+  const filePlan = planFileFields(args.entity.fields);
+  if (filePlan.singleFields.length === 0 && filePlan.multiFields.length === 0) {
+    return await purgeMatchingRows(args.db, args.table, args.where, args.batchLimit, (id) =>
+      forgetRowAndEraseKeys({
+        db: args.db,
+        executor,
+        entity: args.entity,
+        entityName: args.entityName,
+        tenantId: args.tenantId,
+        systemUser: args.systemUser,
+        rowId: id,
+        row: { id },
+        kms: args.kms,
+        registry: args.registry,
+      }),
+    );
+  }
+  const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+    entityName: "fileRef",
+  });
+  return await purgeHardDeleteRowsWithFiles({
+    db: args.db,
+    table: args.table,
+    fileHolders: args.fileHolders,
+    where: args.where,
+    batchLimit: args.batchLimit,
+    tenantId: args.tenantId,
+    entityName: args.entityName,
+    entity: args.entity,
+    files: args.files,
+    entityExecutor: executor,
+    fileRefExecutor,
+    systemUser: args.systemUser,
+    tdb: args.tdb,
+    kms: args.kms,
+    registry: args.registry,
+    deleteWithoutFileStorage: args.deleteWithoutFileStorage,
+    skipped: args.skipped,
+  });
 }
 
 export async function runRetentionCleanup(
@@ -524,12 +627,7 @@ export async function runRetentionCleanup(
   // Pre-load every override row for this tenant ONCE — N entities × M
   // tenants would otherwise mean one fetchOne per entity per tenant, even
   // though the whole set for a tenant is a single small, indexed read.
-  const overrideRows = await selectMany<{ entityName: string; config: string | null }>(
-    db,
-    tenantRetentionOverrideTable,
-    { tenantId },
-  );
-  const overrideByEntity = new Map(overrideRows.map((r) => [r.entityName, { config: r.config }]));
+  const overrideByEntity = await loadOverrideByEntity(db, tenantId);
 
   for (const proj of registry.getAllProjections().values()) {
     // Only implicit entity projections with a table are targets, as in
@@ -570,44 +668,21 @@ export async function runRetentionCleanup(
 
     switch (policy.strategy) {
       case "hardDelete": {
-        const executor = createEventStoreExecutor(proj.table, entity, { entityName });
-        const filePlan = planFileFields(entity.fields);
-        if (filePlan.singleFields.length === 0 && filePlan.multiFields.length === 0) {
-          hardDeleted += await purgeMatchingRows(db, proj.table, where, batchLimit, (id) =>
-            forgetRowAndEraseKeys({
-              db,
-              executor,
-              entity,
-              entityName,
-              tenantId,
-              systemUser,
-              rowId: id,
-              row: { id },
-              kms,
-              registry,
-            }),
-          );
-          break;
-        }
-        const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
-          entityName: "fileRef",
-        });
-        hardDeleted += await purgeHardDeleteRowsWithFiles({
+        hardDeleted += await hardDeleteMatchingRows({
           db,
           table: proj.table,
-          fileHolders,
           where,
           batchLimit,
           tenantId,
           entityName,
           entity,
           files: args.files,
-          entityExecutor: executor,
-          fileRefExecutor,
           systemUser,
           tdb,
           kms,
           registry,
+          fileHolders,
+          deleteWithoutFileStorage: false,
           skipped,
         });
         break;
@@ -639,6 +714,28 @@ export async function runRetentionCleanup(
       // anonymize strategy, so both cases share it.
       case "anonymize":
       case "blockDelete": {
+        // A tenant held in destroyHeld has its expired blockDelete rows removed for good;
+        // anonymizing them would keep the account's data stored for nothing.
+        if (policy.strategy === "blockDelete" && args.purgeExpiredBlockDelete === true) {
+          hardDeleted += await hardDeleteMatchingRows({
+            db,
+            table: proj.table,
+            where,
+            batchLimit,
+            tenantId,
+            entityName,
+            entity,
+            files: args.files,
+            systemUser,
+            tdb,
+            kms,
+            registry,
+            fileHolders,
+            deleteWithoutFileStorage: true,
+            skipped,
+          });
+          break;
+        }
         const targets = await resolveAnonymizeTargets(entity.fields);
         if (!targets) {
           // blockDelete without anonymize fields is a pure hold only while the

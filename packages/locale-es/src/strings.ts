@@ -1529,6 +1529,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tenant:entity:tenant:field:status": "Estado",
   "tenant:entity:tenant:field:status:option:active": "Activo",
   "tenant:entity:tenant:field:status:option:destroyFailed": "Eliminación fallida",
+  "tenant:entity:tenant:field:status:option:destroyHeld": "Retenido por plazo de conservación",
   "tenant:entity:tenant:field:status:option:destroyRequested": "Eliminación solicitada",
   "tenant:entity:tenant:field:status:option:destroyed": "Eliminado",
   "tenant:entity:tenant:field:status:option:destroying": "Eliminándose",

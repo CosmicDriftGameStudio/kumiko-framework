@@ -100,7 +100,10 @@ export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
     nextBatch: () =>
       ctx.db.selectMany<{ id: string; storageKey: string }>(
         fileRefsTable,
-        { tenantId: ctx.tenantId },
+        {
+          tenantId: ctx.tenantId,
+          id: { notIn: [...(ctx.heldFileRefIds ?? [])] },
+        },
         { limit: DESTROY_CHUNK_SIZE },
       ),
     migrateRow: async (row) => {

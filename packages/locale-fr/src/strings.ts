@@ -1551,6 +1551,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "tenant:entity:tenant:field:status": "Statut",
   "tenant:entity:tenant:field:status:option:active": "Active",
   "tenant:entity:tenant:field:status:option:destroyFailed": "Échec de la destruction",
+  "tenant:entity:tenant:field:status:option:destroyHeld": "Suspendue par délai de conservation",
   "tenant:entity:tenant:field:status:option:destroyRequested": "Destruction demandée",
   "tenant:entity:tenant:field:status:option:destroyed": "Détruite",
   "tenant:entity:tenant:field:status:option:destroying": "Destruction en cours",

@@ -303,6 +303,7 @@ export type {
 export {
   isTenantDataExtensionHooks,
   type TenantDataDestroyHook,
+  type TenantDataDestroyPhase,
   type TenantDataHookCtx,
 } from "./extensions/tenant-data.ts";
 export {
