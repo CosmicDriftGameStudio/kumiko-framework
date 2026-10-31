@@ -1417,6 +1417,7 @@ type StepListProps = {
   steps: StepListItem[];
   footerActions?: StepAction[]; // Footer row: a ghost action for the whole list next to the primary next-step action.
   collapsedAfter?: number; // Show only the first n steps plus "und k weitere Schritte" (expands on click).
+  collapseWhen?: "always" | "overflow"; // "always" (default) folds after `collapsedAfter`; "overflow" folds a `fill` list only when its steps do not fit its height, then shows as many as fit but at least `collapsedAfter`.
   surface?: "ai" | "plain"; // "ai" (default) = AiSurface background, "plain" = no background.
   fill?: boolean; // Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom.
   progress?: "full" | "count" | "none"; // "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done.

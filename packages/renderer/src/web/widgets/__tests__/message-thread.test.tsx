@@ -70,8 +70,20 @@ describe("MessageThread", () => {
 
   test("outgoing rows carry the reply icon, incoming rows do not", () => {
     render(<MessageThread messages={[annaFirst, reply, annaLast]} />);
-    expect(screen.getByTestId("message-row-m2").querySelector("svg")).not.toBeNull();
-    expect(screen.getByTestId("message-row-m1").querySelector("svg")).toBeNull();
+    const outgoingIcon = '[data-testid="message-outgoing-icon"]';
+    expect(screen.getByTestId("message-row-m2").querySelector(outgoingIcon)).not.toBeNull();
+    expect(screen.getByTestId("message-row-m1").querySelector(outgoingIcon)).toBeNull();
+  });
+
+  test("every collapsed row shows a chevron that it opens", () => {
+    render(<MessageThread messages={[annaFirst, reply, annaLast]} />);
+    for (const id of ["m1", "m2"]) {
+      const row = screen.getByTestId(`message-row-${id}`);
+      expect(row.tagName).toBe("BUTTON");
+      expect(row.querySelector('[data-testid="message-row-chevron"]')).not.toBeNull();
+    }
+    fireEvent.click(screen.getByTestId("message-row-m1"));
+    expect(screen.getByTestId("message-open-m1")).toBeTruthy();
   });
 
   test("quoted text is folded behind a button with the line count and toggles", () => {

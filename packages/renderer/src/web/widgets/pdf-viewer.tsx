@@ -279,7 +279,8 @@ export function PdfViewer({
             hideSearch={hideSearchBar}
           />
         )}
-        <div ref={scrollerRef} className="min-h-0 grow overflow-auto p-5">
+        {/* scroll-pt keeps the padding above a page the viewer jumps to, as above page 1. */}
+        <div ref={scrollerRef} className="min-h-0 grow scroll-pt-5 overflow-auto p-5">
           <div
             data-testid="pdf-pages"
             // w-max would size the column to the unshrunk page, so the fit-to-width measurement could never be smaller than the page.

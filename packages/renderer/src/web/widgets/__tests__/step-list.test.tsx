@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { render, screen, within } from "../../__tests__/test-utils.tsx";
 import { StepList, type StepListItem } from "../step-list.tsx";
@@ -115,6 +115,64 @@ describe("StepList", () => {
     fireEvent.click(screen.getByText("and 2 more steps"));
     expect(screen.getByTestId("step-reply")).toBeTruthy();
     expect(screen.queryByText("and 2 more steps")).toBeNull();
+  });
+
+  describe("collapseWhen overflow", () => {
+    const originals = {
+      offsetHeight: Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight"),
+      clientHeight: Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight"),
+    };
+    // The DOM test environment lays nothing out: every row reports 50px, the list gets the height the test gives it.
+    function layOut(listHeight: number): void {
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get: () => 50,
+      });
+      Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.tagName === "OL" ? listHeight : 0;
+        },
+      });
+    }
+    afterEach(() => {
+      for (const [key, descriptor] of Object.entries(originals)) {
+        if (descriptor === undefined) Reflect.deleteProperty(HTMLElement.prototype, key);
+        else Object.defineProperty(HTMLElement.prototype, key, descriptor);
+      }
+    });
+
+    test("shows every step while they fit the list's height", () => {
+      layOut(400);
+      render(
+        <StepList
+          title="Vorschlag der KI"
+          steps={heatingSteps}
+          fill
+          collapsedAfter={1}
+          collapseWhen="overflow"
+        />,
+      );
+      expect(screen.getByTestId("step-old")).toBeTruthy();
+      expect(screen.queryByTestId("step-list-more")).toBeNull();
+    });
+
+    test("folds to the steps that fit beside the 'more' row when the height runs short", () => {
+      layOut(150);
+      render(
+        <StepList
+          title="Vorschlag der KI"
+          steps={heatingSteps}
+          fill
+          collapsedAfter={1}
+          collapseWhen="overflow"
+        />,
+      );
+      expect(screen.getByTestId("step-case")).toBeTruthy();
+      expect(screen.getByTestId("step-order")).toBeTruthy();
+      expect(screen.queryByTestId("step-reply")).toBeNull();
+      expect(screen.getByText("and 2 more steps")).toBeTruthy();
+    });
   });
 
   test("footer actions render and fire", () => {
