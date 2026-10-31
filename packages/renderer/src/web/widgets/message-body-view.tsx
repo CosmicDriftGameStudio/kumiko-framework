@@ -85,20 +85,11 @@ function HtmlBody({
     () => !imagesAllowed && hasRemoteImages(html),
     [html, imagesAllowed],
   );
-  return (
-    <div className="flex flex-col items-start gap-3">
-      {clamp === undefined ? (
-        <div className="w-full">
-          <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
-        </div>
-      ) : (
-        <ClampedText
-          maxHeightPx={clamp.lines * HTML_MAIL_LINE_PX}
-          moreLabelKey={clamp.moreLabelKey}
-        >
-          <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
-        </ClampedText>
-      )}
+  const content = (
+    <>
+      <div className="w-full">
+        <HtmlMailFrame html={split.main} title={title} allowRemoteImages={imagesAllowed} />
+      </div>
       {showImageBar && (
         <p
           role="note"
@@ -129,7 +120,16 @@ function HtmlBody({
           )}
         </>
       )}
-    </div>
+    </>
+  );
+  if (clamp === undefined) {
+    return <div className="flex flex-col items-start gap-3">{content}</div>;
+  }
+  // The quote toggle sits inside the cut: it only matters once the whole mail is open.
+  return (
+    <ClampedText maxHeightPx={clamp.lines * HTML_MAIL_LINE_PX} moreLabelKey={clamp.moreLabelKey}>
+      <div className="flex flex-col items-start gap-3">{content}</div>
+    </ClampedText>
   );
 }
 

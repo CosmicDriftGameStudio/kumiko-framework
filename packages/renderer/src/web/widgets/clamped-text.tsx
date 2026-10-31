@@ -45,7 +45,12 @@ export function ClampedText({
           expanded
             ? undefined
             : maxHeightPx !== undefined
-              ? { maxHeight: maxHeightPx, overflow: "hidden" }
+              ? {
+                  maxHeight: maxHeightPx,
+                  overflow: "hidden",
+                  // A height cut can fall through a line; the fade keeps that from reading as broken text.
+                  maskImage: "linear-gradient(to bottom, black 60%, transparent)",
+                }
               : {
                   display: "-webkit-box",
                   WebkitBoxOrient: "vertical",
