@@ -1,6 +1,7 @@
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  ActionFormSuccessItems,
   ActionFormSuccessLink,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -16,7 +17,7 @@ import { type ListSort, PAGE_SIZE_OPTIONS } from "../hooks/use-list-url-state.ts
 import { referenceLookupSource, referenceRowsByIdsPayload } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
-import type { ResolvedSuccessLink } from "./action-form-support.tsx";
+import type { ResolvedSuccessItem, ResolvedSuccessLink } from "./action-form-support.tsx";
 import { ISO_DATE_PATTERN, isMoneyValue } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { type NavApi, type ScreenTarget, useNav } from "./nav.tsx";
@@ -503,6 +504,33 @@ export function resolveSuccessLinks(
       href: nav.hrefFor(navTarget, options),
       onPress: () => nav.navigate(navTarget, options),
     });
+  });
+  return resolved;
+}
+
+// Hints of the success box, one per payload entry with a string label. The link resolves
+// against the entry like a success link against the whole payload; an entry whose link does
+// not resolve keeps its hint without a link.
+export function resolveSuccessItems(
+  items: ActionFormSuccessItems | undefined,
+  data: unknown,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+  nav: NavApi,
+  translate: Translate,
+): readonly ResolvedSuccessItem[] {
+  if (items === undefined) return [];
+  const entries = propertyOf(data, items.field);
+  if (!Array.isArray(entries)) return [];
+  const resolved: ResolvedSuccessItem[] = [];
+  entries.forEach((entry: unknown, index) => {
+    const label = propertyOf(entry, "label");
+    if (typeof label !== "string" || label === "") return;
+    const [link] =
+      items.link === undefined
+        ? []
+        : resolveSuccessLinks([items.link], entry, schema, appFeatures, nav, translate);
+    resolved.push({ key: String(index), label, ...(link !== undefined && { link }) });
   });
   return resolved;
 }

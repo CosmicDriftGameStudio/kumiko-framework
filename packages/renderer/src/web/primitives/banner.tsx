@@ -40,7 +40,9 @@ export function DefaultBanner({
             ? "border-status-warn/30 bg-status-warn/10 text-status-warn"
             : isPrimary
               ? "border-l-4 border-l-primary bg-card text-card-foreground"
-              : "bg-card text-card-foreground",
+              : variant === "hint"
+                ? "border-transparent bg-muted text-foreground"
+                : "bg-card text-card-foreground",
       )}
     >
       <div className="flex-1">

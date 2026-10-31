@@ -2817,6 +2817,10 @@ describe("boot-validator", () => {
         readonly label: string;
       }>;
       readonly successFacts?: ReadonlyArray<{ readonly field: string; readonly label: string }>;
+      readonly successItems?: {
+        readonly field: string;
+        readonly link?: { readonly screen: string; readonly label: string };
+      };
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
       readonly extraDetailScreens?: readonly string[];
@@ -2863,6 +2867,7 @@ describe("boot-validator", () => {
           ...(override.redirect !== undefined && { redirect: override.redirect }),
           ...(override.successLinks !== undefined && { successLinks: override.successLinks }),
           ...(override.successFacts !== undefined && { successFacts: override.successFacts }),
+          ...(override.successItems !== undefined && { successItems: override.successItems }),
           ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
         });
         for (const extra of override.extraScreens ?? []) {
@@ -3213,6 +3218,42 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/sets both redirect and successFacts/);
+    });
+
+    test("successItems together with redirect → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: "overview",
+            successItems: { field: "results" },
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).toThrow(/sets both redirect and successItems/);
+    });
+
+    test("successItems link → unknown screen → Throw naming the link", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successItems: {
+              field: "results",
+              link: { screen: "ghost-screen", label: "shop.link.ghost" },
+            },
+          }),
+        ]),
+      ).toThrow(/successItems\.link "ghost-screen" does not resolve to a registered screen/);
+    });
+
+    test("successItems link → existing screen → no throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successItems: { field: "results", link: { screen: "overview", label: "shop.link.x" } },
+            extraScreens: ["overview"],
+          }),
+        ]),
+      ).not.toThrow();
     });
 
     test("successLinks → unknown screen → Throw naming the link", () => {

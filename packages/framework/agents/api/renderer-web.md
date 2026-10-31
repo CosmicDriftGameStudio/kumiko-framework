@@ -229,7 +229,7 @@ type AvatarProps = {
 };
 type AvatarSize = "sm" | "md" | "lg";
 type BannerProps = { // Banner for an inline message or page state (for example, "Loading…" or "Screen not found").
-  variant?: "error" | "info" | "loading" | "warning" | "primary"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`).
+  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`).
   title?: ReactNode; // Bold heading above `children`, inside the text column.
   titleTestId?: string;
   children: ReactNode;

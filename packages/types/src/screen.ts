@@ -202,6 +202,7 @@ export type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessFact,
+  ActionFormSuccessItems,
   ActionFormSuccessLink,
   FormFieldDerivation,
   FormFieldDerivationWithoutList,

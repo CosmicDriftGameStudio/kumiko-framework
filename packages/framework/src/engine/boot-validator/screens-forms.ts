@@ -16,6 +16,7 @@ import type { FeatureDefinition } from "../types/index.ts";
 
 import type {
   ActionFormScreenDefinition,
+  ActionFormSuccessLink,
   ConfigEditScreenDefinition,
   EditFieldSpec,
   EditLayout,
@@ -33,6 +34,7 @@ import {
 } from "./screens-actions.ts";
 import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
 import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
+import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 
 function assertKnownSubFields(
   where: string,
@@ -689,6 +691,28 @@ function validateFormLayoutSections(
   }
 }
 
+function validateSuccessLink(
+  feature: FeatureDefinition,
+  screenId: string,
+  kind: "actionForm" | "secretMint",
+  link: ActionFormSuccessLink,
+  lookups: NavigateTargetLookups,
+  propertyPath: string,
+): void {
+  if (link.idFrom === undefined) {
+    validateIdlessSuccessLink(feature, screenId, "actionForm", link, lookups, propertyPath);
+  } else {
+    validateRedirectTarget(
+      feature,
+      screenId,
+      kind,
+      { ...link, idFrom: link.idFrom },
+      lookups,
+      propertyPath,
+    );
+  }
+}
+
 function validateInlineFormNavTargets(
   feature: FeatureDefinition,
   screenId: string,
@@ -720,20 +744,27 @@ function validateInlineFormNavTargets(
       });
     }
     screen.successLinks.forEach((link, index) => {
-      const propertyPath = `successLinks[${index}]`;
-      if (link.idFrom === undefined) {
-        validateIdlessSuccessLink(feature, screenId, "actionForm", link, lookups, propertyPath);
-      } else {
-        validateRedirectTarget(
-          feature,
-          screenId,
-          kind,
-          { ...link, idFrom: link.idFrom },
-          lookups,
-          propertyPath,
-        );
-      }
+      validateSuccessLink(feature, screenId, kind, link, lookups, `successLinks[${index}]`);
     });
+  }
+  if (screen.type === "actionForm" && screen.successItems !== undefined) {
+    if (screen.redirect !== undefined) {
+      throw bootRuleError(SCREEN_ACTION_RULES.actionFormSuccessItemsRedirect, {
+        message:
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successItems — ` +
+          `redirect leaves the screen, successItems are shown on it. Use one of them.`,
+      });
+    }
+    if (screen.successItems.link !== undefined) {
+      validateSuccessLink(
+        feature,
+        screenId,
+        kind,
+        screen.successItems.link,
+        lookups,
+        "successItems.link",
+      );
+    }
   }
   if (typeof screen.cancelTarget === "string") {
     // Same rule as redirect — `false` (no Cancel button) needs no validation.
