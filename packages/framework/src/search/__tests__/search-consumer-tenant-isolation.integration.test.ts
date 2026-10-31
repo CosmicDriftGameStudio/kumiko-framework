@@ -1,6 +1,6 @@
 // One tenant whose Meilisearch index rejects writes must not stall search indexing for every
 // other tenant: the search consumer runs on one shared, strictly ordered cursor.
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import {
   resetEventStore,
@@ -120,6 +120,10 @@ describe.skipIf(!MEILI_UP)("search consumer tenant isolation (live Meilisearch)"
     stack = await setupTestStack({ features: [noteFeature], systemHooks: [] });
     await unsafeCreateEntityTable(stack.db, noteEntity, "note");
     meiliAdapter.setDefaultConfig?.({ searchableFields: ["title"] });
+  });
+
+  // A fresh consumer per test: its per-tenant retry state lives in process memory.
+  beforeEach(async () => {
     dispatcher = createEventDispatcher({
       db: stack.db,
       consumers: [createSearchEventConsumer(meiliAdapter, stack.registry, { now: () => clockMs })],
@@ -153,9 +157,12 @@ describe.skipIf(!MEILI_UP)("search consumer tenant isolation (live Meilisearch)"
     const state = await getConsumerState(stack.db, SEARCH_CONSUMER_NAME);
     expect(state?.status).toBe("idle");
     expect(state?.lastError).toContain(brokenTenantUser.tenantId);
+    expect(state?.lastError).not.toContain("isolation broken tenant note");
   });
 
   test("a held tenant is not asked again before its retry delay has passed", async () => {
+    // Meilisearch keeps the failed tasks of earlier tests on the same index uid.
+    const failedBefore = await failedTaskCount(brokenTenantUser.tenantId);
     await breakTenantIndex(brokenTenantUser.tenantId);
     await createNote(brokenTenantUser, "backoff broken tenant note");
     await dispatcher.runOnce();
@@ -164,8 +171,8 @@ describe.skipIf(!MEILI_UP)("search consumer tenant isolation (live Meilisearch)"
     await dispatcher.runOnce();
     await dispatcher.runOnce();
 
-    expect(failedAfterFirstPass).toBe(1);
-    expect(await failedTaskCount(brokenTenantUser.tenantId)).toBe(1);
+    expect(failedAfterFirstPass).toBe(failedBefore + 1);
+    expect(await failedTaskCount(brokenTenantUser.tenantId)).toBe(failedAfterFirstPass);
   });
 
   test("the held tenant's document is indexed once its index accepts writes again", async () => {

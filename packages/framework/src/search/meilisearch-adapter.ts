@@ -30,7 +30,9 @@ async function awaitSucceededTask(
   const task = await enqueued.waitTask();
   const tolerated = task.error ? toleratedErrorCodes.includes(task.error.code) : false;
   if (task.status !== "succeeded" && !tolerated) {
-    const detail = task.error ? `${task.error.code}: ${task.error.message}` : "no error detail";
+    // Only the code: Meili's message can embed the whole rejected document (missing_document_id),
+    // and this error ends up in the consumer's lastError and the logs. The task uid leads to it.
+    const detail = task.error ? task.error.code : "no error code";
     throw new Error(
       `Meilisearch task ${task.uid} (${task.type}) ended with status "${task.status}": ${detail}`,
     );

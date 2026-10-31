@@ -30,13 +30,16 @@ const feature = defineFeature("batchhandlerintegration", (r) => {
 });
 
 const admin = TestUsers.admin;
+const otherTenantUser = TestUsers.otherTenant;
 let stack: TestStack;
 let tdb: TenantDb;
+let otherTenantDb: TenantDb;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
+  otherTenantDb = createTenantDb({ db: stack.db, tenantId: otherTenantUser.tenantId });
 });
 
 afterAll(async () => {
@@ -53,12 +56,18 @@ async function appendWidget(name: string): Promise<string> {
   return String(created.data.id);
 }
 
-function buildDispatcher(consumers: readonly EventConsumer[]): EventDispatcher {
+async function appendOtherTenantWidget(name: string): Promise<string> {
+  const created = await executor.create({ name }, otherTenantUser, otherTenantDb);
+  if (!created.isSuccess) throw new Error("create failed");
+  return String(created.data.id);
+}
+
+function buildDispatcher(consumers: readonly EventConsumer[], batchSize = 200): EventDispatcher {
   return createEventDispatcher({
     db: stack.db,
     consumers,
     context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
-    batchSize: 200,
+    batchSize,
     // No timer/LISTEN involved — runOnce() below drives every pass
     // explicitly, so pollIntervalMs never fires a competing pass.
     pollIntervalMs: 60_000,
@@ -190,5 +199,54 @@ describe("event-dispatcher — batchHandler", () => {
     const releasedState = await getConsumerState(stack.db, consumerName);
     expect(releasedState?.lastError).toBeNull();
     expect(releasedState?.attempts).toBe(0);
+  });
+
+  test("held events fill at most half a batch; newer events of other tenants still go through, the holding tenant's wait in order", async () => {
+    const consumerName = "batchhandlerintegration:hold-cap";
+    const turns: string[][] = [];
+    let holding = true;
+
+    const consumer: EventConsumer = {
+      name: consumerName,
+      batchHandler: async (events, _ctx, turn) => {
+        turns.push(events.map((event) => event.aggregateId));
+        const held = events.filter((event) => event.tenantId === admin.tenantId);
+        if (holding)
+          turn.holdForRetry(
+            held.map((event) => event.id),
+            "tenant index unavailable",
+          );
+      },
+      handler: async () => {
+        throw new Error("per-event fallback must not run while the batch succeeds");
+      },
+    };
+
+    const dispatcher = buildDispatcher([consumer], 4);
+    await dispatcher.ensureRegistered();
+
+    const held1 = await appendWidget("held one");
+    const held2 = await appendWidget("held two");
+    const held3 = await appendWidget("held three");
+    const other1 = await appendOtherTenantWidget("other one");
+    await dispatcher.runOnce();
+
+    const held4 = await appendWidget("held four");
+    const other2 = await appendOtherTenantWidget("other two");
+    await dispatcher.runOnce();
+
+    holding = false;
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+
+    expect(turns.slice(0, 2)).toEqual([
+      [held1, held2, held3, other1],
+      [held1, held2, other2],
+    ]);
+    const heldTenantAfterRelease = turns.slice(2).flat();
+    expect(heldTenantAfterRelease).toEqual([held1, held2, held3, held4]);
+    const state = await getConsumerState(stack.db, consumerName);
+    expect(state?.lastError).toBeNull();
   });
 });

@@ -431,6 +431,7 @@ export async function selectPendingAndNewEventRows(
   cursor: bigint,
   pendingRanges: readonly PendingIdRange[],
   batchSize: number,
+  pendingLimit: number,
 ): Promise<ReadonlyArray<Record<string, unknown>>> {
   if (pendingRanges.length === 0) {
     return unsafeReadRetrying(
@@ -443,11 +444,14 @@ export async function selectPendingAndNewEventRows(
     db,
     // UNION ALL of two primary-key range scans: an `id > $1 OR EXISTS (…)`
     // predicate can't use the index and would seq-scan kumiko_events per turn.
-    // Ranges sit below $1, so the branches never overlap.
-    `(SELECT e.* FROM unnest($2::bigint[], $3::bigint[]) AS g(f, t)
-       CROSS JOIN LATERAL (
-         SELECT * FROM "kumiko_events" WHERE "id" BETWEEN g.f AND g.t ORDER BY "id" ASC LIMIT $4
-       ) e)
+    // Ranges sit below $1, so the branches never overlap. The pending branch is capped at $5
+    // so ids a consumer keeps holding can never take the whole batch from newer events.
+    `(SELECT p.* FROM (
+       SELECT e.* FROM unnest($2::bigint[], $3::bigint[]) AS g(f, t)
+         CROSS JOIN LATERAL (
+           SELECT * FROM "kumiko_events" WHERE "id" BETWEEN g.f AND g.t ORDER BY "id" ASC LIMIT $5
+         ) e
+       ) p ORDER BY p."id" ASC LIMIT $5)
      UNION ALL
      (SELECT * FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT $4)
      ORDER BY "id" ASC LIMIT $4`,
@@ -456,8 +460,32 @@ export async function selectPendingAndNewEventRows(
       toPostgresArrayLiteral(pendingRanges.map((r) => r.from)),
       toPostgresArrayLiteral(pendingRanges.map((r) => r.to)),
       batchSize,
+      pendingLimit,
     ],
   );
+}
+
+// Tenants with an event inside a pending range above `aboveId`: the pending events a capped
+// fetch left out, whose tenants must not see newer events before them.
+export async function selectTenantIdsInRangesAbove(
+  db: AnyDb,
+  pendingRanges: readonly PendingIdRange[],
+  aboveId: bigint,
+): Promise<ReadonlySet<string>> {
+  if (pendingRanges.length === 0) return new Set();
+  const rows = await unsafeReadRetrying<{ tenant_id: string }>(
+    db,
+    `SELECT DISTINCT e."tenant_id" FROM unnest($1::bigint[], $2::bigint[]) AS g(f, t)
+       CROSS JOIN LATERAL (
+         SELECT "tenant_id" FROM "kumiko_events" WHERE "id" BETWEEN GREATEST(g.f, $3) AND g.t
+       ) e`,
+    [
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.from)),
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.to)),
+      aboveId + 1n,
+    ],
+  );
+  return new Set(rows.map((row) => row.tenant_id));
 }
 
 // Smallest committed-and-visible id inside any pending range — lets

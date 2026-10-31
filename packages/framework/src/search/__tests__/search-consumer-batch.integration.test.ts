@@ -247,7 +247,7 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     ).rejects.toThrow(/invalid_document_id/);
   });
 
-  test("a poison doc holds its tenant from the poison event on; the ops before it land and the consumer is not dead-lettered", async () => {
+  test("a poison doc holds only its own event; the other ops of its tenant land and the consumer is not dead-lettered", async () => {
     // Real UUID aggregateIds always produce a valid Meili doc id via
     // meilisearchDocId (all illegal characters are sanitized away) — the
     // only realistic way to fail Meili's own id validation is length, so
@@ -274,7 +274,7 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     );
 
     expect(first.cursor).toBe(good5.id);
-    expect(first.heldNewIds).toEqual([poison.id, good4.id, good5.id]);
+    expect(first.heldNewIds).toEqual([poison.id]);
     expect(first.failedEventId).toBe(poison.id);
     expect(first.lastError).toContain("invalid_document_id");
     expect(first.attempts).toBe(0);
@@ -288,12 +288,12 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     expect(foundLabels.has(good1.aggregateId)).toBe(true);
     expect(foundLabels.has(good2.aggregateId)).toBe(true);
     expect(foundLabels.has(poison.aggregateId)).toBe(false);
-    expect(foundLabels.has(good4.aggregateId)).toBe(false);
-    expect(foundLabels.has(good5.aggregateId)).toBe(false);
+    expect(foundLabels.has(good4.aggregateId)).toBe(true);
+    expect(foundLabels.has(good5.aggregateId)).toBe(true);
 
     const second = await deliverEvents(
       poisonConsumer,
-      rows.slice(2),
+      [poison],
       { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       10,
       {
@@ -309,5 +309,31 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
     expect(second.cursor).toBe(good5.id);
     expect(second.failedEventId).toBe(poison.id);
     expect(second.resolvedPendingIds).toEqual([]);
+  });
+
+  test("a poison doc still rejected after ten retries escalates: lastError names the event and how to skip it", async () => {
+    let clockMs = 0;
+    const poisonConsumer = createSearchEventConsumer(meiliAdapter, stack.registry, {
+      now: () => clockMs,
+    });
+    const poison = eventRow(`${uuid()}${"b".repeat(520)}`, "created", { label: "escalate" });
+    let state = stubState();
+    for (let retry = 0; retry < 10; retry += 1) {
+      const outcome = await deliverEvents(
+        poisonConsumer,
+        [poison],
+        { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
+        10,
+        state,
+      );
+      state = { ...state, lastError: outcome.lastError, lastFailedEventId: outcome.failedEventId };
+      // Past the longest retry delay, so every delivery asks Meilisearch again.
+      clockMs += 120_000;
+    }
+
+    expect(state.lastError).toContain("10 times in a row");
+    expect(state.lastError).toContain(`event ${poison.id}`);
+    expect(state.lastError).toContain("skipPoisonEvent");
+    expect(state.lastFailedEventId).toBe(poison.id);
   });
 });
