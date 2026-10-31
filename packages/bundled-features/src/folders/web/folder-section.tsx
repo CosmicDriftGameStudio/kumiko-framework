@@ -18,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
+import { useDispatchedWrites } from "../../shared/web/index.ts";
 import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { type FolderRow, folderPath } from "./tree.ts";
 

@@ -2496,13 +2496,11 @@ type ShareButtonProps = ({ target: "whatsapp"; phone?: string; } | { target: "sy
   className?: string; // Layout extras, merged via cn().
   testId?: string;
 };
-type StatusBadgeOptionTone = StatusTone | "accent"; // Tones a select option can request: the status tones plus the brand `accent`.
 type StatusBadgeProps = { // Status pill.
   value: string;
   tone?: StatusBadgeOptionTone;
   testId?: string;
 };
-type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 type StepBarProps = { // Wizard step overview — numbered chips, one per step label, with the active step highlighted.
   steps: string[];
   currentIndex: number;
@@ -2549,6 +2547,13 @@ type WizardStepGroupProps = { // Wraps a single wizard step so it stays mounted 
   inset?: boolean; // Pads the step content (tab panels sit full-bleed under the tab strip).
   children: ReactNode;
 };
+```
+
+## packages/renderer/src/status-tone.ts
+
+```ts
+type StatusBadgeOptionTone = StatusTone | "accent"; // Tones a select option can request: the status tones plus the brand `accent`.
+type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 ```
 
 ## packages/renderer/src/web/app/client-plugin.tsx
@@ -2906,6 +2911,17 @@ type BatchCommand = {
 type RequestHelperOptions = {
   sessionCreator?: SessionCreator;
 };
+```
+
+## packages/types/src/agent-hints.ts
+
+```ts
+type AgentExposure = {
+  expose: boolean;
+  risk: AgentRisk;
+  effect?: AgentEffect;
+};
+type AgentScreenHints = Pick<AgentHandlerHints, "expose">; // Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here.
 ```
 
 ## packages/types/src/aggregate-types.ts
@@ -3629,7 +3645,6 @@ type EntityIndexDef = { // Composite index on an entity.
   where?: unknown; // Optional SQL fragment for a partial index — `CREATE [UNIQUE] INDEX ...
 };
 type EntityLongTextFieldDef = LongTextFieldDef & ResolvedPiiStance;
-type EntityPiiAbsentSubject = "tenant" | "self";
 type EntityTextFieldDef = TextFieldDef & ResolvedPiiStance;
 type FieldAccess = {
   read?: OwnershipMap | string[];
@@ -3655,7 +3670,6 @@ type FilesFieldDef = PiiAndFieldState & {
   display?: "list" | "dropzone"; // `"list"` (default) shows the picked files as a list with a file picker; `"dropzone"` shows a drag-and-drop zone with one status row per file, a remove action per file and the field's `maxCount`/`accept`/`maxSize` as hints.
   access?: FieldAccess;
 };
-type Findability = "exact" | "fuzzy" | "none" | "secret";
 type FormFieldDefinition = Exclude<FieldDefinition, MoneyFieldDef> | (MoneyFieldDef & { currency: MoneyCurrencySource; }); // FieldDefinition as an entity-less inline form screen (actionForm, secretMint) may declare it: a `money` field there has no entity to borrow `defaultCurrency` from, so it must name its own currency source, or the form seeds a bare `0` that the handler's zod schema then rejects .
 type ImageFieldDef = PiiAndFieldState & {
   type: "image";
@@ -3707,7 +3721,6 @@ type LongTextFieldDef = PiiAndFieldState & { // Long-form text content — sourc
   access?: FieldAccess;
   multiline?: boolean | { rows?: number; };
 };
-type LongTextFindability = "none" | "fuzzy" | "secret";
 type MoneyCurrencySource = // Where a money field's currency comes from.
   | {
     kind: "tenant";
@@ -3742,12 +3755,6 @@ type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldStat
   maxRows?: number; // Renderer metadata: how many grid rows stay visible before the `"checkboxes"` grid becomes scrollable.
   optionsAvailabilityQuery?: string; // Query returning `{ rows: { value, disabled?, hint?
 };
-type NoPersonalAnnotation = {
-  personal?: never;
-  find?: never;
-  reason?: never;
-  anonymize?: never;
-};
 type NumberFieldDef = PiiAndFieldState & { // Storage: `integer` flag decides the Postgres column type, not just Zod validation.
   type: "number";
   description?: string;
@@ -3771,59 +3778,6 @@ type OptionsQueryPayloadValue = // One `optionsQueryPayload` entry: a literal, o
   | {
     field: string;
   }
-;
-type PersonalAnnotations =
-  | {
-    personal: PersonalSubject;
-    find: Findability;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-;
-type PersonalAnnotationsLongText =
-  | {
-    personal: PersonalSubject;
-    find: LongTextFindability;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-;
-type PersonalAnnotationsNoFind =
-  | {
-    personal: PersonalSubject;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | {
-    personal: "ref";
-  }
-  | {
-    personal: false;
-    reason: string;
-    anonymize?: () => unknown | Promise<unknown>;
-  }
-  | NoPersonalAnnotation
-;
-type PersonalSubject =
-  | "self"
-  | {
-    of: string;
-    whenAbsent?: EntityPiiAbsentSubject;
-  }
-  | "tenant"
 ;
 type PiiAndFieldState = ResolvedPiiFlags & FieldStateConditions;
 type ReferenceFieldDef = PiiAndFieldState & {
@@ -4048,12 +4002,6 @@ type ActiveMembershipResult =
     reason: ActiveMembershipRejection;
   }
 ;
-type AgentExposure = {
-  expose: boolean;
-  risk: AgentRisk;
-  effect?: AgentEffect;
-};
-type AgentScreenHints = Pick<AgentHandlerHints, "expose">; // Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here.
 type AggregateStreamHandle = {
   events: StoredEvent[];
   version: number;
@@ -4594,6 +4542,73 @@ type WhereRuleContext<TTable = unknown> = {
   tableName: string;
   paramStart: number;
 };
+```
+
+## packages/types/src/personal-annotations.ts
+
+```ts
+type EntityPiiAbsentSubject = "tenant" | "self";
+type Findability = "exact" | "fuzzy" | "none" | "secret";
+type LongTextFindability = "none" | "fuzzy" | "secret";
+type NoPersonalAnnotation = {
+  personal?: never;
+  find?: never;
+  reason?: never;
+  anonymize?: never;
+};
+type PersonalAnnotations =
+  | {
+    personal: PersonalSubject;
+    find: Findability;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+;
+type PersonalAnnotationsLongText =
+  | {
+    personal: PersonalSubject;
+    find: LongTextFindability;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+;
+type PersonalAnnotationsNoFind =
+  | {
+    personal: PersonalSubject;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | {
+    personal: "ref";
+  }
+  | {
+    personal: false;
+    reason: string;
+    anonymize?: () => unknown | Promise<unknown>;
+  }
+  | NoPersonalAnnotation
+;
+type PersonalSubject =
+  | "self"
+  | {
+    of: string;
+    whenAbsent?: EntityPiiAbsentSubject;
+  }
+  | "tenant"
+;
 ```
 
 ## packages/types/src/projection.ts

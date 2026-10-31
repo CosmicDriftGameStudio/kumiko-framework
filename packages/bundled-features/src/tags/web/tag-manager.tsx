@@ -17,7 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
-import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
+import { useDispatchedWrites } from "../../shared/web/index.ts";
 import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 

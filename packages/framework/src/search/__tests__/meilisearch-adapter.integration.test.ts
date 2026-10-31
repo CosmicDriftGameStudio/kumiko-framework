@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
+import { createMeilisearchAdapter, listIndexUids } from "../meilisearch-adapter.ts";
 import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 
 import type { SearchAdapter } from "../types.ts";
@@ -308,11 +308,10 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
   });
 
   afterAll(async () => {
-    const indices = await lazyClient.getIndexes();
-    for (const idx of indices.results) {
-      if (idx.uid.startsWith(lazyPrefix)) {
+    for (const uid of await listIndexUids(lazyClient)) {
+      if (uid.startsWith(lazyPrefix)) {
         try {
-          await lazyClient.index(idx.uid).delete().waitTask();
+          await lazyClient.index(uid).delete().waitTask();
         } catch {
           /* ok */
         }
@@ -488,8 +487,6 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
   });
 });
 
-const INDEX_PAGE_SIZE = 1000;
-
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
   const dropClient = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
   const createdPrefixes: string[] = [];
@@ -506,23 +503,17 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
     return { adapter: created, prefix };
   }
 
-  // Pages through every index: a shared local Meilisearch can hold more than one page.
   async function indexUids(prefix: string): Promise<string[]> {
-    const uids: string[] = [];
-    for (let offset = 0; ; offset += INDEX_PAGE_SIZE) {
-      const page = await dropClient.getIndexes({ limit: INDEX_PAGE_SIZE, offset });
-      uids.push(...page.results.map((index) => index.uid));
-      if (page.results.length < INDEX_PAGE_SIZE) break;
-    }
-    return uids.filter((uid) => uid.startsWith(prefix));
+    return (await listIndexUids(dropClient)).filter((uid) => uid.startsWith(prefix));
   }
 
   afterAll(async () => {
-    for (const prefix of createdPrefixes) {
-      for (const uid of await indexUids(prefix)) {
-        await dropClient.deleteIndex(uid).waitTask();
-      }
-    }
+    const leftovers = (await listIndexUids(dropClient)).filter((uid) =>
+      createdPrefixes.some((prefix) => uid.startsWith(prefix)),
+    );
+    await dropClient.tasks.waitForTasks(
+      await Promise.all(leftovers.map((uid) => dropClient.deleteIndex(uid))),
+    );
   });
 
   const doc = { entityType: "user", entityId: 1, weight: 1, fields: { firstName: "Dropme" } };

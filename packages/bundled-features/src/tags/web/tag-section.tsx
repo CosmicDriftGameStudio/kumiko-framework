@@ -13,7 +13,7 @@
 
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { useDispatchedWrites } from "../../shared/web/use-dispatched-writes.ts";
+import { useDispatchedWrites } from "../../shared/web/index.ts";
 import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
