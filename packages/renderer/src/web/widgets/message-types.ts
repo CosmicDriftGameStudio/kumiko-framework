@@ -36,6 +36,8 @@ export type MessageThreadProps = {
   readonly clampLines?: number;
   /** External images in html bodies. Default "blocked" with a "Bilder anzeigen" bar. */
   readonly remoteImages?: "blocked" | "allowed";
+  /** false drops author, address and time above open messages, for hosts whose page head already names them. */
+  readonly showHeaders?: boolean;
   readonly testId?: string;
 };
 

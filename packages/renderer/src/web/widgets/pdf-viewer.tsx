@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cn } from "../lib/cn.ts";
 import { pageTextItemsFor } from "./pdf-document.ts";
 import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
 import { clampPage, findMatches, mostVisiblePage, type PdfMatchInfo } from "./pdf-search.ts";
@@ -89,6 +90,7 @@ export function PdfViewer({
   matchIndex: controlledMatchIndex,
   onMatchesChange,
   hideSearchBar = false,
+  fill = false,
 }: {
   readonly document: PDFDocumentProxy;
   readonly searchTerm?: string;
@@ -99,6 +101,7 @@ export function PdfViewer({
   readonly onMatchesChange?: (info: PdfMatchInfo) => void;
   /** Hides the toolbar's search toggle and controls, for hosts that render their own. */
   readonly hideSearchBar?: boolean;
+  readonly fill?: boolean;
 }): ReactNode {
   const pageCount = document.numPages;
   const firstPageSize = useFirstPageSize(document);
@@ -165,7 +168,10 @@ export function PdfViewer({
   return (
     <div
       data-testid="pdf-viewer"
-      className="flex h-full min-h-[480px] overflow-hidden rounded-md border border-border"
+      className={cn(
+        "flex h-full overflow-hidden rounded-md border border-border",
+        fill ? "min-h-0" : "min-h-[480px]",
+      )}
     >
       <PdfThumbnails
         document={document}

@@ -2,6 +2,7 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { type ReactNode, Suspense, use, useEffect } from "react";
 import { useTranslation } from "../../i18n.tsx";
+import { cn } from "../lib/cn.ts";
 import { documentCache, documentFor, documentKey, type PdfPreviewSource } from "./pdf-document.ts";
 import { PdfPageSlot, useFirstPageSize } from "./pdf-page.tsx";
 import type { PdfMatchInfo } from "./pdf-search.ts";
@@ -26,6 +27,8 @@ export type PdfPreviewProps = {
   readonly onMatchesChange?: (info: PdfMatchInfo) => void;
   /** Viewer only: hides the toolbar's own search controls. */
   readonly hideSearchBar?: boolean;
+  /** Viewer only: take the container's height without the 480px floor, for hosts whose layout sizes the pane. */
+  readonly fill?: boolean;
 };
 
 function StackedPages({ document }: { document: PDFDocumentProxy }): ReactNode {
@@ -82,6 +85,7 @@ export function PdfPreview({
   variant = "stacked",
   searchTerm,
   initialPage,
+  fill = false,
   ...viewerProps
 }: PdfPreviewProps): ReactNode {
   const t = useTranslation();
@@ -89,7 +93,7 @@ export function PdfPreview({
     <div
       className={
         variant === "viewer"
-          ? "h-full min-h-[480px]"
+          ? cn("h-full", fill ? "min-h-0" : "min-h-[480px]")
           : "flex flex-col items-stretch gap-4 overflow-auto"
       }
       data-testid={testId}
@@ -104,6 +108,7 @@ export function PdfPreview({
           variant={variant}
           searchTerm={searchTerm}
           initialPage={initialPage}
+          fill={fill}
           {...viewerProps}
         />
       </Suspense>

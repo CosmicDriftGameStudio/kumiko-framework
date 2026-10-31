@@ -71,6 +71,20 @@ describe("PdfViewer", () => {
     expect(screen.getByTestId("pdf-page-2").querySelector("canvas")).toBeNull();
   });
 
+  test("a default viewer keeps its 480px floor", async () => {
+    const document = fakeDocument();
+    renderViewer(<PdfViewer document={document} />);
+    expect((await screen.findByTestId("pdf-viewer")).className).toContain("min-h-[480px]");
+  });
+
+  test("fill drops the floor so the host layout sizes the viewer", async () => {
+    const document = fakeDocument();
+    renderViewer(<PdfViewer document={document} fill />);
+    const viewer = await screen.findByTestId("pdf-viewer");
+    expect(viewer.className).not.toContain("min-h-[480px]");
+    expect(viewer.className).toContain("min-h-0");
+  });
+
   test("page input jumps to the page and reports it", async () => {
     const onPageChange = mock((_page: number) => {});
     renderViewer(<PdfViewer document={fakeDocument()} onPageChange={onPageChange} />);
