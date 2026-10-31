@@ -17,7 +17,12 @@ import { useSeenInViewport } from "./use-in-view.ts";
 
 export const RENDER_SCALE = 96 / 72;
 
-export type PdfTextHighlight = { readonly term: string; readonly activeOrdinal: number | null };
+export type PdfTextHighlight = {
+  readonly term: string;
+  readonly activeOrdinal: number | null;
+  /** A passage marked by the host (not a typed search) uses the source-passage color. */
+  readonly source?: boolean;
+};
 
 export type PdfPageSize = { readonly width: number; readonly height: number };
 
@@ -164,8 +169,11 @@ function PageSheet({
           ref={mountTextLayer}
           className={cn(
             "absolute inset-0 overflow-hidden leading-none [&_span]:absolute [&_span]:origin-top-left [&_span]:cursor-text [&_span]:whitespace-pre [&_span]:text-transparent [&_span::selection]:bg-primary/30",
-            // The sheet is always white, so the marker colors are theme-independent; alpha keeps the canvas glyphs readable.
-            "[&_mark]:rounded-[2px] [&_mark]:px-px [&_mark]:text-transparent [&_.pdf-hit]:bg-amber-200/70 [&_.pdf-hit-active]:bg-amber-400/80",
+            // The sheet is always white, so the marker colors are theme-independent; multiply keeps the canvas glyphs readable.
+            "[&_mark]:rounded-[2px] [&_mark]:px-px [&_mark]:text-transparent [&_mark]:mix-blend-multiply [&_.pdf-hit-active]:bg-search-hit-active",
+            layout.highlight?.source === true
+              ? "[&_.pdf-hit:not(.pdf-hit-active)]:bg-source-mark"
+              : "[&_.pdf-hit:not(.pdf-hit-active)]:bg-search-hit",
           )}
         />
       </div>

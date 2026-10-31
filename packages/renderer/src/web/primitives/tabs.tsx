@@ -15,8 +15,8 @@ const TAB_TRIGGER_CLASS =
 // lines up with a list pane's search field, "plain" sits flush with the content it switches.
 const STRIP_SPACING = {
   pill: { scroller: "px-1.5 @lg:px-6", list: "h-11 gap-2 @lg:gap-6", trigger: "" },
-  plain: { scroller: "px-0", list: "h-10 gap-1", trigger: "px-2.5" },
-  filter: { scroller: "px-1.5", list: "h-10 gap-0", trigger: "px-2.5" },
+  plain: { scroller: "px-0", list: "h-10 gap-1", trigger: "px-2.5 font-normal" },
+  filter: { scroller: "px-1.5", list: "h-10 gap-0", trigger: "px-2.5 font-normal" },
 } as const;
 
 // A single fade-width both edges share — mask-image needs the same offset

@@ -1035,6 +1035,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.pdf-preview.thumbnail": "Page {page}",
   "kumiko.widget.message-thread.showMore": "Afficher plus",
   "kumiko.widget.message-thread.readWholeMail": "Lire tout le message",
+  "kumiko.widget.attachment-card.openOriginal": "Voir l'original",
   "kumiko.widget.message-thread.showEarlier": "Afficher {count} messages précédents",
   "kumiko.widget.message-thread.showEarlierOne": "Afficher 1 message précédent",
   "kumiko.widget.message-thread.showLess": "Afficher moins",

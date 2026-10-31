@@ -1020,6 +1020,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.pdf-preview.thumbnail": "Página {page}",
   "kumiko.widget.message-thread.showMore": "Mostrar más",
   "kumiko.widget.message-thread.readWholeMail": "Leer el correo completo",
+  "kumiko.widget.attachment-card.openOriginal": "Ver original",
   "kumiko.widget.message-thread.showEarlier": "Mostrar {count} correos anteriores",
   "kumiko.widget.message-thread.showEarlierOne": "Mostrar 1 correo anterior",
   "kumiko.widget.message-thread.showLess": "Mostrar menos",

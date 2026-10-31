@@ -2,6 +2,7 @@ import { CornerUpLeft } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { AttachmentCard } from "./attachment-card.tsx";
 import { AttachmentChip } from "./attachment-chip.tsx";
 import { MessageBodyView } from "./message-body-view.tsx";
 import type { MessageThreadProps, ThreadMessage } from "./message-types.ts";
@@ -67,14 +68,16 @@ function OpenMessage({
   remoteImages,
   showHeader,
   moreLabelKey,
+  attachmentsBelow,
 }: {
   readonly message: ThreadMessage;
   readonly clampLines: number;
   readonly remoteImages: "blocked" | "allowed";
   readonly showHeader: boolean;
   readonly moreLabelKey: string | undefined;
+  readonly attachmentsBelow: boolean;
 }): ReactNode {
-  const attachments = message.attachments ?? [];
+  const attachments = attachmentsBelow ? [] : (message.attachments ?? []);
   return (
     <div data-testid={`message-open-${message.id}`} className="flex flex-col gap-3">
       {showHeader && (
@@ -125,56 +128,68 @@ export function MessageThread({
   const hasOlder = messages.length > 1;
   const olderFolded = foldOlderTogether && hasOlder && !olderShown;
 
+  const cardAttachments = foldOlderTogether ? (messages[lastIndex]?.attachments ?? []) : [];
+
   return (
-    <section
-      data-testid={testId}
-      className={cn(
-        SENDER_FRAME_CLASS,
-        "flex flex-col",
-        foldOlderTogether ? "px-2.5 pb-2.5" : "px-4 pb-4",
-        hasOlder ? "pt-1" : "pt-4",
-      )}
-    >
-      {olderFolded && (
-        <button
-          type="button"
-          data-testid={`${testId}-earlier`}
-          onClick={() => setOlderShown(true)}
-          className="border-0 bg-transparent py-2.5 text-left text-[13px] text-foreground-secondary"
-        >
-          {lastIndex === 1
-            ? t("kumiko.widget.message-thread.showEarlierOne")
-            : t("kumiko.widget.message-thread.showEarlier", { count: lastIndex })}
-        </button>
-      )}
-      {(olderFolded ? messages.slice(lastIndex) : messages).map((message, offset) => {
-        const index = olderFolded ? lastIndex : offset;
-        const open = index === lastIndex || expandedIds.has(message.id);
-        if (!open) {
-          return (
-            <CollapsedRow
-              key={message.id}
-              message={message}
-              onExpand={() => setExpandedIds((ids) => new Set(ids).add(message.id))}
-            />
-          );
-        }
-        return (
-          <div key={message.id} className={index > 0 ? "mt-3" : undefined}>
-            <SenderSheet compact={foldOlderTogether}>
-              <OpenMessage
+    <>
+      <section
+        data-testid={testId}
+        className={cn(
+          SENDER_FRAME_CLASS,
+          "flex flex-col",
+          foldOlderTogether ? "px-2.5 pb-2.5" : "px-4 pb-4",
+          hasOlder ? "pt-1" : "pt-4",
+        )}
+      >
+        {olderFolded && (
+          <button
+            type="button"
+            data-testid={`${testId}-earlier`}
+            onClick={() => setOlderShown(true)}
+            className="border-0 bg-transparent py-2.5 text-left text-[13px] text-foreground-secondary"
+          >
+            {lastIndex === 1
+              ? t("kumiko.widget.message-thread.showEarlierOne")
+              : t("kumiko.widget.message-thread.showEarlier", { count: lastIndex })}
+          </button>
+        )}
+        {(olderFolded ? messages.slice(lastIndex) : messages).map((message, offset) => {
+          const index = olderFolded ? lastIndex : offset;
+          const open = index === lastIndex || expandedIds.has(message.id);
+          if (!open) {
+            return (
+              <CollapsedRow
+                key={message.id}
                 message={message}
-                clampLines={clampLines}
-                remoteImages={remoteImages}
-                showHeader={showHeaders}
-                moreLabelKey={
-                  foldOlderTogether ? "kumiko.widget.message-thread.readWholeMail" : undefined
-                }
+                onExpand={() => setExpandedIds((ids) => new Set(ids).add(message.id))}
               />
-            </SenderSheet>
-          </div>
-        );
-      })}
-    </section>
+            );
+          }
+          return (
+            <div key={message.id} className={index > 0 ? "mt-3" : undefined}>
+              <SenderSheet compact={foldOlderTogether}>
+                <OpenMessage
+                  message={message}
+                  clampLines={clampLines}
+                  remoteImages={remoteImages}
+                  showHeader={showHeaders}
+                  attachmentsBelow={foldOlderTogether}
+                  moreLabelKey={
+                    foldOlderTogether ? "kumiko.widget.message-thread.readWholeMail" : undefined
+                  }
+                />
+              </SenderSheet>
+            </div>
+          );
+        })}
+      </section>
+      {cardAttachments.length > 0 && (
+        <div data-testid={`${testId}-attachments`} className="mt-2.5 flex flex-col gap-2.5">
+          {cardAttachments.map(({ id, ...attachment }) => (
+            <AttachmentCard key={id} {...attachment} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }

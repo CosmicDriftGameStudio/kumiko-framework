@@ -13,6 +13,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `AiTextArea` | Multi-line variant of {@link AiTextField}. |
 | `AiTextField` | Single-line AI text field — ghost-text completion + correct/translate/ rewrite toolbar. |
 | `AppLayout` |  |
+| `AttachmentCard` | Full-width attachment row with a thumbnail box, name, second line and an "open original" link or button. |
 | `AttachmentChip` | File chip with icon, name and a second line; renders as link, button or plain box depending on href/onOpen. |
 | `Avatar` |  |
 | `BareFormProvider` |  |
@@ -55,6 +56,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `MessageReader` | Mail thread with an optional tab per attachment; the tab bar only exists when there are attachment tabs. |
 | `MessageThread` | Mail conversation, oldest first: older messages fold to one line, the last one is open on a sheet. |
 | `MiniStat` | Compact metric tile (without an icon) — for dense KPI grids. |
+| `MobileTopBar` | Phone-only bar for focused screens: the shell header is hidden there, so the screen brings its own. |
 | `ModeSwitch` | Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>. |
 | `MoneyField` |  |
 | `NavProvider` |  |
@@ -135,6 +137,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `usePrimitives` |  |
 | `useQuery` |  |
 | `useResolvers` |  |
+| `useShellFocusMode` | Screen side: call while the screen is mounted to get the focused shell. |
 | `useStore` |  |
 | `useStoreSelector` |  |
 | `useToast` |  |

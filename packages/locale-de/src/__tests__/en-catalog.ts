@@ -994,6 +994,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.widget.pdf-preview.thumbnail": "Page {page}",
   "kumiko.widget.message-thread.showMore": "Show more",
   "kumiko.widget.message-thread.readWholeMail": "Read the whole mail",
+  "kumiko.widget.attachment-card.openOriginal": "View original",
   "kumiko.widget.message-thread.showEarlier": "{count} earlier mails",
   "kumiko.widget.message-thread.showEarlierOne": "1 earlier mail",
   "kumiko.widget.message-thread.showLess": "Show less",

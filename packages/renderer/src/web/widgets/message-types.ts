@@ -9,6 +9,8 @@ export type MessageAttachment = {
   readonly kind?: "image" | "pdf" | "file";
   readonly onOpen?: () => void;
   readonly href?: string;
+  /** Preview image; AttachmentCard shows it instead of the kind icon. */
+  readonly thumbnailUrl?: string;
 };
 
 export type MessageBody =
