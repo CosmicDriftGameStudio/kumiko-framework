@@ -7,7 +7,10 @@
 // HandlerContext; the pre-tenant webhook reads secrets un-audited from the
 // system SecretsContext the foundation passes in.
 
-import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import {
+  parseStoredSecret,
+  type SubscriptionProviderPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   type ConfigKeyHandle,
@@ -16,7 +19,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import { createPaddleHttp, type PaddleRequest, type PaddleSend } from "./client.ts";
 import {
   PADDLE_BASE_URLS,
@@ -46,19 +48,6 @@ export type PaddleRuntimeDeps = {
   readonly send: PaddleSend;
   readonly fallback: PaddleFallbacks;
 };
-
-// backing:"secrets" values are stored JSON-serialized, so the store read has to
-// be parsed back; the env fallback is a plain string and stays raw. The error
-// must not carry the input: the JSON parser's own message would repeat the
-// credential into logs and, for webhooks, into the 401 body.
-function parseStoredSecret(raw: string | undefined): string | undefined {
-  if (raw === undefined || raw.length === 0) return undefined;
-  const parsed = parseJsonSafe<unknown>(raw, undefined);
-  if (parsed === undefined) {
-    throw new Error("subscription-paddle credential (backing:secrets) is not valid JSON");
-  }
-  return typeof parsed === "string" && parsed.length > 0 ? parsed : undefined;
-}
 
 function hintFor(shortName: string): string {
   return `Set it via config:write:set on \`${SUBSCRIPTION_PADDLE_FEATURE}:config:${shortName}\` (or seed it from the matching PADDLE_* variable during the env bridge).`;
@@ -108,7 +97,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
         { secrets: ctx.services.secrets, user: ctx.user },
         SUBSCRIPTION_PADDLE_FEATURE,
       ).get(SYSTEM_TENANT_ID, handle.name);
-      value = parseStoredSecret(got?.reveal());
+      value = parseStoredSecret("subscription-paddle", got?.reveal());
     }
     if (!value && fallback && fallback.length > 0) value = fallback;
     if (!value) {
@@ -129,7 +118,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
     if (systemSecrets) {
       // No auditCtx: every webhook would otherwise spam the audit trail.
       const got = await systemSecrets.get(SYSTEM_TENANT_ID, handle.name);
-      const stored = parseStoredSecret(got?.reveal());
+      const stored = parseStoredSecret("subscription-paddle", got?.reveal());
       if (stored) return stored;
     }
     if (fallback && fallback.length > 0) return fallback;

@@ -62,6 +62,7 @@ import {
   storageKeyStemPrefix,
   tenantStoragePrefixes,
 } from "@cosmicdrift/kumiko-framework/files";
+import { chunk } from "@cosmicdrift/kumiko-framework/utils";
 import { type ChunkedMigrationResult, runChunkedMigration } from "../shared/index.ts";
 
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
@@ -72,12 +73,6 @@ const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName
 const SURVIVOR_CHECK_BATCH_SIZE = 500;
 
 const DESTROY_CHUNK_SIZE = 500;
-
-function chunk<T>(items: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
-  return chunks;
-}
 
 function isUnderOwnPrefix(storageKey: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => storageKey.startsWith(prefix));

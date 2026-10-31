@@ -24,6 +24,7 @@ import {
   type PaymentEventHeaders,
   type PaymentEventPayload,
 } from "../events.ts";
+import { hasSeenProviderEvent } from "../provider-event-seen.ts";
 
 export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
@@ -57,14 +58,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     //    optimize via a per-tenant providerEventId-index if that bites).
     // ---------------------------------------------------------------
     const existingEvents = await ctx.events.load(aggId);
-    const alreadySeen = existingEvents.some((e) => {
-      const headers = e.metadata.headers ?? {};
-      return (
-        headers["providerEventId"] === payload.providerEventId &&
-        headers["providerName"] === payload.providerName
-      );
-    });
-    if (alreadySeen) {
+    if (hasSeenProviderEvent(existingEvents, payload)) {
       return {
         isSuccess: true as const,
         data: { duplicate: true as const, paymentAggregateId: aggId },

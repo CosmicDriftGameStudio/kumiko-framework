@@ -2,10 +2,13 @@
 // cache misses, cached per price id.
 
 import {
+  createTtlPriceCache,
   KNOWN_RECURRING_INTERVALS,
   type ProviderPrice,
+  type TtlPriceCache,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { chunk } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import type { PaddleCtxRuntime, PaddlePluginMethod } from "./runtime.ts";
@@ -61,10 +64,7 @@ function mapPaddlePrice(price: PaddlePrice): ProviderPrice {
   return { ...base, interval, intervalCount: interval ? cycle.frequency : null };
 }
 
-export type PaddlePriceCache = {
-  readonly get: (priceId: string) => ProviderPrice | undefined;
-  readonly set: (priceId: string, price: ProviderPrice) => void;
-};
+export type PaddlePriceCache = TtlPriceCache<ProviderPrice>;
 
 export type PaddlePriceCacheOptions = {
   readonly ttlMs?: number;
@@ -75,32 +75,10 @@ export type PaddlePriceCacheOptions = {
 // trigger an audited secret read on every billing-plans render. Failed lookups
 // are never cached.
 export function createPaddlePriceCache({
-  ttlMs = 600_000,
+  ttlMs,
   now = () => Temporal.Now.instant().epochMilliseconds,
 }: PaddlePriceCacheOptions = {}): PaddlePriceCache {
-  const store = new Map<string, { readonly price: ProviderPrice; readonly expiresAt: number }>();
-  return {
-    get: (priceId) => {
-      const entry = store.get(priceId);
-      if (!entry) return undefined;
-      if (entry.expiresAt <= now()) {
-        store.delete(priceId);
-        return undefined;
-      }
-      return entry.price;
-    },
-    set: (priceId, price) => {
-      store.set(priceId, { price, expiresAt: now() + ttlMs });
-    },
-  };
-}
-
-function chunked<T>(items: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let start = 0; start < items.length; start += size) {
-    chunks.push(items.slice(start, start + size));
-  }
-  return chunks;
+  return createTtlPriceCache<ProviderPrice>({ ttlMs, now });
 }
 
 async function fillPriceCache(
@@ -111,7 +89,7 @@ async function fillPriceCache(
 ): Promise<void> {
   const misses = [...new Set(priceIds.filter((priceId) => cache.get(priceId) === undefined))];
   const settled = await Promise.allSettled(
-    chunked(misses, PRICES_PER_REQUEST).map(async (ids) =>
+    chunk(misses, PRICES_PER_REQUEST).map(async (ids) =>
       pricesResponseSchema.parse(
         await runtime.call(ctx, {
           method: "GET",

@@ -130,43 +130,12 @@ async function upsert(
 // materialize the row correctly.
 // =============================================================================
 
-/** subscription-created → UPSERT with all fields. PK = aggregateId =
- *  subscriptionAggregateId(tenantId), with one row per tenant. UPSERT allows
- *  the Disney+-change pattern (a second provider sends create for the same
- *  tenant) to overwrite the existing row instead of causing a PK conflict. */
-export const applySubscriptionCreated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
+const applyFullSubscriptionState = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const full = fullSetFromPayload(event.payload);
   await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
 });
 
-/** subscription-updated → UPSERT with all fields. */
-export const applySubscriptionUpdated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
-  const full = fullSetFromPayload(event.payload);
-  await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
-});
-
-/** subscription-canceled → status/tier/currentPeriodEnd patchen. */
-export const applySubscriptionCanceled = defineApply<SubscriptionEventPayload>(
-  async (event, tx) => {
-    const p = event.payload;
-    await upsert(
-      tx,
-      event,
-      {
-        status: p.status,
-        tier: p.tier,
-        currentPeriodEnd: p.currentPeriodEndIso,
-        ...cancelAtSetFromPayload(p),
-      },
-      p,
-    );
-  },
-);
-
-/** invoice-paid → state update (status, tier, currentPeriodEnd).
- *  The invoice history itself lives in the event store, so it remains
- *  replayable. */
-export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (event, tx) => {
+const applyStatusTierPeriodPatch = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const p = event.payload;
   await upsert(
     tx,
@@ -180,6 +149,23 @@ export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (eve
     p,
   );
 });
+
+/** subscription-created → UPSERT with all fields. PK = aggregateId =
+ *  subscriptionAggregateId(tenantId), with one row per tenant. UPSERT allows
+ *  the Disney+-change pattern (a second provider sends create for the same
+ *  tenant) to overwrite the existing row instead of causing a PK conflict. */
+export const applySubscriptionCreated = applyFullSubscriptionState;
+
+/** subscription-updated → UPSERT with all fields. */
+export const applySubscriptionUpdated = applyFullSubscriptionState;
+
+/** subscription-canceled → status/tier/currentPeriodEnd patchen. */
+export const applySubscriptionCanceled = applyStatusTierPeriodPatch;
+
+/** invoice-paid → state update (status, tier, currentPeriodEnd).
+ *  The invoice history itself lives in the event store, so it remains
+ *  replayable. */
+export const applyInvoicePaid = applyStatusTierPeriodPatch;
 
 /** invoice-payment-failed → status (typically past_due) + tier. The tier
  *  engine reads the row and decides whether to downgrade. currentPeriodEnd is
