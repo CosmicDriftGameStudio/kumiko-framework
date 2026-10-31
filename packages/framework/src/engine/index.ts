@@ -60,6 +60,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
+  AgentEffect,
   AgentHandlerHints,
   AgentRisk,
   AuthClaimsContext,

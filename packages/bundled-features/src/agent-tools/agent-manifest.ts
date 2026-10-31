@@ -304,6 +304,7 @@ function buildHandlerEntry(
     kind,
     ...(description !== undefined && { description }),
     risk: exposure.risk,
+    ...(exposure.effect !== undefined && { effect: exposure.effect }),
     inputSchema,
     ...(entity !== undefined && { entity }),
     ...(excludedFields !== undefined && { excludedFields }),

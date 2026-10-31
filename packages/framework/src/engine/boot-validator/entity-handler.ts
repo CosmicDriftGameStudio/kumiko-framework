@@ -11,6 +11,7 @@ import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+import { validateAgentProposalEffect } from "./agent-effect.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
 import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
@@ -171,6 +172,10 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
     validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
     validateBeforeTransactionWhenNested(feature.name, name, handler);
+    validateAgentProposalEffect(feature.name, "write", name, handler.agent);
+  }
+  for (const [name, handler] of Object.entries(feature.queryHandlers)) {
+    validateAgentProposalEffect(feature.name, "query", name, handler.agent);
   }
 }
 
