@@ -6,7 +6,10 @@
 // subscription-stripe. The `apiKey` / `webhookSecret` / `tenantBindingKey` /
 // `clientToken` options are env→config bridge fallbacks.
 
-import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import {
+  type SubscriptionProviderPlugin,
+  validateOneOffPriceIds,
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   access,
   createSystemConfig,
@@ -122,25 +125,10 @@ export type SubscriptionPaddleOptions = {
   readonly nowSeconds?: () => number;
 };
 
-// Validated once at feature-build time so a typo fails app startup instead of
-// silently widening or narrowing the one-off allowlist at request time.
-function validateOneOffPriceIds(priceIds: readonly string[]): void {
-  const seen = new Set<string>();
-  for (const priceId of priceIds) {
-    if (priceId.length === 0) {
-      throw new Error("subscription-paddle: oneOffPriceIds must not contain an empty string");
-    }
-    if (seen.has(priceId)) {
-      throw new Error(`subscription-paddle: duplicate oneOffPriceIds entry "${priceId}"`);
-    }
-    seen.add(priceId);
-  }
-}
-
 export function createSubscriptionPaddleFeature(
   options: SubscriptionPaddleOptions = {},
 ): FeatureWithEnvSchema<FeatureDefinition, typeof subscriptionPaddleEnvSchema.shape> {
-  validateOneOffPriceIds(options.oneOffPriceIds ?? []);
+  validateOneOffPriceIds("subscription-paddle", options.oneOffPriceIds ?? []);
   const now = options.now ?? (() => Temporal.Now.instant().epochMilliseconds);
   const feature: FeatureDefinition = defineFeature(SUBSCRIPTION_PADDLE_FEATURE, (r) => {
     r.describe(

@@ -1,4 +1,5 @@
 export { assertUnreachable } from "./assert.ts";
+export { chunk } from "./chunk.ts";
 export { bytesToHex, type DigestAlgorithm, digestHex } from "./hex.ts";
 export { generateDeterministicId, generateId } from "./ids.ts";
 export { isPlainObject } from "./is-plain-object.ts";

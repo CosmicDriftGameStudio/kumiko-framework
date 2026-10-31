@@ -4,6 +4,7 @@ import {
   MAX_LIST_LIMIT,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { chunk } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
@@ -22,14 +23,6 @@ const directorySchema = z.object({
 
 type OverrideStatus = "active" | "draft";
 
-function chunksOf<T>(items: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let start = 0; start < items.length; start += size) {
-    chunks.push(items.slice(start, start + size));
-  }
-  return chunks;
-}
-
 type DirectoryQueryContext = {
   readonly dispatch: {
     readonly query: (name: string, payload: { ids: string[] }) => Promise<unknown>;
@@ -43,8 +36,8 @@ async function labelsFor(
   ids: ReadonlySet<string>,
 ): Promise<ReadonlyMap<string, string>> {
   const labels = new Map<string, string>();
-  for (const chunk of chunksOf([...ids], MAX_LIST_LIMIT)) {
-    const raw = await ctx.dispatch.query(queryName, { ids: chunk });
+  for (const idChunk of chunk([...ids], MAX_LIST_LIMIT)) {
+    const raw = await ctx.dispatch.query(queryName, { ids: idChunk });
     for (const row of directorySchema.parse(raw).rows) labels.set(row.id, row.label);
   }
   return labels;

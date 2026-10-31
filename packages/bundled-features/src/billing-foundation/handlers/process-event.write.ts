@@ -33,6 +33,7 @@ import {
   type SubscriptionEventPayload,
 } from "../events.ts";
 import { getSubscriptionForTenant, type SubscriptionView } from "../get-subscription-for-tenant.ts";
+import { hasSeenProviderEvent } from "../provider-event-seen.ts";
 import {
   BILLING_SUBSCRIPTION_LOCK_NAMESPACE,
   isSubscriptionBlockingCheckout,
@@ -176,14 +177,7 @@ export async function appendSubscriptionEvent(
   //    idempotency anchor (like cap-counter).
   // ---------------------------------------------------------------
   const existingEvents = await ctx.events.load(aggId);
-  const alreadySeen = existingEvents.some((e) => {
-    const headers = e.metadata.headers ?? {};
-    return (
-      headers["providerEventId"] === payload.providerEventId &&
-      headers["providerName"] === payload.providerName
-    );
-  });
-  if (alreadySeen) {
+  if (hasSeenProviderEvent(existingEvents, payload)) {
     return { duplicate: true, subscriptionAggregateId: aggId };
   }
 

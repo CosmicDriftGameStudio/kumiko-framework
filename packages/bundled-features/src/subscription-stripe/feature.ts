@@ -32,7 +32,10 @@
 // api key + webhook secret without auditing (a sanctioned framework-internal
 // read).
 
-import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import {
+  type SubscriptionProviderPlugin,
+  validateOneOffPriceIds,
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   access,
   createSystemConfig,
@@ -144,23 +147,6 @@ export type SubscriptionStripeOptions = {
   readonly oneOffPriceIds?: readonly string[];
 };
 
-// Validated once at feature-build time (not per-request) so a config typo
-// (a pasted-twice priceId, a blank string from a bad env-join) fails app
-// startup instead of silently widening — or narrowing — the one-off
-// allowlist at request time. Mirrors legal-pages' validateRoutes.
-function validateOneOffPriceIds(priceIds: readonly string[]): void {
-  const seen = new Set<string>();
-  for (const priceId of priceIds) {
-    if (priceId.length === 0) {
-      throw new Error("subscription-stripe: oneOffPriceIds must not contain an empty string");
-    }
-    if (seen.has(priceId)) {
-      throw new Error(`subscription-stripe: duplicate oneOffPriceIds entry "${priceId}"`);
-    }
-    seen.add(priceId);
-  }
-}
-
 /**
  * Factory for the subscription-stripe feature. Always mounts (no
  * key-presence guard) — activity is gated at runtime through config/secrets
@@ -171,7 +157,7 @@ function validateOneOffPriceIds(priceIds: readonly string[]): void {
 export function createSubscriptionStripeFeature(
   options: SubscriptionStripeOptions = {},
 ): FeatureWithEnvSchema<FeatureDefinition, typeof subscriptionStripeEnvSchema.shape> {
-  validateOneOffPriceIds(options.oneOffPriceIds ?? []);
+  validateOneOffPriceIds("subscription-stripe", options.oneOffPriceIds ?? []);
   const feature: FeatureDefinition = defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     r.describe(
       'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements webhook verify, checkout, portal, cancel, `retrievePrices` (10-minute TTL-cached price lookup for the billing-plans catalog), `createPlanSwitchSession` (auto-provisions a Customer-Portal configuration for switching an existing subscription to another plan tier — each tier needs its own Stripe product), `retrieveSubscription` (live provider-side snapshot for the `sync-subscriptions` backfill job, mapped identically to the webhook path), plus `isBillingEnabled` (billingLive + an api-key existence probe, no secret read).',

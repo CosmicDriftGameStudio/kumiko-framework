@@ -46,6 +46,14 @@ export {
 export { createBillingFoundationFeature } from "./feature.ts";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant.ts";
 export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.ts";
+export { hasSeenProviderEvent } from "./provider-event-seen.ts";
+export {
+  createTtlPriceCache,
+  parseStoredSecret,
+  type TtlPriceCache,
+  type TtlPriceCacheOptions,
+  validateOneOffPriceIds,
+} from "./provider-shared.ts";
 export { billingPlansPanel, createBillingPlansScreen } from "./screens.ts";
 export {
   createSubscriptionTierSync,

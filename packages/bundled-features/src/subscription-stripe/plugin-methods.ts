@@ -17,12 +17,14 @@
 
 import { createHash } from "node:crypto";
 import {
+  createTtlPriceCache,
   KNOWN_RECURRING_INTERVALS,
   type ProviderPrice,
   type ProviderSubscriptionSnapshot,
   type RecurringInterval,
   SubscriptionCancelTimings,
   type SubscriptionProviderPlugin,
+  type TtlPriceCache,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -332,10 +334,7 @@ function mapStripePrice(price: Stripe.Price): ProviderPrice {
 // requests the billing-plans catalog re-renders on every page load. Keyed by
 // priceId alone: Stripe priceIds are account-wide unique. Failed lookups are
 // never cached, so a transient Stripe outage self-heals on the next call.
-export type StripePriceCache = {
-  readonly get: (priceId: string) => Stripe.Price | undefined;
-  readonly set: (priceId: string, price: Stripe.Price) => void;
-};
+export type StripePriceCache = TtlPriceCache<Stripe.Price>;
 
 export type StripePriceCacheOptions = {
   readonly ttlMs?: number;
@@ -343,24 +342,10 @@ export type StripePriceCacheOptions = {
 };
 
 export function createStripePriceCache({
-  ttlMs = 600_000,
+  ttlMs,
   now = () => Date.now(),
 }: StripePriceCacheOptions = {}): StripePriceCache {
-  const store = new Map<string, { readonly price: Stripe.Price; readonly expiresAt: number }>();
-  return {
-    get: (priceId) => {
-      const entry = store.get(priceId);
-      if (!entry) return undefined;
-      if (entry.expiresAt <= now()) {
-        store.delete(priceId);
-        return undefined;
-      }
-      return entry.price;
-    },
-    set: (priceId, price) => {
-      store.set(priceId, { price, expiresAt: now() + ttlMs });
-    },
-  };
+  return createTtlPriceCache<Stripe.Price>({ ttlMs, now });
 }
 
 /** Fills `cache` for every priceId not already resolved — the only place
