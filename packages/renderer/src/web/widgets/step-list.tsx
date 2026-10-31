@@ -65,7 +65,11 @@ export function StepList({
     <section
       aria-label={title}
       data-testid={testId}
-      className={cn("flex min-h-0 flex-col", fill && "h-full", surface === "ai" && "bg-ai-surface")}
+      className={cn(
+        "flex min-h-0 flex-col text-sm",
+        fill && "h-full",
+        surface === "ai" && "bg-ai-surface",
+      )}
     >
       <StepListHeader
         title={title}
