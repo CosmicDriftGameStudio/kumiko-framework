@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.407.0",
+    "type": "fix",
+    "title": "Anonymize no longer emits one event per run for encrypted fields",
+    "detail": "The retention cleanup compared the encrypted ciphertext with the anonymized value and treated every row with encrypted fields as still needing anonymization, so each run appended another anonymize event. The check now looks at the decrypted value, so already anonymized rows are left alone."
+  },
+  {
     "version": "0.372.0",
     "type": "improvement",
     "title": "runRetentionCleanup is exported for app tests",

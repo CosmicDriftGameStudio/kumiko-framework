@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.407.0",
+    "type": "improvement",
+    "title": "clock option and lastActivityProbeSecret",
+    "detail": "createSessionsFeature and createSessionCallbacks accept a clock option for deterministic tests. With lastActivityProbeSecret set, the sessions feature serves GET /sessions/last-activity for other apps of the same account (Bearer secret, constant-time compare, rate limited, 401 otherwise); the secret must be at least 32 characters, shorter ones fail at boot; without the option no route exists. fetchRemoteAppLastActivity({ url, secret }) from tenant-inactivity reads it as an activity source and uses internal egress restricted to the origin of the URL."
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
     "title": "Session screens show the device without sessionsClient()",

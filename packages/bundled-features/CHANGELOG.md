@@ -1,5 +1,71 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.407.0
+
+### Minor Changes
+
+- 5da2b15: Tenant destruction no longer deletes rows that retention holds with blockDelete, including the files they point at, until their retention period has passed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: heldFileRefIds on TenantDataHookCtx
+  detail: TenantDataHookCtx has an optional heldFileRefIds set with the fileRef ids that rows held by retention still point at. Hooks that delete files must skip them. TenantDataExtensionHooks has an optional phase ("app-data" by default, or "tenant-row") that runs a hook right before the tenant row is tombstoned, after the hold check. Existing hooks keep compiling and keep their behavior.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: improvement
+  title: Tenants with blockDelete rows park in destroyHeld
+  detail: When a destroying tenant owns rows of an entity with strategy blockDelete (entity default, preset, profile or per-tenant override), the destruction pauses before the tenant row in the new tenant status destroyHeld instead of deleting those rows. The sweep ignores destroyHeld tenants and hasTenantDestructionWork does not count them. The daily data-retention cleanup hard-deletes the held rows once their keepFor has passed, including their files, and then moves the tenant back to destroying in the same run. Code that switches exhaustively over the tenant status must handle destroyHeld; it is a transient state between destroying and destroyed and never the final one. The tenant's compliance profile and retention overrides are erased in the tenant-row phase through EXT_TENANT_DATA hooks, so they survive while the tenant is held.
+  -->
+  
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: Anonymize no longer emits one event per run for encrypted fields
+  detail: The retention cleanup compared the encrypted ciphertext with the anonymized value and treated every row with encrypted fields as still needing anonymization, so each run appended another anonymize event. The check now looks at the decrypted value, so already anonymized rows are left alone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: files-tenant-data
+  type: improvement
+  title: Tenant destruction keeps files of held rows
+  detail: The fileRef destroy hook skips the fileRefs listed in heldFileRefIds, and the files prefix sweep keeps their bytes. Without a configured file provider, the retention cleanup still removes the held fileRef rows after keepFor and logs that no bytes could be deleted, so the tenant does not stay in destroyHeld forever.
+  -->
+- 452d7fa: New opt-in feature tenant-inactivity: abandoned free accounts get warning mails, then the regular deletion request.
+  
+  <!-- kumiko-changes
+  feature: tenant-inactivity
+  type: improvement
+  title: Warn and delete inactive free accounts
+  detail: createTenantInactivityFeature({ rule } or { resolveTier, rulesByTier }, keepAccountUrl, keepAccountTokenSecret?, activitySources?) mounts a daily maintenance job that warns the tenant owners by mail before the deadline (rule.warnings, for example 30 and 7 days) and then files the normal tenant-lifecycle deletion request, with the wait period of the compliance profile. A new session, an activity source or the keep-account link in the mail restarts the period; a tier whose rule is null is exempt. The query tenant-inactivity:query:state (optional field tenantIdOverride, only for a SystemAdmin, to read another tenant) shows exempt, lastActivityAt, warningsSent, nextStep and nextStepAt. The feature requires sessions, tenant, tenant-lifecycle and delivery, and erases its state with the tenant data. Mail texts exist in en, de, es, fr and it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: clock option and lastActivityProbeSecret
+  detail: createSessionsFeature and createSessionCallbacks accept a clock option for deterministic tests. With lastActivityProbeSecret set, the sessions feature serves GET /sessions/last-activity for other apps of the same account (Bearer secret, constant-time compare, rate limited, 401 otherwise); the secret must be at least 32 characters, shorter ones fail at boot; without the option no route exists. fetchRemoteAppLastActivity({ url, secret }) from tenant-inactivity reads it as an activity source and uses internal egress restricted to the origin of the URL.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: improvement
+  title: requestTenantDestruction extracted
+  detail: The core of the request-destruction handler is exported as requestTenantDestruction({ tenantId, actor, now, db, runner, registry, revokeSessions }) so other features, such as tenant-inactivity, file the same deletion request. The handler behavior is unchanged.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [0929505]
+- Updated dependencies [5da2b15]
+- Updated dependencies [452d7fa]
+  - @cosmicdrift/kumiko-framework@0.407.0
+  - @cosmicdrift/kumiko-renderer@0.407.0
+  - @cosmicdrift/kumiko-testing@0.407.0
+  - @cosmicdrift/kumiko-types@0.407.0
+
 ## 0.406.0
 
 ### Minor Changes

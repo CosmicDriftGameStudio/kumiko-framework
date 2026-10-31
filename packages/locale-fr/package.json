@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-locale-fr",
-  "version": "0.406.0",
+  "version": "0.407.0",
   "description": "French UI and mail copy for Kumiko framework screens. Opt in by mounting localeFr() + localeFrClient().",
   "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
