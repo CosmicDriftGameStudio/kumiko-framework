@@ -4,7 +4,7 @@
 // hardcoded mime allowlist or size cap — providers register via
 // EXT_DOCUMENT_INGEST_PROVIDER (see providers.ts).
 
-import { applyEntityEvent, entityEventName } from "@cosmicdrift/kumiko-framework/db";
+import { applyEntityEvent, entityEventName, upsertByPk } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createTenantConfig,
@@ -20,10 +20,13 @@ import { documentExtractEntity, documentExtractsTable } from "./entity.ts";
 import {
   DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
+  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
+  DOCUMENT_INGEST_PROGRESS_EVENT_SHORT,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
+  documentIngestProgressPayloadSchema,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.ts";
@@ -37,6 +40,7 @@ import {
   resolveDocumentIngestProviders,
   UNCLAIMED_PROVIDER_SENTINEL,
 } from "./providers.ts";
+import { documentIngestProgressTable, documentIngestProgressTableMeta } from "./tables.ts";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook.ts";
 
 const FEATURE_NAME = "document-ingest-foundation";
@@ -204,6 +208,40 @@ export function createDocumentIngestFoundationFeature() {
       });
       r.defineEvent(DOCUMENT_INGEST_SKIPPED_EVENT_SHORT, documentIngestSkippedPayloadSchema, {
         piiFields: "none",
+      });
+
+      r.defineEvent(DOCUMENT_INGEST_PROGRESS_EVENT_SHORT, documentIngestProgressPayloadSchema, {
+        piiFields: "none",
+      });
+
+      r.storeTable(documentIngestProgressTableMeta, {
+        reason: "read_side.document_ingest_progress",
+      });
+      r.projection({
+        name: "ingest-progress",
+        source: DOCUMENT_INGEST_AGGREGATE_TYPE,
+        table: documentIngestProgressTable,
+        apply: {
+          [DOCUMENT_INGEST_PROGRESS_EVENT_QN]: async (event, tx) => {
+            const progress = documentIngestProgressPayloadSchema.parse(event.payload);
+            await upsertByPk(
+              tx,
+              documentIngestProgressTable,
+              {
+                id: event.aggregateId,
+                tenantId: event.tenantId,
+                fileRefId: progress.fileRefId,
+                pagesDone: progress.pagesDone,
+                pagesTotal: progress.pagesTotal,
+              },
+              {
+                pagesDone: progress.pagesDone,
+                pagesTotal: progress.pagesTotal,
+                updatedAt: event.createdAt,
+              },
+            );
+          },
+        },
       });
 
       r.multiStreamProjection({

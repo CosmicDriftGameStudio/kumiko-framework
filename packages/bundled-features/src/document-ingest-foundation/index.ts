@@ -17,16 +17,20 @@ export {
 export {
   DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
+  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
+  DOCUMENT_INGEST_PROGRESS_EVENT_SHORT,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
   type DocumentExtractFailedPayload,
   type DocumentExtractReadyPayload,
+  type DocumentIngestProgressPayload,
   type DocumentIngestRequestedPayload,
   type DocumentIngestSkippedPayload,
   documentExtractFailedPayloadSchema,
   documentExtractReadyPayloadSchema,
+  documentIngestProgressPayloadSchema,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.ts";
@@ -41,6 +45,12 @@ export {
   type ResolvedDocumentIngestProvider,
   resolveDocumentIngestProviders,
 } from "./providers.ts";
+export {
+  type ReportIngestProgressDeps,
+  type ReportIngestProgressInput,
+  reportIngestProgress,
+} from "./report-ingest-progress.ts";
+export { documentIngestProgressTable } from "./tables.ts";
 export {
   type DocumentExtractWriteResult,
   writeDocumentExtractForLiveFileRef,

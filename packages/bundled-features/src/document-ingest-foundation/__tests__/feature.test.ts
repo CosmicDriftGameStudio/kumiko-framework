@@ -7,7 +7,11 @@
 import { describe, expect, test } from "bun:test";
 import { EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractEntity } from "../entity.ts";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN, DOCUMENT_INGEST_SKIPPED_EVENT_QN } from "../events.ts";
+import {
+  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
+  DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+  DOCUMENT_INGEST_SKIPPED_EVENT_QN,
+} from "../events.ts";
 import { createDocumentIngestFoundationFeature } from "../feature.ts";
 
 describe("documentIngestFoundationFeature — shape", () => {
@@ -68,7 +72,11 @@ describe("documentIngestFoundationFeature — shape", () => {
     expect(Object.keys(createDocumentIngestFoundationFeature().events)).toEqual([
       "documentIngest.requested",
       "documentIngest.skipped",
+      "documentIngest.progress",
     ]);
+    expect(createDocumentIngestFoundationFeature().events["documentIngest.progress"]?.name).toBe(
+      DOCUMENT_INGEST_PROGRESS_EVENT_QN,
+    );
     // The registry qualifies short → QN via qn(toKebab(feature), "event",
     // toKebab(short)) — pin the hand-written DOCUMENT_INGEST_REQUESTED_EVENT_QN
     // against what defineEvent actually registered, so a feature/short-name
