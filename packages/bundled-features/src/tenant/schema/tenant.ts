@@ -11,6 +11,7 @@ export const TENANT_LIFECYCLE_STATUSES = [
   "active",
   "destroyRequested",
   "destroying",
+  "destroyHeld",
   "destroyFailed",
   "destroyed",
 ] as const;

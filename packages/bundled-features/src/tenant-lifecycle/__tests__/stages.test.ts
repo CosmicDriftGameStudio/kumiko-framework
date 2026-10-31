@@ -8,6 +8,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { DESTRUCTION_STAGES, isDestructionPipelineComplete, pickNextStage } from "../stages.ts";
 
 // Minimal declaring feature: real tenant-lifecycle feature drags in "tenant" +
@@ -19,6 +20,7 @@ function declares(extensionName: string) {
 }
 
 const fakeDb = {} as DbRunner; // @cast-boundary test fixture — invalid-options guard throws before ctx.db is ever touched
+const fixedNow = getTemporal().Instant.from("2030-01-01T00:00:00Z");
 const fakeTenantId = "00000000-0000-4000-8000-00000000000c" as TenantId;
 
 function stageNamed(name: string) {
@@ -42,6 +44,7 @@ describe("tenant-lifecycle stages", () => {
         registry,
         tenantId: fakeTenantId,
         deadlineAt: Number.POSITIVE_INFINITY,
+        now: fixedNow,
       }),
     ).rejects.toThrow(`${EXT_TENANT_DATA} registration for "bad-entity" has no destroy function`);
   });
@@ -58,6 +61,7 @@ describe("tenant-lifecycle stages", () => {
         registry,
         tenantId: fakeTenantId,
         deadlineAt: Number.POSITIVE_INFINITY,
+        now: fixedNow,
       }),
     ).rejects.toThrow(
       `${EXT_STORAGE_PROVIDER} registration for "bad-entity" has no destroy function`,
@@ -79,6 +83,7 @@ describe("tenant-lifecycle stages", () => {
         registry,
         tenantId: fakeTenantId,
         deadlineAt: Number.POSITIVE_INFINITY,
+        now: fixedNow,
       }),
     ).rejects.toBeInstanceOf(AccessDeniedError);
   });
@@ -100,6 +105,7 @@ describe("tenant-lifecycle stages", () => {
       registry,
       tenantId: fakeTenantId,
       deadlineAt: Number.POSITIVE_INFINITY,
+      now: fixedNow,
       actor: "operator-user-id",
       escapeHatchAuditSink: async (event) => {
         events.push({ handler: event.handler, actor: event.actor, reason: event.reason });

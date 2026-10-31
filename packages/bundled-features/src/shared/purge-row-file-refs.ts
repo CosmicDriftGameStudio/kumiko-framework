@@ -66,7 +66,7 @@ export function collectSingleFileHolders(registry: Registry): readonly SingleFil
 // Every fileRef-id a row's file-fields reference: single fields hold the id in
 // their own column, plural fields resolve via file_refs (tenantId, entityType,
 // entityId, fieldName).
-async function collectFileRefIds(
+export async function collectFileRefIds(
   db: DbRunner,
   tenantId: TenantId,
   entityName: string,

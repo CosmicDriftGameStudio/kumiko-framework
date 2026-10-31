@@ -24,8 +24,15 @@ export interface TenantDataHookCtx {
   // the rows. Undefined when no file-provider is
   // wired; a hook that needs it must treat that as "nothing to clean up".
   readonly fileProviderResolver?: FileProviderResolver;
+  // fileRef ids referenced by rows that survive the destroy (blockDelete rows still inside keepFor);
+  // a hook that purges fileRef rows must leave them alone. Recomputed every tick.
+  readonly heldFileRefIds?: ReadonlySet<string>;
   readonly log?: (message: string) => void;
 }
+
+// "app-data" is the regular stage. "tenant-row" hooks run right before the tenant is tombstoned,
+// after the retention hold check, for data whose absence would change that check.
+export type TenantDataDestroyPhase = "app-data" | "tenant-row";
 
 export type TenantDataDestroyHook = (
   ctx: TenantDataHookCtx,
@@ -34,6 +41,7 @@ export type TenantDataDestroyHook = (
 
 export interface TenantDataExtensionHooks {
   readonly destroy: TenantDataDestroyHook;
+  readonly phase?: TenantDataDestroyPhase;
 }
 
 export function isTenantDataExtensionHooks(o: unknown): o is TenantDataExtensionHooks {

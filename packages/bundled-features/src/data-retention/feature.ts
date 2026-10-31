@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { findTenantDestructionHoldProvider } from "../shared/index.ts";
 import { policyForQuery } from "./handlers/policy-for.query.ts";
 import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.ts";
 import { runRetentionCleanup } from "./run-retention-cleanup.ts";
@@ -87,7 +88,6 @@ export function createDataRetentionFeature(): FeatureDefinition {
           // skip: cron fired without a perTenant fan-out tenant — nothing scoped
           return;
         }
-        const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         const cleanupDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const tenantPreset = await resolveTenantRetentionPreset({
@@ -95,14 +95,28 @@ export function createDataRetentionFeature(): FeatureDefinition {
           registry: ctx.registry,
           tenantId,
         });
+        const now = ctx.tz.now();
+        const destructionHold = findTenantDestructionHoldProvider(ctx.registry);
+        const parked = destructionHold
+          ? await destructionHold.isParked({ db: cleanupDb, tenantId })
+          : false;
         const result = await runRetentionCleanup({
           db: cleanupDb,
           registry: ctx.registry,
           tenantId,
           preloadedTenantPreset: tenantPreset,
-          now: T.Now.instant(),
+          now,
+          purgeExpiredBlockDelete: parked,
           files: ctx.services.files,
         });
+        if (destructionHold && parked) {
+          await destructionHold.releaseIfFree({
+            db: cleanupDb,
+            registry: ctx.registry,
+            tenantId,
+            now,
+          });
+        }
         if (result.skipped.length > 0) {
           // biome-ignore lint/suspicious/noConsole: operator-visibility for skipped entities
           console.warn(

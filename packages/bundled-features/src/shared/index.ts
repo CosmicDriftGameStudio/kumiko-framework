@@ -47,6 +47,7 @@ export {
   purgeFilesReachingSubject,
 } from "./purge-files-reaching-subject.ts";
 export {
+  collectFileRefIds,
   collectSingleFileHolders,
   type FileFieldPlan,
   type FileRefPurgeOutcome,
@@ -114,4 +115,9 @@ export {
 } from "./stream-tenant-derived-state.ts";
 export type { SystemQueryFn } from "./system-query.ts";
 export { createTenantDbCache } from "./tenant-db-cache.ts";
+export {
+  EXT_TENANT_DESTRUCTION_HOLD,
+  findTenantDestructionHoldProvider,
+  type TenantDestructionHoldProvider,
+} from "./tenant-destruction-hold.ts";
 export { type BurnResult, burnToken, unburnToken } from "./token-burn-store.ts";

@@ -16,6 +16,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createTestEnvelopeCipher,
   resetPiiSubjectKmsForTests,
@@ -122,6 +123,7 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId,
+      now: getTemporal().Now.instant(),
       deadlineAt: Number.POSITIVE_INFINITY,
     });
 
@@ -140,6 +142,7 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
         db: stack.db,
         registry: stack.registry,
         tenantId: unknownTenantId,
+        now: getTemporal().Now.instant(),
         deadlineAt: Number.POSITIVE_INFINITY,
       }),
     ).rejects.toThrow(`failed to mark tenant ${unknownTenantId} destroyed`);

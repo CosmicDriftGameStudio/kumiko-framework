@@ -1538,6 +1538,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "tenant:entity:tenant:field:status": "Status",
   "tenant:entity:tenant:field:status:option:active": "Aktiv",
   "tenant:entity:tenant:field:status:option:destroyFailed": "Löschung fehlgeschlagen",
+  "tenant:entity:tenant:field:status:option:destroyHeld": "Aufbewahrungsfrist läuft",
   "tenant:entity:tenant:field:status:option:destroyRequested": "Löschung angefordert",
   "tenant:entity:tenant:field:status:option:destroyed": "Gelöscht",
   "tenant:entity:tenant:field:status:option:destroying": "Wird gelöscht",

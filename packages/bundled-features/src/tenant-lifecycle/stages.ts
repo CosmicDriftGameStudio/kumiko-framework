@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import {
   configuredPiiSubjectKms,
   type SubjectId,
@@ -23,6 +24,7 @@ import {
   isTenantDataExtensionHooks,
   isTenantResourceExtensionHooks,
   type Registry,
+  type TenantDataDestroyPhase,
   type TenantDataHookCtx,
   type TenantDestroyHookResult,
   type TenantId,
@@ -39,6 +41,10 @@ import {
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import {
+  type DestructionHold,
+  holdBlockDeleteRowsForDestruction,
+} from "../data-retention/index.ts";
 import {
   tenantEntity,
   tenantMembershipEntity,
@@ -67,6 +73,8 @@ export type DestructionStageCtx = {
   readonly actor?: string;
   // Epoch ms the stage must hand back by returning { done: false }.
   readonly deadlineAt: number;
+  // Sweep clock, so retention cut-offs follow the injected clock instead of wall time.
+  readonly now: Temporal.Instant;
 };
 
 export type StageRunOutcome = {
@@ -131,15 +139,33 @@ async function runExtensionDestroyHooks(
   return total.outcome();
 }
 
-async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
+const NOTHING_HELD: DestructionHold = { entityNames: new Set(), fileRefIds: new Set() };
+
+async function runTenantDataHooks(
+  ctx: DestructionStageCtx,
+  phase: TenantDataDestroyPhase,
+): Promise<StageRunOutcome> {
   const usages = ctx.registry.getExtensionUsages(EXT_TENANT_DATA);
   const total = newOutcomeAccumulator();
+  // Rows inside a blockDelete keepFor must outlive the account; their hook is skipped, the rows are
+  // anonymized and the fileRefs they point at are handed to the other hooks. Recomputed every tick.
+  const hold =
+    phase === "app-data" && ctx.registry.features.has("data-retention")
+      ? await holdBlockDeleteRowsForDestruction({
+          db: ctx.db,
+          registry: ctx.registry,
+          tenantId: ctx.tenantId,
+          now: ctx.now,
+        })
+      : NOTHING_HELD;
   for (const usage of usages) {
     if (!isTenantDataExtensionHooks(usage.options)) {
       throw new Error(
         `${EXT_TENANT_DATA} registration for "${usage.entityName}" has no destroy function`,
       );
     }
+    if ((usage.options["phase"] ?? "app-data") !== phase) continue;
+    if (hold.entityNames.has(usage.entityName)) continue;
     const destroy = usage.options.destroy;
     const reason = extensionUsageEscapeHatchReason(usage);
     const report = createEscapeHatchReporter({
@@ -162,6 +188,7 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOut
       tenantId: ctx.tenantId,
       deadlineAt: ctx.deadlineAt,
       fileProviderResolver: ctx.fileProviderResolver,
+      heldFileRefIds: hold.fileRefIds,
       log: ctx.log,
     };
     total.add(await destroy(hookCtx));
@@ -245,6 +272,8 @@ async function purgeTenantCache(ctx: DestructionStageCtx): Promise<StageRunOutco
 }
 
 async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
+  const lateHooks = await runTenantDataHooks(ctx, "tenant-row");
+  if (!lateHooks.done) return lateHooks;
   const now = getTemporal().Now.instant();
   const user = createSystemUser(ctx.tenantId);
   const db = createTenantDb({
@@ -315,7 +344,7 @@ export const DESTRUCTION_STAGES: readonly DestructionStage[] = [
   {
     name: "app-data",
     maxAttempts: 3,
-    run: runTenantDataHooks,
+    run: (ctx) => runTenantDataHooks(ctx, "app-data"),
   },
   {
     name: "subject-keys",

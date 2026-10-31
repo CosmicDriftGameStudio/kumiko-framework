@@ -65,6 +65,7 @@ export function isTenantLifecycleStatusPlugin(v: unknown): v is TenantLifecycleS
 export const TENANT_TEARDOWN_STATUSES: ReadonlySet<string> = new Set([
   "destroyRequested",
   "destroying",
+  "destroyHeld",
   "destroyFailed",
   "destroyed",
 ]);

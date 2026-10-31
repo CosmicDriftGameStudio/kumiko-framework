@@ -9,6 +9,7 @@ import {
   type FeatureDefinition,
   type TenantLifecycleStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { EXT_TENANT_DESTRUCTION_HOLD } from "../shared/index.ts";
 import {
   validateTenantDataHookCoverage,
   validateTenantDestroyHookShapes,
@@ -41,9 +42,16 @@ import {
 import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.ts";
 import { requestDestructionWrite } from "./handlers/request-destruction.write.ts";
 import {
+  COMPLIANCE_PROFILE_ENTITY_NAME,
+  complianceProfileTenantDestroyHook,
+  RETENTION_OVERRIDE_ENTITY_NAME,
+  retentionOverrideTenantDestroyHook,
+} from "./retention-config-destroy-hooks.ts";
+import {
   hasTenantDestructionWork,
   resolveTenantLifecycleGate,
   runTenantDestructionSweep,
+  tenantDestructionHoldProvider,
 } from "./run-tenant-destroy.ts";
 
 const tenantLifecycleStatusPlugin: TenantLifecycleStatusPlugin = {
@@ -64,7 +72,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       recommended: false,
     });
     r.requires({ features: ["tenant", "compliance-profiles"] });
-    r.optionalRequires("sessions");
+    r.optionalRequires("sessions", "data-retention");
     r.usesApi("compliance.forTenant");
 
     r.extendsRegistrar(EXT_TENANT_DATA, {});
@@ -72,6 +80,21 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.extendsRegistrar(EXT_EXTERNAL_RESOURCE, {});
     r.extendsRegistrar(EXT_STORAGE_PROVIDER, {});
     r.extendsRegistrar(EXT_INFRA_RESOURCE, {});
+
+    // Self-extension: data-retention hands a parked tenant back through this, see shared/tenant-destruction-hold.ts.
+    r.extendsRegistrar(EXT_TENANT_DESTRUCTION_HOLD, {});
+    r.useExtension(EXT_TENANT_DESTRUCTION_HOLD, "tenant-lifecycle", tenantDestructionHoldProvider);
+
+    // Registered here because the hosts of these entities cannot require tenant-lifecycle (cycle,
+    // resp. standalone use); the override hook no-ops without data-retention.
+    r.useExtension(EXT_TENANT_DATA, COMPLIANCE_PROFILE_ENTITY_NAME, {
+      destroy: complianceProfileTenantDestroyHook,
+      phase: "tenant-row",
+    });
+    r.useExtension(EXT_TENANT_DATA, RETENTION_OVERRIDE_ENTITY_NAME, {
+      destroy: retentionOverrideTenantDestroyHook,
+      phase: "tenant-row",
+    });
 
     // Self-extension, same pattern as `user`/EXT_PRINCIPAL_STATUS — declares
     // AND fulfils tenantLifecycleStatus so teardown state is visible with no per-app wiring.
