@@ -97,12 +97,85 @@
 | <a id="dashboard-value-format-fraction-digits"></a>`dashboard/value-format-fraction-digits` | valueFormat.fractionDigits is an integer from 0 to the maximum. | Set fractionDigits to an integer within range. | `packages/framework/src/engine/boot-validator/screens-dashboard-chart-rules.ts` |
 | <a id="dashboard-value-format-kind"></a>`dashboard/value-format-kind` | A valueFormat kind is allowed for the panel type. | Use an allowed kind for this panel type. | `packages/framework/src/engine/boot-validator/screens-dashboard-chart-rules.ts` |
 
+## derived-field
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="derived-field-active-on-not-date"></a>`derived-field/active-on-not-date` | The activeOn from/to fields are date fields. | Use date fields for activeOn.from and activeOn.to. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-coalesce-empty"></a>`derived-field/coalesce-empty` | A coalesce derived field lists at least one field. | Add fields to coalesce. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-coalesce-mixed-types"></a>`derived-field/coalesce-mixed-types` | All coalesce fields have the same type. | Coalesce fields of one type. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-encrypted-field"></a>`derived-field/encrypted-field` | A SQL derived field does not read encrypted or secret fields. | Read a field that is neither encrypted nor secret. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-in-operator-list"></a>`derived-field/in-operator-list` | A where condition with op "in" takes a list, and only "in" does. | Use a list value exactly with op "in". | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-label-needs-reference"></a>`derived-field/label-needs-reference` | A measure with label: true reads a reference field (with a labelField). | Measure a reference field that declares a labelField, or drop label: true. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-money-needs-sql"></a>`derived-field/money-needs-sql` | A derived field with valueType "money" is a sql derived field. | Use a sql related first measure on a money field. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-null-operator"></a>`derived-field/null-operator` | A where condition with a null value uses op eq or ne. | Use op eq or ne for null, or give a value. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-relative-date-field-type"></a>`derived-field/relative-date-field-type` | A where condition with today needs a date field and with now a timestamp field. | Compare today with a date field and now with a timestamp field. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-sortable-needs-join-index"></a>`derived-field/sortable-needs-join-index` | A sortable related derived field has an index on the related table's join column. | Declare indexes: [{ columns: ["<field>"] }] on the related entity. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-sortable-needs-sql"></a>`derived-field/sortable-needs-sql` | Only sql derived fields are sortable. | Make the field a sql derived field or drop sortable. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-unknown-field"></a>`derived-field/unknown-field` | Every field a SQL derived field reads is a field of the entity. | Name an existing field of the entity (or of the related entity). | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-unknown-related-entity"></a>`derived-field/unknown-related-entity` | The related entity of a derived field is registered. | Register the entity or fix the entity name. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-unsupported-field-type"></a>`derived-field/unsupported-field-type` | A SQL derived field reads only scalar field types. | Read a text, number, decimal, boolean, date or timestamp field; money only as the measure of a related first. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+| <a id="derived-field-value-type-mismatch"></a>`derived-field/value-type-mismatch` | The derived field's valueType matches the type of the value it computes. | Set valueType to the expected value type. | `packages/framework/src/engine/boot-validator/derived-sql-fields-rules.ts` |
+
+## embedded-field
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="embedded-field-decimal-scale-invalid"></a>`embedded-field/decimal-scale-invalid` | A decimal sub-field scale is an integer between 0 and 15. | Set scale to an integer between 0 and 15. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-derived-cell-not-in-schema"></a>`embedded-field/derived-cell-not-in-schema` | Every derived cell is a sub-field in the embedded schema. | Add the sub-field to the schema or remove the derived cell. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-derived-source-is-derived"></a>`embedded-field/derived-source-is-derived` | A derived cell reads stored sub-fields, not other derived cells. | Read only stored sub-fields. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-derived-source-not-numeric"></a>`embedded-field/derived-source-not-numeric` | A derived cell reads only number, decimal or money sub-fields. | Point from at number, decimal or money sub-fields of the same row. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-derived-source-unknown"></a>`embedded-field/derived-source-unknown` | A derived cell reads only sub-fields that exist in the schema. | Read an existing sub-field. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-derived-target-not-numeric"></a>`embedded-field/derived-target-not-numeric` | The target of a derived cell is a number, decimal or money sub-field. | Change the target sub-field's type to number, decimal or money. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-derived-when-reads-derived"></a>`embedded-field/derived-when-reads-derived` | A derived cell's when reads a stored sub-field, not another derived cell. | Read a stored sub-field in when. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-file-sub-field-in-derived"></a>`embedded-field/file-sub-field-in-derived` | File sub-fields are not used in derived cells or totals. | Remove the file sub-field from derived, totals and totalsMatch. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-in-range-needs-three-sources"></a>`embedded-field/in-range-needs-three-sources` | A derived cell with op "inRange" has exactly three sources (value, min, max). | List exactly value, min and max in from. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-in-range-target-not-select"></a>`embedded-field/in-range-target-not-select` | The target of an "inRange" derived cell is a select sub-field with the inside and outside options. | Make the target a select sub-field that lists both the inside and the outside option. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-list-options-on-non-list"></a>`embedded-field/list-options-on-non-list` | minItems, maxItems, derived, totals and totalsMatch are set only on embedded lists. | Set multiple: true or remove the options. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-max-items-too-small"></a>`embedded-field/max-items-too-small` | An embedded list maxItems is at least 1. | Set maxItems to 1 or more. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-min-items-above-max"></a>`embedded-field/min-items-above-max` | An embedded list minItems is not greater than maxItems. | Set minItems at or below maxItems. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-min-items-negative"></a>`embedded-field/min-items-negative` | An embedded list minItems is at least 0. | Set minItems to 0 or more. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-option-tone-not-an-option"></a>`embedded-field/option-tone-not-an-option` | Every optionTones key of a select sub-field is one of its options. | Remove the tone or add the option. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="embedded-field-percent-needs-two-sources"></a>`embedded-field/percent-needs-two-sources` | A derived cell with op "percent" has exactly two sources (base, rate). | List base and rate in from. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-required-min-items-zero"></a>`embedded-field/required-min-items-zero` | A required embedded list does not set minItems: 0. | Drop minItems or set required: false. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-schema-empty"></a>`embedded-field/schema-empty` | An embedded field declares at least one sub-field. | Declare a sub-field in the embedded schema. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-select-options-empty"></a>`embedded-field/select-options-empty` | A select sub-field has at least one option. | Add an option. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-sub-field-type-invalid"></a>`embedded-field/sub-field-type-invalid` | An embedded sub-field uses an allowed sub-field type. | Use one of the allowed embedded sub-field types. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-totals-from-empty"></a>`embedded-field/totals-from-empty` | A totals entry lists at least one source in from. | List a number, money or decimal sub-field. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-totals-match-key-not-money"></a>`embedded-field/totals-match-key-not-money` | A totalsMatch key is a money sub-field of the schema. | Use a money sub-field as the totalsMatch key. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-totals-match-sibling-not-money"></a>`embedded-field/totals-match-sibling-not-money` | A totalsMatch value maps to a money field of the entity. | Map it to a money field of the entity. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="embedded-field-totals-not-numeric"></a>`embedded-field/totals-not-numeric` | Totals list only number, money or decimal sub-fields. | List only number, money or decimal sub-fields. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+
+## entity
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="entity-derived-field-collision"></a>`entity/derived-field-collision` | A derivedFields key does not match a stored field. | Rename the derivedFields key or the stored field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-encrypted-filterable"></a>`entity/encrypted-filterable` | An encrypted text field is not filterable. | Drop filterable: true or remove the encryption. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-encrypted-searchable"></a>`entity/encrypted-searchable` | An encrypted text field is not searchable. | Drop searchable: true or remove the encryption. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-encrypted-sortable"></a>`entity/encrypted-sortable` | An encrypted text field is not sortable. | Drop sortable: true or remove the encryption. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-extend-schema-collision"></a>`entity/extend-schema-collision` | An extendSchema column does not collide with an entity field. | Rename the extension column or the entity field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-located-by-missing-field"></a>`entity/located-by-missing-field` | A timestamp locatedBy names a field of the same entity. | Declare the tz field or use createLocatedTimestampField(). | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-located-by-not-tz"></a>`entity/located-by-not-tz` | A timestamp locatedBy points at a tz field. | Point locatedBy at a field of type tz. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-searchable-restricted-read"></a>`entity/searchable-restricted-read` | A searchable field has no restricted access.read. | Drop searchable/find: "fuzzy" or access.read. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+
 ## entity-edit
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="entity-edit-read-only-field-unknown"></a>`entity-edit/read-only-field-unknown` | The readOnly condition field is a field of the screen's entity. | Name an existing entity field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="entity-edit-record-title-field-unknown"></a>`entity-edit/record-title-field-unknown` | recordTitleField is a field of the screen's entity. | Name an existing entity field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
+
+## entity-index
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="entity-index-columns-empty"></a>`entity-index/columns-empty` | An entity index lists at least one column. | Add a column to the index. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-index-long-text-column"></a>`entity-index/long-text-column` | An index does not cover a longText field. | Use text if the column needs an index, or use the SearchAdapter. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-index-multi-value-column"></a>`entity-index/multi-value-column` | An index does not cover a multi-value field. | Use a single-value field or remove it from the index. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-index-tenant-id-only"></a>`entity-index/tenant-id-only` | A non-unique index is not on tenantId alone. | Remove the entry; buildEntityTable creates it automatically. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-index-unique-encrypted-column"></a>`entity-index/unique-encrypted-column` | A unique index does not cover an encrypted column. | Remove unique or encrypted. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-index-unknown-column"></a>`entity-index/unknown-column` | Every index column is a field of the entity or a base column. | Fix the column name. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
 ## entity-list
 
@@ -128,8 +201,30 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="extension-presave-without-mapped-write"></a>`extension/presave-without-mapped-write` | An extension with preSave is used only on entities that have an entity-mapped write handler. | Use create/update/delete on a matching entity or name the handler "entity:verb". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="extension-provider-not-required"></a>`extension/provider-not-required` | A feature using an extension lists the defining feature in requires or optionalRequires. | Add the defining feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="extension-unknown-extension"></a>`extension/unknown-extension` | Every extension a feature uses is defined by some mounted feature. | Register the feature that defines the extension or fix the extension name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
+
+## field-condition
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="field-condition-comparison-value-not-option"></a>`field-condition/comparison-value-not-option` | A condition on a select field compares only against options of that field. | Compare against one of the select field's options. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="field-condition-field-type-not-comparable"></a>`field-condition/field-type-not-comparable` | A visibleWhen, requiredWhen or lockedWhen field stores a plain scalar the condition can compare. | Use a text, select, boolean, number or reference field (more types for sub-fields). | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="field-condition-on-own-field"></a>`field-condition/on-own-field` | A visibleWhen, requiredWhen or when condition depends on a different field or sibling. | Point the condition's field at another field of the entity (or a sibling sub-field). | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="field-condition-required-with-required-when"></a>`field-condition/required-with-required-when` | A field does not set required: true together with requiredWhen. | Drop required; requiredWhen covers the conditional case. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="field-condition-required-with-visible-when"></a>`field-condition/required-with-visible-when` | A field does not set required: true together with visibleWhen. | Drop required and use requiredWhen with the same condition as visibleWhen. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="field-condition-unknown-field"></a>`field-condition/unknown-field` | A condition's field names a field of the entity or a sub-field of the same row. | Use an existing field of the entity, or a sibling sub-field inside an embedded row. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+
+## file-field
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="file-field-accept-entry-empty"></a>`file-field/accept-entry-empty` | The accept list has no empty entries. | List file extensions like "pdf". | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="file-field-accept-entry-not-bare-extension"></a>`file-field/accept-entry-not-bare-extension` | Every accept entry is a bare lower-case file extension. | Use "pdf" instead of ".pdf", a MIME type or a wildcard. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="file-field-max-count-invalid"></a>`file-field/max-count-invalid` | A file sub-field maxCount is a positive integer. | Set maxCount to a positive integer. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="file-field-max-size-invalid"></a>`file-field/max-size-invalid` | A file sub-field maxSize is a parseable size string. | Use a size like "10mb" or "500kb". | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
+| <a id="file-field-sub-field-searchable"></a>`file-field/sub-field-searchable` | A file or image sub-field is not searchable. | Remove searchable from the file sub-field. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
 
 ## form
 
@@ -190,6 +285,45 @@
 | <a id="form-write-form-section-unsupported"></a>`form/write-form-section-unsupported` | Inline form layouts have no writeForm sections. | Move the section to a projectionDetail screen or remove it. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-write-only-field"></a>`form/write-only-field` | Inline form fields do not declare writeOnly. | Remove writeOnly; use format: "password" for a masked input. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 
+## form-derive
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="form-derive-cell-not-numeric"></a>`form-derive/cell-not-numeric` | The cell of a listSum derivation is a money, number or decimal sub-field. | Name a numeric sub-field of the list. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-handler-not-wrapped"></a>`form-derive/handler-not-wrapped` | A screen that declares derive uses a handler wrapped with withFormDerivations. | Wrap the handler schema: withFormDerivations(schema, screen) with this screen object. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-invalid-order"></a>`form-derive/invalid-order` | Derivations have a valid evaluation order (no cycles). | Remove the dependency cycle between derived fields. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-list-not-embedded-list"></a>`form-derive/list-not-embedded-list` | The list of a listSum derivation is an embedded list field. | Use an embedded field with multiple: true. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-list-sum-kind-mismatch"></a>`form-derive/list-sum-kind-mismatch` | A listSum target is money exactly when its cell is money. | Change the target field type to match the cell. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-percent-needs-two-sources"></a>`form-derive/percent-needs-two-sources` | A "percent" derivation has exactly two sources (base, rate). | List base and rate in from. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-source-not-numeric"></a>`form-derive/source-not-numeric` | Every derivation source is a money, number or decimal field. | Use money, number or decimal source fields. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-sources-money-mixed"></a>`form-derive/sources-money-mixed` | The sources of a sum or subtract derivation are all money or all number/decimal. | Use sources of one kind. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-target-kind-mismatch"></a>`form-derive/target-kind-mismatch` | A derivation's target is money exactly when its sources are money. | Change the target field type to match the sources. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-target-not-numeric"></a>`form-derive/target-not-numeric` | A derived field is a money, number or decimal field. | Change the target field type to money, number or decimal. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-too-many-money-sources"></a>`form-derive/too-many-money-sources` | A derivation other than sum/subtract takes at most one money source. | Use at most one money source (for percent: the base, not the rate). | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-unknown-list-field"></a>`form-derive/unknown-list-field` | The list of a listSum derivation is a field of the screen. | Name a field of this screen. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-unknown-source-field"></a>`form-derive/unknown-source-field` | Every derivation source is a field of the screen. | Name a field of this screen. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-unknown-target"></a>`form-derive/unknown-target` | Every derive key is a field of the screen. | Use a field name of this screen as key. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+| <a id="form-derive-when-empty-list-sum"></a>`form-derive/when-empty-list-sum` | whenEmpty of a listSum is not itself a listSum. | Use a from-based derivation as whenEmpty. | `packages/framework/src/engine/boot-validator/form-derivations-rules.ts` |
+
+## handler
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="handler-access-all-role"></a>`handler/access-all-role` | Handler access does not list the role "all". | Use roles: ["anonymous"] plus an ip rateLimit, or openToAll: { reason }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-access-missing"></a>`handler/access-missing` | Every write, query and stream handler declares an access rule. | Set access: { roles: [...] } or { openToAll: { reason } }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-tenantless-anonymous-access"></a>`handler/tenantless-anonymous-access` | A tenantlessAnonymous handler allows exactly the anonymous role. | Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-tenantless-anonymous-rate-limit-per"></a>`handler/tenantless-anonymous-rate-limit-per` | A tenantlessAnonymous handler rate-limits per ip or ip+handler. | Use per "ip" or "ip+handler". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-tenantless-anonymous-without-rate-limit"></a>`handler/tenantless-anonymous-without-rate-limit` | A tenantlessAnonymous handler declares an active rateLimit. | Set rateLimit: { per: "ip", ... }; disabled does not count. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+
+## handler-schema
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="handler-schema-invalid-references"></a>`handler-schema/invalid-references` | A references meta on an input field is an entity name, feature:entity or { entity, by? }. | Use "<entity>", "<feature>:<entity>" or { entity, by? }. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+| <a id="handler-schema-unknown-references-by"></a>`handler-schema/unknown-references-by` | The by field of a references meta is a field of the referenced entity. | Use an existing field of that entity for by. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+| <a id="handler-schema-unknown-references-entity"></a>`handler-schema/unknown-references-entity` | The entity a references meta names is registered. | Use "<entity>" for this feature or "<feature>:<entity>" for another one. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+| <a id="handler-schema-zod-walk-limit"></a>`handler-schema/zod-walk-limit` | A handler schema has a finite node count when walked. | Hoist a z.lazy() getter that returns a new schema on every call into a constant. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+
 ## i18n
 
 | Rule | Summary | Fix | Source |
@@ -199,6 +333,18 @@
 | <a id="i18n-missing-field-value-translation"></a>`i18n/missing-field-value-translation` | With requireFieldValueTranslations, select options and embedded cells are translated. | Add the keys via r.translations(...) in the owning feature. | `packages/framework/src/engine/boot-validator/i18n-keys-rules.ts` |
 | <a id="i18n-missing-required-locale"></a>`i18n/missing-required-locale` | Every translation key exists in every locale the app requires. | Load the matching locale package or add the missing translations. | `packages/framework/src/engine/boot-validator/i18n-keys-rules.ts` |
 | <a id="i18n-missing-settings-hub-key"></a>`i18n/missing-settings-hub-key` | Every translation key the generated settings hub requires is defined. | Add the key via r.translations(...) in the owning feature. | `packages/framework/src/engine/boot-validator/i18n-keys-rules.ts` |
+
+## image-variant
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="image-variant-blur-invalid"></a>`image-variant/blur-invalid` | An image variant blur is a finite number in (0, max]. | Fix blur. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-blur-region-invalid"></a>`image-variant/blur-region-invalid` | Image variant blurRegions lie within the unit square. | Keep x/y/width/height within 0..1. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-max-edge-invalid"></a>`image-variant/max-edge-invalid` | An image variant maxEdge is a positive integer up to the edge limit. | Fix maxEdge. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-name-invalid"></a>`image-variant/name-invalid` | An image variant name matches the variant name pattern. | Rename the variant. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-quality-invalid"></a>`image-variant/quality-invalid` | An image variant quality is an integer in 1..100. | Fix quality. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-size-and-max-edge"></a>`image-variant/size-and-max-edge` | An image variant sets size or maxEdge, not both. | Pick one. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="image-variant-size-invalid"></a>`image-variant/size-invalid` | An image variant size is a positive integer up to the edge limit. | Fix width and height. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
 ## list
 
@@ -221,6 +367,25 @@
 | <a id="list-related-toolbar-visible-when"></a>`list/related-toolbar-visible-when` | relatedList toolbarActions use visible instead of visibleWhen. | Use visible, a condition on the enclosing record. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 | <a id="list-screen-id-unresolved"></a>`list/screen-id-unresolved` | listScreenId names a mounted screen. | Fix the listScreenId or mount the list screen. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 | <a id="list-screen-unreachable"></a>`list/screen-unreachable` | A screen without a nav entry has a resolvable list, or is marked dormant. | Declare listScreenId, add a standalone r.nav() pointing at it, or set dormant: true. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
+
+## locked-when
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="locked-when-ciphertext-field"></a>`locked-when/ciphertext-field` | The lockedWhen field is plaintext at rest. | Use a plaintext field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="locked-when-read-restricted-field"></a>`locked-when/read-restricted-field` | The lockedWhen field has no read restriction. | Drop field access.read or use another field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="locked-when-unknown-field"></a>`locked-when/unknown-field` | The lockedWhen field is a field of the entity. | Name an existing field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+
+## multi-select
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="multi-select-columns-invalid"></a>`multi-select/columns-invalid` | Checkbox columns is 1, 2, 3 or 4. | Use a supported columns value. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="multi-select-columns-without-checkboxes"></a>`multi-select/columns-without-checkboxes` | columns is set only with display: "checkboxes". | Set display: "checkboxes" or drop columns. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="multi-select-default-not-option"></a>`multi-select/default-not-option` | Every multiSelect default value is one of its options. | Use options only in default. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="multi-select-max-rows-invalid"></a>`multi-select/max-rows-invalid` | Checkbox maxRows is a positive integer. | Set maxRows to a positive integer. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="multi-select-max-rows-without-checkboxes"></a>`multi-select/max-rows-without-checkboxes` | maxRows is set only with display: "checkboxes". | Set display: "checkboxes" or drop maxRows. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="multi-select-options-empty"></a>`multi-select/options-empty` | A multiSelect field has at least one option. | Add an option. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
 ## named-filter
 
@@ -258,6 +423,12 @@
 | <a id="pii-write-only-non-text"></a>`pii/write-only-non-text` | writeOnly applies to text fields only. | Use a text field or remove writeOnly. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-write-only-without-sensitive"></a>`pii/write-only-without-sensitive` | A writeOnly field is also sensitive. | Declare the field with find: "secret". | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 
+## projection
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="projection-per-instance-with-table"></a>`projection/per-instance-with-table` | A MultiStreamProjection with a table uses shared delivery. | Use delivery "shared", or drop the table for side-effect-only consumers. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+
 ## projection-detail
 
 | Rule | Summary | Fix | Source |
@@ -280,6 +451,35 @@
 | <a id="projection-detail-write-form-field-defs-empty"></a>`projection-detail/write-form-field-defs-empty` | A writeForm section declares at least one fieldDefs entry. | Declare at least one field type. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
 | <a id="projection-detail-write-form-field-without-def"></a>`projection-detail/write-form-field-without-def` | Every rendered writeForm field has a fieldDefs entry. | Add the field to fieldDefs. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
 | <a id="projection-detail-write-form-fields-empty"></a>`projection-detail/write-form-fields-empty` | A writeForm section lists at least one field. | Drop the section or add fields. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
+
+## rate-limit
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="rate-limit-additional-buckets-empty"></a>`rate-limit/additional-buckets-empty` | additionalRateLimits lists at least one bucket. | Declare a bucket or drop additionalRateLimits. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-additional-payload-field-duplicate"></a>`rate-limit/additional-payload-field-duplicate` | additionalRateLimits has one entry per payloadField. | Keep one entry per payloadField. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-additional-without-ip-bucket"></a>`rate-limit/additional-without-ip-bucket` | An anonymous handler with additionalRateLimits also has an ip-keyed rateLimit. | Set rateLimit: { per: "ip", ... } on the handler. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-anonymous-user-bucket"></a>`rate-limit/anonymous-user-bucket` | A handler that allows anonymous callers does not bucket per user. | Use rateLimit.per "ip" or "ip+handler". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-anonymous-without-rate-limit"></a>`rate-limit/anonymous-without-rate-limit` | A handler that allows anonymous callers declares a rateLimit. | Set rateLimit: { per: "ip", ... } or { disabled: true, reason }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-bucket-list-empty"></a>`rate-limit/bucket-list-empty` | A rateLimit array lists at least one bucket. | Declare a bucket or drop the option. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-bucket-per-duplicate"></a>`rate-limit/bucket-per-duplicate` | A rateLimit array has one entry per "per". | Keep one entry per "per". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-cost-on-anonymous-handler"></a>`rate-limit/cost-on-anonymous-handler` | rateLimitCost is declared only on authenticated handlers without an ip bucket. | Use a user/tenant bucket and drop "anonymous", or drop rateLimitCost. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-cost-without-rate-limit"></a>`rate-limit/cost-without-rate-limit` | rateLimitCost requires an active rateLimit. | Declare rateLimit or drop rateLimitCost. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-disabled-without-reason"></a>`rate-limit/disabled-without-reason` | A disabled rateLimit carries a non-empty reason. | Provide { disabled: true, reason: "..." }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-payload-field-unknown"></a>`rate-limit/payload-field-unknown` | Every additionalRateLimits payloadField is a field of the handler schema. | Name a field of the handler Zod object schema. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-payload-limit-invalid"></a>`rate-limit/payload-limit-invalid` | An additionalRateLimits limit is a positive integer. | Set limit to a positive integer. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="rate-limit-payload-window-invalid"></a>`rate-limit/payload-window-invalid` | An additionalRateLimits windowSeconds is a positive integer. | Set windowSeconds to a positive integer. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+
+## reference
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="reference-options-query-empty"></a>`reference/options-query-empty` | A reference optionsQuery is not empty. | Drop the property or name a query handler. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="reference-options-query-unregistered"></a>`reference/options-query-unregistered` | A reference optionsQuery names a registered query handler. | Check the QN spelling and register the handler via r.queryHandler(...). | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="reference-target-without-list-handler"></a>`reference/target-without-list-handler` | The referenced entity has a registered list query handler. | Register r.queryHandler(defineEntityListHandler(...)) in the target feature. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="reference-unknown-entity"></a>`reference/unknown-entity` | A reference field targets an entity of the target feature. | Fix the entity name of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="reference-unknown-feature"></a>`reference/unknown-feature` | A reference field targets a registered feature. | Fix the feature prefix of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+| <a id="reference-unknown-label-field"></a>`reference/unknown-label-field` | A reference labelField is a field of the referenced entity. | Name an existing field of the referenced entity. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 
 ## retention
 
@@ -354,6 +554,31 @@
 | <a id="secret-mint-reveal-field-label-empty"></a>`secret-mint/reveal-field-label-empty` | Every reveal.fields entry has a non-empty string label. | Set label to a non-empty string. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="secret-mint-reveal-field-name-empty"></a>`secret-mint/reveal-field-name-empty` | Every reveal.fields entry has a non-empty string field. | Set field to a non-empty string. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="secret-mint-reveal-fields-empty"></a>`secret-mint/reveal-fields-empty` | A secretMint screen reveals at least one field. | Declare at least one reveal field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
+
+## select
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="select-availability-query-unregistered"></a>`select/availability-query-unregistered` | optionsAvailabilityQuery names a registered query handler. | Check the QN spelling and register the handler via r.queryHandler(...). | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-option-default"></a>`select/conditional-option-default` | The default option is not inside a conditionalOptions rule. | Move the default out of the rule. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-option-duplicate"></a>`select/conditional-option-duplicate` | An option belongs to one conditionalOptions rule only. | Remove the option from one of the rules. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-option-unknown"></a>`select/conditional-option-unknown` | conditionalOptions list only options of the select field. | List an option that exists in options. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-options-rule-empty"></a>`select/conditional-options-rule-empty` | Every conditionalOptions rule lists at least one option. | Drop the rule or add options. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-options-with-options-query"></a>`select/conditional-options-with-options-query` | A select field does not combine conditionalOptions with optionsQuery. | Remove either conditionalOptions or optionsQuery. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-when-own-field"></a>`select/conditional-when-own-field` | A conditionalOptions when depends on a different field. | Make the condition depend on another field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-when-unknown-field"></a>`select/conditional-when-unknown-field` | A conditionalOptions when.field is a field of the entity. | Use an existing field of the entity. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-conditional-when-value-not-option"></a>`select/conditional-when-value-not-option` | A conditionalOptions when compares only against options of the condition field. | Compare against an option of the condition field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-option-tone-invalid"></a>`select/option-tone-invalid` | Every select optionTones value is a known tone. | Use one of the listed tones. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+
+## transition
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="transition-field-not-select"></a>`transition/field-not-select` | Transitions are declared for a select field. | Declare transitions on a select field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="transition-state-not-option"></a>`transition/state-not-option` | Every transition source state is an option of the select field. | Use an existing option. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="transition-target-not-option"></a>`transition/target-not-option` | Every transition target is an option of the select field. | Use an existing option. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="transition-unknown-field"></a>`transition/unknown-field` | Transitions are declared for a field of the entity. | Fix the field name. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
 ## user-data-rights
 

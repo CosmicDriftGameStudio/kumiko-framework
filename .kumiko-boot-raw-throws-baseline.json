@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-10-29",
-  "total": 303,
+  "total": 156,
   "perFile": {
     "packages/bundled-features/src/auth-foundation/boot-checks.ts": 5,
     "packages/bundled-features/src/document-ingest-foundation/boot-checks.ts": 3,
@@ -11,13 +11,8 @@
     "packages/framework/src/engine/boot-validator/boot-phases-app.ts": 1,
     "packages/framework/src/engine/boot-validator/bundled-lists-table.ts": 6,
     "packages/framework/src/engine/boot-validator/config-deps.ts": 23,
-    "packages/framework/src/engine/boot-validator/derived-sql-fields.ts": 17,
-    "packages/framework/src/engine/boot-validator/entity-handler.ts": 89,
     "packages/framework/src/engine/boot-validator/entity-list-aggregate-options.ts": 2,
-    "packages/framework/src/engine/boot-validator/field-conditions.ts": 21,
-    "packages/framework/src/engine/boot-validator/form-derivations.ts": 16,
     "packages/framework/src/engine/boot-validator/global-tenancy.ts": 2,
-    "packages/framework/src/engine/boot-validator/handler-field-references.ts": 3,
     "packages/framework/src/engine/boot-validator/list-bulk-actions.ts": 8,
     "packages/framework/src/engine/boot-validator/list-column-layout.ts": 5,
     "packages/framework/src/engine/boot-validator/list-table-aggregate-options.ts": 13,
@@ -36,7 +31,6 @@
     "packages/framework/src/engine/boot-validator/related-list-table-rules.ts": 4,
     "packages/framework/src/engine/boot-validator/transaction-phases.ts": 3,
     "packages/framework/src/engine/boot-validator/transfer-graph.ts": 2,
-    "packages/framework/src/engine/boot-validator/workspaces.ts": 2,
-    "packages/framework/src/engine/boot-validator/zod-shape.ts": 1
+    "packages/framework/src/engine/boot-validator/workspaces.ts": 2
   }
 }
