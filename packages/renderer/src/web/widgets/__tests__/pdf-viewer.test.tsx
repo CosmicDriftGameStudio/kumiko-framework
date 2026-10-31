@@ -213,6 +213,22 @@ describe("PdfViewer", () => {
     await waitFor(() => expect(scrolledHits).toEqual(["Whg. 4"]));
   });
 
+  test("the opening page re-anchors once rendered, until the reader jumps elsewhere", async () => {
+    Object.assign(globalThis, { IntersectionObserver: undefined });
+    renderViewer(<PdfViewer document={fakeDocument()} initialPage={3} />);
+    await waitFor(() => expect(scrolledSheets).toContain("3"));
+    const input = screen.getByLabelText("Page number");
+    fireEvent.change(input, { target: { value: "1" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    scrolledSheets.length = 0;
+    scrolledPages.length = 0;
+    fireEvent.click(screen.getByLabelText("Zoom in"));
+    await waitFor(() => expect(screen.getByTestId("pdf-zoom").textContent).toBe("125 %"));
+    await screen.findByTestId("pdf-page-3");
+    expect(scrolledSheets).not.toContain("3");
+    expect(scrolledPages).not.toContain("3");
+  });
+
   test("markTerm marks the passage, re-anchors its rendered page top and leaves the search closed but usable", async () => {
     Object.assign(globalThis, { IntersectionObserver: undefined });
     renderViewer(<PdfViewer document={fakeDocument()} markTerm="Whg. 4" initialPage={3} />);

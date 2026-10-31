@@ -131,13 +131,16 @@ export function PdfViewer({
     reportMatches({ count: matchCount, index: clampedMatchIndex });
   }, [matchCount, clampedMatchIndex]);
 
+  // The opening page keeps its top in view while the layout settles, until the reader goes elsewhere.
+  const [leftPage, setLeftPage] = useState<number | null>(null);
   const goToPage = useCallback(
     (page: number) => {
       const target = clampPage(page, pageCount);
+      setLeftPage(initialPage);
       commitPage(target);
       pageSlotFor(scrollerRef.current, target)?.scrollIntoView({ block: "start" });
     },
-    [pageCount, commitPage],
+    [pageCount, commitPage, initialPage],
   );
 
   useVisiblePageTracking(scrollerRef, commitPage);
@@ -157,11 +160,6 @@ export function PdfViewer({
     jumpToMatch({ page: activePage, matchIndex, term });
   }, [activePage, matchIndex, term]);
 
-  useEffect(() => {
-    if (initialPage > 1)
-      pageSlotFor(scrollerRef.current, initialPage)?.scrollIntoView({ block: "start" });
-  }, [initialPage]);
-
   const stepMatch = (direction: 1 | -1) => {
     if (matches.length === 0) return;
     setMatchIndex((index) => (index + direction + matches.length) % matches.length);
@@ -169,6 +167,10 @@ export function PdfViewer({
 
   const searchedTerm = searchOpen || hideSearchBar ? term.trim() : "";
   const highlightTerm = searchedTerm === "" ? markTerm.trim() : searchedTerm;
+  const anchorPage =
+    searchedTerm === "" && initialPage > 1 && leftPage !== initialPage
+      ? clampPage(initialPage, pageCount)
+      : null;
   return (
     <div
       data-testid="pdf-viewer"
@@ -229,9 +231,8 @@ export function PdfViewer({
                             searchedTerm !== "" && activeMatch?.page === pageNumber
                               ? activeMatch.ordinalOnPage
                               : null,
-                          // The mount-time page jump lands on placeholders that shrink once fit-to-width measures, so the marked page re-anchors after it renders.
-                          anchorTop: searchedTerm === "" && pageNumber === initialPage,
                         },
+                  anchorTop: pageNumber === anchorPage,
                 }}
               />
             ))}
