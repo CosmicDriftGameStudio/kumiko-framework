@@ -4,11 +4,13 @@ import { findEntity } from "../find-entity.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type { ListColumnSpec, ListTableOptions } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
 import {
   type AggregateFieldInfo,
   entityAggregateFieldLookup,
   validateListTableAggregateFieldTypes,
 } from "./list-table-aggregate-options.ts";
+import { LIST_TABLE_AGGREGATE_RULES } from "./list-table-aggregate-rules.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
 
 function columnValueTypeLookup(
@@ -40,11 +42,12 @@ export function validateListTableAggregateQuery(args: {
   if (table?.grouping === undefined && table?.totals === undefined) return;
   const shape = getZodObjectShape(handler?.schema);
   if (shape === undefined || !("aggregate" in shape)) {
-    throw new Error(
-      `${prefix}: table.grouping/table.totals need query "${query}" to accept "aggregate" — ` +
+    throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.aggregateParamMissing, {
+      message:
+        `${prefix}: table.grouping/table.totals need query "${query}" to accept "aggregate" — ` +
         `reuse entityListSchema (or listAggregatePayloadSchema) in the handler's schema and answer it ` +
         `with answerListAggregate, or remove grouping and totals.`,
-    );
+    });
   }
   const entity = resolveEntityBehindListQuery(query, handler, (name) =>
     findEntity(args.featureMap, name),

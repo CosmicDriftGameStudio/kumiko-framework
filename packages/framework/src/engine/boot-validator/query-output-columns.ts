@@ -13,8 +13,9 @@ import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.ts";
 import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
+import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
+import { QUERY_RULES } from "./query-rules.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
 
@@ -36,7 +37,7 @@ function checkFieldExists(
 ): void {
   // skip: capability absent (no introspectable shape) or field already present — nothing to validate
   if (shape === undefined || field in shape) return;
-  throw new Error(buildMessage());
+  throw bootRuleError(QUERY_RULES.outputFieldMissing, { message: buildMessage() });
 }
 
 // Unlike entity-list-screens.ts, `label` does not exempt a column here: query
@@ -67,9 +68,9 @@ function checkPagedHandlerOutputSchemaShape(
     if (!isPagedQueryHandler(handler) || handler.outputSchema === undefined) continue;
     const shape = getZodObjectShape(handler.outputSchema);
     if (shape === undefined || "rows" in shape) continue;
-    throw new Error(
-      `Query handler "${qn}" is a paged handler (definePagedQueryHandler) but its outputSchema does not describe the paged envelope { rows: [...], nextCursor, total? } — it has no "rows" field. Did you pass the row schema instead of wrapping it in the envelope?`,
-    );
+    throw bootRuleError(QUERY_RULES.pagedOutputWithoutRows, {
+      message: `Query handler "${qn}" is a paged handler (definePagedQueryHandler) but its outputSchema does not describe the paged envelope { rows: [...], nextCursor, total? } — it has no "rows" field. Did you pass the row schema instead of wrapping it in the envelope?`,
+    });
   }
 }
 
@@ -88,9 +89,9 @@ function resolveListRowShape(
   const envelopeShape = getZodObjectShape(outputSchema);
   // skip: no introspectable object schema (absent / union) — capability absent per module policy
   if (envelopeShape === undefined || "rows" in envelopeShape) return undefined;
-  throw new Error(
-    `${usage} uses query "${queryQn}" as a list source, but its outputSchema does not describe the paged envelope { rows: [...], nextCursor, total? } — it has no "rows" field. Did you pass the row schema instead of wrapping it in the envelope?`,
-  );
+  throw bootRuleError(QUERY_RULES.listSourceOutputWithoutRows, {
+    message: `${usage} uses query "${queryQn}" as a list source, but its outputSchema does not describe the paged envelope { rows: [...], nextCursor, total? } — it has no "rows" field. Did you pass the row schema instead of wrapping it in the envelope?`,
+  });
 }
 
 function checkProjectionListOutputColumns(

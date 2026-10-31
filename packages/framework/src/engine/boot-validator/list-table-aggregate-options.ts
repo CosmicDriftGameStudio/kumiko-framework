@@ -15,6 +15,8 @@ import {
   type ListTableGrouping,
   type ListTableTotal,
 } from "../types/screen.ts";
+import { bootRuleError } from "./boot-rule.ts";
+import { LIST_TABLE_AGGREGATE_RULES } from "./list-table-aggregate-rules.ts";
 import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
 
 type FieldType = FieldDefinition["type"];
@@ -45,10 +47,11 @@ function requireScreenColumn(
 ): void {
   // skip: the field is a column, nothing to report
   if (columnFields.has(field)) return;
-  throw new Error(
-    `${where} ${path} "${field}" is not a column of this screen. ` +
+  throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.aggregateFieldNotColumn, {
+    message:
+      `${where} ${path} "${field}" is not a column of this screen. ` +
       `Columns: ${[...columnFields].join(", ")}.`,
-  );
+  });
 }
 
 const GROUPING_VALUE_CHECKS: readonly {
@@ -72,7 +75,9 @@ function validateGroupingValueTypes(where: string, grouping: Readonly<Record<str
   for (const check of GROUPING_VALUE_CHECKS) {
     const value = grouping[check.key];
     if (value !== undefined && !check.isValid(value)) {
-      throw new Error(`${where} table.grouping.${check.key} ${check.expected}.`);
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.groupingValueInvalid, {
+        message: `${where} table.grouping.${check.key} ${check.expected}.`,
+      });
     }
   }
 }
@@ -81,14 +86,14 @@ function validateGroupingFieldChoice(where: string, grouping: Readonly<Record<st
   const { field, fields, userChoice } = grouping;
   const offered = isStringArray(fields) ? fields : [];
   if (field === undefined && (userChoice !== true || offered.length === 0)) {
-    throw new Error(
-      `${where} table.grouping has no field. Set field, or userChoice: true with at least one entry in fields.`,
-    );
+    throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.groupingNoField, {
+      message: `${where} table.grouping has no field. Set field, or userChoice: true with at least one entry in fields.`,
+    });
   }
   if (fields !== undefined && userChoice !== true) {
-    throw new Error(
-      `${where} table.grouping.fields needs userChoice: true, or the user could never pick them.`,
-    );
+    throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.groupingFieldsWithoutUserChoice, {
+      message: `${where} table.grouping.fields needs userChoice: true, or the user could never pick them.`,
+    });
   }
 }
 
@@ -98,7 +103,9 @@ function validateGroupingShape(
   columnFields: ReadonlySet<string>,
 ): void {
   if (!isPlainObject(grouping)) {
-    throw new Error(`${where} table.grouping must be an object like { field: "status" }.`);
+    throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.groupingNotObject, {
+      message: `${where} table.grouping must be an object like { field: "status" }.`,
+    });
   }
   rejectUnknownKeys(where, "table.grouping", grouping, LIST_TABLE_GROUPING_KEYS);
   validateGroupingValueTypes(where, grouping);
@@ -114,20 +121,25 @@ function validateTotalsShape(
   columnFields: ReadonlySet<string>,
 ): void {
   if (!Array.isArray(totals) || totals.length === 0) {
-    throw new Error(
-      `${where} table.totals must be a non-empty array like [{ field: "amount", kind: "sum" }].`,
-    );
+    throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.totalsNotArray, {
+      message: `${where} table.totals must be a non-empty array like [{ field: "amount", kind: "sum" }].`,
+    });
   }
   for (const [i, entry] of totals.entries()) {
-    if (!isPlainObject(entry)) throw new Error(`${where} table.totals[${i}] must be an object.`);
+    if (!isPlainObject(entry))
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.totalEntryNotObject, {
+        message: `${where} table.totals[${i}] must be an object.`,
+      });
     rejectUnknownKeys(where, `table.totals[${i}]`, entry, LIST_TABLE_TOTAL_KEYS);
     if (typeof entry["field"] !== "string") {
-      throw new Error(`${where} table.totals[${i}].field must be a field name.`);
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.totalFieldNotString, {
+        message: `${where} table.totals[${i}].field must be a field name.`,
+      });
     }
     if (!isOneOf(LIST_AGGREGATE_MEASURE_KINDS, entry["kind"])) {
-      throw new Error(
-        `${where} table.totals[${i}].kind must be one of ${LIST_AGGREGATE_MEASURE_KINDS.join(", ")}.`,
-      );
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.totalKindInvalid, {
+        message: `${where} table.totals[${i}].kind must be one of ${LIST_AGGREGATE_MEASURE_KINDS.join(", ")}.`,
+      });
     }
     requireScreenColumn(where, `table.totals[${i}].field`, entry["field"], columnFields);
   }
@@ -157,9 +169,9 @@ export function validateListTableAggregateShape(
 function rejectSecret(where: string, path: string, field: string, info: AggregateFieldInfo): void {
   // skip: only secret fields are rejected here
   if (!info.secret) return;
-  throw new Error(
-    `${where} ${path} "${field}" is encrypted, personal or secret and cannot be grouped or summed.`,
-  );
+  throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.aggregateFieldSecret, {
+    message: `${where} ${path} "${field}" is encrypted, personal or secret and cannot be grouped or summed.`,
+  });
 }
 
 /**
@@ -175,7 +187,9 @@ export function validateListTableAggregateFieldTypes(
   const resolve = (path: string, field: string): AggregateFieldInfo | undefined => {
     const info = lookup(field);
     if (info === undefined && strict) {
-      throw new Error(`${where} ${path} "${field}" is not a field of the entity behind this list.`);
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.aggregateFieldNotOnEntity, {
+        message: `${where} ${path} "${field}" is not a field of the entity behind this list.`,
+      });
     }
     return info;
   };
@@ -184,9 +198,9 @@ export function validateListTableAggregateFieldTypes(
     if (info === undefined) continue;
     rejectSecret(where, "table.grouping field", field, info);
     if (!isListAggregateGroupable(info.type, info.multiple)) {
-      throw new Error(
-        `${where} table.grouping field "${field}" (${info.type}) cannot be grouped by.`,
-      );
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.groupingFieldNotGroupable, {
+        message: `${where} table.grouping field "${field}" (${info.type}) cannot be grouped by.`,
+      });
     }
   }
   for (const [i, total] of (table.totals ?? []).entries()) {
@@ -195,10 +209,11 @@ export function validateListTableAggregateFieldTypes(
     if (info === undefined) continue;
     rejectSecret(where, `${path}.field`, total.field, info);
     if (!isListAggregateMeasureSupported(total.kind, info.type)) {
-      throw new Error(
-        `${where} ${path}: "${total.kind}" is not supported on ${info.type} field "${total.field}". ` +
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.totalKindUnsupported, {
+        message:
+          `${where} ${path}: "${total.kind}" is not supported on ${info.type} field "${total.field}". ` +
           `sum and avg need number, decimal, money or bigInt; min and max also take date and timestamp.`,
-      );
+      });
     }
   }
 }

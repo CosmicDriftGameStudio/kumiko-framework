@@ -18,6 +18,17 @@
 | --- | --- | --- | --- |
 | <a id="boot-check-failed"></a>`boot-check/failed` | A feature's r.bootCheck invariant holds for the mounted feature set. | Satisfy the invariant named in the message or unmount the feature that declares it. | `packages/framework/src/engine/boot-validator/boot-check-rules.ts` |
 
+## bundled-lists
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="bundled-lists-not-object"></a>`bundled-lists/not-object` | The bundledLists option is an object. | Write bundledLists as an object such as { table: { columnPicker: true } }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-pin-first-column-not-boolean"></a>`bundled-lists/pin-first-column-not-boolean` | bundledLists.pinFirstColumn is a boolean. | Set pinFirstColumn to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-pin-first-column-without-pinning"></a>`bundled-lists/pin-first-column-without-pinning` | bundledLists.pinFirstColumn needs bundledLists.table.pinning. | Set bundledLists.table.pinning: true or remove pinFirstColumn. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping and totals, which depend on one list's fields. | Set grouping and totals in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-table-not-object"></a>`bundled-lists/table-not-object` | bundledLists.table is an object. | Write bundledLists.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-unknown-key"></a>`bundled-lists/unknown-key` | bundledLists uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+
 ## config-edit
 
 | Rule | Summary | Fix | Source |
@@ -368,6 +379,82 @@
 | <a id="list-screen-id-unresolved"></a>`list/screen-id-unresolved` | listScreenId names a mounted screen. | Fix the listScreenId or mount the list screen. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 | <a id="list-screen-unreachable"></a>`list/screen-unreachable` | A screen without a nav entry has a resolvable list, or is marked dormant. | Declare listScreenId, add a standalone r.nav() pointing at it, or set dormant: true. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 
+## list-bulk
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="list-bulk-entry-not-object"></a>`list-bulk/entry-not-object` | Every bulkActions entry is an object with id and rowAction. | Write each entry as { id, rowAction }. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-id-duplicate"></a>`list-bulk/id-duplicate` | Bulk action ids are unique within a list. | Rename or remove the duplicate bulk action. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-id-not-kebab"></a>`list-bulk/id-not-kebab` | A bulk action id is a kebab-case string. | Rename the id to kebab-case. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-not-array"></a>`list-bulk/not-array` | bulkActions is a non-empty array. | Write bulkActions as [{ id: "archive", rowAction: "archive" }] or remove it. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-row-action-missing"></a>`list-bulk/row-action-missing` | A bulk action names the id of a row action in rowAction. | Set rowAction to the id of a declared row action. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-row-action-not-write-handler"></a>`list-bulk/row-action-not-write-handler` | Bulk actions run one server write per row, so they point at writeHandler row actions. | Point rowAction at a writeHandler row action. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-row-action-undeclared"></a>`list-bulk/row-action-undeclared` | A bulk action's rowAction is declared in the list's rowActions. | Declare the row action in rowActions or point rowAction at a declared one. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-unknown-key"></a>`list-bulk/unknown-key` | A bulk action uses only the allowed keys. | Remove the unknown keys. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+
+## list-query
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="list-query-count-and-count-field"></a>`list-query/count-and-count-field` | A relatedList section declares either count or countField. | Pick one badge source. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-count-needs-tabs-layout"></a>`list-query/count-needs-tabs-layout` | A relatedList section with count: true sits in a layout with mode "tabs". | Use mode "tabs" or remove count. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-count-param-missing"></a>`list-query/count-param-missing` | A relatedList section with count: true binds a query that accepts limit and totalCount. | Add the missing parameter to the query's Zod schema. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-date-range-param-missing"></a>`list-query/date-range-param-missing` | The query accepts every param a dateRange facet sends. | Add the param to the handler's schema or point params at keys it already accepts. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-date-range-param-reused"></a>`list-query/date-range-param-reused` | Each dateRange facet on a screen uses its own param names. | Give each dateRange facet its own param names. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-date-range-reserved-param"></a>`list-query/date-range-reserved-param` | A dateRange facet bound does not use a reserved list-payload key. | Pick the query's own time-bound param names. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-date-range-same-param"></a>`list-query/date-range-same-param` | A dateRange facet names different params for its from and to bounds. | Use two different param names for from and to. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-default-sort-required"></a>`list-query/default-sort-required` | A projectionList with active search or sort declares a defaultSort. | Set defaultSort: { field, direction } on the screen. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-derived-flag-hand-authored"></a>`list-query/derived-flag-hand-authored` | A projectionList sets neither sortable nor paginated, both come from the query's Zod schema. | Remove sortable and paginated from the screen. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-facets-without-filters-param"></a>`list-query/facets-without-filters-param` | A list that declares facets sent as filters binds a query with a "filters" parameter. | Add a filters parameter to the handler's schema, or reuse entityListSchema's shape. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-filter-param-missing"></a>`list-query/filter-param-missing` | A projectionList that declares filter binds a query with a "filter" parameter. | Add a filter parameter to the handler's schema, or reuse entityListSchema's shape. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-parent-filter-and-parent-param"></a>`list-query/parent-filter-and-parent-param` | A relatedList section declares parentFilter or parentParam, not both. | Remove parentParam or drop parentFilter. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-parent-filter-field-unknown"></a>`list-query/parent-filter-field-unknown` | parentFilter.field is a declared field of the entity behind the section's query. | Use one of the known fields named in the message. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-parent-filter-param-missing"></a>`list-query/parent-filter-param-missing` | A relatedList section with parentFilter binds a query with a "filter" parameter. | Add a filter parameter to the handler's schema, or reuse entityListSchema's shape. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-searchable-false-disables-search"></a>`list-query/searchable-false-disables-search` | A projectionList whose query accepts "search" is searchable unless it is on the searchable-false whitelist. | Remove searchable: false or add the screen id to SEARCHABLE_FALSE_WHITELIST. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-searchable-without-search-param"></a>`list-query/searchable-without-search-param` | A searchable list binds a query whose Zod schema has a "search" parameter. | Add a "search" field to the query schema or remove searchable: true. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-searchable-without-searchable-field"></a>`list-query/searchable-without-searchable-field` | A searchable projectionList does not list an entity that has no searchable field. | Mark a field searchable: true on the entity or remove searchable: true. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+
+## list-table
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="list-table-aggregate-field-not-column"></a>`list-table/aggregate-field-not-column` | Fields used by table.grouping and table.totals are columns of the screen. | Add the field to the screen's columns or use a listed column. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-aggregate-field-not-on-entity"></a>`list-table/aggregate-field-not-on-entity` | Fields used by table.grouping and table.totals exist on the entity behind the list. | Use a field of the entity. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-aggregate-field-secret"></a>`list-table/aggregate-field-secret` | table.grouping and table.totals skip encrypted, personal and secret fields. | Pick a field that is not encrypted, personal or secret. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-aggregate-param-missing"></a>`list-table/aggregate-param-missing` | A list with table.grouping or table.totals binds a query that accepts aggregate. | Reuse entityListSchema or listAggregatePayloadSchema, answer it with answerListAggregate, or remove grouping and totals. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-column-min-width-exceeds-width"></a>`list-table/column-min-width-exceeds-width` | A column's minWidth is not greater than its width. | Lower minWidth or raise width. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-column-pinned-invalid"></a>`list-table/column-pinned-invalid` | A column's pinned value is one of the known pin sides. | Use one of the listed pin values. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-column-pinned-without-pinning"></a>`list-table/column-pinned-without-pinning` | A pinned column needs table.pinning, otherwise the pin has no effect. | Set table: { pinning: true } or remove pinned from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-column-width-invalid"></a>`list-table/column-width-invalid` | A column's width and minWidth are finite pixel counts greater than 0. | Set a positive finite number or remove the option. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-column-width-without-resizing"></a>`list-table/column-width-without-resizing` | A column's width or minWidth needs table.resizing, otherwise it has no effect. | Set table: { resizing: true } or remove width and minWidth from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-density-default-invalid"></a>`list-table/density-default-invalid` | table.density.default is one of the known densities. | Use one of the listed density values. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-density-empty"></a>`list-table/density-empty` | table.density sets default and/or userChoice. | Set default and/or userChoice, or remove table.density. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-density-not-object"></a>`list-table/density-not-object` | table.density is an object. | Write table.density as { default: "compact", userChoice: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-density-user-choice-not-boolean"></a>`list-table/density-user-choice-not-boolean` | table.density.userChoice is a boolean. | Set userChoice to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-export-max-rows-invalid"></a>`list-table/export-max-rows-invalid` | table.export.maxRows is an integer of at least 1. | Set a positive integer row limit or remove maxRows to use the default. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-export-max-rows-too-large"></a>`list-table/export-max-rows-too-large` | table.export.maxRows stays within the in-memory workbook limit. | Lower maxRows to the allowed maximum. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-export-not-allowed"></a>`list-table/export-not-allowed` | table.export is only declared on entityList and projectionList screens. | Remove table.export from this screen or section. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-export-not-object"></a>`list-table/export-not-object` | table.export is an object. | Write table.export as { xlsx: true, maxRows: 5000 }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-export-xlsx-not-true"></a>`list-table/export-xlsx-not-true` | table.export.xlsx is true, the only export format. | Set xlsx: true. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-grouping-field-not-groupable"></a>`list-table/grouping-field-not-groupable` | table.grouping uses only field types that can be grouped by. | Group by a groupable field. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-grouping-fields-without-user-choice"></a>`list-table/grouping-fields-without-user-choice` | table.grouping.fields comes with userChoice: true, otherwise the user cannot pick them. | Set userChoice: true or remove fields. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-grouping-no-field"></a>`list-table/grouping-no-field` | table.grouping names a field, or offers fields with userChoice: true. | Set field, or userChoice: true with at least one entry in fields. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-grouping-not-object"></a>`list-table/grouping-not-object` | table.grouping is an object. | Write table.grouping as { field: "status" }. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-grouping-value-invalid"></a>`list-table/grouping-value-invalid` | Each table.grouping option has the value type its schema expects. | Change the option to the type named in the message. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-hidden-not-boolean"></a>`list-table/hidden-not-boolean` | A column's hidden flag is a boolean. | Set hidden to true or remove it. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-hidden-without-column-picker"></a>`list-table/hidden-without-column-picker` | Hidden columns need table.columnPicker, otherwise the user can never show them. | Set table: { columnPicker: true } or remove hidden from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-hides-every-column"></a>`list-table/hides-every-column` | At least one list column starts visible. | Remove hidden from one column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-not-object"></a>`list-table/not-object` | A list's table option is an object. | Write table as an object such as { rememberState: true } using only the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-option-not-boolean"></a>`list-table/option-not-boolean` | The boolean table switches (rememberState, columnPicker, pinning, ...) are booleans. | Set the table option to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-range-facet-field-type"></a>`list-table/range-facet-field-type` | A facet with display "range" is on a number, decimal, money or bigInt field. | Use another facet display or a numeric field. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-range-facet-not-filterable"></a>`list-table/range-facet-not-filterable` | A facet with display "range" is on a filterable field that is not encrypted, personal or secret. | Set filterable: true on the field or drop the range facet. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-total-entry-not-object"></a>`list-table/total-entry-not-object` | Every table.totals entry is an object. | Write each entry as { field, kind }. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-total-field-not-string"></a>`list-table/total-field-not-string` | A table.totals entry names its field as a string. | Set field to a field name. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-total-kind-invalid"></a>`list-table/total-kind-invalid` | A table.totals entry uses a supported aggregate kind. | Use one of the listed kinds. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-total-kind-unsupported"></a>`list-table/total-kind-unsupported` | A table.totals kind is supported on the type of its field. | Use sum or avg on number, decimal, money or bigInt fields; min and max also take date and timestamp. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-totals-not-array"></a>`list-table/totals-not-array` | table.totals is a non-empty array. | Write table.totals as [{ field: "amount", kind: "sum" }] or remove it. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
+| <a id="list-table-unknown-keys"></a>`list-table/unknown-keys` | A table option block uses only the keys its schema allows. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+
 ## locked-when
 
 | Rule | Summary | Fix | Source |
@@ -452,6 +539,18 @@
 | <a id="projection-detail-write-form-field-without-def"></a>`projection-detail/write-form-field-without-def` | Every rendered writeForm field has a fieldDefs entry. | Add the field to fieldDefs. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
 | <a id="projection-detail-write-form-fields-empty"></a>`projection-detail/write-form-fields-empty` | A writeForm section lists at least one field. | Drop the section or add fields. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
 
+## query
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="query-list-source-output-without-rows"></a>`query/list-source-output-without-rows` | A query used as a list source has an outputSchema describing the paged envelope with a rows field. | Wrap the row schema in the { rows, nextCursor, total? } envelope. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-not-registered"></a>`query/not-registered` | A query reference on a screen names a registered query handler. | Check the QN spelling ("<feature>:query:<short>") and declare the handler via r.queryHandler(...). | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-output-field-missing"></a>`query/output-field-missing` | A field a screen reads from a query result exists in the query's outputSchema. | Check the field name for a typo or add the field to the outputSchema. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-paged-output-without-rows"></a>`query/paged-output-without-rows` | A paged query handler's outputSchema describes the paged envelope with a rows field. | Wrap the row schema in the { rows, nextCursor, total? } envelope. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-singleton-load-requires-input"></a>`query/singleton-load-requires-input` | An actionForm singleton load binds a query that parses an empty payload. | Make the query's input fields optional. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-visible-when-id-param-unsupported"></a>`query/visible-when-id-param-unsupported` | visibleWhen.idParam is used only on projectionDetail screens. | Remove idParam or use a projectionDetail screen. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-visible-when-requires-input"></a>`query/visible-when-requires-input` | A visibleWhen query parses the payload the gate sends. | Make the query's input fields optional, use a query without required input, or for projectionDetail set visibleWhen.idParam. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+
 ## rate-limit
 
 | Rule | Summary | Fix | Source |
@@ -480,6 +579,15 @@
 | <a id="reference-unknown-entity"></a>`reference/unknown-entity` | A reference field targets an entity of the target feature. | Fix the entity name of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 | <a id="reference-unknown-feature"></a>`reference/unknown-feature` | A reference field targets a registered feature. | Fix the feature prefix of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 | <a id="reference-unknown-label-field"></a>`reference/unknown-label-field` | A reference labelField is a field of the referenced entity. | Name an existing field of the referenced entity. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
+
+## related-list
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="related-list-expandable-row-bulk-actions"></a>`related-list/expandable-row-bulk-actions` | An entityList expandableRow declares no bulkActions. | Put bulkActions on the entityList screen itself. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="related-list-expandable-row-grouping-choice"></a>`related-list/expandable-row-grouping-choice` | An expandableRow sets no table.grouping.userChoice or fields, it has no view menu. | Set a fixed table.grouping.field. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="related-list-expandable-row-table-keys"></a>`related-list/expandable-row-table-keys` | An entityList expandableRow sets only table.grouping. | Put the other table options on the entityList screen itself. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="related-list-group-by-removed"></a>`related-list/group-by-removed` | A relatedList section or expandableRow does not use the removed groupBy. | Use table.grouping and make the bound query accept aggregate. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 
 ## retention
 

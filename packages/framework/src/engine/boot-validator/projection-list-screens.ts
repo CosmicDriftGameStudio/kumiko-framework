@@ -13,6 +13,7 @@ import { isEditLayoutScreen } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
+import { LIST_QUERY_RULES } from "./list-query-rules.ts";
 import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
@@ -54,10 +55,14 @@ function rejectHandAuthoredDerivedFlags(
   screen: ProjectionListScreenDefinition,
 ): void {
   if (screen.sortable !== undefined) {
-    throw new Error(`${prefix}: sortable is derived from the query's Zod schema, don't set it`);
+    throw bootRuleError(LIST_QUERY_RULES.derivedFlagHandAuthored, {
+      message: `${prefix}: sortable is derived from the query's Zod schema, don't set it`,
+    });
   }
   if (screen.paginated !== undefined) {
-    throw new Error(`${prefix}: paginated is derived from the query's Zod schema, don't set it`);
+    throw bootRuleError(LIST_QUERY_RULES.derivedFlagHandAuthored, {
+      message: `${prefix}: paginated is derived from the query's Zod schema, don't set it`,
+    });
   }
 }
 
@@ -76,15 +81,15 @@ function validateOneProjectionListScreen(
   );
 
   if (screen.searchable === true && !schemaAccepts(schema, "search")) {
-    throw new Error(
-      `${prefix}: searchable: true but query "${screen.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.searchableWithoutSearchParam, {
+      message: `${prefix}: searchable: true but query "${screen.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
+    });
   }
 
   if (screen.searchable === true && searchDerivedOff) {
-    throw new Error(
-      `${prefix}: searchable: true but query "${screen.query}" lists an entity with no searchable field, so a search would never match. Mark a field searchable: true on the entity or remove searchable: true.`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.searchableWithoutSearchableField, {
+      message: `${prefix}: searchable: true but query "${screen.query}" lists an entity with no searchable field, so a search would never match. Mark a field searchable: true on the entity or remove searchable: true.`,
+    });
   }
 
   if (
@@ -93,9 +98,9 @@ function validateOneProjectionListScreen(
     !searchDerivedOff &&
     !SEARCHABLE_FALSE_WHITELIST.has(screen.id)
   ) {
-    throw new Error(
-      `${prefix}: query "${screen.query}" accepts "search" but searchable: false disables it — remove searchable: false or add "${screen.id}" to SEARCHABLE_FALSE_WHITELIST`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.searchableFalseDisablesSearch, {
+      message: `${prefix}: query "${screen.query}" accepts "search" but searchable: false disables it — remove searchable: false or add "${screen.id}" to SEARCHABLE_FALSE_WHITELIST`,
+    });
   }
 
   rejectHandAuthoredDerivedFlags(prefix, screen);
@@ -104,9 +109,9 @@ function validateOneProjectionListScreen(
     screen.searchable !== false && !searchDerivedOff && schemaAccepts(schema, "search");
   const sortActive = schemaAccepts(schema, "sort");
   if ((searchActive || sortActive) && screen.defaultSort === undefined) {
-    throw new Error(
-      `${prefix}: defaultSort required when search or sort is active. Set defaultSort: { field, direction }.`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.defaultSortRequired, {
+      message: `${prefix}: defaultSort required when search or sort is active. Set defaultSort: { field, direction }.`,
+    });
   }
 
   validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
@@ -124,11 +129,12 @@ function validateProjectionListFilterSchemaAcceptance(
 ): void {
   // skip: no filter declared, or the schema already accepts it — nothing to reject.
   if (screen.filter === undefined || schemaAccepts(schema, "filter")) return;
-  throw new Error(
-    `${prefix}: declares filter but query "${screen.query}" has no "filter" parameter in its Zod ` +
+  throw bootRuleError(LIST_QUERY_RULES.filterParamMissing, {
+    message:
+      `${prefix}: declares filter but query "${screen.query}" has no "filter" parameter in its Zod ` +
       `schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","lte","gte","in"]), ` +
       `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
-  );
+  });
 }
 
 // namedFilters send `payload.namedFilter` — same 422 footgun as filter/facets.
@@ -179,32 +185,36 @@ function validateProjectionListDateRangeFacets(
   for (const facet of screen.facets ?? []) {
     if (facet.type !== "dateRange") continue;
     if (facet.params.from === facet.params.to) {
-      throw new Error(
-        `${prefix}: dateRange facet on "${facet.field}" names the same param ` +
+      throw bootRuleError(LIST_QUERY_RULES.dateRangeSameParam, {
+        message:
+          `${prefix}: dateRange facet on "${facet.field}" names the same param ` +
           `"${facet.params.from}" for both bounds. Use two different param names for from and to.`,
-      );
+      });
     }
     for (const param of [facet.params.from, facet.params.to]) {
       if (RESERVED_LIST_PAYLOAD_KEYS.has(param)) {
-        throw new Error(
-          `${prefix}: dateRange facet on "${facet.field}" names "${param}" as a bound, ` +
+        throw bootRuleError(LIST_QUERY_RULES.dateRangeReservedParam, {
+          message:
+            `${prefix}: dateRange facet on "${facet.field}" names "${param}" as a bound, ` +
             `which is a reserved list-payload key — pick the query's own time-bound param names.`,
-        );
+        });
       }
       if (usedParams.has(param)) {
-        throw new Error(
-          `${prefix}: dateRange facet on "${facet.field}" names "${param}" which another dateRange ` +
+        throw bootRuleError(LIST_QUERY_RULES.dateRangeParamReused, {
+          message:
+            `${prefix}: dateRange facet on "${facet.field}" names "${param}" which another dateRange ` +
             `facet on this screen already uses — the facets would overwrite each other's bound. Give each dateRange facet its own param names.`,
-        );
+        });
       }
       usedParams.add(param);
       if (schemaAccepts(schema, param)) continue;
-      throw new Error(
-        `${prefix}: dateRange facet on "${facet.field}" sends "${param}" but query ` +
+      throw bootRuleError(LIST_QUERY_RULES.dateRangeParamMissing, {
+        message:
+          `${prefix}: dateRange facet on "${facet.field}" sends "${param}" but query ` +
           `"${screen.query}" has no "${param}" parameter in its Zod schema — add ` +
           `${param}: z.iso.datetime().optional() to the handler's schema, or point ` +
           `params at the keys it already accepts.`,
-      );
+      });
     }
   }
 }
@@ -219,11 +229,12 @@ function validateProjectionListFacetsSchemaAcceptance(
   if (screen.facets === undefined || !screen.facets.some((f) => f.type !== "dateRange")) return;
   // skip: the schema already accepts filters — nothing to reject.
   if (schemaAccepts(schema, "filters")) return;
-  throw new Error(
-    `${prefix}: declares facets but query "${screen.query}" has no "filters" parameter in its ` +
+  throw bootRuleError(LIST_QUERY_RULES.facetsWithoutFiltersParam, {
+    message:
+      `${prefix}: declares facets but query "${screen.query}" has no "filters" parameter in its ` +
       `Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), ` +
       `value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
-  );
+  });
 }
 
 export function validateProjectionListScreens(features: readonly FeatureDefinition[]): void {
@@ -244,9 +255,9 @@ function validateRelatedListSearchable(
 ): void {
   // skip: not searchable, or the schema already accepts search — nothing to reject.
   if (section.searchable !== true || schemaAccepts(schema, "search")) return;
-  throw new Error(
-    `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
-  );
+  throw bootRuleError(LIST_QUERY_RULES.searchableWithoutSearchParam, {
+    message: `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
+  });
 }
 
 function validateRelatedListFacets(
@@ -258,9 +269,9 @@ function validateRelatedListFacets(
   if (section.facets === undefined || section.facets.length === 0) return;
   // skip: the schema already accepts filters — nothing to reject.
   if (schemaAccepts(schema, "filters")) return;
-  throw new Error(
-    `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
-  );
+  throw bootRuleError(LIST_QUERY_RULES.facetsWithoutFiltersParam, {
+    message: `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+  });
 }
 
 function validateRelatedListCount(
@@ -272,16 +283,20 @@ function validateRelatedListCount(
   // skip: no count badge declared — nothing to reject.
   if (section.count !== true) return;
   if (layoutMode !== "tabs") {
-    throw new Error(`${prefix}: count: true only renders in a layout with mode "tabs".`);
+    throw bootRuleError(LIST_QUERY_RULES.countNeedsTabsLayout, {
+      message: `${prefix}: count: true only renders in a layout with mode "tabs".`,
+    });
   }
   if (section.countField !== undefined) {
-    throw new Error(`${prefix}: declares both count and countField — pick one badge source.`);
+    throw bootRuleError(LIST_QUERY_RULES.countAndCountField, {
+      message: `${prefix}: declares both count and countField — pick one badge source.`,
+    });
   }
   for (const key of ["totalCount", "limit"]) {
     if (schemaAccepts(schema, key)) continue;
-    throw new Error(
-      `${prefix}: count: true needs query "${section.query}" to accept "${key}" in its Zod schema (the badge asks for limit: 1, totalCount: true).`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.countParamMissing, {
+      message: `${prefix}: count: true needs query "${section.query}" to accept "${key}" in its Zod schema (the badge asks for limit: 1, totalCount: true).`,
+    });
   }
 }
 
@@ -299,27 +314,30 @@ function validateRelatedListParentFilter(
   // skip: no parentFilter declared — nothing to reject.
   if (section.parentFilter === undefined) return;
   if (section.parentParam !== undefined) {
-    throw new Error(
-      `${prefix}: declares both parentFilter and parentParam — parentFilter replaces the implicit ` +
+    throw bootRuleError(LIST_QUERY_RULES.parentFilterAndParentParam, {
+      message:
+        `${prefix}: declares both parentFilter and parentParam — parentFilter replaces the implicit ` +
         `{ [parentParam]: parentId } payload key with a server-side "filter" clause, so the two can't ` +
         `be combined. Remove parentParam or drop parentFilter.`,
-    );
+    });
   }
   if (!schemaAccepts(schema, "filter")) {
-    throw new Error(
-      `${prefix}: declares parentFilter but query "${section.query}" has no "filter" parameter in its ` +
+    throw bootRuleError(LIST_QUERY_RULES.parentFilterParamMissing, {
+      message:
+        `${prefix}: declares parentFilter but query "${section.query}" has no "filter" parameter in its ` +
         `Zod schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","lte","gte","in"]), ` +
         `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
-    );
+    });
   }
   const entity = resolveEntityBehindListQuery(section.query, handler, (name) =>
     findEntity(featureMap, name),
   );
   if (entity !== undefined && entity.fields[section.parentFilter.field] === undefined) {
-    throw new Error(
-      `${prefix}: parentFilter.field "${section.parentFilter.field}" is not a declared field on the ` +
+    throw bootRuleError(LIST_QUERY_RULES.parentFilterFieldUnknown, {
+      message:
+        `${prefix}: parentFilter.field "${section.parentFilter.field}" is not a declared field on the ` +
         `entity behind query "${section.query}". Known fields: ${Object.keys(entity.fields).sort().join(", ")}.`,
-    );
+    });
   }
 }
 

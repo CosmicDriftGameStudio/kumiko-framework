@@ -1,4 +1,6 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { bootRuleError } from "./boot-rule.ts";
+import { LIST_QUERY_RULES } from "./list-query-rules.ts";
 
 const EXPANDABLE_ROW_TABLE_KEYS: ReadonlySet<string> = new Set(["grouping"]);
 const EXPANDABLE_ROW_REJECTED_GROUPING_KEYS = ["userChoice", "fields"] as const;
@@ -7,10 +9,11 @@ const EXPANDABLE_ROW_REJECTED_GROUPING_KEYS = ["userChoice", "fields"] as const;
 // still carrying it fails at boot instead of silently losing its groups.
 function rejectRemovedGroupBy(prefix: string, section: object): void {
   if (Object.hasOwn(section, "groupBy")) {
-    throw new Error(
-      `${prefix} uses groupBy, which was removed. Use table.grouping: { field, label?, labels?, collapsedWhen? }; ` +
+    throw bootRuleError(LIST_QUERY_RULES.groupByRemoved, {
+      message:
+        `${prefix} uses groupBy, which was removed. Use table.grouping: { field, label?, labels?, collapsedWhen? }; ` +
         `groups and counts come from the server, so the bound query must accept aggregate.`,
-    );
+    });
   }
 }
 
@@ -24,10 +27,11 @@ function rejectExpandableRowTableOptions(prefix: string, table: unknown): void {
 function rejectUnsupportedTableKeys(prefix: string, table: Record<string, unknown>): void {
   const unsupported = Object.keys(table).filter((key) => !EXPANDABLE_ROW_TABLE_KEYS.has(key));
   if (unsupported.length > 0) {
-    throw new Error(
-      `${prefix} supports only table.grouping, not table.${unsupported.join(", table.")}. ` +
+    throw bootRuleError(LIST_QUERY_RULES.expandableRowTableKeys, {
+      message:
+        `${prefix} supports only table.grouping, not table.${unsupported.join(", table.")}. ` +
         `Put the other table options on the entityList screen itself.`,
-    );
+    });
   }
 }
 
@@ -36,10 +40,11 @@ function rejectGroupingChoice(prefix: string, grouping: unknown): void {
     ? EXPANDABLE_ROW_REJECTED_GROUPING_KEYS.find((key) => Object.hasOwn(grouping, key))
     : undefined;
   if (choiceKey !== undefined) {
-    throw new Error(
-      `${prefix} does not support table.grouping.${choiceKey}: an expanded row has no view menu. ` +
+    throw bootRuleError(LIST_QUERY_RULES.expandableRowGroupingChoice, {
+      message:
+        `${prefix} does not support table.grouping.${choiceKey}: an expanded row has no view menu. ` +
         `Set a fixed table.grouping.field.`,
-    );
+    });
   }
 }
 
@@ -51,9 +56,9 @@ export function validateRelatedListGroupingRules(
 ): void {
   rejectRemovedGroupBy(prefix, section);
   if (isExpandableRow && Object.hasOwn(section, "bulkActions")) {
-    throw new Error(
-      `${prefix} does not support bulkActions. Put bulkActions on the entityList screen itself.`,
-    );
+    throw bootRuleError(LIST_QUERY_RULES.expandableRowBulkActions, {
+      message: `${prefix} does not support bulkActions. Put bulkActions on the entityList screen itself.`,
+    });
   }
   if (isExpandableRow) rejectExpandableRowTableOptions(prefix, section.table);
 }

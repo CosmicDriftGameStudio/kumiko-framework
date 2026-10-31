@@ -12,8 +12,13 @@ import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
 import { FORM_DERIVATION_RULES } from "./form-derivations-rules.ts";
 import { HANDLER_FIELD_REFERENCE_RULES } from "./handler-field-references-rules.ts";
 import { I18N_RULES } from "./i18n-keys-rules.ts";
+import { LIST_BULK_ACTION_RULES } from "./list-bulk-actions-rules.ts";
+import { LIST_QUERY_RULES } from "./list-query-rules.ts";
+import { LIST_TABLE_AGGREGATE_RULES } from "./list-table-aggregate-rules.ts";
+import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
+import { QUERY_RULES } from "./query-rules.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
@@ -49,6 +54,11 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   FIELD_CONDITION_RULES,
   FORM_DERIVATION_RULES,
   HANDLER_FIELD_REFERENCE_RULES,
+  LIST_TABLE_RULES,
+  LIST_TABLE_AGGREGATE_RULES,
+  LIST_QUERY_RULES,
+  LIST_BULK_ACTION_RULES,
+  QUERY_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(
