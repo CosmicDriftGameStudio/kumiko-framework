@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.413.0",
+    "type": "fix",
+    "title": "Consecutive top-level nav entries without a section share one list",
+    "detail": "NavTree rendered every top-level entry that is not a section (screen leaves, provider nodes such as Content) in its own list, so the 12px gap between blocks also opened between two such entries. Consecutive entries now form one list with the 1px item gap; only sections and runs of entries are separated by the block gap. A run whose entries are all filtered out by the search is hidden."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "StepList selection with prerequisites, compact Banner, fixed FloatingPanel",
