@@ -84,6 +84,7 @@ export type {
   ScaffoldAppFeatureResult,
 } from "./scaffold-app-feature.ts";
 export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature.ts";
+export { SCAFFOLD_STARTERS, type ScaffoldStarter } from "./scaffold-blank-starter.ts";
 export type {
   CheckDeployDriftResult,
   DeployDriftEntry,

@@ -22,3 +22,14 @@ export const demoAdminEnvSchema = z.object({
   DEMO_SYSADMIN_PASSWORD: seedPassword("Password of the seeded SystemAdmin."),
   DEMO_TENANT_ID: z.uuid().optional().describe("Id of the seeded demo tenant. Default: generated."),
 });
+
+export const BOOTSTRAP_ADMIN_EMAIL_ENV = "KUMIKO_BOOTSTRAP_ADMIN_EMAIL";
+
+export const bootstrapAdminEnvSchema = z.object({
+  [BOOTSTRAP_ADMIN_EMAIL_ENV]: z
+    .email()
+    .optional()
+    .describe(
+      "Login of the person who created the app; the first start makes it the admin without a password, set via password reset.",
+    ),
+});

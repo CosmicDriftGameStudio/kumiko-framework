@@ -185,3 +185,30 @@ describe("seedAdmin", () => {
     });
   });
 });
+
+describe("seedAdmin without a password", () => {
+  const memberships = [
+    { tenantId: TENANT_DEV, tenantKey: "dev", tenantName: "Dev", roles: ["Admin"] },
+  ];
+
+  test("creates the user without a password hash", async () => {
+    await seedAdmin(stack.db, { email: "nopw@example.com", displayName: "No Pw", memberships });
+
+    const [user] = await selectMany(stack.db, userTable, { email: "nopw@example.com" });
+    expect(user?.["passwordHash"] ?? null).toBeNull();
+  });
+
+  test("an existing account keeps its password hash", async () => {
+    await seedAdmin(stack.db, {
+      email: "keep@example.com",
+      password: "secret-pw",
+      displayName: "Keep",
+      memberships,
+    });
+
+    await seedAdmin(stack.db, { email: "keep@example.com", displayName: "Keep", memberships });
+
+    const [user] = await selectMany(stack.db, userTable, { email: "keep@example.com" });
+    expect(await verifyPassword(user?.["passwordHash"] as string, "secret-pw")).toBe(true);
+  });
+});

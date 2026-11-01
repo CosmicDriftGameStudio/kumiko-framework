@@ -22,6 +22,7 @@ import {
   outsideTransactionPoolOptionsFromEnv,
   type RowLevelSecurityMode,
   serverTimeoutOptionsFromEnv,
+  withSessionAdvisoryLock,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   type BundledListsOptions,
@@ -107,6 +108,8 @@ export async function buildEffectiveFeaturesResolver(deps: {
   return bound.resolver;
 }
 
+export const BOOT_SEEDS_LOCK_KEY = 0x62_73_65_64; // 'bsed'
+
 export async function applyStandardBootSeeds(deps: {
   readonly db: DbConnection;
   readonly registry: Registry;
@@ -121,22 +124,25 @@ export async function applyStandardBootSeeds(deps: {
   // Seeds are idempotent, so a transient connection error re-runs the whole sequence; any other
   // error stays fatal. Later boot steps build on the seeds, so this cannot continue in the background.
   await waitUntilDatabaseReachable(
-    async () => {
-      if (admin) {
-        // Operator-created account, not a self-registration: under emailVerificationMode "strict"
-        // an unverified seed admin could never log in. `admin.emailVerified` still overrides.
-        adminUserId = (await seedAdminGuarded(db, { emailVerified: true, ...admin })).id;
-      }
-      for (const seed of shortcutSeeds) {
-        await seed(db);
-      }
-      // The helper indirection is what config-seed-boot.integration.ts pins — keep it as a single call.
-      await applyBootSeeds({
-        registry,
-        db,
-        ...(cipher && { cipher }),
-      });
-    },
+    // Serialised across instances: seedUser is check-then-insert, so two booting replicas could
+    // otherwise both insert the same admin.
+    () =>
+      withSessionAdvisoryLock(db, BOOT_SEEDS_LOCK_KEY, async () => {
+        if (admin) {
+          // Operator-created account, not a self-registration: under emailVerificationMode "strict"
+          // an unverified seed admin could never log in. `admin.emailVerified` still overrides.
+          adminUserId = (await seedAdminGuarded(db, { emailVerified: true, ...admin })).id;
+        }
+        for (const seed of shortcutSeeds) {
+          await seed(db);
+        }
+        // The helper indirection is what config-seed-boot.integration.ts pins — keep it as a single call.
+        await applyBootSeeds({
+          registry,
+          db,
+          ...(cipher && { cipher }),
+        });
+      }),
     { ...databaseWait, processName, target: "database (boot seeds)" },
   );
   return adminUserId === undefined ? {} : { adminUserId };

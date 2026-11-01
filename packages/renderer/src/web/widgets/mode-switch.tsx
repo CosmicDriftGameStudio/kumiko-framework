@@ -11,6 +11,7 @@ export function ModeSwitch<T extends string>({
   onChange,
   ariaLabel,
   variant = "outline",
+  segmentWidth = "auto",
   className,
   testId,
 }: {
@@ -21,16 +22,23 @@ export function ModeSwitch<T extends string>({
     readonly label: string;
     /** Muted tabular counter after the label. */
     readonly count?: number;
+    /** Not selectable: aria-disabled, muted, no click. */
+    readonly disabled?: boolean;
+    /** `warning` frames the whole switch to flag an open question. */
+    readonly tone?: "warning";
   }[];
   readonly onChange: (value: T) => void;
   readonly ariaLabel?: string;
   /** `outline` (default): bordered segments, active tinted. `pill`: grey
    *  track with a raised active segment. */
   readonly variant?: ModeSwitchVariant;
+  /** `wide` gives every segment a minimum width of 80px. */
+  readonly segmentWidth?: "auto" | "wide";
   readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
   const pill = variant === "pill";
+  const warning = options.some((o) => o.tone === "warning");
   return (
     // biome-ignore lint/a11y/useSemanticElements: fieldset brings browser-default chrome (border/legend) that is wrong for a button segmented control
     <div
@@ -41,33 +49,42 @@ export function ModeSwitch<T extends string>({
         "flex min-h-8",
         pill
           ? "gap-0.5 rounded-lg bg-muted p-0.5"
-          : "overflow-hidden rounded-md border border-input bg-background",
+          : "overflow-hidden rounded-md border border-input bg-transparent dark:bg-input/30",
+        warning && "ring-1 ring-inset ring-status-warn",
         className,
       )}
     >
       {options.map((o) => {
         const active = o.value === value;
+        const disabled = o.disabled === true;
         return (
           <button
             key={o.value}
             type="button"
             aria-pressed={active}
-            onClick={() => onChange(o.value)}
+            aria-disabled={disabled || undefined}
+            onClick={() => {
+              if (!disabled) onChange(o.value);
+            }}
             className={cn(
               "grow px-3 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              disabled && "cursor-not-allowed opacity-50",
+              segmentWidth === "wide" && "min-w-20",
               pill
                 ? [
                     "rounded-md",
                     active
                       ? "bg-card font-semibold text-foreground shadow-sm dark:bg-foreground/10"
-                      : "text-muted-foreground hover:text-foreground",
+                      : cn("text-muted-foreground", !disabled && "hover:text-foreground"),
                   ]
                 : [
                     "border-l border-input first:border-l-0",
                     active
                       ? "bg-primary/10 font-semibold text-primary"
-                      : "text-foreground hover:bg-muted",
+                      : disabled
+                        ? "text-muted-foreground"
+                        : "text-foreground hover:bg-muted",
                   ],
             )}
           >

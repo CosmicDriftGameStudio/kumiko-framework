@@ -77,6 +77,8 @@ export type DataTableTableBlock = {
   readonly resetAll?: DataTableResetAll;
   /** Present: the toolbar has an export button (web only). */
   readonly exportList?: DataTableExport;
+  /** Smaller (12px) semibold header row. */
+  readonly compactHeader?: boolean;
   /** Present: the rows are grouped on the server; replaces pager and infinite scroll. */
   readonly serverGroups?: DataTableServerGroups;
   /** Present: a footer row with the server-computed totals of the filtered list. */

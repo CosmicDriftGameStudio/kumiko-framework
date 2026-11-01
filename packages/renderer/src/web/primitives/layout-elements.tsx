@@ -26,6 +26,7 @@ export function DefaultSection({
   id,
   title,
   subtitle,
+  subtitleBelowLgOnly,
   children,
   actions,
   variant = "default",
@@ -63,6 +64,7 @@ export function DefaultSection({
             className={cn(
               "text-sm text-muted-foreground",
               insideScreenForm && "text-[13px] text-foreground-secondary",
+              subtitleBelowLgOnly === true && "lg:hidden",
             )}
           >
             {subtitle}
@@ -444,6 +446,13 @@ export function DefaultHeading({ variant = "page", children, testId }: HeadingPr
         data-testid={testId}
         className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
       >
+        {children}
+      </h2>
+    );
+  }
+  if (variant === "group") {
+    return (
+      <h2 data-testid={testId} className="text-base font-semibold text-foreground">
         {children}
       </h2>
     );

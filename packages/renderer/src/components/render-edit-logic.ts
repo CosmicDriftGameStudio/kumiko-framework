@@ -1,3 +1,8 @@
+import {
+  type EntityEditScreenDefinition,
+  evalFieldCondition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   DispatcherError,
   EditFieldViewModel,
@@ -32,6 +37,19 @@ export function resolveExtensionEntityId(
   vmId: string | null,
 ): string | null {
   return entityIdProp !== undefined ? entityIdProp : vmId;
+}
+
+export function isSubmitBlockedByLayoutCondition(
+  layout: EntityEditScreenDefinition["layout"],
+  values: Readonly<Record<string, unknown>>,
+): boolean {
+  const condition = layout.wizard?.submitDisabledWhen;
+  return condition !== undefined && evalFieldCondition(condition, values);
+}
+
+export function createdEntityIdOf(resultData: unknown): string | undefined {
+  const id = propertyOf(resultData, "id");
+  return typeof id === "string" && id !== "" ? id : undefined;
 }
 
 // After a submit, decide whether to invoke the caller's onSubmit. The success

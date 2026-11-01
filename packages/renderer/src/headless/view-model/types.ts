@@ -410,6 +410,10 @@ export type EditFieldsSectionViewModel = {
   readonly description?: string;
   /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
   readonly subtitle?: string;
+  /** Translated `EditFieldsSection.upNextHint`. */
+  readonly upNextHint?: string;
+  /** From `EditFieldsSection.summaryField` (wizard step rail). */
+  readonly summaryField?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
@@ -433,6 +437,14 @@ export type EditExtensionSectionViewModel = {
    *  section, see EditFieldsSectionViewModel.id. */
   readonly id?: string;
   readonly title: string;
+  /** Translated `EditExtensionSection.description`. */
+  readonly description?: string;
+  /** Translated `EditExtensionSection.subtitle`. */
+  readonly subtitle?: string;
+  /** Translated `EditExtensionSection.upNextHint`. */
+  readonly upNextHint?: string;
+  /** From `EditExtensionSection.summaryField`. */
+  readonly summaryField?: string;
   readonly component: PlatformComponent;
   readonly contributesToFormSubmit: boolean;
   /** Section-declared override — see `EditExtensionSection.entityName`. */

@@ -38,6 +38,76 @@ function variantClass(variant: BannerVariant, compact: boolean): string {
   }
 }
 
+function BannerParts({ parts }: { readonly parts: BannerProps["parts"] }): ReactNode {
+  return parts?.map((part) =>
+    part.strong === true ? (
+      <strong key={`strong:${part.text}`} className="font-semibold">
+        {part.text}
+      </strong>
+    ) : (
+      <span key={`plain:${part.text}`}>{part.text}</span>
+    ),
+  );
+}
+
+function BannerText({
+  compact,
+  title,
+  titleTestId,
+  children,
+  parts,
+  actionsBelow,
+}: Pick<BannerProps, "title" | "titleTestId" | "children" | "parts"> & {
+  readonly compact: boolean;
+  readonly actionsBelow: ReactNode;
+}): ReactNode {
+  if (compact) {
+    return (
+      <div className="min-w-0 grow">
+        {title !== undefined && (
+          <>
+            <strong data-testid={titleTestId} className="font-semibold">
+              {title}
+            </strong>{" "}
+          </>
+        )}
+        {children}
+        <BannerParts parts={parts} />
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1">
+      {title !== undefined && (
+        <div data-testid={titleTestId} className="font-semibold">
+          {title}
+        </div>
+      )}
+      {children}
+      <BannerParts parts={parts} />
+      {actionsBelow}
+    </div>
+  );
+}
+
+function bannerLayoutClass(
+  variant: BannerVariant,
+  compact: boolean,
+  actionsBelow: boolean,
+): string {
+  return cn(
+    "relative flex w-full items-center border",
+    compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-4 py-3 text-sm",
+    // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
+    !compact &&
+      !actionsBelow &&
+      variant === "primary" &&
+      "flex-col items-start sm:flex-row sm:items-center",
+    actionsBelow && "items-start",
+    variantClass(variant, compact),
+  );
+}
+
 export function DefaultBanner({
   variant = "info",
   density = "default",
@@ -45,13 +115,17 @@ export function DefaultBanner({
   title,
   titleTestId,
   children,
+  parts,
   actions,
+  actionsPlacement = "end",
   padded,
   testId,
   id,
 }: BannerProps): ReactNode {
   const isError = variant === "error";
   const compact = density === "compact";
+  // A compact banner is one line, so its actions always stay at the end.
+  const actionsBelow = actionsPlacement === "below" && !compact && actions !== undefined;
   // `id` is set when a <Field> wraps this Banner as its control (see
   // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
   // at it is inert for screen readers — role="group" + aria-labelledby is
@@ -64,39 +138,27 @@ export function DefaultBanner({
       data-testid={testId}
       data-variant={variant}
       data-density={density}
-      className={cn(
-        "relative flex w-full items-center border",
-        compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-4 py-3 text-sm",
-        // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
-        !compact && variant === "primary" && "flex-col items-start sm:flex-row sm:items-center",
-        variantClass(variant, compact),
-      )}
+      className={bannerLayoutClass(variant, compact, actionsBelow)}
     >
       {icon !== undefined && (
         <Icon name={icon} className={cn("size-3.5 shrink-0", ICON_COLOR_CLASS[variant])} />
       )}
-      {compact ? (
-        <div className="min-w-0 grow">
-          {title !== undefined && (
-            <>
-              <strong data-testid={titleTestId} className="font-semibold">
-                {title}
-              </strong>{" "}
-            </>
-          )}
-          {children}
-        </div>
-      ) : (
-        <div className="flex-1">
-          {title !== undefined && (
-            <div data-testid={titleTestId} className="font-semibold">
-              {title}
+      <BannerText
+        compact={compact}
+        title={title}
+        titleTestId={titleTestId}
+        parts={parts}
+        actionsBelow={
+          actionsBelow ? (
+            <div data-slot="actions" className="mt-3 flex flex-wrap gap-2">
+              {actions}
             </div>
-          )}
-          {children}
-        </div>
-      )}
-      {actions !== undefined && (
+          ) : undefined
+        }
+      >
+        {children}
+      </BannerText>
+      {!actionsBelow && actions !== undefined && (
         <div data-slot="actions" className={cn(compact && "shrink-0")}>
           {actions}
         </div>

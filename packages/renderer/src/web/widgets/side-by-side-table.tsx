@@ -31,6 +31,7 @@ export function SideBySideTable({
   columns,
   rows,
   rowHeaderWidth = 120,
+  rowHeaderTone = "muted",
   testId,
 }: {
   /** Accessible name of the table, not rendered visibly. */
@@ -39,6 +40,8 @@ export function SideBySideTable({
   readonly columns: readonly SideBySideTableColumn[];
   readonly rows: readonly SideBySideTableRow[];
   readonly rowHeaderWidth?: number;
+  /** `foreground` renders the row headers in the normal text colour instead of muted. */
+  readonly rowHeaderTone?: "muted" | "foreground";
   readonly testId?: string;
 }): ReactNode {
   return (
@@ -76,7 +79,7 @@ export function SideBySideTable({
                 "border-b border-border-row px-3 py-2 text-left align-top",
                 row.tone === "warn"
                   ? "font-semibold text-status-warn"
-                  : "font-normal text-muted-foreground",
+                  : cn("font-normal", rowHeaderTone === "muted" && "text-muted-foreground"),
               )}
             >
               {row.header}

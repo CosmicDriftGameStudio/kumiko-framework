@@ -40,6 +40,7 @@ export {
 export { ChoiceCards } from "./choice-cards.tsx";
 export { ClampedText } from "./clamped-text.tsx";
 export { CollapsibleSection } from "./collapsible-section.tsx";
+export { Composer, type ComposerProps } from "./composer.tsx";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.tsx";
 export { DetailList } from "./detail-list.tsx";
 export { Drawer, type DrawerProps } from "./drawer.tsx";
@@ -115,6 +116,7 @@ export {
   ResultTable,
 } from "./result-panel.tsx";
 export { SectionCard } from "./section-card.tsx";
+export { SectionNavLayout, type SectionNavLayoutProps } from "./section-nav-layout.tsx";
 export {
   SideBySideTable,
   type SideBySideTableCell,

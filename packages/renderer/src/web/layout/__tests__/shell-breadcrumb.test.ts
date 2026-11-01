@@ -140,6 +140,28 @@ describe("resolveDetailBreadcrumb", () => {
     ]);
   });
 
+  test("projectionDetail with a qualified listScreenId of another feature gets the parent crumb", () => {
+    const screens: ScreenDefinition[] = [
+      {
+        id: "apps:screen:app-list",
+        type: "projectionList",
+        query: "apps:query:app:list",
+        columns: ["name"],
+      },
+      {
+        id: "studio:screen:app-detail",
+        type: "projectionDetail",
+        query: "studio:query:app:detail",
+        listScreenId: "apps:screen:app-list",
+        layout: { sections: [{ fields: ["name"] }] },
+      },
+    ];
+    expect(resolveDetailBreadcrumb(screens, "app-detail", t)).toEqual([
+      { label: "screen:app-list.title", screenId: "app-list" },
+      { label: "screen:app-detail.title" },
+    ]);
+  });
+
   test("unknown screen returns undefined", () => {
     expect(resolveDetailBreadcrumb([], "missing", t)).toBeUndefined();
   });

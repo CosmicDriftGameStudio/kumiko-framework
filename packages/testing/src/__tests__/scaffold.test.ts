@@ -117,3 +117,27 @@ describe("renderTestSetup", () => {
     expect(generatedSetup.replaceAll("tasksFeature", "taskFeature")).toBe(sampleSetup);
   });
 });
+
+describe("renderTestSetup blank starter", () => {
+  const blank = renderTestSetup({
+    appName: "my-shop",
+    frameworkVersion: "^0.13.0",
+    starter: "blank",
+  });
+
+  test("ships no tasks tests or e2e specs, keeps the e2e server and a boot test", () => {
+    const names = Object.keys(blank.files);
+    expect(names.some((name) => name.includes("tasks"))).toBe(false);
+    expect(names).not.toContain("e2e/smoke.spec.ts");
+    expect(names).toContain("e2e/server.ts");
+    expect(names).toContain("playwright.config.ts");
+    expect(names).toContain("src/__tests__/run-config.test.ts");
+    expect(names).toContain("src/__tests__/boot.integration.test.ts");
+  });
+
+  test("the e2e scripts pass without specs, the demo scripts stay strict", () => {
+    expect(blank.scripts["e2e"]).toContain("--pass-with-no-tests");
+    expect(blank.scripts["e2e:real"]).toContain("--pass-with-no-tests");
+    expect(setup.scripts["e2e"]).not.toContain("--pass-with-no-tests");
+  });
+});

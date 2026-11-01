@@ -4,7 +4,7 @@ import { findFirstErroringSectionIndex, resolveExtensionEntityId } from "./rende
 import type { RenderEditSteppedCore } from "./render-edit-render-model.ts";
 
 export type WizardNavigation = {
-  readonly persistExtensions: () => Promise<boolean>;
+  readonly persistExtensions: (createdEntityId?: string) => Promise<boolean>;
   readonly jumpToStep: (index: number) => void;
   readonly handleWizardNext: () => void;
   readonly handleWizardBack: () => void;
@@ -25,10 +25,15 @@ export function createWizardNavigation<TValues extends FormValues, TCtx>(
   const { hasNavigatedRef } = draft.refs;
 
   // Persist all composed extension sections using the resolved entityId.
-  // false means a section failed and its i18n key is shown in the banner. Without
-  // entity context (create mode without a route id), there is nothing to write.
-  async function persistExtensions(): Promise<boolean> {
-    const entityId = resolveExtensionEntityId(props.entityId, sections.vm.id);
+  // false means a section failed and its i18n key is shown in the banner. A wizard
+  // creating its record has no route id: the id of the just-created record stands in.
+  // Without any id there is nothing to write.
+  async function persistExtensions(createdEntityId?: string): Promise<boolean> {
+    const resolvedId = resolveExtensionEntityId(props.entityId, sections.vm.id);
+    const entityId =
+      state.isWizard && (resolvedId === null || resolvedId === "")
+        ? (createdEntityId ?? resolvedId)
+        : resolvedId;
     if (entityId === null) return true;
     const results = await state.runExtensionSubmits({ entityId });
     const failed = results.find((r) => !r.isSuccess);

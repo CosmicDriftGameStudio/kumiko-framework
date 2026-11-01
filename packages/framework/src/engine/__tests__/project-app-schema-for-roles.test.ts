@@ -689,3 +689,94 @@ describe("projectAppSchemaForRoles — entityEdit action placement", () => {
     expect(edit.actions?.map((a) => [a.id, a.placement])).toEqual([["to-open", "menu"]]);
   });
 });
+
+describe("projectAppSchemaForRoles - qualified screen references", () => {
+  const listFeature = defineFeature("apps", (r) => {
+    r.entity({
+      name: "app",
+      fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
+    r.screen({ id: "my-apps", type: "entityList", entity: "app", columns: ["name"] });
+    r.screen({
+      id: "admin-apps",
+      type: "entityList",
+      entity: "app",
+      columns: ["name"],
+      access: ADMIN_ONLY,
+    });
+  });
+  const detailFeature = defineFeature("studio", (r) => {
+    r.screen({
+      id: "detail",
+      type: "projectionDetail",
+      query: "studio:query:app:detail",
+      layout: { sections: [{ fields: ["name"] }] },
+      actions: [
+        { kind: "navigate", id: "to-list", label: "List", screen: "apps:screen:my-apps" },
+        { kind: "navigate", id: "to-admin", label: "Admin", screen: "apps:screen:admin-apps" },
+      ],
+      listScreenId: "apps:screen:my-apps",
+    });
+  });
+  const app = buildAppSchema(createRegistry([listFeature, detailFeature]));
+
+  test("keeps a qualified listScreenId and navigate target that stay reachable", () => {
+    const studio = findFeature(projectAppSchemaForRoles(app, ["User"]), "studio");
+    const detail = studio.screens.find((s) => s.id === "detail");
+    if (detail?.type !== "projectionDetail") throw new Error("unreachable");
+
+    expect(detail.listScreenId).toBe("apps:screen:my-apps");
+    expect(detail.actions?.map((a) => a.id)).toEqual(["to-list"]);
+  });
+
+  describe("two features with a same-named screen", () => {
+    function featureWithListScreen(featureName: string, access?: typeof ADMIN_ONLY) {
+      return defineFeature(featureName, (r) => {
+        r.entity({
+          name: `${featureName}-thing`,
+          fields: {
+            name: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+          },
+        });
+        r.screen({
+          id: "list",
+          type: "entityList",
+          entity: `${featureName}-thing`,
+          columns: ["name"],
+          ...(access !== undefined && { access }),
+        });
+      });
+    }
+    const referrer = defineFeature("referrer", (r) => {
+      r.screen({
+        id: "detail",
+        type: "projectionDetail",
+        query: "referrer:query:thing:detail",
+        layout: { sections: [{ fields: ["name"] }] },
+        actions: [
+          { kind: "navigate", id: "to-visible", label: "Open", screen: "visible:screen:list" },
+          { kind: "navigate", id: "to-hidden", label: "Open", screen: "hidden:screen:list" },
+        ],
+        listScreenId: "hidden:screen:list",
+      });
+    });
+    const sameNamedApp = buildAppSchema(
+      createRegistry([
+        featureWithListScreen("visible"),
+        featureWithListScreen("hidden", ADMIN_ONLY),
+        referrer,
+      ]),
+    );
+
+    test("a qualified reference to the hidden screen is dropped even though the other feature's screen of that name stays", () => {
+      const detail = findFeature(
+        projectAppSchemaForRoles(sameNamedApp, ["User"]),
+        "referrer",
+      ).screens.find((s) => s.id === "detail");
+      if (detail?.type !== "projectionDetail") throw new Error("unreachable");
+
+      expect(detail.listScreenId).toBeUndefined();
+      expect(detail.actions?.map((a) => a.id)).toEqual(["to-visible"]);
+    });
+  });
+});

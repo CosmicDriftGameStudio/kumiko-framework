@@ -76,6 +76,23 @@ describe("create-kumiko-app CLI", () => {
     expect(out).toMatch(/→ Scaffolding \d+ features? into \.\/demo-app\//);
   });
 
+  test("--blank scaffolds without demo tasks and prints the blank next step", async () => {
+    const code = await runCreate({
+      name: "blank-app",
+      yes: true,
+      starter: "blank",
+      cwd: tmp,
+      log: (line) => logs.push(line),
+    });
+    expect(code).toBe(0);
+    const dest = join(tmp, "blank-app");
+    expect(existsSync(join(dest, "src/features/tasks"))).toBe(false);
+    expect(existsSync(join(dest, "src/seed.ts"))).toBe(false);
+    expect(existsSync(join(dest, "e2e/smoke.spec.ts"))).toBe(false);
+    expect(readFileSync(join(dest, "bin/main.ts"), "utf-8")).toContain("bootstrapAdminFromEnv");
+    expect(logs.join("\n")).not.toContain("demo tasks are pre-seeded");
+  });
+
   test("--print-manifest emits JSON, no name needed", async () => {
     const code = await runCreate({
       printManifest: true,
@@ -108,5 +125,12 @@ describe("parseArgv", () => {
     const args = parseArgv(["--print-manifest"]);
     expect(args.printManifest).toBe(true);
     expect(args.name).toBeUndefined();
+  });
+});
+
+describe("parseArgv --blank", () => {
+  test("--blank selects the blank starter, default stays unset", () => {
+    expect(parseArgv(["my-app", "--blank"]).starter).toBe("blank");
+    expect(parseArgv(["my-app"]).starter).toBeUndefined();
   });
 });

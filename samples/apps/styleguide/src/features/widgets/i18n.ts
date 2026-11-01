@@ -275,4 +275,147 @@ export const WIDGETS_I18N = {
   "widgets:catalog:plan-contact-sales": { de: "Vertrieb kontaktieren", en: "Contact sales" },
   "widgets:catalog:plan-credits": { de: "Credit-Paket", en: "Credit pack" },
   "widgets:catalog:plan-buy": { de: "Kaufen", en: "Buy" },
+  "widgets:catalog:variants-title": { de: "Neue Varianten", en: "New variants" },
+  "widgets:catalog:variants-heading-group": { de: "Gruppen-Überschrift", en: "Group heading" },
+  "widgets:catalog:variants-heading-section": {
+    de: "Abschnitts-Überschrift",
+    en: "Section heading",
+  },
+  "widgets:catalog:variants-detail-normal": {
+    de: "Details mit normalen Werten",
+    en: "Details with normal-weight values",
+  },
+  "widgets:catalog:variants-detail-sidebar": {
+    de: "Details in der Seitenspalte",
+    en: "Details in a side column",
+  },
+  "widgets:catalog:variants-label-owner": { de: "Inhaber", en: "Owner" },
+  "widgets:catalog:variants-value-owner": { de: "Jamie Rivera", en: "Jamie Rivera" },
+  "widgets:catalog:variants-label-region": { de: "Region", en: "Region" },
+  "widgets:catalog:variants-value-region": { de: "Frankfurt", en: "Frankfurt" },
+  "widgets:catalog:variants-label-plan": { de: "Tarif", en: "Plan" },
+  "widgets:catalog:variants-value-plan": { de: "Team", en: "Team" },
+  "widgets:catalog:variants-composer": { de: "Chat-Eingabe", en: "Chat composer" },
+  "widgets:catalog:variants-composer-placeholder": {
+    de: "Nachricht schreiben",
+    en: "Write a message",
+  },
+  "widgets:catalog:variants-composer-send": { de: "Senden", en: "Send" },
+  "widgets:catalog:variants-textarea-placeholder": {
+    de: "Notiz mit Platzhalter",
+    en: "Note with placeholder",
+  },
+  "widgets:catalog:variants-textarea-hint": {
+    de: "Beschreibe kurz, was zu tun ist",
+    en: "Describe briefly what needs doing",
+  },
+  "widgets:catalog:variants-mode-switch": {
+    de: "Modus mit gesperrter und markierter Option",
+    en: "Mode switch with disabled and flagged option",
+  },
+  "widgets:catalog:variants-mode-a": { de: "Automatisch", en: "Automatic" },
+  "widgets:catalog:variants-mode-b": { de: "Manuell", en: "Manual" },
+  "widgets:catalog:variants-mode-c": { de: "Offene Fragen", en: "Open questions" },
+  "widgets:catalog:variants-mode-d": { de: "Gesperrt", en: "Locked" },
+  "widgets:catalog:variants-section-nav": {
+    de: "Abschnittsnavigation für eigene Screens",
+    en: "Section navigation for custom screens",
+  },
+  "widgets:catalog:variants-nav-profile": { de: "Profil", en: "Profile" },
+  "widgets:catalog:variants-nav-billing": { de: "Abrechnung", en: "Billing" },
+  "widgets:catalog:variants-nav-security": { de: "Sicherheit", en: "Security" },
+  "widgets:catalog:variants-nav-body": {
+    de: "Die Liste rechts springt zum Abschnitt und folgt dem Scrollen.",
+    en: "The list on the right jumps to the section and follows the scroll position.",
+  },
+  "widgets:catalog:variants-banner": {
+    de: "Hinweis mit Symbol und Hervorhebung",
+    en: "Banner with icon and emphasis",
+  },
+  "widgets:catalog:variants-banner-lead": {
+    de: "Vor dem Löschen bitte ",
+    en: "Before deleting, please ",
+  },
+  "widgets:catalog:variants-banner-strong": { de: "ein Backup anlegen", en: "create a backup" },
+  "widgets:catalog:variants-banner-tail": {
+    de: ". Das Löschen ist endgültig.",
+    en: ". Deleting is permanent.",
+  },
+  "widgets:catalog:variants-round2-title": {
+    de: "Studio-Varianten, zweite Runde",
+    en: "Studio variants, round two",
+  },
+  "widgets:catalog:variants-choice": {
+    de: "Auswahlkarten, drei Spalten, Radio",
+    en: "Choice cards, three columns, radio",
+  },
+  "widgets:catalog:variants-choice-label": { de: "Womit beginnen?", en: "Where to start?" },
+  "widgets:catalog:variants-choice-empty": { de: "Leer beginnen", en: "Start empty" },
+  "widgets:catalog:variants-choice-empty-desc": {
+    de: "Nur Anmeldung und Benutzer",
+    en: "Sign-in and users only",
+  },
+  "widgets:catalog:variants-choice-service": {
+    de: "Wartung und Prüfung",
+    en: "Service and checks",
+  },
+  "widgets:catalog:variants-choice-service-desc": {
+    de: "Vorlage: Anlagen, Intervalle, Prüfprotokolle",
+    en: "Template: assets, intervals, inspection reports",
+  },
+  "widgets:catalog:variants-choice-guests": { de: "Gästeliste", en: "Guest list" },
+  "widgets:catalog:variants-choice-guests-desc": {
+    de: "Vorlage: Veranstaltung, Zusage per Link",
+    en: "Template: event, RSVP by link",
+  },
+  "widgets:catalog:variants-mode-wide": {
+    de: "Modus mit breiten Segmenten, Warnrahmen um den ganzen Schalter",
+    en: "Mode switch with wide segments, warning frame around the whole switch",
+  },
+  "widgets:catalog:variants-compare": {
+    de: "Vergleichstabelle, Zeilenköpfe in Textfarbe",
+    en: "Comparison table, row headers in text colour",
+  },
+  "widgets:catalog:variants-compare-field": { de: "Angabe", en: "Item" },
+  "widgets:catalog:variants-compare-left": { de: "Aus dem Dokument", en: "From the document" },
+  "widgets:catalog:variants-compare-right": { de: "Im Bestand", en: "In stock" },
+  "widgets:catalog:variants-compare-name": { de: "Name", en: "Name" },
+  "widgets:catalog:variants-compare-city": { de: "Ort", en: "City" },
+  "widgets:catalog:variants-docked": {
+    de: "Angedockte Chat-Eingabe",
+    en: "Docked chat composer",
+  },
+  "widgets:catalog:variants-docked-message": {
+    de: "Der Verlauf scrollt, die Eingabe bleibt unten sichtbar.",
+    en: "The thread scrolls, the composer stays visible at the bottom.",
+  },
+  "widgets:catalog:variants-banner-below": {
+    de: "Hinweis mit Aktion unter dem Text",
+    en: "Banner with the action below the text",
+  },
+  "widgets:catalog:variants-banner-below-title": {
+    de: "Veröffentlichen gescheitert",
+    en: "Publishing failed",
+  },
+  "widgets:catalog:variants-banner-below-body": {
+    de: "Die Prüfung ist fehlgeschlagen. Bitte erneut versuchen.",
+    en: "The check failed. Please try again.",
+  },
+  "widgets:catalog:variants-banner-below-action": { de: "Erneut versuchen", en: "Try again" },
+  "widgets:catalog:variants-rail": {
+    de: "Wizard-Leiste: Schritt ohne Untertitel, Hinweis im Kasten",
+    en: "Wizard rail: active step without subtitle, hint in the box",
+  },
+  "widgets:catalog:variants-rail-heading": { de: "Schritt 1 von 2", en: "Step 1 of 2" },
+  "widgets:catalog:variants-rail-step-one": { de: "Beschreiben", en: "Describe" },
+  "widgets:catalog:variants-rail-step-two": { de: "Steckbrief", en: "Profile" },
+  "widgets:catalog:variants-rail-subtitle": {
+    de: "Rollen, Funktionen, Personendaten und noch ein langer Zusatz, der umbricht",
+    en: "Roles, features, personal data and a long addition that wraps",
+  },
+  "widgets:catalog:variants-rail-up-next": { de: "Als Nächstes", en: "Up next" },
+  "widgets:catalog:variants-rail-hint": {
+    de: "Die KI fragt nur nach, was offen ist",
+    en: "The AI only asks about what is open",
+  },
 } as const;

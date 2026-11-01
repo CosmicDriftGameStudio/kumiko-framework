@@ -7,6 +7,7 @@ import {
   serverTimeoutOptionsFromEnv,
 } from "../connection.ts";
 import { type Migration, runMigrations } from "../migrate-runner.ts";
+import { withSessionAdvisoryLock } from "../queries/session-advisory-lock.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
 
 const STATEMENT_TIMEOUT_MS = 150;
@@ -44,6 +45,16 @@ describe("server statement_timeout", () => {
       const rows = await unbounded.unsafe("SHOW statement_timeout");
       expect(rows[0]).toMatchObject({ statement_timeout: "0" });
     });
+    expect(await currentStatementTimeout(client)).toBe(`${STATEMENT_TIMEOUT_MS}ms`);
+  });
+
+  test("an advisory-lock waiter outlasts the timeout and the pool keeps its timeout", async () => {
+    const lockKey = 748_201_933;
+    const holdLockPastTimeout = () =>
+      withSessionAdvisoryLock(db, lockKey, () => Bun.sleep(SLEEP_PAST_TIMEOUT_SECONDS * 1000));
+
+    await Promise.all([holdLockPastTimeout(), holdLockPastTimeout()]);
+
     expect(await currentStatementTimeout(client)).toBe(`${STATEMENT_TIMEOUT_MS}ms`);
   });
 

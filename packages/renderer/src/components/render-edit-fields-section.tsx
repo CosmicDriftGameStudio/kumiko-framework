@@ -95,7 +95,7 @@ function resolveSectionTitle<TValues extends FormValues, TCtx>(
 function resolveSectionSubtitle<TValues extends FormValues, TCtx>(
   { model, sectionIndex }: SectionRenderContext<TValues, TCtx>,
   section: FieldsSection,
-): string | undefined {
+): ReactNode {
   const headerFallback = model.titles.titleInSettingsHeader && sectionIndex === 0;
   return section.description ?? (headerFallback ? model.titles.formSubtitle : undefined);
 }
@@ -116,6 +116,8 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
       {...(anchorId !== undefined && { id: anchorId })}
       {...(sectionTitle !== undefined && { title: sectionTitle })}
       {...(sectionSubtitle !== undefined && { subtitle: sectionSubtitle })}
+      {...(model.titles.stepRail &&
+        section.description !== undefined && { subtitleBelowLgOnly: true })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
       {...(model.footer.isSettingsList && { layout: "settings-list" as const })}

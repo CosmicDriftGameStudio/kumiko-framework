@@ -4,12 +4,18 @@ import { cn } from "../lib/cn.ts";
 /**
  * Read-only key-value list for detail views (dimmed label on the left, value on the right). The
  * value is a ReactNode, so badges and chips are supported. `emphasize` highlights a row, such as
- * the final result in a calculator.
+ * the final result in a calculator. `valueWeight="normal"` drops the value emphasis;
+ * `layout="sidebar"` keeps label (narrow column) and left-aligned value on one row, for narrow
+ * side columns.
  */
 export function DetailList({
   rows,
   testId,
+  valueWeight = "medium",
+  layout = "default",
 }: {
+  readonly valueWeight?: "medium" | "normal";
+  readonly layout?: "default" | "sidebar";
   readonly rows: readonly {
     /** Optional stable key -- falls back to the label when omitted (fine as
      *  long as labels are unique; set id when they can repeat). */
@@ -25,7 +31,11 @@ export function DetailList({
       {rows.map((row) => (
         <div
           key={row.id ?? row.label}
-          className="grid grid-cols-1 gap-0.5 py-2.5 @md:grid-cols-[200px_1fr] @md:gap-4"
+          className={
+            layout === "sidebar"
+              ? "grid grid-cols-[minmax(0,96px)_1fr] gap-3 py-2.5"
+              : "grid grid-cols-1 gap-0.5 py-2.5 @md:grid-cols-[200px_1fr] @md:gap-4"
+          }
         >
           <dt
             className={cn(
@@ -35,7 +45,13 @@ export function DetailList({
           >
             {row.label}
           </dt>
-          <dd className={cn("text-sm font-medium", row.emphasize === true && "font-semibold")}>
+          <dd
+            className={cn(
+              "text-sm",
+              valueWeight === "medium" && "font-medium",
+              row.emphasize === true && "font-semibold",
+            )}
+          >
             {row.value}
           </dd>
         </div>

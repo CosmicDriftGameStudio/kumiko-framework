@@ -163,7 +163,7 @@ describe("validateBoot — list table block", () => {
   });
 
   test.each(KINDS)("%s: a valid pinning, resizing and keyboard combination passes", (kind) => {
-    const table = { pinning: true, resizing: true, keyboardNavigation: true };
+    const table = { pinning: true, resizing: true, keyboardNavigation: true, compactHeader: true };
     expect(() =>
       validateBoot([
         featureWith(kind, table, [
@@ -174,7 +174,7 @@ describe("validateBoot — list table block", () => {
     ).not.toThrow();
   });
 
-  test.each(["pinning", "resizing", "keyboardNavigation"])(
+  test.each(["pinning", "resizing", "keyboardNavigation", "compactHeader"])(
     "a non-boolean %s is rejected",
     (key) => {
       expect(() => validateBoot([featureWith("entityList", { [key]: "yes" })])).toThrow(

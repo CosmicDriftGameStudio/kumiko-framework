@@ -274,7 +274,9 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
             presentIdentities: identities.register,
           });
           const path = `${outDir}/${s.name}.png`;
-          await captureScenario(page, s, identities.mappings, { path });
+          // Same as runMatrix: a theme toggle in the flow starts transition-all fades that
+          // the settle fingerprint cannot see, so finish them at capture time.
+          await captureScenario(page, s, identities.mappings, { path, animations: "disabled" });
           expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
         },
       );

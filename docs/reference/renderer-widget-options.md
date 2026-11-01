@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-26
+verified: 2026-11-01
 evidence: "packages/server-runtime/src/bundled-lists-table.ts (bundledLists); packages/framework/src/engine/boot-validator/bundled-lists-table.ts; packages/framework/src/engine/define-feature.ts (adoptsBundledLists); packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
 ---
 
@@ -61,6 +61,67 @@ The x axis is time, not index: five minutes of data in a 30-day window draws a n
   ]}
 />
 ```
+
+## Heading group, `DetailList`, `Banner`, `ModeSwitch` and `Composer`
+
+- `Heading variant="group"` renders a 16px semibold section heading, smaller than the page heading.
+- `DetailList` takes `valueWeight="normal"` to drop the value emphasis and `layout="sidebar"` to keep a narrow label column and a left-aligned value on one row, for side columns.
+- `Banner` takes an optional leading `icon` (a nav icon key such as `"alert-triangle"`) and `parts: [{ text, strong? }]` rendered after `children`; `children` is optional.
+- A `ModeSwitch` option can be `disabled` and carry `tone: "warning"`, which frames the whole switch to flag an open question.
+- `TextareaField` takes a `placeholder`. `Composer` is a label-less chat textarea on the normal background with a text send button inside the frame: `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel` (the button text), `rows`. `docked` adds `sticky bottom-0 mt-auto`: in a full-height flex-column parent the composer sits at the bottom and stays visible while the thread scrolls (the parent must have a height).
+
+## `ChoiceCards`, `SideBySideTable` and `Banner` options
+
+All opt-in; the default look is unchanged.
+
+- `ChoiceCards` takes `columns` (1 to 4, from `sm`; default 2), `variant="radio"` (radio indicator before the title instead of the check at the top right) and `label` (visible group label in the field-label style; names the radio group).
+- `ModeSwitch` takes `segmentWidth="wide"` (minimum 80px per segment; default `"auto"`).
+- `SideBySideTable` takes `rowHeaderTone="foreground"` (row headers in the text colour; default `"muted"`).
+- `Banner` takes `actionsPlacement="below"` (actions under the text; default `"end"`, to the right).
+
+## Wizard width and required marker
+
+A wizard form column follows the screen's `layout.width` (`"3xl"`, `"4xl"`, `"full"`); without it the column is 640px wide. `layout.hideRequiredMarker` also applies to wizard steps. The step rail wraps long labels and subtitles instead of truncating them and shows no subtitle for the active step.
+
+## `SectionNavLayout`: "On this page" layout for custom sections
+
+`SectionNavLayout` is the layout block for custom or extension sections that need the same table of contents as a long form. `items` is `[{ id, title }]`; each section in `children` carries the matching `id`. With no items it renders only the column. `width` takes the form column widths (default `"4xl"`), `testId` sets the test id. The active entry is bold in the text colour with a dark marker (forms keep the primary colour; `FormSectionNav` takes `activeTone="foreground"` for the same look).
+
+```tsx
+<SectionNavLayout
+  items={[
+    { id: "basics", title: t("basics") },
+    { id: "billing", title: t("billing") },
+  ]}
+>
+  <section id="basics">...</section>
+  <section id="billing">...</section>
+</SectionNavLayout>
+```
+
+Stacked `projectionDetail` and `entityEdit` screens already get this list from the form renderer (at least three titled sections). Tabs mode shows one section at a time and has no list.
+
+## Edit `layout`: `hideRequiredMarker`
+
+`layout: { hideRequiredMarker: true }` on an `entityEdit`, `actionForm` or `projectionDetail` hides the asterisk after required field labels. Default shown.
+
+## `projectionDetail` header actions: `showOnTabs`
+
+With `layout.mode: "tabs"`, a header action takes `showOnTabs: ["<tab id>"]` and is shown only while one of those tabs is active. Without it the action shows on every tab. The boot validator rejects an empty list, an id that is no section, and `showOnTabs` without tabs mode.
+
+## Wizard (`layout.mode: "wizard"`)
+
+| Key | Effect |
+|---|---|
+| section `summaryField` | A completed step shows the value of this field of the section as its subtitle in the step rail. Without it the step shows its `subtitle` (a `description` is never used as a row line). |
+| `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `upNextHint`, else its `subtitle` (no fallback to `description`). |
+| section / extension `upNextHint` | Text under the step title in the "Als Nächstes" card while the step before it is active; falls back to `subtitle`. |
+| `wizard.aside.finishDescription` | On the last step the card shows the finish action with this text. |
+| `wizard.saveAndCloseOnCreate` | Shows "Save and close" in create mode too, and on the last step next to the submit. Default off. |
+| extension section `subtitle`, `description`, `summaryField` | Same rail texts as on a fields section. On an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name any field of the screen's `fields`, which is how a wizard made only of extension steps reads its values. A `summaryField` that no fields section lists shows the raw form value without formatting, so point it at text or number fields only (a reference would show its id). |
+| `wizard.submitDisabledWhen` | A field condition over the form values; while it holds, every submit button is disabled and a submit is blocked. UI-only: a client can still send the write, so enforce the rule in a validation hook. |
+
+The intro text beside the rail follows the current step's `description` and falls back to `formSubtitle`; the same description above the fields is shown only below `lg`, where the rail is hidden (without a rail it stays in the section header). After a create, extension sections are saved with the id of the new entity. The boot validator rejects the options above outside wizard mode, a `summaryField` that the section does not declare, and a `submitDisabledWhen` field that no section declares.
 
 ## `LanguageSwitcher`: `variant="chip"`
 
@@ -146,6 +207,7 @@ r.screen({
 | `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
 | `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
 | `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. |
+| `compactHeader` | Renders the header row in 12px semibold. Default off. |
 | `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
 | `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
 | `grouping` | Groups the list on the server: `field`, optional `label`, `labels` and `collapsedWhen`, plus `userChoice` and `fields` for a "Group by" choice in the view menu. |
@@ -153,7 +215,9 @@ r.screen({
 
 `hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
 
-`pinning`, `resizing` and `keyboardNavigation` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
+`ResultTable` takes the same `compactHeader` prop (12px semibold header, default off).
+
+`pinning`, `resizing`, `keyboardNavigation` and `compactHeader` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
 
 **URL against store.** The URL stays the source of truth. The remembered parameters are copied into the URL once, when the list opens without any list parameter. A link that carries parameters always wins, and the remembered state follows the new URL. The page number alone does not count as a deviation. A `relatedList` keeps its state in the component and under the key `<route screenId>#<section id or query>`.
 

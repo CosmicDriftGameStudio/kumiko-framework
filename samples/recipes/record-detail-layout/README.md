@@ -9,6 +9,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   rendered from the columns of the screen's own query row
 - `layout.mode: "tabs"` with two `relatedList` tabs (order items, payments)
   and one `fields` tab (master data) — each `relatedList` runs its own query
+- a header action with `showOnTabs: ["payments"]`, shown only while that tab is active
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

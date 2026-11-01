@@ -120,14 +120,16 @@ function renderSubtitleParts(model: DetailHeaderModel, subtitleParts: SubtitlePa
 function renderSubtitleField(model: DetailHeaderModel, subtitleField: string): ReactNode {
   const { screen, record, primitives } = model;
   const { Text, Link } = primitives;
+  const subtitleText = String(record[subtitleField] ?? "");
+  if (subtitleText === "") return undefined;
   const subtitleHref = resolveSubtitleHref(screen.header, record);
   return subtitleHref !== undefined ? (
     <Link href={subtitleHref} target="_blank" testId="kumiko-screen-projection-detail-subtitle">
-      {String(record[subtitleField] ?? "")}
+      {subtitleText}
     </Link>
   ) : (
     <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-      {String(record[subtitleField] ?? "")}
+      {subtitleText}
     </Text>
   );
 }

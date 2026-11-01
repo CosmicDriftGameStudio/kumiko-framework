@@ -1714,7 +1714,7 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
     expect(screen.getByTestId("render-edit-wizard-next").textContent).toContain("Details");
   });
 
-  test("wizard: section.subtitle shows in the rail and aside.upNext announces the following step", () => {
+  test("wizard: section.subtitle shows in the rail of inactive steps and aside.upNext announces the following step", () => {
     renderScreenForm({
       screenDef: {
         id: "orders:screen:order-wizard",
@@ -1730,7 +1730,8 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
         },
       },
     });
-    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-0").textContent).toBe("Name it");
+    expect(screen.queryByTestId("render-edit-wizard-steps-subtitle-0")).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-1").textContent).toBe("Count it");
     const upNext = screen.getByTestId("render-edit-wizard-steps-up-next");
     expect(upNext.textContent).toContain("Details");
     expect(upNext.textContent).toContain("Count it");

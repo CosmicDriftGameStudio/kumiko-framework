@@ -8,6 +8,7 @@ import { isKebabSegment } from "../qualified-name.ts";
 import type { FieldsOrGroupsSection } from "../screen-helpers.ts";
 import {
   isExtensionEditSection,
+  isFieldsEditSection,
   isWriteFormEditSection,
   normalizeEditField,
   sectionFieldSpecs,
@@ -262,6 +263,80 @@ export function validateTabSections(
   });
 }
 
+// An actionForm's own `fields` count too: extension steps (a wizard with no fields section) keep their values there.
+function wizardFieldNames(
+  layout: EditLayout,
+  inlineFieldNames: ReadonlySet<string> | undefined,
+): ReadonlySet<string> {
+  const names = new Set<string>(inlineFieldNames);
+  for (const section of layout.sections) {
+    if (!isFieldsEditSection(section)) continue;
+    for (const spec of sectionFieldSpecs(section)) names.add(normalizeEditField(spec).field);
+  }
+  return names;
+}
+
+function usesWizardOption(layout: EditLayout): boolean {
+  const wizard = layout.wizard;
+  return (
+    wizard?.saveAndCloseOnCreate !== undefined ||
+    wizard?.submitDisabledWhen !== undefined ||
+    wizard?.aside?.finishDescription !== undefined ||
+    layout.sections.some(
+      (section) =>
+        (isFieldsEditSection(section) || section.kind === "extension") &&
+        section.summaryField !== undefined,
+    )
+  );
+}
+
+function validateWizardOptions(
+  featureName: string,
+  screenId: string,
+  screenType: string,
+  layout: EditLayout,
+  inlineFieldNames: ReadonlySet<string> | undefined,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screenId}" (${screenType})`;
+  const wizard = layout.wizard;
+  if (layout.mode !== "wizard") {
+    if (usesWizardOption(layout)) {
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardOptionWithoutWizard, {
+        message: `${where} sets a wizard-only layout option but mode is not "wizard". Remove it or set mode: "wizard".`,
+      });
+    }
+    // skip: the remaining checks only apply to wizards
+    return;
+  }
+  const allFieldNames = wizardFieldNames(layout, inlineFieldNames);
+  for (const section of layout.sections) {
+    if (
+      section.kind === "extension" &&
+      section.summaryField !== undefined &&
+      !allFieldNames.has(section.summaryField)
+    ) {
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
+        message: `${where} extension section "${section.title}" sets summaryField "${section.summaryField}", which is not a field of the screen. Use a field name declared in the screen's fields or a fields section.`,
+      });
+    }
+    if (!isFieldsEditSection(section)) continue;
+    const sectionFieldNames = sectionFieldSpecs(section).map(
+      (spec) => normalizeEditField(spec).field,
+    );
+    if (section.summaryField !== undefined && !sectionFieldNames.includes(section.summaryField)) {
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
+        message: `${where} section "${section.title ?? ""}" sets summaryField "${section.summaryField}", which is not a field of that section. Use a field name declared in the section.`,
+      });
+    }
+  }
+  const condition = wizard?.submitDisabledWhen;
+  if (typeof condition === "object" && !allFieldNames.has(condition.field)) {
+    throw bootRuleError(FORM_LAYOUT_RULES.wizardSubmitConditionFieldUnknown, {
+      message: `${where} layout.wizard.submitDisabledWhen names field "${condition.field}", which no section declares. Use a field name declared in one of the sections.`,
+    });
+  }
+}
+
 // Wizard layouts (mode: "wizard") need >= 2 titled sections — a single or
 // untitled step would leave the progress indicator blank, so both fail at
 // boot rather than as a broken step UI.
@@ -271,6 +346,7 @@ export function validateWizardLayout(
   screenType: "entityEdit" | "actionForm" | "configEdit" | "secretMint",
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  inlineFieldNames?: ReadonlySet<string>,
 ): void {
   // entityEdit renders tabs like wizard steps: every section stays mounted,
   // submit validates across all of them, and a field error jumps to the tab
@@ -309,6 +385,7 @@ export function validateWizardLayout(
       });
     }
   }
+  validateWizardOptions(featureName, screenId, screenType, layout, inlineFieldNames);
   // skip: mode omitted/"single" — no wizard constraints apply.
   if (layout.mode !== "wizard") return;
   if (layout.sections.length < 2) {
@@ -812,7 +889,7 @@ export function validateInlineFormScreen(
     screen.fields,
     allowEmptyMintForm && fieldNames.size === 0,
   );
-  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap, fieldNames);
   if (screen.type === "actionForm") {
     validateFormDerivations(feature.name, screenId, screen);
     validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);

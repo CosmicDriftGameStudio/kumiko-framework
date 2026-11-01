@@ -16,6 +16,8 @@
 //      not inside any tab's Card. `inlineActions` keeps download-invoice a visible
 //      button next to it where the page header would otherwise fold it into the menu.
 //
+//   6. `showOnTabs` limits the record-payment action to the payments tab.
+//
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
 // query's row, not an entity field.
@@ -157,6 +159,14 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.action.downloadInvoice",
           screen: "order-detail",
           icon: "download",
+        },
+        {
+          kind: "navigate",
+          id: "record-payment",
+          label: "order-desk.action.recordPayment",
+          screen: "order-detail",
+          icon: "plus",
+          showOnTabs: ["payments"],
         },
       ],
       inlineActions: ["download-invoice"],

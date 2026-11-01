@@ -160,6 +160,10 @@ type EditFieldsSectionBase = {
    *  and in the "up next" box. Wizard layouts only; unlike `description` it
    *  is not shown inside the step. */
   readonly subtitle?: string;
+  /** Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`. */
+  readonly upNextHint?: string;
+  /** Wizard layouts only: field of this section whose formatted value shows under the step label in the step rail once the step is done. Needs a field of this section. */
+  readonly summaryField?: string;
   /** Rendered top-right in the section's Card title row — same
    *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
    *  evaluated against the same record. Every action must resolve an icon
@@ -192,6 +196,14 @@ export type EditExtensionSection = {
   readonly id?: string;
   readonly kind: "extension";
   readonly title: string;
+  /** Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`. */
+  readonly description?: string;
+  /** Wizard layouts only: short line under this step's title in the step rail and the "up next" box. */
+  readonly subtitle?: string;
+  /** Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`. */
+  readonly upNextHint?: string;
+  /** Wizard layouts only: field whose formatted value shows under the step label once the step is done. On an `actionForm` it names a field of the screen's `fields`; elsewhere a field of a fields section of the layout. */
+  readonly summaryField?: string;
   readonly component: PlatformComponent;
   /** When true, the extension registers via `useExtensionFormSubmit` and the
    *  surrounding form's Save button should activate for its dirty state.
@@ -443,13 +455,22 @@ export type EditLayout = {
    *  list of independent preferences rather than one record form. Default
    *  "form" keeps the grid of cells. */
   readonly variant?: "form" | "settings-list";
+  /** Hides the asterisk after required field labels. Default false (shown). */
+  readonly hideRequiredMarker?: boolean;
   /** Persists in-progress wizard state as a resumable draft instead of
    *  discarding it on navigation away. */
   readonly draft?: boolean;
-  /** Wizard layouts only. `upNext: true` adds an "up next" box to the step
-   *  rail with the following step's title and `subtitle`; the last step
-   *  shows none. */
-  readonly wizard?: { readonly aside?: { readonly upNext: true } };
+  /** Wizard layouts only. `aside.upNext: true` adds an "up next" box to the step
+   *  rail with the following step's title and its `upNextHint` (else `subtitle`) only.
+   *  The last step shows the box only with `finishDescription` (i18n key): the
+   *  finish action as title, that text under it. */
+  readonly wizard?: {
+    readonly aside?: { readonly upNext: true; readonly finishDescription?: string };
+    /** Also offers "Save and close" while creating a record (default: update mode only). */
+    readonly saveAndCloseOnCreate?: boolean;
+    /** Disables the finish button (and blocks the submit) while the condition holds on the form values. */
+    readonly submitDisabledWhen?: FieldCondition;
+  };
 };
 
 export type EntityWriteExcludedFields = {

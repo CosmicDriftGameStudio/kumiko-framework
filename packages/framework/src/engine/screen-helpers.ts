@@ -42,7 +42,7 @@ export function explicitListScreenId(screen: ScreenDefinition): string | undefin
 
 // Screen refs may be short ids or `<feature>:screen:<id>` QNs (boot-validator
 // accepts both for navigate targets and listScreenId); compare on the short id.
-function screenShortId(ref: string): string {
+export function screenShortId(ref: string): string {
   return ref.slice(ref.lastIndexOf(":") + 1);
 }
 

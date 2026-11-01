@@ -322,6 +322,10 @@ type EditExtensionSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   kind: "extension";
   title: string;
+  description?: string; // Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`.
+  subtitle?: string; // Wizard layouts only: short line under this step's title in the step rail and the "up next" box.
+  upNextHint?: string; // Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`.
+  summaryField?: string; // Wizard layouts only: field whose formatted value shows under the step label once the step is done.
   component: PlatformComponent;
   contributesToFormSubmit?: boolean; // When true, the extension registers via `useExtensionFormSubmit` and the surrounding form's Save button should activate for its dirty state.
   entityName?: string; // Overrides the host-derived entity name passed to the mounted component.
@@ -334,11 +338,15 @@ type EditLayout = {
   width?: FormWidth; // Default "4xl" (a centered column, narrower than list chrome), unless the app overrides it via `createKumikoApp({ screenWidth })`.
   mode?: "single" | "wizard" | "tabs"; // Default "single".
   variant?: "form" | "settings-list"; // "settings-list" lays each section out as a band with a title column on the left and one hairline-separated row per field (label + help left, control right) — the familiar settings pattern, for screens that are a list of independent preferences rather than one record form.
+  hideRequiredMarker?: boolean; // Hides the asterisk after required field labels.
   draft?: boolean; // Persists in-progress wizard state as a resumable draft instead of discarding it on navigation away.
   wizard?: {
     aside?: {
       upNext: true;
+      finishDescription?: string;
     };
+    saveAndCloseOnCreate?: boolean; // Also offers "Save and close" while creating a record (default: update mode only).
+    submitDisabledWhen?: FieldCondition; // Disables the finish button (and blocks the submit) while the condition holds on the form values.
   }; // Wizard layouts only.
 };
 type EditWriteFormSection = {
@@ -458,6 +466,7 @@ type RowActionClientAction = {
   confirm?: string; // i18n key for the confirm dialog description.
   confirmLabel?: string; // i18n key for the confirm button, default `label`.
   visible?: FieldCondition; // Conditional visibility per row.
+  showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style.
   icon?: IconKey; // Overrides the id-based default icon, see `RowActionWriteHandler.icon`.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
@@ -471,6 +480,7 @@ type RowActionDrawer = {
   screen: string; // Short, unqualified id of an `actionForm` screen in the same feature.
   params?: RowFieldExtractor; // Declarative prefill extracted from the clicked row.
   visible?: FieldCondition; // Per-row conditional visibility.
+  showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.

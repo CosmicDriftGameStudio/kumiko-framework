@@ -5,7 +5,7 @@ import { useExtensionFormHost } from "../app/extension-form-submit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useDraftStorage } from "../context/draft-storage-context.tsx";
 import type { DispatcherError, FieldIssue, Translate } from "../headless/index.ts";
-import { useTranslation } from "../i18n.tsx";
+import { useLocale, useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
@@ -125,6 +125,7 @@ export function useRenderEditState({
   // useTranslation throws without a LocaleProvider, which is acceptable because
   // RenderEdit only runs inside a mounted Kumiko app tree.
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const translate = translateProp ?? t;
   const dispatcher = useOptionalDispatcher();
 
@@ -163,6 +164,7 @@ export function useRenderEditState({
     (isTabs && primitives.Tabs !== undefined && primitives.WizardStepGroup !== undefined);
   return {
     translate,
+    appLocale,
     dispatcher,
     isWizard,
     isTabs,

@@ -24,6 +24,15 @@ the user left off.
   mounted alongside this one (both enforced at boot). The actual
   save/resume/discard wiring happens automatically inside `RenderEdit` —
   this recipe never calls a form-draft handler from its own code.
+- **Step rail texts** — a section's `subtitle` is the line under its step in
+  the rail (opt-in, `description` is never used there); `summaryField`
+  replaces it with the entered value once the step is done. `wizard.aside`
+  adds the "up next" card, and `finishDescription` the finish card on the
+  last step. Extension steps take the same three texts; on an `actionForm`
+  `summaryField` and `submitDisabledWhen` may name a field of its `fields`.
+- **Footer options** — `wizard.saveAndCloseOnCreate` offers "Save and close" (also on the last step)
+  while creating; `wizard.submitDisabledWhen` disables Finish while a field
+  condition holds. It is UI-only: enforce the rule in a validation hook too.
 
 ## Feature composition
 

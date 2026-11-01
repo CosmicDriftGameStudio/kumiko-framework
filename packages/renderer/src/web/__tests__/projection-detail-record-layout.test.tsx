@@ -1334,3 +1334,29 @@ describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", ()
     );
   });
 });
+
+describe("KumikoScreen / projectionDetail - empty header band", () => {
+  test("an empty subtitle without metrics renders no subtitle row and no band", async () => {
+    const screenDef: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address" },
+    };
+
+    renderWithSidebar(
+      <DispatcherProvider dispatcher={dispatcherReturning({ ...rowData, address: "" })}>
+        <PageHeaderSlotProvider>
+          <ShellHeader schema={{ features: [schemaFor(screenDef)] }} />
+          <KumikoScreen
+            schema={schemaFor(screenDef)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </PageHeaderSlotProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-subtitle")).toBeNull();
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-metrics")).toBeNull();
+  });
+});

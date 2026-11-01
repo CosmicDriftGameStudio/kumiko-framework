@@ -27,12 +27,13 @@ const FOUNDATION_FEATURE_LINES = ["- `secrets` (foundation)", "- `sessions` (fou
 
 export function renderMountedFeatureList(
   features: ReadonlyArray<{ readonly name: string }> | undefined,
+  starter: "demo" | "blank" = "demo",
 ): string {
   const lines =
     features && features.length > 0
       ? features.map((f) => `- \`${f.name}\``)
       : FOUNDATION_FEATURE_LINES;
-  return [...lines, DEMO_TASKS_FEATURE_LINE].join("\n");
+  return (starter === "demo" ? [...lines, DEMO_TASKS_FEATURE_LINE] : lines).join("\n");
 }
 
 function renderCommandList(scriptNames: readonly string[]): string {
@@ -54,6 +55,7 @@ export type AgentsMdOptions = {
   readonly productName: string;
   readonly features: ReadonlyArray<{ readonly name: string }> | undefined;
   readonly scriptNames: readonly string[];
+  readonly starter?: "demo" | "blank";
 };
 
 export function renderAgentsMd(options: AgentsMdOptions): string {
@@ -61,7 +63,7 @@ export function renderAgentsMd(options: AgentsMdOptions): string {
     readFileSync(agentsTemplatePath(), "utf-8"),
     {
       productName: options.productName,
-      featureList: renderMountedFeatureList(options.features),
+      featureList: renderMountedFeatureList(options.features, options.starter),
       commands: renderCommandList(options.scriptNames),
     },
     {},

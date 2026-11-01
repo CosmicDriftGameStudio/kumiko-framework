@@ -313,3 +313,52 @@ describe("resolveBootOptionWiring worker hint", () => {
     }
   });
 });
+
+describe("resolveBootOptionWiring bootstrap admin", () => {
+  const tenantId = "00000000-0000-4000-8000-000000000320";
+  const seeds = { bootstrapAdminFromEnv: { tenant: { id: tenantId, key: "app", name: "App" } } };
+  const envWithCreator = { KUMIKO_BOOTSTRAP_ADMIN_EMAIL: "creator@example.com" };
+
+  async function warningsFor(options: {
+    auth?: { passwordReset?: unknown; mail?: { from?: string } };
+    env: Record<string, string>;
+  }): Promise<string> {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await resolveBootOptionWiring(
+        { features: [], seeds, auth: { ...options.auth } },
+        options.env,
+      );
+      return warn.mock.calls.flat().join("\n");
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  test("warns when the account is seeded but no flow can set its password", async () => {
+    expect(await warningsFor({ env: envWithCreator })).toContain("KUMIKO_BOOTSTRAP_ADMIN_EMAIL");
+  });
+
+  test("stays quiet with passwordReset or without the env var", async () => {
+    expect(
+      await warningsFor({
+        env: envWithCreator,
+        auth: { passwordReset: { appUrl: "https://a.b" } },
+      }),
+    ).not.toContain("KUMIKO_BOOTSTRAP_ADMIN_EMAIL");
+    expect(await warningsFor({ env: {} })).not.toContain("KUMIKO_BOOTSTRAP_ADMIN_EMAIL");
+  });
+
+  test("seeds one account when the env var is set and none otherwise", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const options = { features: [], seeds, auth: {} };
+      expect((await resolveBootOptionWiring(options, envWithCreator)).shortcutSeeds).toHaveLength(
+        1,
+      );
+      expect((await resolveBootOptionWiring(options, {})).shortcutSeeds).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

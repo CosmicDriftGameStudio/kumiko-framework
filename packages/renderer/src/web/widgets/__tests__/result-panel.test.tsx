@@ -115,3 +115,25 @@ describe("ComparisonTable", () => {
     expect(container.querySelector("thead.bg-muted")).toBeNull();
   });
 });
+
+describe("ResultTable compactHeader", () => {
+  const headerClasses = (compactHeader?: boolean): string =>
+    render(
+      <ResultTable
+        columns={COLUMNS}
+        rows={ROWS}
+        rowKey={(r) => String(r.year)}
+        {...(compactHeader !== undefined && { compactHeader })}
+      />,
+    ).container.querySelector("th")?.className ?? "";
+
+  test("compactHeader renders the header cells in 12px semibold", () => {
+    const classes = headerClasses(true);
+    expect(classes).toContain("text-xs");
+    expect(classes).toContain("font-semibold");
+  });
+
+  test("the default header keeps its look", () => {
+    expect(headerClasses()).not.toContain("text-xs");
+  });
+});

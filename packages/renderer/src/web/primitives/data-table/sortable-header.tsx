@@ -5,6 +5,8 @@ import { cn } from "../../lib/cn.ts";
 import { TableHead } from "../../ui/table.tsx";
 import { FIT_CONTENT_CELL_CLASS } from "../data-table-cell.tsx";
 
+export const COMPACT_HEADER_CLASS = "text-xs font-semibold";
+
 // SortableHeader: renders the th header per column, with or without
 // click-sort. Three paths:
 //   (a) sortable=false OR no onSortChange -> plain label, no cursor
@@ -21,6 +23,7 @@ export function SortableHeader({
   highlighted,
   numeric,
   fitContent,
+  compact,
   className,
   sort,
   onSortChange,
@@ -34,6 +37,7 @@ export function SortableHeader({
   readonly highlighted?: boolean;
   readonly numeric?: boolean;
   readonly fitContent?: boolean;
+  readonly compact?: boolean;
   readonly className?: string;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
@@ -63,6 +67,7 @@ export function SortableHeader({
           fitContent === true && FIT_CONTENT_CELL_CLASS,
           highlighted === true && "bg-accent/40",
           trailing !== undefined && "group/header relative",
+          compact === true && COMPACT_HEADER_CLASS,
           className,
         )}
         {...cellExtras}
@@ -91,6 +96,7 @@ export function SortableHeader({
         fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",
         trailing !== undefined && "group/header relative",
+        compact === true && COMPACT_HEADER_CLASS,
         className,
       )}
       {...cellExtras}
@@ -103,6 +109,7 @@ export function SortableHeader({
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           active !== undefined && "text-foreground",
+          compact === true && "text-xs",
         )}
       >
         <span>{label}</span>

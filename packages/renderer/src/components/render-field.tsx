@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { createContext, useContext } from "react";
+import { useContext } from "react";
 import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, usePrimitives } from "../primitives.tsx";
+import { HideRequiredMarkerContext } from "../required-marker-context.ts";
 import { listPrintsOwnIssues, renderControl } from "./render-field-control.tsx";
 import { inputId } from "./render-field-meta.ts";
 
@@ -64,9 +65,7 @@ export type RenderFieldProps = {
   readonly hideLabel?: boolean;
 };
 
-const AllFieldsRequiredContext = createContext(false);
-
-export const AllFieldsRequiredProvider = AllFieldsRequiredContext.Provider;
+export const AllFieldsRequiredProvider = HideRequiredMarkerContext.Provider;
 
 type FieldOptionalPropsInput = Pick<
   RenderFieldProps,
@@ -152,7 +151,7 @@ export function RenderField({
   // consumers and tests must wrap it (createKumikoApp does this).
   const appLocale = useLocale().locale();
   const t = useTranslation();
-  const allFieldsRequired = useContext(AllFieldsRequiredContext);
+  const allFieldsRequired = useContext(HideRequiredMarkerContext);
   if (!field.visible) return null;
 
   const id = inputId(field);

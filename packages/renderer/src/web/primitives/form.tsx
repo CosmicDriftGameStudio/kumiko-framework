@@ -387,8 +387,11 @@ export const SECTION_NAV_MIN_ITEMS = 3;
 // (happy-dom, old engines) the first entry stays active until one is clicked.
 export function FormSectionNav({
   items,
+  activeTone = "primary",
 }: {
   readonly items: readonly FormSectionNavItem[];
+  /** `foreground`: the active entry is bold in the text colour with a dark marker instead of the primary colour. */
+  readonly activeTone?: "primary" | "foreground";
 }): ReactNode {
   const t = useTranslation();
   const [activeId, setActiveId] = useState(items[0]?.id);
@@ -440,7 +443,9 @@ export function FormSectionNav({
             className={cn(
               "border-l-2 px-3 py-[5px] text-left text-sm",
               active
-                ? "border-primary font-semibold text-primary"
+                ? activeTone === "foreground"
+                  ? "border-foreground font-semibold text-foreground"
+                  : "border-primary font-semibold text-primary"
                 : "border-border text-foreground-secondary hover:text-foreground",
             )}
           >

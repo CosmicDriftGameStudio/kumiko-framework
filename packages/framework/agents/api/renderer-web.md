@@ -18,13 +18,14 @@ function Avatar(props: AvatarProps): ReactNode;
 function BareFormProvider(props: { children: ReactNode; }): ReactNode;
 function BooleanField(props: BooleanFieldProps): ReactNode; // Checkbox/Switch = Field(layout:"inline") + Input(kind:"boolean").
 function Card(props: CardProps): ReactNode;
-function ChoiceCards<T extends string>(props: { value: T | null; options: { value: T; title: string; description?: string; aside?: string; disabled?: boolean; }[]; onChange: (value: T) => void; ariaLabel?: string; testId?: string; }): ReactNode; // Card-styled radio group for mutually exclusive choices that need a description or price line.
+function ChoiceCards<T extends string>(props: { value: T | null; options: { value: T; title: string; description?: string; aside?: string; disabled?: boolean; }[]; onChange: (value: T) => void; ariaLabel?: string; label?: string; columns?: 1 | 2 | 3 | 4; variant?: "check" | "radio"; testId?: string; }): ReactNode; // Card-styled radio group for mutually exclusive choices that need a description or price line.
 function ClampedText(props: { children: ReactNode; lines?: number; moreLabelKey?: string; maxHeightPx?: number; testId?: string; }): ReactNode; // Clamps content to `lines`; the toggle shows only while the content actually overflows.
 function CollapsibleSection(props: { title: string; defaultOpen?: boolean; children: ReactNode; testId?: string; }): ReactNode; // Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render.
 function ComparisonTable<Col>(props: { columns: Col[]; columnHeader: (col: Col, index: number) => string; columnKey: (col: Col, index: number) => string; metrics: ComparisonMetric<Col>[]; metricLabel: string; testId?: string; className?: string; card?: boolean; }): ReactNode; // Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric.
+function Composer(props: ComposerProps): ReactNode; // Chat input: a label-less textarea with a text send button inside the field frame, bottom right.
 function DateField(props: DateFieldProps): ReactNode; // Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd.
 function DefaultAppShell(props: DefaultAppShellProps): ReactNode;
-function DetailList(props: { rows: { id?: string; label: string; value: ReactNode; emphasize?: boolean; }[]; testId?: string; }): ReactNode; // Read-only key-value list for detail views (dimmed label on the left, value on the right).
+function DetailList(props: { valueWeight?: "medium" | "normal"; layout?: "default" | "sidebar"; rows: { id?: string; label: string; value: ReactNode; emphasize?: boolean; }[]; testId?: string; }): ReactNode; // Read-only key-value list for detail views (dimmed label on the left, value on the right).
 function DispatcherProvider(props: DispatcherProviderProps): ReactNode;
 function Drawer(props: DrawerProps): ReactNode; // Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate.
 function DropdownMenuCheckboxItem(props: ComponentPropsWithoutRef<typeof Primitive.CheckboxItem>): ReactNode;
@@ -53,7 +54,7 @@ function MessageReader(props: MessageReaderProps): ReactNode; // Mail thread wit
 function MessageThread(props: MessageThreadProps): ReactNode; // Mail conversation, oldest first: older messages fold to one line, the last one is open on a sheet.
 function MiniStat(props: { label: string; value: string; tone?: StatTone; emphasize?: boolean; testId?: string; labelTestId?: string; valueTestId?: string; }): ReactNode; // Compact metric tile (without an icon) — for dense KPI grids.
 function MobileTopBar(props: MobileTopBarProps): ReactNode; // Phone-only bar for focused screens: the shell header is hidden there, so the screen brings its own.
-function ModeSwitch<T extends string>(props: { value: T | null; options: { value: T; label: string; count?: number; }[]; onChange: (value: T) => void; ariaLabel?: string; variant?: ModeSwitchVariant; className?: string; testId?: string; }): ReactNode; // Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>.
+function ModeSwitch<T extends string>(props: { value: T | null; options: { value: T; label: string; count?: number; disabled?: boolean; tone?: "warning"; }[]; onChange: (value: T) => void; ariaLabel?: string; variant?: ModeSwitchVariant; segmentWidth?: "auto" | "wide"; className?: string; testId?: string; }): ReactNode; // Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>.
 function NavProvider(props: NavProviderProps): ReactNode;
 function NavTree(props: NavTreeProps): ReactNode;
 function NumberField(props: NumberFieldProps): ReactNode; // Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen.
@@ -79,13 +80,14 @@ function ResizableHandle(props: ResizablePrimitive.SeparatorProps & { withHandle
 function ResizablePanel(props: ResizablePrimitive.PanelProps): JSX.Element;
 function ResizablePanelGroup(props: ResizablePrimitive.GroupProps): JSX.Element;
 function ResultPanel(props: { title: string; subtitle?: string; empty?: boolean; emptyText?: ReactNode; rows?: { label: string; value: ReactNode; emphasize?: boolean; }[]; footer?: ReactNode; children?: ReactNode; testId?: string; }): ReactNode; // Result section for a calculator: SectionCard with an empty state (Banner) or a metric list (DetailList) plus optional extras (table, notes).
-function ResultTable<Row>(props: { columns: ResultColumn<Row>[]; rows: Row[]; rowKey: (row: Row, index: number) => string; testId?: string; className?: string; card?: boolean; footer?: ResultTableFooterRow[]; }): ReactNode; // Static, prop-driven result table for calculated rows (tranches, scenarios).
+function ResultTable<Row>(props: { columns: ResultColumn<Row>[]; rows: Row[]; rowKey: (row: Row, index: number) => string; testId?: string; className?: string; card?: boolean; footer?: ResultTableFooterRow[]; compactHeader?: boolean; }): ReactNode; // Static, prop-driven result table for calculated rows (tranches, scenarios).
 function ScreenWidthProvider(props: { width: FormWidth | undefined; children: ReactNode; }): ReactNode;
 function SectionCard(props: { title: string; subtitle?: string; action?: ReactNode; footer?: ReactNode; children: ReactNode; testId?: string; }): ReactNode; // Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens.
+function SectionNavLayout(props: SectionNavLayoutProps): ReactNode; // Content column plus an "On this page" navigation in a right column (from xl), for custom screens.
 function SelectField(props: SelectFieldProps): ReactNode; // Select field = Field + Input(kind:"select").
 function SenderFrame(props: { children: ReactNode; label?: string; testId?: string; }): ReactNode; // Sand frame with one white sheet inside, for content that mimics a letter or mail.
 function SenderSheet(props: { children: ReactNode; testId?: string; compact?: boolean; }): ReactNode; // The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails).
-function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
+function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; rowHeaderTone?: "muted" | "foreground"; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
 function Sidebar(props: SidebarProps): ReactNode;
 function SidebarBrand(props: SidebarBrandProps): ReactNode;
 function SidebarMenu(props: React.ComponentProps<"ul">): React.JSX.Element;
@@ -240,8 +242,10 @@ type BannerProps = { // Banner for an inline message or page state (for example,
   icon?: NavIconKey; // Icon left of the text.
   title?: ReactNode; // Bold heading above `children`, inside the text column.
   titleTestId?: string;
-  children: ReactNode;
+  children?: ReactNode;
+  parts?: { text: string; strong?: boolean; }[]; // Structured text after `children`; `strong` parts render emphasized.
   actions?: ReactNode; // Optional—additional buttons or elements to the right of the text (for example, "Neu laden").
+  actionsPlacement?: "end" | "below"; // Where `actions` sit: `end` (default) right of the text, `below` under it.
   padded?: boolean; // Adds outer spacing around the banner for page states where it renders alone in the main area (KumikoScreen "not-found", "loading", etc.).
   testId?: string;
   id?: string; // Set when a `<Field>` wraps this Banner as its control (no actual input exists for the label to target — see render-field.tsx's unsupported-field-type fallback).
@@ -300,6 +304,17 @@ interface ComparisonMetric<Col> {
   value: (col: Col, index: number) => ReactNode;
   bestIndex?: (cols: Col[]) => number; // Index of the best column for this row (highlighted); -1 = none.
 }
+type ComposerProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  placeholder?: string;
+  disabled?: boolean;
+  submitLabel: string; // Text of the send button.
+  docked?: boolean; // Sticks to the bottom of a full-height flex-column parent so it stays visible while the thread scrolls; it also covers the bottom padding of the screen scroll.
+  rows?: number;
+  testId?: string;
+};
 type CorePrimitives = {
   Button: ComponentType<ButtonProps>;
   Banner: ComponentType<BannerProps>;
@@ -602,8 +617,8 @@ type HeaderActionGroupProps = {
   children: ReactNode;
   className?: string;
 };
-type HeadingProps = { // Heading with two roles: `page` is a page title (web: h1), while `section` is a group subheading (web: h2 with uppercase and muted styling).
-  variant?: "page" | "section";
+type HeadingProps = { // Heading with three roles: `page` is a page title (web: h1), `section` is a group subheading (web: h2 with uppercase and muted styling) and `group` is a plain 16px semibold sub-title (web: h2, normal case).
+  variant?: "page" | "section" | "group";
   children: ReactNode;
   testId?: string;
 };
@@ -1348,10 +1363,17 @@ interface ResultColumn<Row> {
   align?: "left" | "right";
   cell: (row: Row) => ReactNode;
 }
+type SectionNavLayoutProps = {
+  items: FormSectionNavItem[]; // One entry per section; `id` must equal the DOM `id` of the section element in `children`.
+  children: ReactNode;
+  width?: keyof typeof screenFormColumnWidthClassName; // Content column width, default "4xl".
+  testId?: string;
+};
 type SectionProps = { // Titled group of fields.
   id?: string; // DOM id — the scroll target of a form's "on this page" navigation.
   title?: string; // Optional; without a title, the Section renders only the grouping and no header.
   subtitle?: ReactNode; // Optional muted subtitle below the title, providing section context rather than only a label (analogous to `FormProps.subtitle`).
+  subtitleBelowLgOnly?: boolean; // Shows the subtitle only below the `lg` breakpoint: a wizard's step rail carries the same text from `lg` up.
   children: ReactNode;
   actions?: ReactNode; // Rendered top-right in the title row — never a footer.
   layout?: "stacked" | "settings-list"; // "settings-list": title + subtitle form a left header column and the children (field rows) the right one on `md:` and up.
@@ -1514,6 +1536,7 @@ interface TextareaFieldProps extends FieldBase {
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  placeholder?: string;
 }
 type ThemeMenuItemProps = {
   lightIcon?: ReactNode;

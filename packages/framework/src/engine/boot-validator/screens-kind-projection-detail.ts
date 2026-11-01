@@ -15,6 +15,7 @@ import type {
   MetricSpec,
   ProjectionDetailScreenDefinition,
   RecordHeaderSubtitlePart,
+  RowAction,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import {
@@ -446,6 +447,30 @@ function validateProjectionDetailSection(
   }
 }
 
+function validateHeaderActionShowOnTabs(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+  action: RowAction,
+): void {
+  // skip: no showOnTabs declared, the action is shown on every tab
+  if (action.showOnTabs === undefined) return;
+  const sectionIds = screen.layout.sections.map((section) => section.id);
+  const unknownTab = action.showOnTabs.find((tab) => !sectionIds.includes(tab));
+  if (screen.layout.mode !== "tabs" || action.showOnTabs.length === 0 || unknownTab !== undefined) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.actionShowOnTabsInvalid, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) action "${action.id}" ` +
+        `sets showOnTabs ${JSON.stringify(action.showOnTabs)}` +
+        (unknownTab !== undefined
+          ? `, but "${unknownTab}" is not a section id on this screen`
+          : "") +
+        (screen.layout.mode !== "tabs" ? ` — showOnTabs needs layout.mode "tabs"` : "") +
+        `. List existing section ids (at least one) or remove showOnTabs.`,
+    });
+  }
+}
+
 // Query-driven like projectionList, but a single row plus layout instead of
 // columns. No entity check is possible: fields resolve against the query
 // response at render time, not against an entity.
@@ -472,5 +497,6 @@ export function validateProjectionDetailScreen(
   for (const action of screen.actions ?? []) {
     validateActionHasIcon(featureName, screenId, "projectionDetail", "action", action);
     validateRecordHeaderAction(ctx, screenId, "projectionDetail", screen.detailFor, action);
+    validateHeaderActionShowOnTabs(featureName, screenId, screen, action);
   }
 }

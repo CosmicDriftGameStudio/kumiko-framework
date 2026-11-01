@@ -200,10 +200,15 @@ export type BannerProps = {
   /** Bold heading above `children`, inside the text column. */
   readonly title?: ReactNode;
   readonly titleTestId?: string;
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
+  /** Structured text after `children`; `strong` parts render emphasized.
+   *  Use instead of markup in strings. */
+  readonly parts?: readonly { readonly text: string; readonly strong?: boolean }[];
   /** Optional—additional buttons or elements to the right of the text (for
    *  example, "Neu laden"). Inline, not a separate block. */
   readonly actions?: ReactNode;
+  /** Where `actions` sit: `end` (default) right of the text, `below` under it. */
+  readonly actionsPlacement?: "end" | "below";
   /** Adds outer spacing around the banner for page states where it renders
    *  alone in the main area (KumikoScreen "not-found", "loading", etc.). The
    *  web implementation adds p-6 as margin around the banner. */
@@ -1044,6 +1049,9 @@ export type SectionProps = {
   /** Optional muted subtitle below the title, providing section context rather
    *  than only a label (analogous to `FormProps.subtitle`). */
   readonly subtitle?: ReactNode;
+  /** Shows the subtitle only below the `lg` breakpoint: a wizard's step rail
+   *  carries the same text from `lg` up. Native impls may ignore it. */
+  readonly subtitleBelowLgOnly?: boolean;
   readonly children: ReactNode;
   /** Rendered top-right in the title row — never a footer. A
    *  title-less/subtitle-less Section still draws the row when `actions`
@@ -1146,12 +1154,13 @@ export type TextProps = {
   readonly testId?: string;
 };
 
-/** Heading with two roles: `page` is a page title (web: h1), while `section`
- *  is a group subheading (web: h2 with uppercase and muted styling). Native
+/** Heading with three roles: `page` is a page title (web: h1), `section`
+ *  is a group subheading (web: h2 with uppercase and muted styling) and `group`
+ *  is a plain 16px semibold sub-title (web: h2, normal case). Native
  *  implementations map these to `<Text>` with the corresponding font weight
  *  and size. */
 export type HeadingProps = {
-  readonly variant?: "page" | "section";
+  readonly variant?: "page" | "section" | "group";
   readonly children: ReactNode;
   readonly testId?: string;
 };

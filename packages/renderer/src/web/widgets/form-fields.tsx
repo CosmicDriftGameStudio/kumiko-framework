@@ -225,6 +225,7 @@ export interface TextareaFieldProps extends FieldBase {
   readonly value: string;
   readonly onChange: (v: string) => void;
   readonly rows?: number;
+  readonly placeholder?: string;
 }
 
 /** Multi-line text field = Field + Input(kind:"textarea"). */
@@ -235,6 +236,7 @@ export function TextareaField({
   value,
   onChange,
   rows,
+  placeholder,
   required,
   disabled,
   hideLabel,
@@ -252,6 +254,7 @@ export function TextareaField({
         required={required}
         disabled={disabled}
         {...(rows !== undefined && { rows })}
+        {...(placeholder !== undefined && { placeholder })}
       />
     </Field>
   );

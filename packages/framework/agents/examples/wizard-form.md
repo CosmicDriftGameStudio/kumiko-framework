@@ -32,6 +32,15 @@ the user left off.
   mounted alongside this one (both enforced at boot). The actual
   save/resume/discard wiring happens automatically inside `RenderEdit` —
   this recipe never calls a form-draft handler from its own code.
+- **Step rail texts** — a section's `subtitle` is the line under its step in
+  the rail (opt-in, `description` is never used there); `summaryField`
+  replaces it with the entered value once the step is done. `wizard.aside`
+  adds the "up next" card, and `finishDescription` the finish card on the
+  last step. Extension steps take the same three texts; on an `actionForm`
+  `summaryField` and `submitDisabledWhen` may name a field of its `fields`.
+- **Footer options** — `wizard.saveAndCloseOnCreate` offers "Save and close" (also on the last step)
+  while creating; `wizard.submitDisabledWhen` disables Finish while a field
+  condition holds. It is UI-only: enforce the rule in a validation hook too.
 
 ## Feature composition
 
@@ -881,12 +890,15 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     const rail = page.getByTestId("render-edit-wizard-steps");
     const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
     const step1 = page.getByTestId("render-edit-wizard-steps-step-1");
+    const step2 = page.getByTestId("render-edit-wizard-steps-step-2");
 
     await expect(rail).toBeVisible();
     await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
     await expect(step0).toHaveAttribute("aria-current", "step");
-    await expect(step0).toHaveCSS("height", "36px");
-    await expect(step1).toHaveCSS("height", "36px");
+    // Rows with a subtitle grow past 36px; the subtitle-less Review row pins the exact box.
+    await expect(step2).toHaveCSS("height", "36px");
+    expect((await step0.boundingBox())?.height).toBeGreaterThanOrEqual(36);
+    expect((await step1.boundingBox())?.height).toBeGreaterThanOrEqual(36);
 
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
@@ -894,7 +906,75 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
 
     await expect(step1).toHaveAttribute("aria-current", "step");
     await expect(step0).not.toHaveAttribute("aria-current", "step");
-    await expect(step1).toHaveCSS("height", "36px");
+    await expect(step2).toHaveCSS("height", "36px");
+  });
+
+  test("the rail shows the other steps' subtitles and, once a step is done, its summaryField value", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveCount(0);
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-1")).toHaveText(
+      "Price and condition",
+    );
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveText(
+      "Vintage desk lamp",
+    );
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-1")).toHaveCount(0);
+  });
+
+  test("the up-next card names the next step and, on the last step, the finish action", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    const upNext = page.getByTestId("render-edit-wizard-steps-up-next");
+    await expect(upNext).toContainText("Pricing");
+    await expect(upNext).toContainText("Price and condition");
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(upNext).toContainText("Review");
+    await page.getByTestId("field-price").locator("input").fill("42");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(upNext).toContainText("Publishes the listing.");
+  });
+
+  test("Save and close is offered while creating and creates the listing", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Quick save lamp");
+    await selectCombobox(page, "category", "furniture");
+
+    await page.getByTestId("render-edit-wizard-save-close").click();
+
+    await expect
+      .poll(async () => (await createdListings(page)).map((listing) => listing["title"]))
+      .toEqual(["Quick save lamp"]);
+  });
+
+  test("submitDisabledWhen disables Finish while the category is vehicles", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Old bicycle");
+    await selectCombobox(page, "category", "vehicles");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await page.getByTestId("field-price").locator("input").fill("150");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-submit")).toBeDisabled();
+
+    await page.getByTestId("render-edit-wizard-back").click();
+    await page.getByTestId("render-edit-wizard-back").click();
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-submit")).toBeEnabled();
   });
 
   test("an empty required field blocks Next and shows a field error", async ({ page }) => {
@@ -1256,9 +1336,20 @@ export const listingsFeature = defineFeature("listings", (r) => {
     layout: {
       mode: "wizard",
       draft: true,
+      wizard: {
+        aside: { upNext: true, finishDescription: "Publishes the listing." },
+        saveAndCloseOnCreate: true,
+        // UI-only: the write handler would still accept a vehicle listing.
+        submitDisabledWhen: { field: "category", eq: "vehicles" },
+      },
       sections: [
-        { title: "Basics", fields: ["title", "category"] },
-        { title: "Pricing", fields: ["price", "condition"] },
+        {
+          title: "Basics",
+          subtitle: "Title and category",
+          summaryField: "title",
+          fields: ["title", "category"],
+        },
+        { title: "Pricing", subtitle: "Price and condition", fields: ["price", "condition"] },
         {
           kind: "extension",
           title: "Review",

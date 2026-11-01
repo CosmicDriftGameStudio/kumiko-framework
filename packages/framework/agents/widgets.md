@@ -23,6 +23,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ClampedText` | Clamps content to `lines`; the toggle shows only while the content actually overflows. |
 | `CollapsibleSection` | Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render. |
 | `ComparisonTable` | Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric. |
+| `Composer` | Chat input: a label-less textarea with a text send button inside the field frame, bottom right. |
 | `DateField` | Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd. |
 | `DefaultAppShell` |  |
 | `DetailList` | Read-only key-value list for detail views (dimmed label on the left, value on the right). |
@@ -88,6 +89,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ResultTable` | Static, prop-driven result table for calculated rows (tranches, scenarios). |
 | `ScreenWidthProvider` |  |
 | `SectionCard` | Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens. |
+| `SectionNavLayout` | Content column plus an "On this page" navigation in a right column (from xl), for custom screens. |
 | `SelectField` | Select field = Field + Input(kind:"select"). |
 | `SenderFrame` | Sand frame with one white sheet inside, for content that mimics a letter or mail. |
 | `SenderSheet` | The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails). |

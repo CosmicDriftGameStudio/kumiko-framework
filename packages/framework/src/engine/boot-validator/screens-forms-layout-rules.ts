@@ -51,6 +51,22 @@ export const FORM_LAYOUT_RULES = {
     summary: "Every wizard section has a non-empty title.",
     fix: "Give each wizard section a title.",
   },
+  wizardOptionWithoutWizard: {
+    id: "form/wizard-option-without-wizard",
+    summary:
+      "layout.wizard.saveAndCloseOnCreate, submitDisabledWhen, aside.finishDescription and section summaryField are set only on a wizard layout.",
+    fix: 'Remove the option or set mode: "wizard".',
+  },
+  wizardSummaryFieldUnknown: {
+    id: "form/wizard-summary-field-unknown",
+    summary: "A wizard section summaryField names a field of that section.",
+    fix: "Use a field name declared in the section.",
+  },
+  wizardSubmitConditionFieldUnknown: {
+    id: "form/wizard-submit-condition-field-unknown",
+    summary: "layout.wizard.submitDisabledWhen names a field of the layout.",
+    fix: "Use a field name declared in one of the sections.",
+  },
   sectionFieldsAndGroups: {
     id: "form/section-fields-and-groups",
     summary: "A section declares fields or groups, not both.",

@@ -26,6 +26,12 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "A metric navigate.tab names a section id of the screen.",
     fix: "Navigate to an existing section id or remove navigate.tab.",
   },
+  actionShowOnTabsInvalid: {
+    id: "projection-detail/action-show-on-tabs-invalid",
+    summary:
+      'A header action showOnTabs is non-empty, names section ids of the screen and needs layout.mode "tabs".',
+    fix: "List existing section ids or remove showOnTabs.",
+  },
   metricLabelMissing: {
     id: "projection-detail/metric-label-missing",
     summary: "Every metric has an i18n label key.",

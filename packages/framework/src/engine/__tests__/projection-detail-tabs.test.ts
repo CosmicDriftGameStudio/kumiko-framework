@@ -317,3 +317,56 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 });
+
+describe("header action showOnTabs", () => {
+  function screenWith(showOnTabs: readonly string[], mode: "tabs" | undefined = "tabs") {
+    return defineFeature("app", (r) => {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.writeHandler({
+        name: "archive",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access: { roles: ["Admin"] },
+      });
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        actions: [
+          {
+            id: "archive",
+            label: "rent.archive",
+            handler: "app:write:archive",
+            showOnTabs,
+          },
+        ],
+        layout: {
+          ...(mode !== undefined && { mode }),
+          sections: [
+            { id: "overview", title: "Overview", fields: ["description"] },
+            { id: "history", title: "History", fields: ["notes"] },
+          ],
+        },
+      });
+    });
+  }
+
+  test("known tab ids boot cleanly", () => {
+    expect(() => validateBoot([screenWith(["history"])])).not.toThrow();
+  });
+
+  test("an unknown tab id fails boot", () => {
+    expect(() => validateBoot([screenWith(["nope"])])).toThrow(
+      /showOnTabs \["nope"\], but "nope" is not a section id on this screen/,
+    );
+  });
+
+  test("an empty list fails boot", () => {
+    expect(() => validateBoot([screenWith([])])).toThrow(/at least one/);
+  });
+});

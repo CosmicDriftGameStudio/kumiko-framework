@@ -1061,6 +1061,7 @@ type ListTableOptions = { // Opt-in table behaviour of a list.
   pinning?: boolean; // Lets the user pin columns left or right in the view menu; columns may start pinned via `pinned`.
   resizing?: boolean; // Switches the table to table-layout fixed; the user drags or uses the arrow keys on the header edge to resize.
   keyboardNavigation?: boolean; // Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click.
+  compactHeader?: boolean; // Renders the header row smaller (12px) and semibold.
   density?: {
     default?: ListTableDensity; // Row density on first visit.
     userChoice?: boolean; // Shows the density choice in the view menu and remembers it per session.
@@ -1527,6 +1528,7 @@ type RowActionWriteHandler = {
   confirm?: string; // i18n key for the confirm dialog description.
   confirmLabel?: string; // i18n key for the confirm button text in the dialog.
   visible?: FieldCondition; // Conditional visibility per row.
+  showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style.
   icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.

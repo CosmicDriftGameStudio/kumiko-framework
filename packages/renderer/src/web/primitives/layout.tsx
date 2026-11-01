@@ -32,6 +32,12 @@ export const screenFormColumnWidthClassName: Record<ScreenWidth, string> = {
 // viewport edge.
 export const screenPaddingClassName = "px-4 pb-6 pt-5 md:px-10 md:pb-10 md:pt-7";
 
+// Sticky element at the bottom of a screen scroll that covers the bottom padding of
+// screenPaddingClassName (sticky stops at the content box) and overlaps it at rest (negative margin).
+// Keep offsets, margin and padding in step with it; bg-card is the surface of the main content area.
+export const screenDockedBottomClassName =
+  "sticky -bottom-6 -mb-6 mt-auto bg-card pb-6 md:-bottom-10 md:-mb-10 md:pb-10";
+
 const STACK_GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6" } as const;
 
 type StackGap = keyof typeof STACK_GAP;

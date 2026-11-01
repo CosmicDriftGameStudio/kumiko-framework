@@ -32,6 +32,16 @@ import {
 } from "./managed-files/index.ts";
 import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.ts";
 import {
+  BLANK_ENV_EXAMPLE_ADMIN_BLOCK,
+  BLANK_STARTER_DELIVERY_FEATURE,
+  blankReadmeCopy,
+  type ReadmeCopy,
+  renderBlankEnvSchema,
+  renderBlankMain,
+  renderBlankServer,
+  type ScaffoldStarter,
+} from "./scaffold-blank-starter.ts";
+import {
   createDemoTasksFeature,
   renderDemoSeedFile,
   renderDemoTasksFeatureFile,
@@ -39,6 +49,16 @@ import {
   renderDemoTasksIndex,
   renderDemoTasksWebIndex,
 } from "./scaffold-demo-tasks.ts";
+import {
+  deriveTenantId,
+  type ImportSpec,
+  MAX_LINE_WIDTH,
+  renderAdminAuthBlock,
+  renderDefaultAppShellElement,
+  renderSortedImports,
+} from "./scaffold-render-helpers.ts";
+
+export { SCAFFOLD_STARTERS, type ScaffoldStarter } from "./scaffold-blank-starter.ts";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
@@ -65,6 +85,7 @@ export type ScaffoldTestSetup = {
 export type ScaffoldTestSetupFactory = (input: {
   readonly appName: string;
   readonly frameworkVersion: string;
+  readonly starter?: ScaffoldStarter;
 }) => ScaffoldTestSetup;
 
 // Exact pin (no caret): the generated files are formatted to this Biome's output,
@@ -102,6 +123,9 @@ export type ScaffoldAppOptions = {
   readonly testSetup?: ScaffoldTestSetupFactory;
   /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Default: CURRENT_INFRA_REF. */
   readonly infraRef?: string;
+  /** "demo" (default): demo tasks feature, admin seeded from DEMO_ADMIN_PASSWORD.
+   *  "blank": no demo; the creator is seeded from KUMIKO_BOOTSTRAP_ADMIN_EMAIL without a password. */
+  readonly starter?: ScaffoldStarter;
 };
 
 export type ScaffoldAppResult = {
@@ -110,7 +134,52 @@ export type ScaffoldAppResult = {
   readonly appName: string;
 };
 
-export async function scaffoldApp(options: ScaffoldAppOptions): Promise<ScaffoldAppResult> {
+function writeDemoTasksFiles(destination: string, files: string[]): void {
+  mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
+  write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
+  files.push("src/features/tasks/feature.ts");
+  write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
+  files.push("src/features/tasks/i18n.ts");
+  write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
+  files.push("src/features/tasks/index.ts");
+  write(
+    join(destination, "src", "features", "tasks", "web", "index.ts"),
+    renderDemoTasksWebIndex(),
+  );
+  files.push("src/features/tasks/web/index.ts");
+  write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
+  files.push("src/seed.ts");
+}
+
+function writeBinFiles(
+  destination: string,
+  appName: string,
+  isBlank: boolean,
+  files: string[],
+): void {
+  write(
+    join(destination, "bin", "main.ts"),
+    isBlank ? renderBlankMain(appName) : renderMain(appName),
+  );
+  files.push("bin/main.ts");
+  write(
+    join(destination, "bin", "server.ts"),
+    isBlank ? renderBlankServer(appName) : renderServer(appName),
+  );
+  files.push("bin/server.ts");
+  write(
+    join(destination, "bin", "env-schema.ts"),
+    isBlank ? renderBlankEnvSchema() : renderEnvSchema(appName),
+  );
+  files.push("bin/env-schema.ts");
+  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
+  files.push("bin/kumiko.ts");
+}
+
+function resolveScaffoldTarget(options: ScaffoldAppOptions): {
+  destination: string;
+  version: string;
+} {
   if (!isKebabSegment(options.name)) {
     throw new Error(`scaffoldApp: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`);
   }
@@ -125,7 +194,18 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
       "scaffoldApp: cannot resolve the framework version; pass frameworkVersion explicitly",
     );
   }
-  const testSetup = options.testSetup?.({ appName: options.name, frameworkVersion: version });
+  return { destination, version };
+}
+
+export async function scaffoldApp(options: ScaffoldAppOptions): Promise<ScaffoldAppResult> {
+  const { destination, version } = resolveScaffoldTarget(options);
+  const starter = options.starter ?? "demo";
+  const isBlank = starter === "blank";
+  const testSetup = options.testSetup?.({
+    appName: options.name,
+    frameworkVersion: version,
+    ...(isBlank && { starter }),
+  });
 
   mkdirSync(join(destination, "bin"), { recursive: true });
   mkdirSync(join(destination, "src"), { recursive: true });
@@ -145,40 +225,17 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, ".gitignore"), SCAFFOLD_GITIGNORE);
   files.push(".gitignore");
 
-  write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
+  write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features, starter));
   files.push("src/run-config.ts");
 
-  mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
-  write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
-  files.push("src/features/tasks/feature.ts");
-  write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
-  files.push("src/features/tasks/i18n.ts");
-  write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
-  files.push("src/features/tasks/index.ts");
-  write(
-    join(destination, "src", "features", "tasks", "web", "index.ts"),
-    renderDemoTasksWebIndex(),
-  );
-  files.push("src/features/tasks/web/index.ts");
-  write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
-  files.push("src/seed.ts");
+  if (!isBlank) writeDemoTasksFiles(destination, files);
 
   write(join(destination, APP_CONFIG_FILE), renderAppConfig());
   files.push(APP_CONFIG_FILE);
 
-  write(join(destination, "bin", "main.ts"), renderMain(options.name));
-  files.push("bin/main.ts");
+  writeBinFiles(destination, options.name, isBlank, files);
 
-  write(join(destination, "bin", "server.ts"), renderServer(options.name));
-  files.push("bin/server.ts");
-
-  write(join(destination, "bin", "env-schema.ts"), renderEnvSchema(options.name));
-  files.push("bin/env-schema.ts");
-
-  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
-  files.push("bin/kumiko.ts");
-
-  write(join(destination, "src", "client.tsx"), renderClient(options.name));
+  write(join(destination, "src", "client.tsx"), renderClient(options.name, starter));
   files.push("src/client.tsx");
 
   write(join(destination, "src", "styles.css"), renderStylesCss());
@@ -188,21 +245,19 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "public", "index.html"), renderIndexHtml(options.name));
   files.push("public/index.html");
 
-  write(join(destination, ".env.example"), renderEnvExample(options.name));
+  write(join(destination, ".env.example"), renderEnvExample(options.name, starter));
   files.push(".env.example");
 
   write(join(destination, "docker-compose.yml"), renderDockerCompose());
   files.push("docker-compose.yml");
 
-  await writeInitMigration(destination, options.features);
+  await writeInitMigration(destination, options.features, starter);
   files.push("kumiko/migrations/0001_init.sql", "kumiko/migrations/.snapshot.json");
 
-  if (testSetup !== undefined) {
-    for (const [rel, content] of Object.entries(testSetup.files)) {
-      mkdirSync(dirname(join(destination, rel)), { recursive: true });
-      write(join(destination, rel), content);
-      files.push(rel);
-    }
+  for (const [rel, content] of Object.entries(testSetup?.files ?? {})) {
+    mkdirSync(dirname(join(destination, rel)), { recursive: true });
+    write(join(destination, rel), content);
+    files.push(rel);
   }
 
   const managedFacts = resolveManagedAppFacts({
@@ -216,7 +271,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(
     join(destination, "README.md"),
-    `${renderReadme(options.name, options.features)}${testSetup === undefined ? "" : `\n${testSetup.rulesMarkdown}`}`,
+    `${renderReadme(options.name, options.features, starter)}${testSetup === undefined ? "" : `\n${testSetup.rulesMarkdown}`}`,
   );
   files.push("README.md");
 
@@ -225,6 +280,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
     renderAgentsMd({
       productName: options.name,
       features: options.features,
+      starter,
       scriptNames: Object.keys(appScripts(testSetup)),
     }),
   );
@@ -330,50 +386,10 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
 // pass all bundled-feature entries, keeping these four out of run-config.ts.
 const COMPOSE_AUTO_MOUNTED_NAMES = new Set(["config", "user", "tenant", "auth-email-password"]);
 
-const MAX_LINE_WIDTH = 100;
-
-// Mirrors Biome's import sort so generated files pass `biome check` untouched:
-// packages alphabetically by specifier, relative paths last.
-function compareImportKeys(a: string, b: string): number {
-  const lowerA = a.replace(/^type /, "").toLowerCase();
-  const lowerB = b.replace(/^type /, "").toLowerCase();
-  if (lowerA !== lowerB) return lowerA < lowerB ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function isRelativeSpecifier(specifier: string): boolean {
-  return specifier.startsWith("./") || specifier.startsWith("../");
-}
-
-type ImportSpec = {
-  readonly specifier: string;
-  readonly names: readonly string[];
-  readonly typeOnly?: boolean;
-  readonly defaultName?: string;
-};
-
-function renderImportLine({ specifier, names, typeOnly, defaultName }: ImportSpec): string {
-  if (defaultName !== undefined) return `import ${defaultName} from "${specifier}";`;
-  const sorted = [...names].sort(compareImportKeys);
-  const keyword = typeOnly === true ? "import type" : "import";
-  const oneLine = `${keyword} { ${sorted.join(", ")} } from "${specifier}";`;
-  if (sorted.length === 1 || oneLine.length <= MAX_LINE_WIDTH) return oneLine;
-  return `${keyword} {\n${sorted.map((n) => `  ${n},`).join("\n")}\n} from "${specifier}";`;
-}
-
-function renderSortedImports(imports: readonly ImportSpec[]): string {
-  return [...imports]
-    .sort((a, b) => {
-      const relativeA = isRelativeSpecifier(a.specifier);
-      const relativeB = isRelativeSpecifier(b.specifier);
-      if (relativeA !== relativeB) return relativeA ? 1 : -1;
-      return compareImportKeys(a.specifier, b.specifier);
-    })
-    .map(renderImportLine)
-    .join("\n");
-}
-
-function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string {
+function effectiveScaffoldFeatures(
+  features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+  starter: ScaffoldStarter,
+): ReadonlyArray<ScaffoldFeatureEntry> {
   // Fallback decided BEFORE filtering: if the caller passed features (even
   // if every one of them is an auto-mounted name), an all-filtered-out empty
   // result is the correct outcome — falling back to FOUNDATION_FEATURES here
@@ -381,6 +397,17 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   // for.
   const base = features?.length ? features : FOUNDATION_FEATURES;
   const effective = base.filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
+  const needsDelivery =
+    starter === "blank" && !effective.some((f) => f.name === BLANK_STARTER_DELIVERY_FEATURE.name);
+  return needsDelivery ? [...effective, BLANK_STARTER_DELIVERY_FEATURE] : effective;
+}
+
+function renderRunConfig(
+  features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+  starter: ScaffoldStarter,
+): string {
+  const effective = effectiveScaffoldFeatures(features, starter);
+  const hasTasks = starter === "demo";
   const grouped = new Map<string, string[]>();
   for (const entry of effective) {
     const existing = grouped.get(entry.importPath) ?? [];
@@ -390,10 +417,14 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   const imports: ImportSpec[] = [
     ...[...grouped].map(([specifier, names]) => ({ specifier, names })),
     { specifier: "@cosmicdrift/kumiko-locale-de", names: ["localeDe"] },
-    { specifier: "./features/tasks", names: ["tasksFeature"] },
+    ...(hasTasks ? [{ specifier: "./features/tasks", names: ["tasksFeature"] }] : []),
   ];
 
-  const callExprs = [...effective.map((f) => f.callExpression), "localeDe()", "tasksFeature"];
+  const callExprs = [
+    ...effective.map((f) => f.callExpression),
+    "localeDe()",
+    ...(hasTasks ? ["tasksFeature"] : []),
+  ];
   const oneLineFeatures = `export const APP_FEATURES = [${callExprs.join(", ")}] as const;`;
   const appFeatures =
     oneLineFeatures.length <= MAX_LINE_WIDTH
@@ -415,24 +446,6 @@ ${appFeatures}
 
 export const HAS_AUTH = true;
 `;
-}
-
-function renderAdminAuthBlock(appName: string, extraAdminLines: readonly string[]): string {
-  const passwordAndExtras = extraAdminLines.map((l) => `      ${l}`).join("\n");
-  return `  auth: {
-    admin: {
-      email: "admin@${appName}.local",
-${passwordAndExtras}
-      memberships: [
-        {
-          tenantId: DEFAULT_TENANT_ID,
-          tenantKey: "${appName}",
-          tenantName: "${appName}",
-          roles: ["TenantAdmin"],
-        },
-      ],
-    },
-  },`;
 }
 
 // Ports match runDevApp's default and kumiko-testing's SCAFFOLD_E2E_PORT.
@@ -584,43 +597,15 @@ ${authBlock}
 `;
 }
 
-// Tiers mirror how Biome wraps the JSX as the name grows. The user spread
-// is part of every tier so the line-width math covers it.
-function renderDefaultAppShellElement(appName: string): string {
-  const spanOpen = '<span className="font-semibold tracking-tight">';
-  const userSpread = "{...(user !== undefined && { user })}";
-  // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
-  const brandInline = `${spanOpen}${appName}</span>`;
-  const singleLine = `    <DefaultAppShell brand={${brandInline}} schema={schema} ${userSpread}>`;
-  if (singleLine.length <= MAX_LINE_WIDTH) return singleLine;
-  const brandAttrInline = `      brand={${brandInline}}`;
-  const brandAttribute =
-    brandAttrInline.length <= MAX_LINE_WIDTH
-      ? brandAttrInline
-      : `${[
-          "      brand={",
-          ...(`        ${brandInline}`.length <= MAX_LINE_WIDTH
-            ? [`        ${brandInline}`]
-            : [`        ${spanOpen}`, `          ${appName}`, "        </span>"]),
-          "      }",
-        ].join("\n")}`;
-  return [
-    "    <DefaultAppShell",
-    brandAttribute,
-    "      schema={schema}",
-    `      ${userSpread}`,
-    "    >",
-  ].join("\n");
-}
-
-function renderClient(appName: string): string {
+function renderClient(appName: string, starter: ScaffoldStarter): string {
+  const hasTasks = starter === "demo";
   const imports = renderSortedImports([
     {
       specifier: "@cosmicdrift/kumiko-bundled-features/auth-email-password/web",
       names: ["emailPasswordClient", "useShellUser"],
     },
     { specifier: "@cosmicdrift/kumiko-locale-de/web", names: ["localeDeClient"] },
-    { specifier: "./features/tasks/web", names: ["tasksClient"] },
+    ...(hasTasks ? [{ specifier: "./features/tasks/web", names: ["tasksClient"] }] : []),
     {
       specifier: "@cosmicdrift/kumiko-renderer/web",
       names: ["type AppSchema", "createKumikoApp", "DefaultAppShell"],
@@ -654,13 +639,21 @@ ${renderDefaultAppShellElement(appName)}
 
 createKumikoApp({
   shell: AppShell,
-  clientFeatures: [localeDeClient(), emailPasswordClient(), tasksClient],
+  clientFeatures: [localeDeClient(), emailPasswordClient()${hasTasks ? ", tasksClient" : ""}],
 });
 `;
 }
 
-function renderEnvExample(appName: string): string {
+function renderEnvExample(appName: string, starter: ScaffoldStarter): string {
   const devDb = `${appName.replace(/-/g, "_")}_dev`;
+  const adminBlock =
+    starter === "blank"
+      ? BLANK_ENV_EXAMPLE_ADMIN_BLOCK
+      : `# DEMO_ADMIN_PASSWORD: password of the admin seeded on first prod boot
+# (admin@${appName}.local). Required by \`bun run boot\` and \`bun run start\`,
+# min 12 chars. Generate with: openssl rand -hex 24
+DEMO_ADMIN_PASSWORD=
+`;
   return `# bun dev (runDevApp → setupTestStack) needs TEST_DATABASE_URL.
 # Production (bun bin/main.ts → runProdApp) needs DATABASE_URL.
 # Both default to the same local Postgres — runDevApp creates its own
@@ -680,11 +673,7 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
-# DEMO_ADMIN_PASSWORD: password of the admin seeded on first prod boot
-# (admin@${appName}.local). Required by \`bun run boot\` and \`bun run start\`,
-# min 12 chars. Generate with: openssl rand -hex 24
-DEMO_ADMIN_PASSWORD=
-
+${adminBlock}
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
 # Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
 # the trio (requireKmsWiring). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
@@ -736,23 +725,37 @@ volumes:
 `;
 }
 
+function demoReadmeCopy(appName: string): ReadmeCopy {
+  return {
+    intro:
+      "Scaffolded by `kumiko new app`. Includes a demo **tasks** feature with list +\nedit screens, sidebar nav, and seeded rows — `bun dev` shows a working admin UI\nafter login. Add more features via `bunx @cosmicdrift/kumiko-cli add feature <name>`.",
+    runConfigNote:
+      "Edit `src/run-config.ts` to add bundled features. The demo lives in\n`src/features/tasks/`.",
+    devLogin: `The welcome banner prints the URL (default \`http://localhost:4173\`) and admin\nlogin. Sign in as \`admin@${appName}.local\` / \`changeme\`, then open **Tasks**\nin the sidebar — demo rows are pre-seeded.`,
+    bootEnvNote:
+      "a missing one exits 0 without validating the wiring, so set\n`DEMO_ADMIN_PASSWORD` (min 12 chars, `openssl rand -hex 24`) in `.env`.",
+    prodSeed: `The first prod boot seeds \`admin@${appName}.local\` with the password from\n\`DEMO_ADMIN_PASSWORD\` (required, min 12 chars). Log in with that.`,
+    demoArchitectureLines:
+      "- `src/features/tasks/` — demo feature (entity + handlers + screens + nav).\n- `src/seed.ts` — dev seed for demo tasks (`bun dev` only).\n",
+  };
+}
+
 function renderReadme(
   appName: string,
   features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+  starter: ScaffoldStarter,
 ): string {
-  const featureList = renderMountedFeatureList(features);
+  const copy = starter === "blank" ? blankReadmeCopy(appName) : demoReadmeCopy(appName);
+  const featureList = renderMountedFeatureList(features, starter);
   return `# ${appName}
 
-Scaffolded by \`kumiko new app\`. Includes a demo **tasks** feature with list +
-edit screens, sidebar nav, and seeded rows — \`bun dev\` shows a working admin UI
-after login. Add more features via \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
+${copy.intro}
 
 ## Mounted features
 
 ${featureList}
 
-Edit \`src/run-config.ts\` to add bundled features. The demo lives in
-\`src/features/tasks/\`.
+${copy.runConfigNote}
 
 ## First run (browser)
 
@@ -764,9 +767,7 @@ docker compose up -d   # local Postgres + Redis (skip if you already have them)
 bun dev
 \`\`\`
 
-The welcome banner prints the URL (default \`http://localhost:4173\`) and admin
-login. Sign in as \`admin@${appName}.local\` / \`changeme\`, then open **Tasks**
-in the sidebar — demo rows are pre-seeded.
+${copy.devLogin}
 
 ## Boot-only smoke (no DB needed)
 
@@ -777,8 +778,7 @@ bun run boot
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
 + env schema, exits 0 without touching DB/Redis. Useful in CI. It prints every
 variable with its feature and status, never the value. An invalid value exits 1;
-a missing one exits 0 without validating the wiring, so set
-\`DEMO_ADMIN_PASSWORD\` (min 12 chars, \`openssl rand -hex 24\`) in \`.env\`.
+${copy.bootEnvNote}
 
 Without \`PLATFORM_KEK\` / \`SUBJECT_KEYS_DATABASE_URL\` / \`KUMIKO_BLIND_INDEX_KEY\`
 set (see \`.env.example\`), both \`bun run boot\` and \`bun run start\` boot with
@@ -793,8 +793,7 @@ bun run schema:apply   # apply checked-in kumiko/migrations (needs DATABASE_URL)
 bun run start          # runProdApp against dist/
 \`\`\`
 
-The first prod boot seeds \`admin@${appName}.local\` with the password from
-\`DEMO_ADMIN_PASSWORD\` (required, min 12 chars). Log in with that.
+${copy.prodSeed}
 
 After adding entities/features, regenerate migrations:
 
@@ -818,9 +817,7 @@ Files whose first line reads \`kumiko-managed\` (deploy/, .github/workflows/,
 ## Architecture
 
 - \`src/run-config.ts\` — single source of truth: which features your app mounts (\`APP_FEATURES\`, \`HAS_AUTH\`).
-- \`src/features/tasks/\` — demo feature (entity + handlers + screens + nav).
-- \`src/seed.ts\` — dev seed for demo tasks (\`bun dev\` only).
-- \`kumiko.config.ts\` — the composed feature list, client entries and ports the tooling reads.
+${copy.demoArchitectureLines}- \`kumiko.config.ts\` — the composed feature list, client entries and ports the tooling reads.
 - \`kumiko/schema.ts\` — generated (\`kumiko-managed\`): \`ENTITY_METAS\` from kumiko.config.ts for \`kumiko schema\`.
 - \`bin/server.ts\` — dev-server entry (\`bun dev\`).
 - \`bin/env-schema.ts\` — env contract of the production processes.
@@ -930,10 +927,10 @@ function renderBinKumiko(): string {
 }
 
 async function instantiateScaffoldFeatures(
-  features?: ReadonlyArray<ScaffoldFeatureEntry>,
+  features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+  starter: ScaffoldStarter,
 ): Promise<readonly FeatureDefinition[]> {
-  const base = features?.length ? features : FOUNDATION_FEATURES;
-  const effective = base.filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
+  const effective = effectiveScaffoldFeatures(features, starter);
   const instances: FeatureDefinition[] = [];
   for (const entry of effective) {
     const mod = (await import(entry.importPath)) as Record<string, unknown>;
@@ -957,15 +954,16 @@ async function instantiateScaffoldFeatures(
       instances.push(exp as FeatureDefinition);
     }
   }
-  instances.push(createDemoTasksFeature());
+  if (starter === "demo") instances.push(createDemoTasksFeature());
   return instances;
 }
 
 async function writeInitMigration(
   destination: string,
-  features?: ReadonlyArray<ScaffoldFeatureEntry>,
+  features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+  starter: ScaffoldStarter,
 ): Promise<void> {
-  const instances = await instantiateScaffoldFeatures(features);
+  const instances = await instantiateScaffoldFeatures(features, starter);
   const composed = composeFeatures(instances, { includeBundled: true });
   const metas = collectTableMetas(composed);
   const result = generateMigration({
@@ -979,31 +977,4 @@ async function writeInitMigration(
   mkdirSync(migrationsDir, { recursive: true });
   writeFileSync(join(migrationsDir, result.filename), result.sqlContent);
   writeSnapshotJson(join(migrationsDir, ".snapshot.json"), result.snapshot);
-}
-
-// Deterministic tenant-ID from app-name. Format: UUID-v4 with the
-// version-marker at the right spot. NOT cryptographically random —
-// just a stable per-app default the user can change later.
-function deriveTenantId(name: string): string {
-  let state = 2166136261;
-  for (const ch of name) {
-    state ^= ch.charCodeAt(0);
-    state = Math.imul(state, 16777619) >>> 0;
-  }
-  // @wrapper-known semantic-alias
-  const hex = (n: number, len: number): string => n.toString(16).padStart(len, "0").slice(0, len);
-  const a = hex(state, 8);
-  state ^= state << 13;
-  state >>>= 0;
-  const b = hex(state, 4);
-  state ^= state >>> 17;
-  state >>>= 0;
-  const c = `4${hex(state, 3)}`;
-  state ^= state << 5;
-  state >>>= 0;
-  const d4 = (0x8 | (state & 0x3)).toString(16);
-  const d = `${d4}${hex(state >>> 4, 3)}`;
-  state = Math.imul(state, 16777619) >>> 0;
-  const e = hex(state, 12);
-  return `${a}-${b}-${c}-${d}-${e}`;
 }

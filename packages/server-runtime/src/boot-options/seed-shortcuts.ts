@@ -1,8 +1,10 @@
 import {
   type SeedAdminOptions,
   seedAdminGuarded,
+  seedBootstrapAdmin,
   seedTenant,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { BOOTSTRAP_ADMIN_EMAIL_ENV } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { parseTenantId, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
@@ -30,6 +32,10 @@ type SeededAccountOptions = {
  *  - `sysadminFromEnv`: `DEMO_SYSADMIN_EMAIL` / `DEMO_SYSADMIN_PASSWORD`, global
  *    role `SystemAdmin`, email verified, member of `tenant` (default
  *    `demoTenant`) with role `User` (default).
+ *  - `bootstrapAdminFromEnv`: `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` (no seed while unset) becomes an
+ *    admin WITHOUT a password in `tenant` (default `demoTenant`) with `Admin` + `TenantAdmin`
+ *    and the global role `SystemAdmin`; it sets its password via password reset. One-shot:
+ *    skipped when the account already has a password or the tenant already has another member.
  *  - `run`: free seed functions, same contract as the array form.
  *
  *  @example
@@ -46,6 +52,12 @@ export type ProdSeedsConfig = {
   readonly sysadminFromEnv?:
     | boolean
     | (SeededAccountOptions & { readonly tenant?: ProdSeedTenant });
+  readonly bootstrapAdminFromEnv?:
+    | boolean
+    | (SeededAccountOptions & {
+        readonly tenant?: ProdSeedTenant;
+        readonly globalRoles?: readonly string[];
+      });
   readonly run?: readonly ProdSeedFn[];
 };
 
@@ -156,6 +168,34 @@ function buildSysadminSeed(
   });
 }
 
+function buildBootstrapAdminSeed(
+  value: NonNullable<ProdSeedsConfig["bootstrapAdminFromEnv"]>,
+  demoTenant: ResolvedTenant | undefined,
+  envSource: Record<string, string | undefined>,
+): DbSeedFn | undefined {
+  const options = typeof value === "object" ? value : {};
+  const tenant = options.tenant
+    ? resolveTenant(options.tenant, envSource, "bootstrapAdminFromEnv.tenant")
+    : demoTenant;
+  if (!tenant) {
+    throw new Error(
+      "[runProdApp] seeds.bootstrapAdminFromEnv needs seeds.demoTenant or bootstrapAdminFromEnv.tenant for its membership.",
+    );
+  }
+  const email = envSource[BOOTSTRAP_ADMIN_EMAIL_ENV];
+  if (!email) return undefined;
+  const admin: SeedAdminOptions = {
+    email,
+    displayName: options.displayName ?? "Admin",
+    globalRoles: options.globalRoles ?? [ROLES.SystemAdmin],
+    emailVerified: options.emailVerified ?? true,
+    memberships: [membershipOf(tenant, options.roles ?? DEFAULT_DEMO_ADMIN_ROLES)],
+  };
+  return async (db) => {
+    await seedBootstrapAdmin(db, admin);
+  };
+}
+
 /** Validates env and options at boot (before any connection) and returns the
  *  seeds to run once the database is up. */
 export function resolveSeedShortcuts(
@@ -166,10 +206,13 @@ export function resolveSeedShortcuts(
     readonly hasAuthAdmin: boolean;
   },
 ): readonly DbSeedFn[] {
-  const wantsAccounts = Boolean(seeds.demoAdminFromEnv) || Boolean(seeds.sysadminFromEnv);
+  const wantsAccounts =
+    Boolean(seeds.demoAdminFromEnv) ||
+    Boolean(seeds.sysadminFromEnv) ||
+    Boolean(seeds.bootstrapAdminFromEnv);
   if ((wantsAccounts || seeds.demoTenant) && !deps.hasAuth) {
     throw new Error(
-      "[runProdApp] seeds.demoTenant / demoAdminFromEnv / sysadminFromEnv need `auth` (user, tenant and auth-email-password features).",
+      "[runProdApp] seeds.demoTenant / demoAdminFromEnv / sysadminFromEnv / bootstrapAdminFromEnv need `auth` (user, tenant and auth-email-password features).",
     );
   }
   if (seeds.demoAdminFromEnv && deps.hasAuthAdmin) {
@@ -191,6 +234,14 @@ export function resolveSeedShortcuts(
   }
   if (seeds.sysadminFromEnv) {
     result.push(buildSysadminSeed(seeds.sysadminFromEnv, demoTenant, deps.envSource));
+  }
+  if (seeds.bootstrapAdminFromEnv) {
+    const bootstrapSeed = buildBootstrapAdminSeed(
+      seeds.bootstrapAdminFromEnv,
+      demoTenant,
+      deps.envSource,
+    );
+    if (bootstrapSeed) result.push(bootstrapSeed);
   }
   return result;
 }

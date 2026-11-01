@@ -8,7 +8,7 @@ export type WelcomeBannerInput = {
   /** Resolved listen-URL (`http://localhost:3000`). */
   readonly url: string;
   /** Login the seeded admin uses (from runDevApp options.auth.admin). */
-  readonly admin?: { readonly email: string; readonly password: string };
+  readonly admin?: { readonly email: string; readonly password?: string | undefined };
   /** Hot-reload hint shown in the "add a feature" line. Defaults to
    *  `src/features/`. */
   readonly featuresDir?: string;
@@ -24,7 +24,11 @@ export function renderWelcomeBanner(input: WelcomeBannerInput): string {
   lines.push(`✓ kumiko-app läuft`);
   lines.push(`→ Browser:        ${input.url}`);
   if (input.admin) {
-    lines.push(`→ Login als:      ${input.admin.email} / ${input.admin.password}`);
+    lines.push(
+      input.admin.password === undefined
+        ? `→ Login als:      ${input.admin.email}`
+        : `→ Login als:      ${input.admin.email} / ${input.admin.password}`,
+    );
   }
   lines.push(`→ Feature add:    edit ${featuresDir}`);
   lines.push(`→ Docs:           ${docsUrl}`);

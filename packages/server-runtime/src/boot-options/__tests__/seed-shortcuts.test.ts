@@ -66,3 +66,48 @@ describe("resolveSeedShortcuts", () => {
     expect(seeds).toHaveLength(3);
   });
 });
+
+describe("bootstrapAdminFromEnv", () => {
+  const tenant = { id: TENANT_ID, key: "app", name: "App" };
+  const creatorEnv = { KUMIKO_BOOTSTRAP_ADMIN_EMAIL: "creator@example.com" };
+
+  test("needs a tenant, from the option or demoTenant", () => {
+    expect(() =>
+      resolveSeedShortcuts({ bootstrapAdminFromEnv: true }, { ...withAuth, envSource: creatorEnv }),
+    ).toThrow(/needs seeds.demoTenant or bootstrapAdminFromEnv.tenant/);
+  });
+
+  test("falls back to demoTenant", () => {
+    const seeds = resolveSeedShortcuts(
+      { demoTenant: tenant, bootstrapAdminFromEnv: true },
+      { ...withAuth, envSource: creatorEnv },
+    );
+    expect(seeds).toHaveLength(2);
+  });
+
+  test("an unset or empty email yields no seed and no error", () => {
+    for (const envSource of [{}, { KUMIKO_BOOTSTRAP_ADMIN_EMAIL: "" }]) {
+      expect(
+        resolveSeedShortcuts({ bootstrapAdminFromEnv: { tenant } }, { ...withAuth, envSource }),
+      ).toHaveLength(0);
+    }
+  });
+
+  test("needs auth", () => {
+    expect(() =>
+      resolveSeedShortcuts(
+        { bootstrapAdminFromEnv: { tenant } },
+        { envSource: creatorEnv, hasAuth: false, hasAuthAdmin: false },
+      ),
+    ).toThrow(/need `auth`/);
+  });
+
+  test("may sit next to auth.admin", () => {
+    expect(
+      resolveSeedShortcuts(
+        { bootstrapAdminFromEnv: { tenant } },
+        { envSource: creatorEnv, hasAuth: true, hasAuthAdmin: true },
+      ),
+    ).toHaveLength(1);
+  });
+});

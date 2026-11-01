@@ -33,9 +33,20 @@ export const listingsFeature = defineFeature("listings", (r) => {
     layout: {
       mode: "wizard",
       draft: true,
+      wizard: {
+        aside: { upNext: true, finishDescription: "Publishes the listing." },
+        saveAndCloseOnCreate: true,
+        // UI-only: the write handler would still accept a vehicle listing.
+        submitDisabledWhen: { field: "category", eq: "vehicles" },
+      },
       sections: [
-        { title: "Basics", fields: ["title", "category"] },
-        { title: "Pricing", fields: ["price", "condition"] },
+        {
+          title: "Basics",
+          subtitle: "Title and category",
+          summaryField: "title",
+          fields: ["title", "category"],
+        },
+        { title: "Pricing", subtitle: "Price and condition", fields: ["price", "condition"] },
         {
           kind: "extension",
           title: "Review",
