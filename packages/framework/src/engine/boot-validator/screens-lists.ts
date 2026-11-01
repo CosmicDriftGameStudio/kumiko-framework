@@ -8,6 +8,7 @@ import {
   explicitListScreenId,
   normalizeListColumn,
   resolveNavParentScreen,
+  screenShortId,
 } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
@@ -87,7 +88,7 @@ export function validateExplicitListScreenExists(
   const listScreenId = explicitListScreenId(screen);
   // skip: no explicit listScreenId, the nav heuristic applies and there is nothing to validate
   if (listScreenId === undefined) return;
-  const shortId = listScreenId.slice(listScreenId.lastIndexOf(":") + 1);
+  const shortId = screenShortId(listScreenId);
   // skip: the explicit listScreenId resolves to a mounted screen
   if (screensByShortId.has(shortId)) return;
   throw bootRuleError(LIST_SCREEN_RULES.listScreenIdUnresolved, {

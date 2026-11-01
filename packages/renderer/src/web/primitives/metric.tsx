@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext } from "react";
+import { Children, createContext, type ReactNode, useContext } from "react";
 import type { MetricBandProps, MetricProps } from "../../index.ts";
 import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
@@ -20,6 +20,7 @@ export function DefaultMetricBand({
   tiles,
 }: MetricBandProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
+  const hasMetrics = Children.toArray(children).length > 0;
   return (
     <div
       className={cn("flex shrink-0 flex-col gap-3", !insideScreenFormColumn && "px-6 pb-4 pt-3.5")}
@@ -31,13 +32,14 @@ export function DefaultMetricBand({
           {subtitle}
         </div>
       )}
-      {tiles === true ? (
-        <div className={STAT_CARD_GRID_CLASSES}>{children}</div>
-      ) : (
-        <InsideMetricBandContext.Provider value={true}>
-          <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
-        </InsideMetricBandContext.Provider>
-      )}
+      {hasMetrics &&
+        (tiles === true ? (
+          <div className={STAT_CARD_GRID_CLASSES}>{children}</div>
+        ) : (
+          <InsideMetricBandContext.Provider value={true}>
+            <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
+          </InsideMetricBandContext.Provider>
+        ))}
     </div>
   );
 }

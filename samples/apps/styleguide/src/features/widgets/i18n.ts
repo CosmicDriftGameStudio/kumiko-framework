@@ -275,4 +275,59 @@ export const WIDGETS_I18N = {
   "widgets:catalog:plan-contact-sales": { de: "Vertrieb kontaktieren", en: "Contact sales" },
   "widgets:catalog:plan-credits": { de: "Credit-Paket", en: "Credit pack" },
   "widgets:catalog:plan-buy": { de: "Kaufen", en: "Buy" },
+  "widgets:catalog:variants-title": { de: "Neue Varianten", en: "New variants" },
+  "widgets:catalog:variants-heading-group": { de: "Gruppen-Überschrift", en: "Group heading" },
+  "widgets:catalog:variants-heading-section": {
+    de: "Abschnitts-Überschrift",
+    en: "Section heading",
+  },
+  "widgets:catalog:variants-detail-normal": {
+    de: "Details mit normalen Werten",
+    en: "Details with normal-weight values",
+  },
+  "widgets:catalog:variants-detail-sidebar": {
+    de: "Details in der Seitenspalte",
+    en: "Details in a side column",
+  },
+  "widgets:catalog:variants-label-owner": { de: "Inhaber", en: "Owner" },
+  "widgets:catalog:variants-value-owner": { de: "Jamie Rivera", en: "Jamie Rivera" },
+  "widgets:catalog:variants-label-region": { de: "Region", en: "Region" },
+  "widgets:catalog:variants-value-region": { de: "Frankfurt", en: "Frankfurt" },
+  "widgets:catalog:variants-label-plan": { de: "Tarif", en: "Plan" },
+  "widgets:catalog:variants-value-plan": { de: "Team", en: "Team" },
+  "widgets:catalog:variants-composer": { de: "Chat-Eingabe", en: "Chat composer" },
+  "widgets:catalog:variants-composer-placeholder": {
+    de: "Nachricht schreiben",
+    en: "Write a message",
+  },
+  "widgets:catalog:variants-composer-send": { de: "Senden", en: "Send" },
+  "widgets:catalog:variants-textarea-placeholder": {
+    de: "Notiz mit Platzhalter",
+    en: "Note with placeholder",
+  },
+  "widgets:catalog:variants-textarea-hint": {
+    de: "Beschreibe kurz, was zu tun ist",
+    en: "Describe briefly what needs doing",
+  },
+  "widgets:catalog:variants-mode-switch": {
+    de: "Modus mit gesperrter und markierter Option",
+    en: "Mode switch with disabled and flagged option",
+  },
+  "widgets:catalog:variants-mode-a": { de: "Automatisch", en: "Automatic" },
+  "widgets:catalog:variants-mode-b": { de: "Manuell", en: "Manual" },
+  "widgets:catalog:variants-mode-c": { de: "Offene Fragen", en: "Open questions" },
+  "widgets:catalog:variants-mode-d": { de: "Gesperrt", en: "Locked" },
+  "widgets:catalog:variants-banner": {
+    de: "Hinweis mit Symbol und Hervorhebung",
+    en: "Banner with icon and emphasis",
+  },
+  "widgets:catalog:variants-banner-lead": {
+    de: "Vor dem Löschen bitte ",
+    en: "Before deleting, please ",
+  },
+  "widgets:catalog:variants-banner-strong": { de: "ein Backup anlegen", en: "create a backup" },
+  "widgets:catalog:variants-banner-tail": {
+    de: ". Das Löschen ist endgültig.",
+    en: ". Deleting is permanent.",
+  },
 } as const;

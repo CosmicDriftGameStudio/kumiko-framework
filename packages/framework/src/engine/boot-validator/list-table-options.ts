@@ -20,6 +20,7 @@ const BOOLEAN_OPTION_KEYS = [
   "pinning",
   "resizing",
   "keyboardNavigation",
+  "compactHeader",
 ] as const;
 
 function validateDensity(where: string, density: unknown): void {

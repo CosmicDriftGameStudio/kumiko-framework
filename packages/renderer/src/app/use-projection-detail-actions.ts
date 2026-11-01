@@ -41,7 +41,15 @@ type DetailActionsInput = {
   readonly openDrawer: ReturnType<typeof useDrawerAction>["openDrawer"];
   readonly detailQuery: ReturnType<typeof useProjectionDetailData>["detailQuery"];
   readonly reloadDetail: ReturnType<typeof useProjectionDetailData>["reloadDetail"];
+  readonly activeTabId: string | undefined;
 };
+
+function isShownOnTab(action: RowAction, activeTabId: string | undefined): boolean {
+  return (
+    action.showOnTabs === undefined ||
+    (activeTabId !== undefined && action.showOnTabs.includes(activeTabId))
+  );
+}
 
 export function useProjectionDetailActions(input: DetailActionsInput) {
   const {
@@ -59,6 +67,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     openDrawer,
     detailQuery,
     reloadDetail,
+    activeTabId,
   } = input;
   const handleRecordLeft = useCallback(
     (action: RowActionWriteHandler, resultData: unknown, deletedShownRecord: boolean) => {
@@ -190,7 +199,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const resolved = buildRecordActions({
-      actions: screen.actions ?? [],
+      actions: (screen.actions ?? []).filter((a) => isShownOnTab(a, activeTabId)),
       record: detailQuery.data ?? {},
       translate: effectiveTranslate,
       nav,
@@ -207,6 +216,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     return [defaultEditAction, ...(resolved ?? [])];
   }, [
     screen.actions,
+    activeTabId,
     defaultEditAction,
     effectiveTranslate,
     nav,

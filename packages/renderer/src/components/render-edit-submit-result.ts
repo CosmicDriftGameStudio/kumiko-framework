@@ -24,14 +24,17 @@ export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
   // would abort an in-flight discard and leave the draft behind after
   // a successful submit.
   // Resolves to whether the extension sections persisted (true when none ran).
-  async function handleSubmitSuccess(isNoOp: boolean): Promise<boolean> {
+  async function handleSubmitSuccess(
+    isNoOp: boolean,
+    createdEntityId: string | undefined,
+  ): Promise<boolean> {
     state.setFormError(null);
     state.setExtraDeleteIssues([]);
     if (!isNoOp) {
       submittedRef.current = true;
       await draftActions.discardDraft();
     }
-    const extensionsPersisted = await nav.persistExtensions();
+    const extensionsPersisted = await nav.persistExtensions(createdEntityId);
     if (extensionsPersisted) state.extensionDirtyRef.current = false;
     return extensionsPersisted;
   }

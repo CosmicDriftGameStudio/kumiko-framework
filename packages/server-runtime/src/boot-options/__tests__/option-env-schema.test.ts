@@ -112,3 +112,27 @@ describe("withBootOptionEnvBlocks", () => {
     expect(wired.sources["SMTP_PORT"]).toBe("runProdApp.mail");
   });
 });
+
+describe("bootstrapAdminFromEnv", () => {
+  test("adds KUMIKO_BOOTSTRAP_ADMIN_EMAIL as an optional key", () => {
+    const wired = withBootOptionEnvBlocks(appSchema(), {
+      features: [],
+      seeds: {
+        bootstrapAdminFromEnv: {
+          tenant: { id: "00000000-0000-4000-8000-000000000001", key: "app", name: "App" },
+        },
+      },
+    });
+    expect(kindOf(wired, "KUMIKO_BOOTSTRAP_ADMIN_EMAIL")).toBe("optional");
+    expect(kindOf(wired, "DEMO_ADMIN_PASSWORD")).toBe("absent");
+    expect(wired.sources["KUMIKO_BOOTSTRAP_ADMIN_EMAIL"]).toBe("runProdApp.seeds");
+  });
+
+  test("a tenant without an id requires DEMO_TENANT_ID", () => {
+    const wired = withBootOptionEnvBlocks(appSchema(), {
+      features: [],
+      seeds: { bootstrapAdminFromEnv: { tenant: { key: "app", name: "App" } } },
+    });
+    expect(kindOf(wired, "DEMO_TENANT_ID")).toBe("required");
+  });
+});

@@ -97,7 +97,9 @@ function resolveSectionSubtitle<TValues extends FormValues, TCtx>(
   section: FieldsSection,
 ): string | undefined {
   const headerFallback = model.titles.titleInSettingsHeader && sectionIndex === 0;
-  return section.description ?? (headerFallback ? model.titles.formSubtitle : undefined);
+  // The wizard step rail carries the step's description.
+  const description = model.titles.stepRail ? undefined : section.description;
+  return description ?? (headerFallback ? model.titles.formSubtitle : undefined);
 }
 
 function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(

@@ -76,6 +76,7 @@ import type {
 } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
 import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
+import { screenShortId } from "./screen-helpers.ts";
 import type { AccessRule } from "./types/handlers.ts";
 import { isUiAccessGranted } from "./types/handlers.ts";
 import type { NavDefinition } from "./types/nav.ts";
@@ -344,7 +345,8 @@ function resolveNavigateTarget(
   indices: IndexedSchema,
 ): ScreenLocation | undefined {
   if (action.entity !== undefined) return indices.detailForScreens.get(action.entity);
-  if (action.screen !== undefined) return indices.screensByShortId.get(action.screen);
+  if (action.screen !== undefined)
+    return indices.screensByShortId.get(screenShortId(action.screen));
   return undefined;
 }
 
@@ -592,7 +594,7 @@ function projectListScreenId(
   keptScreenQns: ReadonlySet<string>,
 ): string | undefined {
   if (listScreenId === undefined) return undefined;
-  return isTargetKept(indices.screensByShortId.get(listScreenId), keptScreenQns)
+  return isTargetKept(indices.screensByShortId.get(screenShortId(listScreenId)), keptScreenQns)
     ? listScreenId
     : undefined;
 }

@@ -16,7 +16,6 @@ export type TitleModel = {
   readonly usesFieldFlow: boolean;
   readonly titleInHeaderRegion: boolean;
   readonly stepRail: boolean;
-  readonly upNextSection: EditSectionViewModel | undefined;
   readonly sectionNavItems: readonly FormSectionNavItem[];
   readonly compactStepLabel: string;
 };
@@ -135,7 +134,7 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
   footer: FooterFlags,
 ): TitleModel {
   const { props, state, sections, steps } = engine;
-  const { screen, headerRegion } = props;
+  const { headerRegion } = props;
   const { translate } = state;
   const { filteredSections } = sections;
   const { currentStep, lastStepIndex } = steps;
@@ -155,8 +154,6 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
     titleInHeaderRegion:
       headerRegion !== undefined && PageHeader !== undefined && state.pageHeaderSlotAvailable,
     stepRail: state.isWizard && layout.isScreenForm && StepBar !== undefined,
-    upNextSection:
-      screen.layout.wizard?.aside?.upNext === true ? filteredSections[currentStep + 1] : undefined,
     sectionNavItems:
       layout.isScreenForm && !state.isStepped
         ? deriveSectionNavItems(filteredSections, formTitle)

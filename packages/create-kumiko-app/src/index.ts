@@ -4,14 +4,19 @@
 // --print-manifest / --yes) → resolve deps → map to scaffold entries →
 // scaffoldApp() → print next-steps.
 
-import { type ScaffoldFeatureEntry, scaffoldApp } from "@cosmicdrift/kumiko-dev-server";
+import {
+  type ScaffoldFeatureEntry,
+  type ScaffoldStarter,
+  scaffoldApp,
+} from "@cosmicdrift/kumiko-dev-server";
 import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import { resolveDeps } from "./dep-resolver";
 import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
 import { buildChoices, runPicker } from "./picker";
 
-const USAGE = "Usage: bun create kumiko-app <name> [--yes] [--print-manifest] [-h | --help]";
+const USAGE =
+  "Usage: bun create kumiko-app <name> [--yes] [--blank] [--print-manifest] [-h | --help]";
 
 export type CliArgs = {
   /** App name (kebab-case). Required for `scaffold` mode. */
@@ -20,6 +25,8 @@ export type CliArgs = {
   readonly printManifest?: boolean;
   /** Skip the interactive picker, take every `recommended:true` feature. */
   readonly yes?: boolean;
+  /** `blank` scaffolds no demo tasks and no seeded password; the creator sets one via password reset. */
+  readonly starter?: ScaffoldStarter;
   /** Print usage and exit 0 without scaffolding. */
   readonly help?: boolean;
   /** Override cwd for scaffoldApp (mostly for the smoke test). */
@@ -76,6 +83,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
     cwd: args.cwd,
     features,
     testSetup: renderTestSetup,
+    ...(args.starter !== undefined && { starter: args.starter }),
   });
 
   log("");
@@ -86,7 +94,11 @@ export async function runCreate(args: CliArgs): Promise<number> {
   log("  bun install");
   log("  cp .env.example .env  # set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1");
   log("  docker compose up -d   # if you don't have Postgres + Redis running yet");
-  log("  bun dev                # demo tasks are pre-seeded — URL + login in the banner");
+  log(
+    args.starter === "blank"
+      ? "  bun dev                # URL + local dev login in the banner; prod admin: see README"
+      : "  bun dev                # demo tasks are pre-seeded — URL + login in the banner",
+  );
   return 0;
 }
 
@@ -101,6 +113,7 @@ export function parseArgv(argv: readonly string[]): CliArgs {
   for (const arg of argv) {
     if (arg === "--print-manifest") out.printManifest = true;
     else if (arg === "--yes" || arg === "-y") out.yes = true;
+    else if (arg === "--blank") out.starter = "blank";
     else if (arg === "--help" || arg === "-h") out.help = true;
     else if (!arg.startsWith("-") && out.name === undefined) out.name = arg;
   }

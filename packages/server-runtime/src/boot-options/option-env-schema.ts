@@ -4,7 +4,10 @@ import {
   createS3EnvSchema,
   s3EnvSchema,
 } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { demoAdminEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import {
+  bootstrapAdminEnvSchema,
+  demoAdminEnvSchema,
+} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { subscriptionStripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { type ComposedEnvSchema, readKumikoMeta } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
@@ -50,12 +53,9 @@ function pickShape(
   return picked;
 }
 
-function sysadminTenantNeedsEnvId(seeds: ProdSeedsConfig): boolean {
-  const { sysadminFromEnv } = seeds;
+function accountTenantNeedsEnvId(account: ProdSeedsConfig["sysadminFromEnv"]): boolean {
   return (
-    typeof sysadminFromEnv === "object" &&
-    sysadminFromEnv.tenant !== undefined &&
-    sysadminFromEnv.tenant.id === undefined
+    typeof account === "object" && account.tenant !== undefined && account.tenant.id === undefined
   );
 }
 
@@ -63,7 +63,11 @@ function seedEnvBlock(seeds: ProdSeedsConfig): OptionEnvBlock | undefined {
   const keys: string[] = [];
   const required: string[] = [];
   const demoTenantNeedsEnvId = seeds.demoTenant !== undefined && seeds.demoTenant.id === undefined;
-  if (demoTenantNeedsEnvId || sysadminTenantNeedsEnvId(seeds)) {
+  if (
+    demoTenantNeedsEnvId ||
+    accountTenantNeedsEnvId(seeds.sysadminFromEnv) ||
+    accountTenantNeedsEnvId(seeds.bootstrapAdminFromEnv)
+  ) {
     keys.push("DEMO_TENANT_ID");
     required.push("DEMO_TENANT_ID");
   }
@@ -75,8 +79,13 @@ function seedEnvBlock(seeds: ProdSeedsConfig): OptionEnvBlock | undefined {
     keys.push("DEMO_SYSADMIN_EMAIL", "DEMO_SYSADMIN_PASSWORD");
     required.push("DEMO_SYSADMIN_EMAIL", "DEMO_SYSADMIN_PASSWORD");
   }
-  if (keys.length === 0) return undefined;
-  return { source: "runProdApp.seeds", shape: pickShape(demoAdminEnvSchema.shape, keys), required };
+  const bootstrapShape = seeds.bootstrapAdminFromEnv ? bootstrapAdminEnvSchema.shape : {};
+  if (keys.length === 0 && !seeds.bootstrapAdminFromEnv) return undefined;
+  return {
+    source: "runProdApp.seeds",
+    shape: { ...pickShape(demoAdminEnvSchema.shape, keys), ...bootstrapShape },
+    required,
+  };
 }
 
 function fileStorageEnvBlocks(fileStorage: BootOptionFields["fileStorage"]): OptionEnvBlock[] {

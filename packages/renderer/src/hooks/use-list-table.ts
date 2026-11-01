@@ -34,6 +34,7 @@ export type ListTableProps = {
   readonly view?: DataTableViewOptions;
   readonly resetAll?: DataTableResetAll;
   readonly exportList?: DataTableExport;
+  readonly compactHeader?: boolean;
 };
 
 export type ListTableState = {
@@ -144,8 +145,9 @@ export function useListTable({
       ...(view !== undefined && { view }),
       ...(resetAll !== undefined && { resetAll }),
       ...(exportList !== undefined && { exportList }),
+      ...(options.compactHeader === true && { compactHeader: true }),
     }),
-    [view, resetAll, exportList],
+    [view, resetAll, exportList, options.compactHeader],
   );
   const groupField =
     options.grouping !== undefined && viewState.groupBy !== "" ? viewState.groupBy : undefined;

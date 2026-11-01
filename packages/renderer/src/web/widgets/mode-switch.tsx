@@ -21,6 +21,10 @@ export function ModeSwitch<T extends string>({
     readonly label: string;
     /** Muted tabular counter after the label. */
     readonly count?: number;
+    /** Not selectable: aria-disabled, muted, no click. */
+    readonly disabled?: boolean;
+    /** `warning` frames the option to flag an open question. */
+    readonly tone?: "warning";
   }[];
   readonly onChange: (value: T) => void;
   readonly ariaLabel?: string;
@@ -47,27 +51,35 @@ export function ModeSwitch<T extends string>({
     >
       {options.map((o) => {
         const active = o.value === value;
+        const disabled = o.disabled === true;
         return (
           <button
             key={o.value}
             type="button"
             aria-pressed={active}
-            onClick={() => onChange(o.value)}
+            aria-disabled={disabled || undefined}
+            onClick={() => {
+              if (!disabled) onChange(o.value);
+            }}
             className={cn(
               "grow px-3 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              disabled && "cursor-not-allowed opacity-50",
+              o.tone === "warning" && "ring-1 ring-inset ring-status-warn",
               pill
                 ? [
                     "rounded-md",
                     active
                       ? "bg-card font-semibold text-foreground shadow-sm dark:bg-foreground/10"
-                      : "text-muted-foreground hover:text-foreground",
+                      : cn("text-muted-foreground", !disabled && "hover:text-foreground"),
                   ]
                 : [
                     "border-l border-input first:border-l-0",
                     active
                       ? "bg-primary/10 font-semibold text-primary"
-                      : "text-foreground hover:bg-muted",
+                      : disabled
+                        ? "text-muted-foreground"
+                        : "text-foreground hover:bg-muted",
                   ],
             )}
           >

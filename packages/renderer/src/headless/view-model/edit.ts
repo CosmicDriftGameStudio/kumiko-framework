@@ -797,6 +797,7 @@ export function computeEditViewModel<
         description: translate(sectionSpec.description),
       }),
       ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
+      ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
       columns: sectionSpec.columns ?? defaultColumns,
       fields,
       ...(groups !== undefined && { groups }),

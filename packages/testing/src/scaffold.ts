@@ -1,6 +1,11 @@
 // @runtime tooling
 import { BUNFIG_FILES, renderBunfigFiles, TEST_TIMEOUT_MS } from "./bunfig";
 import { REAL_PROVIDERS_ENV } from "./helpers/real-providers";
+import {
+  BLANK_E2E_PLAYWRIGHT_FLAG,
+  BLANK_TEST_FILES,
+  type ScaffoldTestStarter,
+} from "./scaffold-blank";
 
 export type ScaffoldTestSetup = {
   readonly files: Readonly<Record<string, string>>;
@@ -13,6 +18,7 @@ export type RenderTestSetupInput = {
   readonly appName: string;
   readonly frameworkVersion: string;
   readonly port?: number;
+  readonly starter?: ScaffoldTestStarter;
 };
 
 // One above the scaffold's `bun dev` default (4173) so both can run side by side.
@@ -202,19 +208,25 @@ function renderIntegrationTest(): string {
 }
 
 export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup {
-  const { appName, frameworkVersion, port = SCAFFOLD_E2E_PORT } = input;
+  const { appName, frameworkVersion, port = SCAFFOLD_E2E_PORT, starter = "demo" } = input;
+  const isBlank = starter === "blank";
+  const playwrightRun = `bunx --bun playwright test${isBlank ? ` ${BLANK_E2E_PLAYWRIGHT_FLAG}` : ""}`;
   const unitTestScript = `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`;
   const integrationTestScript = `bun kumiko-testing integration --parallel ${SCAFFOLD_INTEGRATION_PARALLEL}`;
   return {
     files: {
       ...renderBunfigFiles({ install: { linker: "hoisted" }, dom: true }),
       "playwright.config.ts": renderPlaywrightConfig(port),
-      "e2e/_helpers/index.ts": renderE2eHelpers(),
       "e2e/server.ts": renderE2eServer(appName),
-      "e2e/smoke.spec.ts": renderE2eSmokeSpec(),
-      "src/__tests__/_setup.ts": renderIntegrationSetup(),
-      "src/__tests__/run-config.test.ts": renderUnitTest(),
-      "src/__tests__/tasks.integration.test.ts": renderIntegrationTest(),
+      ...(isBlank
+        ? BLANK_TEST_FILES
+        : {
+            "e2e/_helpers/index.ts": renderE2eHelpers(),
+            "e2e/smoke.spec.ts": renderE2eSmokeSpec(),
+            "src/__tests__/_setup.ts": renderIntegrationSetup(),
+            "src/__tests__/run-config.test.ts": renderUnitTest(),
+            "src/__tests__/tasks.integration.test.ts": renderIntegrationTest(),
+          }),
     },
     scripts: {
       test: unitTestScript,
@@ -231,9 +243,9 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       // picks up the unit suite.
       "test:real": `${REAL_PROVIDERS_ENV}=1 bun --config=${BUNFIG_FILES.real} test --timeout=${TEST_TIMEOUT_MS.real} .real.test.ts`,
       "test:bunfig": "bun kumiko-testing bunfig --hoisted",
-      e2e: "bunx --bun playwright test",
-      "e2e:real": `${REAL_PROVIDERS_ENV}=1 bunx --bun playwright test`,
-      screenshots: "SCREENSHOT_DIR=docs/screenshots bunx --bun playwright test",
+      e2e: playwrightRun,
+      "e2e:real": `${REAL_PROVIDERS_ENV}=1 ${playwrightRun}`,
+      screenshots: `SCREENSHOT_DIR=docs/screenshots ${playwrightRun}`,
     },
     devDependencies: {
       "@cosmicdrift/kumiko-testing": frameworkVersion,

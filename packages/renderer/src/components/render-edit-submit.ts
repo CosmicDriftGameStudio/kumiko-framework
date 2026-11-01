@@ -1,5 +1,9 @@
 import type { FormValues, SubmitResult } from "../headless/index.ts";
-import { shouldNotifyCaller } from "./render-edit-logic.ts";
+import {
+  createdEntityIdOf,
+  isSubmitBlockedByLayoutCondition,
+  shouldNotifyCaller,
+} from "./render-edit-logic.ts";
 import type { RenderEditEngineBase } from "./render-edit-render-model.ts";
 import { createSubmitResultHandlers } from "./render-edit-submit-result.ts";
 
@@ -82,7 +86,12 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
   // Sync guard for the in-flight part — React state `isSubmitting` is too late
   // for double-clicks in the same tick (customSubmit has no submitInFlight of its own).
   function isSubmitBlocked(): boolean {
-    return props.disabled === true || props.submitBlocked === true || isSubmittingRef.current;
+    return (
+      props.disabled === true ||
+      props.submitBlocked === true ||
+      isSubmitBlockedByLayoutCondition(props.screen.layout, controller.getSnapshot().values) ||
+      isSubmittingRef.current
+    );
   }
 
   // Awaits only where the original did: a validation-blocked customSubmit
@@ -118,7 +127,11 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
         result = await controller.submit();
       }
       let extensionsPersisted = true;
-      if (result.isSuccess) extensionsPersisted = await handleSubmitSuccess(result.isNoOp === true);
+      if (result.isSuccess)
+        extensionsPersisted = await handleSubmitSuccess(
+          result.isNoOp === true,
+          createdEntityIdOf(result.data),
+        );
       else applySubmitFailure(result);
       // On entity-success-but-extension-failure the extension-error
       // banner is showing — don't notify (the caller navigates away on success

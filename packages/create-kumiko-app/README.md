@@ -15,6 +15,7 @@ are resolved automatically — picking `auth-email-password` pulls in
 
 ```sh
 bun create kumiko-app my-app --yes      # take every recommended feature
+bun create kumiko-app my-app --blank    # no demo tasks, no seeded password; set it via "forgot password"
 bun create kumiko-app --print-manifest  # JSON dump of the picker choices
 ```
 

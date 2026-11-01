@@ -133,6 +133,7 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     searchable: true,
     facets: { estimateHours: { display: "range" } },
     table: {
+      compactHeader: true,
       grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
       totals: [{ field: "estimateHours", kind: "sum" }],
     },

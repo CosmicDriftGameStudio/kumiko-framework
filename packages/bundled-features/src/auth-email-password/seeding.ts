@@ -195,7 +195,8 @@ export async function provisionSignupAccount(
 
 export type SeedAdminOptions = {
   readonly email: string;
-  readonly password: string;
+  /** Omit to seed an account without a password; it sets one via password reset. */
+  readonly password?: string;
   readonly displayName: string;
   /** Tenants where the admin is added as a member. Each tenant can have
    *  its own role list, which lets the sample TenantSwitcher show different
@@ -234,14 +235,17 @@ export async function seedAdmin(
     await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, ...byOption });
   }
 
-  const { id: userId } = await seedUserWithPassword(db, {
+  const userFields = {
     email: options.email,
-    password: options.password,
     displayName: options.displayName,
     ...(options.globalRoles !== undefined && { roles: options.globalRoles }),
     ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
     ...byOption,
-  });
+  };
+  const { id: userId } =
+    options.password === undefined
+      ? await seedUser(db, userFields)
+      : await seedUserWithPassword(db, { ...userFields, password: options.password });
 
   for (const m of options.memberships) {
     await seedTenantMembership(db, {
@@ -398,4 +402,30 @@ export async function seedAdminGuarded(
     });
   }
   return { id: existingId };
+}
+
+async function findExistingUserRowForEmail(db: DbConnection, email: string) {
+  const kms = configuredPiiSubjectKms();
+  if (kms === undefined) return fetchOne(db, userTable, { email, isDeleted: false });
+  const existingId = await findExistingUserIdForEmail(db, kms, email);
+  return existingId === undefined ? undefined : fetchOne(db, userTable, { id: existingId });
+}
+
+/**
+ * Boot seed for an account that sets its password later (password reset). An
+ * account that already has a password is either the owner after their reset or
+ * a foreign self-registration with the same email; granting admin to the latter
+ * would be an escalation, so both are left untouched: no verification, no
+ * membership, no role change.
+ */
+export async function seedBootstrapAdmin(
+  db: DbConnection,
+  options: SeedAdminOptions,
+): Promise<{ id: string } | { skipped: "has-password" }> {
+  const existing = await findExistingUserRowForEmail(db, options.email);
+  if (existing && typeof existing["passwordHash"] === "string" && existing["passwordHash"] !== "") {
+    log.info("seedBootstrapAdmin: the account already has a password, bootstrap seed skipped");
+    return { skipped: "has-password" };
+  }
+  return seedAdminGuarded(db, options);
 }

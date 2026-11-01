@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { BannerProps } from "../../index.ts";
+import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
 import "../react-css-custom-properties.ts";
 import { fieldLabelId } from "./field.tsx";
@@ -11,6 +12,8 @@ export function DefaultBanner({
   title,
   titleTestId,
   children,
+  parts,
+  icon,
   actions,
   padded,
   testId,
@@ -45,6 +48,7 @@ export function DefaultBanner({
                 : "bg-card text-card-foreground",
       )}
     >
+      {icon !== undefined && <Icon name={icon} className="size-4 shrink-0" />}
       <div className="flex-1">
         {title !== undefined && (
           <div data-testid={titleTestId} className="font-semibold">
@@ -52,6 +56,15 @@ export function DefaultBanner({
           </div>
         )}
         {children}
+        {parts?.map((part) =>
+          part.strong === true ? (
+            <strong key={`strong:${part.text}`} className="font-semibold">
+              {part.text}
+            </strong>
+          ) : (
+            <span key={`plain:${part.text}`}>{part.text}</span>
+          ),
+        )}
       </div>
       {actions !== undefined && <div data-slot="actions">{actions}</div>}
     </div>

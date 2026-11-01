@@ -17,6 +17,7 @@ export const LIST_TABLE_OPTION_KEYS = [
   "export",
   "grouping",
   "totals",
+  "compactHeader",
 ] as const;
 export const LIST_TABLE_GROUPING_KEYS = [
   "field",
@@ -47,6 +48,8 @@ export type ListTableOptions = {
   readonly resizing?: boolean;
   /** Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click. Space stays reserved for selection. */
   readonly keyboardNavigation?: boolean;
+  /** Renders the header row smaller (12px) and semibold. */
+  readonly compactHeader?: boolean;
   readonly density?: {
     /** Row density on first visit. Default "comfortable". */
     readonly default?: ListTableDensity;

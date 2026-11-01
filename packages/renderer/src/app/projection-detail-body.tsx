@@ -103,6 +103,7 @@ export function ProjectionDetailBody({
     openDrawer,
     detailQuery,
     reloadDetail,
+    activeTabId: activeSection?.id,
   });
   const { hasMetrics, headerActionsList, hasHeaderActions, hasHeaderCard, renderedDetailScreen } =
     useProjectionDetailLayout({ screen, headerActions, hasTabs, detailScreen });

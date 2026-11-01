@@ -1,6 +1,7 @@
 import { BILLING_FOUNDATION_FEATURE } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { DELIVERY_FEATURE } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { FEATURE_TOGGLES_FEATURE } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { BOOTSTRAP_ADMIN_EMAIL_ENV } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { SUBSCRIPTION_PADDLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { TIER_ENGINE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -42,6 +43,7 @@ export type BootOptionFields = {
   readonly appOverrides?: object;
   readonly auth?: {
     readonly admin?: unknown;
+    readonly passwordReset?: unknown;
     readonly mail?: { readonly from?: string };
   };
 };
@@ -117,10 +119,33 @@ function wireFeatureToggles(
   return undefined;
 }
 
-function warnAboutBootOptions(options: BootOptionFields): void {
+function bootstrapAdminCannotSetPassword(
+  options: BootOptionFields,
+  envSource: Record<string, string | undefined>,
+): boolean {
+  const { seeds } = options;
+  return (
+    seeds !== undefined &&
+    !isSeedFnList(seeds) &&
+    Boolean(seeds.bootstrapAdminFromEnv) &&
+    Boolean(envSource[BOOTSTRAP_ADMIN_EMAIL_ENV]) &&
+    options.auth?.passwordReset === undefined &&
+    options.auth?.mail === undefined
+  );
+}
+
+function warnAboutBootOptions(
+  options: BootOptionFields,
+  envSource: Record<string, string | undefined>,
+): void {
   const bootWarnings = stackBootWarnings(options).map(
     (line) => `stacks in \`features\` expect boot options that are not set:\n${line}`,
   );
+  if (bootstrapAdminCannotSetPassword(options, envSource)) {
+    bootWarnings.push(
+      `${BOOTSTRAP_ADMIN_EMAIL_ENV} is set but neither auth.passwordReset nor auth.mail is configured: the bootstrap admin has no password and could never set one.`,
+    );
+  }
   if (
     options.runSingleInstance === false &&
     (options.mail || options.fileStorage || options.featureToggles || options.appOverrides) &&
@@ -202,7 +227,7 @@ export async function resolveBootOptionWiring(
     extraRoutes.push(buildDemoModeRoute(demoMode, envSource));
   }
 
-  warnAboutBootOptions(options);
+  warnAboutBootOptions(options, envSource);
 
   const seeds = options.seeds ?? [];
   const shortcutSeeds = isSeedFnList(seeds)

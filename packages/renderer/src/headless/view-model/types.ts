@@ -410,6 +410,8 @@ export type EditFieldsSectionViewModel = {
   readonly description?: string;
   /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
   readonly subtitle?: string;
+  /** From `EditFieldsSection.summaryField` (wizard step rail). */
+  readonly summaryField?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same

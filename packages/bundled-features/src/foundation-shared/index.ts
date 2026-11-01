@@ -3,7 +3,11 @@
 
 export { buildInfoEnvSchema } from "./build-info-env.ts";
 export { requireDefined, requireNonEmpty, requireSecretSet } from "./config-helpers.ts";
-export { demoAdminEnvSchema } from "./demo-admin-env.ts";
+export {
+  BOOTSTRAP_ADMIN_EMAIL_ENV,
+  bootstrapAdminEnvSchema,
+  demoAdminEnvSchema,
+} from "./demo-admin-env.ts";
 export { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.ts";
 export { sanitizeMailDisplayName } from "./mail-display-name.ts";
 export {

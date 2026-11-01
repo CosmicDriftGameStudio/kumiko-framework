@@ -448,6 +448,13 @@ export function DefaultHeading({ variant = "page", children, testId }: HeadingPr
       </h2>
     );
   }
+  if (variant === "group") {
+    return (
+      <h2 data-testid={testId} className="text-base font-semibold text-foreground">
+        {children}
+      </h2>
+    );
+  }
   return (
     <h1 data-testid={testId} className="text-2xl font-semibold tracking-tight">
       {children}

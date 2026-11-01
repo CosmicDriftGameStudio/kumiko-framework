@@ -22,6 +22,7 @@ function renderColumnHeader(m: DataTableModel, col: ListColumnViewModel): ReactN
       highlighted={col.highlighted === true}
       numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
       fitContent={col.fileDisplay !== undefined}
+      compact={m.compactHeader === true}
       className={cn(m.density.header, headerPin.className)}
       style={headerPin.style}
       columnField={headerPin.columnField}

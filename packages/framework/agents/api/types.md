@@ -1806,6 +1806,7 @@ type DataTableTableBlock = { // The DataTable props a screen's `table` block fee
   view?: DataTableViewOptions; // View menu (column picker, density); absent = no menu.
   resetAll?: DataTableResetAll; // Replaces the facet reset with one that also covers sort, search and page size.
   exportList?: DataTableExport; // Present: the toolbar has an export button (web only).
+  compactHeader?: boolean; // Smaller (12px) semibold header row.
   serverGroups?: DataTableServerGroups; // Present: the rows are grouped on the server; replaces pager and infinite scroll.
   totals?: DataTableTotals; // Present: a footer row with the server-computed totals of the filtered list.
   notice?: DataTableListNotice; // Present: the toolbar says the answer is incomplete and asks to narrow the list.
@@ -4794,6 +4795,7 @@ type EditFieldsSectionBase = {
   icon?: IconKey; // Rendered left of the section title, `text-muted-foreground` — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
   subtitle?: string; // Short line (i18n key) under this step's title in the wizard step rail and in the "up next" box.
+  summaryField?: string; // Wizard layouts only: field of this section whose formatted value shows under the step label in the step rail once the step is done.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
 type EntityEditActionPlacement = "inline" | "menu";
@@ -4823,6 +4825,7 @@ type RowActionNavigateBase = {
   params?: RowFieldExtractor; // Declarative URL search params extracted from the clicked row.
   tab?: string; // Section id of the tab to activate on the target projectionDetail (layout.mode "tabs"); merged into the navigate search params next to returnTo.
   visible?: FieldCondition; // Conditional visibility per row.
+  showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   rowClick?: boolean; // When true, a click on the whole row (not just the action menu) triggers this navigate action.
   icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.

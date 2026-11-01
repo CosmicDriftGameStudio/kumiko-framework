@@ -218,6 +218,8 @@ export type RowActionWriteHandler = {
   readonly confirmLabel?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
+  readonly showOnTabs?: readonly string[];
   /** Visual style. "danger" renders red + forces a confirm dialog (even
    *  without an explicit `confirm` key). */
   readonly style?: "primary" | "secondary" | "danger";
@@ -258,6 +260,8 @@ export type RowActionNavigateBase = {
   readonly tab?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
+  readonly showOnTabs?: readonly string[];
   /** Visual style only — unlike the writeHandler variants, "danger" does not
    *  force a confirm dialog here: the target form is the confirmation. */
   readonly style?: "primary" | "secondary" | "danger";
@@ -307,6 +311,8 @@ export type RowActionDrawer = {
   readonly params?: RowFieldExtractor;
   /** Per-row conditional visibility. */
   readonly visible?: FieldCondition;
+  /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
+  readonly showOnTabs?: readonly string[];
   /** Visual style only — unlike the writeHandler variants, "danger" does not
    *  force a confirm dialog here: the target form is the confirmation. */
   readonly style?: "primary" | "secondary" | "danger";
@@ -346,6 +352,8 @@ export type RowActionClientAction = {
   readonly confirmLabel?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
+  readonly showOnTabs?: readonly string[];
   /** Visual style. "danger" forces a confirm dialog, like a writeHandler. */
   readonly style?: "primary" | "secondary" | "danger";
   /** Overrides the id-based default icon, see `RowActionWriteHandler.icon`. */

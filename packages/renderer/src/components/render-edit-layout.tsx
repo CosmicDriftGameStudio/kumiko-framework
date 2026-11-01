@@ -16,6 +16,7 @@ import { renderFormActions } from "./render-edit-form-actions.tsx";
 import { buildHeaderActions, type HeaderActionsModel } from "./render-edit-header-actions.tsx";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
+import { deriveWizardRail } from "./render-edit-wizard-rail.ts";
 import { AllFieldsRequiredProvider } from "./render-field.tsx";
 
 function renderPageHeader<TValues extends FormValues, TCtx>(
@@ -47,14 +48,15 @@ function renderPageHeader<TValues extends FormValues, TCtx>(
   );
 }
 
-function renderWizardSideRail<TValues extends FormValues, TCtx>({
-  engine: { state, steps, sections, nav },
-  titles,
-}: RenderEditModel<TValues, TCtx>): ReactNode {
+function renderWizardSideRail<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): ReactNode {
+  const { engine, titles } = model;
+  const { state, steps, sections, nav } = engine;
   const { StepBar } = state.primitives;
   const { translate } = state;
-  const { upNextSection, formSubtitle } = titles;
   if (StepBar === undefined) return undefined;
+  const { description, subtitles, upNext } = deriveWizardRail(model);
   return (
     <StepBar
       steps={sections.filteredSections.map((section) => section.title ?? "")}
@@ -67,18 +69,9 @@ function renderWizardSideRail<TValues extends FormValues, TCtx>({
         current: steps.currentStep + 1,
         total: steps.lastStepIndex + 1,
       })}
-      {...(formSubtitle !== undefined && { description: formSubtitle })}
-      subtitles={sections.filteredSections.map((section) =>
-        section.kind === "fields" ? section.subtitle : undefined,
-      )}
-      {...(upNextSection !== undefined && {
-        upNext: {
-          heading: translate("kumiko.wizard.up-next"),
-          title: upNextSection.title ?? "",
-          ...(upNextSection.kind === "fields" &&
-            upNextSection.subtitle !== undefined && { subtitle: upNextSection.subtitle }),
-        },
-      })}
+      {...(description !== undefined && { description })}
+      subtitles={subtitles}
+      {...(upNext !== undefined && { upNext })}
       testId="render-edit-wizard-steps"
       compactTestId="render-edit-wizard-step-label"
     />
@@ -153,7 +146,9 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
         stickyActions={state.isWizard || props.fillScreenHeight === true}
         {...buildFormChromeProps(model, header)}
       >
-        <AllFieldsRequiredProvider value={sections.showsAllRequiredHint}>
+        <AllFieldsRequiredProvider
+          value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
+        >
           {props.leadContent}
           {sections.showsAllRequiredHint && !state.insideDrawer && renderAllRequiredHint(model)}
           {renderDraftPicker(model)}

@@ -8,7 +8,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { scaffoldApp } from "@cosmicdrift/kumiko-dev-server";
+import {
+  SCAFFOLD_STARTERS,
+  type ScaffoldStarter,
+  scaffoldApp,
+} from "@cosmicdrift/kumiko-dev-server";
 import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import type { CheckStepId } from "../commands/check";
 
@@ -16,7 +20,7 @@ const FIXTURE_ROOT = join(import.meta.dir, "..", "..", "..", "..", ".tmp-fixture
 const CLI_BIN = join(import.meta.dir, "..", "..", "bin", "cli.ts");
 const createdDirs: string[] = [];
 const runningProcs = new Set<Bun.Subprocess>();
-let appDir = "";
+const appDirs: Partial<Record<ScaffoldStarter, string>> = {};
 
 // One subprocess per test keeps each under the per-test budget; a test that
 // still times out must not leave its child running into the next one.
@@ -45,15 +49,24 @@ beforeAll(async () => {
   mkdirSync(FIXTURE_ROOT, { recursive: true });
   const cwd = mkdtempSync(join(FIXTURE_ROOT, "check-"));
   createdDirs.push(cwd);
-  const { destination } = await scaffoldApp({
-    name: "check-fixture",
-    cwd,
-    testSetup: renderTestSetup,
-  });
-  const init = await run(["git", "init", "-q"], destination);
-  if (init.code !== 0) throw new Error(`git init failed: ${init.output}`);
-  appDir = destination;
+  for (const starter of SCAFFOLD_STARTERS) {
+    const { destination } = await scaffoldApp({
+      name: `check-fixture-${starter}`,
+      cwd,
+      starter,
+      testSetup: renderTestSetup,
+    });
+    const init = await run(["git", "init", "-q"], destination);
+    if (init.code !== 0) throw new Error(`git init failed: ${init.output}`);
+    appDirs[starter] = destination;
+  }
 });
+
+function appDirOf(starter: ScaffoldStarter): string {
+  const dir = appDirs[starter];
+  if (dir === undefined) throw new Error(`no ${starter} fixture`);
+  return dir;
+}
 
 const STEP_EXPECTATIONS: readonly (readonly [CheckStepId, string | undefined])[] = [
   ["boot", undefined],
@@ -64,22 +77,22 @@ const STEP_EXPECTATIONS: readonly (readonly [CheckStepId, string | undefined])[]
   ["scripts", "all standard scripts present"],
 ];
 
-describe("scaffolded app passes kumiko check", () => {
+describe.each(SCAFFOLD_STARTERS)("scaffolded %s app passes kumiko check", (starter) => {
   test.each(STEP_EXPECTATIONS)("kumiko check %s is green", async (step, expectedLine) => {
-    const check = await run(["bun", CLI_BIN, "check", step], appDir);
+    const check = await run(["bun", CLI_BIN, "check", step], appDirOf(starter));
     expect(check.code, check.output).toBe(0);
     if (expectedLine !== undefined) expect(check.output).toContain(expectedLine);
   });
 
   test("tsc against the framework presets is green", async () => {
-    const tsc = await run(["bun", "x", "tsc", "--noEmit", "-p", "."], appDir);
+    const tsc = await run(["bun", "x", "tsc", "--noEmit", "-p", "."], appDirOf(starter));
     expect(tsc.code, tsc.output).toBe(0);
   });
 
   test("bun run build produces dist/index.html with a hashed client script", async () => {
-    const build = await run(["bun", "run", "build"], appDir);
+    const build = await run(["bun", "run", "build"], appDirOf(starter));
     expect(build.code, build.output).toBe(0);
-    const html = readFileSync(join(appDir, "dist", "index.html"), "utf8");
+    const html = readFileSync(join(appDirOf(starter), "dist", "index.html"), "utf8");
     expect(html).not.toContain('src="/client.js"');
     expect(html).toMatch(/<script[^>]+src="\/assets\/[^"]*client-[A-Za-z0-9]+\.js"/);
   });

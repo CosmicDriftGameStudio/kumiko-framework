@@ -6,7 +6,7 @@ import {
   STICKY_PRIMARY_ACTION_PROP,
 } from "../primitives.tsx";
 import { EditSlotMount } from "./edit-mounts.tsx";
-import { resolveExtensionEntityId } from "./render-edit-logic.ts";
+import { isSubmitBlockedByLayoutCondition, resolveExtensionEntityId } from "./render-edit-logic.ts";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 
 function renderWizardBackButton<TValues extends FormValues, TCtx>({
@@ -64,7 +64,7 @@ function renderSaveAndCloseButton<TValues extends FormValues, TCtx>({
     state.isWizard &&
     !steps.isLastWizardStep &&
     footer.showsSubmit &&
-    !state.isCreateMode && (
+    (!state.isCreateMode || props.screen.layout.wizard?.saveAndCloseOnCreate === true) && (
       <Button
         type="button"
         variant="ghost"
@@ -166,10 +166,16 @@ function isSubmitDisabled<TValues extends FormValues, TCtx>({
     !footer.isFieldlessSubmitForm &&
     !state.insideDrawer &&
     props.submitWithoutChanges !== true;
-  return isPristine || state.isSubmitting || props.disabled || props.submitBlocked;
+  return (
+    isPristine ||
+    state.isSubmitting ||
+    props.disabled ||
+    props.submitBlocked ||
+    isSubmitBlockedByLayoutCondition(props.screen.layout, form.snapshot.values)
+  );
 }
 
-function resolveSubmitLabelKey<TValues extends FormValues, TCtx>({
+export function resolveSubmitLabelKey<TValues extends FormValues, TCtx>({
   engine: { props, state },
   footer,
 }: RenderEditModel<TValues, TCtx>): string {
