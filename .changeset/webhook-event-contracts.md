@@ -9,7 +9,7 @@
 Webhook events get public contracts. `r.defineWebhookEvent` declares one, entity events get a derived contract without personal fields, `PatScopeDef.events` releases them per token scope, and `kumiko api-docs` writes `events.md` and an OpenAPI `webhooks` section.
 
 <!-- kumiko-changes
-feature: webhooks
+feature: framework
 type: improvement
 title: r.defineWebhookEvent declares a public webhook event contract
 detail: `r.defineWebhookEvent({ name, description, payload, version })` registers a contract under `<feature>:<name>`, separate from `r.defineEvent`, so an internal event is never released by accident. `registry.getWebhookEventContract(qn)` also returns the contract derived for an entity event (`ticket.created`, `ticket.updated`, `ticket.deleted`): every payload carries the entity `id`, created adds the releasable fields, updated adds `changes` and `previous`, deleted adds `previous`; `toEntityWebhookPayload(contract, event)` maps a stored entity event (aggregate id plus payload) to that shape and drops everything the contract does not release; personal fields, the CRUD `excludedFields`, money and located timestamp fields and encrypted, write-only or sensitive text fields are left out. `registry.getWebhookEventContracts()` lists the declared ones sorted by name. `parseWebhookPayload(contract, payload)` validates a payload and strips unknown keys. New exports: `WebhookEventContract`, `WebhookEventHandle`, `parseWebhookPayload`, `toEntityWebhookPayload`.
