@@ -6,7 +6,6 @@ import type {
   NavDefinition,
   QueryHandlerDef,
   ScreenDefinition,
-  TranslationEntry,
   TranslationKeys,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -15,11 +14,15 @@ import {
   hasAccess,
   isAgentVisibleScreen,
   resolveAgentExposure,
-  SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import * as z from "zod";
+import { handlerInputJsonSchema } from "./handler-schema.ts";
+import {
+  compareIds,
+  entryAsLabels,
+  labelsForSuffix,
+  pickLabel,
+  screenTitleLabels,
+} from "./labels.ts";
 import { recordManifestDenyQns } from "./manifest-deny-qns.ts";
 import { isExplicitlyAgentHidden } from "./tool-catalog.ts";
 import type {
@@ -35,23 +38,6 @@ import type {
   RegistryManifestView,
 } from "./types.ts";
 
-const FALLBACK_LOCALE = "en";
-
-/** Requested locale, then English, then the first remaining locale in code-point
- *  order; `undefined` when the entry has no text at all (the key is then omitted). */
-function pickLabel(labels: Readonly<Record<string, string>>, locale: string): string | undefined {
-  const nonEmpty = (value: string | undefined): string | undefined =>
-    value !== undefined && value !== "" ? value : undefined;
-  const firstLocale = Object.keys(labels)
-    .sort(compareIds)
-    .find((key) => nonEmpty(labels[key]));
-  return (
-    nonEmpty(labels[locale]) ??
-    nonEmpty(labels[FALLBACK_LOCALE]) ??
-    (firstLocale !== undefined ? labels[firstLocale] : undefined)
-  );
-}
-
 function labelProp(
   labels: Readonly<Record<string, string>>,
   locale: string,
@@ -60,68 +46,11 @@ function labelProp(
   return label === undefined ? {} : { label };
 }
 
-/** The manifest surfaces one string per locale — a plural entry reads as its
- *  CLDR `other` form since the manifest has no `count` to select a category. */
-function entryAsLabels(entry: TranslationEntry): Readonly<Record<string, string>> {
-  return Object.fromEntries(
-    Object.entries(entry).map(([locale, value]) => [locale, translationValueOtherText(value)]),
-  );
-}
-
-const labelsIndexByTranslations = new WeakMap<
-  TranslationKeys,
-  Map<string, Readonly<Record<string, string>>>
->();
-
-/** Every tail starting at a key boundary (`:` or `.`, with and without the
- *  separator) maps to the labels of the first key that ends with it. */
-function buildSuffixIndex(
-  translations: TranslationKeys,
-): Map<string, Readonly<Record<string, string>>> {
-  const index = new Map<string, Readonly<Record<string, string>>>();
-  for (const [key, entry] of Object.entries(translations)) {
-    const labels = entryAsLabels(entry);
-    const addTail = (start: number): void => {
-      const tail = key.slice(start);
-      if (!index.has(tail)) index.set(tail, labels);
-    };
-    addTail(0);
-    for (let position = 0; position < key.length; position++) {
-      if (key[position] === ":" || key[position] === ".") {
-        addTail(position);
-        addTail(position + 1);
-      }
-    }
-  }
-  return index;
-}
-
-/** Translation keys carry a feature prefix the manifest can't reconstruct
- *  (`showcase:entity:item:field:title`), so match on the suffix instead. The
- *  suffix must start at a `:` or `.` boundary of the key. */
-function labelsForSuffix(
-  translations: TranslationKeys,
-  suffix: string,
-): Readonly<Record<string, string>> {
-  let index = labelsIndexByTranslations.get(translations);
-  if (index === undefined) {
-    index = buildSuffixIndex(translations);
-    labelsIndexByTranslations.set(translations, index);
-  }
-  return index.get(suffix) ?? {};
-}
-
 /** Nav/screen/workspace gating is opt-in: no rule means visible to everyone
  *  (NavDefinition.access). Handlers are the opposite — `hasAccess` is
  *  default-deny there. */
 function uiVisible(access: AccessRule | undefined, roles: readonly string[]): boolean {
   return access === undefined || hasAccess({ roles }, access);
-}
-
-// localeCompare depends on the runtime locale and ICU punctuation rules; qualified
-// names contain `:`, so compare by code point instead for deterministic ordering.
-function compareIds(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function dedupeSorted(values: readonly string[]): readonly string[] {
@@ -240,35 +169,6 @@ function buildFeatures(
   return result;
 }
 
-// Agent dispatch never runs as a system identity, so properties the engine only
-// honors for system callers would be silently dropped — hide them from the tool.
-export function systemOnlyPropertyNames(jsonSchema: Record<string, unknown>): readonly string[] {
-  const properties = jsonSchema["properties"];
-  if (typeof properties !== "object" || properties === null) return [];
-  return Object.entries(properties)
-    .filter(
-      ([, property]) => isPlainObject(property) && property[SYSTEM_ONLY_JSON_SCHEMA_KEY] === true,
-    )
-    .map(([name]) => name);
-}
-
-function withoutSystemOnlyProperties(
-  jsonSchema: Record<string, unknown>,
-): Readonly<Record<string, unknown>> {
-  const properties = jsonSchema["properties"];
-  if (typeof properties !== "object" || properties === null) return jsonSchema;
-  const hidden = systemOnlyPropertyNames(jsonSchema);
-  if (hidden.length === 0) return jsonSchema;
-  const required = jsonSchema["required"];
-  return {
-    ...jsonSchema,
-    properties: Object.fromEntries(
-      Object.entries(properties).filter(([name]) => !hidden.includes(name)),
-    ),
-    ...(Array.isArray(required) && { required: required.filter((name) => !hidden.includes(name)) }),
-  };
-}
-
 function buildHandlerEntry(
   qn: string,
   kind: "query" | "write",
@@ -287,15 +187,9 @@ function buildHandlerEntry(
   const description =
     def.description !== undefined && def.description !== "" ? def.description : undefined;
 
-  let inputSchema: Readonly<Record<string, unknown>>;
-  try {
-    // A handler whose schema can't be expressed as JSON Schema (transforms,
-    // z.instanceof, ...) is unusable for an agent tool call — leave it out
-    // rather than ship a broken tool.
-    inputSchema = withoutSystemOnlyProperties(z.toJSONSchema(def.schema, { io: "input" }));
-  } catch {
-    return undefined;
-  }
+  // Left out rather than shipped as a broken tool when the schema isn't expressible.
+  const inputSchema = handlerInputJsonSchema(def);
+  if (inputSchema === undefined) return undefined;
 
   const entity = getHandlerEntity(qn);
   const excludedFields = "excludedFields" in def ? def.excludedFields : undefined;
@@ -447,11 +341,6 @@ function visibleEntityNamesOf(
   ]);
 }
 
-function lastSegment(qualifiedId: string): string {
-  const idx = qualifiedId.lastIndexOf(":");
-  return idx === -1 ? qualifiedId : qualifiedId.slice(idx + 1);
-}
-
 function detailIdParam(screen: ScreenDefinition): string {
   return screen.type === "projectionDetail" ? (screen.idParam ?? "id") : "id";
 }
@@ -459,15 +348,9 @@ function detailIdParam(screen: ScreenDefinition): string {
 function screenTitles(
   translations: TranslationKeys,
   screenId: string,
-  shortId: string,
   locale: string,
 ): { readonly title?: string } {
-  const title = pickLabel(
-    entryAsLabels(
-      translations[`${screenId}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
-    ),
-    locale,
-  );
+  const title = pickLabel(screenTitleLabels(translations, screenId), locale);
   return title === undefined ? {} : { title };
 }
 
@@ -480,7 +363,7 @@ function buildScreenEntry(
   return {
     id: screen.id,
     type: screen.type,
-    ...screenTitles(translations, screen.id, lastSegment(screen.id), locale),
+    ...screenTitles(translations, screen.id, locale),
     // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
     // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
     // `labelsForSuffix` does for entity/field labels, else fall back to the

@@ -36,6 +36,24 @@ export type AppValidateBootOptions = Pick<
   | "warnOnUniqueAccessRoles"
 >;
 
+/** Settings of `kumiko api-docs`, the generator for the HTTP API developer docs. */
+export type AppApiDocsConfig = {
+  /** Locales of the generated pages; default en. */
+  readonly locales?: readonly string[];
+  readonly outDir?: string;
+  /** Host that the curl examples and the OpenAPI `servers` entry point to. */
+  readonly baseUrl?: string;
+  readonly appName?: string;
+  /** One paragraph per locale, appended to the tokens page (plan or tier limits). */
+  readonly planNote?: Readonly<Record<string, string>>;
+  /** Writes triggered by screens that are deliberately not reachable with an API token. `pattern` is a QN or a glob ending in `*`. */
+  readonly uiOnlyWrites?: readonly { readonly pattern: string; readonly reason: string }[];
+  /** Paragraph overrides per locale and text key; the page structure stays fixed. */
+  readonly texts?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /** Directory of recorded request/response examples; default `api-examples`. */
+  readonly examplesDir?: string;
+};
+
 export type AppConfig = {
   /** Features mounted in every environment: dev, tests, prod. */
   readonly features: readonly FeatureDefinition[];
@@ -53,6 +71,7 @@ export type AppConfig = {
   readonly bundledLists?: BundledListsOptions;
   /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  readonly apiDocs?: AppApiDocsConfig;
 };
 
 export const APP_CONFIG_FILE = "kumiko.config.ts";
@@ -103,8 +122,31 @@ export function findAppPortProblems(ports: AppPorts): readonly string[] {
 // plain relative paths inside the app are accepted.
 const CLIENT_ENTRY_RE = /^(?!\/)(?!.*\.\.)[A-Za-z0-9_./-]+\.(ts|tsx)$/;
 
+/** Problems with the declared `apiDocs` block: empty or duplicate locales, a `uiOnlyWrites` entry without reason. */
+export function findApiDocsConfigProblems(apiDocs: AppApiDocsConfig): readonly string[] {
+  const problems: string[] = [];
+  const { locales, uiOnlyWrites } = apiDocs;
+  if (locales !== undefined) {
+    if (locales.length === 0) problems.push("apiDocs.locales must not be empty");
+    if (new Set(locales).size !== locales.length) {
+      problems.push("apiDocs.locales must not contain duplicates");
+    }
+  }
+  for (const entry of uiOnlyWrites ?? []) {
+    if (entry.pattern.trim() === "")
+      problems.push("apiDocs.uiOnlyWrites: pattern must not be empty");
+    if (entry.reason.trim() === "") {
+      problems.push(`apiDocs.uiOnlyWrites: "${entry.pattern}" needs a non-empty reason`);
+    }
+  }
+  return problems;
+}
+
 export function defineAppConfig(config: AppConfig): AppConfig {
-  const problems = [...findAppPortProblems(config.ports)];
+  const problems = [
+    ...findAppPortProblems(config.ports),
+    ...(config.apiDocs ? findApiDocsConfigProblems(config.apiDocs) : []),
+  ];
   if (config.client.entries.length === 0)
     problems.push("client.entries must name at least one entry");
   for (const entry of config.client.entries) {

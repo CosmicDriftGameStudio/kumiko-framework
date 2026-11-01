@@ -7,7 +7,9 @@ import {
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldOptionLabelKeyPrefix } from "@cosmicdrift/kumiko-renderer/headless";
 import {
+  PAT_DEFAULT_EXPIRES_IN_DAYS,
   PAT_FEATURE,
+  PAT_MAX_EXPIRES_IN_DAYS,
   PAT_MINT_SCREEN_ID,
   PAT_SCREEN_ID,
   PatHandlers,
@@ -136,7 +138,13 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
         display: "checkboxes",
         options: patGrantOptions(scopes),
       },
-      expiresInDays: { type: "number", integer: true, min: 1, max: 3650, default: 90 },
+      expiresInDays: {
+        type: "number",
+        integer: true,
+        min: 1,
+        max: PAT_MAX_EXPIRES_IN_DAYS,
+        default: PAT_DEFAULT_EXPIRES_IN_DAYS,
+      },
       currentPassword: { type: "text", required: true, format: "password", sensitive: true },
       mfaCode: { type: "text" },
     },

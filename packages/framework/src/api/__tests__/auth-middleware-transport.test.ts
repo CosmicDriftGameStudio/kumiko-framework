@@ -12,6 +12,7 @@ import {
   getUser,
 } from "../auth-middleware.ts";
 import { createJwtHelper } from "../jwt.ts";
+import { patAuthRejectHttpStatus } from "../pat-auth-reject.ts";
 import { AUTH_COOKIE_BASE } from "../session-cookies.ts";
 
 const JWT_SECRET = "auth-middleware-transport-test-secret-min-32-chars";
@@ -60,7 +61,7 @@ describe("auth-middleware transport selection", () => {
         Cookie: `${AUTH_COOKIE_BASE}=${token}`,
       },
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(patAuthRejectHttpStatus.ambiguous_auth);
     const body = (await res.json()) as { error: { code: string; httpStatus: number } };
     expect(body.error.code).toBe("ambiguous_auth");
     expect(body.error.httpStatus).toBe(400);
@@ -69,7 +70,7 @@ describe("auth-middleware transport selection", () => {
   test("neither cookie nor bearer → 401 missing_token", async () => {
     const { app } = await buildApp();
     const res = await app.request("/api/ping");
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(patAuthRejectHttpStatus.missing_token);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("missing_token");
   });
@@ -79,7 +80,7 @@ describe("auth-middleware transport selection", () => {
     const res = await app.request("/api/ping", {
       headers: { Cookie: `${AUTH_COOKIE_BASE}=not-a-real-jwt` },
     });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(patAuthRejectHttpStatus.invalid_token);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_token");
   });

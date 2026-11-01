@@ -1,3 +1,4 @@
+import { frameworkErrorHttpStatus } from "./error-codes.ts";
 import type { KumikoError } from "./kumiko-error.ts";
 import { AgentReasons, FrameworkReasons } from "./reasons.ts";
 
@@ -16,25 +17,7 @@ const frameworkReasons: ReadonlySet<string> = new Set([
 ]);
 
 // Codes of the built-in error classes: only these have a framework docs page.
-const frameworkErrorCodes: ReadonlySet<string> = new Set([
-  "validation_error",
-  "feature_disabled",
-  "access_denied",
-  "unauthenticated",
-  "not_found",
-  "conflict",
-  "version_conflict",
-  "precondition_failed",
-  "record_locked",
-  "idempotent_replay",
-  "unique_violation",
-  "unprocessable",
-  "unconfigured",
-  "internal_error",
-  "member_read_timeout",
-  "rate_limited",
-  "rate_limit_unavailable",
-]);
+const frameworkErrorCodes: ReadonlySet<string> = new Set(Object.keys(frameworkErrorHttpStatus));
 
 function reasonOf(err: KumikoError): string | undefined {
   if (!err.details || typeof err.details !== "object") return undefined;

@@ -21,6 +21,7 @@ function writeFailure(err: KumikoError): WriteFailure;
 
 ```ts
 const FrameworkReasons: { staleState; invalidTransition; fieldAccessDenied; deleteRestricted; featureDisabled; systemIdentitySwitchDenied; identitySwitchDenied; tenantOverrideRequiresSystemAdmin; notifyForeignTenantBroadcast; unsafeAllTenantsDenied; memberResolutionDenied; memberResolutionReadOnly; publicIntakeRequired; irreversibleOperationRequiresHighRisk; instructionFieldWriteRequiresHighRisk; subjectErased; fileRejected; fileViolatesBindTarget };
+const frameworkErrorHttpStatus: { validation_error; feature_disabled; access_denied; unauthenticated; not_found; conflict; version_conflict; precondition_failed; record_locked; idempotent_replay; unique_violation; unprocessable; unconfigured; internal_error; member_read_timeout; rate_limited; rate_limit_unavailable };
 ```
 
 ## Classes
@@ -103,6 +104,7 @@ type FieldIssue = {
   i18nKey: string;
   params?: Readonly<Record<string, unknown>>;
 };
+type FrameworkErrorCode = keyof typeof frameworkErrorHttpStatus;
 type WriteErrorInfo = {
   code: string;
   httpStatus: number;

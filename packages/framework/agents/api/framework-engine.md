@@ -98,6 +98,7 @@ function findTierResolverUsage(features: FeatureDefinition[]): RegistrarExtensio
 function from(ref: OwnershipRef, column?: string): FromRule;
 function getStep(kind: StepKind): StepDef | undefined;
 function guardTransition<TStates extends string>(transitions: TransitionGraph<TStates>, from: TStates, to: TStates): void; // Asserts a state transition is allowed.
+function handlerDescriptionKey(handlerQn: string): string;
 function handlerFieldLabelKey(handlerQn: string, fieldName: string): string;
 function handlerFieldReference(schema: z.ZodType, field: string): HandlerFieldReference | undefined;
 function handlerTitleKey(handlerQn: string): string;
@@ -170,6 +171,7 @@ const BUILT_IN_MEMBERSHIP_ROLES: string[]; // Every membership role the engine r
 const CODEMOD_PLACEHOLDER_REASON_MARKER: "state the operator use case here";
 const ConfigScopes: { system: "system"; tenant: "tenant"; user: "user"; };
 const DEFAULT_CURRENCIES: ["EUR", "USD", "GBP", "CHF", "JPY", "SEK", "NOK", "DKK", "PLN", "CZK", "CAD", "AUD", "NZD", "CNY", "INR"];
+const DEFAULT_LIST_LIMIT: 50;
 const DEFAULT_LOCALES: ["de", "en", "es"];
 const DELIVERY_FAILURE_CODES;
 const DELIVERY_SKIP_REASONS: ["channel_disabled", "preference_disabled", "rate_limited", "no_address", "unsubscribed", "duplicate_idempotency_key"];

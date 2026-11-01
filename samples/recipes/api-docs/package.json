@@ -1,0 +1,14 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-api-docs",
+  "description": "API documentation for personal access tokens: recorded examples, kumiko api-docs and a committed golden.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-locale-de": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createInMemoryLoginRateLimiter,
+  PAT_RATE_LIMITED_CODE,
+  patAuthRejectHttpStatus,
+} from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -231,7 +235,8 @@ describe("PAT auth", () => {
       expect(ok.status).toBe(200);
     }
     const limited = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
-    expect(limited.status).toBe(429);
+    expect(limited.status).toBe(patAuthRejectHttpStatus.pat_rate_limited);
+    expect(await limited.json()).toMatchObject({ error: { code: PAT_RATE_LIMITED_CODE } });
   });
 
   test("membership removed → 401 (live roles, no snapshot)", async () => {

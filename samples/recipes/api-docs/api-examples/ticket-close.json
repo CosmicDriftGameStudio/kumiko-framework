@@ -1,0 +1,21 @@
+{
+  "request": {
+    "endpoint": "/api/write",
+    "body": {
+      "type": "helpdesk:write:ticket:close",
+      "payload": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "resolution": "Replaced the cartridge"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "isSuccess": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000001"
+      }
+    }
+  }
+}

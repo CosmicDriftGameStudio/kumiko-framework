@@ -68,8 +68,38 @@ export default defineAppConfig({
   `kumiko/schema.ts` passes it to `composeFeatures`, the bin files pass it to
   the runners. See `renderer-widget-options.md`.
 
+- `apiDocs` configures `kumiko api-docs` (below).
+
 Until an app calls `defineAppConfig`, the `managed` and `scripts` steps of
 `kumiko check` only warn.
+
+## API docs
+
+An app that mounts `personal-access-tokens` can generate its API documentation:
+`kumiko api-docs [--out <dir>] [--locales en,de] [--check]` writes Markdown pages
+(overview, tokens, one reference page per token scope), `openapi.json` and
+`index.json` to `api-docs/`. Only handlers that a token scope reaches appear.
+`--check` writes nothing and prints each problem and each missing, changed or
+extra file as `[kind] detail`; it exits 1 if it finds anything, so it fits a CI
+step. Exclude the output directory from Biome: a formatter would rewrite the generated
+files and `--check` would then report them as changed. Known gap: the check for screen writes outside the scopes only looks at features
+that have at least one handler in a scope, so a domain with no scope entry at all is not
+reported. The command mounts the bundled features only with `includeBundled: true`, so
+an app that needs `auth-foundation` for the token feature lists it in `features`.
+
+`apiDocs` in `kumiko.config.ts` takes:
+
+- `baseUrl` (required) and `appName`, used in the curl examples and the OpenAPI file.
+- `locales` (`en`, `de`, `es`, `fr`, `it`; default `en`) and `outDir`.
+- `planNote`, one paragraph per locale appended to the tokens page.
+- `uiOnlyWrites`, patterns of writes that screens trigger but no scope grants, each
+  with a `reason`; unlisted ones are reported.
+- `texts`, paragraph overrides per locale and key; the page structure stays fixed.
+- `examplesDir` (default `api-examples`), recorded request and response pairs. Record
+  them in an integration test with `recordApiExample` from
+  `@cosmicdrift/kumiko-testing/api-examples` and `KUMIKO_RECORD_API_EXAMPLES=1`.
+
+The recipe `samples/recipes/api-docs` shows the whole loop with a committed golden.
 
 ## Script standard
 

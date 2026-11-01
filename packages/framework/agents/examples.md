@@ -9,6 +9,7 @@
 | `anonymous-access-multitenant` | Subdomain-based tenant resolution for anonymous-access — SaaS shop / CMS pattern with per-tenant public surface. | `examples/anonymous-access-multitenant.md` |
 | `apex-landing` | Apex landing page composed from other features — hero copy from template-resolver, prices and caps from tier-engine — rendered to one static HTML string. | `examples/apex-landing.md` |
 | `apex-surface-auth` | Apex-Surface: öffentliche Account-Flows (Login/Register/PW/Löschen) via createPublicSurface + AuthShell, inkl. anonymem email-verifiziertem Deletion-Flow. | `examples/apex-surface-auth.md` |
+| `api-docs` | API documentation for personal access tokens: recorded examples, kumiko api-docs and a committed golden. | `examples/api-docs.md` |
 | `api-worker-split` | Split deploy topology: API process (runSingleInstance:false, enqueue-only) + worker process (consumes worker-lane jobs, applies multiStreamProjections, writes results back through the worker dispatcher). | `examples/api-worker-split.md` |
 | `app-config` | kumiko.config.ts with defineAppConfig: the one feature list, client entries and ports the tooling reads. | `examples/app-config.md` |
 | `auth-claims` | r.authClaims() — features contribute identity facts into the JWT at login time with auto-prefixed keys. | `examples/auth-claims.md` |

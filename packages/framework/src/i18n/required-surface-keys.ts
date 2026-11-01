@@ -52,6 +52,10 @@ export function handlerTitleKey(handlerQn: string): string {
   return `${handlerQn}:title`;
 }
 
+export function handlerDescriptionKey(handlerQn: string): string {
+  return `${handlerQn}:description`;
+}
+
 export function handlerFieldLabelKey(handlerQn: string, fieldName: string): string {
   return `${handlerQn}:field:${fieldName}`;
 }

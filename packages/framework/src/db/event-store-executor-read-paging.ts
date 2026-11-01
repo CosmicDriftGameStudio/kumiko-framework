@@ -13,11 +13,13 @@ import { physicalColumnName } from "./table-builder.ts";
 // would otherwise be interpolated raw into `LIMIT ${limit}` SQL text.
 const MAX_LIST_LIMIT = 200; // keep in sync with engine/entity-handlers.ts MAX_LIST_LIMIT
 
+export const DEFAULT_LIST_LIMIT = 50;
+
 export function resolveListPagination(payload: {
   readonly limit?: unknown;
   readonly offset?: unknown;
 }): { readonly limit: number; readonly offset: number } {
-  const limit = payload.limit ?? 50;
+  const limit = payload.limit ?? DEFAULT_LIST_LIMIT;
   const offset = payload.offset ?? 0;
   if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
     throw new UnprocessableError("invalid_list_limit", {

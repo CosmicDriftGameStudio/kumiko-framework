@@ -1,0 +1,56 @@
+import type { AppApiDocsConfig } from "@cosmicdrift/kumiko-framework/config";
+import type { PatRateLimit } from "../../personal-access-tokens/index.ts";
+import type { ApiExampleFile } from "./examples.ts";
+
+/** One string per requested locale. */
+export type LocalizedText = Readonly<Record<string, string>>;
+
+export type ApiDocsHandlerKind = "query" | "write";
+
+export type ApiDocsHandler = {
+  readonly qn: string;
+  readonly kind: ApiDocsHandlerKind;
+  readonly title: LocalizedText;
+  readonly description: LocalizedText;
+  /** `undefined` when the input schema has no JSON Schema form. */
+  readonly inputSchema: Readonly<Record<string, unknown>> | undefined;
+  readonly excludedFields: readonly string[];
+  readonly fieldLabels: Readonly<Record<string, LocalizedText>>;
+  readonly example: ApiExampleFile | undefined;
+};
+
+export type ApiDocsGrantLevel = "read" | "write";
+
+export type ApiDocsScopeHandler = {
+  readonly qn: string;
+  readonly grant: ApiDocsGrantLevel;
+};
+
+export type ApiDocsScope = {
+  readonly domain: string;
+  readonly label: string;
+  /** Read handlers always; write handlers only when the domain declares a write level. */
+  readonly handlers: readonly ApiDocsScopeHandler[];
+  readonly hasWriteLevel: boolean;
+};
+
+export type ApiDocsModel = {
+  readonly scopes: readonly ApiDocsScope[];
+  /** Every handler any scope reaches, sorted by QN. */
+  readonly handlers: readonly ApiDocsHandler[];
+  readonly menuPath: LocalizedText;
+  readonly createLabel: LocalizedText;
+  readonly rateLimit: PatRateLimit;
+  readonly toggleable: boolean;
+};
+
+export type ApiDocsSource = {
+  readonly framework: string;
+  readonly app: { readonly name: string; readonly version: string };
+};
+
+export type ResolvedApiDocsConfig = AppApiDocsConfig & {
+  readonly locales: readonly string[];
+  readonly baseUrl: string;
+  readonly appName: string;
+};
