@@ -24,7 +24,7 @@
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.ts";
 import {
-  inboundMessageEntity,
+  createInboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
   seenMessageTable,
@@ -208,7 +208,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
         name: "inbound-message",
         source: INBOUND_MESSAGE_AGGREGATE_TYPE,
         table: inboundMessagesProjectionTable,
-        entity: inboundMessageEntity,
+        entity: createInboundMessageEntity(roles.memberRoles),
         apply: {
           [INBOUND_MESSAGE_RECEIVED_EVENT_QN]: applyInboundMessageReceived,
           [INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN]: applyInboundMessageContentFetched,

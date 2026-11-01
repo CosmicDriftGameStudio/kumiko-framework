@@ -1,5 +1,5 @@
 import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
-import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta, physicalColumnName } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createBooleanField,
@@ -10,6 +10,8 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { OwnershipMap, OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
+import { DEFAULT_INBOUND_MAIL_ADMIN_ROLES, DEFAULT_INBOUND_MAIL_USER_ROLES } from "./mail-roles.ts";
 
 // ============================================================================
 // Read models for the three event-sourced aggregates
@@ -80,79 +82,105 @@ export const mailAccountEntity = createEntity({
   },
 });
 
+// Mirrors isVisibleToCaller (handlers/scope-visibility.ts) for the roles of the detail query:
+// shared rows and the caller's own personal mailbox, no admin exception. The read gate of other
+// entities (readGate.fileOwner) reads it; the hand-written message queries do not apply it.
+function ownMailboxOrSharedRead(memberRoles: readonly string[]): OwnershipMap {
+  const rule: OwnershipRule = {
+    kind: "where",
+    where: (user, ctx) => {
+      const owner = `"${ctx.tableName}"."${physicalColumnName(ctx.table, "ownerUserId")}"`;
+      return {
+        sqlText: `(${owner} IS NULL OR ${owner} = '' OR ${owner} = $${ctx.paramStart})`,
+        params: [user.id],
+      };
+    },
+  };
+  return Object.fromEntries(memberRoles.map((role) => [role, rule]));
+}
+
 /** An incoming mail (envelope + snippet, NO body — bodyRef
  *  points to file-foundation). PK = aggregateId =
  *  inboundMessageAggregateId(accountId, providerMessageId). */
-export const inboundMessageEntity = createEntity({
-  table: "read_inbound_messages",
-  fields: {
-    accountId: createTextField({
-      required: true,
-      maxLength: 36,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    // Scope is inherited from the account at ingest time: messages from a
-    // personal mailbox are visible only to the owner, without joining read_mail_accounts.
-    ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
-    messageIdHeader: createTextField({
-      required: true,
-      maxLength: 500,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    threadKey: createTextField({
-      required: true,
-      maxLength: 500,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    from: createTextField({ required: true, maxLength: 2000, personal: "tenant", find: "none" }),
-    // JSON-stringified string[] — als Ganzes encrypted.
-    to: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
-    cc: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
-    subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
-    snippet: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
-    receivedAt: createTimestampField({ required: true }),
-    bodyRef: createTextField({ maxLength: 500, personal: false, reason: "technical_reference" }),
-    scope: createTextField({ maxLength: 200, personal: false, reason: "technical_reference" }),
-    // Full plaintext, capped at 32_000 characters before encryption (ciphertext is ~2.3x plus envelope).
-    // Null on rows from before the column; list-messages never selects it.
-    bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
-    bodyTextTruncated: createBooleanField(),
-    // Sanitized HTML of the mail (sanitizeInboundHtml), null when the mail has none or it was too large.
-    bodyHtml: createLongTextField({ maxLength: 500_000, personal: "tenant", find: "none" }),
-    // Bound to the message (entityType = the aggregate type), so the file guard answers with the
-    // mail's visibility. The fileRefs are bound at ingest, the projection copies the ids.
-    attachmentFileIds: createFilesField({ personal: false, reason: "technical_reference" }),
-    // JSON-stringified SkippedInboundAttachment[]: nullable JSON stays a text column
-    // (jsonb fields are NOT NULL), like to/cc.
-    skippedAttachments: createTextField({
-      maxLength: 20_000,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    // JSON-stringified SenderAuthentication or "null"; a SQL null (rows from before the column) reads as null.
-    senderAuthentication: createTextField({
-      maxLength: 4000,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    // "complete" | "snippet" | "unavailable"; null counts as "snippet".
-    contentState: createTextField({
-      maxLength: 20,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    // One of INBOUND_CONTENT_UNAVAILABLE_REASONS; null while the content is there or not yet missing.
-    contentUnavailableReason: createTextField({
-      maxLength: 30,
-      personal: false,
-      reason: "technical_reference",
-    }),
-  },
-  attachedFileAccess: "record-only",
-});
+export function createInboundMessageEntity(memberRoles: readonly string[]) {
+  return createEntity({
+    access: { read: ownMailboxOrSharedRead(memberRoles) },
+    table: "read_inbound_messages",
+    fields: {
+      accountId: createTextField({
+        required: true,
+        maxLength: 36,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      // Scope is inherited from the account at ingest time: messages from a
+      // personal mailbox are visible only to the owner, without joining read_mail_accounts.
+      ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
+      messageIdHeader: createTextField({
+        required: true,
+        maxLength: 500,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      threadKey: createTextField({
+        required: true,
+        maxLength: 500,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      from: createTextField({ required: true, maxLength: 2000, personal: "tenant", find: "none" }),
+      // JSON-stringified string[] — als Ganzes encrypted.
+      to: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
+      cc: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
+      subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
+      snippet: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
+      receivedAt: createTimestampField({ required: true }),
+      bodyRef: createTextField({ maxLength: 500, personal: false, reason: "technical_reference" }),
+      scope: createTextField({ maxLength: 200, personal: false, reason: "technical_reference" }),
+      // Full plaintext, capped at 32_000 characters before encryption (ciphertext is ~2.3x plus envelope).
+      // Null on rows from before the column; list-messages never selects it.
+      bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
+      bodyTextTruncated: createBooleanField(),
+      // Sanitized HTML of the mail (sanitizeInboundHtml), null when the mail has none or it was too large.
+      bodyHtml: createLongTextField({ maxLength: 500_000, personal: "tenant", find: "none" }),
+      // Bound to the message (entityType = the aggregate type), so the file guard answers with the
+      // mail's visibility. The fileRefs are bound at ingest, the projection copies the ids.
+      attachmentFileIds: createFilesField({ personal: false, reason: "technical_reference" }),
+      // JSON-stringified SkippedInboundAttachment[]: nullable JSON stays a text column
+      // (jsonb fields are NOT NULL), like to/cc.
+      skippedAttachments: createTextField({
+        maxLength: 20_000,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      // JSON-stringified SenderAuthentication or "null"; a SQL null (rows from before the column) reads as null.
+      senderAuthentication: createTextField({
+        maxLength: 4000,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      // "complete" | "snippet" | "unavailable"; null counts as "snippet".
+      contentState: createTextField({
+        maxLength: 20,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      // One of INBOUND_CONTENT_UNAVAILABLE_REASONS; null while the content is there or not yet missing.
+      contentUnavailableReason: createTextField({
+        maxLength: 30,
+        personal: false,
+        reason: "technical_reference",
+      }),
+    },
+    attachedFileAccess: "record-only",
+  });
+}
+
+// Same fields for every role set; table and PII lists do not depend on the roles.
+export const inboundMessageEntity = createInboundMessageEntity([
+  ...DEFAULT_INBOUND_MAIL_ADMIN_ROLES,
+  ...DEFAULT_INBOUND_MAIL_USER_ROLES,
+]);
 
 /** Thread-Rollup. PK = aggregateId = mailThreadAggregateId(tenantId,
  *  threadKey). */

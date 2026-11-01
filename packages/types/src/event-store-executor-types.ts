@@ -15,6 +15,13 @@ import type { TenantDb } from "./tenant-db-types.ts";
 // referenceSearch/referenceSort below.
 export type ParentVisibilityOption = {
   readonly entities: ReadonlyMap<string, EntityDefinition>;
+  // Projection (read-model) entities by source, with their projection table. Only the file-owner
+  // gate reads them; they stay out of `entities` and `resolveTable` so every other consumer
+  // keeps rejecting a read-model name.
+  readonly readModelEntities?: ReadonlyMap<
+    string,
+    { readonly entity: EntityDefinition; readonly table: SchemaTable }
+  >;
   // Whether a query handler grants the viewer's roles the entity. The read gate
   // (EntityDefinition.readGate) treats a host or file owner without one as unreadable;
   // absent means no entity passes that check.

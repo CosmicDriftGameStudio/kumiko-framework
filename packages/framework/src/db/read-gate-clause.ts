@@ -117,15 +117,37 @@ function linkClause(input: GateInput, link: GateLink, mode: "any" | "all"): Owne
 type OwnerCandidate = {
   readonly name: string;
   readonly entity: EntityDefinition;
+  readonly table: Table;
   readonly fileFields: readonly string[];
 };
 
-// Every registered entity with a file field can own a file. Join rows and gated entities
-// are left out: their readability is not resolvable without recursion.
+type OwnerSource = {
+  readonly name: string;
+  readonly entity: EntityDefinition;
+  readonly projectionTable?: Table;
+};
+
+function hasRowReadRule(entity: EntityDefinition): boolean {
+  return Object.keys(entity.access?.read ?? {}).length > 0;
+}
+
+// A read model is served by hand-written queries that filter rows themselves; only its own
+// access.read can be reproduced here, so without one every role of its detail query would read every row.
+function ownerSources(option: ParentVisibilityOption): OwnerSource[] {
+  const sources: OwnerSource[] = [...option.entities].map(([name, entity]) => ({ name, entity }));
+  for (const [name, { entity, table }] of option.readModelEntities ?? []) {
+    if (!option.entities.has(name) && hasRowReadRule(entity)) {
+      sources.push({ name, entity, projectionTable: table });
+    }
+  }
+  return sources;
+}
+
+// Join rows and gated entities are left out: their readability is not resolvable without recursion.
 function ownerCandidates(input: GateInput, selfName: string | undefined): OwnerCandidate[] {
   const { option } = input;
   const owners: OwnerCandidate[] = [];
-  for (const [name, entity] of option.entities) {
+  for (const { name, entity, projectionTable } of ownerSources(option)) {
     if (name === FILE_REF_ENTITY_NAME || name === selfName) continue;
     if (entity.parentRef !== undefined || entity.readGate !== undefined) continue;
     if (entity.idType !== undefined && entity.idType !== "uuid") continue;
@@ -133,7 +155,13 @@ function ownerCandidates(input: GateInput, selfName: string | undefined): OwnerC
     const fileFields = Object.entries(entity.fields)
       .filter(([, field]) => isFileField(field))
       .map(([fieldName]) => fieldName);
-    if (fileFields.length > 0) owners.push({ name, entity, fileFields });
+    if (fileFields.length === 0) continue;
+    owners.push({
+      name,
+      entity,
+      table: projectionTable ?? tableOf(option, name, entity),
+      fileFields,
+    });
   }
   return owners;
 }
@@ -144,8 +172,8 @@ function ownerBranch(
   refTable: Table,
   sql: GateSql,
 ): string | undefined {
-  const { option, user, db } = input;
-  const ownerTable = tableOf(option, owner.name, owner.entity);
+  const { user, db } = input;
+  const ownerTable = owner.table;
   const ownerTableName = String(schemaTableName(ownerTable));
   const ownership = buildOwnershipClause(
     user,
