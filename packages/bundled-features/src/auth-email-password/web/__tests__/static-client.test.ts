@@ -11,11 +11,24 @@ import {
   dispatchQuery,
   dispatchWrite,
   hrefWithoutUrlToken,
+  isSignedOutFailure,
   postJson,
   readUrlToken,
 } from "../static-client.ts";
 
 afterEach(restoreFetch);
+
+describe("isSignedOutFailure", () => {
+  test("is true for the missing-session reasons only, never for wrong credentials", () => {
+    for (const reason of ["unauthenticated", "missing_token", "invalid_token", "session_invalid"]) {
+      expect(isSignedOutFailure({ kind: "failure", reason })).toBe(true);
+    }
+    for (const reason of ["invalid_credentials", "unknown", "network", "rate_limited"]) {
+      expect(isSignedOutFailure({ kind: "failure", reason })).toBe(false);
+    }
+    expect(isSignedOutFailure({ kind: "success", data: undefined })).toBe(false);
+  });
+});
 
 describe("postJson", () => {
   test("posts JSON same-origin, with the locale header and without a CSRF header when anonymous", async () => {

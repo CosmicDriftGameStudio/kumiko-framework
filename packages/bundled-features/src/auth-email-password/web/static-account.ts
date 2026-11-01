@@ -86,6 +86,8 @@ export function logout(options?: StaticRequestOptions): Promise<StaticResult<und
   return postAuthRoute("/api/auth/logout", {}, options);
 }
 
+export { isSignedOutFailure } from "./static-client.ts";
+
 export type InviteInfo = { readonly email: string; readonly hasAccount: boolean };
 
 /** Reads the pending invitation without consuming the token. */

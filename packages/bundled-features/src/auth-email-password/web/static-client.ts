@@ -103,6 +103,22 @@ function failureFromBody(body: Record<string, unknown>): StaticFailure {
   return staticFailure(reason, { message, retryAfterSeconds });
 }
 
+// Mirrors the 401 members of `MiddlewareRejectCode` in framework/src/api/auth-middleware.ts
+// (not exported there, and the server must not be imported into browser code).
+const SIGNED_OUT_REASONS = [
+  STATIC_UNAUTHENTICATED_REASON,
+  "missing_token",
+  "invalid_token",
+  "session_invalid",
+] as const;
+
+/** True when the server says there is no usable session; wrong credentials are not signed-out. */
+export function isSignedOutFailure(result: StaticResult<unknown>): boolean {
+  return (
+    result.kind === "failure" && (SIGNED_OUT_REASONS as readonly string[]).includes(result.reason)
+  );
+}
+
 async function readJsonRecord(res: Response): Promise<Record<string, unknown>> {
   const parsed: unknown = await res.json().catch(() => ({}));
   return isRecord(parsed) ? parsed : {};
