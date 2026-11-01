@@ -9,8 +9,6 @@
 // `consumer`). Workspace-only maintainer commands (ci:guards, dev, build, …)
 // stay in the framework repo's bin/kumiko.ts.
 
-import { scaffoldApp, scaffoldAppFeature } from "@cosmicdrift/kumiko-dev-server";
-import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import type { CliCommand } from "./commands";
 import { APP_COMMANDS, findAppCommand } from "./commands";
 import { missingPeerMessage } from "./missing-peer";
@@ -48,7 +46,7 @@ export async function runCli(options: RunCliOptions): Promise<number> {
   }
 
   if (first === "new") return await runNew(argv.slice(1), out, cwd);
-  if (first === "add") return runAdd(argv.slice(1), out, cwd);
+  if (first === "add") return await runAdd(argv.slice(1), out, cwd);
 
   const appCommand = findAppCommand(first);
   if (appCommand) {
@@ -89,6 +87,9 @@ async function runNew(args: readonly string[], out: Output, cwd: string): Promis
     return 1;
   }
   try {
+    // Loaded on demand: the dev-server barrel costs ~0.6 s cold, which every --help paid before.
+    const { scaffoldApp } = await import("@cosmicdrift/kumiko-dev-server");
+    const { renderTestSetup } = await import("@cosmicdrift/kumiko-testing/scaffold");
     const result = await scaffoldApp({
       name,
       destination: `${cwd}/${name}`,
@@ -109,7 +110,7 @@ async function runNew(args: readonly string[], out: Output, cwd: string): Promis
   }
 }
 
-function runAdd(args: readonly string[], out: Output, cwd: string): number {
+async function runAdd(args: readonly string[], out: Output, cwd: string): Promise<number> {
   const [subject, name] = args;
   if (subject !== "feature") {
     out.err(`kumiko add: only "add feature <name>" is supported. Got "${subject ?? "(nothing)"}".`);
@@ -120,6 +121,7 @@ function runAdd(args: readonly string[], out: Output, cwd: string): number {
     return 1;
   }
   try {
+    const { scaffoldAppFeature } = await import("@cosmicdrift/kumiko-dev-server");
     const result = scaffoldAppFeature({ name, appRoot: cwd });
     out.log(`✓ Added feature ${result.featureName}:`);
     for (const f of result.files) out.log(`  ${f}`);

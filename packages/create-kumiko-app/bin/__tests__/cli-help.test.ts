@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { parseArgv, runCreate } from "../../src/index";
 
 const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
+const SRC_INDEX_PATH = join(import.meta.dir, "..", "..", "src", "index.ts");
 
 describe("create-kumiko-app --help", () => {
   let cwd: string;
@@ -44,5 +45,28 @@ describe("create-kumiko-app --help", () => {
     expect(exitCode).toBe(0);
     expect(lines.join("\n")).toContain("Usage: bun create kumiko-app");
     expect(readdirSync(cwd)).toEqual([]);
+  });
+
+  // The dev-server barrel costs ~0.6 s cold; on the help path that pushed the spawn test above
+  // into the 5 s timeout under a loaded pre-push hook.
+  test("--help loads no dev-server module", () => {
+    const probe = `
+      const { parseArgv, runCreate } = await import(${JSON.stringify(SRC_INDEX_PATH)});
+      const code = await runCreate({ ...parseArgv(["--help"]), log() {} });
+      console.log(JSON.stringify({ code, modules: Object.keys(require.cache) }));
+    `;
+    const proc = Bun.spawnSync(["bun", "-e", probe], { cwd, stdout: "pipe", stderr: "pipe" });
+    const parsed: unknown = JSON.parse(proc.stdout.toString());
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("code" in parsed) ||
+      !("modules" in parsed)
+    ) {
+      throw new Error(`unexpected probe output: ${proc.stdout.toString()}`);
+    }
+    expect(parsed.code).toBe(0);
+    const modules = Array.isArray(parsed.modules) ? parsed.modules.map(String) : [];
+    expect(modules.filter((path) => path.includes("/dev-server/src/"))).toEqual([]);
   });
 });
