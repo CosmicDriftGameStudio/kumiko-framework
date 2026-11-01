@@ -3340,6 +3340,7 @@ type ParentVisibilityGateOption = {
 };
 type ParentVisibilityOption = {
   entities: ReadonlyMap<string, EntityDefinition>;
+  readModelEntities?: ReadonlyMap<string, { entity: EntityDefinition; table: SchemaTable; }>;
   canReadEntity?: (entityName: string) => boolean;
   resolveTable?: (entityName: string) => SchemaTable;
 };
