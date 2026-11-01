@@ -40,6 +40,15 @@ describe("imapClientOptions", () => {
     expect(options.servername).toBe("mail.example.com");
   });
 
+  test("a host pinned to its resolved IP hands the host name to tls as servername", () => {
+    const options = imapClientOptions(imapDoc, {
+      host: "93.184.216.34",
+      servername: "mail.example.com",
+    });
+
+    expect(options).toHaveProperty("tls", { servername: "mail.example.com" });
+  });
+
   test("connection, greeting and socket timeouts are explicit, the socket one outlasts IDLE", () => {
     const options = imapClientOptions(imapDoc, { host: "mail.example.com" });
 

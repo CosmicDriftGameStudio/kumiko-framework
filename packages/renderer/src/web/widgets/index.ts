@@ -47,6 +47,7 @@ export { FeedList, type FeedRow } from "./feed-list.tsx";
 export {
   FloatingPanel,
   type FloatingPanelGeometry,
+  type FloatingPanelPlacement,
   type FloatingPanelProps,
 } from "./floating-panel.tsx";
 export {
@@ -141,6 +142,9 @@ export {
   StepList,
   type StepListItem,
   type StepListProps,
+  type StepListSelection,
+  type StepSelectability,
+  type StepSelectionAction,
   type StepSource,
   type StepStatus,
   type StepTag,

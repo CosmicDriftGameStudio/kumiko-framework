@@ -1133,6 +1133,7 @@
     "samples/recipes/realtime-sse": {
       "name": "@cosmicdrift/kumiko-sample-realtime-sse",
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "devDependencies": {

@@ -20,6 +20,14 @@ import type { RateLimitResolver } from "./rate-limit-types.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
 import type { MasterKeyProvider, SecretsContext } from "./secrets-types.ts";
 
+/** Addressed live signal: the SSE frame reaches only the listed users of the caller's own tenant. */
+export type UserLiveSignals = {
+  push(
+    userIds: readonly string[],
+    signal: { readonly type: string; readonly entity?: string; readonly id?: string },
+  ): Promise<void>;
+};
+
 /**
  * Infrastructure the app wired at boot, as the handler or job sees it. extraContext keys the
  * framework does not know land in `extensions`.
@@ -28,6 +36,8 @@ export type ContextServices = {
   readonly redis?: Redis;
   // Cross-process cache invalidation. Absent in contexts without a bus; callers treat that as "local only".
   readonly cacheSync?: CacheSyncBus;
+  // Absent without an SSE broker; a failed push is logged and never throws.
+  readonly userLiveSignals?: UserLiveSignals;
   readonly jobRunner?: JobRunnerRef;
   readonly searchAdapter?: SearchAdapter;
   readonly entityCache?: EntityCache;

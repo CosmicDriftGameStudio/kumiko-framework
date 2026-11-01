@@ -3950,6 +3950,7 @@ type PhaseWithoutTransaction = "events" | "notify" | "dispatch" | "lifecycle";
 type ContextServices = { // Infrastructure the app wired at boot, as the handler or job sees it.
   redis?: Redis;
   cacheSync?: CacheSyncBus;
+  userLiveSignals?: UserLiveSignals;
   jobRunner?: JobRunnerRef;
   searchAdapter?: SearchAdapter;
   entityCache?: EntityCache;
@@ -3980,6 +3981,9 @@ type HandlerTenants = {
   writeTarget?: (tenantId: TenantId) => TenantWriteTarget; // Write target for ANOTHER tenant: a tenant-mode db bound to it plus the `streamTenantId` to hand the executor, so the event actor stays the operator.
 };
 type JobLifecycle = Pick<HandlerLifecycle, "signal">;
+type UserLiveSignals = { // Addressed live signal: the SSE frame reaches only the listed users of the caller's own tenant.
+  push(userIds: string[], signal: { type: string; entity?: string; id?: string; }): Promise<void>;
+};
 ```
 
 ## packages/types/src/handlers.ts
@@ -4164,6 +4168,7 @@ type SessionUserOrigin = "member-resolution";
 type SharedContextFields = {
   redis?: Redis;
   cacheSync?: CacheSyncBus;
+  userLiveSignals?: UserLiveSignals;
   jobRunner?: JobRunnerRef;
   configResolver?: ConfigResolver;
   config?: ConfigAccessor;
@@ -4609,6 +4614,19 @@ type PersonalSubject =
   }
   | "tenant"
 ;
+```
+
+## packages/types/src/presence-types.ts
+
+```ts
+type PresenceActivity = "viewing" | "editing";
+type PresenceEntry = {
+  userId: string;
+  displayName: string;
+  activity: PresenceActivity;
+  focus?: string;
+  since: string; // ISO timestamp from which the user has been in this activity and focus.
+};
 ```
 
 ## packages/types/src/projection.ts

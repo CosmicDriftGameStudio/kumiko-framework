@@ -14,6 +14,7 @@ Server-sent events — live updates without F5.
 
 - Entity writes that fan out over SSE
 - Client subscription shape for live lists
+- Presence: `createPresenceFeature({ entities: ["message"] })` answers who else has a message open; the heartbeat is a write, the others get an SSE frame addressed to their user id (no names inside)
 
 ## Source
 
@@ -48,7 +49,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { chatFeature, messageEntity } from "../feature";
+import { chatFeature, messageEntity, presenceFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -56,7 +57,7 @@ const admin = TestUsers.admin;
 const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [chatFeature] });
+  stack = await setupTestStack({ features: [chatFeature, presenceFeature] });
   await unsafeCreateEntityTable(stack.db, messageEntity);
   await createEventsTable(stack.db);
 });
@@ -151,11 +152,37 @@ describe("SSE broadcast on delete", () => {
     expect(deleteEvent?.data["id"]).toBe(created.id);
   });
 });
+
+describe("Presence frames", () => {
+  test("a user opening a message they share signals the others on it, by user id", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "chat:write:message:create",
+      { channel: "general", text: "Shared" },
+      user,
+    );
+    await stack.eventDispatcher?.runOnce();
+    stack.events.reset();
+    const open = { entity: "message", id: created.id, activity: "viewing" };
+
+    await stack.http.writeOk("presence:write:heartbeat", open, user);
+    const seen = await stack.http.writeOk<{ others: Array<{ userId: string }> }>(
+      "presence:write:heartbeat",
+      open,
+      admin,
+    );
+
+    expect(seen.others.map((other) => other.userId)).toEqual([user.id]);
+    const frames = stack.events.sse.filter((e) => e.type === "presence:event:changed");
+    expect(frames.map((frame) => frame.data["userId"])).toEqual([user.id]);
+    expect(frames[0]?.data).not.toHaveProperty("displayName");
+  });
+});
 ```
 
 ### src/feature.ts
 
 ```ts
+import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import {
   createEntity,
   createTextField,
@@ -182,5 +209,13 @@ export const chatFeature = defineFeature("chat", (r) => {
     verbs: { list: false, detail: false, restore: false, delete: false },
   });
   r.writeHandler(defineEntityDeleteHandler("message", messageEntity, adminWrite));
+});
+
+// Who else has a message open. The heartbeat is an ordinary write; the others learn about a
+// change through an SSE frame addressed to them (`presence:event:changed`, no names inside),
+// then refetch with `usePresence` / `usePresenceList` on the client.
+export const presenceFeature = createPresenceFeature({
+  entities: ["message"],
+  roles: ["Admin", "User"],
 });
 ```

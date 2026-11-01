@@ -190,8 +190,13 @@ export type BannerProps = {
    *  "this is shown only once"), "primary" for a call-to-action notice (neutral
    *  background, accent in the primary color; pair it with `title` and `actions`),
    *  "hint" for a quiet aside on a muted background (e.g. per-entry results of
-   *  a submit, with an "Open" link in `actions`). */
-  readonly variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint";
+   *  a submit, with an "Open" link in `actions`), "ok" for a completed state
+   *  (e.g. "Done, nothing left to do here"). */
+  readonly variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok";
+  /** "compact" is one line: the title reads inline before the text. */
+  readonly density?: "default" | "compact";
+  /** Icon left of the text. */
+  readonly icon?: NavIconKey;
   /** Bold heading above `children`, inside the text column. */
   readonly title?: ReactNode;
   readonly titleTestId?: string;

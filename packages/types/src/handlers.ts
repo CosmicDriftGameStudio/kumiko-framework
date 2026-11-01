@@ -28,6 +28,7 @@ import type {
   HandlerLifecycle,
   HandlerTenants,
   JobLifecycle,
+  UserLiveSignals,
 } from "./handler-context-services.ts";
 import type { Logger } from "./logger.ts";
 import type { Meter, Tracer } from "./observability/index.ts";
@@ -53,6 +54,7 @@ export type {
   HandlerLifecycle,
   HandlerTenants,
   JobLifecycle,
+  UserLiveSignals,
 } from "./handler-context-services.ts";
 
 import type { AgentHandlerHints } from "./agent-hints.ts";
@@ -586,6 +588,7 @@ export type TenantWriteTarget = {
 type SharedContextFields = {
   readonly redis?: Redis;
   readonly cacheSync?: CacheSyncBus;
+  readonly userLiveSignals?: UserLiveSignals;
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;
