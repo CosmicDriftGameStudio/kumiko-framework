@@ -81,6 +81,11 @@ export function verifyEmail(
   return postAuthRoute("/api/auth/verify-email", { token }, options);
 }
 
+/** Ends the current session; the server also clears the auth and CSRF cookies. */
+export function logout(options?: StaticRequestOptions): Promise<StaticResult<undefined>> {
+  return postAuthRoute("/api/auth/logout", {}, options);
+}
+
 export type InviteInfo = { readonly email: string; readonly hasAccount: boolean };
 
 /** Reads the pending invitation without consuming the token. */

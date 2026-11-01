@@ -64,6 +64,13 @@ describe("postJson", () => {
     expect(await postJson("/api/x", {})).toEqual({ kind: "failure", reason: "unknown" });
   });
 
+  test("a 401 without a usable error code is unauthenticated, a coded 401 keeps its reason", async () => {
+    stubFetch(() => new Response("", { status: 401 }));
+    expect(await postJson("/api/x", {})).toEqual({ kind: "failure", reason: "unauthenticated" });
+    stubFetch(() => jsonResponse({ error: "session_invalid" }, { status: 401 }));
+    expect(await postJson("/api/x", {})).toEqual({ kind: "failure", reason: "session_invalid" });
+  });
+
   test("a validation error only on token is the malformed-token reason", async () => {
     stubFetch(() =>
       jsonResponse(

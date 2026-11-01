@@ -11,7 +11,12 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createLateBoundHolder,
+  createTestEnvelopeCipher,
+  getSetCookieValue,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -25,7 +30,13 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createSessionsFeature, userSessionTable } from "../../sessions/index.ts";
-import { restoreFetch, routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
+import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks.ts";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing.ts";
+import {
+  type BrowserSession,
+  restoreFetch,
+  routeFetchToStack,
+} from "../../shared/__tests__/fetch-test-utils.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature, TenantHandlers } from "../../tenant/index.ts";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
@@ -40,10 +51,12 @@ import { getLockoutState } from "../lockout-store.ts";
 import { signVerificationToken } from "../verification-token.ts";
 import { AuthHandlers, AuthQueries } from "../web/constants.ts";
 import {
+  acceptInviteSignedIn,
   acceptInviteWithNewAccount,
   confirmAccountUnlock,
   fetchInviteInfo,
   fetchSignupRegistrationStatus,
+  logout,
   requestAccountUnlock,
   requestPasswordReset,
   resetPassword,
@@ -60,6 +73,7 @@ const NEW_PASSWORD = "static-account-pw-1234";
 const TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 
 let stack: TestStack;
+const sessionCallbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
@@ -104,6 +118,7 @@ beforeAll(async () => {
       configEncryption: encryption,
     }),
     authConfig: {
+      ...sessionCallbacksFromLateBound(sessionCallbacks).asAuthConfig(),
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       passwordReset: {
@@ -131,6 +146,7 @@ beforeAll(async () => {
     },
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   });
+  sessionCallbacks.set(createSessionCallbacks({ db: stack.db }));
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
@@ -163,6 +179,18 @@ beforeEach(async () => {
   routeFetchToStack(stack);
 });
 
+// The session checker rejects sidless actors, so every acting user needs a live session row.
+function withSession(user: SessionUser): Promise<SessionUser> {
+  const sessionCreator =
+    sessionCallbacksFromLateBound(sessionCallbacks).asAuthConfig().sessionCreator;
+  if (!sessionCreator) throw new Error("session callbacks provide no sessionCreator");
+  return withMintedSession(sessionCreator, user);
+}
+
+function asSystemAdmin(): Promise<SessionUser> {
+  return withSession(TestUsers.systemAdmin);
+}
+
 function tokenFromLastMailTo(email: string): string {
   const mail = emailTransport.sent.filter((sent) => sent.to === email).at(-1);
   const match = (mail?.text ?? "").match(/[?&]token=([^&"'<\s\]]+)/);
@@ -188,7 +216,7 @@ describe("password reset", () => {
         passwordHash: await hashPassword("old-password-123"),
         displayName: "Reset",
       },
-      TestUsers.systemAdmin,
+      await asSystemAdmin(),
     );
     await seedTenantMembership(stack.db, {
       userId: created.id,
@@ -216,7 +244,7 @@ describe("e-mail verification", () => {
         passwordHash: await hashPassword("old-password-123"),
         displayName: "Verify",
       },
-      TestUsers.systemAdmin,
+      await asSystemAdmin(),
     );
     await seedTenantMembership(stack.db, {
       userId: created.id,
@@ -242,7 +270,7 @@ describe("account unlock", () => {
         passwordHash: await hashPassword("right-password-123"),
         displayName: "Locked",
       },
-      TestUsers.systemAdmin,
+      await asSystemAdmin(),
     );
     await seedTenantMembership(stack.db, {
       userId: created.id,
@@ -279,12 +307,12 @@ describe("invitations", () => {
     await stack.http.writeOk(
       TenantHandlers.create,
       { id: TENANT_ID, key: "static-acct", name: "Static Acct" },
-      TestUsers.systemAdmin,
+      await asSystemAdmin(),
     );
     await stack.http.writeOk(
       AuthHandlers.inviteCreate,
       { email: "invitee@static.test", role: "Editor" },
-      tenantAdmin,
+      await withSession(tenantAdmin),
     );
     const token = tokenFromLastMailTo("invitee@static.test");
 
@@ -298,5 +326,52 @@ describe("invitations", () => {
       data: { status: "accepted", tenantId: TENANT_ID },
     });
     expect((await fetchInviteInfo(token)).kind).toBe("failure");
+  });
+});
+
+describe("sessions", () => {
+  test("accepting an invitation without a session fails as unauthenticated", async () => {
+    const result = await acceptInviteSignedIn("any-token-value-1234");
+    // The real route answers 401 with code missing_token, so that code wins over the fallback.
+    expect(result).toMatchObject({ kind: "failure", reason: "missing_token" });
+  });
+
+  test("logout revokes the session the cookies belong to", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: "leaver@static.test",
+        passwordHash: await hashPassword("leave-password-123"),
+        displayName: "Leaver",
+      },
+      await asSystemAdmin(),
+    );
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: TENANT_ID,
+      roles: ["User"],
+    });
+    expect(await verifyEmail(signVerificationToken(created.id, 60, VERIFY_SECRET).token)).toEqual({
+      kind: "success",
+      data: undefined,
+    });
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "leaver@static.test",
+      password: "leave-password-123",
+    });
+    const authCookie = getSetCookieValue(loginRes, "kumiko_auth");
+    const csrfCookie = getSetCookieValue(loginRes, "kumiko_csrf");
+    if (!authCookie || !csrfCookie) throw new Error("login set no session cookies");
+    const session: BrowserSession = { authCookie, csrfCookie };
+    const tenantsWithSession = () =>
+      stack.app.request("/api/auth/tenants", {
+        headers: { Cookie: `kumiko_auth=${authCookie}` },
+      });
+    expect((await tenantsWithSession()).status).toBe(200);
+
+    routeFetchToStack(stack, session);
+    expect(await logout()).toEqual({ kind: "success", data: undefined });
+
+    expect((await tenantsWithSession()).status).toBe(401);
   });
 });

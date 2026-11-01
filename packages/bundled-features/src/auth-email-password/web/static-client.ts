@@ -16,6 +16,7 @@ import {
 export const STATIC_NETWORK_REASON = "network";
 export const STATIC_RATE_LIMITED_REASON = "rate_limited" satisfies KnownLoginFailureReason;
 export const STATIC_UNKNOWN_REASON = "unknown";
+export const STATIC_UNAUTHENTICATED_REASON = "unauthenticated";
 // A mail client that cuts the link short sends a token below the schema's minimum length; pages
 // show that as the invalid-link state, not as a generic failure.
 export const STATIC_MALFORMED_TOKEN_REASON = "malformed_token";
@@ -133,7 +134,16 @@ export async function postJson(
     const retryAfterSeconds = parseRetryAfterSeconds(res.headers.get("Retry-After")) ?? fromBody;
     return staticFailure(STATIC_RATE_LIMITED_REASON, { retryAfterSeconds });
   }
-  if (!res.ok || body["isSuccess"] === false) return failureFromBody(body);
+  if (!res.ok || body["isSuccess"] === false) {
+    const failure = failureFromBody(body);
+    // Session-less calls to session-only routes may answer 401 without a usable code.
+    return res.status === 401 && failure.reason === STATIC_UNKNOWN_REASON
+      ? staticFailure(STATIC_UNAUTHENTICATED_REASON, {
+          message: failure.message,
+          retryAfterSeconds: failure.retryAfterSeconds,
+        })
+      : failure;
+  }
   return staticSuccess(body);
 }
 

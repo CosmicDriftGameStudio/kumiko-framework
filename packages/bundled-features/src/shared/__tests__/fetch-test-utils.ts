@@ -4,6 +4,7 @@ const originalFetch = globalThis.fetch;
 
 export function restoreFetch(): void {
   globalThis.fetch = originalFetch;
+  Reflect.deleteProperty(globalThis, "document");
 }
 
 export type SeenRequest = { readonly url: string; readonly init: RequestInit | undefined };
@@ -28,10 +29,27 @@ export function sentBody(request: SeenRequest | undefined): unknown {
   return JSON.parse(String(request?.init?.body));
 }
 
-/** Sends the clients' relative `fetch` calls through the stack's real HTTP app. */
-export function routeFetchToStack(stack: TestStack): void {
+export type BrowserSession = { readonly authCookie: string; readonly csrfCookie: string };
+
+/**
+ * Sends the clients' relative `fetch` calls through the stack's real HTTP app.
+ * With a session it behaves like a signed-in browser: the cookie jar rides on every
+ * request and `document.cookie` exposes the CSRF cookie the clients echo as a header.
+ */
+export function routeFetchToStack(stack: TestStack, session?: BrowserSession): void {
+  if (session) {
+    Reflect.set(globalThis, "document", { cookie: `kumiko_csrf=${session.csrfCookie}` });
+  }
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
-    stack.app.request(String(input), init)) as typeof fetch;
+    stack.app.request(String(input), {
+      ...init,
+      ...(session && {
+        headers: {
+          ...init?.headers,
+          Cookie: `kumiko_auth=${session.authCookie}; kumiko_csrf=${session.csrfCookie}`,
+        },
+      }),
+    })) as typeof fetch;
 }
 
 export function stubOfflineFetch(): void {

@@ -12,6 +12,7 @@ import {
   confirmAccountUnlock,
   fetchInviteInfo,
   fetchSignupRegistrationStatus,
+  logout,
   requestAccountUnlock,
   requestPasswordReset,
   resetPassword,
@@ -176,5 +177,14 @@ describe("invitations", () => {
       kind: "failure",
       reason: "invalid_invite_token",
     });
+  });
+});
+
+describe("logout", () => {
+  test("posts an empty body to the logout route", async () => {
+    const seen = stubFetch(() => jsonResponse({ isSuccess: true }));
+    expect(await logout({ locale: "de" })).toEqual({ kind: "success", data: undefined });
+    expect(seen[0]?.url).toBe("/api/auth/logout");
+    expect(sentBody(seen[0])).toEqual({});
   });
 });
