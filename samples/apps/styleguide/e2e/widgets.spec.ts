@@ -253,3 +253,17 @@ test("round-two studio variants render on the widgets page", async ({ page }) =>
   await expect(page.getByTestId("variants-rail-steps-subtitle-0")).toHaveCount(0);
   await expect(page.getByTestId("variants-rail-steps-subtitle-1")).toBeVisible();
 });
+
+test("outline buttons get a dark surface and light text once the dark theme has settled", async ({
+  page,
+}) => {
+  await page.goto("/widgets");
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  const outlineButton = page.locator('main button[class*="dark:bg-input/30"]').first();
+  // Buttons transition their colours (transition-all), so the value is only final after the
+  // fade; a screenshot taken mid-fade shows the light-theme face with dark text.
+  await expect(outlineButton).toHaveCSS("color", "rgb(236, 235, 231)");
+  const background = await outlineButton.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(background).toContain("0.3)");
+  await expect(outlineButton).toHaveCSS("border-top-color", "rgb(124, 121, 112)");
+});
