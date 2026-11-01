@@ -12,7 +12,10 @@ export function createKeepAccountHandler(opts: { readonly keepAccountTokenSecret
   return defineWriteHandler({
     name: "keep-account",
     schema: z.object({ token: z.string().min(1) }),
-    access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "TenantOwner", "SystemAdmin"] },
+    access: {
+      roles: ["anonymous", "Member", "User", "TenantAdmin", "TenantOwner", "SystemAdmin"],
+      anySignedIn: true,
+    },
     escapeHatch: { grants: ["unsafeRaw"], reason: KEEP_ACCOUNT_ESCAPE_HATCH_REASON },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },

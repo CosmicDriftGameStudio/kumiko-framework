@@ -28,6 +28,12 @@ import {
   DEMO_NOTE_ID,
   INVOICE_TEMPLATE_SLUG,
 } from "../src/app/auth-constants";
+import {
+  contactDetailFlow,
+  contactForwardingFlow,
+  contactInboxFlow,
+  contactReportFlow,
+} from "./_helpers/contact-flows";
 import { loginAsAdmin } from "./_helpers/login";
 
 const THEMES = ["default-light", "default-dark"] as const;
@@ -460,6 +466,12 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "pdf-template-editor-edit", flow: pdfEditorFlow("edit") },
   { name: "pdf-template-editor-preview", flow: pdfEditorFlow("preview"), fullPage: true },
   { name: "pdf-template-editor-overrides", flow: pdfEditorFlow("overrides") },
+  // contact — the SystemAdmin inbox (all filter: open, answered, done), one request with its
+  // reply and an internal note, the forwarding settings and the in-app report form.
+  { name: "contact", flow: contactInboxFlow() },
+  { name: "contact-detail", flow: contactDetailFlow() },
+  { name: "contact-settings", flow: contactForwardingFlow() },
+  { name: "contact-report", flow: contactReportFlow() },
 ];
 
 runMatrix(SCENARIOS, { themes: THEMES, applyTheme, locales: ["en"] });

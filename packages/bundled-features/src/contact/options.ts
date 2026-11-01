@@ -11,7 +11,7 @@ import {
 } from "./web/constants.ts";
 
 export type ContactOptions = {
-  /** Name shown in the notification mails ("Testnachricht von <appName>"); the static screen texts do not name it. */
+  /** Name shown in the notification mails ("Testnachricht von <appName>") and in the hint of the report form. */
   readonly appName: string;
   /** Default { phone: "off" }. Controls both the public form (challenge query reports it) and the admin report form. */
   readonly fields?: { readonly phone?: ContactPhoneMode };

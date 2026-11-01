@@ -256,12 +256,11 @@ const agentHandlerHintsSchema = z
 // AccessRule — DEFAULT-DENY per its doc in types/handlers.ts; a malformed
 // shape must be rejected, not silently narrowed to "no access" (that would
 // hide the author's mistake instead of reporting it at the boundary).
-const roleAccessRuleSchema = z
-  .object({
-    roles: z.array(z.string()),
-    personalData: z.literal("public-intake").optional(),
-  })
-  .strict();
+const roleAccessRuleSchema = z.strictObject({
+  roles: z.array(z.string()),
+  personalData: z.literal("public-intake").optional(),
+  anySignedIn: z.literal(true).optional(),
+});
 
 const openToAllAccessRuleSchema = z
   .object({

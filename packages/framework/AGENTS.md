@@ -100,8 +100,10 @@ that holds global data calls `r.systemScope()`.
 `{ access: { roles: ["Admin", "User"] } }`, or
 `{ access: { openToAll: { reason: "<why every signed-in user may>" } } }`.
 Screens and nav entries can narrow visibility further with their own
-`access`. Anonymous endpoints use the `anonymous` role. Field level and row
-level rules exist as well (see the table below).
+`access`. Anonymous endpoints use the `anonymous` role; add `anySignedIn: true`
+(`{ roles: ["anonymous"], anySignedIn: true }`) so a visitor who is signed in
+passes whatever roles the session carries. Field level and row level rules
+exist as well (see the table below).
 An `openToAll` write handler whose payload contains personal fields must
 say that every tenant member may write them:
 `{ openToAll: { reason: "...", personalData: "tenant-members" } }`. The

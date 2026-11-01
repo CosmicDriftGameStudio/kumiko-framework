@@ -236,6 +236,27 @@ function validateAnonymousPersonalData(
   });
 }
 
+// Read via `unknown`: access can come from untyped sources (pattern JSON, Designer).
+function validateAnySignedIn(
+  feature: FeatureDefinition,
+  kind: HandlerKind,
+  handlerName: string,
+  access: AccessRule,
+): void {
+  // skip: openToAll has no anySignedIn, or nothing declared
+  if (!("roles" in access) || !("anySignedIn" in access)) return;
+  const declared: unknown = access.anySignedIn;
+  // skip: a public rule that admits every signed-in caller as well
+  if (declared === true && accessAllowsAnonymous(access)) return;
+  const problem =
+    declared === true
+      ? `its roles do not include "${ANONYMOUS_ROLE}"; for every signed-in user without anonymous callers use { openToAll: { reason } }`
+      : `the only supported value is true, got ${JSON.stringify(declared)}`;
+  throw bootRuleError(HANDLER_DECLARATION_RULES.anySignedInInvalid, {
+    message: `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares access.anySignedIn but ${problem}.`,
+  });
+}
+
 // The rateLimit is the only protection of a public-intake handler, so the
 // generic anonymous opt-out (rateLimit: { disabled: true }) must not apply.
 function validatePublicIntakeRateLimit(
@@ -260,6 +281,7 @@ function validatePublicIntakeRateLimit(
 export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
+    validateAnySignedIn(feature, "write", handlerName, handler.access);
     validateEscapeHatchReason(feature, "write", handlerName, handler.escapeHatch);
     validatePersonalDataValue(feature, "write", handlerName, handler.access);
     validateOpenToAllPersonalData(feature, handlerName, handler);
@@ -268,6 +290,7 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);
+    validateAnySignedIn(feature, "query", handlerName, handler.access);
     validateEscapeHatchReason(feature, "query", handlerName, handler.escapeHatch);
     validatePersonalDataSupportedForKind(feature, "query", handlerName, handler.access);
     validatePersonalDataValue(feature, "query", handlerName, handler.access);
@@ -275,6 +298,7 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
   }
   for (const [handlerName, handler] of Object.entries(feature.streamHandlers)) {
     validateOpenToAllReason(feature, "stream", handlerName, handler.access);
+    validateAnySignedIn(feature, "stream", handlerName, handler.access);
     validateEscapeHatchReason(feature, "stream", handlerName, handler.escapeHatch);
     validatePersonalDataSupportedForKind(feature, "stream", handlerName, handler.access);
   }

@@ -8,7 +8,6 @@ import { chromium } from "@playwright/test";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
 
 const PORT = E2E_PORTS["framework/use-all-bundled"];
-const FAKE_TELEGRAM_PORT = E2E_PORTS["framework/use-all-bundled-fake-telegram"];
 const PRINT_SERVICE_PORT = E2E_PORTS["framework/use-all-bundled-puppeteer-service"];
 // Both sides of the print service handshake; any value of 16+ characters will do for a local run.
 const PRINT_SERVICE_TOKEN = "use-all-bundled-e2e-print-service";
@@ -19,7 +18,6 @@ const appConfig = defineAppE2eConfig({
     ...PLAYWRIGHT_DEMO_ENV,
     PUPPETEER_SERVICE_URL: `http://127.0.0.1:${PRINT_SERVICE_PORT}`,
     PUPPETEER_AUTH_TOKEN: PRINT_SERVICE_TOKEN,
-    SAMPLE_TELEGRAM_API_URL: `http://127.0.0.1:${FAKE_TELEGRAM_PORT}`,
   },
 });
 

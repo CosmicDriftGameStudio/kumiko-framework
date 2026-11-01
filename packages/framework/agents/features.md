@@ -200,14 +200,15 @@ Contact inbox: an anonymous browser client (GET /contact/client.js) submits ques
 
 Category: communication
 
-Requires: `config`, `delivery`, `user-data-rights`, `files`, `notes-history`, `channel-telegram`
+Requires: `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
+
+Optional requires: `channel-telegram`
 
 Config keys:
 
 | Key | Type | Scope | Default |
 | --- | --- | --- | --- |
 | `reply-to` | text | system | `` |
-| `telegram-chat` | text | system | `` |
 
 ## crypto-shredding
 

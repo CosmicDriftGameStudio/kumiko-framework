@@ -37,6 +37,16 @@ describe("isUiAccessGranted", () => {
   test("empty roles rule denies everyone (explicit default-deny opt-in)", () => {
     expect(isUiAccessGranted({ roles: [] }, ["Admin"])).toBe(false);
   });
+
+  test("anySignedIn on a public rule grants every signed-in role and keeps anonymous", () => {
+    const publicRule = { roles: ["anonymous"], anySignedIn: true } as const;
+    expect(isUiAccessGranted(publicRule, ["Hausmeister"])).toBe(true);
+    expect(isUiAccessGranted(publicRule, ["anonymous"])).toBe(true);
+  });
+
+  test("anySignedIn without the anonymous role grants nothing extra", () => {
+    expect(isUiAccessGranted({ roles: ["Admin"], anySignedIn: true }, ["Hausmeister"])).toBe(false);
+  });
 });
 
 describe("HandlerContext surface", () => {

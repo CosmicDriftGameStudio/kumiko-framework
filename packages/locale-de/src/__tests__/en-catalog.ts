@@ -2496,6 +2496,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "contact:entity:contact-delivery:field:status:option:failed": "Failed",
   "contact:entity:contact-delivery:field:status:option:skipped": "Skipped",
   "contact:entity:contact-delivery:field:status:option:read": "Read",
-  "contact:report.hint": "Goes straight to our team",
+  "contact:report.hint": "Goes straight to the {appName} team",
   "contact:config.send-test.description": "Now sends a test message to the chat.",
 };

@@ -2580,6 +2580,6 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "contact:entity:contact-delivery:field:status:option:failed": "Échoué",
   "contact:entity:contact-delivery:field:status:option:skipped": "Ignoré",
   "contact:entity:contact-delivery:field:status:option:read": "Lu",
-  "contact:report.hint": "Arrive directement à notre équipe",
+  "contact:report.hint": "Arrive directement à l'équipe {appName}",
   "contact:config.send-test.description": "Envoie maintenant un message de test dans le chat.",
 };

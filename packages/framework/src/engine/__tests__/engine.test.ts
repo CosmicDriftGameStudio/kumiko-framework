@@ -1134,6 +1134,28 @@ describe("hasAccess", () => {
       expect(hasAccess(user, access as unknown as AccessRule)).toBe(false);
     },
   );
+
+  test.each([
+    {
+      userRoles: ["Hausmeister"],
+      rule: { roles: ["anonymous"], anySignedIn: true } as const,
+      expected: true,
+    },
+    {
+      userRoles: ["anonymous"],
+      rule: { roles: ["anonymous"], anySignedIn: true } as const,
+      expected: true,
+    },
+    // Without the anonymous role the flag is not a public rule and widens nothing.
+    {
+      userRoles: ["Hausmeister"],
+      rule: { roles: ["Admin"], anySignedIn: true } as const,
+      expected: false,
+    },
+    { userRoles: ["Hausmeister"], rule: { roles: ["anonymous"] } as const, expected: false },
+  ])("user $userRoles vs $rule → $expected", ({ userRoles, rule, expected }) => {
+    expect(hasAccess(createTestUser({ roles: userRoles }), rule)).toBe(expected);
+  });
 });
 
 // --- Entity with softDelete ---

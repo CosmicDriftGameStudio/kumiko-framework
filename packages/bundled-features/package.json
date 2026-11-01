@@ -155,6 +155,7 @@
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./contact": "./src/contact/index.ts",
     "./contact/web": "./src/contact/web/index.ts",
+    "./contact/client": "./src/contact/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
@@ -731,6 +732,10 @@
       "./contact/web": {
         "types": "./dist/contact/web/index.d.ts",
         "default": "./dist/contact/web/index.js"
+      },
+      "./contact/client": {
+        "types": "./dist/contact/client/index.d.ts",
+        "default": "./dist/contact/client/index.js"
       },
       "./waitlist": {
         "types": "./dist/waitlist/index.d.ts",

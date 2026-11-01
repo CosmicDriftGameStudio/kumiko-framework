@@ -410,6 +410,37 @@ describe("validateAccessDeclarations", () => {
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
+
+  function featureWithQueryAccess(access: AccessRule) {
+    return defineFeature("notes", (r) => {
+      r.entity({ name: "note", ...noteEntity });
+      r.queryHandler({
+        name: "note:public",
+        schema: z.object({}),
+        handler: async () => [],
+        access,
+        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
+      });
+    });
+  }
+
+  test("anySignedIn next to the anonymous role boots fine", () => {
+    const feature = featureWithQueryAccess({ roles: ["anonymous"], anySignedIn: true });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
+  test("anySignedIn without the anonymous role throws and points at openToAll", () => {
+    const feature = featureWithQueryAccess({ roles: ["Admin"], anySignedIn: true });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:public".*openToAll/);
+  });
+
+  test("an anySignedIn value other than true from an untyped source throws", () => {
+    // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
+    const access = { roles: ["anonymous"], anySignedIn: "yes" } as unknown as AccessRule;
+    expect(() => validateAccessDeclarations(featureWithQueryAccess(access))).toThrow(
+      /only supported value is true/,
+    );
+  });
 });
 
 const openToAll = { openToAll: { reason: "any member may edit" } } as const;

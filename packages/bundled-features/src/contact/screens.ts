@@ -56,6 +56,7 @@ function createReportScreen(
     summary: {
       title: `${CONTACT_FEATURE}:report.hint`,
       subtitle: `${CONTACT_FEATURE}:report.summary`,
+      params: { appName: opts.appName },
     },
     fields: {
       kind: { type: "select", options: CONTACT_ADMIN_KINDS, required: true, display: "radio" },

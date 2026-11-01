@@ -14,6 +14,8 @@ Public endpoints without a logged-in user.
 
 - `access: "anonymous"` on handlers that must stay public
 - Rate limits that still bind anonymous callers (`per: "ip+handler"`)
+- `anySignedIn: true` next to `anonymous`, so a visitor who is signed in with a role the
+  handler does not list is not turned away from a public form
 
 ## Source
 
@@ -63,6 +65,7 @@ const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 // Each value is written by exactly one test; the tenant is fixed, so rows are told apart by value, not by reset.
 const PRODUCT_NAME = "Espresso Beans (anonymous read)";
 const GUEST_EMAIL = "guest-checkout@example.com";
+const DRIVER_EMAIL = "driver-checkout@example.com";
 
 let stack: TestStack;
 
@@ -125,6 +128,19 @@ describe("guest checkout: anonymous write lands with placedBy=anonymous", () => 
     expect(orders).toHaveLength(1);
     expect(orders[0]?.placedBy).toBe(ANONYMOUS_USER_ID);
     expect(orders[0]?.email).toBe(GUEST_EMAIL);
+  });
+
+  test("a signed-in caller with a role the handler does not list still checks out", async () => {
+    await stack.http.writeOk(
+      "shop:write:guest-order:place",
+      { productId: "00000000-0000-4000-8000-000000000098", email: DRIVER_EMAIL },
+      TestUsers.driver,
+    );
+    const orders = (await selectMany(stack.db, guestOrderTable)).filter(
+      (order) => order.email === DRIVER_EMAIL,
+    );
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.placedBy).toBe(TestUsers.driver.id);
   });
 });
 
@@ -259,7 +275,13 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
     // anonymous root handler — the runtime personal-data gate
     // (write-origin.ts) requires this explicit opt-in, the same way the
     // boot validator would reject an openToAll declaration missing it.
-    access: { roles: [...access.anonymous, "User"], personalData: "public-intake" },
+    // The browser sends the session cookie along, so a signed-in visitor arrives with its
+    // roles; anySignedIn keeps the checkout open to them whatever those roles are.
+    access: {
+      roles: [...access.anonymous, "User"],
+      personalData: "public-intake",
+      anySignedIn: true,
+    },
     rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   });
 

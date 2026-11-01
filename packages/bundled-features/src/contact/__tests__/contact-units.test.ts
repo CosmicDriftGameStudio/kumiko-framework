@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { CONTACT_CLIENT_SOURCE } from "../client/contact-client-source.ts";
+import type {
+  ContactWebsiteClient,
+  ContactWebsiteSubmitFields,
+} from "../client/contact-website-client.ts";
 import { hasLeadingZeroBits, verifyProofOfWork } from "../pow.ts";
 import { deriveSubjectFromMessage } from "../subject.ts";
 import { summarizeUserAgent } from "../user-agent.ts";
@@ -55,10 +59,11 @@ describe("deriveSubjectFromMessage", () => {
   });
 });
 
-type ClientResult = { kind: string; retryAfterSeconds?: number };
-type ContactClient = {
-  load(): Promise<unknown>;
-  submit(fields: Record<string, unknown>): Promise<ClientResult>;
+const WEBSITE_FIELDS: ContactWebsiteSubmitFields = {
+  kind: "question",
+  name: "Lea Hoffmann",
+  email: "lea@hoffmann-it.example",
+  message: "Kann ich die Statusseite unter einer eigenen Domain betreiben?",
 };
 
 type FetchCall = {
@@ -71,7 +76,7 @@ function loadClient(
   fetchImpl: (call: FetchCall) => { status: number; json: unknown; retryAfter?: string },
 ) {
   const calls: FetchCall[] = [];
-  const windowStub: { KumikoContact?: ContactClient } = {};
+  const windowStub: { KumikoContact?: ContactWebsiteClient } = {};
   const documentStub = { cookie: "kumiko_csrf=tok%20en", documentElement: { lang: "de" } };
   const fetchStub = async (path: string, init: { body: string; credentials: string }) => {
     const call: FetchCall = {
@@ -111,7 +116,7 @@ describe("browser client", () => {
           }
         : { status: 200, json: { isSuccess: true } },
     );
-    const result = await client.submit({ kind: "question", name: "A" });
+    const result = await client.submit(WEBSITE_FIELDS);
     expect(result).toEqual({ kind: "sent" });
     const submitted = calls.find((call) => call.body.type === "contact:write:submit");
     expect(submitted?.body.payload["challenge"]).toBe(challenge);
@@ -131,7 +136,7 @@ describe("browser client", () => {
         ? { status: 200, json: { data: { challenge, bits: 4, phone: "off", kinds: [] } } }
         : { status: 200, json: { isSuccess: true } },
     );
-    await client.submit({ kind: "question" });
+    await client.submit(WEBSITE_FIELDS);
     expect(calls.map((call) => call.body.type)).toEqual([
       "contact:query:challenge",
       "contact:write:submit",
@@ -145,11 +150,14 @@ describe("browser client", () => {
         ? { status: 200, json: { data: { challenge, bits: 4, phone: "off", kinds: [] } } }
         : { status: 429, json: {}, retryAfter: "42" },
     );
-    expect(await client.submit({})).toEqual({ kind: "rate-limited", retryAfterSeconds: 42 });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({
+      kind: "rate-limited",
+      retryAfterSeconds: 42,
+    });
   });
 
   test("a failing challenge request yields failed", async () => {
     const { client } = loadClient(() => ({ status: 500, json: {} }));
-    expect(await client.submit({})).toEqual({ kind: "failed" });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({ kind: "failed" });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type {
+  ActionFormScreenDefinition,
   ProjectionDetailScreenDefinition,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -82,5 +83,16 @@ describe("request-detail phone row", () => {
     expect(evalFieldCondition(visible, { phone: null })).toBe(false);
     expect(evalFieldCondition(visible, { phone: "" })).toBe(false);
     expect(evalFieldCondition(visible, { phone: "+49 30 1234567" })).toBe(true);
+  });
+});
+
+describe("report form hint", () => {
+  test("names the app through the appName param", () => {
+    const full: ContactOptions = { appName: "publicstatus" };
+    const report = createContactScreens(full, resolveContactSettings(full)).find(
+      (screen): screen is ActionFormScreenDefinition => screen.id === "report",
+    );
+    expect(report?.summary?.title).toBe("contact:report.hint");
+    expect(report?.summary?.params).toEqual({ appName: "publicstatus" });
   });
 });

@@ -1,5 +1,5 @@
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
-import { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
+import { isAnySignedInGranted, isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 import { ANONYMOUS_ROLE } from "./system-user.ts";
 import type { SessionUser } from "./types/index.ts";
 
@@ -14,6 +14,8 @@ import type { SessionUser } from "./types/index.ts";
 // list `anonymous` in `roles` (e.g. `roles: ["anonymous", "customer"]`).
 // Without this guard, enabling `anonymousAccess` on the server would silently
 // turn every existing `openToAll: true` handler into a public endpoint.
+// `anySignedIn` widens such a public rule to every signed-in caller instead of
+// the listed roles only.
 export function hasAccess(
   user: Pick<SessionUser, "roles">,
   access: AccessRule | undefined,
@@ -24,5 +26,6 @@ export function hasAccess(
     return !user.roles.includes(ANONYMOUS_ROLE);
   }
   if (access.roles.length === 0) return false;
+  if (isAnySignedInGranted(access) && !user.roles.includes(ANONYMOUS_ROLE)) return true;
   return access.roles.some((role) => user.roles.includes(role));
 }

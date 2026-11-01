@@ -276,6 +276,7 @@ type ActionFormScreenDefinition = {
   summary?: {
     title: string;
     subtitle?: string;
+    params?: Readonly<Record<string, string>>;
   }; // Context box above the fields (i18n keys).
   submitStyle?: "primary" | "danger"; // Visual style of the submit button.
   successMessage?: string; // i18n key of a confirmation shown above the form after a successful submit when the screen stays put (no `redirect`, not drawer-hosted).
@@ -1514,6 +1515,7 @@ type RoleAccessPersonalData = "public-intake";
 type RoleAccessRule = {
   roles: string[];
   personalData?: RoleAccessPersonalData;
+  anySignedIn?: true;
 };
 type RowAction = RowActionWriteHandler | RowActionNavigate | RowActionDrawer | RowActionClientAction;
 type RowActionWriteHandler = {

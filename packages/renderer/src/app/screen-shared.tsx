@@ -272,7 +272,7 @@ export function resolveActionFormSummary(
   locale: string,
 ): { readonly title: string; readonly subtitle?: string } | undefined {
   if (summary === undefined) return undefined;
-  const params = formatSummaryParams(prefill, locale);
+  const params = { ...formatSummaryParams(prefill, locale), ...summary.params };
   return {
     title: translate(summary.title, params),
     ...(summary.subtitle !== undefined && { subtitle: translate(summary.subtitle, params) }),

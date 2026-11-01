@@ -31,7 +31,7 @@ export const byTenantQuery = defineQueryHandler({
     /** Optional cross-tenant read — SystemAdmin only. Symmetric to by-slug. */
     tenantIdOverride: z.string().min(1).optional(),
   }),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
   description:
     "Lists every text-block of a tenant with slug, locale, title and body so a public content tree can be rendered in one call; use it for the whole sidebar, and by-slug when only one block is needed.",

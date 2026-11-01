@@ -102,8 +102,13 @@ export type ActionFormScreenDefinition = {
    *  Order in the array = order in the footer, before the submit button. */
   readonly footerActions?: readonly ActionFormFooterAction[];
   /** Context box above the fields (i18n keys). `{name}` placeholders resolve from the
-   *  drawer prefill (`params` of the opening row action), formatted for display. */
-  readonly summary?: { readonly title: string; readonly subtitle?: string };
+   *  drawer prefill (`params` of the opening row action), formatted for display, and from
+   *  the fixed `params` (e.g. the app name a feature option sets), which win on a name clash. */
+  readonly summary?: {
+    readonly title: string;
+    readonly subtitle?: string;
+    readonly params?: Readonly<Record<string, string>>;
+  };
   /** Visual style of the submit button. "danger" renders it red — for a form
    *  whose handler is destructive (terminate, revoke, delete), so the warning
    *  isn't lost on the way from the calling screen to this one. Default "primary". */

@@ -93,7 +93,7 @@ export const publicVariantPayloadSchema = z.object({
 export const publicVariantQuery = defineQueryHandler({
   name: "public-variant",
   schema: publicVariantPayloadSchema,
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   agent: { expose: false },
   // ponytail: "ip" is the ONLY throttle on an anonymous, internet-facing
   // render/storage-cost route — its accuracy depends on the server's

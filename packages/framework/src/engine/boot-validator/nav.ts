@@ -3,7 +3,7 @@
 // here since this is a structural move, not a semantic reorg).
 
 import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
-import { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
+import { isAnySignedInGranted, isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { createFallbackLogger } from "../../logging/utils.ts";
@@ -150,10 +150,11 @@ export function validateNavCycles(
   }
 }
 
-// undefined or granted openToAll means visible to everyone (no role-set to compare); malformed/denied openToAll returns `[]`, same as an explicit `roles: []`.
+// undefined, granted openToAll or anySignedIn means visible to everyone (no role-set to compare); malformed/denied openToAll returns `[]`, same as an explicit `roles: []`.
 function navViewerRoles(access: AccessRule | undefined): readonly string[] | undefined {
   if (access === undefined) return undefined;
   if ("openToAll" in access) return isOpenToAllGranted(access) ? undefined : [];
+  if (isAnySignedInGranted(access)) return undefined;
   return access.roles;
 }
 

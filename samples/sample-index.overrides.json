@@ -47,6 +47,12 @@
     "sampleBlurb": "Typed tenant config keys with role-gated writes and optional encryption — integration tests cover read/write boundaries.",
     "screenshot": "/screenshots/features/config-settings-hub.png"
   },
+  "contact": {
+    "primarySample": "recipes-contact",
+    "whenToUse": "Visitors and signed-in users reach the app's SystemAdmins through a website form or an in-app report — an inbox with replies by email, internal notes and spam protection without a captcha.",
+    "sampleBlurb": "Mounts the feature with an optional phone field; the integration test fetches the anonymous proof-of-work challenge and the served website client.",
+    "screenshot": "/screenshots/features/contact.png"
+  },
   "custom-fields": {
     "primarySample": "recipes-custom-fields-basic",
     "whenToUse": "Entities need tenant-defined extra columns without schema migrations — customFieldsField() stores typed extensions in jsonb with validation and CRUD wiring.",

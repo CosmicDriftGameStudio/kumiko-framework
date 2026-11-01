@@ -10,7 +10,7 @@ Public contact form backend: the contact bundled feature with its required compa
 
 Public contact form backend. The `contact` bundled feature stores questions, contact
 requests and problem reports from website visitors and notifies every SystemAdmin (mail,
-optional Telegram). The notification names only the kind, the app and a link into the inbox:
+Telegram only when the app turns it on). The notification names only the kind, the app and a link into the inbox:
 no name, address, phone, subject or message. Telegram is a third party where nothing can be
 shredded or recalled, so it gets the same minimal text. Website senders get a fixed
 acknowledgement that repeats nothing they typed; signed-in admin reports get a copy.
@@ -48,10 +48,16 @@ bun test --config=bunfig.integration.toml samples/recipes/contact
 ## Integration into a real app
 
 1. Mount `createContactFeature({ appName })` plus delivery, a mail channel, `user-data-rights`,
-   `files` with a file provider, and `config`/`secrets` for the Telegram bot token.
+   `files` with a file provider and `config`.
 2. Run `kumiko schema generate` (new tables, plus the delivery `idempotency_key` column).
-3. SystemAdmins set `contact:config:reply-to` and `contact:config:telegram-chat` in the admin.
-4. Embed `/contact/client.js` on the website; the form is yours.
+3. SystemAdmins set `contact:config:reply-to` in the admin.
+4. Embed `/contact/client.js` on the website; the form is yours. A website served by another
+   server can serve the same script from `CONTACT_CLIENT_SOURCE` and type its calls with
+   `ContactWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/contact/client`.
+
+Telegram is optional and off by default: notifications go by mail to SystemAdmins only. An app
+that turns it on (`telegram: true`) also mounts `channel-telegram` and `secrets` for the bot
+token, and SystemAdmins set `contact:config:telegram-chat`.
 
 ## Source files
 
@@ -152,7 +158,7 @@ describe("contact sample", () => {
 //
 // Prerequisites the app wires itself:
 //  - `anonymousAccess` (defaultTenantId = SYSTEM_TENANT_ID) so the form needs no login
-//  - delivery with a mail channel (and channel-telegram for the optional Telegram forward)
+//  - delivery with a mail channel (channel-telegram only with `telegram: true`, off by default)
 //  - a file provider, because the entities carry file fields
 //  - `kumiko schema generate` for the new tables
 

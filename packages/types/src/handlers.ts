@@ -77,6 +77,10 @@ export type RoleAccessPersonalData = "public-intake";
 export type RoleAccessRule = {
   readonly roles: readonly string[];
   readonly personalData?: RoleAccessPersonalData;
+  // Public endpoints only (roles include "anonymous"): a signed-in caller is let through
+  // whatever roles it holds, since the browser sends the session cookie along and an
+  // app-specific role would otherwise turn a visitor away who is welcome anonymously.
+  readonly anySignedIn?: true;
 };
 
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
@@ -147,34 +151,11 @@ export function escapeHatchGrantsProblem(declaration: {
   return undefined;
 }
 
-// AccessRule can arrive from untyped sources (pattern-library JSON, Designer)
-// where `openToAll` doesn't actually match the declared union — narrow via
-// `unknown` instead of trusting the static type, deny on anything malformed.
-export function isOpenToAllGranted(rule: AccessRule): boolean {
-  if (!("openToAll" in rule)) return false;
-  const openToAll: unknown = rule.openToAll;
-  if (typeof openToAll !== "object" || openToAll === null) return false;
-  if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return false;
-  return openToAll.reason.trim().length > 0;
-}
-
-// UI-visibility predicate — DEFAULT-VISIBLE, the opposite stance from
-// `hasAccess`/AccessRule's own default-deny doc above: an unset `access`
-// means every signed-in user may see the screen/nav/workspace, not nobody.
-// The engine's dispatcher access check stays default-deny; this only
-// decides what a client renders/lists, never what a handler accepts.
-// Same `unknown`-narrowing caution as isOpenToAllGranted — `access` can
-// arrive from untyped sources.
-export function isUiAccessGranted(
-  access: AccessRule | undefined,
-  userRoles: readonly string[] | undefined,
-): boolean {
-  if (access === undefined) return true;
-  if ("openToAll" in access) return isOpenToAllGranted(access);
-  if (userRoles === undefined) return false;
-  if (!("roles" in access)) return false;
-  return access.roles.some((role) => userRoles.includes(role));
-}
+export {
+  isAnySignedInGranted,
+  isOpenToAllGranted,
+  isUiAccessGranted,
+} from "./access-predicates.ts";
 
 // --- Pipeline User ---
 

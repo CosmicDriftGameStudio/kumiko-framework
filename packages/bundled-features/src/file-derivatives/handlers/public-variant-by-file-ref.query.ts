@@ -31,7 +31,7 @@ export const PUBLIC_VARIANT_BY_FILE_REF_QN = "file-derivatives:query:public-vari
 export const publicVariantByFileRefQuery = defineQueryHandler({
   name: "public-variant-by-file-ref",
   schema: publicVariantPayloadSchema,
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   agent: { expose: false },
   rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
   escapeHatch: {
