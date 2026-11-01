@@ -119,6 +119,7 @@ describe("SignupScreen registration status", () => {
       dispatcher: statusDispatcher(false),
     });
     expect(await screen.findByText("Join the waitlist")).toBeTruthy();
+    expect(screen.queryByText("Create account")).toBeNull();
     expect(document.getElementById("signup-email")).toBeNull();
   });
 });
