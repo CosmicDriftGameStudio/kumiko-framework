@@ -6,11 +6,6 @@ export const DEFINITION_FIELD_FACTORY_RULES = {
     summary: 'personal: { of: "id" } sets no whenAbsent.',
     fix: "Remove whenAbsent from the record-owned stance.",
   },
-  textStanceMissing: {
-    id: "field/text-stance-missing",
-    summary: "Text field factories declare an explicit personal-data stance.",
-    fix: "Pass one of the stance options listed in the message.",
-  },
   userReferenceNotPersonal: {
     id: "field/user-reference-not-personal",
     summary: "A reference to the user entity is personal data.",

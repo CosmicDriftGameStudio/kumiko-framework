@@ -36,6 +36,7 @@ import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_FIELD_FACTORY_RULES } from "./boot-validator/definition-field-factories-rules.ts";
+import { PII_RULES } from "./boot-validator/pii-retention-rules.ts";
 import type { TextFieldDef } from "./types/index.ts";
 import { isUserEntityReference } from "./user-entity-reference.ts";
 
@@ -127,7 +128,7 @@ function textFieldStanceHint(factoryName: TextFieldStanceFactory): string {
 }
 
 function missingTextFieldStanceError(factoryName: TextFieldStanceFactory): Error {
-  return bootRuleError(DEFINITION_FIELD_FACTORY_RULES.textStanceMissing, {
+  return bootRuleError(PII_RULES.textWithoutPersonalStance, {
     message: `${factoryName}(...) must declare an explicit personal-data stance — a text field must state whose data it holds and (unless it isn't personal data) how findable it needs to stay (kumiko-framework#2921). Pass one of: ${textFieldStanceHint(factoryName)}. Run \`kumiko-guards guards --guard="Text-Field Personal-Stance Guard"\` to find remaining call sites.`,
   });
 }

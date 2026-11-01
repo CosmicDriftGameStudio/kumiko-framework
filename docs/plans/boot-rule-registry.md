@@ -414,7 +414,7 @@ Schicht 3 (Registry, ca. 80). Schicht 0 ist der größte Rest: ein Fehler in `r.
 schon den Import von `kumiko/schema.ts`. Das ist eine eigene Runde (Abschnitt 6, Folgerunde).
 
 Umgesetzt für Schicht 0 (2026-11-01): 126 Throw-Stellen der Definitionsschicht tragen
-114 Regel-IDs (`boot-validator/definition-*-rules.ts`). 107 davon liegen in `r.*`-Methoden und
+112 neue Regel-IDs (`boot-validator/definition-*-rules.ts`) und zwei bestehende (`pii/text-without-personal-stance`, `handler/access-missing`). 107 Stellen liegen in `r.*`-Methoden und
 ihren Helfern, 19 in Konstruktoren, die auch auf Modulebene laufen (`createTextField` und
 andere Field-Factories, `from()`, Rollen-Zuweisung, `defineWriteHandler`). Nicht klassifiziert,
 weil auch zur Laufzeit erreichbar: `qualified-name.ts`, `escape-hatch-reason.ts`,

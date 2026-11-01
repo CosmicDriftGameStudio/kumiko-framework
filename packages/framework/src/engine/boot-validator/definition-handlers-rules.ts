@@ -61,11 +61,6 @@ export const DEFINITION_HANDLER_RULES = {
     summary: "A handler name is registered once per feature.",
     fix: "Use a distinct name or drop the verb from r.crud.",
   },
-  accessRuleRequired: {
-    id: "handler/access-rule-required",
-    summary: "Explicit handlers declare an access rule.",
-    fix: "Add access: { roles: [...] } or { openToAll: { reason } }.",
-  },
   inlineFormIncomplete: {
     id: "handler/inline-form-incomplete",
     summary: "The inline handler form provides schema, handler and options.access.",

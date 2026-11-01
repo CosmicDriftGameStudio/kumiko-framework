@@ -100,7 +100,7 @@ describe("definition layer rules", () => {
             handler: async () => ({ isSuccess: true, data: null }),
           });
         }),
-      "handler/access-rule-required",
+      "handler/access-missing",
       "requires an access rule",
     );
   });

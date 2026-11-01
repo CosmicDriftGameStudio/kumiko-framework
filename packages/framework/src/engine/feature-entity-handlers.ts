@@ -20,6 +20,7 @@ import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
+import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
 import {
   isEntityConventionQueryHandler,
   isPagedQueryHandler,
@@ -104,7 +105,7 @@ function assertHandlerHasAccess(
   access: unknown,
 ): void {
   if (access === undefined || access === null) {
-    throw bootRuleError(DEFINITION_HANDLER_RULES.accessRuleRequired, {
+    throw bootRuleError(HANDLER_ACCESS_RULES.accessMissing, {
       message: `[Feature ${featureName}] r.${method}({ name: "${handlerName}" }) requires an access rule (access: { roles: [...] } or { openToAll: { reason } })`,
     });
   }
