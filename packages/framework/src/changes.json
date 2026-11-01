@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.410.0",
+    "type": "improvement",
+    "title": "anySignedIn: public handlers admit every signed-in caller",
+    "detail": "A role rule that includes `anonymous` may add `anySignedIn: true` (`{ roles: [\"anonymous\"], anySignedIn: true }`). A signed-in caller then passes whatever roles the session carries, because the browser sends the session cookie to a public endpoint and an app-specific role (for example \"Hausmeister\") used to turn away a visitor who is welcome anonymously. `hasAccess` and `isUiAccessGranted` honour the flag, nav entries with such a rule stay visible to every viewer, and feature-ast reads and writes it. The boot validator rejects `anySignedIn` on a rule without `anonymous` (use `openToAll` for \"every signed-in user\") and any value other than `true` (rule `handler/any-signed-in-invalid`). The public handlers of bundled features now set it: waitlist submit, contact challenge and submit, user-data-rights deletion by email and token and download by token, managed-pages published pages and branding, file-derivatives public variants, compliance-profiles sub-processors, tenant-inactivity keep-account, auth-email-password login options and self-registration status, template-resolver by tenant and slug, seo config and subscription-paddle checkout config. Anonymous-only auth flows (signup, reset password, verify email, invite info, account unlock, MFA preauth) are unchanged."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "All boot validation errors have a rule id",
