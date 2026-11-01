@@ -145,3 +145,10 @@ type: fix
 title: hideRequiredMarker reaches widget fields, ModeSwitch on the input surface
 detail: `layout.hideRequiredMarker` now also hides the asterisk of `Field`-based widgets in custom and extension sections (`aria-required` stays). The outline `ModeSwitch` uses the text input's background (`bg-transparent`, `dark:bg-input/30`) instead of `bg-background`, so unselected segments match inputs on every app.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: Banner actions below the text keep a gap
+detail: With `actionsPlacement: "below"` the action buttons wrap in a row with `gap-2` instead of touching each other.
+-->

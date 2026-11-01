@@ -57,3 +57,10 @@ type: fix
 title: Bootstrap admin seed is one-shot
 detail: `seedBootstrapAdmin` skips when the target tenant already has another member (also a removed one), so a deleted owner or one who changed their email is not re-created as a passwordless SystemAdmin on the next boot. Our own passwordless account without membership is still completed, and the has-password skip now re-checks the row right before the grants.
 -->
+
+<!-- kumiko-changes
+feature: testing
+type: fix
+title: runScreenshots finishes CSS transitions before the capture
+detail: `runScreenshots` captures with `animations: "disabled"` like `runMatrix`. A scenario flow that toggles the dark theme no longer catches `transition-all` buttons mid-fade with their light-theme colours.
+-->

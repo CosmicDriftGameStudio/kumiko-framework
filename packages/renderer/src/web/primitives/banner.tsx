@@ -90,6 +90,24 @@ function BannerText({
   );
 }
 
+function bannerLayoutClass(
+  variant: BannerVariant,
+  compact: boolean,
+  actionsBelow: boolean,
+): string {
+  return cn(
+    "relative flex w-full items-center border",
+    compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-4 py-3 text-sm",
+    // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
+    !compact &&
+      !actionsBelow &&
+      variant === "primary" &&
+      "flex-col items-start sm:flex-row sm:items-center",
+    actionsBelow && "items-start",
+    variantClass(variant, compact),
+  );
+}
+
 export function DefaultBanner({
   variant = "info",
   density = "default",
@@ -120,17 +138,7 @@ export function DefaultBanner({
       data-testid={testId}
       data-variant={variant}
       data-density={density}
-      className={cn(
-        "relative flex w-full items-center border",
-        compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-4 py-3 text-sm",
-        // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
-        !compact &&
-          !actionsBelow &&
-          variant === "primary" &&
-          "flex-col items-start sm:flex-row sm:items-center",
-        actionsBelow && "items-start",
-        variantClass(variant, compact),
-      )}
+      className={bannerLayoutClass(variant, compact, actionsBelow)}
     >
       {icon !== undefined && (
         <Icon name={icon} className={cn("size-3.5 shrink-0", ICON_COLOR_CLASS[variant])} />
@@ -142,7 +150,7 @@ export function DefaultBanner({
         parts={parts}
         actionsBelow={
           actionsBelow ? (
-            <div data-slot="actions" className="mt-3">
+            <div data-slot="actions" className="mt-3 flex flex-wrap gap-2">
               {actions}
             </div>
           ) : undefined
