@@ -165,3 +165,19 @@ export function acceptInviteWithNewAccount(
 ): Promise<StaticResult<InviteAccepted>> {
   return postInviteAccept("/api/auth/invite-signup-complete", { token, password }, options);
 }
+
+/** Answers success whether or not the address exists or is locked, so it cannot be used to probe. */
+export function requestAccountUnlock(
+  email: string,
+  options?: StaticRequestOptions,
+): Promise<StaticResult<undefined>> {
+  return postAuthRoute("/api/auth/request-account-unlock", { email }, options);
+}
+
+/** The mail link carries the token in the query (`?token=`). Confirming an unlocked account is a no-op. */
+export function confirmAccountUnlock(
+  token: string,
+  options?: StaticRequestOptions,
+): Promise<StaticResult<undefined>> {
+  return postAuthRoute("/api/auth/confirm-account-unlock", { token }, options);
+}

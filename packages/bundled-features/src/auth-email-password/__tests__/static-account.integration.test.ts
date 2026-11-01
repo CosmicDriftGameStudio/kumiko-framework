@@ -36,12 +36,15 @@ import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { getLockoutState } from "../lockout-store.ts";
 import { signVerificationToken } from "../verification-token.ts";
 import { AuthHandlers, AuthQueries } from "../web/constants.ts";
 import {
   acceptInviteWithNewAccount,
+  confirmAccountUnlock,
   fetchInviteInfo,
   fetchSignupRegistrationStatus,
+  requestAccountUnlock,
   requestPasswordReset,
   resetPassword,
   verifyEmail,
@@ -52,6 +55,7 @@ registerMailTranslations("de", localeDeBundle);
 
 const emailTransport = createInMemoryTransport();
 const VERIFY_SECRET = randomBytes(32).toString("base64");
+const UNLOCK_SECRET = randomBytes(32).toString("base64");
 const NEW_PASSWORD = "static-account-pw-1234";
 const TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 
@@ -76,6 +80,12 @@ beforeAll(async () => {
           tokenTtlMinutes: 15,
           appUrl: "https://app.example.com/reset",
         },
+        accountLockout: { maxFailedAttempts: 3, lockoutDurationMinutes: 1 },
+        accountUnlock: {
+          hmacSecret: UNLOCK_SECRET,
+          tokenTtlMinutes: 15,
+          appUrl: "https://app.example.com/unlock-account",
+        },
         emailVerification: {
           hmacSecret: VERIFY_SECRET,
           tokenTtlMinutes: 60,
@@ -99,6 +109,10 @@ beforeAll(async () => {
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
+      },
+      accountUnlock: {
+        requestHandler: AuthHandlers.requestAccountUnlock,
+        confirmHandler: AuthHandlers.confirmAccountUnlock,
       },
       emailVerification: {
         requestHandler: AuthHandlers.requestEmailVerification,
@@ -216,6 +230,42 @@ describe("e-mail verification", () => {
     const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === created.id);
     expect(row?.["emailVerified"]).toBe(true);
     expect((await verifyEmail("forged-token-value-123")).kind).toBe("failure");
+  });
+});
+
+describe("account unlock", () => {
+  test("mails a link and the token lifts a lockout", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: "locked@static.test",
+        passwordHash: await hashPassword("right-password-123"),
+        displayName: "Locked",
+      },
+      TestUsers.systemAdmin,
+    );
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: TENANT_ID,
+      roles: ["User"],
+    });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await stack.http.raw("POST", "/api/auth/login", {
+        email: "locked@static.test",
+        password: `wrong-${attempt}`,
+      });
+    }
+    expect((await getLockoutState(stack.redis.redis, created.id))?.lockedUntil).not.toBeNull();
+
+    expect(await requestAccountUnlock("locked@static.test", { locale: "en" })).toEqual({
+      kind: "success",
+      data: undefined,
+    });
+    const token = tokenFromLastMailTo("locked@static.test");
+
+    expect(await confirmAccountUnlock(token)).toEqual({ kind: "success", data: undefined });
+    expect(await getLockoutState(stack.redis.redis, created.id)).toBeNull();
+    expect((await confirmAccountUnlock("forged-token-value-123")).kind).toBe("failure");
   });
 });
 

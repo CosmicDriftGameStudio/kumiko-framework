@@ -9,8 +9,10 @@ import {
   acceptInviteSignedIn,
   acceptInviteWithLogin,
   acceptInviteWithNewAccount,
+  confirmAccountUnlock,
   fetchInviteInfo,
   fetchSignupRegistrationStatus,
+  requestAccountUnlock,
   requestPasswordReset,
   resetPassword,
   verifyEmail,
@@ -71,6 +73,35 @@ describe("password reset and e-mail verification", () => {
     expect(await resetPassword("bad", "new-pass-123")).toEqual({
       kind: "failure",
       reason: "invalid_reset_token",
+    });
+  });
+});
+
+describe("account unlock", () => {
+  test("request posts the address with the locale, confirm posts the token", async () => {
+    const seen = stubFetch(() => jsonResponse({ isSuccess: true }));
+    expect(await requestAccountUnlock("a@b.de", { locale: "de" })).toEqual({
+      kind: "success",
+      data: undefined,
+    });
+    expect(await confirmAccountUnlock("tok")).toEqual({ kind: "success", data: undefined });
+    expect(seen[0]?.url).toBe("/api/auth/request-account-unlock");
+    expect(sentBody(seen[0])).toEqual({ email: "a@b.de" });
+    expect(seen[0]?.init?.headers).toMatchObject({ "X-Locale": "de" });
+    expect(seen[1]?.url).toBe("/api/auth/confirm-account-unlock");
+    expect(sentBody(seen[1])).toEqual({ token: "tok" });
+  });
+
+  test("a rejected unlock token is a failure with the server's reason", async () => {
+    stubFetch(() =>
+      jsonResponse(
+        { error: { code: "unprocessable", details: { reason: "invalid_unlock_token" } } },
+        { status: 422 },
+      ),
+    );
+    expect(await confirmAccountUnlock("bad")).toEqual({
+      kind: "failure",
+      reason: "invalid_unlock_token",
     });
   });
 });
