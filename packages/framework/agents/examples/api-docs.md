@@ -404,6 +404,7 @@ import { z } from "zod";
 
 export const ticketEntity = createEntity({
   table: "read_api_docs_tickets",
+  description: "A support request with a title, a priority and an open or closed status.",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     status: createSelectField({ options: ["open", "closed"] as const, default: "open" }),
