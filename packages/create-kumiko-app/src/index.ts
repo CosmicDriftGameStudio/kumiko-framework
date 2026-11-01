@@ -4,12 +4,7 @@
 // --print-manifest / --yes) → resolve deps → map to scaffold entries →
 // scaffoldApp() → print next-steps.
 
-import {
-  type ScaffoldFeatureEntry,
-  type ScaffoldStarter,
-  scaffoldApp,
-} from "@cosmicdrift/kumiko-dev-server";
-import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
+import type { ScaffoldFeatureEntry, ScaffoldStarter } from "@cosmicdrift/kumiko-dev-server";
 import { resolveDeps } from "./dep-resolver";
 import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
@@ -78,6 +73,10 @@ export async function runCreate(args: CliArgs): Promise<number> {
     `→ Scaffolding ${features.length} feature${features.length === 1 ? "" : "s"} into ./${args.name}/ …`,
   );
 
+  // The dev-server barrel pulls in framework, server-runtime and renderer (~0.6 s cold);
+  // loading it here keeps --help and --print-manifest fast.
+  const { scaffoldApp } = await import("@cosmicdrift/kumiko-dev-server");
+  const { renderTestSetup } = await import("@cosmicdrift/kumiko-testing/scaffold");
   const result = await scaffoldApp({
     name: args.name,
     cwd: args.cwd,

@@ -1,9 +1,4 @@
 import { resolve } from "node:path";
-import {
-  findPortCollisions,
-  listAppPorts,
-  scanWorkspaceApps,
-} from "@cosmicdrift/kumiko-guards/repo-manifest/app-ports";
 import type { CliCommand, CliCommandContext } from "./types";
 
 // Fixed column order so the table reads the same in every run.
@@ -14,6 +9,9 @@ export async function runPorts(ctx: CliCommandContext): Promise<number> {
     ctx.out.err("  usage: kumiko ports [workspace-root]");
     return 1;
   }
+  const { findPortCollisions, listAppPorts, scanWorkspaceApps } = await import(
+    "@cosmicdrift/kumiko-guards/repo-manifest/app-ports"
+  );
   const root = resolve(ctx.cwd, ctx.argv[0] ?? ".");
   const apps = scanWorkspaceApps(root);
   if (apps.length === 0) {
