@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import type { InactivityRule } from "../inactivity-plan.ts";
 import {
+  INACTIVITY_TENANT,
   type InactivityTestStack,
   KEEP_URL,
   setupInactivityStack,
@@ -20,6 +22,7 @@ type Tier = "free" | "paid";
 let tier: Tier = "paid";
 let externalActivity: Temporal.Instant | null = null;
 let sourceDb: TenantDb | undefined;
+let failingTenant: string | undefined;
 let t: InactivityTestStack;
 
 function afterMonths(from: Temporal.Instant, months: number): Temporal.Instant {
@@ -34,7 +37,8 @@ beforeAll(async () => {
       keepAccountUrl: KEEP_URL,
       appName: "Acme",
       activitySources: [
-        async ({ db }) => {
+        async ({ db, tenantId }) => {
+          if (tenantId === failingTenant) throw new Error("remote app unreachable");
           sourceDb = db;
           return externalActivity;
         },
@@ -53,6 +57,7 @@ beforeEach(async () => {
   tier = "paid";
   externalActivity = null;
   sourceDb = undefined;
+  failingTenant = undefined;
   await t.seedTenantWithOwner();
 });
 
@@ -142,5 +147,27 @@ describe("tenant-inactivity recipients", () => {
       "admin@inactivity.test",
       "onlyadmin@inactivity.test",
     ]);
+  });
+});
+
+describe("tenant-inactivity failing activity source", () => {
+  test("a failing source holds back only its own tenant", async () => {
+    await t.reset();
+    tier = "free";
+    const healthyTenant = INACTIVITY_TENANT;
+    const failing = testTenantId(77);
+    failingTenant = failing;
+    await t.seedTenantWithMembers([{ email: "ok@inactivity.test", roles: ["TenantOwner"] }]);
+    await t.seedTenantWithMembers(
+      [{ email: "stuck@inactivity.test", roles: ["TenantOwner"] }],
+      failing,
+    );
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    // The job of the failing tenant is reported as failed, the other tenant's job still ran.
+    await expect(t.runJob()).rejects.toThrow("remote app unreachable");
+    expect(t.sent.map((mail) => mail.to)).toEqual(["ok@inactivity.test"]);
+    expect((await t.tenantRow(healthyTenant))?.["status"]).toBe("active");
+    expect((await t.tenantRow(failing))?.["status"]).toBe("active");
   });
 });

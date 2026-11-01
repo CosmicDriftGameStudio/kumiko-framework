@@ -9,9 +9,9 @@ import {
   tenantMembershipsTable,
   tenantTable,
 } from "../tenant/index.ts";
+import { TENANT_ACCOUNT_CLOSE_ROLES } from "../tenant-lifecycle/constants.ts";
 import { requestTenantDestruction } from "../tenant-lifecycle/index.ts";
 import { userTable } from "../user/index.ts";
-import { INACTIVITY_MAIL_ROLES } from "./constants.ts";
 import { formatInactivityMailDate } from "./email-templates.ts";
 import {
   activityBase,
@@ -94,7 +94,7 @@ async function loadOwners(ctx: JobContext): Promise<readonly OwnerRecipient[]> {
   for (const membership of memberships) {
     if (seen.has(membership.userId)) continue;
     const roles = parseRoles(membership.roles);
-    if (!INACTIVITY_MAIL_ROLES.some((role) => roles.includes(role))) continue;
+    if (!TENANT_ACCOUNT_CLOSE_ROLES.some((role) => roles.includes(role))) continue;
     seen.add(membership.userId);
     const user = await ctx.db
       .global(userTable)

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fetchRemoteAppLastActivity } from "../remote-activity.ts";
+import { fetchRemoteAppLastActivity, REMOTE_ACTIVITY_TIMEOUT_MS } from "../remote-activity.ts";
 
 const URL_UNDER_TEST = "https://other-app.test/sessions/last-activity";
 
@@ -39,6 +39,30 @@ describe("fetchRemoteAppLastActivity", () => {
         secret: "x",
         send: answering({ at: 1 }).send,
       }),
+    ).rejects.toThrow();
+  });
+
+  test("the default timeout outlasts a scale-to-zero wake-up", () => {
+    expect(REMOTE_ACTIVITY_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000);
+  });
+
+  test("every request carries an abort signal that is not yet aborted", async () => {
+    let signal: AbortSignal | null | undefined;
+    const send = async (_url: string, init: RequestInit) => {
+      signal = init.signal;
+      return new Response(JSON.stringify({ lastActivityAt: null }));
+    };
+    await fetchRemoteAppLastActivity({ url: URL_UNDER_TEST, secret: "x", send });
+    expect(signal?.aborted).toBe(false);
+  });
+
+  test("a probe that never answers fails once the timeout fires", async () => {
+    const hanging = (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    await expect(
+      fetchRemoteAppLastActivity({ url: URL_UNDER_TEST, secret: "x", send: hanging, timeoutMs: 5 }),
     ).rejects.toThrow();
   });
 });
