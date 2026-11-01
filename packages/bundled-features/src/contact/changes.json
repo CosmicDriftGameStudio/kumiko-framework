@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.410.0",
+    "type": "improvement",
+    "title": "contact/client subpath, app name in the report hint, Telegram documented as optional",
+    "detail": "`@cosmicdrift/kumiko-bundled-features/contact/client` exports `CONTACT_CLIENT_SOURCE` and the website client types `ContactWebsiteClient`, `ContactWebsiteWindow`, `ContactWebsiteSubmitFields`, `ContactWebsiteSubmitResult`, `ContactWebsiteFormOptions` and `ContactWebsiteKind`. The report form hint reads \"Goes straight to the {appName} team\" with the `appName` option (de, en, es, fr, it). With the default `telegram: false` the feature lists `channel-telegram` as an optional dependency only; the feature manifest, the recipe and the docs no longer show the Telegram config key or `contact:write:send-test` for that default. A signed-in visitor with any role can submit the website form and fetch the challenge."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "New bundled feature contact: public contact form with spam protection, admin replies and Telegram forwarding",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.410.0",
+    "type": "improvement",
+    "title": "actionForm summary params",
+    "detail": "`summary.params` (`Record<string, string>`) of an actionForm screen interpolates fixed values, such as an app name a feature option sets, into the summary title and subtitle. They are merged with the formatted drawer prefill and win on a name clash."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "actionForm successItems, Banner variant hint",
