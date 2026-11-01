@@ -77,10 +77,11 @@ export const deApiDocsTexts = {
       "Widerrufe einen Token in {menuPath}, sobald du ihn nicht mehr brauchst. Wenn du dein Passwort änderst, werden alle deine Tokens widerrufen. Ein Token handelt immer mit deinen aktuellen Rollen. Verlässt du das Konto oder wird dein Benutzer gelöscht, funktioniert er nicht mehr.",
     "tokens.security.heading": "Sicherheit",
     "tokens.security.item1":
-      "Behandle einen Token wie ein Passwort. Bewahre ihn in einem Secret Store auf, nicht im Code oder in einem Repository.",
+      "Behandle einen Token wie ein Passwort. Bewahre ihn in einem Secret Store auf, nie im Code, in einem Repository, in einer App oder Webseite oder in einem Log.",
     "tokens.security.item2":
       "Gib jedem Skript einen eigenen Token mit nur den Scopes, die es braucht.",
-    "tokens.security.item3": "Widerrufe Tokens, die du nicht mehr nutzt.",
+    "tokens.security.item3":
+      "Widerrufe Tokens, die du nicht mehr nutzt. Widerrufe einen Token sofort, wenn er in fremde Hände gelangt sein könnte.",
     "reference.description":
       "API-Referenz für {scopeLabel}: jeder Handler mit seinen Feldern und einem Beispiel.",
     "reference.requiredScope": "Benötigter Scope",

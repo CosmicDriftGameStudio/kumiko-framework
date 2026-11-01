@@ -76,10 +76,11 @@ export const itApiDocsTexts = {
       "Revoca un token in {menuPath} non appena smetti di usarlo. Cambiare la password revoca tutti i tuoi token. Un token agisce sempre con i tuoi ruoli attuali. Se lasci l'account o il tuo utente viene eliminato, smette di funzionare.",
     "tokens.security.heading": "Sicurezza",
     "tokens.security.item1":
-      "Tratta un token come una password. Conservalo in un archivio di segreti, non nel codice né in un repository.",
+      "Tratta un token come una password. Conservalo in un archivio di segreti, mai nel codice, in un repository, in un'app o pagina web o in un log.",
     "tokens.security.item2":
       "Dai a ogni script il suo token, con solo gli scope di cui ha bisogno.",
-    "tokens.security.item3": "Revoca i token che non usi più.",
+    "tokens.security.item3":
+      "Revoca i token che non usi più. Revoca subito un token se potrebbe essere trapelato.",
     "reference.description":
       "Riferimento API per {scopeLabel}: ogni handler con i suoi campi e un esempio.",
     "reference.requiredScope": "Scope richiesto",

@@ -78,10 +78,11 @@ export const frApiDocsTexts = {
       "Révoque un jeton dans {menuPath} dès que tu ne l'utilises plus. Changer ton mot de passe révoque tous tes jetons. Un jeton agit toujours avec tes rôles actuels. Si tu quittes le compte ou si ton utilisateur est supprimé, il cesse de fonctionner.",
     "tokens.security.heading": "Sécurité",
     "tokens.security.item1":
-      "Traite un jeton comme un mot de passe. Garde-le dans un coffre à secrets, pas dans le code ni dans un dépôt.",
+      "Traite un jeton comme un mot de passe. Garde-le dans un coffre à secrets, jamais dans le code, un dépôt, une app ou une page web, ni dans un log.",
     "tokens.security.item2":
       "Donne à chaque script son propre jeton, avec seulement les scopes dont il a besoin.",
-    "tokens.security.item3": "Révoque les jetons que tu n'utilises plus.",
+    "tokens.security.item3":
+      "Révoque les jetons que tu n'utilises plus. Révoque un jeton immédiatement s'il a pu fuiter.",
     "reference.description":
       "Référence de l'API pour {scopeLabel} : chaque handler avec ses champs et un exemple.",
     "reference.requiredScope": "Scope requis",
