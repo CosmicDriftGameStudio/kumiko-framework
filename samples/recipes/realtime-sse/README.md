@@ -6,6 +6,7 @@ Server-sent events — live updates without F5.
 
 - Entity writes that fan out over SSE
 - Client subscription shape for live lists
+- Presence: `createPresenceFeature({ entities: ["message"] })` answers who else has a message open; the heartbeat is a write, the others get an SSE frame addressed to their user id (no names inside)
 
 ## Source
 

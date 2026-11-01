@@ -8,6 +8,7 @@ type AppContextKey = Exclude<keyof AppContext, "services">;
 export const APP_CONTEXT_KEY_ROLES = {
   redis: "service",
   cacheSync: "service",
+  userLiveSignals: "service",
   jobRunner: "service",
   searchAdapter: "service",
   entityCache: "service",

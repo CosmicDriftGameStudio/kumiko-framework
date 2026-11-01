@@ -13,7 +13,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { chatFeature, messageEntity } from "../feature";
+import { chatFeature, messageEntity, presenceFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -21,7 +21,7 @@ const admin = TestUsers.admin;
 const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [chatFeature] });
+  stack = await setupTestStack({ features: [chatFeature, presenceFeature] });
   await unsafeCreateEntityTable(stack.db, messageEntity);
   await createEventsTable(stack.db);
 });
@@ -114,5 +114,30 @@ describe("SSE broadcast on delete", () => {
     const deleteEvent = stack.events.sse.find((e) => e.type === "message.deleted");
     expect(deleteEvent).toBeDefined();
     expect(deleteEvent?.data["id"]).toBe(created.id);
+  });
+});
+
+describe("Presence frames", () => {
+  test("a user opening a message they share signals the others on it, by user id", async () => {
+    const created = await stack.http.writeOk<SaveContext>(
+      "chat:write:message:create",
+      { channel: "general", text: "Shared" },
+      user,
+    );
+    await stack.eventDispatcher?.runOnce();
+    stack.events.reset();
+    const open = { entity: "message", id: created.id, activity: "viewing" };
+
+    await stack.http.writeOk("presence:write:heartbeat", open, user);
+    const seen = await stack.http.writeOk<{ others: Array<{ userId: string }> }>(
+      "presence:write:heartbeat",
+      open,
+      admin,
+    );
+
+    expect(seen.others.map((other) => other.userId)).toEqual([user.id]);
+    const frames = stack.events.sse.filter((e) => e.type === "presence:event:changed");
+    expect(frames.map((frame) => frame.data["userId"])).toEqual([user.id]);
+    expect(frames[0]?.data).not.toHaveProperty("displayName");
   });
 });

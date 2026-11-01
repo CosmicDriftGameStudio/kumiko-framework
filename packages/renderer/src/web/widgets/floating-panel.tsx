@@ -28,6 +28,16 @@ import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag.ts";
 
 export type { FloatingPanelGeometry } from "./floating-panel-geometry.ts";
 
+export type FloatingPanelPlacement =
+  | { readonly mode: "free" }
+  | {
+      readonly mode: "fixed";
+      readonly rightPx: number;
+      readonly bottomPx: number;
+      readonly widthPx: number;
+      readonly heightPx: number;
+    };
+
 export type FloatingPanelProps = {
   /** Header content; the header is the move handle. */
   readonly title: ReactNode;
@@ -45,9 +55,21 @@ export type FloatingPanelProps = {
   readonly maxWidthPx?: number;
   /** Default: viewport height minus twice the margin. */
   readonly maxHeightPx?: number;
+  /** "fixed" anchors the panel to the bottom right: no drag, no resize, nothing persisted. Default: free. */
+  readonly placement?: FloatingPanelPlacement;
+  /** "scroll" (default) pads and scrolls the body; "fill" gives children the whole body to pad and scroll themselves. */
+  readonly bodyLayout?: "scroll" | "fill";
+  /** "ai" paints header and body with the AI surface. */
+  readonly surface?: "default" | "ai";
   readonly testId?: string;
 };
 
+const BODY_LAYOUT_CLASS = {
+  scroll: "min-h-0 flex-1 overflow-auto p-4",
+  fill: "flex min-h-0 flex-1 flex-col overflow-hidden",
+} as const satisfies Record<NonNullable<FloatingPanelProps["bodyLayout"]>, string>;
+
+const FREE_PLACEMENT: FloatingPanelPlacement = { mode: "free" };
 const DEFAULT_WIDTH_PX = 400;
 const DEFAULT_HEIGHT_PX = 560;
 
@@ -169,17 +191,27 @@ export function FloatingPanel({
   minHeightPx,
   maxWidthPx,
   maxHeightPx,
+  placement = FREE_PLACEMENT,
+  bodyLayout = "scroll",
+  surface = "default",
   testId,
 }: FloatingPanelProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
+  const fixedPlacement = placement.mode === "fixed" ? placement : undefined;
+  const bodyClass = BODY_LAYOUT_CLASS[bodyLayout];
+  const aiSurface = surface === "ai";
   const titleId = useId();
   const getLimits = (): Limits => readLimits({ minWidthPx, minHeightPx, maxWidthPx, maxHeightPx });
   const getLimitsRef = useRef(getLimits);
   getLimitsRef.current = getLimits;
 
   const [geometry, setGeometry] = useState<FloatingPanelGeometry>(() =>
-    initialGeometry(storageKey, defaultGeometry, getLimits()),
+    initialGeometry(
+      fixedPlacement === undefined ? storageKey : undefined,
+      defaultGeometry,
+      getLimits(),
+    ),
   );
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
@@ -194,7 +226,7 @@ export function FloatingPanel({
   const persistGeometry = (): void => writeStoredGeometry(storageKey, geometryRef.current);
 
   useEffect(() => {
-    if (narrow) return;
+    if (narrow || fixedPlacement !== undefined) return;
     const onWindowResize = (): void => {
       const limits = getLimitsRef.current();
       const previousViewport = fittedViewportRef.current;
@@ -209,7 +241,7 @@ export function FloatingPanel({
     onWindowResize();
     window.addEventListener("resize", onWindowResize);
     return () => window.removeEventListener("resize", onWindowResize);
-  }, [narrow, applyGeometry]);
+  }, [narrow, fixedPlacement, applyGeometry]);
 
   const moveDrag = usePointerDrag({
     onStart: () => geometryRef.current,
@@ -249,7 +281,10 @@ export function FloatingPanel({
         aria-modal="false"
         aria-labelledby={titleId}
         data-testid={testId}
-        className="fixed inset-0 z-50 flex flex-col bg-background text-foreground"
+        className={cn(
+          "fixed inset-0 z-50 flex flex-col text-foreground",
+          aiSurface ? "bg-ai-surface" : "bg-background",
+        )}
       >
         <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
           <div id={titleId} className="min-w-0 flex-1 truncate font-medium">
@@ -257,7 +292,42 @@ export function FloatingPanel({
           </div>
           {headerActions}
         </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div>
+        <div className={bodyClass}>{children}</div>
+      </div>,
+      document.body,
+    );
+  }
+
+  if (fixedPlacement !== undefined) {
+    return createPortal(
+      <div
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby={titleId}
+        data-testid={testId}
+        className={cn(
+          "fixed z-50 flex flex-col overflow-hidden rounded-lg border text-foreground shadow-2xl",
+          aiSurface ? "bg-ai-surface" : "bg-background",
+        )}
+        style={{
+          right: fixedPlacement.rightPx,
+          bottom: fixedPlacement.bottomPx,
+          width: `min(${fixedPlacement.widthPx}px, calc(100vw - ${2 * FLOATING_PANEL_MARGIN_PX}px))`,
+          height: `min(${fixedPlacement.heightPx}px, calc(100vh - ${fixedPlacement.bottomPx + FLOATING_PANEL_MARGIN_PX}px))`,
+        }}
+      >
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-2 border-b px-3 py-2",
+            aiSurface ? "bg-ai-surface" : "bg-muted",
+          )}
+        >
+          <div id={titleId} className="min-w-0 flex-1 truncate font-medium">
+            {title}
+          </div>
+          {headerActions}
+        </div>
+        <div className={bodyClass}>{children}</div>
       </div>,
       document.body,
     );
@@ -277,7 +347,10 @@ export function FloatingPanel({
       aria-modal="false"
       aria-labelledby={titleId}
       data-testid={testId}
-      className="fixed z-50 flex flex-col overflow-hidden rounded-lg border bg-background text-foreground shadow-2xl"
+      className={cn(
+        "fixed z-50 flex flex-col overflow-hidden rounded-lg border text-foreground shadow-2xl",
+        aiSurface ? "bg-ai-surface" : "bg-background",
+      )}
       style={{
         left: geometry.x,
         top: geometry.y,
@@ -288,7 +361,10 @@ export function FloatingPanel({
       <div
         {...moveDrag}
         onPointerDown={onHeaderPointerDown}
-        className="flex shrink-0 cursor-grab touch-none select-none items-center gap-2 border-b bg-muted px-3 py-2 active:cursor-grabbing"
+        className={cn(
+          "flex shrink-0 cursor-grab touch-none select-none items-center gap-2 border-b px-3 py-2 active:cursor-grabbing",
+          aiSurface ? "bg-ai-surface" : "bg-muted",
+        )}
       >
         <button
           type="button"
@@ -304,7 +380,7 @@ export function FloatingPanel({
         </div>
         {headerActions}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div>
+      <div className={bodyClass}>{children}</div>
       {EDGES.map((edge) => (
         <PanelResizeHandle
           key={edge}

@@ -63,6 +63,8 @@ function PhotoSlots(props: PhotoSlotsProps): ReactNode; // Guided photo capture:
 function PlainContentEditor(props: ContentEditorProps): ReactNode;
 function PlanCard(props: PlanCardProps): ReactNode;
 function PlanGrid(props: PlanGridProps): ReactNode;
+function PresenceAvatars(props: PresenceAvatarsProps): ReactNode; // Small round avatars of the people on a row, with "+n" for the rest; for list rows.
+function PresenceNotice(props: PresenceNoticeProps): ReactNode; // One quiet line above a record: who else is on it and for how long.
 function PrimitivesProvider(props: PrimitivesProviderProps): ReactNode;
 function ProfileMenu(props: ProfileMenuProps): ReactNode;
 function ProgressBar(props: { value: number; tone?: ProgressTone; size?: "default" | "thin"; ariaLabel?: string; className?: string; testId?: string; }): ReactNode; // Progress bar, `value` 0..1 (clamped).
@@ -154,6 +156,8 @@ function useIsViewportBelow(breakpointPx: number): boolean;
 function useLiveEvents(): LiveEventSubscriber; // Hook for a useQuery-like consumer.
 function useLocale(): LocaleResolver; // Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes.
 function useNav(): NavApi;
+function usePresence(props: UsePresenceOptions): UsePresenceResult; // Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes.
+function usePresenceList(props: UsePresenceListOptions): UsePresenceListResult; // Who else is on each of the given rows, for badges in a list.
 function usePrimitives(): PrimitivesRegistry;
 function useQuery<TData = unknown>(type: string, payload: unknown, options?: UseQueryOptions): UseQueryResult<TData>;
 function useResolvers(): ReadonlyMap<string, ResolverComponent>;
@@ -225,11 +229,15 @@ type AvatarProps = {
   id: string; // Stable identifier—the source for the background-color hash.
   label: string; // Full name or email—the initials are extracted from this value.
   size?: AvatarSize;
+  shape?: AvatarShape; // Default square; round suits inline presence markers.
   testId?: string;
 };
-type AvatarSize = "sm" | "md" | "lg";
+type AvatarShape = "square" | "round";
+type AvatarSize = "xs" | "sm" | "md" | "lg";
 type BannerProps = { // Banner for an inline message or page state (for example, "Loading…" or "Screen not found").
-  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`).
+  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done, nothing left to do here").
+  density?: "default" | "compact"; // "compact" is one line: the title reads inline before the text.
+  icon?: NavIconKey; // Icon left of the text.
   title?: ReactNode; // Bold heading above `children`, inside the text column.
   titleTestId?: string;
   children: ReactNode;
@@ -520,6 +528,18 @@ type FloatingPanelGeometry = {
   width: number;
   height: number;
 };
+type FloatingPanelPlacement =
+  | {
+    mode: "free";
+  }
+  | {
+    mode: "fixed";
+    rightPx: number;
+    bottomPx: number;
+    widthPx: number;
+    heightPx: number;
+  }
+;
 type FloatingPanelProps = {
   title: ReactNode; // Header content; the header is the move handle.
   headerActions?: ReactNode; // Header buttons (dock, minimize, close).
@@ -530,6 +550,9 @@ type FloatingPanelProps = {
   minHeightPx?: number;
   maxWidthPx?: number; // Default: viewport width minus twice the margin.
   maxHeightPx?: number; // Default: viewport height minus twice the margin.
+  placement?: FloatingPanelPlacement; // "fixed" anchors the panel to the bottom right: no drag, no resize, nothing persisted.
+  bodyLayout?: "scroll" | "fill"; // "scroll" (default) pads and scrolls the body; "fill" gives children the whole body to pad and scroll themselves.
+  surface?: "default" | "ai"; // "ai" paints header and body with the AI surface.
   testId?: string;
 };
 type FontTokens = {
@@ -1106,6 +1129,17 @@ type PlanGridProps = {
   children: ReactNode;
   testId?: string;
 };
+type PresenceAvatarsProps = {
+  entries: PresenceEntry[];
+  max?: number;
+  testId?: string;
+};
+type PresenceNoticeProps = {
+  entries: PresenceEntry[];
+  describe?: (entry: PresenceEntry) => ReactNode; // Replaces the default "is looking at this / is editing this" text of the first entry.
+  nowMs?: number; // Fixed "now" in epoch ms; without it the notice follows the clock once a minute.
+  testId?: string;
+};
 type PrimitivesProviderProps = {
   children: ReactNode;
   value: PrimitivesRegistry;
@@ -1406,6 +1440,8 @@ type StepListItem = {
   };
   sources?: StepSource[]; // Where the step comes from, e.g. "Quelle: Seite 3, § 5" (caller-localized); each renders as a link under the description.
   highlighted?: boolean; // Marks the step the reader is looking at (warm background).
+  selectable?: StepSelectability; // Read only when the list has `selection`.
+  dependsOn?: string[]; // Ids of prerequisite steps; selecting this step selects them too.
   actions?: StepAction[]; // Rendered only while status is "open".
 };
 type StepListProps = {
@@ -1423,8 +1459,34 @@ type StepListProps = {
   fill?: boolean; // Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom.
   progress?: "full" | "count" | "none"; // "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done.
   emptyContent?: ReactNode;
+  selection?: StepListSelection; // Adds a checkbox per selectable step, a select-all row and selection footer actions.
   phoneCard?: boolean; // On a phone the list reads as a card: the header sits inside the surface and the steps in a framed white box.
   testId?: string;
+};
+type StepListSelection = {
+  selectedIds: string[]; // Explicitly chosen step ids (controlled); prerequisites are added on top.
+  onSelectionChange: (selectedIds: string[]) => void;
+  actions: StepSelectionAction[]; // Replace `footerActions` while at least one step is selected.
+};
+type StepSelectability =
+  | {
+    kind: "selectable";
+  }
+  | {
+    kind: "missing-input";
+    reason: string;
+  }
+  | {
+    kind: "none";
+  }
+;
+type StepSelectionAction = {
+  id: string;
+  label: string; // Without a number: the list appends " (n)" with the effective selection size.
+  onClick: (stepIds: string[]) => void; // Receives the effective selection in list order, prerequisites included.
+  variant?: "primary" | "secondary" | "ghost";
+  disabled?: boolean;
+  pending?: boolean;
 };
 type StepSource = {
   label: string;
@@ -1559,6 +1621,24 @@ type UseFormOptions<TValues extends FormValues, TCtx = unknown> = FormController
 type UseFormResult<TValues extends FormValues> = {
   controller: FormController<TValues>;
   snapshot: FormSnapshot<TValues>;
+};
+type UsePresenceListOptions = {
+  entity: string;
+  ids: string[];
+  enabled?: boolean;
+};
+type UsePresenceListResult = {
+  byId: Readonly<Record<string, PresenceEntry[]>>;
+};
+type UsePresenceOptions = {
+  entity: string;
+  id: string;
+  activity: PresenceActivity;
+  focus?: string; // Which part of the record the user is on, e.g. `field:title`.
+  enabled?: boolean;
+};
+type UsePresenceResult = {
+  others: PresenceEntry[];
 };
 type UseQueryOptions = {
   enabled?: boolean;

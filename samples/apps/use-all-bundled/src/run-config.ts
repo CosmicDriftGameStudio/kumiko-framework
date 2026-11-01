@@ -74,6 +74,7 @@ import {
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
@@ -421,6 +422,8 @@ export const APP_FEATURES = [
   // notes-history: default roles are TenantAdmin/TenantMember; same
   // SystemAdmin-operator reasoning as tags above.
   createNotesHistoryFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  // presence: no host entity in this sample opts in, so it only mounts the handlers.
+  createPresenceFeature(),
   // notes-history-user-data: GDPR export/erase coverage for note-entry.
   // Depends (optionally) on notes-history + (hard) on user-data-rights —
   // both mounted here.

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
+import { type ReactNode, useState } from "react";
 import { render, screen, within } from "../../__tests__/test-utils.tsx";
 import { StepList, type StepListItem } from "../step-list.tsx";
 
@@ -330,5 +331,98 @@ describe("StepList source links and highlight", () => {
     rerender(<StepList title="Plan" steps={heatingSteps} progress="none" />);
     expect(screen.queryByTestId("step-list-progress")).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+});
+
+const onAccept = mock((_ids: readonly string[]) => {});
+
+const selectionSteps: readonly StepListItem[] = [
+  { id: "order", title: "Auftrag", status: "open" },
+  { id: "reply", title: "Antwort", status: "open", dependsOn: ["order"] },
+  {
+    id: "iban",
+    title: "Überweisung",
+    status: "open",
+    selectable: { kind: "missing-input", reason: "IBAN fehlt" },
+  },
+  { id: "money", title: "Zahlung", status: "open", selectable: { kind: "none" } },
+  { id: "done", title: "Erledigt", status: "done" },
+];
+
+function Controlled(): ReactNode {
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  return (
+    <StepList
+      title="Plan"
+      steps={selectionSteps}
+      footerActions={[{ id: "all", label: "Alles prüfen", onClick: () => {} }]}
+      selection={{
+        selectedIds,
+        onSelectionChange: setSelectedIds,
+        actions: [{ id: "accept", label: "Ausgewählte übernehmen", onClick: onAccept }],
+      }}
+    />
+  );
+}
+describe("StepList selection", () => {
+  afterEach(() => onAccept.mockClear());
+
+  test("selecting a dependent step checks its prerequisite and tags it", () => {
+    render(<Controlled />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select “Antwort”" }));
+    const order = screen.getByRole("checkbox", { name: "Select “Auftrag”" });
+    expect(order.getAttribute("aria-checked")).toBe("true");
+    expect(
+      within(screen.getByTestId("step-order")).getByText("Also selected: needed for Antwort"),
+    ).toBeTruthy();
+    expect(screen.getByText("2 selected, 1 waiting for input")).toBeTruthy();
+  });
+
+  test("a single selected step reads in the singular", () => {
+    render(<Controlled />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select “Auftrag”" }));
+    expect(screen.getByText("1 selected, 1 waiting for input")).toBeTruthy();
+  });
+
+  test("a step missing input has a disabled checkbox and the tag", () => {
+    render(<Controlled />);
+    const checkbox = screen.getByRole("checkbox", { name: "Select “Überweisung”" });
+    expect(checkbox.hasAttribute("disabled")).toBe(true);
+    expect(checkbox.getAttribute("title")).toBe("IBAN fehlt");
+    expect(within(screen.getByTestId("step-iban")).getByText("Input missing")).toBeTruthy();
+  });
+
+  test("steps that cannot be selected get no checkbox", () => {
+    render(<Controlled />);
+    expect(within(screen.getByTestId("step-money")).queryByRole("checkbox")).toBeNull();
+    expect(within(screen.getByTestId("step-done")).queryByRole("checkbox")).toBeNull();
+  });
+
+  test("shows the empty count text before anything is selected", () => {
+    render(<Controlled />);
+    expect(screen.getByText("Nothing selected, 1 waiting for input")).toBeTruthy();
+    expect(screen.getByText("Alles prüfen")).toBeTruthy();
+  });
+
+  test("footer shows the selection actions with the count and passes ids in list order", () => {
+    render(<Controlled />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select “Antwort”" }));
+    expect(screen.queryByText("Alles prüfen")).toBeNull();
+    fireEvent.click(screen.getByText("Ausgewählte übernehmen (2)"));
+    expect(onAccept).toHaveBeenCalledWith(["order", "reply"]);
+  });
+
+  test("select all checks every selectable step and a second click clears", () => {
+    render(<Controlled />);
+    const all = screen.getByRole("checkbox", { name: "Select all" });
+    fireEvent.click(all);
+    expect(screen.getByText("Ausgewählte übernehmen (2)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByText("Alles prüfen")).toBeTruthy();
+  });
+
+  test("without selection no checkbox renders", () => {
+    render(<StepList title="Plan" steps={selectionSteps} />);
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });

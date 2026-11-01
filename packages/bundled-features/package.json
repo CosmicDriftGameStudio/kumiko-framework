@@ -154,6 +154,7 @@
     "./legal-pages/constants": "./src/legal-pages/web/constants.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./contact": "./src/contact/index.ts",
+    "./presence": "./src/presence/index.ts",
     "./contact/web": "./src/contact/web/index.ts",
     "./contact/client": "./src/contact/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
@@ -728,6 +729,10 @@
       "./contact": {
         "types": "./dist/contact/index.d.ts",
         "default": "./dist/contact/index.js"
+      },
+      "./presence": {
+        "types": "./dist/presence/index.d.ts",
+        "default": "./dist/presence/index.js"
       },
       "./contact/web": {
         "types": "./dist/contact/web/index.d.ts",

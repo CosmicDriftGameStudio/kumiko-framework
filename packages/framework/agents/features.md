@@ -558,6 +558,12 @@ Category: identity
 
 Requires: `user`, `tenant`, `auth-foundation`
 
+## presence
+
+Who else is on this record right now: a browser sends a heartbeat every 15 seconds for one row of an allow-listed entity and gets the other viewers and editors back, with a live signal to them on a change. State is ephemeral (Redis hash per tenant, entity and row, in-memory without Redis), keyed by the session tenant, expires after ttlSeconds without a heartbeat and holds user ids only; display names are looked up per response. A caller sees presence only for rows visible to them. Mount with createPresenceFeature({ entities: ["task"] }).
+
+Category: communication
+
 ## rate-limiting
 
 Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.

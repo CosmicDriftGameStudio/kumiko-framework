@@ -69,6 +69,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PlainContentEditor` |  |
 | `PlanCard` |  |
 | `PlanGrid` |  |
+| `PresenceAvatars` | Small round avatars of the people on a row, with "+n" for the rest; for list rows. |
+| `PresenceNotice` | One quiet line above a record: who else is on it and for how long. |
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
@@ -134,6 +136,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `useLiveEvents` | Hook for a useQuery-like consumer. |
 | `useLocale` | Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes. |
 | `useNav` |  |
+| `usePresence` | Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes. |
+| `usePresenceList` | Who else is on each of the given rows, for badges in a list. |
 | `usePrimitives` |  |
 | `useQuery` |  |
 | `useResolvers` |  |
