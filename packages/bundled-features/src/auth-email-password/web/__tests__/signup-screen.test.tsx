@@ -113,13 +113,4 @@ describe("SignupScreen registration status", () => {
     expect(screen.getByRole("link", { name: /Already have an account/ })).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
-
-  test("disabled: closedFallback replaces the notice", async () => {
-    renderWithProviders(<SignupScreen closedFallback={<p>Join the waitlist</p>} />, {
-      dispatcher: statusDispatcher(false),
-    });
-    expect(await screen.findByText("Join the waitlist")).toBeTruthy();
-    expect(screen.queryByText("Create account")).toBeNull();
-    expect(document.getElementById("signup-email")).toBeNull();
-  });
 });

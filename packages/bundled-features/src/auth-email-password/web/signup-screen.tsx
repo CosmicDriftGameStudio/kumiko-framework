@@ -34,11 +34,6 @@ export type SignupScreenProps = {
   /** Page the activation mail should lead to after signup; defaults to the `returnTo` query
    *  parameter of this page. Unsafe values are dropped. */
   readonly returnTo?: string;
-  /** Replaces the whole signup card while self-registration is switched off, for example with the
-   *  app's waitlist screen (which brings its own card). Without it the screen shows the closed
-   *  notice and the login link. The status query needs a mounted dispatcher; in standalone auth
-   *  mounts without one the form always shows and the server still rejects signup-request. */
-  readonly closedFallback?: ReactNode;
 };
 
 function resolveReturnTo(prop: string | undefined): string | undefined {
@@ -50,7 +45,6 @@ function SignupScreenBody({
   subtitle,
   loginHref = "/login",
   returnTo,
-  closedFallback,
   registrationOpen,
 }: SignupScreenProps & { readonly registrationOpen: boolean | "unknown" }): ReactNode {
   const t = useTranslation();
@@ -113,7 +107,6 @@ function SignupScreenBody({
   }
 
   if (!registrationOpen) {
-    if (closedFallback !== undefined) return <>{closedFallback}</>;
     return (
       <AuthCard title={effectiveTitle} subtitle={subtitle}>
         <Banner variant="info">{t("auth.signup.closed")}</Banner>
