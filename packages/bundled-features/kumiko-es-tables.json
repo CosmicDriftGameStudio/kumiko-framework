@@ -20,12 +20,12 @@
     "export": "configValuesTable"
   },
   {
-    "module": "contact/entity",
-    "export": "contactRequestTable"
+    "module": "helpdesk/entity",
+    "export": "helpdeskRequestTable"
   },
   {
-    "module": "contact/entity",
-    "export": "contactReplyTable"
+    "module": "helpdesk/entity",
+    "export": "helpdeskReplyTable"
   },
   {
     "module": "data-retention/schema/tenant-retention-override",

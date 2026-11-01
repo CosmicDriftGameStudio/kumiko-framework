@@ -157,10 +157,10 @@
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/constants": "./src/legal-pages/web/constants.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
-    "./contact": "./src/contact/index.ts",
+    "./helpdesk": "./src/helpdesk/index.ts",
     "./presence": "./src/presence/index.ts",
-    "./contact/web": "./src/contact/web/index.ts",
-    "./contact/client": "./src/contact/client/index.ts",
+    "./helpdesk/web": "./src/helpdesk/web/index.ts",
+    "./helpdesk/client": "./src/helpdesk/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
     "./page-render": "./src/page-render/index.ts",
@@ -747,21 +747,21 @@
         "types": "./dist/legal-pages/web/index.d.ts",
         "default": "./dist/legal-pages/web/index.js"
       },
-      "./contact": {
-        "types": "./dist/contact/index.d.ts",
-        "default": "./dist/contact/index.js"
+      "./helpdesk": {
+        "types": "./dist/helpdesk/index.d.ts",
+        "default": "./dist/helpdesk/index.js"
       },
       "./presence": {
         "types": "./dist/presence/index.d.ts",
         "default": "./dist/presence/index.js"
       },
-      "./contact/web": {
-        "types": "./dist/contact/web/index.d.ts",
-        "default": "./dist/contact/web/index.js"
+      "./helpdesk/web": {
+        "types": "./dist/helpdesk/web/index.d.ts",
+        "default": "./dist/helpdesk/web/index.js"
       },
-      "./contact/client": {
-        "types": "./dist/contact/client/index.d.ts",
-        "default": "./dist/contact/client/index.js"
+      "./helpdesk/client": {
+        "types": "./dist/helpdesk/client/index.d.ts",
+        "default": "./dist/helpdesk/client/index.js"
       },
       "./waitlist": {
         "types": "./dist/waitlist/index.d.ts",

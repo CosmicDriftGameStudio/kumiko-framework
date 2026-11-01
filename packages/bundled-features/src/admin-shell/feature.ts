@@ -49,7 +49,7 @@ export type CreateAdminShellOptions = {
    *  createMetricsFeature / createSystemMetricsFeature. Panels exist only for
    *  ids in this list. Default DEFAULT_METRICS. */
   readonly metrics?: readonly MetricDefinition[];
-  /** Panels appended to the platform overview, for tiles a mounted feature owns (e.g. the contact inbox count). */
+  /** Panels appended to the platform overview, for tiles a mounted feature owns (e.g. the helpdesk inbox count). */
   readonly extraPlatformPanels?: readonly DashboardPanelDefinition[];
 };
 

@@ -739,16 +739,6 @@
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
       },
     },
-    "samples/recipes/contact": {
-      "name": "@cosmicdrift/kumiko-sample-contact",
-      "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-      },
-      "devDependencies": {
-        "@cosmicdrift/kumiko-testing": "workspace:*",
-      },
-    },
     "samples/recipes/cross-feature-events": {
       "name": "@cosmicdrift/kumiko-sample-cross-feature-events",
       "dependencies": {
@@ -949,6 +939,16 @@
     "samples/recipes/golden-path": {
       "name": "@cosmicdrift/kumiko-sample-golden-path",
       "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
+    "samples/recipes/helpdesk": {
+      "name": "@cosmicdrift/kumiko-sample-helpdesk",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "devDependencies": {
@@ -1542,8 +1542,6 @@
 
     "@cosmicdrift/kumiko-sample-config-demo": ["@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo"],
 
-    "@cosmicdrift/kumiko-sample-contact": ["@cosmicdrift/kumiko-sample-contact@workspace:samples/recipes/contact"],
-
     "@cosmicdrift/kumiko-sample-cross-feature-events": ["@cosmicdrift/kumiko-sample-cross-feature-events@workspace:samples/recipes/cross-feature-events"],
 
     "@cosmicdrift/kumiko-sample-crypto-shredding-hr": ["@cosmicdrift/kumiko-sample-crypto-shredding-hr@workspace:samples/recipes/crypto-shredding-hr"],
@@ -1587,6 +1585,8 @@
     "@cosmicdrift/kumiko-sample-files-post-processing": ["@cosmicdrift/kumiko-sample-files-post-processing@workspace:samples/recipes/files-post-processing"],
 
     "@cosmicdrift/kumiko-sample-golden-path": ["@cosmicdrift/kumiko-sample-golden-path@workspace:samples/recipes/golden-path"],
+
+    "@cosmicdrift/kumiko-sample-helpdesk": ["@cosmicdrift/kumiko-sample-helpdesk@workspace:samples/recipes/helpdesk"],
 
     "@cosmicdrift/kumiko-sample-host-routing": ["@cosmicdrift/kumiko-sample-host-routing@workspace:samples/recipes/host-routing"],
 

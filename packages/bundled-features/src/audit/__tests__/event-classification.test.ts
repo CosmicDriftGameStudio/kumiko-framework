@@ -10,7 +10,7 @@ import {
   WORKFLOW_SYSTEM_EVENT_DEFS,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
-import { createContactFeature } from "../../contact/index.ts";
+import { createHelpdeskFeature } from "../../helpdesk/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
 import {
   AUDIT_EVENT_STANCES,
@@ -30,7 +30,7 @@ const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "channel-email/createChannelEmailFeature",
   "channel-push/createChannelPushFeature",
   "cap-overview/createCapOverviewFeature",
-  "contact/createContactFeature",
+  "helpdesk/createHelpdeskFeature",
   "host-routing/createHostRoutingFeature",
   "auth-mfa/createAuthMfaFeature",
   "seo/createSeoFeature",
@@ -78,7 +78,7 @@ const featuresWithOptions: readonly FeatureDefinition[] = [
     },
   }),
   createPersonalAccessTokensFeature({ scopes: {} }),
-  createContactFeature({ appName: "Acme" }),
+  createHelpdeskFeature({ appName: "Acme" }),
 ];
 
 const eventTypes: readonly string[] = [

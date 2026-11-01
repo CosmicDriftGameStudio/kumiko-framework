@@ -48,8 +48,6 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops"`; requires `compliance-profiles`, `tenant`
 - `config`: Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row → tenant-row → system-row → app-override (deploy-time `AppConfigOverrides`) → computed → feature default.
   `import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config"`
-- `contact`: Contact inbox: an anonymous browser client (GET /contact/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin.
-  `import { createContactFeature } from "@cosmicdrift/kumiko-bundled-features/contact"`; requires `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
 - `crypto-shredding`: Operator-level crypto-shredding trigger.
   `import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding"`
 - `custom-fields`: Tenant- and system-scoped custom field definitions with generic value storage on any host entity.
@@ -90,6 +88,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft"`
 - `form-draft-user-data`: GDPR (Art.
   `import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data"`; requires `user-data-rights`
+- `helpdesk`: Helpdesk inbox: an anonymous browser client (GET /helpdesk/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin.
+  `import { createHelpdeskFeature } from "@cosmicdrift/kumiko-bundled-features/helpdesk"`; requires `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
 - `host-routing`: Host- and path-based tenant routing: an authoritative tenant resolver from the subdomain (tenantBy host), a tenant existence check against enabled, active tenants, and the tenant-key query behind createHostDispatch, which picks the HTML file, CSP, locale redirect or 404 per host for runProdApp's hostDispatch.
   `import { createHostRoutingFeature } from "@cosmicdrift/kumiko-bundled-features/host-routing"`; requires `auth-foundation`, `tenant`
 - `inbound-mail-foundation`: Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send.

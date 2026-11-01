@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-helpdesk",
+  "description": "Public contact form backend: the helpdesk bundled feature with its required companions (delivery, user-data-rights, files) and the anonymous browser client.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

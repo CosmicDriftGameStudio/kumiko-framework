@@ -5,7 +5,7 @@
 // (#1258): an open screen not reachable via nav is no longer an eligible
 // fallback candidate.
 
-import { ContactScreens } from "@cosmicdrift/kumiko-bundled-features/contact";
+import { HelpdeskScreens } from "@cosmicdrift/kumiko-bundled-features/helpdesk";
 import { MAIL_ACCOUNT_LIST_SCREEN_QN } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import {
   access,
@@ -18,7 +18,7 @@ const PLATFORM_WORKSPACES = ["admin-shell:workspace:platform"] as const;
 
 export const appScreensFeature: FeatureDefinition = defineFeature("app-screens", (r) => {
   r.describe("App-side nav placement for the user-profile self-service page and the mailbox list.");
-  r.requires({ features: ["user-profile", "inbound-mail-foundation", "contact"] });
+  r.requires({ features: ["user-profile", "inbound-mail-foundation", "helpdesk"] });
   r.nav({
     id: "profile",
     label: "screen:profile.title",
@@ -48,19 +48,19 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     order: 20,
   });
   r.nav({
-    id: "contact-requests",
+    id: "helpdesk-requests",
     label: "screen:request-list.title",
     icon: "mail",
-    screen: ContactScreens.requestList,
+    screen: HelpdeskScreens.requestList,
     order: 25,
     access: { roles: access.systemAdmin },
     workspaces: PLATFORM_WORKSPACES,
   });
   r.nav({
-    id: "contact-forwarding",
-    label: "nav:contact-forwarding.title",
+    id: "helpdesk-forwarding",
+    label: "nav:helpdesk-forwarding.title",
     icon: "settings",
-    screen: ContactScreens.forwarding,
+    screen: HelpdeskScreens.forwarding,
     parent: ADMIN_NAV_QN,
     order: 30,
     access: { roles: access.systemAdmin },
@@ -74,17 +74,17 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     workspaces: ADMIN_NAV_WORKSPACES,
   });
   r.nav({
-    id: "contact-report",
+    id: "helpdesk-report",
     label: "screen:report.title",
     icon: "mail",
-    screen: ContactScreens.report,
+    screen: HelpdeskScreens.report,
     parent: "app-screens:nav:help",
     order: 10,
     workspaces: ADMIN_NAV_WORKSPACES,
   });
   r.translations({
     keys: {
-      "nav:contact-forwarding.title": { de: "Weiterleitung", en: "Forwarding" },
+      "nav:helpdesk-forwarding.title": { de: "Weiterleitung", en: "Forwarding" },
       "nav:help.title": { de: "Hilfe", en: "Help" },
       "nav:mail-accounts.title": { de: "Postfächer", en: "Mailboxes" },
       "screen:profile.title": { de: "Profil", en: "Profile" },
