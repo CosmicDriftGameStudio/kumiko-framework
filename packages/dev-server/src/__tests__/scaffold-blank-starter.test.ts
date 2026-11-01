@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldApp } from "../scaffold-app.ts";
@@ -74,17 +74,22 @@ describe("scaffoldApp starter blank", () => {
     );
   });
 
-  test("boots without DEMO_ADMIN_PASSWORD, with and without the bootstrap email", async () => {
-    const dest = await scaffoldBlank("blank-boot");
-    const variants: Record<string, string>[] = [
-      {},
-      { KUMIKO_BOOTSTRAP_ADMIN_EMAIL: "creator@example.com" },
-    ];
-    for (const extraEnv of variants) {
-      const { stdout, stderr, code } = await bootBlank(dest, extraEnv);
+  // Each boot is a cold `bun bin/main.ts` that transpiles the framework; one boot per test
+  // keeps every variant inside its own budget on a parallel CI runner.
+  describe("boots without DEMO_ADMIN_PASSWORD", () => {
+    let bootDestination = "";
+    beforeAll(async () => {
+      bootDestination = await scaffoldBlank("blank-boot");
+    });
+
+    test.each([
+      ["without the bootstrap email", {}],
+      ["with the bootstrap email", { KUMIKO_BOOTSTRAP_ADMIN_EMAIL: "creator@example.com" }],
+    ] as const)("%s", async (_variant, extraEnv: Record<string, string>) => {
+      const { stdout, stderr, code } = await bootBlank(bootDestination, extraEnv);
       expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
       expect(stdout).toContain("boot validation OK");
       expect(`${stdout}${stderr}`).not.toContain("required, missing");
-    }
+    });
   });
 });
