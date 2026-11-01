@@ -19,14 +19,14 @@ Send an API token in the `Authorization` header as `Bearer <token>`. Requests wi
 
 ## Request body
 
-`type` is the handler name, for example `helpdesk:query:ticket:detail`. `payload` holds the fields from the reference. `requestId` is optional, see below. The payload may be nested at most 20 levels deep.
+`type` is the handler name, for example `ticketing:query:ticket:detail`. `payload` holds the fields from the reference. `requestId` is optional, see below. The payload may be nested at most 20 levels deep.
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/query \
+curl -X POST https://ticketing.example.com/api/query \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:query:ticket:detail",
+  "type": "ticketing:query:ticket:detail",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001"
   }

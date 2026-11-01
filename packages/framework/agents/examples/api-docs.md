@@ -8,7 +8,7 @@ API documentation for personal access tokens: recorded examples, kumiko api-docs
 
 # API docs
 
-API documentation for personal access tokens, generated from the app itself. A helpdesk
+API documentation for personal access tokens, generated from the app itself. A ticketing
 feature exposes its ticket handlers through token scopes; `kumiko api-docs` turns the
 registry, the translations and recorded requests into Markdown pages, an OpenAPI file and
 an `index.json` that a website or an agent can read.
@@ -16,7 +16,7 @@ an `index.json` that a website or an agent can read.
 ## What it shows
 
 - **Scopes decide the content.** Only handlers that a scope of the token feature reaches
-  appear. `helpdesk:write:ticket:purge` is reachable from a screen but in no scope, so it is
+  appear. `ticketing:write:ticket:purge` is reachable from a screen but in no scope, so it is
   listed under `apiDocs.uiOnlyWrites` with a reason; without that entry the generator reports it.
 - **Texts come from the feature.** Titles, descriptions and field labels per locale use the
   keys `<handler qn>:title`, `:description` and `:field:<name>`; the German pages need the
@@ -52,7 +52,7 @@ those two files differ from a real run of the command.
 
 ```
 kumiko.config.ts                          features and the apiDocs block
-src/feature.ts                            helpdesk feature and the token feature with its scopes
+src/feature.ts                            ticketing feature and the token feature with its scopes
 src/__tests__/api-docs.integration.test.ts   mints a token, records the examples, checks scope limits
 src/__tests__/api-docs.golden.test.ts        generator output equals api-docs/
 api-examples/                             recorded requests and responses
@@ -67,19 +67,19 @@ api-docs/                                 the golden output
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { helpdeskFeature, patFeature } from "./src/feature";
+import { patFeature, ticketingFeature } from "./src/feature";
 
 const PURGE_REASON =
   "Purging is an admin chore that stays in the app and is never offered to API clients.";
 
 export default defineAppConfig({
-  features: [createAuthFoundationFeature(), helpdeskFeature, patFeature(), localeDe()],
+  features: [createAuthFoundationFeature(), ticketingFeature, patFeature(), localeDe()],
   includeBundled: true,
   client: { entries: ["src/client.tsx"] },
   ports: { dev: 4520, e2e: 4521, infra: { postgres: 15520 } },
   apiDocs: {
     appName: "Helpdesk",
-    baseUrl: "https://helpdesk.example.com",
+    baseUrl: "https://ticketing.example.com",
     locales: ["en", "de"],
     planNote: {
       en: "API tokens are included in every Helpdesk plan.",
@@ -91,7 +91,7 @@ export default defineAppConfig({
     },
     uiOnlyWrites: [
       {
-        pattern: "helpdesk:write:ticket:purge",
+        pattern: "ticketing:write:ticket:purge",
         reason: PURGE_REASON,
       },
     ],
@@ -262,7 +262,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
-import { helpdeskFeature, patFeature } from "../feature";
+import { patFeature, ticketingFeature } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);
 const EXAMPLES_DIR = join(import.meta.dir, "../../api-examples");
@@ -287,7 +287,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      helpdeskFeature,
+      ticketingFeature,
       patFeature(),
     ],
     authConfig: {
@@ -339,7 +339,7 @@ async function denied(token: string, type: string, payload: unknown) {
   return { status: response.status, body: await response.json() };
 }
 
-describe("helpdesk API with a personal access token", () => {
+describe("ticketing API with a personal access token", () => {
   test("create, list, detail, update and close a ticket", async () => {
     const token = await mintToken(["tickets:write"]);
     const record = (
@@ -356,17 +356,17 @@ describe("helpdesk API with a personal access token", () => {
         token,
       });
 
-    const created = await record("ticket-create", "/api/write", "helpdesk:write:ticket:create", {
+    const created = await record("ticket-create", "/api/write", "ticketing:write:ticket:create", {
       title: "Printer is on fire",
       priority: "high",
     });
     expect(created.status).toBe(200);
     const id = CreatedSchema.parse(created.body).data.id;
 
-    const listed = await record("ticket-list", "/api/query", "helpdesk:query:ticket:list", {});
+    const listed = await record("ticket-list", "/api/query", "ticketing:query:ticket:list", {});
     expect(ListedSchema.parse(listed.body).data.rows.map((row) => row.id)).toContain(id);
 
-    const detail = await record("ticket-detail", "/api/query", "helpdesk:query:ticket:detail", {
+    const detail = await record("ticket-detail", "/api/query", "ticketing:query:ticket:detail", {
       id,
     });
     expect(DetailSchema.parse(detail.body).data).toMatchObject({
@@ -375,35 +375,35 @@ describe("helpdesk API with a personal access token", () => {
       priority: "high",
     });
 
-    const updated = await record("ticket-update", "/api/write", "helpdesk:write:ticket:update", {
+    const updated = await record("ticket-update", "/api/write", "ticketing:write:ticket:update", {
       id,
       version: 1,
       changes: { priority: "normal" },
     });
     expect(updated.status).toBe(200);
 
-    const closed = await record("ticket-close", "/api/write", "helpdesk:write:ticket:close", {
+    const closed = await record("ticket-close", "/api/write", "ticketing:write:ticket:close", {
       id,
       resolution: "Replaced the cartridge",
     });
     expect(closed.status).toBe(200);
-    const after = await stack.http.queryOk("helpdesk:query:ticket:detail", { id }, actor);
+    const after = await stack.http.queryOk("ticketing:query:ticket:detail", { id }, actor);
     expect(TicketRowSchema.parse(after)).toMatchObject({ status: "closed", priority: "normal" });
   });
 
   test("webhook payloads built from the appended events satisfy their contracts and are recorded", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
-      "helpdesk:write:ticket:create",
+      "ticketing:write:ticket:create",
       { title: "Scanner jams", priority: "low" },
       actor,
     );
     await stack.http.writeOk(
-      "helpdesk:write:ticket:update",
+      "ticketing:write:ticket:update",
       { id: created.id, version: 1, changes: { priority: "high" } },
       actor,
     );
     await stack.http.writeOk(
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       { id: created.id, resolution: "Replaced the roller" },
       actor,
     );
@@ -447,10 +447,10 @@ describe("helpdesk API with a personal access token", () => {
     expect(Object.keys(updatedWebhook.payload).sort()).toEqual(["changes", "id", "previous"]);
     expect(updatedWebhook.payload["changes"]).toEqual({ priority: "high" });
 
-    const closedContract = stack.registry.getWebhookEventContract("helpdesk:ticket-closed");
+    const closedContract = stack.registry.getWebhookEventContract("ticketing:ticket-closed");
     const closedEvent = stored.find((event) => event.type.endsWith("ticket-closed"));
     if (closedContract === undefined || closedEvent === undefined) {
-      throw new Error("helpdesk:ticket-closed has no contract or no appended event");
+      throw new Error("ticketing:ticket-closed has no contract or no appended event");
     }
     const recordedClosed = await recordWebhookExample({
       name: "ticket-closed",
@@ -462,17 +462,25 @@ describe("helpdesk API with a personal access token", () => {
   });
 
   test("a read-only token cannot create a ticket", async () => {
-    const result = await denied(await mintToken(["tickets:read"]), "helpdesk:write:ticket:create", {
-      title: "Nope",
-    });
+    const result = await denied(
+      await mintToken(["tickets:read"]),
+      "ticketing:write:ticket:create",
+      {
+        title: "Nope",
+      },
+    );
     expect(result.status).toBe(403);
     expect(result.body).toMatchObject({ error: { code: "access_denied" } });
   });
 
   test("a write token cannot reach the UI-only purge", async () => {
-    const result = await denied(await mintToken(["tickets:write"]), "helpdesk:write:ticket:purge", {
-      olderThanDays: 30,
-    });
+    const result = await denied(
+      await mintToken(["tickets:write"]),
+      "ticketing:write:ticket:purge",
+      {
+        olderThanDays: 30,
+      },
+    );
     expect(result.status).toBe(403);
   });
 });
@@ -481,7 +489,7 @@ describe("helpdesk API with a personal access token", () => {
 ### src/feature.ts
 
 ```ts
-// API docs sample: a helpdesk whose ticket handlers are reachable with a personal access token.
+// API docs sample: a ticketing app whose ticket handlers are reachable with a personal access token.
 // Every handler a token scope reaches needs a description and, per locale, a title, description
 // and field labels; `kumiko api-docs` turns them into the pages under api-docs/.
 
@@ -511,7 +519,7 @@ export const ticketEntity = createEntity({
 
 const ticketAccess = { roles: ["Admin", "User"] } as const;
 
-export const helpdeskFeature = defineFeature("helpdesk", (r) => {
+export const ticketingFeature = defineFeature("ticketing", (r) => {
   const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
     "ticket",
     ticketEntity,
@@ -589,93 +597,93 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
     id: "ticket-edit",
     type: "entityEdit",
     entity: "ticket",
-    layout: { sections: [{ title: "helpdesk:section.ticket", fields: ["title", "priority"] }] },
+    layout: { sections: [{ title: "ticketing:section.ticket", fields: ["title", "priority"] }] },
   });
   r.screen({
     id: "close-ticket",
     type: "actionForm",
-    handler: "helpdesk:write:ticket:close",
+    handler: "ticketing:write:ticket:close",
     fields: { resolution: createTextField({ personal: false, reason: "is_business_data" }) },
-    layout: { sections: [{ title: "helpdesk:section.close", fields: ["resolution"] }] },
+    layout: { sections: [{ title: "ticketing:section.close", fields: ["resolution"] }] },
   });
   r.screen({
     id: "purge-tickets",
     type: "actionForm",
-    handler: "helpdesk:write:ticket:purge",
+    handler: "ticketing:write:ticket:purge",
     fields: {},
     layout: { sections: [] },
   });
 
-  r.nav({ id: "tickets", label: "helpdesk:nav:tickets", screen: "helpdesk:screen:ticket-list" });
-  r.nav({ id: "settings", label: "helpdesk:nav:settings" });
+  r.nav({ id: "tickets", label: "ticketing:nav:tickets", screen: "ticketing:screen:ticket-list" });
+  r.nav({ id: "settings", label: "ticketing:nav:settings" });
   r.nav({
     id: "api-tokens",
-    label: "helpdesk:nav:api-tokens",
-    parent: "helpdesk:nav:settings",
+    label: "ticketing:nav:api-tokens",
+    parent: "ticketing:nav:settings",
     screen: "personal-access-tokens:screen:api-tokens",
   });
 
   r.translations({
     keys: {
-      "helpdesk:nav:tickets": { en: "Tickets", de: "Tickets" },
-      "helpdesk:nav:settings": { en: "Settings", de: "Einstellungen" },
-      "helpdesk:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
-      "helpdesk:section.ticket": { en: "Ticket", de: "Ticket" },
-      "helpdesk:section.close": { en: "Close ticket", de: "Ticket schließen" },
-      "helpdesk:entity:ticket:field:title": { en: "Title", de: "Titel" },
-      "helpdesk:entity:ticket:field:status": { en: "Status", de: "Status" },
-      "helpdesk:entity:ticket:field:priority": { en: "Priority", de: "Priorität" },
-      "helpdesk:write:ticket:create:title": { en: "Create ticket", de: "Ticket anlegen" },
-      "helpdesk:write:ticket:create:description": {
+      "ticketing:nav:tickets": { en: "Tickets", de: "Tickets" },
+      "ticketing:nav:settings": { en: "Settings", de: "Einstellungen" },
+      "ticketing:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
+      "ticketing:section.ticket": { en: "Ticket", de: "Ticket" },
+      "ticketing:section.close": { en: "Close ticket", de: "Ticket schließen" },
+      "ticketing:entity:ticket:field:title": { en: "Title", de: "Titel" },
+      "ticketing:entity:ticket:field:status": { en: "Status", de: "Status" },
+      "ticketing:entity:ticket:field:priority": { en: "Priority", de: "Priorität" },
+      "ticketing:write:ticket:create:title": { en: "Create ticket", de: "Ticket anlegen" },
+      "ticketing:write:ticket:create:description": {
         en: "Opens a new ticket.",
         de: "Legt ein neues Ticket an.",
       },
-      "helpdesk:write:ticket:update:title": { en: "Update ticket", de: "Ticket ändern" },
-      "helpdesk:write:ticket:update:description": {
+      "ticketing:write:ticket:update:title": { en: "Update ticket", de: "Ticket ändern" },
+      "ticketing:write:ticket:update:description": {
         en: "Changes the title or the priority of a ticket.",
         de: "Ändert Titel oder Priorität eines Tickets.",
       },
-      "helpdesk:query:ticket:list:title": { en: "List tickets", de: "Tickets auflisten" },
-      "helpdesk:query:ticket:list:description": {
+      "ticketing:query:ticket:list:title": { en: "List tickets", de: "Tickets auflisten" },
+      "ticketing:query:ticket:list:description": {
         en: "Lists tickets, newest first.",
         de: "Listet Tickets, neueste zuerst.",
       },
-      "helpdesk:query:ticket:detail:title": { en: "Show ticket", de: "Ticket anzeigen" },
-      "helpdesk:query:ticket:detail:description": {
+      "ticketing:query:ticket:detail:title": { en: "Show ticket", de: "Ticket anzeigen" },
+      "ticketing:query:ticket:detail:description": {
         en: "Returns one ticket.",
         de: "Liefert ein Ticket.",
       },
-      "helpdesk:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
-      "helpdesk:write:ticket:close:description": {
+      "ticketing:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
+      "ticketing:write:ticket:close:description": {
         en: "Closes a ticket and records how it was resolved.",
         de: "Schließt ein Ticket und hält fest, wie es gelöst wurde.",
       },
-      "helpdesk:write:ticket:close:field:id": { en: "Ticket", de: "Ticket" },
-      "helpdesk:write:ticket:close:field:resolution": { en: "Resolution", de: "Lösung" },
-      "helpdesk:write:ticket:purge:title": { en: "Purge tickets", de: "Tickets bereinigen" },
-      "helpdesk:write:ticket:purge:description": {
+      "ticketing:write:ticket:close:field:id": { en: "Ticket", de: "Ticket" },
+      "ticketing:write:ticket:close:field:resolution": { en: "Resolution", de: "Lösung" },
+      "ticketing:write:ticket:purge:title": { en: "Purge tickets", de: "Tickets bereinigen" },
+      "ticketing:write:ticket:purge:description": {
         en: "Removes tickets that were closed long ago.",
         de: "Entfernt Tickets, die lange geschlossen sind.",
       },
-      "helpdesk:write:ticket:purge:field:olderThanDays": {
+      "ticketing:write:ticket:purge:field:olderThanDays": {
         en: "Closed longer than (days)",
         de: "Länger geschlossen als (Tage)",
       },
-      "helpdesk:entity:ticket": { en: "ticket", de: "Ticket" },
-      "helpdesk:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
-      "helpdesk:webhook:ticket-closed:description": {
+      "ticketing:entity:ticket": { en: "ticket", de: "Ticket" },
+      "ticketing:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
+      "ticketing:webhook:ticket-closed:description": {
         en: "A ticket was closed and its resolution recorded.",
         de: "Ein Ticket wurde geschlossen und seine Lösung festgehalten.",
       },
-      "helpdesk:webhook:ticket-closed:field:id": {
+      "ticketing:webhook:ticket-closed:field:id": {
         en: "ID of the closed ticket",
         de: "ID des geschlossenen Tickets",
       },
-      "helpdesk:webhook:ticket-closed:field:resolution": {
+      "ticketing:webhook:ticket-closed:field:resolution": {
         en: "How the ticket was resolved",
         de: "Wie das Ticket gelöst wurde",
       },
-      "helpdesk:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
+      "ticketing:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
     },
   });
 });
@@ -687,12 +695,12 @@ export function patFeature() {
     scopes: {
       tickets: {
         label: "Tickets",
-        events: ["ticket.created", "helpdesk:ticket-closed"],
-        read: ["helpdesk:query:ticket:*"],
+        events: ["ticket.created", "ticketing:ticket-closed"],
+        read: ["ticketing:query:ticket:*"],
         write: [
-          "helpdesk:write:ticket:create",
-          "helpdesk:write:ticket:update",
-          "helpdesk:write:ticket:close",
+          "ticketing:write:ticket:create",
+          "ticketing:write:ticket:update",
+          "ticketing:write:ticket:close",
         ],
       },
     },

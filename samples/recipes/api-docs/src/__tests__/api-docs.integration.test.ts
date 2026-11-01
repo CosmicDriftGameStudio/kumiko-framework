@@ -48,7 +48,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
-import { helpdeskFeature, patFeature } from "../feature";
+import { patFeature, ticketingFeature } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);
 const EXAMPLES_DIR = join(import.meta.dir, "../../api-examples");
@@ -73,7 +73,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      helpdeskFeature,
+      ticketingFeature,
       patFeature(),
     ],
     authConfig: {
@@ -125,7 +125,7 @@ async function denied(token: string, type: string, payload: unknown) {
   return { status: response.status, body: await response.json() };
 }
 
-describe("helpdesk API with a personal access token", () => {
+describe("ticketing API with a personal access token", () => {
   test("create, list, detail, update and close a ticket", async () => {
     const token = await mintToken(["tickets:write"]);
     const record = (
@@ -142,17 +142,17 @@ describe("helpdesk API with a personal access token", () => {
         token,
       });
 
-    const created = await record("ticket-create", "/api/write", "helpdesk:write:ticket:create", {
+    const created = await record("ticket-create", "/api/write", "ticketing:write:ticket:create", {
       title: "Printer is on fire",
       priority: "high",
     });
     expect(created.status).toBe(200);
     const id = CreatedSchema.parse(created.body).data.id;
 
-    const listed = await record("ticket-list", "/api/query", "helpdesk:query:ticket:list", {});
+    const listed = await record("ticket-list", "/api/query", "ticketing:query:ticket:list", {});
     expect(ListedSchema.parse(listed.body).data.rows.map((row) => row.id)).toContain(id);
 
-    const detail = await record("ticket-detail", "/api/query", "helpdesk:query:ticket:detail", {
+    const detail = await record("ticket-detail", "/api/query", "ticketing:query:ticket:detail", {
       id,
     });
     expect(DetailSchema.parse(detail.body).data).toMatchObject({
@@ -161,35 +161,35 @@ describe("helpdesk API with a personal access token", () => {
       priority: "high",
     });
 
-    const updated = await record("ticket-update", "/api/write", "helpdesk:write:ticket:update", {
+    const updated = await record("ticket-update", "/api/write", "ticketing:write:ticket:update", {
       id,
       version: 1,
       changes: { priority: "normal" },
     });
     expect(updated.status).toBe(200);
 
-    const closed = await record("ticket-close", "/api/write", "helpdesk:write:ticket:close", {
+    const closed = await record("ticket-close", "/api/write", "ticketing:write:ticket:close", {
       id,
       resolution: "Replaced the cartridge",
     });
     expect(closed.status).toBe(200);
-    const after = await stack.http.queryOk("helpdesk:query:ticket:detail", { id }, actor);
+    const after = await stack.http.queryOk("ticketing:query:ticket:detail", { id }, actor);
     expect(TicketRowSchema.parse(after)).toMatchObject({ status: "closed", priority: "normal" });
   });
 
   test("webhook payloads built from the appended events satisfy their contracts and are recorded", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
-      "helpdesk:write:ticket:create",
+      "ticketing:write:ticket:create",
       { title: "Scanner jams", priority: "low" },
       actor,
     );
     await stack.http.writeOk(
-      "helpdesk:write:ticket:update",
+      "ticketing:write:ticket:update",
       { id: created.id, version: 1, changes: { priority: "high" } },
       actor,
     );
     await stack.http.writeOk(
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       { id: created.id, resolution: "Replaced the roller" },
       actor,
     );
@@ -233,10 +233,10 @@ describe("helpdesk API with a personal access token", () => {
     expect(Object.keys(updatedWebhook.payload).sort()).toEqual(["changes", "id", "previous"]);
     expect(updatedWebhook.payload["changes"]).toEqual({ priority: "high" });
 
-    const closedContract = stack.registry.getWebhookEventContract("helpdesk:ticket-closed");
+    const closedContract = stack.registry.getWebhookEventContract("ticketing:ticket-closed");
     const closedEvent = stored.find((event) => event.type.endsWith("ticket-closed"));
     if (closedContract === undefined || closedEvent === undefined) {
-      throw new Error("helpdesk:ticket-closed has no contract or no appended event");
+      throw new Error("ticketing:ticket-closed has no contract or no appended event");
     }
     const recordedClosed = await recordWebhookExample({
       name: "ticket-closed",
@@ -248,17 +248,25 @@ describe("helpdesk API with a personal access token", () => {
   });
 
   test("a read-only token cannot create a ticket", async () => {
-    const result = await denied(await mintToken(["tickets:read"]), "helpdesk:write:ticket:create", {
-      title: "Nope",
-    });
+    const result = await denied(
+      await mintToken(["tickets:read"]),
+      "ticketing:write:ticket:create",
+      {
+        title: "Nope",
+      },
+    );
     expect(result.status).toBe(403);
     expect(result.body).toMatchObject({ error: { code: "access_denied" } });
   });
 
   test("a write token cannot reach the UI-only purge", async () => {
-    const result = await denied(await mintToken(["tickets:write"]), "helpdesk:write:ticket:purge", {
-      olderThanDays: 30,
-    });
+    const result = await denied(
+      await mintToken(["tickets:write"]),
+      "ticketing:write:ticket:purge",
+      {
+        olderThanDays: 30,
+      },
+    );
     expect(result.status).toBe(403);
   });
 });

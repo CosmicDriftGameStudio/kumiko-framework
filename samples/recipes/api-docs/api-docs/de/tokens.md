@@ -19,11 +19,11 @@ Ein Token läuft nach 90 Tagen ab, wenn du keinen anderen Ablauf wählst. Mögli
 Sende den Token im Header `Authorization`. Anfragen mit Token brauchen weder Cookie noch CSRF-Token.
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/query \
+curl -X POST https://ticketing.example.com/api/query \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:query:ticket:detail",
+  "type": "ticketing:query:ticket:detail",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001"
   }
@@ -36,8 +36,8 @@ Jeder Scope hat zwei Stufen. `read` erlaubt die lesenden Handler. `write` erlaub
 
 | Scope | Berechtigung | Handler |
 | --- | --- | --- |
-| `tickets` (Tickets) | `tickets:read` | `helpdesk:query:ticket:detail`, `helpdesk:query:ticket:list` |
-| `tickets` (Tickets) | `tickets:write` | `helpdesk:write:ticket:close`, `helpdesk:write:ticket:create`, `helpdesk:write:ticket:update` |
+| `tickets` (Tickets) | `tickets:read` | `ticketing:query:ticket:detail`, `ticketing:query:ticket:list` |
+| `tickets` (Tickets) | `tickets:write` | `ticketing:write:ticket:close`, `ticketing:write:ticket:create`, `ticketing:write:ticket:update` |
 
 ## Ratenbegrenzung
 

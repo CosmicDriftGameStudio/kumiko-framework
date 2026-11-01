@@ -1,4 +1,4 @@
-// API docs sample: a helpdesk whose ticket handlers are reachable with a personal access token.
+// API docs sample: a ticketing app whose ticket handlers are reachable with a personal access token.
 // Every handler a token scope reaches needs a description and, per locale, a title, description
 // and field labels; `kumiko api-docs` turns them into the pages under api-docs/.
 
@@ -28,7 +28,7 @@ export const ticketEntity = createEntity({
 
 const ticketAccess = { roles: ["Admin", "User"] } as const;
 
-export const helpdeskFeature = defineFeature("helpdesk", (r) => {
+export const ticketingFeature = defineFeature("ticketing", (r) => {
   const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
     "ticket",
     ticketEntity,
@@ -106,93 +106,93 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
     id: "ticket-edit",
     type: "entityEdit",
     entity: "ticket",
-    layout: { sections: [{ title: "helpdesk:section.ticket", fields: ["title", "priority"] }] },
+    layout: { sections: [{ title: "ticketing:section.ticket", fields: ["title", "priority"] }] },
   });
   r.screen({
     id: "close-ticket",
     type: "actionForm",
-    handler: "helpdesk:write:ticket:close",
+    handler: "ticketing:write:ticket:close",
     fields: { resolution: createTextField({ personal: false, reason: "is_business_data" }) },
-    layout: { sections: [{ title: "helpdesk:section.close", fields: ["resolution"] }] },
+    layout: { sections: [{ title: "ticketing:section.close", fields: ["resolution"] }] },
   });
   r.screen({
     id: "purge-tickets",
     type: "actionForm",
-    handler: "helpdesk:write:ticket:purge",
+    handler: "ticketing:write:ticket:purge",
     fields: {},
     layout: { sections: [] },
   });
 
-  r.nav({ id: "tickets", label: "helpdesk:nav:tickets", screen: "helpdesk:screen:ticket-list" });
-  r.nav({ id: "settings", label: "helpdesk:nav:settings" });
+  r.nav({ id: "tickets", label: "ticketing:nav:tickets", screen: "ticketing:screen:ticket-list" });
+  r.nav({ id: "settings", label: "ticketing:nav:settings" });
   r.nav({
     id: "api-tokens",
-    label: "helpdesk:nav:api-tokens",
-    parent: "helpdesk:nav:settings",
+    label: "ticketing:nav:api-tokens",
+    parent: "ticketing:nav:settings",
     screen: "personal-access-tokens:screen:api-tokens",
   });
 
   r.translations({
     keys: {
-      "helpdesk:nav:tickets": { en: "Tickets", de: "Tickets" },
-      "helpdesk:nav:settings": { en: "Settings", de: "Einstellungen" },
-      "helpdesk:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
-      "helpdesk:section.ticket": { en: "Ticket", de: "Ticket" },
-      "helpdesk:section.close": { en: "Close ticket", de: "Ticket schließen" },
-      "helpdesk:entity:ticket:field:title": { en: "Title", de: "Titel" },
-      "helpdesk:entity:ticket:field:status": { en: "Status", de: "Status" },
-      "helpdesk:entity:ticket:field:priority": { en: "Priority", de: "Priorität" },
-      "helpdesk:write:ticket:create:title": { en: "Create ticket", de: "Ticket anlegen" },
-      "helpdesk:write:ticket:create:description": {
+      "ticketing:nav:tickets": { en: "Tickets", de: "Tickets" },
+      "ticketing:nav:settings": { en: "Settings", de: "Einstellungen" },
+      "ticketing:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
+      "ticketing:section.ticket": { en: "Ticket", de: "Ticket" },
+      "ticketing:section.close": { en: "Close ticket", de: "Ticket schließen" },
+      "ticketing:entity:ticket:field:title": { en: "Title", de: "Titel" },
+      "ticketing:entity:ticket:field:status": { en: "Status", de: "Status" },
+      "ticketing:entity:ticket:field:priority": { en: "Priority", de: "Priorität" },
+      "ticketing:write:ticket:create:title": { en: "Create ticket", de: "Ticket anlegen" },
+      "ticketing:write:ticket:create:description": {
         en: "Opens a new ticket.",
         de: "Legt ein neues Ticket an.",
       },
-      "helpdesk:write:ticket:update:title": { en: "Update ticket", de: "Ticket ändern" },
-      "helpdesk:write:ticket:update:description": {
+      "ticketing:write:ticket:update:title": { en: "Update ticket", de: "Ticket ändern" },
+      "ticketing:write:ticket:update:description": {
         en: "Changes the title or the priority of a ticket.",
         de: "Ändert Titel oder Priorität eines Tickets.",
       },
-      "helpdesk:query:ticket:list:title": { en: "List tickets", de: "Tickets auflisten" },
-      "helpdesk:query:ticket:list:description": {
+      "ticketing:query:ticket:list:title": { en: "List tickets", de: "Tickets auflisten" },
+      "ticketing:query:ticket:list:description": {
         en: "Lists tickets, newest first.",
         de: "Listet Tickets, neueste zuerst.",
       },
-      "helpdesk:query:ticket:detail:title": { en: "Show ticket", de: "Ticket anzeigen" },
-      "helpdesk:query:ticket:detail:description": {
+      "ticketing:query:ticket:detail:title": { en: "Show ticket", de: "Ticket anzeigen" },
+      "ticketing:query:ticket:detail:description": {
         en: "Returns one ticket.",
         de: "Liefert ein Ticket.",
       },
-      "helpdesk:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
-      "helpdesk:write:ticket:close:description": {
+      "ticketing:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
+      "ticketing:write:ticket:close:description": {
         en: "Closes a ticket and records how it was resolved.",
         de: "Schließt ein Ticket und hält fest, wie es gelöst wurde.",
       },
-      "helpdesk:write:ticket:close:field:id": { en: "Ticket", de: "Ticket" },
-      "helpdesk:write:ticket:close:field:resolution": { en: "Resolution", de: "Lösung" },
-      "helpdesk:write:ticket:purge:title": { en: "Purge tickets", de: "Tickets bereinigen" },
-      "helpdesk:write:ticket:purge:description": {
+      "ticketing:write:ticket:close:field:id": { en: "Ticket", de: "Ticket" },
+      "ticketing:write:ticket:close:field:resolution": { en: "Resolution", de: "Lösung" },
+      "ticketing:write:ticket:purge:title": { en: "Purge tickets", de: "Tickets bereinigen" },
+      "ticketing:write:ticket:purge:description": {
         en: "Removes tickets that were closed long ago.",
         de: "Entfernt Tickets, die lange geschlossen sind.",
       },
-      "helpdesk:write:ticket:purge:field:olderThanDays": {
+      "ticketing:write:ticket:purge:field:olderThanDays": {
         en: "Closed longer than (days)",
         de: "Länger geschlossen als (Tage)",
       },
-      "helpdesk:entity:ticket": { en: "ticket", de: "Ticket" },
-      "helpdesk:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
-      "helpdesk:webhook:ticket-closed:description": {
+      "ticketing:entity:ticket": { en: "ticket", de: "Ticket" },
+      "ticketing:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
+      "ticketing:webhook:ticket-closed:description": {
         en: "A ticket was closed and its resolution recorded.",
         de: "Ein Ticket wurde geschlossen und seine Lösung festgehalten.",
       },
-      "helpdesk:webhook:ticket-closed:field:id": {
+      "ticketing:webhook:ticket-closed:field:id": {
         en: "ID of the closed ticket",
         de: "ID des geschlossenen Tickets",
       },
-      "helpdesk:webhook:ticket-closed:field:resolution": {
+      "ticketing:webhook:ticket-closed:field:resolution": {
         en: "How the ticket was resolved",
         de: "Wie das Ticket gelöst wurde",
       },
-      "helpdesk:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
+      "ticketing:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
     },
   });
 });
@@ -204,12 +204,12 @@ export function patFeature() {
     scopes: {
       tickets: {
         label: "Tickets",
-        events: ["ticket.created", "helpdesk:ticket-closed"],
-        read: ["helpdesk:query:ticket:*"],
+        events: ["ticket.created", "ticketing:ticket-closed"],
+        read: ["ticketing:query:ticket:*"],
         write: [
-          "helpdesk:write:ticket:create",
-          "helpdesk:write:ticket:update",
-          "helpdesk:write:ticket:close",
+          "ticketing:write:ticket:create",
+          "ticketing:write:ticket:update",
+          "ticketing:write:ticket:close",
         ],
       },
     },

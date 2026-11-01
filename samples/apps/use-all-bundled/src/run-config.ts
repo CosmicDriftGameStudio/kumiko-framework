@@ -38,10 +38,6 @@ import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
-import {
-  contactOpenRequestsPanels,
-  createContactFeature,
-} from "@cosmicdrift/kumiko-bundled-features/contact";
 import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -58,6 +54,10 @@ import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folde
 import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
+import {
+  createHelpdeskFeature,
+  helpdeskOpenRequestsPanels,
+} from "@cosmicdrift/kumiko-bundled-features/helpdesk";
 import { createHostRoutingFeature } from "@cosmicdrift/kumiko-bundled-features/host-routing";
 import { createInboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { createInboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
@@ -314,7 +314,7 @@ export const APP_FEATURES = [
   // CMS / content
   createLegalPagesFeature(),
   createWaitlistFeature(),
-  createContactFeature({
+  createHelpdeskFeature({
     appName: "publicstatus",
     appVersion: "2026.10.30",
     fields: { phone: "optional" },
@@ -410,7 +410,7 @@ export const APP_FEATURES = [
   createAdminShellFeature({
     includeCapOverview: true,
     includeDocumentDesigner: true,
-    extraPlatformPanels: contactOpenRequestsPanels(),
+    extraPlatformPanels: helpdeskOpenRequestsPanels(),
   }),
 
   // app-author-grade

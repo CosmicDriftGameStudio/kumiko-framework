@@ -4,17 +4,17 @@
 // JWT (TestUsers.admin) so marketing screenshots can be made
 // without login friction. Cream/light theme via styles.css.
 //
-// Two features (assets + helpdesk) on one instance — proves the
+// Two features (assets + ticketing) on one instance — proves the
 // marketing story "several small apps, one platform".
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { assetsFeature } from "../features/assets/feature";
-import { helpdeskFeature } from "../features/helpdesk/feature";
+import { ticketingFeature } from "../features/ticketing/feature";
 import { seedMarketingDemo } from "./seed";
 
 await runDevApp({
-  features: [localeDe(), assetsFeature, helpdeskFeature],
+  features: [localeDe(), assetsFeature, ticketingFeature],
   // PORT env overridable — Playwright e2e uses its own port (4179)
   // so dev mode (4178) can run in parallel.
   port: Number.parseInt(process.env["PORT"] ?? "4178", 10),

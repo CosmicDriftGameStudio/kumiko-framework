@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-31
-evidence: "packages/bundled-features/src/channel-in-app/handlers/read-state-by-keys.query.ts; packages/bundled-features/src/channel-in-app/__tests__/inbox.integration.test.ts; packages/bundled-features/src/delivery/channel-context.ts; packages/bundled-features/src/contact/handlers/attempts.ts; packages/types/src/in-app-notification-types.ts"
+evidence: "packages/bundled-features/src/channel-in-app/handlers/read-state-by-keys.query.ts; packages/bundled-features/src/channel-in-app/__tests__/inbox.integration.test.ts; packages/bundled-features/src/delivery/channel-context.ts; packages/bundled-features/src/helpdesk/handlers/attempts.ts; packages/types/src/in-app-notification-types.ts"
 ---
 
 # In-app read state by idempotency key

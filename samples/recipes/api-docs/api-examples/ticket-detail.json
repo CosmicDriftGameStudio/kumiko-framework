@@ -2,7 +2,7 @@
   "request": {
     "endpoint": "/api/query",
     "body": {
-      "type": "helpdesk:query:ticket:detail",
+      "type": "ticketing:query:ticket:detail",
       "payload": {
         "id": "00000000-0000-4000-8000-000000000001"
       }

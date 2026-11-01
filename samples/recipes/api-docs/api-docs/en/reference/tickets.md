@@ -19,11 +19,11 @@ Returns one ticket.
 **Example request**
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/query \
+curl -X POST https://ticketing.example.com/api/query \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:query:ticket:detail",
+  "type": "ticketing:query:ticket:detail",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001"
   }
@@ -84,11 +84,11 @@ Lists tickets, newest first.
 **Example request**
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/query \
+curl -X POST https://ticketing.example.com/api/query \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:query:ticket:list",
+  "type": "ticketing:query:ticket:list",
   "payload": {}
 }'
 ```
@@ -136,11 +136,11 @@ Closes a ticket and records how it was resolved.
 **Example request**
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/write \
+curl -X POST https://ticketing.example.com/api/write \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:write:ticket:close",
+  "type": "ticketing:write:ticket:close",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001",
     "resolution": "Replaced the cartridge"
@@ -179,11 +179,11 @@ Opens a new ticket.
 **Example request**
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/write \
+curl -X POST https://ticketing.example.com/api/write \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:write:ticket:create",
+  "type": "ticketing:write:ticket:create",
   "payload": {
     "title": "Printer is on fire",
     "priority": "high"
@@ -246,11 +246,11 @@ Changes the title or the priority of a ticket.
 **Example request**
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/write \
+curl -X POST https://ticketing.example.com/api/write \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:write:ticket:update",
+  "type": "ticketing:write:ticket:update",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001",
     "version": 1,

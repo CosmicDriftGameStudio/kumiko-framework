@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { generateApiDocs } from "../generate.ts";
-import { buildHelpdeskFeature, fixtureConfig, fixtureInput } from "./fixtures.ts";
+import { buildTicketingFeature, fixtureConfig, fixtureInput } from "./fixtures.ts";
 
 const kinds = (problems: readonly { kind: string }[]) => problems.map((p) => p.kind);
 
@@ -10,8 +10,8 @@ describe("generateApiDocs problems", () => {
     const { problems } = generateApiDocs(fixtureInput());
     expect(problems).toContainEqual({
       kind: "uiWriteOutsideScopes",
-      qn: "helpdesk:write:ticket:escalate",
-      screens: ["helpdesk:screen:escalate-ticket"],
+      qn: "ticketing:write:ticket:escalate",
+      screens: ["ticketing:screen:escalate-ticket"],
     });
   });
 
@@ -21,8 +21,8 @@ describe("generateApiDocs problems", () => {
         config: {
           ...fixtureConfig,
           uiOnlyWrites: [
-            { pattern: "helpdesk:write:ticket:*", reason: "agents escalate in the app" },
-            { pattern: "helpdesk:write:nothing:*", reason: "matches nothing" },
+            { pattern: "ticketing:write:ticket:*", reason: "agents escalate in the app" },
+            { pattern: "ticketing:write:nothing:*", reason: "matches nothing" },
           ],
         },
       }),
@@ -30,7 +30,7 @@ describe("generateApiDocs problems", () => {
     expect(kinds(problems)).not.toContain("uiWriteOutsideScopes");
     expect(problems).toContainEqual({
       kind: "unusedUiOnlyWrite",
-      pattern: "helpdesk:write:nothing:*",
+      pattern: "ticketing:write:nothing:*",
     });
   });
 
@@ -39,21 +39,21 @@ describe("generateApiDocs problems", () => {
     const missing = problems.flatMap((p) =>
       p.kind === "descriptionTranslationMissing" ? [`${p.qn} ${p.locale}`] : [],
     );
-    expect(missing).toContain("helpdesk:write:ticket:create de");
-    expect(missing).not.toContain("helpdesk:write:ticket:close de");
+    expect(missing).toContain("ticketing:write:ticket:create de");
+    expect(missing).not.toContain("ticketing:write:ticket:close de");
     expect(missing.some((entry) => entry.endsWith(" en"))).toBe(false);
   });
 
   test("handlers without a description are doc gaps", () => {
     const { problems } = generateApiDocs(fixtureInput());
     expect(problems.flatMap((p) => (p.kind === "docGap" ? [p.gap.qn] : []))).toContain(
-      "helpdesk:write:ticket:create",
+      "ticketing:write:ticket:create",
     );
   });
 
   test("without a personal-access-tokens feature nothing is generated", () => {
     const { files, problems } = generateApiDocs(
-      fixtureInput({ registry: createRegistry([buildHelpdeskFeature()]) }),
+      fixtureInput({ registry: createRegistry([buildTicketingFeature()]) }),
     );
     expect(files.size).toBe(0);
     expect(problems).toEqual([{ kind: "patFeatureMissing" }]);

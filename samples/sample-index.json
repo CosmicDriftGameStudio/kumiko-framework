@@ -151,17 +151,6 @@
       "sampleBlurb": "Typed tenant config keys with role-gated writes and optional encryption — integration tests cover read/write boundaries.",
       "screenshot": "/screenshots/features/config-settings-hub.png"
     },
-    "contact": {
-      "samples": [
-        "recipes-contact"
-      ],
-      "hasVisualOutput": true,
-      "readmeSummary": "Public contact form backend. The `contact` bundled feature stores questions, contact requests and problem reports from website visitors and notifies every SystemAdmin (mail, Telegram only when the app turns it on). The notification names only the kind, the app and a link into the inbox: no name, address, phone, subject",
-      "primarySample": "recipes-contact",
-      "whenToUse": "Visitors and signed-in users reach the app's SystemAdmins through a website form or an in-app report — an inbox with replies by email, internal notes and spam protection without a captcha.",
-      "sampleBlurb": "Mounts the feature with an optional phone field; the integration test fetches the anonymous proof-of-work challenge and the served website client.",
-      "screenshot": "/screenshots/features/contact.png"
-    },
     "custom-fields": {
       "samples": [
         "recipes-custom-fields-basic"
@@ -261,6 +250,17 @@
       "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
       "screenshot": "/screenshots/features/folders.png"
+    },
+    "helpdesk": {
+      "samples": [
+        "recipes-helpdesk"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Public contact form backend. The `helpdesk` bundled feature stores questions, contact requests and problem reports from website visitors and notifies every SystemAdmin (mail, Telegram only when the app turns it on). The notification names only the kind, the app and a link into the inbox: no name, address, phone, subjec",
+      "primarySample": "recipes-helpdesk",
+      "whenToUse": "Visitors and signed-in users reach the app's SystemAdmins through a website form or an in-app report — an inbox with replies by email, internal notes and spam protection without a captcha.",
+      "sampleBlurb": "Mounts the feature with an optional phone field; the integration test fetches the anonymous proof-of-work challenge and the served website client.",
+      "screenshot": "/screenshots/features/helpdesk.png"
     },
     "host-routing": {
       "samples": [

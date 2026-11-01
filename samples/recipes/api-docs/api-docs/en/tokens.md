@@ -19,11 +19,11 @@ A token expires after 90 days unless you pick another expiry. The longest possib
 Send the token in the `Authorization` header. Requests with a token need no cookie and no CSRF token.
 
 ```bash
-curl -X POST https://helpdesk.example.com/api/query \
+curl -X POST https://ticketing.example.com/api/query \
   -H "Authorization: Bearer $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-  "type": "helpdesk:query:ticket:detail",
+  "type": "ticketing:query:ticket:detail",
   "payload": {
     "id": "00000000-0000-4000-8000-000000000001"
   }
@@ -36,8 +36,8 @@ Each scope comes in two levels. `read` allows the read handlers. `write` allows 
 
 | Scope | Grant | Handlers |
 | --- | --- | --- |
-| `tickets` (Tickets) | `tickets:read` | `helpdesk:query:ticket:detail`, `helpdesk:query:ticket:list` |
-| `tickets` (Tickets) | `tickets:write` | `helpdesk:write:ticket:close`, `helpdesk:write:ticket:create`, `helpdesk:write:ticket:update` |
+| `tickets` (Tickets) | `tickets:read` | `ticketing:query:ticket:detail`, `ticketing:query:ticket:list` |
+| `tickets` (Tickets) | `tickets:write` | `ticketing:write:ticket:close`, `ticketing:write:ticket:create`, `ticketing:write:ticket:update` |
 
 ## Rate limit
 

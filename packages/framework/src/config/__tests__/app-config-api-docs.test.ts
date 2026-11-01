@@ -11,7 +11,7 @@ describe("apiDocs config", () => {
   test("a valid block passes", () => {
     const apiDocs = {
       locales: ["en", "de"],
-      uiOnlyWrites: [{ pattern: "helpdesk:write:ticket:*", reason: "agents work in the app" }],
+      uiOnlyWrites: [{ pattern: "ticketing:write:ticket:*", reason: "agents work in the app" }],
     };
     expect(findApiDocsConfigProblems(apiDocs)).toEqual([]);
     const config = { ...baseConfig, apiDocs };

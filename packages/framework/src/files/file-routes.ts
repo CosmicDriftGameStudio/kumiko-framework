@@ -676,7 +676,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return meta ? c.json(meta) : c.json({ error: "not_found" }, 404);
   });
 
-  // Read-only crossing: SYSTEM_TENANT_ID files (e.g. contact attachments) are
+  // Read-only crossing: SYSTEM_TENANT_ID files (e.g. helpdesk attachments) are
   // visible to a SystemAdmin whose session sits in another tenant. Delete,
   // variant and upload keep using loadFileForTenant and stay tenant-equal.
   async function loadReadableFileRef(id: string, user: SessionUser): Promise<FileRef | null> {

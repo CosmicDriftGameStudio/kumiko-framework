@@ -2,7 +2,7 @@
 
 Sample app that produces marketing screenshots for
 [kumiko.rocks](https://kumiko.rocks). Two small internal tools (asset tracker
-- helpdesk) on a single Kumiko instance — a DACH-persona proof that the
+- ticketing) on a single Kumiko instance — a DACH-persona proof that the
   same framework stack covers two tools without separate codebases.
 
 **No auth** — like the showcase, in auto-mint-JWT mode. Straight to

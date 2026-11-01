@@ -194,22 +194,6 @@ Stores per-tenant (and optionally per-user) configuration values with a multi-la
 
 Category: infrastructure
 
-## contact
-
-Contact inbox: an anonymous browser client (GET /contact/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin. Every request is stored platform-wide and every SystemAdmin is notified by mail, optionally also in a Telegram chat (option `telegram`, off by default); the notification names only the kind, the app and a link, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. SystemAdmins reply by mail (Reply-To set, attachments, quoting the original) and mark requests done; a website sender gets a fixed acknowledgement, a signed-in reporter a copy and an in-app note. Personal data is crypto-shredding-ready and the EXT_USER_DATA hooks export and erase a user's requests.
-
-Category: communication
-
-Requires: `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
-
-Optional requires: `channel-telegram`
-
-Config keys:
-
-| Key | Type | Scope | Default |
-| --- | --- | --- | --- |
-| `reply-to` | text | system | `` |
-
 ## crypto-shredding
 
 Operator-level crypto-shredding trigger. `forget-subject` erases a user or tenant subject key in the configured KMS adapter, making every PII field encrypted under it permanently unreadable (reads render the `[[erased]]` sentinel), and appends a `subject-forgotten` audit event. Requires a KMS adapter (`runProdApp({ kms })`). The automated Art.-17 deletion pipeline in `user-data-rights` erases keys itself; this command covers manual forgets (authority requests, operator recovery, tenant destroy).
@@ -396,6 +380,22 @@ GDPR (Art. 20 export / Art. 17 erasure) coverage for the `form-draft` feature's 
 Requires: `user-data-rights`
 
 Optional requires: `form-draft`
+
+## helpdesk
+
+Helpdesk inbox: an anonymous browser client (GET /helpdesk/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin. Every request is stored platform-wide and every SystemAdmin is notified by mail, optionally also in a Telegram chat (option `telegram`, off by default); the notification names only the kind, the app and a link, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. SystemAdmins reply by mail (Reply-To set, attachments, quoting the original) and mark requests done; a website sender gets a fixed acknowledgement, a signed-in reporter a copy and an in-app note. Personal data is crypto-shredding-ready and the EXT_USER_DATA hooks export and erase a user's requests.
+
+Category: communication
+
+Requires: `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
+
+Optional requires: `channel-telegram`
+
+Config keys:
+
+| Key | Type | Scope | Default |
+| --- | --- | --- | --- |
+| `reply-to` | text | system | `` |
 
 ## host-routing
 

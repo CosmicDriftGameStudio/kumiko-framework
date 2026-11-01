@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { helpdeskFeature } from "../feature";
+import { ticketingFeature } from "../feature";
 
 type TicketRow = { id: string; title: string; isClosed: boolean };
 
@@ -11,7 +11,7 @@ let admin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(nextTenant
 let agent = createTestUser({ id: 2, roles: ["User"], tenantId: testTenantId(nextTenant) });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [helpdeskFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [ticketingFeature], systemHooks: [] });
 });
 
 afterAll(async () => {
@@ -27,7 +27,7 @@ beforeEach(() => {
 
 async function openTicket(title: string): Promise<string> {
   const created = await stack.http.writeOk<{ id: string }>(
-    "helpdesk:write:ticket:create",
+    "ticketing:write:ticket:create",
     { title },
     agent,
   );
@@ -35,7 +35,7 @@ async function openTicket(title: string): Promise<string> {
 }
 
 async function readTicket(id: string): Promise<TicketRow> {
-  return stack.http.queryOk<TicketRow>("helpdesk:query:ticket:detail", { id }, agent);
+  return stack.http.queryOk<TicketRow>("ticketing:query:ticket:detail", { id }, agent);
 }
 
 describe("golden path: ticket", () => {
@@ -49,14 +49,14 @@ describe("golden path: ticket", () => {
     const id = await openTicket("Login fails");
 
     await stack.http.writeOk(
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       { id, resolution: "Password reset" },
       admin,
     );
 
     expect(await readTicket(id)).toMatchObject({ title: "Login fails", isClosed: true });
     const list = await stack.http.queryOk<{ rows: TicketRow[] }>(
-      "helpdesk:query:ticket:list",
+      "ticketing:query:ticket:list",
       { filter: { field: "isClosed", op: "eq", value: true } },
       agent,
     );
@@ -66,9 +66,9 @@ describe("golden path: ticket", () => {
   test("closing an already closed ticket is rejected with 422", async () => {
     const id = await openTicket("Duplicate close");
     const close = { id, resolution: "Fixed" };
-    await stack.http.writeOk("helpdesk:write:ticket:close", close, admin);
+    await stack.http.writeOk("ticketing:write:ticket:close", close, admin);
 
-    const again = await stack.http.writeErr("helpdesk:write:ticket:close", close, admin);
+    const again = await stack.http.writeErr("ticketing:write:ticket:close", close, admin);
 
     expect(again.httpStatus).toBe(422);
     expect(again.details).toEqual({ reason: "ticket_already_closed" });
@@ -78,7 +78,7 @@ describe("golden path: ticket", () => {
     const id = await openTicket("Slow wifi");
 
     const denied = await stack.http.writeErr(
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       { id, resolution: "Moved the router" },
       agent,
     );
@@ -89,7 +89,7 @@ describe("golden path: ticket", () => {
 
   test("closing an unknown ticket fails with not_found", async () => {
     const missing = await stack.http.writeErr(
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       { id: "99999999-9999-4999-8999-999999999999", resolution: "n/a" },
       admin,
     );

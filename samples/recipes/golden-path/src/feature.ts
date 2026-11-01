@@ -18,7 +18,7 @@ export const ticketEntity = createEntity({
   },
 });
 
-export const helpdeskFeature = defineFeature("helpdesk", (r) => {
+export const ticketingFeature = defineFeature("ticketing", (r) => {
   const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
     "ticket",
     ticketEntity,

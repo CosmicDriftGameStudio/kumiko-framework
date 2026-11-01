@@ -23,7 +23,7 @@ import { createAuthFoundationFeature } from "${resolve("@cosmicdrift/kumiko-bund
 import { createPersonalAccessTokensFeature } from "${resolve("@cosmicdrift/kumiko-bundled-features/personal-access-tokens")}";
 
 const access = { openToAll: { reason: "cli test handler" } };
-const helpdesk = defineFeature("helpdesk", (r) => {
+const ticketing = defineFeature("ticketing", (r) => {
   r.writeHandler({
     name: "ticket:close",
     schema: z.object({ id: z.uuid() }),
@@ -39,9 +39,9 @@ export default {
     createUserFeature(),
     createTenantFeature(),
     createAuthFoundationFeature(),
-    helpdesk,
+    ticketing,
     createPersonalAccessTokensFeature({
-      scopes: { tickets: { label: "Tickets", read: [], write: ["helpdesk:write:ticket:close"] } },
+      scopes: { tickets: { label: "Tickets", read: [], write: ["ticketing:write:ticket:close"] } },
     }),
   ],
   apiDocs: { baseUrl: "https://api.example.test", appName: "Helpdesk" },

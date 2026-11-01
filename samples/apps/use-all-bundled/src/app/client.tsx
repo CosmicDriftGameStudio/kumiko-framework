@@ -120,7 +120,7 @@ createKumikoApp({
     userProfileClient(),
     customFieldsClient(),
     foldersClient(),
-    // The contact request detail frames its internal notes with the NotesSection extension.
+    // The helpdesk request detail frames its internal notes with the NotesSection extension.
     notesHistoryClient(),
     inboundMailFoundationClient(),
     complianceProfilesClient(),

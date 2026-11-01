@@ -9,7 +9,7 @@ import { RECORD_API_EXAMPLES_ENV } from "../record.ts";
 import { recordWebhookExample } from "../webhook-record.ts";
 
 const contract: WebhookEventContract = {
-  qn: "helpdesk:ticket-closed",
+  qn: "ticketing:ticket-closed",
   wireName: "ticket-closed",
   description: "A ticket was closed.",
   payload: z.object({ id: z.uuid(), resolution: z.string(), closedAt: z.string() }),
@@ -60,7 +60,7 @@ describe("recordWebhookExample", () => {
       readFileSync(join(dir, "webhooks", "ticket-closed.json"), "utf8"),
     );
     expect(file).toEqual({
-      event: "helpdesk:ticket-closed",
+      event: "ticketing:ticket-closed",
       version: 3,
       payload: {
         id: "00000000-0000-4000-8000-000000000001",
@@ -73,7 +73,7 @@ describe("recordWebhookExample", () => {
   test("a payload that contradicts the contract throws with the issues and writes nothing", async () => {
     process.env[RECORD_API_EXAMPLES_ENV] = "1";
     await expect(record({ id: "nope", resolution: "fixed" })).rejects.toThrow(
-      /helpdesk:ticket-closed.*id:.*closedAt:/s,
+      /ticketing:ticket-closed.*id:.*closedAt:/s,
     );
     expect(existsSync(join(dir, "webhooks"))).toBe(false);
   });

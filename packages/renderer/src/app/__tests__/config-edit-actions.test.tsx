@@ -50,7 +50,7 @@ const primitives: CorePrimitives = {
 
 const action: ConfigEditAction = {
   id: "send-test",
-  handler: "contact:write:send-test",
+  handler: "helpdesk:write:send-test",
   label: "contact.test.label",
   description: "contact.test.description",
   buttonLabel: "contact.test.button",
@@ -99,7 +99,7 @@ describe("ConfigEditActionRow", () => {
         "Test sent",
       ),
     );
-    expect(write.mock.calls).toEqual([["contact:write:send-test", {}]]);
+    expect(write.mock.calls).toEqual([["helpdesk:write:send-test", {}]]);
   });
 
   test("a failing handler shows the translated error text", async () => {

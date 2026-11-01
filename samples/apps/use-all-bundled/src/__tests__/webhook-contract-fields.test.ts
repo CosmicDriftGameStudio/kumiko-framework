@@ -35,9 +35,9 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "user-data-rights/download-attempt": "id result via jobId attemptedByUserId attemptedAt",
   "waitlist/waitlistEntry":
     "id company portfolio locale status submittedAt invitedAt invitedBy provisionedAt linkedTenantId",
-  "contact/contact-request":
+  "helpdesk/helpdesk-request":
     "id kind status source reporterUserId reporterTenantId reporterTenantName reporterTenantPlan page appVersion browser locale fileCount submittedAt answeredAt closedAt replyCount",
-  "contact/contact-reply":
+  "helpdesk/helpdesk-reply":
     "id requestId reporterUserId authorUserId authorName fileIds channels sentAt",
   "template-resolver/template-resource":
     "id slug kind locale title folder content contentFormat variableSchema linkedResources meta scope parentTemplateId status draft activeVersion activeSince",

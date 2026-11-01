@@ -1,6 +1,6 @@
 # API docs
 
-API documentation for personal access tokens, generated from the app itself. A helpdesk
+API documentation for personal access tokens, generated from the app itself. A ticketing
 feature exposes its ticket handlers through token scopes; `kumiko api-docs` turns the
 registry, the translations and recorded requests into Markdown pages, an OpenAPI file and
 an `index.json` that a website or an agent can read.
@@ -8,7 +8,7 @@ an `index.json` that a website or an agent can read.
 ## What it shows
 
 - **Scopes decide the content.** Only handlers that a scope of the token feature reaches
-  appear. `helpdesk:write:ticket:purge` is reachable from a screen but in no scope, so it is
+  appear. `ticketing:write:ticket:purge` is reachable from a screen but in no scope, so it is
   listed under `apiDocs.uiOnlyWrites` with a reason; without that entry the generator reports it.
 - **Texts come from the feature.** Titles, descriptions and field labels per locale use the
   keys `<handler qn>:title`, `:description` and `:field:<name>`; the German pages need the
@@ -44,7 +44,7 @@ those two files differ from a real run of the command.
 
 ```
 kumiko.config.ts                          features and the apiDocs block
-src/feature.ts                            helpdesk feature and the token feature with its scopes
+src/feature.ts                            ticketing feature and the token feature with its scopes
 src/__tests__/api-docs.integration.test.ts   mints a token, records the examples, checks scope limits
 src/__tests__/api-docs.golden.test.ts        generator output equals api-docs/
 api-examples/                             recorded requests and responses

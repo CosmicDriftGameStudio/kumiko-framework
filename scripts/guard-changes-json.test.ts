@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitEnv } from "@cosmicdrift/kumiko-guards";
@@ -361,6 +361,10 @@ describe("findChangesetViolations", () => {
       return root;
     }
 
+    function stageAll(root: string): void {
+      expect(Bun.spawnSync(["git", "add", "-A"], { cwd: root, env: fixtureGitEnv(root) }).exitCode).toBe(0);
+    }
+
     function editEntries(root: string, entries: unknown): void {
       writeFileSync(join(root, file), JSON.stringify(entries, null, 2));
     }
@@ -397,6 +401,30 @@ describe("findChangesetViolations", () => {
       editEntries(root, [{ ...baseEntries[1], codemod: "b" }]);
 
       expect(isTextOnlyChangesEdit(root, file)).toBe(false);
+    });
+
+    it("allows moving a changes.json unchanged with its renamed feature folder", () => {
+      const root = buildRepoWithBase();
+      const moved = "packages/renamed-feature/src/changes.json";
+      mkdirSync(join(root, "packages/renamed-feature/src"), { recursive: true });
+      renameSync(join(root, file), join(root, moved));
+      stageAll(root);
+
+      expect(findChangesetViolations(root, [moved], {})).toEqual([]);
+    });
+
+    it("rejects a moved changes.json whose entries changed on the way", () => {
+      const root = buildRepoWithBase();
+      const moved = "packages/renamed-feature/src/changes.json";
+      mkdirSync(join(root, "packages/renamed-feature/src"), { recursive: true });
+      rmSync(join(root, file));
+      writeFileSync(
+        join(root, moved),
+        JSON.stringify([{ version: "0.3.0", type: "fix", title: "third" }, ...baseEntries], null, 2),
+      );
+      stageAll(root);
+
+      expect(findChangesetViolations(root, [moved], {})).toHaveLength(1);
     });
 
     it("keeps the strict rule when origin/main is not available", () => {

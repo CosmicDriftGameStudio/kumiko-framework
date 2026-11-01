@@ -279,10 +279,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Der Postausgangsserver ist nicht erreichbar. Versuchen Sie es später noch einmal.",
   "inboundMail.send.errors.rejected":
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfen Sie die Empfängeradresse.",
-  "contact:report.summary":
+  "helpdesk:report.summary":
     "Die Antwort kommt per Mail an die Adresse Ihres Kontos, meist am selben Werktag.",
-  "contact:report.section": "Ihre Meldung",
-  "contact:report.success": "Danke, Ihre Meldung ist angekommen. Die Antwort kommt per Mail.",
+  "helpdesk:report.section": "Ihre Meldung",
+  "helpdesk:report.success": "Danke, Ihre Meldung ist angekommen. Die Antwort kommt per Mail.",
 };
 
 export function germanBundleFor(address: GermanAddress): Readonly<Record<string, string>> {

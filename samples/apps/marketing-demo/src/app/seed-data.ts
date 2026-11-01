@@ -8,7 +8,7 @@
 // an immediate compile error here, no silent drift.
 
 import type { AssetDepartment, AssetType } from "../features/assets/schema";
-import type { TicketCategory, TicketDepartment } from "../features/helpdesk/schema";
+import type { TicketCategory, TicketDepartment } from "../features/ticketing/schema";
 
 export interface AssetTemplate {
   readonly name: string;
