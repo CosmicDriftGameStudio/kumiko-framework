@@ -1,6 +1,6 @@
 // @runtime test
 // Playwright config for the marketing demo. Generates screenshots from the
-// actually rendered pages (asset tracker + helpdesk) into the configured
+// actually rendered pages (asset tracker + ticketing) into the configured
 // screenshot directory.
 
 import { defineAppE2eConfig, PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e";

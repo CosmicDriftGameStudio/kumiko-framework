@@ -77,7 +77,7 @@ function viewModelField(entity: EntityDefinition, fieldName: string): EditFieldV
     entity,
     values: { area: "jobs", tags: [] },
     translate: (key) => key,
-    featureName: "helpdesk",
+    featureName: "ticketing",
   });
   const section = vm.sections[0];
   if (section === undefined || section.kind !== "fields") {

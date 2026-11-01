@@ -4,18 +4,18 @@ import { diffApiDocsOutput } from "../check.ts";
 
 describe("anchors", () => {
   test("heading drops the feature and the query/write kind", () => {
-    expect(handlerHeading("helpdesk:write:ticket:close")).toBe("ticket: close");
+    expect(handlerHeading("ticketing:write:ticket:close")).toBe("ticket: close");
     expect(slugify("ticket: close")).toBe("ticket-close");
   });
 
   test("two handlers with the same tail both switch to the full QN form", () => {
     const anchors = anchorsForPage([
-      "helpdesk:write:ticket:close",
+      "ticketing:write:ticket:close",
       "support:write:ticket:close",
-      "helpdesk:write:ticket:open",
+      "ticketing:write:ticket:open",
     ]);
     expect(anchors.map((a) => a.heading)).toEqual([
-      "helpdesk: write: ticket: close",
+      "ticketing: write: ticket: close",
       "support: write: ticket: close",
       "ticket: open",
     ]);

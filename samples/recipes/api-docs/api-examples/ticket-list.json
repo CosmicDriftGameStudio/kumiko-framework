@@ -2,7 +2,7 @@
   "request": {
     "endpoint": "/api/query",
     "body": {
-      "type": "helpdesk:query:ticket:list",
+      "type": "ticketing:query:ticket:list",
       "payload": {}
     }
   },

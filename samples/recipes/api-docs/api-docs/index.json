@@ -124,31 +124,31 @@
           "id": "ticket-detail",
           "heading": "ticket: detail",
           "level": 3,
-          "qn": "helpdesk:query:ticket:detail"
+          "qn": "ticketing:query:ticket:detail"
         },
         {
           "id": "ticket-list",
           "heading": "ticket: list",
           "level": 3,
-          "qn": "helpdesk:query:ticket:list"
+          "qn": "ticketing:query:ticket:list"
         },
         {
           "id": "ticket-close",
           "heading": "ticket: close",
           "level": 3,
-          "qn": "helpdesk:write:ticket:close"
+          "qn": "ticketing:write:ticket:close"
         },
         {
           "id": "ticket-create",
           "heading": "ticket: create",
           "level": 3,
-          "qn": "helpdesk:write:ticket:create"
+          "qn": "ticketing:write:ticket:create"
         },
         {
           "id": "ticket-update",
           "heading": "ticket: update",
           "level": 3,
-          "qn": "helpdesk:write:ticket:update"
+          "qn": "ticketing:write:ticket:update"
         }
       ]
     },
@@ -176,16 +176,16 @@
           "level": 2
         },
         {
-          "id": "ticketclosed",
-          "heading": "ticket.closed",
-          "level": 3,
-          "qn": "helpdesk:ticket-closed"
-        },
-        {
           "id": "ticketcreated",
           "heading": "ticket.created",
           "level": 3,
           "qn": "ticket.created"
+        },
+        {
+          "id": "ticketclosed",
+          "heading": "ticket.closed",
+          "level": 3,
+          "qn": "ticketing:ticket-closed"
         }
       ]
     },
@@ -302,31 +302,31 @@
           "id": "ticket-detail",
           "heading": "ticket: detail",
           "level": 3,
-          "qn": "helpdesk:query:ticket:detail"
+          "qn": "ticketing:query:ticket:detail"
         },
         {
           "id": "ticket-list",
           "heading": "ticket: list",
           "level": 3,
-          "qn": "helpdesk:query:ticket:list"
+          "qn": "ticketing:query:ticket:list"
         },
         {
           "id": "ticket-close",
           "heading": "ticket: close",
           "level": 3,
-          "qn": "helpdesk:write:ticket:close"
+          "qn": "ticketing:write:ticket:close"
         },
         {
           "id": "ticket-create",
           "heading": "ticket: create",
           "level": 3,
-          "qn": "helpdesk:write:ticket:create"
+          "qn": "ticketing:write:ticket:create"
         },
         {
           "id": "ticket-update",
           "heading": "ticket: update",
           "level": 3,
-          "qn": "helpdesk:write:ticket:update"
+          "qn": "ticketing:write:ticket:update"
         }
       ]
     },
@@ -354,16 +354,16 @@
           "level": 2
         },
         {
-          "id": "ticketclosed",
-          "heading": "ticket.closed",
-          "level": 3,
-          "qn": "helpdesk:ticket-closed"
-        },
-        {
           "id": "ticketcreated",
           "heading": "ticket.created",
           "level": 3,
           "qn": "ticket.created"
+        },
+        {
+          "id": "ticketclosed",
+          "heading": "ticket.closed",
+          "level": 3,
+          "qn": "ticketing:ticket-closed"
         }
       ]
     }

@@ -1,7 +1,7 @@
 // Seed for the marketing demo. Plausible data — asset tracker with ~30
-// realistic items (laptops, printers, tools), helpdesk with ~20
+// realistic items (laptops, printers, tools), ticketing with ~20
 // real-looking tickets. Goes through the normal dispatcher
-// (assets:write:asset:create, helpdesk:write:ticket:create) so all
+// (assets:write:asset:create, ticketing:write:ticket:create) so all
 // pipeline stages (validation, audit, search index) run as with real
 // requests.
 //
@@ -13,7 +13,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { countAssetsForTenant, countTicketsForTenant } from "../db/queries/seed-counts";
 import { ASSET_STATUSES } from "../features/assets/schema";
-import { TICKET_SEVERITIES, TICKET_STATUSES } from "../features/helpdesk/schema";
+import { TICKET_SEVERITIES, TICKET_STATUSES } from "../features/ticketing/schema";
 import {
   ASSET_TEMPLATES,
   ASSIGNEES,
@@ -121,7 +121,7 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
             ? 15 + Math.floor(r() * 90)
             : 30 + Math.floor(r() * 240);
       await stack.http.write(
-        "helpdesk:write:ticket:create",
+        "ticketing:write:ticket:create",
         {
           title: tpl.title,
           description: `Gemeldet von ${reporter}. Bitte zeitnah prüfen.`,

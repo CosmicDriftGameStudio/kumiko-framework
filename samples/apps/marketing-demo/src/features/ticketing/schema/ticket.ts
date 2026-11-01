@@ -88,7 +88,7 @@ export const ticketEditScreen: EntityEditScreenDefinition = {
   layout: {
     sections: [
       {
-        title: "helpdesk:section.ticket",
+        title: "ticketing:section.ticket",
         columns: 2,
         fields: [
           { field: "title", span: 2 },
@@ -100,12 +100,12 @@ export const ticketEditScreen: EntityEditScreenDefinition = {
         ],
       },
       {
-        title: "helpdesk:section.people",
+        title: "ticketing:section.people",
         columns: 2,
         fields: ["reporter", "assignee"],
       },
       {
-        title: "helpdesk:section.tracking",
+        title: "ticketing:section.tracking",
         columns: 2,
         fields: ["dueDate", "spentMinutes"],
       },
@@ -131,6 +131,6 @@ export const ticketListScreen: EntityListScreenDefinition = {
   pageSize: 25,
   defaultSort: { field: "severity", dir: "desc" },
   rowActions: [
-    { kind: "navigate", id: "edit", label: "helpdesk:actions.edit", screen: "ticket-edit" },
+    { kind: "navigate", id: "edit", label: "ticketing:actions.edit", screen: "ticket-edit" },
   ],
 };

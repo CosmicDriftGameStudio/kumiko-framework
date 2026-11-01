@@ -1,7 +1,7 @@
 const QN_TYPE_SEGMENTS = new Set(["query", "write"]);
 const HEADING_SEPARATOR = ": ";
 
-/** `helpdesk:write:ticket:close` becomes ["ticket", "close"]: the feature prefix and
+/** `ticketing:write:ticket:close` becomes ["ticket", "close"]: the feature prefix and
  *  the `query`/`write` kind are noise inside a page that already names both. */
 function tailSegments(qn: string): readonly string[] {
   const segments = qn.split(":");

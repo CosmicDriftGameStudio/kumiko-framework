@@ -15,27 +15,6 @@ Adding an optional field keeps the version. A breaking change, such as removing 
 
 ## Events
 
-### ticket.closed
-
-A ticket was closed and its resolution recorded.
-
-- Version: `1`
-- Required scope: `tickets:read`
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `id` | string (uuid) | yes | ID of the closed ticket |
-| `resolution` | string | yes | How the ticket was resolved |
-
-**Example payload**
-
-```json
-{
-  "id": "00000000-0000-4000-8000-000000000001",
-  "resolution": "Replaced the roller"
-}
-```
-
 ### ticket.created
 
 A record of type ticket was created.
@@ -58,5 +37,26 @@ A record of type ticket was created.
   "title": "Scanner jams",
   "status": "open",
   "priority": "low"
+}
+```
+
+### ticket.closed
+
+A ticket was closed and its resolution recorded.
+
+- Version: `1`
+- Required scope: `tickets:read`
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string (uuid) | yes | ID of the closed ticket |
+| `resolution` | string | yes | How the ticket was resolved |
+
+**Example payload**
+
+```json
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "resolution": "Replaced the roller"
 }
 ```

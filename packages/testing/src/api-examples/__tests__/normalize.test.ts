@@ -8,7 +8,7 @@ describe("normalizeApiExample", () => {
   const normalized = normalizeApiExample({
     request: {
       endpoint: "/api/write",
-      body: { type: "helpdesk:write:ticket:close", payload: { id: A }, requestId: B },
+      body: { type: "ticketing:write:ticket:close", payload: { id: A }, requestId: B },
     },
     response: {
       status: 200,

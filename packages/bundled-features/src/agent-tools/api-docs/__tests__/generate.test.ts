@@ -32,7 +32,7 @@ describe("generateApiDocs", () => {
     expect(file("de/tokens.md")).toContain("Öffne Einstellungen › API-Tokens.");
     expect(file("en/tokens.md")).toContain("| `tickets` (Tickets) | `tickets:read` |");
     expect(file("en/tokens.md")).toContain(
-      "| `tickets` (Tickets) | `tickets:write` | `helpdesk:write:ticket:close`",
+      "| `tickets` (Tickets) | `tickets:write` | `ticketing:write:ticket:close`",
     );
     expect(file("en/tokens.md")).toContain("Each token may send 30 requests per 10 seconds.");
     expect(file("en/tokens.md")).not.toContain("feature_disabled");
@@ -71,7 +71,7 @@ describe("generateApiDocs", () => {
               request: {
                 endpoint: "/api/write",
                 body: {
-                  type: "helpdesk:write:ticket:close",
+                  type: "ticketing:write:ticket:close",
                   payload: { id: "x", reason: "solved" },
                 },
               },
@@ -160,7 +160,7 @@ describe("generateApiDocs", () => {
       id: "ticket-close",
       heading: "ticket: close",
       level: 3,
-      qn: "helpdesk:write:ticket:close",
+      qn: "ticketing:write:ticket:close",
     });
     expect(byPath.get("en/tokens.md")?.anchors.map((a) => a.id)).toEqual([
       "create-token",

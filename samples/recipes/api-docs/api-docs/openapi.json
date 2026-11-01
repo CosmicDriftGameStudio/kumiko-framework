@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://helpdesk.example.com"
+      "url": "https://ticketing.example.com"
     }
   ],
   "security": [
@@ -25,17 +25,17 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/helpdesk.query.ticket.detail.request"
+                    "$ref": "#/components/schemas/ticketing.query.ticket.detail.request"
                   },
                   {
-                    "$ref": "#/components/schemas/helpdesk.query.ticket.list.request"
+                    "$ref": "#/components/schemas/ticketing.query.ticket.list.request"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "type",
                   "mapping": {
-                    "helpdesk:query:ticket:detail": "#/components/schemas/helpdesk.query.ticket.detail.request",
-                    "helpdesk:query:ticket:list": "#/components/schemas/helpdesk.query.ticket.list.request"
+                    "ticketing:query:ticket:detail": "#/components/schemas/ticketing.query.ticket.detail.request",
+                    "ticketing:query:ticket:list": "#/components/schemas/ticketing.query.ticket.list.request"
                   }
                 }
               }
@@ -172,21 +172,21 @@
               "schema": {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/helpdesk.write.ticket.close.request"
+                    "$ref": "#/components/schemas/ticketing.write.ticket.close.request"
                   },
                   {
-                    "$ref": "#/components/schemas/helpdesk.write.ticket.create.request"
+                    "$ref": "#/components/schemas/ticketing.write.ticket.create.request"
                   },
                   {
-                    "$ref": "#/components/schemas/helpdesk.write.ticket.update.request"
+                    "$ref": "#/components/schemas/ticketing.write.ticket.update.request"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "type",
                   "mapping": {
-                    "helpdesk:write:ticket:close": "#/components/schemas/helpdesk.write.ticket.close.request",
-                    "helpdesk:write:ticket:create": "#/components/schemas/helpdesk.write.ticket.create.request",
-                    "helpdesk:write:ticket:update": "#/components/schemas/helpdesk.write.ticket.update.request"
+                    "ticketing:write:ticket:close": "#/components/schemas/ticketing.write.ticket.close.request",
+                    "ticketing:write:ticket:create": "#/components/schemas/ticketing.write.ticket.create.request",
+                    "ticketing:write:ticket:update": "#/components/schemas/ticketing.write.ticket.update.request"
                   }
                 }
               }
@@ -331,21 +331,21 @@
                     "items": {
                       "oneOf": [
                         {
-                          "$ref": "#/components/schemas/helpdesk.write.ticket.close.request"
+                          "$ref": "#/components/schemas/ticketing.write.ticket.close.request"
                         },
                         {
-                          "$ref": "#/components/schemas/helpdesk.write.ticket.create.request"
+                          "$ref": "#/components/schemas/ticketing.write.ticket.create.request"
                         },
                         {
-                          "$ref": "#/components/schemas/helpdesk.write.ticket.update.request"
+                          "$ref": "#/components/schemas/ticketing.write.ticket.update.request"
                         }
                       ],
                       "discriminator": {
                         "propertyName": "type",
                         "mapping": {
-                          "helpdesk:write:ticket:close": "#/components/schemas/helpdesk.write.ticket.close.request",
-                          "helpdesk:write:ticket:create": "#/components/schemas/helpdesk.write.ticket.create.request",
-                          "helpdesk:write:ticket:update": "#/components/schemas/helpdesk.write.ticket.update.request"
+                          "ticketing:write:ticket:close": "#/components/schemas/ticketing.write.ticket.close.request",
+                          "ticketing:write:ticket:create": "#/components/schemas/ticketing.write.ticket.create.request",
+                          "ticketing:write:ticket:update": "#/components/schemas/ticketing.write.ticket.update.request"
                         }
                       }
                     }
@@ -482,27 +482,6 @@
     }
   },
   "webhooks": {
-    "ticket.closed": {
-      "post": {
-        "summary": "ticket.closed",
-        "x-kumiko-qn": "helpdesk:ticket-closed",
-        "description": "A ticket was closed and its resolution recorded.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/helpdesk.ticket-closed.event"
-              }
-            }
-          }
-        },
-        "x-kumiko-version": 1,
-        "x-kumiko-scope": [
-          "tickets:read"
-        ]
-      }
-    },
     "ticket.created": {
       "post": {
         "summary": "ticket.created",
@@ -523,6 +502,27 @@
           "tickets:read"
         ]
       }
+    },
+    "ticket.closed": {
+      "post": {
+        "summary": "ticket.closed",
+        "x-kumiko-qn": "ticketing:ticket-closed",
+        "description": "A ticket was closed and its resolution recorded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ticketing.ticket-closed.event"
+              }
+            }
+          }
+        },
+        "x-kumiko-version": 1,
+        "x-kumiko-scope": [
+          "tickets:read"
+        ]
+      }
     }
   },
   "components": {
@@ -533,7 +533,7 @@
       }
     },
     "schemas": {
-      "helpdesk.query.ticket.detail.request": {
+      "ticketing.query.ticket.detail.request": {
         "type": "object",
         "description": "Returns one ticket.",
         "required": [
@@ -542,17 +542,17 @@
         ],
         "properties": {
           "type": {
-            "const": "helpdesk:query:ticket:detail"
+            "const": "ticketing:query:ticket:detail"
           },
           "payload": {
-            "$ref": "#/components/schemas/helpdesk.query.ticket.detail.payload"
+            "$ref": "#/components/schemas/ticketing.query.ticket.detail.payload"
           },
           "requestId": {
             "type": "string"
           }
         }
       },
-      "helpdesk.query.ticket.detail.payload": {
+      "ticketing.query.ticket.detail.payload": {
         "type": "object",
         "properties": {
           "id": {
@@ -565,7 +565,7 @@
           "id"
         ]
       },
-      "helpdesk.query.ticket.list.request": {
+      "ticketing.query.ticket.list.request": {
         "type": "object",
         "description": "Lists tickets, newest first.",
         "required": [
@@ -574,17 +574,17 @@
         ],
         "properties": {
           "type": {
-            "const": "helpdesk:query:ticket:list"
+            "const": "ticketing:query:ticket:list"
           },
           "payload": {
-            "$ref": "#/components/schemas/helpdesk.query.ticket.list.payload"
+            "$ref": "#/components/schemas/ticketing.query.ticket.list.payload"
           },
           "requestId": {
             "type": "string"
           }
         }
       },
-      "helpdesk.query.ticket.list.payload": {
+      "ticketing.query.ticket.list.payload": {
         "type": "object",
         "properties": {
           "cursor": {
@@ -719,7 +719,7 @@
           }
         }
       },
-      "helpdesk.write.ticket.close.request": {
+      "ticketing.write.ticket.close.request": {
         "type": "object",
         "description": "Closes a ticket and records how it was resolved.",
         "required": [
@@ -728,17 +728,17 @@
         ],
         "properties": {
           "type": {
-            "const": "helpdesk:write:ticket:close"
+            "const": "ticketing:write:ticket:close"
           },
           "payload": {
-            "$ref": "#/components/schemas/helpdesk.write.ticket.close.payload"
+            "$ref": "#/components/schemas/ticketing.write.ticket.close.payload"
           },
           "requestId": {
             "type": "string"
           }
         }
       },
-      "helpdesk.write.ticket.close.payload": {
+      "ticketing.write.ticket.close.payload": {
         "type": "object",
         "properties": {
           "id": {
@@ -756,7 +756,7 @@
           "resolution"
         ]
       },
-      "helpdesk.write.ticket.create.request": {
+      "ticketing.write.ticket.create.request": {
         "type": "object",
         "description": "Opens a new ticket.",
         "required": [
@@ -765,17 +765,17 @@
         ],
         "properties": {
           "type": {
-            "const": "helpdesk:write:ticket:create"
+            "const": "ticketing:write:ticket:create"
           },
           "payload": {
-            "$ref": "#/components/schemas/helpdesk.write.ticket.create.payload"
+            "$ref": "#/components/schemas/ticketing.write.ticket.create.payload"
           },
           "requestId": {
             "type": "string"
           }
         }
       },
-      "helpdesk.write.ticket.create.payload": {
+      "ticketing.write.ticket.create.payload": {
         "type": "object",
         "properties": {
           "title": {
@@ -803,7 +803,7 @@
           "title"
         ]
       },
-      "helpdesk.write.ticket.update.request": {
+      "ticketing.write.ticket.update.request": {
         "type": "object",
         "description": "Changes the title or the priority of a ticket.",
         "required": [
@@ -812,17 +812,17 @@
         ],
         "properties": {
           "type": {
-            "const": "helpdesk:write:ticket:update"
+            "const": "ticketing:write:ticket:update"
           },
           "payload": {
-            "$ref": "#/components/schemas/helpdesk.write.ticket.update.payload"
+            "$ref": "#/components/schemas/ticketing.write.ticket.update.payload"
           },
           "requestId": {
             "type": "string"
           }
         }
       },
-      "helpdesk.write.ticket.update.payload": {
+      "ticketing.write.ticket.update.payload": {
         "type": "object",
         "properties": {
           "id": {
@@ -865,26 +865,6 @@
           "changes"
         ]
       },
-      "helpdesk.ticket-closed.event": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "description": "ID of the closed ticket"
-          },
-          "resolution": {
-            "type": "string",
-            "description": "How the ticket was resolved"
-          }
-        },
-        "required": [
-          "id",
-          "resolution"
-        ],
-        "additionalProperties": false
-      },
       "ticket.created.entity-event": {
         "type": "object",
         "properties": {
@@ -919,6 +899,26 @@
           "title",
           "status",
           "priority"
+        ],
+        "additionalProperties": false
+      },
+      "ticketing.ticket-closed.event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "ID of the closed ticket"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "How the ticket was resolved"
+          }
+        },
+        "required": [
+          "id",
+          "resolution"
         ],
         "additionalProperties": false
       },

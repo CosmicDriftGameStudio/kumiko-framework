@@ -15,27 +15,6 @@ Ein neues optionales Feld behält die Version. Eine inkompatible Änderung, etwa
 
 ## Ereignisse
 
-### ticket.closed
-
-Ein Ticket wurde geschlossen und seine Lösung festgehalten.
-
-- Version: `1`
-- Benötigter Scope: `tickets:read`
-
-| Feld | Typ | Pflicht | Beschreibung |
-| --- | --- | --- | --- |
-| `id` | string (uuid) | ja | ID des geschlossenen Tickets |
-| `resolution` | string | ja | Wie das Ticket gelöst wurde |
-
-**Beispiel-Nutzlast**
-
-```json
-{
-  "id": "00000000-0000-4000-8000-000000000001",
-  "resolution": "Replaced the roller"
-}
-```
-
 ### ticket.created
 
 Ein Datensatz vom Typ Ticket wurde angelegt.
@@ -58,5 +37,26 @@ Ein Datensatz vom Typ Ticket wurde angelegt.
   "title": "Scanner jams",
   "status": "open",
   "priority": "low"
+}
+```
+
+### ticket.closed
+
+Ein Ticket wurde geschlossen und seine Lösung festgehalten.
+
+- Version: `1`
+- Benötigter Scope: `tickets:read`
+
+| Feld | Typ | Pflicht | Beschreibung |
+| --- | --- | --- | --- |
+| `id` | string (uuid) | ja | ID des geschlossenen Tickets |
+| `resolution` | string | ja | Wie das Ticket gelöst wurde |
+
+**Beispiel-Nutzlast**
+
+```json
+{
+  "id": "00000000-0000-4000-8000-000000000001",
+  "resolution": "Replaced the roller"
 }
 ```

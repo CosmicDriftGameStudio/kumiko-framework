@@ -129,12 +129,6 @@
 | <a id="config-key-secrets-scope-not-system"></a>`config-key/secrets-scope-not-system` | A config key with backing="secrets" has scope "system", because secrets storage does not cascade. | Set scope to "system" or drop backing="secrets". | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 | <a id="config-key-unknown-config-read"></a>`config-key/unknown-config-read` | A feature reads only config keys that some feature defines. | Declare the key via r.config(...) in a feature, or fix the key name. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 
-## contact
-
-| Rule | Summary | Fix | Source |
-| --- | --- | --- | --- |
-| <a id="contact-invalid-proof-of-work-bits"></a>`contact/invalid-proof-of-work-bits` | spamProtection.proofOfWorkBits is an integer within the allowed range. | Use an integer inside the documented bounds. | `packages/bundled-features/src/contact/boot-rules.ts` |
-
 ## content-collection
 
 | Rule | Summary | Fix | Source |
@@ -554,6 +548,12 @@
 | <a id="handler-schema-unknown-references-by"></a>`handler-schema/unknown-references-by` | The by field of a references meta is a field of the referenced entity. | Use an existing field of that entity for by. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
 | <a id="handler-schema-unknown-references-entity"></a>`handler-schema/unknown-references-entity` | The entity a references meta names is registered. | Use "<entity>" for this feature or "<feature>:<entity>" for another one. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
 | <a id="handler-schema-zod-walk-limit"></a>`handler-schema/zod-walk-limit` | A handler schema has a finite node count when walked. | Hoist a z.lazy() getter that returns a new schema on every call into a constant. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+
+## helpdesk
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="helpdesk-invalid-proof-of-work-bits"></a>`helpdesk/invalid-proof-of-work-bits` | spamProtection.proofOfWorkBits is an integer within the allowed range. | Use an integer inside the documented bounds. | `packages/bundled-features/src/helpdesk/boot-rules.ts` |
 
 ## hook
 

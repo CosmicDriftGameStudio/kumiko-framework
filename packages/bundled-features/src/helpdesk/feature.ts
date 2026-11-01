@@ -49,7 +49,7 @@ import {
 } from "./options.ts";
 import { createHelpdeskScreens } from "./screens.ts";
 import { helpdeskDeleteHook, helpdeskExportHook } from "./user-data-hooks.ts";
-import { HELPDESK_FEATURE, HELPDESK_FORMER_NOTIFICATION_NAMES } from "./web/constants.ts";
+import { HELPDESK_FEATURE } from "./web/constants.ts";
 
 const REPLY_CONTEXT_FIELDS = ["name", "email", "replyTo"];
 
@@ -104,33 +104,27 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     }
 
     r.notification("new-request", {
-      renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.newRequest,
       variables: HELPDESK_NEW_REQUEST_VARIABLES,
       localizedTemplate: helpdeskNewRequestTemplate,
       ...(telegram && { templates: { telegram: telegramTemplate } }),
     });
     r.notification("confirmation", {
-      renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.confirmation,
       variables: HELPDESK_CONFIRMATION_VARIABLES,
       localizedTemplate: helpdeskConfirmationTemplate,
     });
     r.notification("acknowledgement", {
-      renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.acknowledgement,
       variables: HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
       localizedTemplate: helpdeskAcknowledgementTemplate,
     });
     r.notification("reply", {
-      renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.reply,
       variables: HELPDESK_REPLY_VARIABLES,
       localizedTemplate: helpdeskReplyTemplate,
     });
     r.notification("reply-in-app", {
-      renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.replyInApp,
       templates: { inApp: inAppTemplate },
     });
     if (telegram) {
       r.notification("test", {
-        renamedFrom: HELPDESK_FORMER_NOTIFICATION_NAMES.test,
         variables: HELPDESK_TEST_VARIABLES,
         localizedTemplate: helpdeskTestTemplate,
         templates: { telegram: telegramTemplate },

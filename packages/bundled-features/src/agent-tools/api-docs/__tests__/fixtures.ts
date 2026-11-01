@@ -29,8 +29,8 @@ const ticketEntity = createEntity({
 
 export const FIXTURE_RATE_LIMIT = { maxRequests: 30, windowMs: 10_000 } as const;
 
-export function buildHelpdeskFeature(): FeatureDefinition {
-  return defineFeature("helpdesk", (r) => {
+export function buildTicketingFeature(): FeatureDefinition {
+  return defineFeature("ticketing", (r) => {
     r.entity({ name: "ticket", ...ticketEntity });
     r.crud("ticket", ticketEntity, {
       write: { access: OPEN_ACCESS },
@@ -60,7 +60,7 @@ export function buildHelpdeskFeature(): FeatureDefinition {
     r.screen({
       id: "sync-ticket",
       type: "actionForm",
-      handler: "helpdesk:write:ticket:sync",
+      handler: "ticketing:write:ticket:sync",
       fields: {},
       layout: { sections: [] },
     });
@@ -74,34 +74,34 @@ export function buildHelpdeskFeature(): FeatureDefinition {
     r.screen({
       id: "close-ticket",
       type: "actionForm",
-      handler: "helpdesk:write:ticket:close",
+      handler: "ticketing:write:ticket:close",
       fields: { reason: createTextField({ personal: false, reason: "technical_reference" }) },
       layout: { sections: [{ title: "s", fields: ["reason"] }] },
     });
     r.screen({
       id: "escalate-ticket",
       type: "actionForm",
-      handler: "helpdesk:write:ticket:escalate",
+      handler: "ticketing:write:ticket:escalate",
       fields: {},
       layout: { sections: [] },
     });
-    r.nav({ id: "settings", label: "helpdesk:nav:settings" });
+    r.nav({ id: "settings", label: "ticketing:nav:settings" });
     r.nav({
       id: "api-tokens",
-      label: "helpdesk:nav:api-tokens",
-      parent: "helpdesk:nav:settings",
+      label: "ticketing:nav:api-tokens",
+      parent: "ticketing:nav:settings",
       screen: "personal-access-tokens:screen:api-tokens",
     });
     r.translations({
       keys: {
-        "helpdesk:nav:settings": { en: "Settings", de: "Einstellungen" },
-        "helpdesk:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
-        "helpdesk:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
-        "helpdesk:write:ticket:close:description": {
+        "ticketing:nav:settings": { en: "Settings", de: "Einstellungen" },
+        "ticketing:nav:api-tokens": { en: "API tokens", de: "API-Tokens" },
+        "ticketing:write:ticket:close:title": { en: "Close ticket", de: "Ticket schließen" },
+        "ticketing:write:ticket:close:description": {
           en: "Closes a ticket.",
           de: "Schließt ein Ticket.",
         },
-        "helpdesk:write:ticket:close:field:reason": { en: "Reason", de: "Grund" },
+        "ticketing:write:ticket:close:field:reason": { en: "Reason", de: "Grund" },
       },
     });
   });
@@ -155,7 +155,7 @@ export function buildFixtureFeatures(
     createUserFeature(),
     createTenantFeature(),
     createAuthFoundationFeature(),
-    buildHelpdeskFeature(),
+    buildTicketingFeature(),
     buildLocalePackageFeature(),
     ...(options.events === undefined ? [] : buildWebhookFixtureFeatures()),
     createPersonalAccessTokensFeature({
@@ -163,12 +163,12 @@ export function buildFixtureFeatures(
         tickets: {
           label: "Tickets",
           ...(options.events !== undefined && { events: options.events }),
-          read: ["helpdesk:query:*"],
+          read: ["ticketing:query:*"],
           write: [
-            "helpdesk:write:ticket:close",
-            "helpdesk:write:ticket:sync",
-            "helpdesk:write:ticket:create",
-            "helpdesk:write:ticket:update",
+            "ticketing:write:ticket:close",
+            "ticketing:write:ticket:sync",
+            "ticketing:write:ticket:create",
+            "ticketing:write:ticket:update",
           ],
         },
       },
@@ -191,7 +191,7 @@ export function fixtureInput(
   return {
     registry: createRegistry(buildFixtureFeatures({ reverse: reverse === true, events })),
     config: fixtureConfig,
-    source: { framework: "0.0.0-test", app: { name: "helpdesk", version: "1.2.3" } },
+    source: { framework: "0.0.0-test", app: { name: "ticketing", version: "1.2.3" } },
     examples: [],
     webhookExamples: [],
     ...rest,

@@ -31,7 +31,7 @@ you never write it directly.
 change state. The Zod `schema` is the input boundary, `access` is default deny,
 and the handler returns a typed result: `failNotFound(...)` for a missing
 ticket, `{ isSuccess: true, data }` otherwise. The qualified name that clients
-and tests use is `helpdesk:write:ticket:close`.
+and tests use is `ticketing:write:ticket:close`.
 
 ## 3. Event
 

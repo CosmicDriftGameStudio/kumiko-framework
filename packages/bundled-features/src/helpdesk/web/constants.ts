@@ -124,16 +124,6 @@ export const HELPDESK_NOTIFICATION_TYPES = {
   test: "helpdesk:notify:test",
 } as const;
 
-// Stored preferences and opt-outs live under the names the feature had as "contact".
-export const HELPDESK_FORMER_NOTIFICATION_NAMES = {
-  newRequest: ["contact:notify:new-request"],
-  confirmation: ["contact:notify:confirmation"],
-  acknowledgement: ["contact:notify:acknowledgement"],
-  reply: ["contact:notify:reply"],
-  replyInApp: ["contact:notify:reply-in-app"],
-  test: ["contact:notify:test"],
-} as const;
-
 export const HELPDESK_CLIENT_PATH = "/helpdesk/client.js" as const;
 
 export const HELPDESK_FIELD_LIMITS = {
