@@ -17,6 +17,7 @@
       "!**/.kumiko",
       "!**/feature-manifest.json",
       "!**/sample-index.json",
+      "!samples/recipes/api-docs/api-docs",
       "!**/CHANGELOG.md",
       "!packages/framework/agents",
       "!**/renderer/src/web/ui",

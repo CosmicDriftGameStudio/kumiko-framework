@@ -12,7 +12,12 @@ import { encryptForDirectWrite, unprocessable, verifyPassword } from "../../shar
 import { UserQueries } from "../../user/index.ts";
 import { mintPatToken } from "../hash.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
-import { API_TOKEN_ENTITY_NAME, PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../web/constants.ts";
+import {
+  API_TOKEN_ENTITY_NAME,
+  PAT_DEFAULT_EXPIRES_IN_DAYS,
+  PAT_MAX_EXPIRES_IN_DAYS,
+  PatErrors,
+} from "../web/constants.ts";
 
 export type PatMfaVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 
@@ -49,7 +54,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
     schema: z.object({
       name: z.string().min(1).max(120),
       scopes: z.array(z.string().min(1)).min(1),
-      expiresInDays: z.number().int().positive().max(3650).optional(),
+      expiresInDays: z.number().int().positive().max(PAT_MAX_EXPIRES_IN_DAYS).optional(),
       currentPassword: z.string().min(1),
       mfaCode: z.string().optional(),
     }),

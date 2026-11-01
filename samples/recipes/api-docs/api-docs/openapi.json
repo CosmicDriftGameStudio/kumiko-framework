@@ -1,0 +1,881 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Helpdesk API",
+    "version": "0.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://helpdesk.example.com"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/query": {
+      "post": {
+        "summary": "Query",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/helpdesk.query.ticket.detail.request"
+                  },
+                  {
+                    "$ref": "#/components/schemas/helpdesk.query.ticket.list.request"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "helpdesk:query:ticket:detail": "#/components/schemas/helpdesk.query.ticket.detail.request",
+                    "helpdesk:query:ticket:list": "#/components/schemas/helpdesk.query.ticket.list.request"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/write": {
+      "post": {
+        "summary": "Write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/helpdesk.write.ticket.close.request"
+                  },
+                  {
+                    "$ref": "#/components/schemas/helpdesk.write.ticket.create.request"
+                  },
+                  {
+                    "$ref": "#/components/schemas/helpdesk.write.ticket.update.request"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "helpdesk:write:ticket:close": "#/components/schemas/helpdesk.write.ticket.close.request",
+                    "helpdesk:write:ticket:create": "#/components/schemas/helpdesk.write.ticket.create.request",
+                    "helpdesk:write:ticket:update": "#/components/schemas/helpdesk.write.ticket.update.request"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/batch": {
+      "post": {
+        "summary": "Batch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "commands"
+                ],
+                "properties": {
+                  "commands": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/helpdesk.write.ticket.close.request"
+                        },
+                        {
+                          "$ref": "#/components/schemas/helpdesk.write.ticket.create.request"
+                        },
+                        {
+                          "$ref": "#/components/schemas/helpdesk.write.ticket.update.request"
+                        }
+                      ],
+                      "discriminator": {
+                        "propertyName": "type",
+                        "mapping": {
+                          "helpdesk:write:ticket:close": "#/components/schemas/helpdesk.write.ticket.close.request",
+                          "helpdesk:write:ticket:create": "#/components/schemas/helpdesk.write.ticket.create.request",
+                          "helpdesk:write:ticket:update": "#/components/schemas/helpdesk.write.ticket.update.request"
+                        }
+                      }
+                    }
+                  },
+                  "requestId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "helpdesk.query.ticket.detail.request": {
+        "type": "object",
+        "description": "Returns one ticket.",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "const": "helpdesk:query:ticket:detail"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/helpdesk.query.ticket.detail.payload"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "helpdesk.query.ticket.detail.payload": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "helpdesk.query.ticket.list.request": {
+        "type": "object",
+        "description": "Lists tickets, newest first.",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "const": "helpdesk:query:ticket:list"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/helpdesk.query.ticket.list.payload"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "helpdesk.query.ticket.list.payload": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200
+          },
+          "search": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "totalCount": {
+            "type": "boolean"
+          },
+          "includeDeleted": {
+            "type": "boolean"
+          },
+          "onlyDeleted": {
+            "type": "boolean"
+          },
+          "filter": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "ne",
+                  "lt",
+                  "gt",
+                  "lte",
+                  "gte",
+                  "in"
+                ]
+              },
+              "value": {}
+            },
+            "required": [
+              "field",
+              "op",
+              "value"
+            ]
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "ne",
+                    "lt",
+                    "gt",
+                    "lte",
+                    "gte",
+                    "in"
+                  ]
+                },
+                "value": {}
+              },
+              "required": [
+                "field",
+                "op",
+                "value"
+              ]
+            }
+          },
+          "namedFilter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "aggregate": {
+            "type": "object",
+            "properties": {
+              "groupBy": {
+                "type": "string"
+              },
+              "measures": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "sum",
+                        "avg",
+                        "count",
+                        "min",
+                        "max"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "kind"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "helpdesk.write.ticket.close.request": {
+        "type": "object",
+        "description": "Closes a ticket and records how it was resolved.",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "const": "helpdesk:write:ticket:close"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/helpdesk.write.ticket.close.payload"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "helpdesk.write.ticket.close.payload": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "resolution"
+        ]
+      },
+      "helpdesk.write.ticket.create.request": {
+        "type": "object",
+        "description": "Opens a new ticket.",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "const": "helpdesk:write:ticket:create"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/helpdesk.write.ticket.create.payload"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "helpdesk.write.ticket.create.payload": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "helpdesk.write.ticket.update.request": {
+        "type": "object",
+        "description": "Changes the title or the priority of a ticket.",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "const": "helpdesk:write:ticket:update"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/helpdesk.write.ticket.update.payload"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        }
+      },
+      "helpdesk.write.ticket.update.payload": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "number"
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "closed"
+                ]
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "normal",
+                  "high"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "changes"
+        ]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "isSuccess": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "access_denied",
+                  "ambiguous_auth",
+                  "conflict",
+                  "feature_disabled",
+                  "idempotent_replay",
+                  "internal_error",
+                  "invalid_token",
+                  "member_read_timeout",
+                  "missing_token",
+                  "not_found",
+                  "pat_rate_limited",
+                  "precondition_failed",
+                  "rate_limit_unavailable",
+                  "rate_limited",
+                  "record_locked",
+                  "unauthenticated",
+                  "unconfigured",
+                  "unique_violation",
+                  "unprocessable",
+                  "validation_error",
+                  "version_conflict"
+                ]
+              },
+              "httpStatus": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,11 +2,27 @@ import { describe, expect, test } from "bun:test";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { patScopeOptionTranslations } from "../i18n.ts";
+import { patScopesFromFeature } from "../index.ts";
 import { patGrantOptions } from "../screens.ts";
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../web/constants.ts";
 import { expandScopes, type PatScopeConfig, parseGrant } from "../web/scopes.ts";
+
+describe("patScopesFromFeature", () => {
+  test("returns the scope catalog the PAT feature was created with", () => {
+    const scopes: PatScopeConfig = {
+      billing: { label: "Billing", read: ["billing:query:*"], write: ["billing:write:*"] },
+      ledger: { label: "Ledger", read: ["ledger:query:*"] },
+    };
+    expect(patScopesFromFeature(createPersonalAccessTokensFeature({ scopes }))).toEqual(scopes);
+  });
+
+  test("returns undefined for a feature that is not the PAT feature", () => {
+    expect(patScopesFromFeature(createConfigFeature())).toBeUndefined();
+  });
+});
 
 describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {

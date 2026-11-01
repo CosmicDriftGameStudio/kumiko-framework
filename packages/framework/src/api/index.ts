@@ -57,6 +57,8 @@ export {
 export type { JwtHelper } from "./jwt.ts";
 export { loadJwtSecretOrKeyring } from "./jwt.ts";
 export { publicOriginOf } from "./origin-middleware.ts";
+export { PAT_RATE_LIMITED_CODE, patAuthRejectHttpStatus } from "./pat-auth-reject.ts";
+export { patAllows, qnMatches } from "./pat-scope.ts";
 export type {
   PostAuthLandingArgs,
   PostAuthLandingResolver,
@@ -68,7 +70,6 @@ export {
   isRedisSseBroker,
 } from "./redis-sse-broker.ts";
 export { readonlyRequestContext as requestContext } from "./request-context-scopes.ts";
-
 export { buildRequestContextDataFromRequest } from "./request-id-middleware.ts";
 export type { MetricsRouteOptions } from "./route-registrars.ts";
 export {
@@ -76,6 +77,7 @@ export {
   DEFAULT_MAX_REQUEST_BYTES,
   isPrometheusMeter,
 } from "./route-registrars.ts";
+export { MAX_PAYLOAD_DEPTH } from "./routes.ts";
 export type { ServerOptions } from "./server.ts";
 export { buildServer } from "./server.ts";
 export { resolveBaseDbAndSearchAdapter } from "./server-event-dispatcher.ts";

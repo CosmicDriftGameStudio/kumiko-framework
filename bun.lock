@@ -637,6 +637,18 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/api-docs": {
+      "name": "@cosmicdrift/kumiko-sample-api-docs",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-locale-de": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/api-worker-split": {
       "name": "@cosmicdrift/kumiko-sample-api-worker-split",
       "dependencies": {
@@ -1503,6 +1515,8 @@
     "@cosmicdrift/kumiko-sample-apex-landing": ["@cosmicdrift/kumiko-sample-apex-landing@workspace:samples/recipes/apex-landing"],
 
     "@cosmicdrift/kumiko-sample-apex-surface-auth": ["@cosmicdrift/kumiko-sample-apex-surface-auth@workspace:samples/recipes/apex-surface-auth"],
+
+    "@cosmicdrift/kumiko-sample-api-docs": ["@cosmicdrift/kumiko-sample-api-docs@workspace:samples/recipes/api-docs"],
 
     "@cosmicdrift/kumiko-sample-api-worker-split": ["@cosmicdrift/kumiko-sample-api-worker-split@workspace:samples/recipes/api-worker-split"],
 

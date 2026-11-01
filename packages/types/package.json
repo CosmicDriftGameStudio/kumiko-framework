@@ -26,6 +26,10 @@
       "types": "./src/error-boundary.ts",
       "default": "./src/error-boundary.ts"
     },
+    "./api-example": {
+      "types": "./src/api-example.ts",
+      "default": "./src/api-example.ts"
+    },
     "./kebab-case": {
       "types": "./src/kebab-case.ts",
       "default": "./src/kebab-case.ts"
@@ -328,6 +332,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./api-example": {
+        "types": "./dist/api-example.d.ts",
+        "default": "./dist/api-example.js"
       },
       "./kebab-case": {
         "types": "./dist/kebab-case.d.ts",

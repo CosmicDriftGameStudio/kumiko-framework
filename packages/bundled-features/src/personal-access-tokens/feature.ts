@@ -84,6 +84,7 @@ export type PersonalAccessTokensOptions = {
 
 export type PatFeatureExports = {
   readonly rateLimit: PatRateLimit;
+  readonly scopes: PatScopeConfig;
   readonly bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange;
 };
 
@@ -195,12 +196,12 @@ export function createPersonalAccessTokensFeature(
 
     // rateLimit flows into feature.exports so run-prod-app builds the
     // limiter from the same declaration — single source of truth. `scopes`
-    // is closed over directly by the useExtension build() above and by
-    // available-scopes, so it doesn't need to round-trip through exports.
+    // is also exported so the API-docs generator can read the catalog.
     return {
       handlers,
       queries,
       bindAutoRevokeOnPasswordChange,
+      scopes,
       rateLimit: options.rateLimit ?? PAT_DEFAULT_RATE_LIMIT,
     } satisfies { handlers: unknown; queries: unknown } & PatFeatureExports;
   });

@@ -1,0 +1,54 @@
+{
+  "request": {
+    "endpoint": "/api/write",
+    "body": {
+      "type": "helpdesk:write:ticket:update",
+      "payload": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "version": 1,
+        "changes": {
+          "priority": "normal"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "isSuccess": true,
+      "data": {
+        "kind": "save",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "data": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "tenantId": "00000000-0000-4000-8000-000000000002",
+          "version": 2,
+          "insertedAt": "2026-01-15T09:30:00.000Z",
+          "modifiedAt": "2026-01-15T09:30:00.000Z",
+          "insertedById": "00000000-0000-4000-8000-000000000003",
+          "modifiedById": "00000000-0000-4000-8000-000000000003",
+          "title": "Printer is on fire",
+          "status": "open",
+          "priority": "normal"
+        },
+        "changes": {
+          "priority": "normal"
+        },
+        "previous": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "tenantId": "00000000-0000-4000-8000-000000000002",
+          "version": 1,
+          "insertedAt": "2026-01-15T09:30:00.000Z",
+          "modifiedAt": null,
+          "insertedById": "00000000-0000-4000-8000-000000000003",
+          "modifiedById": null,
+          "title": "Printer is on fire",
+          "status": "open",
+          "priority": "high"
+        },
+        "isNew": false,
+        "entityName": "ticket"
+      }
+    }
+  }
+}

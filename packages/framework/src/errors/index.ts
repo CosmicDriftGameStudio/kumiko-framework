@@ -13,6 +13,8 @@ export {
   VersionConflictError,
 } from "./classes.ts";
 export type { ErrorDocsConfig } from "./docs-url.ts";
+export type { FrameworkErrorCode } from "./error-codes.ts";
+export { frameworkErrorHttpStatus } from "./error-codes.ts";
 export { isKumikoError, KumikoError } from "./kumiko-error.ts";
 export { FrameworkReasons } from "./reasons.ts";
 export { subjectErasedConflict } from "./subject-erased.ts";

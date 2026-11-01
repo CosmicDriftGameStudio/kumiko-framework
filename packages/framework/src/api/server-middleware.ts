@@ -15,6 +15,7 @@ import {
   normalizeOrigin,
   resolveOriginGuard,
 } from "./origin-middleware.ts";
+import { PAT_RATE_LIMITED_CODE } from "./pat-auth-reject.ts";
 import { patRouteGuard } from "./pat-route-guard.ts";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard.ts";
 import { requestIdMiddleware } from "./request-id-middleware.ts";
@@ -282,7 +283,7 @@ function buildPatRateLimitGuard(patRateLimiter: LoginRateLimiter): MiddlewareHan
       return c.json(
         {
           error: {
-            code: "pat_rate_limited",
+            code: PAT_RATE_LIMITED_CODE,
             httpStatus: 429,
             message: "personal access token rate limit exceeded",
             i18nKey: "auth.errors.patRateLimited",

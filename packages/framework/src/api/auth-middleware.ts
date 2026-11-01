@@ -159,7 +159,7 @@ type TenantSource = "header" | "cookie" | "resolver" | "default" | "tenantless";
 // i18nKey, details?}}` everywhere, not a second middleware-only shape.
 // All middleware rejects (missing/invalid/ambiguous token, session state,
 // csrf mismatch) route through this helper so one parser covers the lot.
-type MiddlewareRejectCode =
+export type MiddlewareRejectCode =
   | "missing_token"
   | "invalid_token"
   | "ambiguous_auth"

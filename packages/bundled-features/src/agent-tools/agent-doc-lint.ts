@@ -4,6 +4,7 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  handlerDescriptionKey,
   handlerFieldLabelKey,
   handlerTitleKey,
   isAgentVisibleScreen,
@@ -13,7 +14,9 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { systemOnlyPropertyNames } from "./agent-manifest.ts";
+import { systemOnlyPropertyNames } from "./handler-schema.ts";
+import { localizedLabels } from "./labels.ts";
+import type { RegistryManifestView } from "./types.ts";
 
 export const AgentDocGapKinds = {
   handlerSchemaNotExpressible: "handler-schema-not-expressible",
@@ -21,6 +24,7 @@ export const AgentDocGapKinds = {
   customScreenWithoutDescription: "custom-screen-without-description",
   exposedEntityWithoutDescription: "exposed-entity-without-description",
   handlerWithoutTranslation: "handler-without-translation",
+  handlerWithoutDescriptionTranslation: "handler-without-description-translation",
 } as const;
 
 export type AgentDocGapKind = (typeof AgentDocGapKinds)[keyof typeof AgentDocGapKinds];
@@ -30,6 +34,7 @@ export type AgentDocGap = {
   readonly feature: string;
   readonly kind: AgentDocGapKind;
   readonly message: string;
+  readonly locale?: string;
 };
 
 // No shared screen-type union exists in the codebase to import (ScreenDefinition
@@ -38,6 +43,8 @@ export type AgentDocGap = {
 const CUSTOM_SCREEN_TYPE = "custom";
 
 const ENTITY_QN_SEGMENT = "entity";
+
+const DESCRIPTION_FALLBACK_LOCALE = "en";
 
 // QNs contain `:`, so localeCompare's ICU punctuation rules would make sort
 // order depend on runtime locale — compare by code point instead (same
@@ -72,17 +79,21 @@ function handlerDocGaps(
   handlers: Readonly<Record<string, WriteHandlerDef | QueryHandlerDef>>,
   handlerQnType: typeof QnTypes.write | typeof QnTypes.query,
   handlerNoun: string,
+  // Set for the API docs: only these handlers are checked, and an agent opt-out
+  // doesn't excuse them because the docs show every handler a token reaches.
+  onlyQns?: ReadonlySet<string>,
 ): readonly AgentDocGap[] {
   const gaps: AgentDocGap[] = [];
   const handlerKind = handlerQnType === QnTypes.write ? "write" : "query";
   for (const [name, def] of Object.entries(handlers)) {
     const handlerQn = qn(toKebab(feature.name), handlerQnType, toKebab(name));
+    if (onlyQns !== undefined && !onlyQns.has(handlerQn)) continue;
     const isExposed = resolveAgentExposure(def, handlerKind).expose;
-    if (isExposed) {
+    if (isExposed || onlyQns !== undefined) {
       const schemaGap = schemaNotExpressibleGap(feature, handlerQn, def, handlerNoun);
       if (schemaGap) gaps.push(schemaGap);
     }
-    if (def.agent?.expose === false) continue;
+    if (onlyQns === undefined && def.agent?.expose === false) continue;
     if (def.description !== undefined && def.description.trim() !== "") continue;
     gaps.push({
       qn: handlerQn,
@@ -217,6 +228,30 @@ export function findAgentDocGaps(features: readonly FeatureDefinition[]): readon
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
 }
 
+/** Description and schema gaps of exactly the handlers the API docs list. */
+export function findApiDocHandlerGaps(
+  features: readonly FeatureDefinition[],
+  handlerQns: ReadonlySet<string>,
+): readonly AgentDocGap[] {
+  const gaps = features.flatMap((feature) => [
+    ...handlerDocGaps(
+      feature,
+      feature.writeHandlers ?? {},
+      QnTypes.write,
+      "write handler",
+      handlerQns,
+    ),
+    ...handlerDocGaps(
+      feature,
+      feature.queryHandlers ?? {},
+      QnTypes.query,
+      "query handler",
+      handlerQns,
+    ),
+  ]);
+  return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
+}
+
 // Kept out of findAgentDocGaps on purpose: the published agent-manifest guard
 // fails on every gap that function returns, and these are advisory.
 export function findHandlerTranslationGaps(
@@ -225,6 +260,32 @@ export function findHandlerTranslationGaps(
   const coveredHandlerQns = actionFormHandlerQns(features);
   const gaps = features.flatMap((feature) => translationGapsOfFeature(feature, coveredHandlerQns));
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
+}
+
+// "en" is skipped because the docs fall back to the handler's `description` for it.
+// Advisory like findHandlerTranslationGaps: not part of findAgentDocGaps.
+export function findDescriptionTranslationGaps(
+  registry: Pick<RegistryManifestView, "getAllTranslations">,
+  options: { readonly handlerQns: readonly string[]; readonly locales: readonly string[] },
+): readonly AgentDocGap[] {
+  const translations = registry.getAllTranslations();
+  const gaps: AgentDocGap[] = [];
+  for (const handlerQn of options.handlerQns) {
+    const labels = localizedLabels(translations, handlerDescriptionKey(handlerQn));
+    for (const locale of options.locales) {
+      if (locale === DESCRIPTION_FALLBACK_LOCALE || labels[locale] !== undefined) continue;
+      gaps.push({
+        qn: handlerQn,
+        feature: handlerQn.split(":")[0] ?? handlerQn,
+        kind: AgentDocGapKinds.handlerWithoutDescriptionTranslation,
+        locale,
+        message: `No \`${locale}\` translation under ${handlerDescriptionKey(handlerQn)}.`,
+      });
+    }
+  }
+  return [...gaps].sort(
+    (a, b) => compareByCodePoint(a.qn, b.qn) || compareByCodePoint(a.locale ?? "", b.locale ?? ""),
+  );
 }
 
 export function formatAgentDocGap(gap: AgentDocGap): string {

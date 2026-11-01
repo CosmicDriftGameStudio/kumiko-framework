@@ -1,0 +1,42 @@
+{
+  "request": {
+    "endpoint": "/api/write",
+    "body": {
+      "type": "helpdesk:write:ticket:create",
+      "payload": {
+        "title": "Printer is on fire",
+        "priority": "high"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "isSuccess": true,
+      "data": {
+        "kind": "save",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "data": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "tenantId": "00000000-0000-4000-8000-000000000002",
+          "version": 1,
+          "insertedAt": "2026-01-15T09:30:00.000Z",
+          "modifiedAt": null,
+          "insertedById": "00000000-0000-4000-8000-000000000003",
+          "modifiedById": null,
+          "title": "Printer is on fire",
+          "status": "open",
+          "priority": "high"
+        },
+        "changes": {
+          "title": "Printer is on fire",
+          "status": "open",
+          "priority": "high"
+        },
+        "previous": {},
+        "isNew": true,
+        "entityName": "ticket"
+      }
+    }
+  }
+}

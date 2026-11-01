@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createRegistry,
   defineFeature,
   defineWriteHandler,
   resolveAgentExposure,
@@ -9,6 +10,7 @@ import * as z from "zod";
 import {
   AgentDocGapKinds,
   findAgentDocGaps,
+  findDescriptionTranslationGaps,
   findHandlerTranslationGaps,
   formatAgentDocGap,
 } from "../agent-doc-lint.ts";
@@ -539,5 +541,39 @@ describe("findAgentDocGaps — handler-without-translation", () => {
       });
     });
     expect(translationGaps([feature])).toEqual([]);
+  });
+});
+
+describe("findDescriptionTranslationGaps", () => {
+  function registryWith(translations: Record<string, Record<string, string>>) {
+    return createRegistry([
+      defineFeature("desc-demo", (r) => {
+        r.writeHandler({
+          name: "do-x",
+          schema: z.object({}),
+          handler: noopWriteHandler,
+          access: OPEN_ACCESS,
+          description: "Does X.",
+        });
+        if (Object.keys(translations).length > 0) r.translations({ keys: translations });
+      }),
+    ]);
+  }
+
+  const options = { handlerQns: ["desc-demo:write:do-x"], locales: ["en", "de"] };
+
+  test("de translation present -> no gap", () => {
+    const registry = registryWith({ "desc-demo:write:do-x:description": { en: "X", de: "X de" } });
+    expect(findDescriptionTranslationGaps(registry, options)).toEqual([]);
+  });
+
+  test("de translation missing -> exactly one gap with kind, qn and locale; en never", () => {
+    const gaps = findDescriptionTranslationGaps(registryWith({}), options);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toMatchObject({
+      kind: AgentDocGapKinds.handlerWithoutDescriptionTranslation,
+      qn: "desc-demo:write:do-x",
+      locale: "de",
+    });
   });
 });

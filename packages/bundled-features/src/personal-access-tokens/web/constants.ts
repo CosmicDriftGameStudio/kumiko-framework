@@ -15,6 +15,7 @@ export const PatErrors = {
 // default is a standing-credential risk; the existing 3650-day cap still
 // lets callers who genuinely want a long-lived token pass it explicitly.
 export const PAT_DEFAULT_EXPIRES_IN_DAYS = 90;
+export const PAT_MAX_EXPIRES_IN_DAYS = 3650;
 
 // Declarative projectionList screen id — the caller's own tokens, revoke as a
 // row action. The app places it via r.nav.

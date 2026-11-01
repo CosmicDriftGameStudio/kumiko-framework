@@ -365,6 +365,7 @@
     "personal-access-tokens": {
       "samples": [
         "recipes-apex-surface-auth",
+        "recipes-api-docs",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,

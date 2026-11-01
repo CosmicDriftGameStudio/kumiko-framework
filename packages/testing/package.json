@@ -26,6 +26,10 @@
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
     },
+    "./api-examples": {
+      "types": "./src/api-examples/index.ts",
+      "default": "./src/api-examples/index.ts"
+    },
     "./provider-env-keys": {
       "types": "./src/provider-env-keys.ts",
       "default": "./src/provider-env-keys.ts"

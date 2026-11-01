@@ -1,3 +1,4 @@
+import type { AppApiDocsConfig } from "@cosmicdrift/kumiko-framework/config";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { CliCommandContext } from "./types";
 
@@ -6,6 +7,8 @@ import type { CliCommandContext } from "./types";
 export type AppConfig = {
   readonly features: readonly FeatureDefinition[];
   readonly prodFeatures?: readonly FeatureDefinition[];
+  readonly includeBundled?: boolean;
+  readonly apiDocs?: AppApiDocsConfig;
 };
 
 function isAppConfig(value: unknown): value is AppConfig {

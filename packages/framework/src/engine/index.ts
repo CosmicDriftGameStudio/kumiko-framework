@@ -171,7 +171,12 @@ export type {
   TreeNode,
 } from "@cosmicdrift/kumiko-types/tree-node";
 export type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
-export { handlerFieldLabelKey, handlerTitleKey } from "../i18n/required-surface-keys.ts";
+export { DEFAULT_LIST_LIMIT } from "../db/event-store-executor-read-paging.ts";
+export {
+  handlerDescriptionKey,
+  handlerFieldLabelKey,
+  handlerTitleKey,
+} from "../i18n/required-surface-keys.ts";
 export { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 export { hasAccess } from "./access.ts";
 export type {

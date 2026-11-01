@@ -1,0 +1,297 @@
+{
+  "source": {
+    "framework": "0.0.0-recipe",
+    "app": {
+      "name": "@cosmicdrift/kumiko-sample-api-docs",
+      "version": "0.0.0"
+    }
+  },
+  "locales": [
+    "en",
+    "de"
+  ],
+  "pages": [
+    {
+      "path": "de/overview.md",
+      "locale": "de",
+      "kind": "overview",
+      "order": 1,
+      "title": "HTTP-API",
+      "description": "Endpunkte, Request-Body, Antworten, Fehlercodes, Listen und Batches der HTTP-API.",
+      "anchors": [
+        {
+          "id": "endpoints",
+          "heading": "Endpunkte",
+          "level": 2
+        },
+        {
+          "id": "authentication",
+          "heading": "Authentifizierung",
+          "level": 2
+        },
+        {
+          "id": "request-body",
+          "heading": "Request-Body",
+          "level": 2
+        },
+        {
+          "id": "responses",
+          "heading": "Antworten",
+          "level": 2
+        },
+        {
+          "id": "error-codes",
+          "heading": "Fehlercodes",
+          "level": 2
+        },
+        {
+          "id": "versions",
+          "heading": "Versionen und Konflikte",
+          "level": 2
+        },
+        {
+          "id": "lists",
+          "heading": "Listen",
+          "level": 2
+        },
+        {
+          "id": "batches",
+          "heading": "Batches",
+          "level": 2
+        },
+        {
+          "id": "retries",
+          "heading": "Sicher wiederholen",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "path": "de/tokens.md",
+      "locale": "de",
+      "kind": "tokens",
+      "order": 2,
+      "title": "API-Tokens",
+      "description": "Lege einen API-Token für Helpdesk an, wähle seine Scopes und sende ihn mit deinen Anfragen.",
+      "anchors": [
+        {
+          "id": "create-token",
+          "heading": "Token anlegen",
+          "level": 2
+        },
+        {
+          "id": "use-token",
+          "heading": "Token verwenden",
+          "level": 2
+        },
+        {
+          "id": "scopes",
+          "heading": "Scopes",
+          "level": 2
+        },
+        {
+          "id": "rate-limit",
+          "heading": "Ratenbegrenzung",
+          "level": 2
+        },
+        {
+          "id": "errors",
+          "heading": "Fehler",
+          "level": 2
+        },
+        {
+          "id": "revoke-token",
+          "heading": "Token widerrufen",
+          "level": 2
+        },
+        {
+          "id": "security",
+          "heading": "Sicherheit",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "path": "de/reference/tickets.md",
+      "locale": "de",
+      "kind": "reference",
+      "order": 10,
+      "title": "Tickets",
+      "description": "API-Referenz für Tickets: jeder Handler mit seinen Feldern und einem Beispiel.",
+      "scope": "tickets",
+      "anchors": [
+        {
+          "id": "ticket-detail",
+          "heading": "ticket: detail",
+          "level": 3,
+          "qn": "helpdesk:query:ticket:detail"
+        },
+        {
+          "id": "ticket-list",
+          "heading": "ticket: list",
+          "level": 3,
+          "qn": "helpdesk:query:ticket:list"
+        },
+        {
+          "id": "ticket-close",
+          "heading": "ticket: close",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:close"
+        },
+        {
+          "id": "ticket-create",
+          "heading": "ticket: create",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:create"
+        },
+        {
+          "id": "ticket-update",
+          "heading": "ticket: update",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:update"
+        }
+      ]
+    },
+    {
+      "path": "en/overview.md",
+      "locale": "en",
+      "kind": "overview",
+      "order": 1,
+      "title": "HTTP API",
+      "description": "Endpoints, request body, responses, error codes, lists and batches of the HTTP API.",
+      "anchors": [
+        {
+          "id": "endpoints",
+          "heading": "Endpoints",
+          "level": 2
+        },
+        {
+          "id": "authentication",
+          "heading": "Authentication",
+          "level": 2
+        },
+        {
+          "id": "request-body",
+          "heading": "Request body",
+          "level": 2
+        },
+        {
+          "id": "responses",
+          "heading": "Responses",
+          "level": 2
+        },
+        {
+          "id": "error-codes",
+          "heading": "Error codes",
+          "level": 2
+        },
+        {
+          "id": "versions",
+          "heading": "Versions and conflicts",
+          "level": 2
+        },
+        {
+          "id": "lists",
+          "heading": "Lists",
+          "level": 2
+        },
+        {
+          "id": "batches",
+          "heading": "Batches",
+          "level": 2
+        },
+        {
+          "id": "retries",
+          "heading": "Safe retries",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "path": "en/tokens.md",
+      "locale": "en",
+      "kind": "tokens",
+      "order": 2,
+      "title": "API tokens",
+      "description": "Create an API token for Helpdesk, choose its scopes and send it with your requests.",
+      "anchors": [
+        {
+          "id": "create-token",
+          "heading": "Create a token",
+          "level": 2
+        },
+        {
+          "id": "use-token",
+          "heading": "Use the token",
+          "level": 2
+        },
+        {
+          "id": "scopes",
+          "heading": "Scopes",
+          "level": 2
+        },
+        {
+          "id": "rate-limit",
+          "heading": "Rate limit",
+          "level": 2
+        },
+        {
+          "id": "errors",
+          "heading": "Errors",
+          "level": 2
+        },
+        {
+          "id": "revoke-token",
+          "heading": "Revoke a token",
+          "level": 2
+        },
+        {
+          "id": "security",
+          "heading": "Security",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "path": "en/reference/tickets.md",
+      "locale": "en",
+      "kind": "reference",
+      "order": 10,
+      "title": "Tickets",
+      "description": "API reference for Tickets: every handler with its fields and an example.",
+      "scope": "tickets",
+      "anchors": [
+        {
+          "id": "ticket-detail",
+          "heading": "ticket: detail",
+          "level": 3,
+          "qn": "helpdesk:query:ticket:detail"
+        },
+        {
+          "id": "ticket-list",
+          "heading": "ticket: list",
+          "level": 3,
+          "qn": "helpdesk:query:ticket:list"
+        },
+        {
+          "id": "ticket-close",
+          "heading": "ticket: close",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:close"
+        },
+        {
+          "id": "ticket-create",
+          "heading": "ticket: create",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:create"
+        },
+        {
+          "id": "ticket-update",
+          "heading": "ticket: update",
+          "level": 3,
+          "qn": "helpdesk:write:ticket:update"
+        }
+      ]
+    }
+  ]
+}
