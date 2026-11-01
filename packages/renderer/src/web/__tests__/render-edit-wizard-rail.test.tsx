@@ -51,9 +51,10 @@ describe("wizard step rail: per-step texts", () => {
   test("the rail shows the current step's description and no row subtitles without a subtitle", () => {
     renderWizard(wizardScreen(describedSections));
     expect(screen.getAllByText("Name the order.")).toHaveLength(2);
-    for (const copy of screen.getAllByTestId("render-edit-step-description-narrow")) {
-      expect(copy.className).toContain("lg:hidden");
-    }
+    const narrowOnly = screen
+      .getAllByText("Name the order.")
+      .filter((copy) => copy.className.includes("lg:hidden"));
+    expect(narrowOnly).toHaveLength(1);
     expect(screen.getAllByText("Count the items.")).toHaveLength(1);
     for (const index of [0, 1, 2]) {
       expect(screen.queryByTestId(`render-edit-wizard-steps-subtitle-${index}`)).toBeNull();
@@ -82,8 +83,7 @@ describe("wizard step rail: per-step texts", () => {
       </DispatcherProvider>,
       { StepBar: undefined },
     );
-    expect(screen.getAllByText("Name the order.")).toHaveLength(1);
-    expect(screen.queryByTestId("render-edit-step-description-narrow")).toBeNull();
+    expect(screen.getByText("Name the order.").className).not.toContain("lg:hidden");
     expect(screen.queryByTestId("render-edit-wizard-steps")).toBeNull();
   });
 

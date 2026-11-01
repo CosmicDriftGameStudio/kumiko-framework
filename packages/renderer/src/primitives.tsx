@@ -1044,6 +1044,9 @@ export type SectionProps = {
   /** Optional muted subtitle below the title, providing section context rather
    *  than only a label (analogous to `FormProps.subtitle`). */
   readonly subtitle?: ReactNode;
+  /** Shows the subtitle only below the `lg` breakpoint: a wizard's step rail
+   *  carries the same text from `lg` up. Native impls may ignore it. */
+  readonly subtitleBelowLgOnly?: boolean;
   readonly children: ReactNode;
   /** Rendered top-right in the title row — never a footer. A
    *  title-less/subtitle-less Section still draws the row when `actions`

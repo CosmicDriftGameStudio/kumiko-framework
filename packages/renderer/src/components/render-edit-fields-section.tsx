@@ -97,16 +97,7 @@ function resolveSectionSubtitle<TValues extends FormValues, TCtx>(
   section: FieldsSection,
 ): ReactNode {
   const headerFallback = model.titles.titleInSettingsHeader && sectionIndex === 0;
-  // Below lg the rail is CSS-hidden, so the header copy stands in for it.
-  const description =
-    model.titles.stepRail && section.description !== undefined ? (
-      <span className="lg:hidden" data-testid="render-edit-step-description-narrow">
-        {section.description}
-      </span>
-    ) : (
-      section.description
-    );
-  return description ?? (headerFallback ? model.titles.formSubtitle : undefined);
+  return section.description ?? (headerFallback ? model.titles.formSubtitle : undefined);
 }
 
 function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
@@ -125,6 +116,8 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
       {...(anchorId !== undefined && { id: anchorId })}
       {...(sectionTitle !== undefined && { title: sectionTitle })}
       {...(sectionSubtitle !== undefined && { subtitle: sectionSubtitle })}
+      {...(model.titles.stepRail &&
+        section.description !== undefined && { subtitleBelowLgOnly: true })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
       {...(model.footer.isSettingsList && { layout: "settings-list" as const })}

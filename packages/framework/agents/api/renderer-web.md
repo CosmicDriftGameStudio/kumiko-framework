@@ -1338,6 +1338,7 @@ type SectionProps = { // Titled group of fields.
   id?: string; // DOM id — the scroll target of a form's "on this page" navigation.
   title?: string; // Optional; without a title, the Section renders only the grouping and no header.
   subtitle?: ReactNode; // Optional muted subtitle below the title, providing section context rather than only a label (analogous to `FormProps.subtitle`).
+  subtitleBelowLgOnly?: boolean; // Shows the subtitle only below the `lg` breakpoint: a wizard's step rail carries the same text from `lg` up.
   children: ReactNode;
   actions?: ReactNode; // Rendered top-right in the title row — never a footer.
   layout?: "stacked" | "settings-list"; // "settings-list": title + subtitle form a left header column and the children (field rows) the right one on `md:` and up.

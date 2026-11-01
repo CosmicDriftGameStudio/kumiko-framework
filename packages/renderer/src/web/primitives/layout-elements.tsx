@@ -26,6 +26,7 @@ export function DefaultSection({
   id,
   title,
   subtitle,
+  subtitleBelowLgOnly,
   children,
   actions,
   variant = "default",
@@ -63,6 +64,7 @@ export function DefaultSection({
             className={cn(
               "text-sm text-muted-foreground",
               insideScreenForm && "text-[13px] text-foreground-secondary",
+              subtitleBelowLgOnly === true && "lg:hidden",
             )}
           >
             {subtitle}
