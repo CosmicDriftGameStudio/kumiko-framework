@@ -728,4 +728,55 @@ describe("projectAppSchemaForRoles - qualified screen references", () => {
     expect(detail.listScreenId).toBe("apps:screen:my-apps");
     expect(detail.actions?.map((a) => a.id)).toEqual(["to-list"]);
   });
+
+  describe("two features with a same-named screen", () => {
+    function featureWithListScreen(featureName: string, access?: typeof ADMIN_ONLY) {
+      return defineFeature(featureName, (r) => {
+        r.entity({
+          name: `${featureName}-thing`,
+          fields: {
+            name: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+          },
+        });
+        r.screen({
+          id: "list",
+          type: "entityList",
+          entity: `${featureName}-thing`,
+          columns: ["name"],
+          ...(access !== undefined && { access }),
+        });
+      });
+    }
+    const referrer = defineFeature("referrer", (r) => {
+      r.screen({
+        id: "detail",
+        type: "projectionDetail",
+        query: "referrer:query:thing:detail",
+        layout: { sections: [{ fields: ["name"] }] },
+        actions: [
+          { kind: "navigate", id: "to-visible", label: "Open", screen: "visible:screen:list" },
+          { kind: "navigate", id: "to-hidden", label: "Open", screen: "hidden:screen:list" },
+        ],
+        listScreenId: "hidden:screen:list",
+      });
+    });
+    const sameNamedApp = buildAppSchema(
+      createRegistry([
+        featureWithListScreen("visible"),
+        featureWithListScreen("hidden", ADMIN_ONLY),
+        referrer,
+      ]),
+    );
+
+    test("a qualified reference to the hidden screen is dropped even though the other feature's screen of that name stays", () => {
+      const detail = findFeature(
+        projectAppSchemaForRoles(sameNamedApp, ["User"]),
+        "referrer",
+      ).screens.find((s) => s.id === "detail");
+      if (detail?.type !== "projectionDetail") throw new Error("unreachable");
+
+      expect(detail.listScreenId).toBeUndefined();
+      expect(detail.actions?.map((a) => a.id)).toEqual(["to-visible"]);
+    });
+  });
 });

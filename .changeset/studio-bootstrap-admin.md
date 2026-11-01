@@ -4,6 +4,7 @@
 "@cosmicdrift/kumiko-dev-server": minor
 "@cosmicdrift/kumiko-testing": minor
 "create-kumiko-app": minor
+"@cosmicdrift/kumiko-cli": patch
 ---
 
 A scaffolded app boots without `DEMO_ADMIN_PASSWORD`: with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` set, the first start creates that person as an admin without a password, who then sets one through "forgot password". `bun create kumiko-app <name> --blank` scaffolds this starter without the demo tasks.
@@ -48,4 +49,11 @@ feature: create-kumiko-app
 type: improvement
 title: --blank flag
 detail: `bun create kumiko-app <name> --blank` scaffolds the blank starter: no demo tasks, no seeded password; the creator sets one through "forgot password" after the first start with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`.
+-->
+
+<!-- kumiko-changes
+feature: auth-email-password
+type: fix
+title: Bootstrap admin seed is one-shot
+detail: `seedBootstrapAdmin` skips when the target tenant already has another member (also a removed one), so a deleted owner or one who changed their email is not re-created as a passwordless SystemAdmin on the next boot. Our own passwordless account without membership is still completed, and the has-password skip now re-checks the row right before the grants.
 -->

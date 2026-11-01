@@ -435,6 +435,12 @@ export type EditExtensionSectionViewModel = {
    *  section, see EditFieldsSectionViewModel.id. */
   readonly id?: string;
   readonly title: string;
+  /** Translated `EditExtensionSection.description`. */
+  readonly description?: string;
+  /** Translated `EditExtensionSection.subtitle`. */
+  readonly subtitle?: string;
+  /** From `EditExtensionSection.summaryField`. */
+  readonly summaryField?: string;
   readonly component: PlatformComponent;
   readonly contributesToFormSubmit: boolean;
   /** Section-declared override — see `EditExtensionSection.entityName`. */

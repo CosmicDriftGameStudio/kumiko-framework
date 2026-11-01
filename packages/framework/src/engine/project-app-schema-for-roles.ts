@@ -76,7 +76,6 @@ import type {
 } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
 import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
-import { screenShortId } from "./screen-helpers.ts";
 import type { AccessRule } from "./types/handlers.ts";
 import { isUiAccessGranted } from "./types/handlers.ts";
 import type { NavDefinition } from "./types/nav.ts";
@@ -340,14 +339,15 @@ function isTargetKept(
   return keptScreenQns.has(qualifyEntityName(target.featureName, "screen", target.screen.id));
 }
 
-function resolveNavigateTarget(
-  action: { readonly screen?: string; readonly entity?: string },
+// A QN names exactly one screen; resolving it through the short-id index could land on another
+// feature's same-named screen and keep a reference to a hidden one.
+function isScreenRefKept(
+  ref: string,
   indices: IndexedSchema,
-): ScreenLocation | undefined {
-  if (action.entity !== undefined) return indices.detailForScreens.get(action.entity);
-  if (action.screen !== undefined)
-    return indices.screensByShortId.get(screenShortId(action.screen));
-  return undefined;
+  keptScreenQns: ReadonlySet<string>,
+): boolean {
+  if (isValidQn(ref)) return keptScreenQns.has(ref);
+  return isTargetKept(indices.screensByShortId.get(ref), keptScreenQns);
 }
 
 function isNavigateTargetKept(
@@ -355,7 +355,11 @@ function isNavigateTargetKept(
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): boolean {
-  const target = resolveNavigateTarget(action, indices);
+  if (action.entity === undefined && action.screen !== undefined) {
+    return isScreenRefKept(action.screen, indices, keptScreenQns);
+  }
+  const target =
+    action.entity === undefined ? undefined : indices.detailForScreens.get(action.entity);
   if (target === undefined) return false;
   return keptScreenQns.has(qualifyEntityName(target.featureName, "screen", target.screen.id));
 }
@@ -594,9 +598,7 @@ function projectListScreenId(
   keptScreenQns: ReadonlySet<string>,
 ): string | undefined {
   if (listScreenId === undefined) return undefined;
-  return isTargetKept(indices.screensByShortId.get(screenShortId(listScreenId)), keptScreenQns)
-    ? listScreenId
-    : undefined;
+  return isScreenRefKept(listScreenId, indices, keptScreenQns) ? listScreenId : undefined;
 }
 
 // guard:dup-ok sibling of projectListScreenId for a different reference kind with its own keep check

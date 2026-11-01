@@ -6,6 +6,7 @@ import {
   DetailList,
   ModeSwitch,
   SectionCard,
+  SectionNavLayout,
   TextareaField,
 } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
@@ -33,6 +34,11 @@ export function VariantsDemo(): ReactNode {
       value: t("widgets:catalog:variants-value-plan"),
     },
   ];
+
+  const navSections = ["profile", "billing", "security"].map((id) => ({
+    id: `variants-nav-${id}`,
+    title: t(`widgets:catalog:variants-nav-${id}`),
+  }));
 
   return (
     <SectionCard title={t("widgets:catalog:variants-title")} testId="variants-demo">
@@ -99,6 +105,20 @@ export function VariantsDemo(): ReactNode {
             submitLabel={t("widgets:catalog:variants-composer-send")}
             testId="variants-composer"
           />
+        </div>
+
+        <div className="flex flex-col gap-2" data-testid="variants-section-nav">
+          <Heading variant="group">{t("widgets:catalog:variants-section-nav")}</Heading>
+          <SectionNavLayout items={navSections} testId="variants-section-nav-layout">
+            {navSections.map((section) => (
+              <section key={section.id} id={section.id} className="flex flex-col gap-1">
+                <Heading variant="group">{section.title}</Heading>
+                <p className="text-sm text-muted-foreground">
+                  {t("widgets:catalog:variants-nav-body")}
+                </p>
+              </section>
+            ))}
+          </SectionNavLayout>
         </div>
       </div>
     </SectionCard>

@@ -29,6 +29,8 @@ import {
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { hashPassword } from "../shared/index.ts";
+// kumiko-lint-ignore cross-feature-import bootstrap admin seed checks whether the tenant already has members
+import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
@@ -348,6 +350,18 @@ async function findExistingUserIdForEmail(
   return matches.length === 0 ? undefined : pickCanonicalUserId(matches);
 }
 
+async function seedAdminPlaintext(
+  db: DbConnection,
+  options: SeedAdminOptions,
+  mayGrantToExisting: ((row: Record<string, unknown>) => boolean) | undefined,
+): Promise<{ id: string }> {
+  if (mayGrantToExisting) {
+    const row = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
+    if (row && !mayGrantToExisting(row)) return { id: String(row["id"]) };
+  }
+  return seedAdmin(db, options);
+}
+
 /**
  * Boot-seed variant of seedAdmin that survives a blind-index miss on an
  * otherwise-existing account (see the module comment above). Not for the
@@ -365,9 +379,10 @@ async function findExistingUserIdForEmail(
 export async function seedAdminGuarded(
   db: DbConnection,
   options: SeedAdminOptions,
+  mayGrantToExisting?: (row: Record<string, unknown>) => boolean,
 ): Promise<{ id: string }> {
   const kms = configuredPiiSubjectKms();
-  if (kms === undefined) return seedAdmin(db, options);
+  if (kms === undefined) return seedAdminPlaintext(db, options, mayGrantToExisting);
 
   // Without a bidx key every row seeded here gets a NULL email_bidx, which
   // neither seedAdmin's lookup nor the partial unique index can ever see.
@@ -387,8 +402,9 @@ export async function seedAdminGuarded(
     // Re-write the email so email_bidx is recomputed; without it the account
     // stays unfindable for login and every boot re-scans the whole table.
     await rewriteSeededUserEmail(db, existingRow, options.email, by);
+    const refreshed = (await fetchOne(db, userTable, { id: existingId })) ?? existingRow;
+    if (mayGrantToExisting && !mayGrantToExisting(refreshed)) return { id: existingId };
     if (options.emailVerified === true) {
-      const refreshed = (await fetchOne(db, userTable, { id: existingId })) ?? existingRow;
       await reconcileSeededUserEmailVerified(db, refreshed, by);
     }
   }
@@ -411,21 +427,53 @@ async function findExistingUserRowForEmail(db: DbConnection, email: string) {
   return existingId === undefined ? undefined : fetchOne(db, userTable, { id: existingId });
 }
 
+function hasPassword(row: Record<string, unknown>): boolean {
+  return typeof row["passwordHash"] === "string" && row["passwordHash"] !== "";
+}
+
+/** Tenant already has a member other than `ownUserId` (soft-deleted memberships count). */
+async function tenantHasForeignMember(
+  db: DbConnection,
+  tenantId: TenantId,
+  ownUserId: string | undefined,
+): Promise<boolean> {
+  const members = await selectMany(db, tenantMembershipsTable, { tenantId });
+  return members.some((member) => member["userId"] !== ownUserId);
+}
+
 /**
- * Boot seed for an account that sets its password later (password reset). An
- * account that already has a password is either the owner after their reset or
- * a foreign self-registration with the same email; granting admin to the latter
- * would be an escalation, so both are left untouched: no verification, no
- * membership, no role change.
+ * One-shot boot seed for an account that sets its password later (password
+ * reset). Skipped when the account already has a password (owner after their
+ * reset, or a foreign self-registration: granting admin to the latter would be
+ * an escalation) and when the target tenant already has another member (owner
+ * deleted or changed their email: re-seeding would mint a new passwordless
+ * SystemAdmin). Only our own passwordless account is completed, so a partial
+ * earlier seed converges.
  */
 export async function seedBootstrapAdmin(
   db: DbConnection,
   options: SeedAdminOptions,
-): Promise<{ id: string } | { skipped: "has-password" }> {
+): Promise<{ id: string } | { skipped: "has-password" | "tenant-has-members" }> {
   const existing = await findExistingUserRowForEmail(db, options.email);
-  if (existing && typeof existing["passwordHash"] === "string" && existing["passwordHash"] !== "") {
+  if (existing && hasPassword(existing)) {
     log.info("seedBootstrapAdmin: the account already has a password, bootstrap seed skipped");
     return { skipped: "has-password" };
   }
-  return seedAdminGuarded(db, options);
+  const ownUserId = typeof existing?.["id"] === "string" ? existing["id"] : undefined;
+  for (const membership of options.memberships) {
+    if (await tenantHasForeignMember(db, membership.tenantId, ownUserId)) {
+      log.info("seedBootstrapAdmin: the tenant already has members, bootstrap seed skipped");
+      return { skipped: "tenant-has-members" };
+    }
+  }
+  let passwordAppeared = false;
+  const seeded = await seedAdminGuarded(db, options, (row) => {
+    passwordAppeared = hasPassword(row);
+    return !passwordAppeared;
+  });
+  if (passwordAppeared) {
+    log.info("seedBootstrapAdmin: the account got a password meanwhile, bootstrap seed skipped");
+    return { skipped: "has-password" };
+  }
+  return seeded;
 }

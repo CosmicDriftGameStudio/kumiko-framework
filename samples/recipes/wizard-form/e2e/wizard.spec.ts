@@ -121,12 +121,15 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     const rail = page.getByTestId("render-edit-wizard-steps");
     const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
     const step1 = page.getByTestId("render-edit-wizard-steps-step-1");
+    const step2 = page.getByTestId("render-edit-wizard-steps-step-2");
 
     await expect(rail).toBeVisible();
     await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
     await expect(step0).toHaveAttribute("aria-current", "step");
-    await expect(step0).toHaveCSS("height", "36px");
-    await expect(step1).toHaveCSS("height", "36px");
+    // Rows with a subtitle grow past 36px; the subtitle-less Review row pins the exact box.
+    await expect(step2).toHaveCSS("height", "36px");
+    expect((await step0.boundingBox())?.height).toBeGreaterThanOrEqual(36);
+    expect((await step1.boundingBox())?.height).toBeGreaterThanOrEqual(36);
 
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
@@ -134,7 +137,76 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
 
     await expect(step1).toHaveAttribute("aria-current", "step");
     await expect(step0).not.toHaveAttribute("aria-current", "step");
-    await expect(step1).toHaveCSS("height", "36px");
+    await expect(step2).toHaveCSS("height", "36px");
+  });
+
+  test("the rail shows a step's subtitle and, once a step is done, its summaryField value", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveText(
+      "Title and category",
+    );
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-1")).toHaveText(
+      "Price and condition",
+    );
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveText(
+      "Vintage desk lamp",
+    );
+  });
+
+  test("the up-next card names the next step and, on the last step, the finish action", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    const upNext = page.getByTestId("render-edit-wizard-steps-up-next");
+    await expect(upNext).toContainText("Pricing");
+    await expect(upNext).toContainText("Price and condition");
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(upNext).toContainText("Review");
+    await page.getByTestId("field-price").locator("input").fill("42");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(upNext).toContainText("Publishes the listing.");
+  });
+
+  test("Save and close is offered while creating and creates the listing", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Quick save lamp");
+    await selectCombobox(page, "category", "furniture");
+
+    await page.getByTestId("render-edit-wizard-save-close").click();
+
+    await expect
+      .poll(async () => (await createdListings(page)).map((listing) => listing["title"]))
+      .toEqual(["Quick save lamp"]);
+  });
+
+  test("submitDisabledWhen disables Finish while the category is vehicles", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Old bicycle");
+    await selectCombobox(page, "category", "vehicles");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await page.getByTestId("field-price").locator("input").fill("150");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-submit")).toBeDisabled();
+
+    await page.getByTestId("render-edit-wizard-back").click();
+    await page.getByTestId("render-edit-wizard-back").click();
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-submit")).toBeEnabled();
   });
 
   test("an empty required field blocks Next and shows a field error", async ({ page }) => {

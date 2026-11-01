@@ -453,6 +453,7 @@ function validateHeaderActionShowOnTabs(
   screen: ProjectionDetailScreenDefinition,
   action: RowAction,
 ): void {
+  // skip: no showOnTabs declared, the action is shown on every tab
   if (action.showOnTabs === undefined) return;
   const sectionIds = screen.layout.sections.map((section) => section.id);
   const unknownTab = action.showOnTabs.find((tab) => !sectionIds.includes(tab));

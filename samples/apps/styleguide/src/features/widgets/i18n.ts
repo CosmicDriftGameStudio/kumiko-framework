@@ -317,6 +317,17 @@ export const WIDGETS_I18N = {
   "widgets:catalog:variants-mode-b": { de: "Manuell", en: "Manual" },
   "widgets:catalog:variants-mode-c": { de: "Offene Fragen", en: "Open questions" },
   "widgets:catalog:variants-mode-d": { de: "Gesperrt", en: "Locked" },
+  "widgets:catalog:variants-section-nav": {
+    de: "Abschnittsnavigation für eigene Screens",
+    en: "Section navigation for custom screens",
+  },
+  "widgets:catalog:variants-nav-profile": { de: "Profil", en: "Profile" },
+  "widgets:catalog:variants-nav-billing": { de: "Abrechnung", en: "Billing" },
+  "widgets:catalog:variants-nav-security": { de: "Sicherheit", en: "Security" },
+  "widgets:catalog:variants-nav-body": {
+    de: "Die Liste rechts springt zum Abschnitt und folgt dem Scrollen.",
+    en: "The list on the right jumps to the section and follows the scroll position.",
+  },
   "widgets:catalog:variants-banner": {
     de: "Hinweis mit Symbol und Hervorhebung",
     en: "Banner with icon and emphasis",

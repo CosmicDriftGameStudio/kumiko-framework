@@ -33,8 +33,18 @@ afterAll(() => {
   for (const dir of createdDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-async function run(cmd: readonly string[], cwd: string): Promise<{ code: number; output: string }> {
-  const proc = Bun.spawn({ cmd: [...cmd], cwd, stdout: "pipe", stderr: "pipe" });
+// The blank starter must boot without a demo password, whatever the machine env carries.
+function envWithoutDemoAdmin(): Record<string, string | undefined> {
+  const { DEMO_ADMIN_PASSWORD: _password, DEMO_ADMIN_EMAIL: _email, ...rest } = process.env;
+  return rest;
+}
+
+async function run(
+  cmd: readonly string[],
+  cwd: string,
+  env: Record<string, string | undefined> = process.env,
+): Promise<{ code: number; output: string }> {
+  const proc = Bun.spawn({ cmd: [...cmd], cwd, env, stdout: "pipe", stderr: "pipe" });
   runningProcs.add(proc);
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -62,6 +72,10 @@ beforeAll(async () => {
   }
 });
 
+function runEnvOf(starter: ScaffoldStarter): Record<string, string | undefined> {
+  return starter === "blank" ? envWithoutDemoAdmin() : process.env;
+}
+
 function appDirOf(starter: ScaffoldStarter): string {
   const dir = appDirs[starter];
   if (dir === undefined) throw new Error(`no ${starter} fixture`);
@@ -79,18 +93,22 @@ const STEP_EXPECTATIONS: readonly (readonly [CheckStepId, string | undefined])[]
 
 describe.each(SCAFFOLD_STARTERS)("scaffolded %s app passes kumiko check", (starter) => {
   test.each(STEP_EXPECTATIONS)("kumiko check %s is green", async (step, expectedLine) => {
-    const check = await run(["bun", CLI_BIN, "check", step], appDirOf(starter));
+    const check = await run(["bun", CLI_BIN, "check", step], appDirOf(starter), runEnvOf(starter));
     expect(check.code, check.output).toBe(0);
     if (expectedLine !== undefined) expect(check.output).toContain(expectedLine);
   });
 
   test("tsc against the framework presets is green", async () => {
-    const tsc = await run(["bun", "x", "tsc", "--noEmit", "-p", "."], appDirOf(starter));
+    const tsc = await run(
+      ["bun", "x", "tsc", "--noEmit", "-p", "."],
+      appDirOf(starter),
+      runEnvOf(starter),
+    );
     expect(tsc.code, tsc.output).toBe(0);
   });
 
   test("bun run build produces dist/index.html with a hashed client script", async () => {
-    const build = await run(["bun", "run", "build"], appDirOf(starter));
+    const build = await run(["bun", "run", "build"], appDirOf(starter), runEnvOf(starter));
     expect(build.code, build.output).toBe(0);
     const html = readFileSync(join(appDirOf(starter), "dist", "index.html"), "utf8");
     expect(html).not.toContain('src="/client.js"');

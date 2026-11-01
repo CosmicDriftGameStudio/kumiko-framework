@@ -100,13 +100,13 @@ With `layout.mode: "tabs"`, a header action takes `showOnTabs: ["<tab id>"]` and
 
 | Key | Effect |
 |---|---|
-| section `summaryField` | A completed step shows the value of this field of the section as its subtitle in the step rail. Without it the step shows its `subtitle`, then its `description`. |
-| `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `subtitle`, or its `description`. |
+| section `summaryField` | A completed step shows the value of this field of the section as its subtitle in the step rail. Without it the step shows its `subtitle` (a `description` is never used as a row line). |
+| `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `subtitle` (no fallback to `description`). |
 | `wizard.aside.finishDescription` | On the last step the card shows the finish action with this text. |
 | `wizard.saveAndCloseOnCreate` | Shows "Save and close" in create mode too. Default off. |
-| `wizard.submitDisabledWhen` | A field condition over the form values; while it holds, every submit button is disabled and a submit is blocked. |
+| `wizard.submitDisabledWhen` | A field condition over the form values; while it holds, every submit button is disabled and a submit is blocked. UI-only: a client can still send the write, so enforce the rule in a validation hook. |
 
-The intro text beside the rail follows the current step's `description` and falls back to `formSubtitle`; the same description is not printed again above the fields. After a create, extension sections are saved with the id of the new entity. The boot validator rejects the options above outside wizard mode, a `summaryField` that the section does not declare, and a `submitDisabledWhen` field that no section declares.
+The intro text beside the rail follows the current step's `description` and falls back to `formSubtitle`; the same description above the fields is shown only below `lg`, where the rail is hidden (without a rail it stays in the section header). After a create, extension sections are saved with the id of the new entity. The boot validator rejects the options above outside wizard mode, a `summaryField` that the section does not declare, and a `submitDisabledWhen` field that no section declares.
 
 ## `LanguageSwitcher`: `variant="chip"`
 

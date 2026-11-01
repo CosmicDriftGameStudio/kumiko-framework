@@ -126,6 +126,22 @@ function hasVisibleContent(
   );
 }
 
+// Untitled section (flat form) → no h3; translate only what is set.
+function translateSectionTexts(
+  section: {
+    readonly title?: string | undefined;
+    readonly description?: string | undefined;
+    readonly subtitle?: string | undefined;
+  },
+  translate: Translate,
+): { title?: string; description?: string; subtitle?: string } {
+  return {
+    ...(section.title !== undefined && { title: translate(section.title) }),
+    ...(section.description !== undefined && { description: translate(section.description) }),
+    ...(section.subtitle !== undefined && { subtitle: translate(section.subtitle) }),
+  };
+}
+
 function wasEmptiedByWriteExclusion(
   declaredFieldSpecs: readonly EditFieldSpec[],
   remainingFields: readonly EditFieldViewModel[],
@@ -572,6 +588,11 @@ function buildExtensionSectionViewModel(
     kind: "extension" as const,
     ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
     title: translate(sectionSpec.title),
+    ...(sectionSpec.description !== undefined && {
+      description: translate(sectionSpec.description),
+    }),
+    ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
+    ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
     component: sectionSpec.component,
     contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
     // Blank override must fall back to the host value: the renderer's `??`
@@ -791,12 +812,7 @@ export function computeEditViewModel<
       ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
       visible,
       emptiedByWriteExclusion: wasEmptiedByWriteExclusion(declaredFieldSpecs, fields),
-      // Untitled section (flat form) → no h3; translate only when set.
-      ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
-      ...(sectionSpec.description !== undefined && {
-        description: translate(sectionSpec.description),
-      }),
-      ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
+      ...translateSectionTexts(sectionSpec, translate),
       ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
       columns: sectionSpec.columns ?? defaultColumns,
       fields,

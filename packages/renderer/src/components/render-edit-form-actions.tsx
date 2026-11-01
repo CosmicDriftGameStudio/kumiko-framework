@@ -60,11 +60,12 @@ function renderSaveAndCloseButton<TValues extends FormValues, TCtx>({
   footer,
 }: RenderEditModel<TValues, TCtx>): ReactNode {
   const { Button } = state.primitives;
+  const saveAndCloseOnCreate = props.screen.layout.wizard?.saveAndCloseOnCreate === true;
   return (
     state.isWizard &&
-    !steps.isLastWizardStep &&
+    (!steps.isLastWizardStep || saveAndCloseOnCreate) &&
     footer.showsSubmit &&
-    (!state.isCreateMode || props.screen.layout.wizard?.saveAndCloseOnCreate === true) && (
+    (!state.isCreateMode || saveAndCloseOnCreate) && (
       <Button
         type="button"
         variant="ghost"

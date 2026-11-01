@@ -95,10 +95,17 @@ function resolveSectionTitle<TValues extends FormValues, TCtx>(
 function resolveSectionSubtitle<TValues extends FormValues, TCtx>(
   { model, sectionIndex }: SectionRenderContext<TValues, TCtx>,
   section: FieldsSection,
-): string | undefined {
+): ReactNode {
   const headerFallback = model.titles.titleInSettingsHeader && sectionIndex === 0;
-  // The wizard step rail carries the step's description.
-  const description = model.titles.stepRail ? undefined : section.description;
+  // Below lg the rail is CSS-hidden, so the header copy stands in for it.
+  const description =
+    model.titles.stepRail && section.description !== undefined ? (
+      <span className="lg:hidden" data-testid="render-edit-step-description-narrow">
+        {section.description}
+      </span>
+    ) : (
+      section.description
+    );
   return description ?? (headerFallback ? model.titles.formSubtitle : undefined);
 }
 

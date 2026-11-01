@@ -66,10 +66,14 @@ describe("record-detail-layout showcase — registration", () => {
     ]);
   });
 
-  test("screen-level actions carry refresh-order and keep download-invoice inline", () => {
+  test("screen-level actions carry refresh-order, inline download-invoice and the payments-only record-payment", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order", "download-invoice"]);
+    expect(screen.actions?.map((a) => a.id)).toEqual([
+      "refresh-order",
+      "download-invoice",
+      "record-payment",
+    ]);
     expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 

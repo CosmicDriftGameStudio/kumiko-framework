@@ -208,3 +208,19 @@ test("ProgressBar fill keeps its height and half width inside a stretched flex c
   expect(fillBox.height).toBeGreaterThan(0);
   expect(fillBox.width / barBox.width).toBeCloseTo(0.5, 1);
 });
+
+test("SectionNavLayout lists the sections beside the content on a wide viewport", async ({
+  page,
+}) => {
+  const shotDir = process.env["SCREENSHOT_DIR"];
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/widgets");
+  const demo = page.getByTestId("variants-section-nav");
+  await demo.scrollIntoViewIfNeeded();
+  await expect(demo.getByRole("button", { name: "Billing" })).toBeVisible();
+  await expect(demo.getByRole("button", { name: "Security" })).toBeVisible();
+  if (shotDir) {
+    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    await demo.screenshot({ path: `${shotDir}/section-nav-layout.png` });
+  }
+});

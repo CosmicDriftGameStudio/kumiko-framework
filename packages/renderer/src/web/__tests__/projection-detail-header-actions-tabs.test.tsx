@@ -56,7 +56,7 @@ function renderTab(tab: string): void {
 describe("projectionDetail header action showOnTabs", () => {
   test("action is shown on a listed tab", async () => {
     renderTab("history");
-    await waitFor(() => screen.getByText("Archive rental"));
+    expect(await screen.findByText("Archive rental")).toBeDefined();
   });
 
   test("action is hidden on another tab", async () => {

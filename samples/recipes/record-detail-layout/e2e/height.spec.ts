@@ -163,3 +163,21 @@ test.describe("record-detail-layout — tall tab panel scrolls", () => {
     await expect(end).toBeInViewport();
   });
 });
+
+test.describe("record-detail-layout — header action per tab", () => {
+  const recordPayment = "order-desk.action.recordPayment";
+
+  test("record-payment shows on the payments tab only", async ({ page }) => {
+    await page.goto("/?tab=payments");
+    await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();
+    // The third header action lands in the overflow menu.
+    await page.getByRole("button", { name: "More actions" }).last().click();
+    await expect(page.getByText(recordPayment)).toBeVisible();
+
+    await page.goto("/?tab=items");
+    await expect(page.getByTestId("render-list-table")).toBeVisible();
+    // Only two actions remain, so no overflow menu is rendered.
+    await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(0);
+    await expect(page.getByText(recordPayment)).toHaveCount(0);
+  });
+});

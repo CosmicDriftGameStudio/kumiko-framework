@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
@@ -68,5 +69,75 @@ describe("validateBoot: wizard layout options", () => {
     expect(() =>
       validateBoot([featureWith({ sections: sections({ summaryField: "name" }) })]),
     ).toThrow(/wizard-only layout option but mode is not "wizard"/);
+  });
+});
+
+describe("validateBoot: wizard options on an actionForm with extension steps", () => {
+  const extensionStep = (title: string, extra: Record<string, unknown> = {}): EditSectionSpec =>
+    ({
+      kind: "extension",
+      title,
+      component: { react: { __component: "demo-step" } },
+      ...extra,
+    }) as EditSectionSpec;
+
+  function actionFormFeature(layout: EditLayout) {
+    return defineFeature("shop", (r) => {
+      r.writeHandler({
+        name: "create",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({ isSuccess: true, data: {} }) as never,
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "create-form",
+        type: "actionForm",
+        handler: "shop:write:create",
+        fields: { name: textField() },
+        layout,
+      });
+    });
+  }
+
+  test("the screen's fields are valid submitDisabledWhen and summaryField names", () => {
+    expect(() =>
+      validateBoot([
+        actionFormFeature({
+          mode: "wizard",
+          sections: [
+            extensionStep("Step 1", {
+              summaryField: "name",
+              subtitle: "shop.s1",
+              description: "d",
+            }),
+            extensionStep("Step 2"),
+          ],
+          wizard: { submitDisabledWhen: { field: "name", eq: "" } },
+        }),
+      ]),
+    ).not.toThrow();
+  });
+
+  test("an unknown submitDisabledWhen field still fails boot", () => {
+    expect(() =>
+      validateBoot([
+        actionFormFeature({
+          mode: "wizard",
+          sections: [extensionStep("Step 1"), extensionStep("Step 2")],
+          wizard: { submitDisabledWhen: { field: "ghost", eq: "" } },
+        }),
+      ]),
+    ).toThrow(/submitDisabledWhen names field "ghost"/);
+  });
+
+  test("an extension summaryField outside the screen's fields fails boot", () => {
+    expect(() =>
+      validateBoot([
+        actionFormFeature({
+          mode: "wizard",
+          sections: [extensionStep("Step 1", { summaryField: "ghost" }), extensionStep("Step 2")],
+        }),
+      ]),
+    ).toThrow(/extension section "Step 1" sets summaryField "ghost"/);
   });
 });

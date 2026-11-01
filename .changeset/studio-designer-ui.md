@@ -17,7 +17,7 @@ detail: A projectionDetail whose `header.subtitle` field is empty and that has n
 feature: framework
 type: fix
 title: Qualified listScreenId and navigate targets survive role projection
-detail: `projectAppSchemaForRoles` looked up `listScreenId` and navigate `screen` by the raw value, so a `<feature>:screen:<id>` reference never matched and the breadcrumb parent was dropped. Both now resolve through `screenShortId` (the original value stays in the projected schema), as does the boot check of `listScreenId`. Applies to all apps.
+detail: `projectAppSchemaForRoles` looked up `listScreenId` and navigate `screen` by the raw value, so a `<feature>:screen:<id>` reference never matched and the breadcrumb parent was dropped. A qualified reference is now checked against the exact screen it names (never through the short-id index, which could land on another feature's same-named screen and keep a reference to a hidden screen); bare ids still resolve through the short-id index. The original value stays in the projected schema. Applies to all apps.
 -->
 
 <!-- kumiko-changes
@@ -87,19 +87,26 @@ detail: `SectionNavLayout` wraps custom or extension sections in a column with t
 feature: framework
 type: improvement
 title: Wizard step rail texts and up-next card
-detail: Wizard steps in the rail show the section `subtitle`, else its `description`; a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `subtitle` or `description`.
+detail: Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `subtitle` only.
 -->
 
 <!-- kumiko-changes
 feature: renderer
 type: fix
 title: Wizard intro follows the current step
-detail: The intro text beside the wizard rail now follows the description of the current step and falls back to `formSubtitle`; the description is no longer printed a second time above the fields. Applies to every app that uses a wizard with a step rail.
+detail: The intro text beside the wizard rail now follows the description of the current step and falls back to `formSubtitle`; the description above the fields is shown only below `lg`, where the rail is hidden (without a rail it stays in the section header). Applies to every app that uses a wizard with a step rail.
 -->
 
 <!-- kumiko-changes
 feature: framework
 type: improvement
 title: Wizard footer options
-detail: `layout.wizard.saveAndCloseOnCreate` shows "Save and close" in create mode. `layout.wizard.submitDisabledWhen` is a field condition that disables the submit buttons and blocks the submit. After a create, extension sections are saved with the id of the new entity. The boot validator rejects these options outside wizard mode and unknown fields.
+detail: `layout.wizard.saveAndCloseOnCreate` shows "Save and close" in create mode. `layout.wizard.submitDisabledWhen` is a field condition that disables the submit buttons and blocks the submit. After a create, extension sections are saved with the id of the new entity. The boot validator rejects these options outside wizard mode and unknown fields. `submitDisabledWhen` is UI-only; enforce the rule in a validation hook.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Advisory-lock waiters no longer time out
+detail: `withSessionAdvisoryLock` waits for the lock without the pool's statement_timeout (it is reset before the connection returns to the pool). A replica waiting for a peer, for example during boot seeds, no longer crashes with 57014.
 -->

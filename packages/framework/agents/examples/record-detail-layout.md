@@ -17,6 +17,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   rendered from the columns of the screen's own query row
 - `layout.mode: "tabs"` with two `relatedList` tabs (order items, payments)
   and one `fields` tab (master data) — each `relatedList` runs its own query
+- a header action with `showOnTabs: ["payments"]`, shown only while that tab is active
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -571,6 +572,24 @@ test.describe("record-detail-layout — tall tab panel scrolls", () => {
     await expect(end).toBeInViewport();
   });
 });
+
+test.describe("record-detail-layout — header action per tab", () => {
+  const recordPayment = "order-desk.action.recordPayment";
+
+  test("record-payment shows on the payments tab only", async ({ page }) => {
+    await page.goto("/?tab=payments");
+    await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();
+    // The third header action lands in the overflow menu.
+    await page.getByRole("button", { name: "More actions" }).last().click();
+    await expect(page.getByText(recordPayment)).toBeVisible();
+
+    await page.goto("/?tab=items");
+    await expect(page.getByTestId("render-list-table")).toBeVisible();
+    // Only two actions remain, so no overflow menu is rendered.
+    await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(0);
+    await expect(page.getByText(recordPayment)).toHaveCount(0);
+  });
+});
 ```
 
 ### e2e/padding-parity-screenshots.spec.ts
@@ -795,10 +814,14 @@ describe("record-detail-layout showcase — registration", () => {
     ]);
   });
 
-  test("screen-level actions carry refresh-order and keep download-invoice inline", () => {
+  test("screen-level actions carry refresh-order, inline download-invoice and the payments-only record-payment", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order", "download-invoice"]);
+    expect(screen.actions?.map((a) => a.id)).toEqual([
+      "refresh-order",
+      "download-invoice",
+      "record-payment",
+    ]);
     expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 
@@ -889,6 +912,8 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //   5. A screen-level `actions` entry (fw#3234) renders next to the header,
 //      not inside any tab's Card. `inlineActions` keeps download-invoice a visible
 //      button next to it where the page header would otherwise fold it into the menu.
+//
+//   6. `showOnTabs` limits the record-payment action to the payments tab.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
@@ -1031,6 +1056,14 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.action.downloadInvoice",
           screen: "order-detail",
           icon: "download",
+        },
+        {
+          kind: "navigate",
+          id: "record-payment",
+          label: "order-desk.action.recordPayment",
+          screen: "order-detail",
+          icon: "plus",
+          showOnTabs: ["payments"],
         },
       ],
       inlineActions: ["download-invoice"],

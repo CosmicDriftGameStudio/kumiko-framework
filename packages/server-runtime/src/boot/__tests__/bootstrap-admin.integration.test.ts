@@ -7,7 +7,12 @@ import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { seedUserWithPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import {
+  seedTenant,
+  seedTenantMembership,
+  seedUser,
+  seedUserWithPassword,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
@@ -217,6 +222,45 @@ describe("bootstrap admin seed", () => {
     // refusal is about membership, not about a changed password.
     const res = await login(ownPassword);
     expect((await res.json()).error.details.reason).toBe("no_membership");
+  });
+
+  test("a tenant that already has another member gets no new bootstrap account", async () => {
+    await seedTenant(stack.db, { id: TENANT_ID, key: "app", name: "App" });
+    const { id: renamedOwnerId } = await seedUserWithPassword(stack.db, {
+      email: "owner-with-new-email@example.com",
+      password: "owner-password-12345",
+      displayName: "Owner",
+    });
+    await seedTenantMembership(stack.db, {
+      userId: renamedOwnerId,
+      tenantId: TENANT_ID,
+      roles: ["Admin", ROLES.TenantAdmin],
+    });
+
+    await bootSeeds(withCreator);
+
+    expect(await creatorRows()).toHaveLength(0);
+    const members = await selectMany(stack.db, tenantMembershipsTable, { tenantId: TENANT_ID });
+    expect(members).toHaveLength(1);
+  });
+
+  test("a partial earlier seed (account without membership) is completed", async () => {
+    const { id: partialId } = await seedUser(stack.db, {
+      email: CREATOR_EMAIL,
+      displayName: "Admin",
+    });
+
+    await bootSeeds(withCreator);
+
+    const rows = await creatorRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["id"]).toBe(partialId);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: partialId,
+      tenantId: TENANT_ID,
+    });
+    expect(memberships).toHaveLength(1);
+    expect(rolesOf(memberships[0]?.["roles"])).toEqual(["Admin", ROLES.TenantAdmin]);
   });
 
   test("without the env var no account is seeded", async () => {

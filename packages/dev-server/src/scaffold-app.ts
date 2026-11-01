@@ -134,7 +134,52 @@ export type ScaffoldAppResult = {
   readonly appName: string;
 };
 
-export async function scaffoldApp(options: ScaffoldAppOptions): Promise<ScaffoldAppResult> {
+function writeDemoTasksFiles(destination: string, files: string[]): void {
+  mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
+  write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
+  files.push("src/features/tasks/feature.ts");
+  write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
+  files.push("src/features/tasks/i18n.ts");
+  write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
+  files.push("src/features/tasks/index.ts");
+  write(
+    join(destination, "src", "features", "tasks", "web", "index.ts"),
+    renderDemoTasksWebIndex(),
+  );
+  files.push("src/features/tasks/web/index.ts");
+  write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
+  files.push("src/seed.ts");
+}
+
+function writeBinFiles(
+  destination: string,
+  appName: string,
+  isBlank: boolean,
+  files: string[],
+): void {
+  write(
+    join(destination, "bin", "main.ts"),
+    isBlank ? renderBlankMain(appName) : renderMain(appName),
+  );
+  files.push("bin/main.ts");
+  write(
+    join(destination, "bin", "server.ts"),
+    isBlank ? renderBlankServer(appName) : renderServer(appName),
+  );
+  files.push("bin/server.ts");
+  write(
+    join(destination, "bin", "env-schema.ts"),
+    isBlank ? renderBlankEnvSchema() : renderEnvSchema(appName),
+  );
+  files.push("bin/env-schema.ts");
+  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
+  files.push("bin/kumiko.ts");
+}
+
+function resolveScaffoldTarget(options: ScaffoldAppOptions): {
+  destination: string;
+  version: string;
+} {
   if (!isKebabSegment(options.name)) {
     throw new Error(`scaffoldApp: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`);
   }
@@ -149,6 +194,11 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
       "scaffoldApp: cannot resolve the framework version; pass frameworkVersion explicitly",
     );
   }
+  return { destination, version };
+}
+
+export async function scaffoldApp(options: ScaffoldAppOptions): Promise<ScaffoldAppResult> {
+  const { destination, version } = resolveScaffoldTarget(options);
   const starter = options.starter ?? "demo";
   const isBlank = starter === "blank";
   const testSetup = options.testSetup?.({
@@ -178,49 +228,12 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features, starter));
   files.push("src/run-config.ts");
 
-  if (!isBlank) {
-    mkdirSync(join(destination, "src", "features", "tasks", "web"), { recursive: true });
-    write(
-      join(destination, "src", "features", "tasks", "feature.ts"),
-      renderDemoTasksFeatureFile(),
-    );
-    files.push("src/features/tasks/feature.ts");
-    write(join(destination, "src", "features", "tasks", "i18n.ts"), renderDemoTasksI18n());
-    files.push("src/features/tasks/i18n.ts");
-    write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
-    files.push("src/features/tasks/index.ts");
-    write(
-      join(destination, "src", "features", "tasks", "web", "index.ts"),
-      renderDemoTasksWebIndex(),
-    );
-    files.push("src/features/tasks/web/index.ts");
-    write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
-    files.push("src/seed.ts");
-  }
+  if (!isBlank) writeDemoTasksFiles(destination, files);
 
   write(join(destination, APP_CONFIG_FILE), renderAppConfig());
   files.push(APP_CONFIG_FILE);
 
-  write(
-    join(destination, "bin", "main.ts"),
-    isBlank ? renderBlankMain(options.name) : renderMain(options.name),
-  );
-  files.push("bin/main.ts");
-
-  write(
-    join(destination, "bin", "server.ts"),
-    isBlank ? renderBlankServer(options.name) : renderServer(options.name),
-  );
-  files.push("bin/server.ts");
-
-  write(
-    join(destination, "bin", "env-schema.ts"),
-    isBlank ? renderBlankEnvSchema() : renderEnvSchema(options.name),
-  );
-  files.push("bin/env-schema.ts");
-
-  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
-  files.push("bin/kumiko.ts");
+  writeBinFiles(destination, options.name, isBlank, files);
 
   write(join(destination, "src", "client.tsx"), renderClient(options.name, starter));
   files.push("src/client.tsx");
@@ -241,12 +254,10 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   await writeInitMigration(destination, options.features, starter);
   files.push("kumiko/migrations/0001_init.sql", "kumiko/migrations/.snapshot.json");
 
-  if (testSetup !== undefined) {
-    for (const [rel, content] of Object.entries(testSetup.files)) {
-      mkdirSync(dirname(join(destination, rel)), { recursive: true });
-      write(join(destination, rel), content);
-      files.push(rel);
-    }
+  for (const [rel, content] of Object.entries(testSetup?.files ?? {})) {
+    mkdirSync(dirname(join(destination, rel)), { recursive: true });
+    write(join(destination, rel), content);
+    files.push(rel);
   }
 
   const managedFacts = resolveManagedAppFacts({

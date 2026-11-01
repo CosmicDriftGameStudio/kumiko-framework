@@ -34,7 +34,8 @@ type SeededAccountOptions = {
  *    `demoTenant`) with role `User` (default).
  *  - `bootstrapAdminFromEnv`: `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` (no seed while unset) becomes an
  *    admin WITHOUT a password in `tenant` (default `demoTenant`) with `Admin` + `TenantAdmin`
- *    and the global role `SystemAdmin`; it sets its password via password reset.
+ *    and the global role `SystemAdmin`; it sets its password via password reset. One-shot:
+ *    skipped when the account already has a password or the tenant already has another member.
  *  - `run`: free seed functions, same contract as the array form.
  *
  *  @example

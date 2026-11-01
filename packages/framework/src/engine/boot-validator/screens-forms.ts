@@ -268,11 +268,14 @@ function validateWizardOptions(
   screenId: string,
   screenType: string,
   layout: EditLayout,
+  inlineFieldNames: ReadonlySet<string> | undefined,
 ): void {
   const where = `[Feature ${featureName}] Screen "${screenId}" (${screenType})`;
   const wizard = layout.wizard;
   const summarySections = layout.sections.filter(
-    (section) => isFieldsEditSection(section) && section.summaryField !== undefined,
+    (section) =>
+      (isFieldsEditSection(section) || section.kind === "extension") &&
+      section.summaryField !== undefined,
   );
   const usesWizardOption =
     wizard?.saveAndCloseOnCreate !== undefined ||
@@ -285,10 +288,26 @@ function validateWizardOptions(
         message: `${where} sets a wizard-only layout option but mode is not "wizard". Remove it or set mode: "wizard".`,
       });
     }
+    // skip: the remaining checks only apply to wizards
     return;
   }
-  const allFieldNames = new Set<string>();
+  // An actionForm's own `fields` count too: extension steps (a wizard with no fields section) keep their values there.
+  const allFieldNames = new Set<string>(inlineFieldNames);
+  const layoutFieldNames = new Set(
+    layout.sections.flatMap((section) =>
+      isFieldsEditSection(section)
+        ? sectionFieldSpecs(section).map((spec) => normalizeEditField(spec).field)
+        : [],
+    ),
+  );
   for (const section of layout.sections) {
+    if (section.kind === "extension" && section.summaryField !== undefined) {
+      if (!allFieldNames.has(section.summaryField) && !layoutFieldNames.has(section.summaryField)) {
+        throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
+          message: `${where} extension section "${section.title}" sets summaryField "${section.summaryField}", which is not a field of the screen. Use a field name declared in the screen's fields or a fields section.`,
+        });
+      }
+    }
     if (!isFieldsEditSection(section)) continue;
     const sectionFieldNames = sectionFieldSpecs(section).map(
       (spec) => normalizeEditField(spec).field,
@@ -317,6 +336,7 @@ export function validateWizardLayout(
   screenType: "entityEdit" | "actionForm" | "configEdit" | "secretMint",
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  inlineFieldNames?: ReadonlySet<string>,
 ): void {
   // entityEdit renders tabs like wizard steps: every section stays mounted,
   // submit validates across all of them, and a field error jumps to the tab
@@ -355,7 +375,7 @@ export function validateWizardLayout(
       });
     }
   }
-  validateWizardOptions(featureName, screenId, screenType, layout);
+  validateWizardOptions(featureName, screenId, screenType, layout, inlineFieldNames);
   // skip: mode omitted/"single" — no wizard constraints apply.
   if (layout.mode !== "wizard") return;
   if (layout.sections.length < 2) {
@@ -859,7 +879,7 @@ export function validateInlineFormScreen(
     screen.fields,
     allowEmptyMintForm && fieldNames.size === 0,
   );
-  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap, fieldNames);
   if (screen.type === "actionForm") {
     validateFormDerivations(feature.name, screenId, screen);
     validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);

@@ -194,6 +194,12 @@ export type EditExtensionSection = {
   readonly id?: string;
   readonly kind: "extension";
   readonly title: string;
+  /** Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`. */
+  readonly description?: string;
+  /** Wizard layouts only: short line under this step's title in the step rail and the "up next" box. */
+  readonly subtitle?: string;
+  /** Wizard layouts only: field whose formatted value shows under the step label once the step is done. On an `actionForm` it names a field of the screen's `fields`; elsewhere a field of a fields section of the layout. */
+  readonly summaryField?: string;
   readonly component: PlatformComponent;
   /** When true, the extension registers via `useExtensionFormSubmit` and the
    *  surrounding form's Save button should activate for its dirty state.
@@ -451,7 +457,7 @@ export type EditLayout = {
    *  discarding it on navigation away. */
   readonly draft?: boolean;
   /** Wizard layouts only. `aside.upNext: true` adds an "up next" box to the step
-   *  rail with the following step's title and its `subtitle` (else `description`).
+   *  rail with the following step's title and its `subtitle` only.
    *  The last step shows the box only with `finishDescription` (i18n key): the
    *  finish action as title, that text under it. */
   readonly wizard?: {

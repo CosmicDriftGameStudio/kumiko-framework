@@ -14,12 +14,15 @@ export async function withSessionAdvisoryLock<T>(
   }
   const conn = await client.reserve();
   try {
+    // Waiting for a peer must not hit the pool's statement_timeout (57014 would crash the waiter's boot).
+    await conn.unsafe("SET statement_timeout = 0");
     await conn.unsafe(`SELECT pg_advisory_lock($1)`, [key]);
     try {
       return await fn();
     } finally {
       // A dropped session already released its lock; failing here would mask fn's outcome.
       await conn.unsafe(`SELECT pg_advisory_unlock($1)`, [key]).catch(() => undefined);
+      await conn.unsafe("RESET statement_timeout").catch(() => undefined);
     }
   } finally {
     await conn.release();
