@@ -139,9 +139,9 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     purpose: "Platform key custody (Key Manager) and Transactional Email Delivery",
     region: "EU (France)",
     dpa: "https://www.scaleway.com/en/contracts/",
-    addedAt: "2026-09-18",
+    addedAt: "2026-11-01",
     appliesTo: ["all-tiers"],
-    status: "planned",
+    status: "active",
   },
 ];
 
