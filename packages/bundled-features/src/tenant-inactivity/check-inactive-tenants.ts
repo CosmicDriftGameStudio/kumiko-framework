@@ -9,8 +9,9 @@ import {
   tenantMembershipsTable,
   tenantTable,
 } from "../tenant/index.ts";
-import { requestTenantDestruction, TENANT_ACCOUNT_CLOSE_ROLES } from "../tenant-lifecycle/index.ts";
+import { requestTenantDestruction } from "../tenant-lifecycle/index.ts";
 import { userTable } from "../user/index.ts";
+import { TENANT_KEEP_ACCOUNT_ROLES } from "./constants.ts";
 import { formatInactivityMailDate } from "./email-templates.ts";
 import {
   activityBase,
@@ -71,7 +72,10 @@ async function newestExternalActivity(
   const found = await Promise.all(
     (options.activitySources ?? []).map((source) => source({ tenantId, now, db })),
   );
-  return latestOf(found);
+  // A source reporting the future would postpone the deletion indefinitely.
+  return latestOf(
+    found.map((at) => (at !== null && Temporal.Instant.compare(at, now) > 0 ? now : at)),
+  );
 }
 
 function isNewerThanBase(
@@ -93,7 +97,7 @@ async function loadOwners(ctx: JobContext): Promise<readonly OwnerRecipient[]> {
   for (const membership of memberships) {
     if (seen.has(membership.userId)) continue;
     const roles = parseRoles(membership.roles);
-    if (!TENANT_ACCOUNT_CLOSE_ROLES.some((role) => roles.includes(role))) continue;
+    if (!TENANT_KEEP_ACCOUNT_ROLES.some((role) => roles.includes(role))) continue;
     seen.add(membership.userId);
     const user = await ctx.db
       .global(userTable)

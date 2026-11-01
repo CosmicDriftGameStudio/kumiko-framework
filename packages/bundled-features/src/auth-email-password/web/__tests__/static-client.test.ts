@@ -18,6 +18,19 @@ import {
 
 afterEach(restoreFetch);
 
+describe("a broken CSRF cookie", () => {
+  test("sends no CSRF header instead of throwing", () => {
+    expect(csrfHeaderFromCookie("kumiko_csrf=%E0%A4%A")).toEqual({});
+  });
+
+  test("does not turn the request into a network failure", async () => {
+    Reflect.set(globalThis, "document", { cookie: "kumiko_csrf=%E0%A4%A" });
+    const seen = stubFetch(() => jsonResponse({ isSuccess: true }));
+    expect((await postJson("/api/x", {})).kind).toBe("success");
+    expect(seen[0]?.init?.headers).toEqual({ "Content-Type": "application/json" });
+  });
+});
+
 describe("isSignedOutFailure", () => {
   test("is true for the missing-session reasons only, never for wrong credentials", () => {
     for (const reason of ["unauthenticated", "missing_token", "invalid_token", "session_invalid"]) {

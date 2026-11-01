@@ -2,6 +2,7 @@ import { createTenantDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db"
 import { defineQueryHandler, parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { TENANT_KEEP_ACCOUNT_ROLES } from "../constants.ts";
 import { describeOutlook, foldActivity } from "../inactivity-plan.ts";
 import { resolveInactivityRule, type TenantInactivityOptions } from "../options.ts";
 import { loadInactivityState, loadNewestSessionActivity } from "../state-store.ts";
@@ -17,7 +18,7 @@ export function createInactivityStateQuery<TTier extends string>(
   return defineQueryHandler({
     name: "state",
     schema: z.object({ tenantIdOverride: z.string().min(1).max(36).optional() }),
-    access: { roles: ["TenantOwner", "TenantAdmin", "SystemAdmin"] },
+    access: { roles: [...TENANT_KEEP_ACCOUNT_ROLES, "SystemAdmin"] },
     escapeHatch: { grants: ["unsafeRaw"], reason: STATE_QUERY_ESCAPE_HATCH_REASON },
     description:
       "Returns whether the tenant is exempt from inactivity deletion, its last activity, the warnings already sent and the next step with its date; owners and admins see their own tenant, a SystemAdmin any tenant.",

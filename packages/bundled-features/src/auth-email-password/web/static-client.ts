@@ -63,6 +63,15 @@ function readDocumentCookie(): string {
   return typeof cookie === "string" ? cookie : "";
 }
 
+// A malformed escape in a foreign cookie must not break the request; it just carries no CSRF header.
+function decodeURIComponentOrNull(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 // Anonymous visitors have no CSRF cookie and send no header; a visitor who is signed in on the
 // same origin (invite acceptance) echoes it like the SPA does.
 export function csrfHeaderFromCookie(cookieSource: string): Record<string, string> {
@@ -76,7 +85,8 @@ export function csrfHeaderFromCookie(cookieSource: string): Record<string, strin
   for (const name of sessionCookieNameCandidates(CSRF_COOKIE_BASE)) {
     const value = valuesByName.get(name);
     if (value !== undefined && value.length > 0) {
-      return { [CSRF_HEADER_NAME]: decodeURIComponent(value) };
+      const decoded = decodeURIComponentOrNull(value);
+      if (decoded !== null) return { [CSRF_HEADER_NAME]: decoded };
     }
   }
   return {};

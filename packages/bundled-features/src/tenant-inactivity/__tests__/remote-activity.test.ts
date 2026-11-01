@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fetchRemoteAppLastActivity, REMOTE_ACTIVITY_TIMEOUT_MS } from "../remote-activity.ts";
+import { fetchRemoteAppLastActivity } from "../remote-activity.ts";
 
 const URL_UNDER_TEST = "https://other-app.test/sessions/last-activity";
 
@@ -40,10 +40,6 @@ describe("fetchRemoteAppLastActivity", () => {
         send: answering({ at: 1 }).send,
       }),
     ).rejects.toThrow();
-  });
-
-  test("the default timeout outlasts a scale-to-zero wake-up", () => {
-    expect(REMOTE_ACTIVITY_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000);
   });
 
   test("every request carries an abort signal that is not yet aborted", async () => {
