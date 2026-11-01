@@ -1172,3 +1172,61 @@ describe("NavTree folder-open Icon", () => {
     expect(container?.querySelector(".lucide-folder-open")).toBeNull();
   });
 });
+
+describe("NavTree top-level runs", () => {
+  function makeRunSchema(): FeatureSchema {
+    return {
+      featureName: "runs",
+      entities: {},
+      screens: ["one", "two", "inside", "three"].map((id) => ({
+        id,
+        type: "entityList" as const,
+        entity: "x",
+        columns: [],
+      })),
+      navs: [
+        { id: "one", label: "One", screen: "one", order: 10 },
+        { id: "two", label: "Two", screen: "two", order: 20 },
+        { id: "section", label: "Section", order: 30 },
+        { id: "inside", label: "Inside", parent: "section", screen: "inside", order: 10 },
+        { id: "three", label: "Three", screen: "three", order: 40 },
+        { id: "content", label: "Content", order: 50, provider: true },
+      ],
+    } satisfies FeatureSchema;
+  }
+
+  function menuLists(container: HTMLElement): HTMLElement[] {
+    return Array.from(container.querySelectorAll<HTMLElement>('ul[data-sidebar="menu"]'));
+  }
+
+  function listOf(label: string): HTMLElement | null {
+    return screen.getByText(label).closest<HTMLElement>('ul[data-sidebar="menu"]');
+  }
+
+  test("consecutive leaves share one list, a section splits the runs", () => {
+    const { container } = render(<NavTree schema={makeRunSchema()} />);
+
+    expect(menuLists(container)).toHaveLength(3);
+    expect(listOf("One")).toBe(listOf("Two"));
+    expect(listOf("Inside")).not.toBe(listOf("One"));
+    expect(listOf("Three")).not.toBe(listOf("One"));
+    expect(listOf("Three")).not.toBe(listOf("Inside"));
+  });
+
+  test("provider node sits in the same list as the leaf before it", () => {
+    render(<NavTree schema={makeRunSchema()} />);
+
+    expect(listOf("Content")).toBe(listOf("Three"));
+  });
+
+  test("a run whose entries are all filtered out leaves no list behind", () => {
+    const { container } = render(<NavTree schema={makeRunSchema()} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "inside" } });
+
+    expect(screen.queryByText("One")).toBeNull();
+    const emptyLists = menuLists(container).filter((ul) => ul.childElementCount === 0);
+    expect(emptyLists.length).toBeGreaterThan(0);
+    expect(emptyLists.every((ul) => ul.className.includes("empty:hidden"))).toBe(true);
+    expect(menuLists(container).filter((ul) => ul.childElementCount > 0)).toHaveLength(1);
+  });
+});
