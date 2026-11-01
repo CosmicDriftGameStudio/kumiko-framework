@@ -29,6 +29,32 @@ function isSensitive(field: FieldDefinition): boolean {
   return "sensitive" in field && field.sensitive === true;
 }
 
+// A webhook leaves the system: credentials, client addresses, restricted-read fields and system-written
+// plaintext fields stay out even when not personal. `allowPlaintext` is a plain string, hence the patterns.
+const NEVER_RELEASED_NAME =
+  /hash|secret|token|password|passcode|totp|recovery|salt|storagekey|fromip|useragent/i;
+const CREDENTIAL_REASON = /credential|hash|secret|token/i;
+
+function plaintextReason(field: FieldDefinition): string | undefined {
+  return "allowPlaintext" in field && typeof field.allowPlaintext === "string"
+    ? field.allowPlaintext
+    : undefined;
+}
+
+function hasRestrictedAccess(field: FieldDefinition, mode: "read" | "write"): boolean {
+  return "access" in field && field.access?.[mode] !== undefined;
+}
+
+function isCredentialOrInternal(name: string, field: FieldDefinition): boolean {
+  const reason = plaintextReason(field);
+  return (
+    hasRestrictedAccess(field, "read") ||
+    (reason !== undefined && hasRestrictedAccess(field, "write")) ||
+    NEVER_RELEASED_NAME.test(name) ||
+    (reason !== undefined && CREDENTIAL_REASON.test(reason))
+  );
+}
+
 function releasableFields(
   entity: EntityDefinition,
   excludedFields: ReadonlySet<string>,
@@ -41,7 +67,8 @@ function releasableFields(
       !COMPOUND_FIELD_TYPES.has(field.type) &&
       !isEncryptedText(field) &&
       !isSecretText(field) &&
-      !isSensitive(field),
+      !isSensitive(field) &&
+      !isCredentialOrInternal(name, field),
   );
 }
 

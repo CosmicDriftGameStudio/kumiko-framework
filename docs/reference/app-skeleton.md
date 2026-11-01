@@ -112,6 +112,8 @@ same testing entry; it validates through `parseWebhookPayload` and writes
 the `id`) and drops everything the contract does not release. Known gap: `money` and
 `locatedTimestamp` fields are left out of derived entity contracts, because their event shape
 (several flat columns) is not mapped yet.
+Derived entity contracts never release credentials (hashes, tokens, secrets), client IPs and user
+agents, storage keys, fields with restricted read access, or system-written plaintext fields.
 
 The recipe `samples/recipes/api-docs` shows the whole loop with a committed golden.
 
