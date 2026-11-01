@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import type { InactivityRule } from "../inactivity-plan.ts";
 import {
+  INACTIVITY_TENANT,
   type InactivityTestStack,
   KEEP_URL,
   setupInactivityStack,
@@ -17,6 +21,8 @@ const HOURS_PER_DAY = 24;
 type Tier = "free" | "paid";
 let tier: Tier = "paid";
 let externalActivity: Temporal.Instant | null = null;
+const sourceDbs = new Map<string, TenantDb>();
+let failingTenant: string | undefined;
 let t: InactivityTestStack;
 
 function afterMonths(from: Temporal.Instant, months: number): Temporal.Instant {
@@ -30,7 +36,13 @@ beforeAll(async () => {
       rulesByTier: { free: FREE_RULE, paid: null },
       keepAccountUrl: KEEP_URL,
       appName: "Acme",
-      activitySources: [async () => externalActivity],
+      activitySources: [
+        async ({ db, tenantId }) => {
+          if (tenantId === failingTenant) throw new Error("remote app unreachable");
+          sourceDbs.set(tenantId, db);
+          return externalActivity;
+        },
+      ],
     }),
     START,
   );
@@ -44,6 +56,8 @@ beforeEach(async () => {
   await t.reset();
   tier = "paid";
   externalActivity = null;
+  sourceDbs.clear();
+  failingTenant = undefined;
   await t.seedTenantWithOwner();
 });
 
@@ -102,5 +116,113 @@ describe("tenant-inactivity activity sources", () => {
         .subtract({ hours: 30 * HOURS_PER_DAY })
         .toString(),
     );
+  });
+});
+
+describe("tenant-inactivity future activity", () => {
+  test("a source reporting the future counts as now, not as a postponement", async () => {
+    tier = "free";
+    await t.runJob();
+    const firstWarning = afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY });
+    externalActivity = afterMonths(firstWarning, 60);
+    t.clock.set(firstWarning);
+    await t.runJob();
+    const outlook = await t.queryState();
+    expect(outlook["lastActivityAt"]).toBe(firstWarning.toString());
+    expect(outlook["nextStepAt"]).toBe(
+      afterMonths(firstWarning, 12)
+        .subtract({ hours: 30 * HOURS_PER_DAY })
+        .toString(),
+    );
+  });
+});
+
+describe("tenant-inactivity activity source db", () => {
+  test("each source call receives the db of its own tenant", async () => {
+    await t.reset();
+    tier = "free";
+    const otherTenant = testTenantId(78);
+    await t.seedTenantWithMembers([{ email: "first@inactivity.test", roles: ["TenantOwner"] }]);
+    await t.seedTenantWithMembers(
+      [{ email: "second@inactivity.test", roles: ["TenantOwner"] }],
+      otherTenant,
+    );
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    await t.runJob();
+
+    expect([...sourceDbs.keys()].sort()).toEqual([INACTIVITY_TENANT, otherTenant].sort());
+    for (const [tenantId, db] of sourceDbs) {
+      const memberships = await db.selectMany<{ tenantId: string }>(tenantMembershipsTable, {});
+      expect(memberships).toHaveLength(1);
+      expect(memberships[0]?.tenantId).toBe(tenantId);
+    }
+  });
+});
+
+describe("tenant-inactivity recipients", () => {
+  test("an Admin without the TenantOwner role gets the warning, once per user", async () => {
+    await t.reset();
+    tier = "free";
+    await t.seedTenantWithMembers([
+      { email: "admin@inactivity.test", roles: ["Admin", "TenantOwner"] },
+      { email: "plain@inactivity.test", roles: ["User"] },
+      { email: "onlyadmin@inactivity.test", roles: ["Admin"] },
+    ]);
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    await t.runJob();
+    expect(t.sent.map((mail) => mail.to).sort()).toEqual([
+      "admin@inactivity.test",
+      "onlyadmin@inactivity.test",
+    ]);
+  });
+});
+
+describe("tenant-inactivity recipients across tenants", () => {
+  test("each tenant's warning goes only to its own members", async () => {
+    await t.reset();
+    tier = "free";
+    const otherTenant = testTenantId(79);
+    await t.seedTenantWithMembers([
+      { email: "owner-a@inactivity.test", roles: ["TenantOwner"] },
+      { email: "plain-a@inactivity.test", roles: ["User"] },
+    ]);
+    await t.seedTenantWithMembers(
+      [
+        { email: "admin-b@inactivity.test", roles: ["TenantAdmin"] },
+        { email: "plain-b@inactivity.test", roles: ["User"] },
+      ],
+      otherTenant,
+    );
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    await t.runJob();
+    expect(t.sent.map((mail) => mail.to).sort()).toEqual([
+      "admin-b@inactivity.test",
+      "owner-a@inactivity.test",
+    ]);
+  });
+});
+
+describe("tenant-inactivity failing activity source", () => {
+  test("a failing source holds back only its own tenant", async () => {
+    await t.reset();
+    tier = "free";
+    const healthyTenant = INACTIVITY_TENANT;
+    const failing = testTenantId(77);
+    failingTenant = failing;
+    await t.seedTenantWithMembers([{ email: "ok@inactivity.test", roles: ["TenantOwner"] }]);
+    await t.seedTenantWithMembers(
+      [{ email: "stuck@inactivity.test", roles: ["TenantOwner"] }],
+      failing,
+    );
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    // The job of the failing tenant is reported as failed, the other tenant's job still ran.
+    await expect(t.runJob()).rejects.toThrow("remote app unreachable");
+    expect(t.sent.map((mail) => mail.to)).toEqual(["ok@inactivity.test"]);
+    expect((await t.tenantRow(healthyTenant))?.["status"]).toBe("active");
+    expect((await t.tenantRow(failing))?.["status"]).toBe("active");
   });
 });

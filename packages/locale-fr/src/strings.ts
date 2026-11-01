@@ -260,6 +260,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "auth.sessionBootstrap.retry": "Réessayer",
   "auth.sessionBootstrap.retrying": "Nouvelle tentative…",
   "auth.sessionBootstrap.signOut": "Se déconnecter",
+  "auth.signup.closed": "L'inscription n'est actuellement possible que sur invitation.",
   "auth.signup.email": "E-mail",
   "auth.signup.haveAccount": "Vous avez déjà un compte ? Connectez-vous",
   "auth.signup.intro":

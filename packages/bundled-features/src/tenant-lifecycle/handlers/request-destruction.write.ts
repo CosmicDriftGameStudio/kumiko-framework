@@ -1,5 +1,6 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { TENANT_ACCOUNT_CLOSE_ROLES } from "../constants.ts";
 import { requestTenantDestruction } from "../request-tenant-destruction.ts";
 
 const REQUEST_DESTRUCTION_TENANT_ROW_REASON =
@@ -8,7 +9,7 @@ const REQUEST_DESTRUCTION_TENANT_ROW_REASON =
 export const requestDestructionWrite = defineWriteHandler({
   name: "request-destruction",
   schema: z.object({}),
-  access: { roles: ["TenantOwner", "Admin"] },
+  access: { roles: TENANT_ACCOUNT_CLOSE_ROLES },
   description:
     "Puts the caller's own tenant into destroyRequested, starts the compliance-profile grace period after which its data is erased, and revokes every session in the tenant; use it when an account owner asks to close their account.",
   agent: { risk: "high" },

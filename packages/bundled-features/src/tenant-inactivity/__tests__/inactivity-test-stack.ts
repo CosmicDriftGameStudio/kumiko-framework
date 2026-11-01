@@ -70,6 +70,10 @@ export type InactivityTestStack = {
   readonly loginOwner: () => Promise<string>;
   readonly keepAccount: (token: string) => Promise<Response>;
   readonly tokenInMail: (mailIndex: number) => string;
+  readonly seedTenantWithMembers: (
+    members: readonly { readonly email: string; readonly roles: readonly string[] }[],
+    tenantId?: TenantId,
+  ) => Promise<void>;
   readonly seedTenant: (tenantId: TenantId) => Promise<void>;
   readonly queryState: (tenantIdOverride?: string) => Promise<Record<string, unknown>>;
   readonly queryStateWithToken: (token: string, tenantIdOverride?: string) => Promise<Response>;
@@ -157,23 +161,31 @@ export async function setupInactivityStack(
     );
   };
 
-  const seedTenantWithOwner = async (tenantId: TenantId = INACTIVITY_TENANT) => {
-    await seedTenant(tenantId);
+  const seedMember = async (email: string, roles: readonly string[], tenantId: TenantId) => {
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       {
-        email: OWNER_EMAIL,
+        email,
         passwordHash: await hashPassword(OWNER_PASSWORD),
         displayName: "Owner",
       },
       await asSystemAdmin(),
     );
-    ownerIds.set(OWNER_EMAIL, created.id);
-    await seedTenantMembership(stack.db, {
-      userId: created.id,
-      tenantId,
-      roles: ["TenantOwner"],
-    });
+    ownerIds.set(email, created.id);
+    await seedTenantMembership(stack.db, { userId: created.id, tenantId, roles: [...roles] });
+  };
+
+  const seedTenantWithOwner = async (tenantId: TenantId = INACTIVITY_TENANT) => {
+    await seedTenant(tenantId);
+    await seedMember(OWNER_EMAIL, ["TenantOwner"], tenantId);
+  };
+
+  const seedTenantWithMembers = async (
+    members: readonly { readonly email: string; readonly roles: readonly string[] }[],
+    tenantId: TenantId = INACTIVITY_TENANT,
+  ) => {
+    await seedTenant(tenantId);
+    for (const member of members) await seedMember(member.email, member.roles, tenantId);
   };
 
   return {
@@ -183,6 +195,7 @@ export async function setupInactivityStack(
     reset,
     seedTenantWithOwner,
     seedTenant,
+    seedTenantWithMembers,
     runJob: async () => {
       await stack.jobRunner?.dispatch("tenant-inactivity:job:check-inactive-tenants", {});
       await stack.drainJobs();

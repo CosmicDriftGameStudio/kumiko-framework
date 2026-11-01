@@ -260,6 +260,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.sessionBootstrap.retry": "Erneut versuchen",
   "auth.sessionBootstrap.retrying": "Wird erneut versucht …",
   "auth.sessionBootstrap.signOut": "Abmelden",
+  "auth.signup.closed": "Die Registrierung ist derzeit nur mit Einladung möglich.",
   "auth.signup.email": "E-Mail",
   "auth.signup.haveAccount": "Bereits ein Konto? Anmelden",
   "auth.signup.intro":

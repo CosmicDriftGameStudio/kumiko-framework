@@ -1,5 +1,7 @@
 export const TENANT_LIFECYCLE_FEATURE = "tenant-lifecycle" as const;
 
+export const TENANT_ACCOUNT_CLOSE_ROLES = ["TenantOwner", "Admin"] as const;
+
 export const TENANT_AGGREGATE_TYPE = "tenant" as const;
 
 const EVENT_PREFIX = `${TENANT_LIFECYCLE_FEATURE}:event:` as const;

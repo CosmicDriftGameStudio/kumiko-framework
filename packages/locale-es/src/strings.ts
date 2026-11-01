@@ -258,6 +258,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.sessionBootstrap.retry": "Reintentar",
   "auth.sessionBootstrap.retrying": "Reintentando…",
   "auth.sessionBootstrap.signOut": "Cerrar sesión",
+  "auth.signup.closed": "El registro solo es posible con invitación por el momento.",
   "auth.signup.email": "Correo electrónico",
   "auth.signup.haveAccount": "¿Ya tienes una cuenta? Inicia sesión",
   "auth.signup.intro":

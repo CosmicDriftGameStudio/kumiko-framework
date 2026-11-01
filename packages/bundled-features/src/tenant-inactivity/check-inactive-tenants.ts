@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { hasMailTranslations, mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
@@ -11,7 +11,7 @@ import {
 } from "../tenant/index.ts";
 import { requestTenantDestruction } from "../tenant-lifecycle/index.ts";
 import { userTable } from "../user/index.ts";
-import { TENANT_OWNER_ROLE } from "./constants.ts";
+import { TENANT_KEEP_ACCOUNT_ROLES } from "./constants.ts";
 import { formatInactivityMailDate } from "./email-templates.ts";
 import {
   activityBase,
@@ -67,11 +67,15 @@ async function newestExternalActivity(
   options: TenantInactivityOptions,
   tenantId: TenantId,
   now: Temporal.Instant,
+  db: TenantDb,
 ): Promise<Temporal.Instant | null> {
   const found = await Promise.all(
-    (options.activitySources ?? []).map((source) => source({ tenantId, now })),
+    (options.activitySources ?? []).map((source) => source({ tenantId, now, db })),
   );
-  return latestOf(found);
+  // A source reporting the future would postpone the deletion indefinitely.
+  return latestOf(
+    found.map((at) => (at !== null && Temporal.Instant.compare(at, now) > 0 ? now : at)),
+  );
 }
 
 function isNewerThanBase(
@@ -89,8 +93,12 @@ async function loadOwners(ctx: JobContext): Promise<readonly OwnerRecipient[]> {
     {},
   );
   const owners: OwnerRecipient[] = [];
+  const seen = new Set<string>();
   for (const membership of memberships) {
-    if (!parseRoles(membership.roles).includes(TENANT_OWNER_ROLE)) continue;
+    if (seen.has(membership.userId)) continue;
+    const roles = parseRoles(membership.roles);
+    if (!TENANT_KEEP_ACCOUNT_ROLES.some((role) => roles.includes(role))) continue;
+    seen.add(membership.userId);
     const user = await ctx.db
       .global(userTable)
       .fetchOne<{ locale: string | null }>({ id: membership.userId });
@@ -187,7 +195,7 @@ async function evaluate(
   if (decision.kind === "none") return state;
 
   // Steps with consequences ask other apps first: activity there counts too.
-  const external = await newestExternalActivity(options, tenantId, now);
+  const external = await newestExternalActivity(options, tenantId, now, ctx.db);
   if (isNewerThanBase(external, state)) {
     return startNewCycle({ ...state, lastActivityAt: external });
   }

@@ -249,6 +249,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.sessionBootstrap.retry": "Try again",
   "auth.sessionBootstrap.retrying": "Retrying…",
   "auth.sessionBootstrap.signOut": "Sign out",
+  "auth.signup.closed": "Sign-up is currently by invitation only.",
   "auth.signup.email": "Email",
   "auth.signup.haveAccount": "Already have an account? Sign in",
   "auth.signup.intro": "Enter your email. We'll send you an activation link to set your password.",

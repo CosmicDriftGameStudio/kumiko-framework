@@ -7,6 +7,7 @@ import type { InactivityRule } from "./inactivity-plan.ts";
 export type TenantActivitySource = (args: {
   readonly tenantId: TenantId;
   readonly now: Temporal.Instant;
+  readonly db: TenantDb;
 }) => Promise<Temporal.Instant | null>;
 
 type SharedOptions = {
