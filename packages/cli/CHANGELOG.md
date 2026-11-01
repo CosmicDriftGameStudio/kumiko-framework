@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.413.0
+
+### Patch Changes
+
+- ec8bf22: `kumiko --help`, `kumiko <command> --help` and `create-kumiko-app --help` no longer load the dev-server scaffolding stack. They start in about 30 ms instead of about 0.7 s.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: Help output of kumiko and create-kumiko-app starts without loading the scaffolder
+  detail: Both CLIs imported the `@cosmicdrift/kumiko-dev-server` barrel at the top, so every call, including `--help`, loaded framework, server-runtime and renderer (about 0.7 s cold). `kumiko new app`, `kumiko add feature`, `kumiko ports` and the create-kumiko-app scaffold step now import those modules when they run. Measured on an idle machine: `kumiko --help` 0.67 s to 0.03 s, `kumiko check --help` 0.67 s to 0.03 s, `create-kumiko-app --help` 0.65 s to 0.02 s.
+  -->
+- Updated dependencies [06dfdb4]
+- Updated dependencies [bc3aea0]
+- Updated dependencies [0626fb7]
+- Updated dependencies [b6c876d]
+  - @cosmicdrift/kumiko-framework@0.413.0
+  - @cosmicdrift/kumiko-bundled-features@0.413.0
+  - @cosmicdrift/kumiko-renderer@0.413.0
+  - @cosmicdrift/kumiko-dev-server@0.413.0
+  - @cosmicdrift/kumiko-feature-ast@0.413.0
+  - @cosmicdrift/kumiko-guards@0.413.0
+  - @cosmicdrift/kumiko-server-runtime@0.413.0
+  - @cosmicdrift/kumiko-testing@0.413.0
+
 ## 0.412.0
 
 ### Minor Changes

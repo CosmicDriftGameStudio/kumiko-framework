@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.413.0
+
+### Patch Changes
+
+- Updated dependencies [06dfdb4]
+- Updated dependencies [bc3aea0]
+- Updated dependencies [0626fb7]
+- Updated dependencies [b6c876d]
+  - @cosmicdrift/kumiko-framework@0.413.0
+  - @cosmicdrift/kumiko-bundled-features@0.413.0
+  - @cosmicdrift/kumiko-renderer@0.413.0
+  - @cosmicdrift/kumiko-feature-ast@0.413.0
+  - @cosmicdrift/kumiko-guards@0.413.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.413.0
+  - @cosmicdrift/kumiko-server-runtime@0.413.0
+  - @cosmicdrift/kumiko-testing@0.413.0
+  - @cosmicdrift/kumiko-types@0.413.0
+
 ## 0.412.0
 
 ### Patch Changes

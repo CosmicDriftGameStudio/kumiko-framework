@@ -1,5 +1,37 @@
 # create-kumiko-app
 
+## 0.413.0
+
+### Minor Changes
+
+- 0626fb7: contact feature renamed to helpdesk
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: breaking
+  title: contact feature renamed to helpdesk
+  migration: |
+    The bundled feature contact is renamed to helpdesk; nothing keeps the old names. Imports: @cosmicdrift/kumiko-bundled-features/contact, /contact/web and /contact/client become /helpdesk, /helpdesk/web and /helpdesk/client; createContactFeature, contactOpenRequestsPanels, ContactOptions and the other Contact*/CONTACT_* exports become Helpdesk*/HELPDESK_* (createHelpdeskFeature, helpdeskOpenRequestsPanels, HelpdeskOptions). The feature name, handler, screen, config and i18n keys move from contact: to helpdesk:, the entities from contact-request/contact-reply to helpdesk-request/helpdesk-reply with the tables read_helpdesk_requests/read_helpdesk_replies, and error codes from contact_* to helpdesk_*. The browser client is served at GET /helpdesk/client.js and registers window.KumikoHelpdesk; update script tags, same-origin ingress paths and nav/legal references to the feature name. Notification preferences and opt-outs stored under contact:notify: are not carried over; the six notifications start with their defaults. Run kumiko schema generate and commit the migration. Data stored under the old names is not carried over: requests, replies and their events stay inert under contact-request/contact-reply, and the config values contact:config:reply-to and contact:config:telegram-chat are not read any more. Close open requests before upgrading and set reply-to and the Telegram chat again on the forwarding screen.
+  -->
+
+### Patch Changes
+
+- ec8bf22: `kumiko --help`, `kumiko <command> --help` and `create-kumiko-app --help` no longer load the dev-server scaffolding stack. They start in about 30 ms instead of about 0.7 s.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: Help output of kumiko and create-kumiko-app starts without loading the scaffolder
+  detail: Both CLIs imported the `@cosmicdrift/kumiko-dev-server` barrel at the top, so every call, including `--help`, loaded framework, server-runtime and renderer (about 0.7 s cold). `kumiko new app`, `kumiko add feature`, `kumiko ports` and the create-kumiko-app scaffold step now import those modules when they run. Measured on an idle machine: `kumiko --help` 0.67 s to 0.03 s, `kumiko check --help` 0.67 s to 0.03 s, `create-kumiko-app --help` 0.65 s to 0.02 s.
+  -->
+- Updated dependencies [06dfdb4]
+- Updated dependencies [bc3aea0]
+- Updated dependencies [0626fb7]
+  - @cosmicdrift/kumiko-framework@0.413.0
+  - @cosmicdrift/kumiko-dev-server@0.413.0
+  - @cosmicdrift/kumiko-server-runtime@0.413.0
+  - @cosmicdrift/kumiko-testing@0.413.0
+
 ## 0.412.0
 
 ### Patch Changes

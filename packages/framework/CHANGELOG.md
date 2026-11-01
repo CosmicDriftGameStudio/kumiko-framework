@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.413.0
+
+### Minor Changes
+
+- 06dfdb4: Errors thrown while `kumiko/schema.ts` loads now carry boot rule ids, and `kumiko-schema validate` reports all of them in one run. The registrar methods (`r.nav`, `r.screen`, `r.hook`, `r.writeHandler`, `r.defineEvent`, `r.probe` and the rest), field factories, `from()` and role assignment throw typed rule errors from ten new tables, so `agents/boot-rules.md` lists 112 more rules.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Definition errors in schema.ts are collected by validate
+  detail: `kumiko-schema validate` (and `kumiko check`) loads `kumiko/schema.ts` in a collect mode. Every failing registrar call and every failing feature setup is recorded instead of aborting the import, so one run prints one `✗ boot [<id>]` line per violation across all features, with `Fix:` and `Rule:` lines, and `--json` lists them in `boot.violations` with `check` (e.g. `r.nav`) and `feature`. Example ids: `nav/id-not-kebab`, `feature/describe-twice`, `handler/access-missing`, `event/pii-stance-empty`, `probe/name-not-kebab`. When such violations exist, validate skips the boot and migration checks, because the feature set is incomplete. Outside validate nothing changes: createApp, the server, the dev server and tests still throw at the first error, at the same place and with the same message; the thrown error is now a `BootRuleViolation` (a subclass of `Error`). A throw at module level outside `defineFeature` still stops the import and appears next to the violations collected before it.
+  -->
+- 0626fb7: contact feature renamed to helpdesk
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: breaking
+  title: contact feature renamed to helpdesk
+  migration: |
+    The bundled feature contact is renamed to helpdesk; nothing keeps the old names. Imports: @cosmicdrift/kumiko-bundled-features/contact, /contact/web and /contact/client become /helpdesk, /helpdesk/web and /helpdesk/client; createContactFeature, contactOpenRequestsPanels, ContactOptions and the other Contact*/CONTACT_* exports become Helpdesk*/HELPDESK_* (createHelpdeskFeature, helpdeskOpenRequestsPanels, HelpdeskOptions). The feature name, handler, screen, config and i18n keys move from contact: to helpdesk:, the entities from contact-request/contact-reply to helpdesk-request/helpdesk-reply with the tables read_helpdesk_requests/read_helpdesk_replies, and error codes from contact_* to helpdesk_*. The browser client is served at GET /helpdesk/client.js and registers window.KumikoHelpdesk; update script tags, same-origin ingress paths and nav/legal references to the feature name. Notification preferences and opt-outs stored under contact:notify: are not carried over; the six notifications start with their defaults. Run kumiko schema generate and commit the migration. Data stored under the old names is not carried over: requests, replies and their events stay inert under contact-request/contact-reply, and the config values contact:config:reply-to and contact:config:telegram-chat are not read any more. Close open requests before upgrading and set reply-to and the Telegram chat again on the forwarding screen.
+  -->
+
+### Patch Changes
+
+- bc3aea0: Option validation in the bundled-feature factories now throws typed boot rule errors. 59 `create*Feature()` and boot-check throw sites across 19 features and one shared helper (billing-foundation, host-routing, metrics, legal-pages, template-resolver, subscription-mollie and more) get 36 rule ids, so `agents/boot-rules.md` lists them with summary and fix.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Bundled-feature factory options fail with boot rule ids
+  detail: Invalid factory options (`createBillingFoundationFeature` baseUrl and consumerProtection, `createHostDispatch` redirects and locales, `createMetricsFeature` duplicate ids, `createTemplateResolverFeature` tenantEditable, `createSubscriptionMollieFeature` price maps, empty `parents` allowlists on folders, tags and notes-history, and the tenant, readiness and personal-access-tokens boot checks) now throw a `BootRuleViolation` (a subclass of `Error`) carrying `rule.id`. Example ids: `billing-foundation/base-url-required`, `host-routing/invalid-redirect`, `subscription-mollie/price-map-drift`, `template-resolver/tenant-editable-duplicate`, `shared/where-rule-in-ownership-write`. Messages, conditions and the fail-fast behaviour at the same place are unchanged.
+  -->
+- @cosmicdrift/kumiko-types@0.413.0
+
 ## 0.412.0
 
 ### Minor Changes
