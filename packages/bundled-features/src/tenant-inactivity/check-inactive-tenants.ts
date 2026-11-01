@@ -9,8 +9,7 @@ import {
   tenantMembershipsTable,
   tenantTable,
 } from "../tenant/index.ts";
-import { TENANT_ACCOUNT_CLOSE_ROLES } from "../tenant-lifecycle/constants.ts";
-import { requestTenantDestruction } from "../tenant-lifecycle/index.ts";
+import { requestTenantDestruction, TENANT_ACCOUNT_CLOSE_ROLES } from "../tenant-lifecycle/index.ts";
 import { userTable } from "../user/index.ts";
 import { formatInactivityMailDate } from "./email-templates.ts";
 import {
