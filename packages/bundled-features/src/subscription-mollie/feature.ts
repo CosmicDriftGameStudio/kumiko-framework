@@ -40,9 +40,14 @@
 //   ];
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  bootRuleError,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createMollieClient } from "@mollie/api-client";
 import * as z from "zod";
+import { SUBSCRIPTION_MOLLIE_BOOT_RULES } from "./boot-rules.ts";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.ts";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods.ts";
 import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook.ts";
@@ -91,14 +96,16 @@ export function createSubscriptionMollieFeature(
   options: SubscriptionMollieOptions,
 ): FeatureDefinition {
   if (options.apiKey.length === 0) {
-    throw new Error(
-      "subscription-mollie: apiKey is empty. Set MOLLIE_API_KEY (or system-config) before mounting.",
-    );
+    throw bootRuleError(SUBSCRIPTION_MOLLIE_BOOT_RULES.emptyApiKey, {
+      message:
+        "subscription-mollie: apiKey is empty. Set MOLLIE_API_KEY (or system-config) before mounting.",
+    });
   }
   if (options.webhookUrl.length === 0) {
-    throw new Error(
-      "subscription-mollie: webhookUrl is empty. Set the foundation-webhook-URL where Mollie sends events.",
-    );
+    throw bootRuleError(SUBSCRIPTION_MOLLIE_BOOT_RULES.emptyWebhookUrl, {
+      message:
+        "subscription-mollie: webhookUrl is empty. Set the foundation-webhook-URL where Mollie sends events.",
+    });
   }
 
   // Drift guard: priceToTier and priceToConfig must have identical keys;
@@ -108,11 +115,12 @@ export function createSubscriptionMollieFeature(
   const missingInConfig = [...tierKeys].filter((k) => !configKeys.has(k));
   const missingInTier = [...configKeys].filter((k) => !tierKeys.has(k));
   if (missingInConfig.length > 0 || missingInTier.length > 0) {
-    throw new Error(
-      `subscription-mollie: priceToTier ↔ priceToConfig drift — ` +
+    throw bootRuleError(SUBSCRIPTION_MOLLIE_BOOT_RULES.priceMapDrift, {
+      message:
+        `subscription-mollie: priceToTier ↔ priceToConfig drift — ` +
         `priceIds in tier but missing config: [${missingInConfig.join(", ")}]; ` +
         `priceIds in config but missing tier: [${missingInTier.join(", ")}]`,
-    );
+    });
   }
 
   const client = createMollieClient({ apiKey: options.apiKey });

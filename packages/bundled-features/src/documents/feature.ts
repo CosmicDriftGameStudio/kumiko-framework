@@ -5,6 +5,7 @@
 
 import {
   type AccessRule,
+  bootRuleError,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
@@ -14,6 +15,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { DOCUMENTS_BOOT_RULES } from "./boot-rules.ts";
 import { type DocumentCaptureRule, registerCapture, validateCaptureRules } from "./capture.ts";
 import {
   DEFAULT_ADMIN_ROLES,
@@ -213,13 +215,15 @@ function registerDocuments(
 
 export function createDocumentsFeature(opts: DocumentsFeatureOptions) {
   if (opts.expiringWithinDays !== undefined && opts.expiringWithinDays < 0) {
-    throw new Error("createDocumentsFeature({ expiringWithinDays }) must not be negative.");
+    throw bootRuleError(DOCUMENTS_BOOT_RULES.negativeExpiringWithinDays, {
+      message: "createDocumentsFeature({ expiringWithinDays }) must not be negative.",
+    });
   }
   for (const category of Object.keys(opts.categoryLabels ?? {})) {
     if (!opts.categories.includes(category)) {
-      throw new Error(
-        `createDocumentsFeature({ categoryLabels }) names "${category}", which is not in categories.`,
-      );
+      throw bootRuleError(DOCUMENTS_BOOT_RULES.categoryLabelUnknownCategory, {
+        message: `createDocumentsFeature({ categoryLabels }) names "${category}", which is not in categories.`,
+      });
     }
   }
   return defineFeature(DOCUMENTS_FEATURE_NAME, (r) => registerDocuments(r, opts));

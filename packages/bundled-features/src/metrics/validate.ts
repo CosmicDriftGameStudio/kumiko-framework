@@ -1,4 +1,6 @@
 import { extractTableInfo, isTimestamptzType } from "@cosmicdrift/kumiko-framework/db";
+import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
+import { METRICS_BOOT_RULES } from "./boot-rules.ts";
 import { filterValueKindOf, metricFilterEntries, RESERVED_PAYLOAD_KEYS } from "./filters.ts";
 import type { MetricDefinition } from "./types.ts";
 import { METRIC_RANGES } from "./web/constants.ts";
@@ -15,7 +17,9 @@ export function validateMetrics(metrics: readonly MetricDefinition[]): void {
   const seen = new Set<string>();
   for (const metric of metrics) {
     if (seen.has(metric.id)) {
-      throw new Error(`metrics: duplicate metric id "${metric.id}"`);
+      throw bootRuleError(METRICS_BOOT_RULES.duplicateMetricId, {
+        message: `metrics: duplicate metric id "${metric.id}"`,
+      });
     }
     seen.add(metric.id);
     validateMetric(metric);
@@ -27,7 +31,9 @@ type TableInfo = ReturnType<typeof extractTableInfo>;
 
 function validateMetric(metric: MetricDefinition): void {
   const fail: Fail = (reason) => {
-    throw new Error(`metrics: metric "${metric.id}" ${reason}`);
+    throw bootRuleError(METRICS_BOOT_RULES.invalidMetric, {
+      message: `metrics: metric "${metric.id}" ${reason}`,
+    });
   };
   if (!KEBAB_ID.test(metric.id)) fail("has an id that is not kebab-case");
   if (metric.scopes.length === 0) fail("declares no scopes");

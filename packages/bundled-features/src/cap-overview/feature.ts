@@ -15,8 +15,13 @@
 //   - No nav wiring — a separate cut adds `r.nav(...)` entries.
 //
 // **Boot-Dependencies:** tenant, tier-engine, billing-foundation.
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  bootRuleError,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { resolveCapUsageRoles } from "./access.ts";
+import { CAP_OVERVIEW_BOOT_RULES } from "./boot-rules.ts";
 import { createCapsUsageQuery } from "./handlers/caps-usage.query.ts";
 import { createTenantCapsListQuery } from "./handlers/tenant-caps-list.query.ts";
 import { tenantOptionsQuery } from "./handlers/tenant-options.query.ts";
@@ -47,16 +52,18 @@ export type CreateCapOverviewOptions = {
 
 export function createCapOverviewFeature(opts: CreateCapOverviewOptions): FeatureDefinition {
   if (opts.caps.length === 0) {
-    throw new Error("createCapOverviewFeature: `caps` must not be empty.");
+    throw bootRuleError(CAP_OVERVIEW_BOOT_RULES.emptyCaps, {
+      message: "createCapOverviewFeature: `caps` must not be empty.",
+    });
   }
   const usageRoles = resolveCapUsageRoles(opts.usageVisibleTo);
   const capIds = new Set(opts.caps.map((cap) => cap.id));
   const listCaps = opts.listCaps ?? opts.caps.slice(0, 3).map((cap) => cap.id);
   for (const id of listCaps) {
     if (!capIds.has(id)) {
-      throw new Error(
-        `createCapOverviewFeature: listCaps references unknown cap id "${id}" — known ids: ${[...capIds].join(", ")}`,
-      );
+      throw bootRuleError(CAP_OVERVIEW_BOOT_RULES.unknownListCap, {
+        message: `createCapOverviewFeature: listCaps references unknown cap id "${id}" — known ids: ${[...capIds].join(", ")}`,
+      });
     }
   }
 

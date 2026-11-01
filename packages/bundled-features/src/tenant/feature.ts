@@ -2,6 +2,7 @@ import {
   type AssignableAppRoles,
   access,
   assignableAppRolesFromUsages,
+  bootRuleError,
   createSystemConfig,
   createTenantConfig,
   defineEntityDetailHandler,
@@ -12,6 +13,7 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TENANT_BOOT_RULES } from "./boot-rules.ts";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query.ts";
 import { addMemberWrite } from "./handlers/add-member.write.ts";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write.ts";
@@ -88,9 +90,9 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     r.bootCheck(({ features }) => {
       for (const [role, assignableFrom] of collectAssignableAppRoles(features)) {
         if (options?.assignableAppRoles?.get(role) === assignableFrom) continue;
-        throw new Error(
-          `[tenant] assignable app role "${role}" (assignableFrom "${assignableFrom}") is declared but missing from the tenant screens' options; pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature.`,
-        );
+        throw bootRuleError(TENANT_BOOT_RULES.assignableRoleMissingFromScreens, {
+          message: `[tenant] assignable app role "${role}" (assignableFrom "${assignableFrom}") is declared but missing from the tenant screens' options; pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature.`,
+        });
       }
     });
     r.entity({ name: "tenant", ...tenantEntity });

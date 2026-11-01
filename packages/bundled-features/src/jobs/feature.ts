@@ -1,4 +1,9 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  bootRuleError,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { JOBS_BOOT_RULES } from "./boot-rules.ts";
 import { catalogQuery } from "./handlers/catalog.query.ts";
 import {
   consumerDisableWrite,
@@ -60,9 +65,9 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
   const staleRunTimeoutHours = options.staleRunTimeoutHours ?? DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS;
   const readRoles = options.readRoles ?? [];
   if (readRoles.includes("anonymous")) {
-    throw new Error(
-      `createJobsFeature: readRoles must not contain "anonymous" — job status and failures are only readable by members of the tenant.`,
-    );
+    throw bootRuleError(JOBS_BOOT_RULES.anonymousReadRole, {
+      message: `createJobsFeature: readRoles must not contain "anonymous" — job status and failures are only readable by members of the tenant.`,
+    });
   }
   return defineFeature("jobs", (r) => {
     r.adoptsBundledLists();

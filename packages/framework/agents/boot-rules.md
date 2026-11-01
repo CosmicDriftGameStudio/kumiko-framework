@@ -21,6 +21,12 @@
 | <a id="api-provider-not-required"></a>`api/provider-not-required` | A feature using an API lists the exposing feature in requires or optionalRequires. | Add the exposing feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="api-unknown-api"></a>`api/unknown-api` | Every r.usesApi name is exposed by some mounted feature. | Mount the feature that exposes the API or fix the API name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 
+## auth-email-password
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="auth-email-password-hmac-secret-too-short"></a>`auth-email-password/hmac-secret-too-short` | Each configured token hmacSecret is at least the minimum length. | Pass an hmacSecret of at least the minimum length. | `packages/bundled-features/src/auth-email-password/boot-rules.ts` |
+
 ## auth-foundation
 
 | Rule | Summary | Fix | Source |
@@ -30,6 +36,15 @@
 | <a id="auth-foundation-single-provider-multiple"></a>`auth-foundation/single-provider-multiple` | At most one provider of a single-provider extension is mounted at a time. | Unmount all but one provider. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
 | <a id="auth-foundation-token-verifier-invalid-plugin"></a>`auth-foundation/token-verifier-invalid-plugin` | A tokenVerifier provider registers a valid AuthProviderPlugin with a { shape, build } options shape. | Register the provider with options of shape { shape, build }. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
 | <a id="auth-foundation-token-verifier-shape-collision"></a>`auth-foundation/token-verifier-shape-collision` | No two tokenVerifier providers claim the same token shape, so resolveTokenVerifier can route unambiguously. | Give each provider a distinct shape. | `packages/bundled-features/src/auth-foundation/boot-rules.ts` |
+
+## billing-foundation
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="billing-foundation-base-url-invalid"></a>`billing-foundation/base-url-invalid` | baseUrl is a parseable absolute http or https URL. | Pass an absolute http(s) URL as baseUrl. | `packages/bundled-features/src/billing-foundation/boot-rules.ts` |
+| <a id="billing-foundation-base-url-required"></a>`billing-foundation/base-url-required` | baseUrl is set whenever consumerProtection or a catalog is configured. | Pass baseUrl, checkout redirect URLs are built from it. | `packages/bundled-features/src/billing-foundation/boot-rules.ts` |
+| <a id="billing-foundation-catalog-invalid"></a>`billing-foundation/catalog-invalid` | The catalog declares unique plans, root-relative paths, view roles and a valid contact card. | Fix the catalog option named in the error message. | `packages/bundled-features/src/billing-foundation/boot-rules.ts` |
+| <a id="billing-foundation-consumer-protection-invalid"></a>`billing-foundation/consumer-protection-invalid` | consumerProtection options carry non-empty texts, a valid operator email, a valid termination scope and valid legal links. | Fix the consumerProtection option named in the error message. | `packages/bundled-features/src/billing-foundation/boot-rules.ts` |
 
 ## boot-check
 
@@ -47,6 +62,13 @@
 | <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping and totals, which depend on one list's fields. | Set grouping and totals in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-table-not-object"></a>`bundled-lists/table-not-object` | bundledLists.table is an object. | Write bundledLists.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-unknown-key"></a>`bundled-lists/unknown-key` | bundledLists uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+
+## cap-overview
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="cap-overview-empty-caps"></a>`cap-overview/empty-caps` | createCapOverviewFeature receives at least one cap. | Pass a non-empty caps list. | `packages/bundled-features/src/cap-overview/boot-rules.ts` |
+| <a id="cap-overview-unknown-list-cap"></a>`cap-overview/unknown-list-cap` | listCaps only references cap ids declared in caps. | Use ids from caps in listCaps. | `packages/bundled-features/src/cap-overview/boot-rules.ts` |
 
 ## claim
 
@@ -106,6 +128,12 @@
 | <a id="config-key-required-with-default"></a>`config-key/required-with-default` | A required config key has no non-empty default, otherwise it can never be unset and readiness never flags it. | Use default "" or drop required. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 | <a id="config-key-secrets-scope-not-system"></a>`config-key/secrets-scope-not-system` | A config key with backing="secrets" has scope "system", because secrets storage does not cascade. | Set scope to "system" or drop backing="secrets". | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 | <a id="config-key-unknown-config-read"></a>`config-key/unknown-config-read` | A feature reads only config keys that some feature defines. | Declare the key via r.config(...) in a feature, or fix the key name. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+
+## contact
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="contact-invalid-proof-of-work-bits"></a>`contact/invalid-proof-of-work-bits` | spamProtection.proofOfWorkBits is an integer within the allowed range. | Use an integer inside the documented bounds. | `packages/bundled-features/src/contact/boot-rules.ts` |
 
 ## content-collection
 
@@ -207,6 +235,13 @@
 | <a id="document-ingest-foundation-job-unknown-provider"></a>`document-ingest-foundation/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 | <a id="document-ingest-foundation-job-without-provider-filter"></a>`document-ingest-foundation/job-without-provider-filter` | A job triggered by documentIngest.requested filters to one provider, so it does not fire for every provider's uploads. | Use trigger: documentIngestProviderTrigger("<name>"). | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 | <a id="document-ingest-foundation-provider-without-job"></a>`document-ingest-foundation/provider-without-job` | A registered document-ingest provider has a job triggered by documentIngestProviderTrigger, otherwise requested files are never processed. | Add an r.job with that trigger, or unmount the provider. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+
+## documents
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="documents-category-label-unknown-category"></a>`documents/category-label-unknown-category` | categoryLabels only names categories listed in categories. | Add the category to categories or drop its label. | `packages/bundled-features/src/documents/boot-rules.ts` |
+| <a id="documents-negative-expiring-within-days"></a>`documents/negative-expiring-within-days` | expiringWithinDays is not negative. | Pass zero or a positive number. | `packages/bundled-features/src/documents/boot-rules.ts` |
 
 ## embedded-field
 
@@ -362,6 +397,12 @@
 | <a id="field-condition-required-with-visible-when"></a>`field-condition/required-with-visible-when` | A field does not set required: true together with visibleWhen. | Drop required and use requiredWhen with the same condition as visibleWhen. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
 | <a id="field-condition-unknown-field"></a>`field-condition/unknown-field` | A condition's field names a field of the entity or a sub-field of the same row. | Use an existing field of the entity, or a sibling sub-field inside an embedded row. | `packages/framework/src/engine/boot-validator/field-conditions-rules.ts` |
 
+## file-derivatives
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="file-derivatives-public-tenant-resolution-without-apex-resolver"></a>`file-derivatives/public-tenant-resolution-without-apex-resolver` | publicTenantResolution is only set together with resolveApexTenant. | Pass resolveApexTenant or drop publicTenantResolution. | `packages/bundled-features/src/file-derivatives/boot-rules.ts` |
+
 ## file-field
 
 | Rule | Summary | Fix | Source |
@@ -377,6 +418,12 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="file-storage-provider-env-missing"></a>`file-storage/provider-env-missing` | An app with file or image fields sets the FILE_STORAGE_PROVIDER environment variable. | Set FILE_STORAGE_PROVIDER in the environment. | `packages/framework/src/engine/boot-validator/boot-environment-rules.ts` |
+
+## folders
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="folders-empty-parents-allowlist"></a>`folders/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/folders/boot-rules.ts` |
 
 ## form
 
@@ -517,6 +564,15 @@
 | <a id="hook-type-unknown"></a>`hook/type-unknown` | Hooks use a known hook type. | Use a valid hook type; preQuery hooks were removed. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="hook-validation-escape-hatch"></a>`hook/validation-escape-hatch` | Validation hooks declare no escapeHatch. | Remove escapeHatch from the validation hook. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 
+## host-routing
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="host-routing-invalid-apex-anonymous-query-allowlist"></a>`host-routing/invalid-apex-anonymous-query-allowlist` | apexAnonymousQueryAllowlist keys are apex hostnames and the option is not combined with tenantBy path. | Use apex or www.<apex> keys and drop the option in path mode. | `packages/bundled-features/src/host-routing/boot-rules.ts` |
+| <a id="host-routing-invalid-domain-or-prefix"></a>`host-routing/invalid-domain-or-prefix` | baseDomain and hosts keys are lowercase hostnames and tenantPathPrefix is a leading-slash path. | Fix the domain or prefix named in the error message. | `packages/bundled-features/src/host-routing/boot-rules.ts` |
+| <a id="host-routing-invalid-locales"></a>`host-routing/invalid-locales` | Locales look like de or de-at and the default locale is not in prefixed. | Fix the locales option named in the error message. | `packages/bundled-features/src/host-routing/boot-rules.ts` |
+| <a id="host-routing-invalid-redirect"></a>`host-routing/invalid-redirect` | Redirect rules use a path as from, a same-origin path or https URL as to, and a lowercase hostname as host. | Fix the redirect rule named in the error message. | `packages/bundled-features/src/host-routing/boot-rules.ts` |
+
 ## http-route
 
 | Rule | Summary | Fix | Source |
@@ -557,6 +613,20 @@
 | <a id="job-escape-hatch-invalid"></a>`job/escape-hatch-invalid` | A job escapeHatch carries a valid reason and grants. | Fix the escapeHatch reason or grants as the message describes. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 | <a id="job-maintenance-trigger-invalid"></a>`job/maintenance-trigger-invalid` | A job maintenance trigger has the value true. | Use trigger { maintenance: true }. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 | <a id="job-wakes-sleeping-app-invalid"></a>`job/wakes-sleeping-app-invalid` | wakesSleepingApp is false and only on cron or maintenance triggers. | Use wakesSleepingApp: false on a cron or maintenance trigger, or omit it. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+
+## jobs
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="jobs-anonymous-read-role"></a>`jobs/anonymous-read-role` | The jobs readRoles option does not contain anonymous. | Remove anonymous from readRoles. | `packages/bundled-features/src/jobs/boot-rules.ts` |
+
+## legal-pages
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="legal-pages-duplicate-route-path"></a>`legal-pages/duplicate-route-path` | Legal page route paths are unique. | Remove or rename the duplicate route. | `packages/bundled-features/src/legal-pages/boot-rules.ts` |
+| <a id="legal-pages-invalid-route"></a>`legal-pages/invalid-route` | Legal page routes declare path, slug and lang, and the path starts with a slash. | Fix the route named in the error message. | `packages/bundled-features/src/legal-pages/boot-rules.ts` |
+| <a id="legal-pages-routes-without-required-blocks"></a>`legal-pages/routes-without-required-blocks` | Custom routes that miss the default required blocks pass requiredBlocks explicitly. | Pass requiredBlocks (or an empty array) alongside custom routes. | `packages/bundled-features/src/legal-pages/boot-rules.ts` |
 
 ## list
 
@@ -670,6 +740,13 @@
 | --- | --- | --- | --- |
 | <a id="metric-name-duplicate"></a>`metric/name-duplicate` | Metric names are unique per feature. | Rename one of the metrics. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 
+## metrics
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="metrics-duplicate-metric-id"></a>`metrics/duplicate-metric-id` | Metric ids passed to the metrics factory are unique. | Rename one of the metrics. | `packages/bundled-features/src/metrics/boot-rules.ts` |
+| <a id="metrics-invalid-metric"></a>`metrics/invalid-metric` | Each metric passed to the metrics factory has a kebab-case id and a valid definition. | Fix the metric named in the error message. | `packages/bundled-features/src/metrics/boot-rules.ts` |
+
 ## multi-select
 
 | Rule | Summary | Fix | Source |
@@ -705,6 +782,12 @@
 | <a id="nav-screen-unregistered"></a>`nav/screen-unregistered` | A nav entry's screen is a registered screen qualified name. | Use "<feature>:screen:<id>" pointing at an r.screen() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 | <a id="nav-workspace-unregistered"></a>`nav/workspace-unregistered` | A nav entry self-assigns only to registered workspaces. | Use "<feature>:workspace:<id>" pointing at an r.workspace() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 
+## notes-history
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="notes-history-empty-parents-allowlist"></a>`notes-history/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/notes-history/boot-rules.ts` |
+
 ## ownership
 
 | Rule | Summary | Fix | Source |
@@ -729,6 +812,12 @@
 | <a id="parent-ref-entity-id-field-unknown"></a>`parent-ref/entity-id-field-unknown` | parentRef.entityIdField names a declared field of the entity. | Point entityIdField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-entity-type-field-unknown"></a>`parent-ref/entity-type-field-unknown` | parentRef.entityTypeField names a declared field of the entity. | Point entityTypeField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-hand-written-query-handler"></a>`parent-ref/hand-written-query-handler` | Query handlers on an entity with parentRef carry the entity-convention brand, so the parent-ref read-gate applies. | Register the handler via defineEntityListHandler/defineEntityDetailHandler, or pass parentVisibility to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+
+## personal-access-tokens
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="personal-access-tokens-scope-event-without-contract"></a>`personal-access-tokens/scope-event-without-contract` | Events listed in PAT scopes have a public webhook contract. | Declare the event with r.defineWebhookEvent or opt the entity into webhookEvents. | `packages/bundled-features/src/personal-access-tokens/boot-rules.ts` |
 
 ## pii
 
@@ -755,6 +844,12 @@
 | <a id="pii-write-only-embedded-sub-field"></a>`pii/write-only-embedded-sub-field` | writeOnly is only supported on top-level text fields, not on embedded sub-fields. | Remove writeOnly from the sub-field or declare it on a top-level text field. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-write-only-non-text"></a>`pii/write-only-non-text` | writeOnly applies to text fields only. | Use a text field or remove writeOnly. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-write-only-without-sensitive"></a>`pii/write-only-without-sensitive` | A writeOnly field is also sensitive. | Declare the field with find: "secret". | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
+
+## presence
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="presence-invalid-ttl-seconds"></a>`presence/invalid-ttl-seconds` | The presence ttlSeconds option is a positive number. | Pass a positive ttlSeconds. | `packages/bundled-features/src/presence/boot-rules.ts` |
 
 ## probe
 
@@ -848,6 +943,13 @@
 | <a id="read-gate-link-entity-without-parent-ref"></a>`read-gate/link-entity-without-parent-ref` | A readGate link entity declares a parentRef, because its host visibility is what the gate checks. | Declare a parentRef on the link entity or use another entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="read-gate-link-field-unknown"></a>`read-gate/link-field-unknown` | A readGate link field is a field of the link entity. | Point the link field at a real field of the link entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="read-gate-with-parent-ref"></a>`read-gate/with-parent-ref` | An entity with readGate does not also declare parentRef. | Drop readGate or parentRef. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+
+## readiness
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="readiness-probe-fix-screen-unknown"></a>`readiness/probe-fix-screen-unknown` | A probe fixScreen names a screen of a mounted feature. | Use a <feature>:screen:<id> qualified name of a mounted screen. | `packages/bundled-features/src/readiness/boot-rules.ts` |
+| <a id="readiness-probe-translation-missing"></a>`readiness/probe-translation-missing` | Probe area and label keys are defined by a mounted feature. | Add the key via r.translations(...). | `packages/bundled-features/src/readiness/boot-rules.ts` |
 
 ## reference
 
@@ -987,6 +1089,12 @@
 | <a id="select-option-tone-invalid"></a>`select/option-tone-invalid` | Every select optionTones value is a known tone. | Use one of the listed tones. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
+## shared
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="shared-where-rule-in-ownership-write"></a>`shared/where-rule-in-ownership-write` | ownership.write of a bundled-feature factory contains no where rule. | Drop the where rule from ownership.write; it only applies on the read path. | `packages/bundled-features/src/shared/boot-rules.ts` |
+
 ## store-table
 
 | Rule | Summary | Fix | Source |
@@ -996,6 +1104,34 @@
 | <a id="store-table-name-invalid"></a>`store-table/name-invalid` | Store table names are valid lowercase identifiers. | Use lowercase letters, digits and underscores, starting with a letter. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="store-table-read-prefix-reserved"></a>`store-table/read-prefix-reserved` | Store table names do not use the read_ prefix. | Pick an unprefixed name or a distinct prefix such as store_. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="store-table-reason-missing"></a>`store-table/reason-missing` | r.storeTable() declares a non-empty options.reason. | Add a reason justifying the audit-trail bypass or declare the data via r.entity(). | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
+## subscription-mollie
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="subscription-mollie-empty-api-key"></a>`subscription-mollie/empty-api-key` | The Mollie provider receives a non-empty apiKey. | Set MOLLIE_API_KEY before mounting. | `packages/bundled-features/src/subscription-mollie/boot-rules.ts` |
+| <a id="subscription-mollie-empty-webhook-url"></a>`subscription-mollie/empty-webhook-url` | The Mollie provider receives a non-empty webhookUrl. | Pass the foundation webhook URL Mollie sends events to. | `packages/bundled-features/src/subscription-mollie/boot-rules.ts` |
+| <a id="subscription-mollie-price-map-drift"></a>`subscription-mollie/price-map-drift` | priceToTier and priceToConfig declare the same price ids. | Make both maps list the same price ids. | `packages/bundled-features/src/subscription-mollie/boot-rules.ts` |
+
+## tags
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="tags-empty-parents-allowlist"></a>`tags/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/tags/boot-rules.ts` |
+
+## template-resolver
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="template-resolver-collection-refused-kind"></a>`template-resolver/collection-refused-kind` | Collections only use kinds that collections may write. | Pick an allowed collection kind. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
+| <a id="template-resolver-tenant-editable-duplicate"></a>`template-resolver/tenant-editable-duplicate` | tenantEditable lists each kind and slug once. | Remove the duplicate entry. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
+| <a id="template-resolver-tenant-editable-invalid-entry"></a>`template-resolver/tenant-editable-invalid-entry` | Each tenantEditable entry has a non-empty slug and at least one access role. | Give the entry a slug and roles. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
+
+## tenant
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="tenant-assignable-role-missing-from-screens"></a>`tenant/assignable-role-missing-from-screens` | Every assignable app role is present in the tenant screens' options. | Pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature. | `packages/bundled-features/src/tenant/boot-rules.ts` |
 
 ## tenant-lifecycle
 

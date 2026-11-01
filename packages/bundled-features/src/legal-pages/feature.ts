@@ -1,5 +1,6 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
+  bootRuleError,
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
@@ -11,6 +12,7 @@ import {
   redirectToCanonicalPath,
   slashVariantOf,
 } from "../page-render/index.ts";
+import { LEGAL_PAGES_BOOT_RULES } from "./boot-rules.ts";
 import { runLegalPagesBootCheck } from "./lib/boot-check.ts";
 import { validateRoutes } from "./lib/validate-routes.ts";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown.ts";
@@ -113,9 +115,10 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       opts.routes?.some((route) => route.slug === block.slug && route.lang === block.lang),
     );
     if (!coversDefaultBlock) {
-      throw new Error(
-        "legal-pages: custom `routes` without `requiredBlocks` — pass `requiredBlocks` explicitly (or `[]`)",
-      );
+      throw bootRuleError(LEGAL_PAGES_BOOT_RULES.routesWithoutRequiredBlocks, {
+        message:
+          "legal-pages: custom `routes` without `requiredBlocks` — pass `requiredBlocks` explicitly (or `[]`)",
+      });
     }
   }
   const alternatesBySlug = alternatesBySlugOf(routes);
