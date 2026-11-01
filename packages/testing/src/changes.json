@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "renderTestSetup starter \"blank\"",
+    "detail": "`renderTestSetup({ starter: \"blank\" })` skips the tasks integration and e2e files, ships a boot validation unit test and a boot integration test, and runs Playwright with `--pass-with-no-tests`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "runScreenshots finishes CSS transitions before the capture",
+    "detail": "`runScreenshots` captures with `animations: \"disabled\"` like `runMatrix`. A scenario flow that toggles the dark theme no longer catches `transition-all` buttons mid-fade with their light-theme colours."
+  },
+  {
     "version": "0.409.0",
     "type": "fix",
     "title": "Test-stack jobs get ctx.services.files from mounted file providers",

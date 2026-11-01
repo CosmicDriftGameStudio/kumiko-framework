@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "--blank flag",
+    "detail": "`bun create kumiko-app <name> --blank` scaffolds the blank starter: no demo tasks, no seeded password; the creator sets one through \"forgot password\" after the first start with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Feature manifest lists contact and its new options",

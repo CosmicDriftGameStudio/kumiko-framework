@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Warning mails reach Admins, activity sources get the tenant db, sessions probe secret from env",
+    "detail": "The inactivity warning mail goes to every member with the `TenantOwner`, `TenantAdmin` or `Admin` role (`TENANT_KEEP_ACCOUNT_ROLES`, also the roles of the keep-account and state handlers), once per user. An activity source that reports a time in the future is capped at the current time. `TenantActivitySource` now receives `{ tenantId, now, db }` with `db: TenantDb`, so a source can read the tenant's own data; existing sources that ignore the extra field keep working. The sessions feature falls back to the `SESSIONS_LAST_ACTIVITY_PROBE_SECRET` environment variable when `lastActivityProbeSecret` is not set, so apps that mount sessions without options can serve the last-activity probe. A value shorter than 32 characters fails the boot with a message that names the variable but not its value; an unset variable keeps the probe off. Client code can import the handler names from `@cosmicdrift/kumiko-bundled-features/tenant-inactivity/constants` (`TenantInactivityHandlers`, `TenantInactivityJobs`) without pulling the server barrel (ioredis, `tls`) into the browser bundle."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "tenant-inactivity/static-keep-account, a DOM-free keep-account client",
+    "detail": "`@cosmicdrift/kumiko-bundled-features/tenant-inactivity/static-keep-account` exports `keepAccount(token)`, which posts `tenant-inactivity:write:keep-account`, and `takeKeepAccountToken()`, which reads the `#token=` fragment of the mail link and removes it from the address bar. Results use the same `kind: \"success\" | \"failure\"` union as the other static clients; an expired or replaced link is a failure."
+  },
+  {
     "version": "0.407.0",
     "type": "improvement",
     "title": "Warn and delete inactive free accounts",
