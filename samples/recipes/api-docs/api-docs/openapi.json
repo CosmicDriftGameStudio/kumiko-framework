@@ -482,9 +482,10 @@
     }
   },
   "webhooks": {
-    "helpdesk:ticket-closed": {
+    "ticket.closed": {
       "post": {
-        "summary": "helpdesk:ticket-closed",
+        "summary": "ticket.closed",
+        "x-kumiko-qn": "helpdesk:ticket-closed",
         "description": "A ticket was closed and its resolution recorded.",
         "requestBody": {
           "required": true,
@@ -505,6 +506,7 @@
     "ticket.created": {
       "post": {
         "summary": "ticket.created",
+        "x-kumiko-qn": "ticket.created",
         "description": "A record of type ticket was created.",
         "requestBody": {
           "required": true,

@@ -35,7 +35,7 @@ function createDecimalField<R extends true | false = false>(config: { precision:
 function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef; // Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
 function createEmbeddedField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef;
 function createEmbeddedListField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef & { multiple: true; };
-function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
+function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; webhookEvents?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
 function createEntityExecutor<E extends EntityDefinition>(entityName: string, entity: E): { table: EntityTable; executor: EventStoreExecutor<EntityRow<E>>; };
 function createFileField(overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FileFieldDef;
 function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FilesFieldDef;
@@ -567,6 +567,7 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
   softDelete?: boolean;
   tenancy?: T; // "tenant" (default): auto-filtered by every db accessor.
   systemStream?: boolean; // This aggregate's event stream lives on SYSTEM_TENANT_ID rather than the creator's tenant.
+  webhookEvents?: boolean; // Lets token scopes release `<entity>.created/.updated/.deleted` as webhook events.
   eventVersion?: number; // Schema version stamped on every lifecycle event (default 1, integer 1..999).
   eventMigrations?: EntityEventMigration[]; // One step per version, fromVersion → fromVersion+1.
   searchWeight?: number;
@@ -772,7 +773,7 @@ type FeatureRegistrar<TFeature extends string = string> = { // `TFeature` is the
   notification(definition: { name: string; trigger?: { on: NameOrRef; }; recipient?: NotificationRecipientFn; data?: NotificationDataFn; templates?: Readonly<Record<string, NotificationTemplateFn>>; variables?: TemplateVariables; record?: NotificationRecordMapping; template?: Readonly<Record<string, NotificationTemplateBody>>; meta?: Readonly<Record<string, NotificationTemplateMeta>>; localizedTemplate?: () => NotificationLocalizedTemplate; renamedFrom?: string[]; systemOnly?: boolean; unsubscribe?: boolean; tenantTransport?: boolean; }): void;
   translations(def: TranslationsDef): void;
   defineEvent<const TInner extends string, TPayload>(name: TInner, schema: ZodType<TPayload>, options: { version?: number; piiFields: EventPiiStance; migrations?: { fromVersion: number; toVersion: number; transform: EventUpcastFn | DeclarativeEventMigration; }[]; }): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
-  defineWebhookEvent(definition: { name: string; description: string; payload: z.ZodObject; version: number; }): WebhookEventHandle;
+  defineWebhookEvent(definition: { name: string; description: string; payload: z.ZodObject; version: number; wireName?: string; }): WebhookEventHandle;
   readsConfig(...qualifiedKeys: string[]): void;
   readsConfig(options: { keys: string[]; }): void;
   referenceData(entity: NameOrRef, data: Record<string, unknown>[], options?: { upsertKey?: string; }): void;
@@ -1791,6 +1792,7 @@ type WebhookContractResolver = {
 type WebhookEntityVerb = "created" | "updated" | "deleted"; // Lifecycle verbs of an entity that can be released as webhook events.
 type WebhookEventContract = { // Public payload contract of a webhook event: declared by a feature or derived from an entity.
   qn: string;
+  wireName: string; // The event name receivers see in the delivered webhook: `wireName` of a declared event, `entity.verb` of a derived one.
   description: string;
   payload: z.ZodObject;
   version: number;

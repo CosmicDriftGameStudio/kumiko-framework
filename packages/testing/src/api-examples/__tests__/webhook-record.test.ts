@@ -10,6 +10,7 @@ import { recordWebhookExample } from "../webhook-record.ts";
 
 const contract: WebhookEventContract = {
   qn: "helpdesk:ticket-closed",
+  wireName: "ticket-closed",
   description: "A ticket was closed.",
   payload: z.object({ id: z.uuid(), resolution: z.string(), closedAt: z.string() }),
   version: 3,

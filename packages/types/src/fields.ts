@@ -1122,6 +1122,8 @@ export type EntityDefinition<
    *  only for genuinely tenant-independent aggregates like `user`. The first
    *  event (create) is what's routed; updates resolve the stream tenant upstream. */
   readonly systemStream?: boolean;
+  /** Lets token scopes release `<entity>.created/.updated/.deleted` as webhook events. Off by default: bundle entities can hold secrets. */
+  readonly webhookEvents?: boolean;
   /** Schema version stamped on every lifecycle event (default 1, integer 1..999). Bump it together with a step in `eventMigrations`. */
   readonly eventVersion?: number;
   /** One step per version, fromVersion → fromVersion+1. Transforms run on row-shaped field records; the record may be partial, touch only keys that are present.

@@ -176,8 +176,8 @@
           "level": 2
         },
         {
-          "id": "helpdeskticket-closed",
-          "heading": "helpdesk:ticket-closed",
+          "id": "ticketclosed",
+          "heading": "ticket.closed",
           "level": 3,
           "qn": "helpdesk:ticket-closed"
         },
@@ -354,8 +354,8 @@
           "level": 2
         },
         {
-          "id": "helpdeskticket-closed",
-          "heading": "helpdesk:ticket-closed",
+          "id": "ticketclosed",
+          "heading": "ticket.closed",
           "level": 3,
           "qn": "helpdesk:ticket-closed"
         },

@@ -38,6 +38,8 @@ export type ApiDocsScope = {
 export type ApiDocsEvent = {
   /** `feature:name` for a declared contract, `entity.verb` for an entity lifecycle event. */
   readonly qn: string;
+  /** Event name as delivered; headings, anchors and OpenAPI webhook keys use it. */
+  readonly wireName: string;
   readonly origin: "declared" | "entity";
   readonly entity?: string;
   readonly verb?: WebhookEntityVerb;

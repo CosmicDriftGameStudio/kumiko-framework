@@ -227,6 +227,7 @@ export type WebhookEntityVerb = "created" | "updated" | "deleted";
 /** What `r.defineWebhookEvent` stores; `qn` is `<feature>:<name>`. */
 export type WebhookEventDef = {
   readonly qn: string;
+  readonly wireName: string;
   readonly description: string;
   readonly payload: z.ZodObject;
   readonly version: number;
@@ -241,6 +242,8 @@ export type WebhookEventHandle = {
 /** Public payload contract of a webhook event: declared by a feature or derived from an entity. */
 export type WebhookEventContract = {
   readonly qn: string;
+  /** The event name receivers see in the delivered webhook: `wireName` of a declared event, `entity.verb` of a derived one. */
+  readonly wireName: string;
   readonly description: string;
   readonly payload: z.ZodObject;
   readonly version: number;

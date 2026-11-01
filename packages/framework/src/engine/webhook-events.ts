@@ -58,6 +58,7 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       readonly description: string;
       readonly payload: ZodObject;
       readonly version: number;
+      readonly wireName?: string;
     }): WebhookEventHandle {
       if (!isObjectArgument(definition))
         throwObjectArgumentRequired(featureName, "defineWebhookEvent");
@@ -75,11 +76,24 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       if (!Number.isInteger(version) || version < 1) {
         throw new Error(`${where}("${name}"): version must be a positive integer`);
       }
+      if (
+        definition.wireName !== undefined &&
+        (typeof definition.wireName !== "string" || definition.wireName.trim() === "")
+      ) {
+        throw new Error(`${where}("${name}"): wireName must be a non-empty string`);
+      }
+      const wireName = definition.wireName?.trim() ?? name;
       const qn = `${toKebab(featureName)}:${name}`;
       if (state.webhookEvents[qn] !== undefined) {
         throw new Error(`${where}("${name}"): already registered in this feature`);
       }
-      state.webhookEvents[qn] = { qn, description: description.trim(), payload, version };
+      state.webhookEvents[qn] = {
+        qn,
+        wireName,
+        description: description.trim(),
+        payload,
+        version,
+      };
       return { name: qn, payload, version };
     },
   };

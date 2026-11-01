@@ -5,6 +5,7 @@ import { compareIds } from "../labels.ts";
 import type { RegistryManifestView } from "../types.ts";
 import type { ApiDocsModel } from "./model.ts";
 import { type ApiDocsProblem, sortApiDocsProblems } from "./problems.ts";
+import { isSystemOnlyHandler } from "./system-only.ts";
 
 type UiOnlyWrite = { readonly pattern: string; readonly reason: string };
 
@@ -62,8 +63,11 @@ export function uiWriteProblems(
   const coveredFeatures = new Set([...inScope].map(featureOf));
   const usedPatterns = new Set<string>();
   const problems: ApiDocsProblem[] = [];
+  const writeHandlers = registry.getAllWriteHandlers();
   for (const [qn, screens] of writesByScreen(registry)) {
     if (inScope.has(qn) || !coveredFeatures.has(featureOf(qn))) continue;
+    const handler = writeHandlers.get(qn);
+    if (handler !== undefined && isSystemOnlyHandler(handler)) continue;
     const matching = uiOnlyWrites.filter((entry) => qnMatches(entry.pattern, qn));
     for (const entry of matching) usedPatterns.add(entry.pattern);
     if (matching.length === 0) problems.push({ kind: "uiWriteOutsideScopes", qn, screens });

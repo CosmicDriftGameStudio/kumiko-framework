@@ -355,6 +355,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly description: string;
     readonly payload: z.ZodObject;
     readonly version: number;
+    /** Name in the delivered webhook and in the generated docs. Defaults to `name`. */
+    readonly wireName?: string;
   }): WebhookEventHandle;
 
   readsConfig(...qualifiedKeys: string[]): void;

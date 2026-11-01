@@ -30,6 +30,7 @@ import type {
   LocalizedText,
 } from "./model.ts";
 import { fieldRows } from "./schema-fields.ts";
+import { isSystemOnlyHandler } from "./system-only.ts";
 
 export function findPatFeature(registry: RegistryManifestView): FeatureDefinition | undefined {
   return [...registry.features.values()].find(
@@ -129,8 +130,12 @@ export function collectApiDocsModel(
   if (patFeature === undefined || scopeConfig === undefined) return undefined;
 
   const kinds = new Map<string, { kind: "query" | "write"; def: AnyHandlerDef }>();
-  for (const [qn, def] of registry.getAllQueryHandlers()) kinds.set(qn, { kind: "query", def });
-  for (const [qn, def] of registry.getAllWriteHandlers()) kinds.set(qn, { kind: "write", def });
+  for (const [qn, def] of registry.getAllQueryHandlers()) {
+    if (!isSystemOnlyHandler(def)) kinds.set(qn, { kind: "query", def });
+  }
+  for (const [qn, def] of registry.getAllWriteHandlers()) {
+    if (!isSystemOnlyHandler(def)) kinds.set(qn, { kind: "write", def });
+  }
   const allQns = [...kinds.keys()].sort(compareIds);
 
   const scopes: ApiDocsScope[] = Object.keys(scopeConfig)

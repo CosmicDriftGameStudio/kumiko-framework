@@ -51,6 +51,7 @@ import type {
 import { filterByPhase, filterOwned } from "./registry-state.ts";
 import type { FeatureDefinition, Registry } from "./types/index.ts";
 import {
+  assertUniqueWebhookWireNames,
   createWebhookContractResolver,
   type WebhookContractResolver,
 } from "./webhook-contracts.ts";
@@ -65,6 +66,7 @@ function isFeatureSystemScoped(state: RegistryState, featureName: string | undef
 // return-object literal, only the closure-captured variable changed
 // (state.X instead of bare X, done in the RegistryState-threading step).
 export function buildRegistryFacade(state: RegistryState): Registry {
+  assertUniqueWebhookWireNames([...state.featureMap.values()]);
   let resolver: WebhookContractResolver | undefined;
   const webhookContracts = (): WebhookContractResolver => {
     resolver ??= createWebhookContractResolver([...state.featureMap.values()]);

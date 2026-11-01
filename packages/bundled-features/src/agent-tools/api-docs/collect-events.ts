@@ -87,6 +87,7 @@ function buildEvent(
   const payloadSchema = payloadJsonSchema(contract);
   return {
     qn: contract.qn,
+    wireName: contract.wireName,
     origin: contract.origin,
     ...(contract.entity !== undefined && { entity: contract.entity }),
     ...(contract.verb !== undefined && { verb: contract.verb }),

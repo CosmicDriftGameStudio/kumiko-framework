@@ -29,9 +29,11 @@ describe("events page", () => {
     expect(page).toContain("## Delivery");
     expect(page).toContain("Deliveries are signed.");
     expect(file("de/events.md")).toContain("Zustellungen sind signiert.");
-    expect(page).toContain("### ticket:created");
+    expect(page).toContain("### ticket.opened");
     expect(page).toContain("### ticket.created");
-    expect(page).toContain("### billing:invoice-paid");
+    expect(page).toContain("### invoice-paid");
+    expect(page).not.toContain("### ticket:created");
+    expect(page).not.toContain("billing:invoice-paid");
     expect(page).not.toMatch(/<[A-Za-z]/);
   });
 
@@ -61,18 +63,19 @@ describe("events page", () => {
   test("openapi has webhooks keyed by QN with distinct schema names, index.json lists the page", () => {
     const openapi = JSON.parse(file("openapi.json"));
     expect(Object.keys(openapi.webhooks)).toEqual([
-      "billing:invoice-paid",
+      "invoice-paid",
       "ticket.created",
-      "ticket:created",
+      "ticket.opened",
     ]);
+    expect(openapi.webhooks["ticket.opened"].post["x-kumiko-qn"]).toBe("ticket:created");
     const refs = Object.values<{
       post: { requestBody: { content: { "application/json": { schema: { $ref: string } } } } };
     }>(openapi.webhooks).map(
       (hook) => hook.post.requestBody.content["application/json"].schema.$ref,
     );
     expect(new Set(refs).size).toBe(3);
-    expect(openapi.webhooks["ticket:created"].post["x-kumiko-version"]).toBe(2);
-    expect(openapi.webhooks["ticket:created"].post["x-kumiko-scope"]).toEqual(["tickets:read"]);
+    expect(openapi.webhooks["ticket.opened"].post["x-kumiko-version"]).toBe(2);
+    expect(openapi.webhooks["ticket.opened"].post["x-kumiko-scope"]).toEqual(["tickets:read"]);
     const index = JSON.parse(file("index.json"));
     expect(JSON.stringify(index)).toContain("events.md");
   });

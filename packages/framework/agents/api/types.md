@@ -3462,6 +3462,7 @@ type UiHints = {
 };
 type WebhookEventDef = { // What `r.defineWebhookEvent` stores; `qn` is `<feature>:<name>`.
   qn: string;
+  wireName: string;
   description: string;
   payload: z.ZodObject;
   version: number;

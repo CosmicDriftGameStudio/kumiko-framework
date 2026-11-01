@@ -500,6 +500,7 @@ import { z } from "zod";
 
 export const ticketEntity = createEntity({
   table: "read_api_docs_tickets",
+  webhookEvents: true,
   description: "A support request with a title, a priority and an open or closed status.",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -534,6 +535,7 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
 
   r.defineWebhookEvent({
     name: "ticket-closed",
+    wireName: "ticket.closed",
     description: "A ticket was closed and its resolution recorded.",
     payload: z.object({
       id: z.uuid().describe("ID of the closed ticket"),

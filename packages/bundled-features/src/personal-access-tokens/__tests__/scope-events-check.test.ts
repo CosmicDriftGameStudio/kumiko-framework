@@ -8,7 +8,14 @@ const helpdesk = defineFeature("helpdesk", (r) => {
   r.entity({
     name: "ticket",
     ...createEntity({
+      webhookEvents: true,
       fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  });
+  r.entity({
+    name: "note",
+    ...createEntity({
+      fields: { body: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
   });
   r.defineEvent("internal-note", z.object({ id: z.string() }), { piiFields: "none" });
@@ -37,6 +44,12 @@ describe("validateScopeEventContracts", () => {
     expect(() =>
       validateScopeEventContracts(scopesWith(["helpdesk:event:internal-note"]), [helpdesk]),
     ).toThrow(/scope "support" lists event "helpdesk:event:internal-note".*r\.defineWebhookEvent/s);
+  });
+
+  test("rejects an entity event of an entity without the webhookEvents opt-in", () => {
+    expect(() => validateScopeEventContracts(scopesWith(["note.created"]), [helpdesk])).toThrow(
+      /webhookEvents: true.*entity "note"/s,
+    );
   });
 
   test("rejects an entity event of an unknown entity", () => {
