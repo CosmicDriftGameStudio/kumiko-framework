@@ -176,6 +176,23 @@ export function isTextOnlyChangesEdit(repoRoot: string, file: string): boolean {
   });
 }
 
+// A renamed feature folder carries its changes.json along: git reports the path as an exact (100 %)
+// rename from the branch point, so no entry was added, dropped or rewritten.
+export function isUnchangedChangesMove(repoRoot: string, file: string): boolean {
+  const mergeBase = Bun.spawnSync(["git", "merge-base", "HEAD", "origin/main"], { cwd: repoRoot, env: gitEnv() });
+  if (mergeBase.exitCode !== 0) return false;
+  const baseSha = new TextDecoder().decode(mergeBase.stdout).trim();
+  const renames = Bun.spawnSync(
+    ["git", "diff", "--name-status", "-M100%", "--diff-filter=R", baseSha, "--", "packages"],
+    { cwd: repoRoot, env: gitEnv() },
+  );
+  if (renames.exitCode !== 0) return false;
+  return new TextDecoder()
+    .decode(renames.stdout)
+    .split("\n")
+    .some((line) => line.split("\t")[2] === file);
+}
+
 export function isReleaseBranch(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   if ((env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/")) {
     return env["GITHUB_EVENT_NAME"] === "pull_request" && !isForkPullRequest(env);
@@ -251,6 +268,7 @@ export function findChangesetViolations(
   if (!isReleaseBranch(env) && env["GITHUB_EVENT_NAME"] !== "push") {
     for (const file of changedFilesToCheck.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
       if (isTextOnlyChangesEdit(repoRoot, file)) continue;
+      if (isUnchangedChangesMove(repoRoot, file)) continue;
       violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
     }
   }

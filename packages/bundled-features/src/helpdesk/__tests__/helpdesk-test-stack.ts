@@ -88,7 +88,11 @@ export const FAST_SPAM_PROTECTION = { minSubmitSeconds: 0, proofOfWorkBits: 8 } 
 
 export async function createHelpdeskTestStack(
   helpdeskOptions: Partial<HelpdeskOptions> = {},
-  stackOptions: { readonly tierEngine?: boolean } = {},
+  stackOptions: {
+    readonly tierEngine?: boolean;
+    readonly dbName?: string;
+    readonly persistentDb?: boolean;
+  } = {},
 ): Promise<HelpdeskTestStack> {
   const telegram = startProviderStub();
   const masterKeyProvider = createEnvMasterKeyProvider({
@@ -142,6 +146,8 @@ export async function createHelpdeskTestStack(
       }),
     ],
     masterKeyProvider,
+    ...(stackOptions.dbName !== undefined && { dbName: stackOptions.dbName }),
+    ...(stackOptions.persistentDb !== undefined && { persistentDb: stackOptions.persistentDb }),
     extraContext: (deps) => {
       const secrets = createSecretsContext({
         db: deps.db,
