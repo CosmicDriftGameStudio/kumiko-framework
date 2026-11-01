@@ -109,7 +109,7 @@ function listEventTenantIds(db: AnyDb): Promise<string[]>;
 function loadSnapshotJson(path: string): Snapshot | null;
 function nullBlindIndexesForSubject(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, subjectKey: string): Promise<void>;
 function outsideTransactionPoolOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
-function physicalColumnName(table: Table, field: string): string;
+function physicalColumnName(table: unknown, field: string): string;
 function primaryKey(opts: { columns: ColumnHandle[]; name?: string; }): PrimaryKeyDescriptor;
 function readDatabaseNow(db: TenantDb): Promise<Date>; // Postgres clock; inside a transaction `now()` is the transaction start, so repeated reads agree.
 function recordEventsOwnedExclusivelyByTenant(db: DbRunner, aggregateType: string, aggregateId: string, tenantId: string): Promise<boolean>;

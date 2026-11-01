@@ -11,7 +11,6 @@ import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
 import { toSnakeCase } from "../utils/case.ts";
 import { buildEntityIndexes } from "./entity-table-indexes.ts";
-import type { Table } from "./event-store-executor-context.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
 import type { MoneyRead } from "./money.ts";
@@ -44,7 +43,7 @@ export { SOFT_DELETE_LIVE_ROW_PREDICATE } from "./entity-table-indexes.ts";
 
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.
-export function physicalColumnName(table: Table, field: string): string {
+export function physicalColumnName(table: unknown, field: string): string {
   return columnHandleName(table, field) ?? toSnakeCase(field);
 }
 

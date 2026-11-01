@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { collectEntityDetailAccess, collectEntityReadAccess } from "../api/entity-read-access.ts";
+import type { SchemaTable } from "../db/dialect.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
@@ -43,6 +44,16 @@ function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefi
   return implicit?.table ?? buildEntityTable(entityName, entity);
 }
 
+const readModelOwnersOf = memoizePerRegistry((registry) => {
+  const owners = new Map<string, { entity: EntityDefinition; table: SchemaTable }>();
+  for (const { source, table } of registry.getAllProjections().values()) {
+    if (typeof source !== "string") continue;
+    const entity = registry.getReadModelEntity(source);
+    if (entity !== undefined) owners.set(source, { entity, table });
+  }
+  return owners;
+});
+
 function readTableResolver(ctx: HandlerContext, label: string) {
   return (name: string) => {
     const entity = ctx.registry.getEntity(name);
@@ -60,6 +71,7 @@ export function parentVisibilityFor(
   const detailRules = detailAccessOf(ctx.registry);
   return {
     entities: ctx.registry.getAllEntities(),
+    readModelEntities: readModelOwnersOf(ctx.registry),
     canReadEntity: (name) => {
       const rule = detailRules.get(name);
       return rule !== undefined && hasAccess(user, rule);
