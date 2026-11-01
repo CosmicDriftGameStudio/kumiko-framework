@@ -14,7 +14,10 @@ import { createLateBoundSlot, readFeatureExportFn } from "../shared/index.ts";
 import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
 import { cleanupJob } from "./handlers/cleanup.job.ts";
 import { createDetailQuery } from "./handlers/detail.query.ts";
-import { registerLastActivityProbe } from "./handlers/last-activity-probe.route.ts";
+import {
+  readProbeSecretFromEnv,
+  registerLastActivityProbe,
+} from "./handlers/last-activity-probe.route.ts";
 import { createListQuery } from "./handlers/list.query.ts";
 import { mineQuery } from "./handlers/mine.query.ts";
 import { revokeWrite } from "./handlers/revoke.write.ts";
@@ -64,6 +67,7 @@ export type SessionsFeatureOptions = {
   readonly clock?: Clock;
   // Opt-in: serves GET /sessions/last-activity to a sibling app presenting this secret as a
   // Bearer token. Answers the newest session activity across every tenant of this app.
+  // Unset: falls back to the SESSIONS_LAST_ACTIVITY_PROBE_SECRET env (min. 32 characters).
   readonly lastActivityProbeSecret?: string;
 };
 
@@ -199,7 +203,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
           ),
       });
 
-      const probeSecret = options?.lastActivityProbeSecret;
+      const probeSecret = options?.lastActivityProbeSecret ?? readProbeSecretFromEnv();
       if (probeSecret !== undefined) registerLastActivityProbe(r, probeSecret);
 
       // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is

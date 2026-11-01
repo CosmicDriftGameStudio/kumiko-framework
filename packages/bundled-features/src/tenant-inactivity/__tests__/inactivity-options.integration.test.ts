@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import type { InactivityRule } from "../inactivity-plan.ts";
 import {
   type InactivityTestStack,
@@ -17,6 +19,7 @@ const HOURS_PER_DAY = 24;
 type Tier = "free" | "paid";
 let tier: Tier = "paid";
 let externalActivity: Temporal.Instant | null = null;
+let sourceDb: TenantDb | undefined;
 let t: InactivityTestStack;
 
 function afterMonths(from: Temporal.Instant, months: number): Temporal.Instant {
@@ -30,7 +33,12 @@ beforeAll(async () => {
       rulesByTier: { free: FREE_RULE, paid: null },
       keepAccountUrl: KEEP_URL,
       appName: "Acme",
-      activitySources: [async () => externalActivity],
+      activitySources: [
+        async ({ db }) => {
+          sourceDb = db;
+          return externalActivity;
+        },
+      ],
     }),
     START,
   );
@@ -44,6 +52,7 @@ beforeEach(async () => {
   await t.reset();
   tier = "paid";
   externalActivity = null;
+  sourceDb = undefined;
   await t.seedTenantWithOwner();
 });
 
@@ -102,5 +111,36 @@ describe("tenant-inactivity activity sources", () => {
         .subtract({ hours: 30 * HOURS_PER_DAY })
         .toString(),
     );
+  });
+});
+
+describe("tenant-inactivity activity source db", () => {
+  test("the source receives the tenant db and can read through it", async () => {
+    tier = "free";
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    await t.runJob();
+    expect(sourceDb).toBeDefined();
+    const memberships = await sourceDb?.selectMany(tenantMembershipsTable, {});
+    expect(memberships).toHaveLength(1);
+  });
+});
+
+describe("tenant-inactivity recipients", () => {
+  test("an Admin without the TenantOwner role gets the warning, once per user", async () => {
+    await t.reset();
+    tier = "free";
+    await t.seedTenantWithMembers([
+      { email: "admin@inactivity.test", roles: ["Admin", "TenantOwner"] },
+      { email: "plain@inactivity.test", roles: ["User"] },
+      { email: "onlyadmin@inactivity.test", roles: ["Admin"] },
+    ]);
+    await t.runJob();
+    t.clock.set(afterMonths(START, 12).subtract({ hours: 30 * HOURS_PER_DAY }));
+    await t.runJob();
+    expect(t.sent.map((mail) => mail.to).sort()).toEqual([
+      "admin@inactivity.test",
+      "onlyadmin@inactivity.test",
+    ]);
   });
 });
