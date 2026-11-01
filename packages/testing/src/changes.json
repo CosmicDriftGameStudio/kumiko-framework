@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "recordApiExample records real API responses for the generated docs",
+    "detail": "`recordApiExample(http, { name, dir, endpoint, body, token })` from `@cosmicdrift/kumiko-testing/api-examples` sends the request with the token as Bearer and returns status and body. With `KUMIKO_RECORD_API_EXAMPLES=1` it also writes `<dir>/<name>.json` with ids, timestamps, tokens, request ids and cursors replaced by stable placeholders and values under password, secret and mfaCode keys redacted. `kumiko api-docs` uses a recording for the example request and the example response of the matching handler. The recipe `samples/recipes/api-docs` shows the whole flow."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "recordWebhookExample records validated webhook payloads for the generated docs",
+    "detail": "`recordWebhookExample({ name, dir, contract, payload })` from `@cosmicdrift/kumiko-testing/api-examples` validates the payload with `parseWebhookPayload` and throws with the issues when it breaks the contract. With `KUMIKO_RECORD_API_EXAMPLES=1` it writes `<dir>/webhooks/<name>.json` with ids, timestamps and secrets normalized. It always returns the parsed payload. `WebhookExampleFileSchema` is exported from `@cosmicdrift/kumiko-types/api-example`."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "renderTestSetup starter \"blank\"",

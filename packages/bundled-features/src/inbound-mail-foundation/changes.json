@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.412.0",
+    "type": "fix",
+    "title": "documents filed from a mail attachment are visible to whoever may read the mail",
+    "detail": "The `inbound-message` read model now declares `access.read` for the member roles: shared mailboxes are readable by every member, a personal mailbox only by its owner, admins included. `createInboundMessageEntity(memberRoles)` builds the entity for the configured roles; `inboundMessageEntity` stays exported with the default roles. The message queries filter rows as before and do not use this rule."
+  },
+  {
     "version": "0.409.0",
     "type": "fix",
     "title": "Inbound HTML sanitizer keeps quote markers so the reader can fold quoted text",

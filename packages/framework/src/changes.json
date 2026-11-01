@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.412.0",
+    "type": "fix",
+    "title": "readGate.fileOwner counts read-model entities as file owners",
+    "detail": "A document whose file is attached to a projection entity (for example a mail attachment owned by `inbound-message`) was invisible to everyone but the framework system user, because only `r.entity` entities were owner candidates. Read-model entities with a file field now count, with the same rules as entities (no parentRef, no readGate, uuid ids, tenant scope, soft delete) plus two fail-closed conditions: the viewer's roles must pass the access rule of the read model's `<source>:detail` query, and the entity must declare `access.read`, since its queries filter rows by hand and the gate can only reproduce `access.read`. A read model without `access.read` never makes a document visible. `ParentVisibilityOption` has the optional `readModelEntities` map (entity and projection table) for this; `resolveTable`, link and parentRef gates are unchanged."
+  },
+  {
+    "version": "0.412.0",
+    "type": "fix",
+    "title": "Scaleway Key Manager and Transactional Email listed as active sub-processor",
+    "detail": "The `KUMIKO_SUB_PROCESSORS` entry \"Platform key custody (Key Manager) and Transactional Email Delivery\" moves from `status: \"planned\"` to `\"active\"` (`addedAt` 2026-11-01), so `getActiveSubProcessors()` and the generated privacy texts name it. Transactional mail of the Kumiko apps now goes through Scaleway TEM; the Brevo entry stays until that account is closed, because Brevo still holds the logs of mail it sent."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "entity webhook events need `webhookEvents: true` on the entity",
+    "detail": "`<entity>.created`, `.updated` and `.deleted` get a derived webhook contract only for entities that set `webhookEvents: true`, so bundle system entities such as `config-value` or `tenant-secret` can never be released through a token scope. Without the flag the entity has no contract and a scope that lists its events fails at boot, with a message naming the entity and the option. Add `webhookEvents: true` to every entity whose events a scope lists; the field exclusions still apply."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "r.defineWebhookEvent takes an optional wireName",
+    "detail": "`wireName` is the event name receivers see in the delivered webhook, for example `incident.created` for the contract `publicstatus:incident-created`. It defaults to the unqualified `name`, must not be empty, and is `entity.verb` for derived entity contracts. `WebhookEventContract` and `WebhookEventDef` carry it."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "r.defineWebhookEvent declares a public webhook event contract",
+    "detail": "`r.defineWebhookEvent({ name, description, payload, version })` registers a contract under `<feature>:<name>`, separate from `r.defineEvent`, so an internal event is never released by accident. `registry.getWebhookEventContract(qn)` also returns the contract derived for an entity event (`ticket.created`, `ticket.updated`, `ticket.deleted`): every payload carries the entity `id`, created adds the releasable fields, updated adds `changes` and `previous`, deleted adds `previous`; `toEntityWebhookPayload(contract, event)` maps a stored entity event (aggregate id plus payload) to that shape and drops everything the contract does not release; personal fields, the CRUD `excludedFields`, money and located timestamp fields and encrypted, write-only or sensitive text fields are left out. `registry.getWebhookEventContracts()` lists the declared ones sorted by name. `parseWebhookPayload(contract, payload)` validates a payload and strips unknown keys. New exports: `WebhookEventContract`, `WebhookEventHandle`, `parseWebhookPayload`, `toEntityWebhookPayload`."
+  },
+  {
     "version": "0.411.0",
     "type": "fix",
     "title": "Qualified listScreenId and navigate targets survive role projection",
