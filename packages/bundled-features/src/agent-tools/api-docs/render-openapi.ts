@@ -1,8 +1,9 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { compareIds } from "../labels.ts";
 import { documentedErrorRows } from "./error-table.ts";
-import type { ApiDocsHandler, ApiDocsModel, ApiDocsSource } from "./model.ts";
-import { apiDocsTextsFor } from "./texts/index.ts";
+import type { ApiDocsEvent, ApiDocsHandler, ApiDocsModel, ApiDocsSource } from "./model.ts";
+import { describeEvent } from "./render-events.ts";
+import { apiDocsTextsFor, isApiDocsLocale } from "./texts/index.ts";
 
 type Json = Readonly<Record<string, unknown>>;
 
@@ -12,6 +13,11 @@ const JSON_CONTENT = "application/json";
 const schemaName = (qn: string): string => qn.replaceAll(":", ".");
 
 const ref = (name: string): Json => ({ $ref: `${SCHEMAS}/${name}` });
+
+// Entity events are `entity.verb`: a different suffix keeps them apart from a declared
+// `feature:name` event that would map to the same dotted name.
+const eventSchemaName = (event: ApiDocsEvent): string =>
+  event.origin === "entity" ? `${event.qn}.entity-event` : `${schemaName(event.qn)}.event`;
 
 /** Embedded input schemas are standalone documents: drop `$schema` (OpenAPI 3.1 sets
  *  the dialect once) and hoist their `$defs` into components so local refs keep resolving. */
@@ -97,6 +103,27 @@ function operation(summary: string, requestBody: Json, dataSchema: Json): Json {
   };
 }
 
+function webhooks(events: readonly ApiDocsEvent[], locale: string): Json {
+  const texts = apiDocsTextsFor(isApiDocsLocale(locale) ? locale : "en");
+  return Object.fromEntries(
+    events.map((event) => [
+      event.qn,
+      {
+        post: {
+          summary: event.qn,
+          description: describeEvent(event, locale, texts),
+          requestBody: {
+            required: true,
+            content: { [JSON_CONTENT]: { schema: ref(eventSchemaName(event)) } },
+          },
+          "x-kumiko-version": event.version,
+          "x-kumiko-scope": event.domains.map((domain) => `${domain}:read`),
+        },
+      },
+    ]),
+  );
+}
+
 export type OpenApiInput = {
   readonly model: ApiDocsModel;
   readonly source: ApiDocsSource;
@@ -120,6 +147,10 @@ export function renderOpenApi(input: OpenApiInput): string {
       `${name}.payload`,
       schemas,
     );
+  }
+  for (const event of model.events) {
+    const name = eventSchemaName(event);
+    schemas[name] = embedSchema(event.payloadSchema ?? { type: "object" }, name, schemas);
   }
   const errorCodes = [
     ...new Set(documentedErrorRows(apiDocsTextsFor("en")).map((r) => r.code)),
@@ -170,6 +201,9 @@ export function renderOpenApi(input: OpenApiInput): string {
       servers: [{ url: input.baseUrl }],
       security: [{ bearerAuth: [] }],
       paths,
+      ...(model.events.length > 0 && {
+        webhooks: webhooks(model.events, input.descriptionLocale),
+      }),
       components: {
         securitySchemes: { bearerAuth: { type: "http", scheme: "bearer" } },
         schemas,

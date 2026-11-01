@@ -19,6 +19,7 @@ import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.ts";
 import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.ts";
 import { createPatResolver } from "./resolver.ts";
 import { apiTokenEntity } from "./schema/api-token.ts";
+import { validateScopeEventContracts } from "./scope-events-check.ts";
 import { createPatMintScreen, patListScreen } from "./screens.ts";
 import {
   API_TOKEN_ENTITY_NAME,
@@ -139,6 +140,7 @@ export function createPersonalAccessTokensFeature(
     // different path. No projection: the payload IS the read, consumed
     // directly off the event-store NOTIFY.
     r.defineEvent(PAT_REVOKED_EVENT_SHORT, patRevokedSchema, { piiFields: "none" });
+    r.bootCheck(({ features }) => validateScopeEventContracts(scopes, features));
 
     // Password-change auto-revoke — mirrors sessions' own
     // autoRevokeOnPasswordChange postSave hook, including WHY it's a

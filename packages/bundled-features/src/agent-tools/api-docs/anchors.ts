@@ -31,6 +31,19 @@ export type HandlerAnchor = {
   readonly anchor: string;
 };
 
+/** Events are headed by their exact QN. Declared (`feature:name`) and entity (`entity.verb`) QNs can
+ *  slug alike once punctuation is dropped, so repeats get GitHub's `-1`, `-2` suffix in QN order. */
+export function eventAnchors(qns: readonly string[]): readonly HandlerAnchor[] {
+  const used = new Set<string>();
+  return qns.map((qn) => {
+    const base = slugify(qn);
+    let anchor = base;
+    for (let repeat = 1; used.has(anchor); repeat++) anchor = `${base}-${repeat}`;
+    used.add(anchor);
+    return { qn, heading: qn, anchor };
+  });
+}
+
 /** Short headings, except when two handlers of one page would get the same slug:
  *  both then switch to the full QN form, which is unique by construction. */
 export function anchorsForPage(qns: readonly string[]): readonly HandlerAnchor[] {

@@ -48,6 +48,9 @@ export type {
   SecretNamespaceDefinition,
   SecretNamespaceHandle,
   SecretNamespaceOptions,
+  WebhookEntityVerb,
+  WebhookEventContract,
+  WebhookEventHandle,
 } from "@cosmicdrift/kumiko-types/feature";
 export type { FeatureRegistrar } from "@cosmicdrift/kumiko-types/feature-registrar";
 export type {
@@ -176,6 +179,8 @@ export {
   handlerDescriptionKey,
   handlerFieldLabelKey,
   handlerTitleKey,
+  webhookEventDescriptionKey,
+  webhookEventFieldKey,
 } from "../i18n/required-surface-keys.ts";
 export { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 export { hasAccess } from "./access.ts";
@@ -512,4 +517,15 @@ export type {
   StepResolver,
 } from "./types/step.ts";
 export { walkStepInstances } from "./walk-step-instances.ts";
+export {
+  createWebhookContractResolver,
+  type WebhookContractResolver,
+} from "./webhook-contracts.ts";
+export {
+  formatWebhookPayloadIssues,
+  parseWebhookPayload,
+  toEntityWebhookPayload,
+  type WebhookPayloadIssue,
+  type WebhookPayloadResult,
+} from "./webhook-events.ts";
 export { withFormDerivations } from "./with-form-derivations.ts";

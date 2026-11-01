@@ -92,12 +92,28 @@ an app that needs `auth-foundation` for the token feature lists it in `features`
 - `baseUrl` (required) and `appName`, used in the curl examples and the OpenAPI file.
 - `locales` (`en`, `de`, `es`, `fr`, `it`; default `en`) and `outDir`.
 - `planNote`, one paragraph per locale appended to the tokens page.
+- `webhookDelivery`, one paragraph per locale for the delivery section of `events.md`. Required for every locale once a scope lists `events`; signing, retries and timeouts are the app's own.
 - `uiOnlyWrites`, patterns of writes that screens trigger but no scope grants, each
   with a `reason`; unlisted ones are reported.
 - `texts`, paragraph overrides per locale and key; the page structure stays fixed.
 - `examplesDir` (default `api-examples`), recorded request and response pairs. Record
   them in an integration test with `recordApiExample` from
   `@cosmicdrift/kumiko-testing/api-examples` and `KUMIKO_RECORD_API_EXAMPLES=1`.
+
+A scope's `events` list its public webhook events (exact names, read level suffices): a
+contract from `r.defineWebhookEvent({ name, description, payload, version })` or an entity
+event such as `ticket.created`, whose contract is derived from the entity without personal
+fields and without the CRUD `excludedFields`. Internal `r.defineEvent` events are never
+listed; boot fails for them. `events.md` and the `webhooks` section of `openapi.json` appear
+only when an event is public. Record example payloads with `recordWebhookExample` from the
+same testing entry; it validates through `parseWebhookPayload` and writes
+`<examplesDir>/webhooks/<name>.json`. Delivery itself (signing, retries) stays in the app.
+`toEntityWebhookPayload(contract, storedEvent)` builds the payload of an entity event (with
+the `id`) and drops everything the contract does not release. Known gap: `money` and
+`locatedTimestamp` fields are left out of derived entity contracts, because their event shape
+(several flat columns) is not mapped yet.
+Derived entity contracts never release credentials (hashes, tokens, secrets), client IPs and user
+agents, storage keys, fields with restricted read access, or system-written plaintext fields.
 
 The recipe `samples/recipes/api-docs` shows the whole loop with a committed golden.
 

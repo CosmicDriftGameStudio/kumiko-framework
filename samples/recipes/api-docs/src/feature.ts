@@ -49,6 +49,16 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
     piiFields: "none",
   });
 
+  r.defineWebhookEvent({
+    name: "ticket-closed",
+    description: "A ticket was closed and its resolution recorded.",
+    payload: z.object({
+      id: z.uuid().describe("ID of the closed ticket"),
+      resolution: z.string().describe("How the ticket was resolved"),
+    }),
+    version: 1,
+  });
+
   r.writeHandler({
     name: "ticket:close",
     description: "Closes a ticket and records how it was resolved.",
@@ -166,6 +176,20 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
         en: "Closed longer than (days)",
         de: "Länger geschlossen als (Tage)",
       },
+      "helpdesk:entity:ticket": { en: "ticket", de: "Ticket" },
+      "helpdesk:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
+      "helpdesk:webhook:ticket-closed:description": {
+        en: "A ticket was closed and its resolution recorded.",
+        de: "Ein Ticket wurde geschlossen und seine Lösung festgehalten.",
+      },
+      "helpdesk:webhook:ticket-closed:field:id": {
+        en: "ID of the closed ticket",
+        de: "ID des geschlossenen Tickets",
+      },
+      "helpdesk:webhook:ticket-closed:field:resolution": {
+        en: "How the ticket was resolved",
+        de: "Wie das Ticket gelöst wurde",
+      },
       "helpdesk:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
     },
   });
@@ -178,6 +202,7 @@ export function patFeature() {
     scopes: {
       tickets: {
         label: "Tickets",
+        events: ["ticket.created", "helpdesk:ticket-closed"],
         read: ["helpdesk:query:ticket:*"],
         write: [
           "helpdesk:write:ticket:create",

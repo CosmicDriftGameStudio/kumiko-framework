@@ -10,6 +10,8 @@ import {
   diffApiDocsOutput,
   generateApiDocs,
   type NamedApiExample,
+  type NamedWebhookExample,
+  WebhookExampleFileSchema,
 } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
@@ -33,6 +35,18 @@ function readExamples(): NamedApiExample[] {
       file: ApiExampleFileSchema.parse(
         JSON.parse(readFileSync(join(EXAMPLES_DIR, fileName), "utf8")),
       ),
+    }));
+}
+
+function readWebhookExamples(): NamedWebhookExample[] {
+  const dir = join(EXAMPLES_DIR, "webhooks");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort()
+    .map((fileName) => ({
+      fileName,
+      file: WebhookExampleFileSchema.parse(JSON.parse(readFileSync(join(dir, fileName), "utf8"))),
     }));
 }
 
@@ -66,6 +80,7 @@ describe("api-docs golden", () => {
     // Fixed so that a release does not turn the golden red.
     source: { framework: "0.0.0-recipe", app: { name: appName, version: "0.0.0" } },
     examples: readExamples(),
+    webhookExamples: readWebhookExamples(),
   });
 
   if (process.env[UPDATE_FLAG] === "1") {

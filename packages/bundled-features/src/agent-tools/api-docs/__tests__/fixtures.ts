@@ -4,6 +4,8 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
+  webhookEventDescriptionKey,
+  webhookEventFieldKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { createAuthFoundationFeature } from "../../../auth-foundation/index.ts";
@@ -97,7 +99,41 @@ export function buildLocalePackageFeature(): FeatureDefinition {
   });
 }
 
-export function buildFixtureFeatures(options: { readonly reverse?: boolean } = {}) {
+/** Two declared contracts, one of them named like the entity event `ticket.created` once
+ *  punctuation is dropped, and one without a German description. */
+export function buildWebhookFixtureFeatures(): FeatureDefinition[] {
+  return [
+    defineFeature("ticket", (r) => {
+      r.defineWebhookEvent({
+        name: "created",
+        description: "A customer opened a ticket.",
+        payload: z.object({ id: z.uuid(), subject: z.string().describe("Short summary") }),
+        version: 2,
+      });
+      r.translations({
+        keys: {
+          [webhookEventDescriptionKey("ticket:created")]: {
+            en: "A customer opened a ticket.",
+            de: "Ein Kunde hat ein Ticket eröffnet.",
+          },
+          [webhookEventFieldKey("ticket:created", "subject")]: { de: "Kurze Zusammenfassung" },
+        },
+      });
+    }),
+    defineFeature("billing", (r) => {
+      r.defineWebhookEvent({
+        name: "invoice-paid",
+        description: "An invoice was paid.",
+        payload: z.object({ id: z.uuid() }),
+        version: 1,
+      });
+    }),
+  ];
+}
+
+export function buildFixtureFeatures(
+  options: { readonly reverse?: boolean; readonly events?: readonly string[] } = {},
+) {
   const features = [
     createConfigFeature(),
     createUserFeature(),
@@ -105,10 +141,12 @@ export function buildFixtureFeatures(options: { readonly reverse?: boolean } = {
     createAuthFoundationFeature(),
     buildHelpdeskFeature(),
     buildLocalePackageFeature(),
+    ...(options.events === undefined ? [] : buildWebhookFixtureFeatures()),
     createPersonalAccessTokensFeature({
       scopes: {
         tickets: {
           label: "Tickets",
+          ...(options.events !== undefined && { events: options.events }),
           read: ["helpdesk:query:*"],
           write: [
             "helpdesk:write:ticket:close",
@@ -130,14 +168,15 @@ export const fixtureConfig: ResolvedApiDocsConfig = {
 };
 
 export function fixtureInput(
-  overrides: Partial<ApiDocsInput> & { reverse?: boolean } = {},
+  overrides: Partial<ApiDocsInput> & { reverse?: boolean; events?: readonly string[] } = {},
 ): ApiDocsInput {
-  const { reverse, ...rest } = overrides;
+  const { reverse, events, ...rest } = overrides;
   return {
-    registry: createRegistry(buildFixtureFeatures({ reverse: reverse === true })),
+    registry: createRegistry(buildFixtureFeatures({ reverse: reverse === true, events })),
     config: fixtureConfig,
     source: { framework: "0.0.0-test", app: { name: "helpdesk", version: "1.2.3" } },
     examples: [],
+    webhookExamples: [],
     ...rest,
   };
 }

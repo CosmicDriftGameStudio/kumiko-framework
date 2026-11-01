@@ -27,6 +27,12 @@ describe("apiDocs config", () => {
     ]);
   });
 
+  test("an empty webhookDelivery text is reported", () => {
+    expect(findApiDocsConfigProblems({ webhookDelivery: { en: "Signed.", de: " " } })).toEqual([
+      'apiDocs.webhookDelivery: "de" text must not be empty',
+    ]);
+  });
+
   test("uiOnlyWrites needs a pattern and a reason", () => {
     expect(
       findApiDocsConfigProblems({

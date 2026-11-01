@@ -14,7 +14,7 @@ Liefert ein Ticket.
 
 | Feld | Typ | Pflicht | Beschreibung |
 | --- | --- | --- | --- |
-| `id` | string (uuid) | ja |  |
+| `id` | string (uuid) | ja | Ticket-ID |
 
 **Beispielanfrage**
 
@@ -236,7 +236,7 @@ Status: 200
 
 | Feld | Typ | Pflicht | Beschreibung |
 | --- | --- | --- | --- |
-| `id` | string (uuid) | ja |  |
+| `id` | string (uuid) | ja | Ticket-ID |
 | `version` | number | ja |  |
 | `changes` | object | ja |  |
 | `changes.title` | string | nein | Titel |

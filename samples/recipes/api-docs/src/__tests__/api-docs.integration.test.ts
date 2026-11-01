@@ -31,9 +31,16 @@ import {
   UserHandlers,
   userEntity,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { entityEventName, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  formatWebhookPayloadIssues,
+  type SessionUser,
+  type TenantId,
+  toEntityWebhookPayload,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { recordApiExample } from "@cosmicdrift/kumiko-testing/api-examples";
+import { recordApiExample, recordWebhookExample } from "@cosmicdrift/kumiko-testing/api-examples";
 import {
   setupTestStack,
   type TestStack,
@@ -168,6 +175,76 @@ describe("helpdesk API with a personal access token", () => {
     expect(closed.status).toBe(200);
     const after = await stack.http.queryOk("helpdesk:query:ticket:detail", { id }, actor);
     expect(TicketRowSchema.parse(after)).toMatchObject({ status: "closed", priority: "normal" });
+  });
+
+  test("webhook payloads built from the appended events satisfy their contracts and are recorded", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "helpdesk:write:ticket:create",
+      { title: "Scanner jams", priority: "low" },
+      actor,
+    );
+    await stack.http.writeOk(
+      "helpdesk:write:ticket:update",
+      { id: created.id, version: 1, changes: { priority: "high" } },
+      actor,
+    );
+    await stack.http.writeOk(
+      "helpdesk:write:ticket:close",
+      { id: created.id, resolution: "Replaced the roller" },
+      actor,
+    );
+    const stored = await selectMany<{ type: string; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: created.id },
+    );
+    const webhookPayloadOf = (verb: "created" | "updated") => {
+      const qn = entityEventName("ticket", verb);
+      const contract = stack.registry.getWebhookEventContract(qn);
+      const event = stored.find((candidate) => candidate.type === qn);
+      if (contract === undefined || event === undefined) {
+        throw new Error(`${qn} is neither a contract nor an appended event`);
+      }
+      const mapped = toEntityWebhookPayload(contract, {
+        aggregateId: created.id,
+        payload: event.payload,
+      });
+      if (!mapped.ok) throw new Error(formatWebhookPayloadIssues(mapped.issues));
+      return { contract, payload: mapped.payload };
+    };
+
+    const createdWebhook = webhookPayloadOf("created");
+    expect(Object.keys(createdWebhook.payload).sort()).toEqual(
+      Object.keys(createdWebhook.contract.payload.shape).sort(),
+    );
+    const recordedCreated = await recordWebhookExample({
+      name: "ticket-created",
+      dir: EXAMPLES_DIR,
+      contract: createdWebhook.contract,
+      payload: createdWebhook.payload,
+    });
+    expect(recordedCreated).toMatchObject({
+      id: created.id,
+      title: "Scanner jams",
+      priority: "low",
+    });
+
+    const updatedWebhook = webhookPayloadOf("updated");
+    expect(Object.keys(updatedWebhook.payload).sort()).toEqual(["changes", "id", "previous"]);
+    expect(updatedWebhook.payload["changes"]).toEqual({ priority: "high" });
+
+    const closedContract = stack.registry.getWebhookEventContract("helpdesk:ticket-closed");
+    const closedEvent = stored.find((event) => event.type.endsWith("ticket-closed"));
+    if (closedContract === undefined || closedEvent === undefined) {
+      throw new Error("helpdesk:ticket-closed has no contract or no appended event");
+    }
+    const recordedClosed = await recordWebhookExample({
+      name: "ticket-closed",
+      dir: EXAMPLES_DIR,
+      contract: closedContract,
+      payload: { id: created.id, resolution: closedEvent.payload["resolution"] },
+    });
+    expect(recordedClosed).toEqual({ id: created.id, resolution: "Replaced the roller" });
   });
 
   test("a read-only token cannot create a ticket", async () => {

@@ -94,6 +94,23 @@ export const frApiDocsTexts = {
     "reference.exampleRequest": "Exemple de requête",
     "reference.exampleResponse": "Exemple de réponse",
     "reference.status": "Statut : {status}",
+    "events.title": "Événements webhook",
+    "events.description":
+      "Événements webhook : quand ils sont envoyés, quel scope ils exigent et ce que contient leur charge utile.",
+    "events.intro":
+      "Un événement webhook informe votre système qu'une chose a changé. Chaque événement a un nom, une version et une charge utile. Le scope indiqué pour un événement est le scope de jeton qui permet de s'y abonner.",
+    "events.delivery.heading": "Livraison",
+    "events.versions.heading": "Versions",
+    "events.versions.body":
+      "Ajouter un champ facultatif conserve la version. Un changement incompatible, comme la suppression ou le renommage d'un champ ou le changement de son type, reçoit une nouvelle version.",
+    "events.list.heading": "Événements",
+    "events.version": "Version",
+    "events.requiredScope": "Scope requis",
+    "events.example": "Exemple de charge utile",
+    "events.noFields": "Cet événement ne contient aucun champ.",
+    "events.entity.created": "Un enregistrement de type {entity} a été créé.",
+    "events.entity.updated": "Un enregistrement de type {entity} a été modifié.",
+    "events.entity.deleted": "Un enregistrement de type {entity} a été supprimé.",
   },
   errorMeanings: {
     validation_error:

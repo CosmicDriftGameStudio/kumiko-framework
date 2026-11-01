@@ -1,6 +1,13 @@
 export type { ApiDocsDiff } from "./check.ts";
 export { diffApiDocsOutput } from "./check.ts";
-export { type ApiExampleFile, ApiExampleFileSchema, type NamedApiExample } from "./examples.ts";
+export {
+  type ApiExampleFile,
+  ApiExampleFileSchema,
+  type NamedApiExample,
+  type NamedWebhookExample,
+  type WebhookExampleFile,
+  WebhookExampleFileSchema,
+} from "./examples.ts";
 export {
   type ApiDocsInput,
   type ApiDocsResult,

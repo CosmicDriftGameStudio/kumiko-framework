@@ -1173,6 +1173,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "pat.list.revoke": "Widerrufen",
   "pat.list.revoke.confirm":
     "Diesen Token widerrufen? Alles, was ihn verwendet, funktioniert danach nicht mehr.",
+  "personal-access-tokens:write:revoke:field:id": "Token",
+  "personal-access-tokens:write:revoke:title": "Token widerrufen",
   "personal-access-tokens:entity:__action-form__:field:currentPassword":
     "Passwort (zur Bestätigung)",
   "personal-access-tokens:entity:__action-form__:field:expiresInDays": "Läuft ab in (Tagen)",

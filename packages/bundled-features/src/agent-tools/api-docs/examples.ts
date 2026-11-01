@@ -1,7 +1,29 @@
-import { type ApiExampleFile, ApiExampleFileSchema } from "@cosmicdrift/kumiko-types/api-example";
+import {
+  type ApiExampleFile,
+  ApiExampleFileSchema,
+  type WebhookExampleFile,
+  WebhookExampleFileSchema,
+} from "@cosmicdrift/kumiko-types/api-example";
 import { compareIds } from "../labels.ts";
 
-export { type ApiExampleFile, ApiExampleFileSchema };
+export {
+  type ApiExampleFile,
+  ApiExampleFileSchema,
+  type WebhookExampleFile,
+  WebhookExampleFileSchema,
+};
+
+export type NamedWebhookExample = { readonly fileName: string; readonly file: WebhookExampleFile };
+
+/** Same tie-break as `examplesByHandler`: the first file name in code-point order wins. */
+export function webhookExamplesByEvent(
+  examples: readonly NamedWebhookExample[],
+): ReadonlyMap<string, WebhookExampleFile> {
+  const byEvent = new Map<string, WebhookExampleFile>();
+  const sorted = [...examples].sort((a, b) => compareIds(a.fileName, b.fileName));
+  for (const { file } of sorted) if (!byEvent.has(file.event)) byEvent.set(file.event, file);
+  return byEvent;
+}
 
 export type NamedApiExample = { readonly fileName: string; readonly file: ApiExampleFile };
 

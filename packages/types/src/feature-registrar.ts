@@ -37,6 +37,7 @@ import type {
   SecretOptions,
   StoreTableOptions,
   UiHints,
+  WebhookEventHandle,
 } from "./feature.ts";
 import type { EntityDefinition } from "./fields.ts";
 import type {
@@ -345,6 +346,16 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       }[];
     },
   ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
+
+  // Public payload contract of a webhook event. Separate from defineEvent so
+  // internal event refactors never change what integrations receive; a token
+  // scope can only release events that have such a contract (or an entity event).
+  defineWebhookEvent(definition: {
+    readonly name: string;
+    readonly description: string;
+    readonly payload: z.ZodObject;
+    readonly version: number;
+  }): WebhookEventHandle;
 
   readsConfig(...qualifiedKeys: string[]): void;
   readsConfig(options: { readonly keys: readonly string[] }): void;

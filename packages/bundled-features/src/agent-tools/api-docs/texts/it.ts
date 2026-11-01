@@ -92,6 +92,23 @@ export const itApiDocsTexts = {
     "reference.exampleRequest": "Richiesta di esempio",
     "reference.exampleResponse": "Risposta di esempio",
     "reference.status": "Stato: {status}",
+    "events.title": "Eventi webhook",
+    "events.description":
+      "Eventi webhook: quando vengono inviati, quale scope richiedono e cosa contiene il loro payload.",
+    "events.intro":
+      "Un evento webhook segnala al tuo sistema che qualcosa è cambiato. Ogni evento ha un nome, una versione e un payload. Lo scope indicato per un evento è lo scope del token che permette di sottoscriverlo.",
+    "events.delivery.heading": "Consegna",
+    "events.versions.heading": "Versioni",
+    "events.versions.body":
+      "Aggiungere un campo facoltativo mantiene la versione. Una modifica incompatibile, come rimuovere o rinominare un campo o cambiarne il tipo, riceve una nuova versione.",
+    "events.list.heading": "Eventi",
+    "events.version": "Versione",
+    "events.requiredScope": "Scope richiesto",
+    "events.example": "Payload di esempio",
+    "events.noFields": "Questo evento non contiene campi.",
+    "events.entity.created": "È stato creato un record di tipo {entity}.",
+    "events.entity.updated": "È stato aggiornato un record di tipo {entity}.",
+    "events.entity.deleted": "È stato eliminato un record di tipo {entity}.",
   },
   errorMeanings: {
     validation_error: "Il payload non corrisponde ai campi dell'handler. `details` indica i campi.",

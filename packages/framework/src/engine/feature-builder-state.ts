@@ -16,6 +16,7 @@ import type {
   SecretNamespaceDefinition,
   StoreTableEntry,
   UiHints,
+  WebhookEventDef,
 } from "@cosmicdrift/kumiko-types/feature";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
@@ -82,6 +83,7 @@ export type FeatureBuilderState = {
   configSeeds: ConfigSeedDef[];
   jobs: Record<string, JobDefinition>;
   events: Record<string, EventDef>;
+  webhookEvents: Record<string, WebhookEventDef>;
   eventMigrations: Record<string, EventMigrationDef[]>;
   configReads: string[];
   entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]>;
@@ -148,6 +150,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     jobs: {},
     events: {},
     eventMigrations: {},
+    webhookEvents: {},
     configReads: [],
     entityPostSave: {},
     entityPreDelete: {},

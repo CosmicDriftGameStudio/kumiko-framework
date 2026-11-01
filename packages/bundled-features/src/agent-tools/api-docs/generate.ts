@@ -2,11 +2,17 @@ import { findApiDocHandlerGaps, findDescriptionTranslationGaps } from "../agent-
 import type { RegistryManifestView } from "../types.ts";
 import { anchorsForPage, slugify } from "./anchors.ts";
 import { collectApiDocsModel } from "./collect.ts";
-import { examplesByHandler, type NamedApiExample } from "./examples.ts";
+import {
+  examplesByHandler,
+  type NamedApiExample,
+  type NamedWebhookExample,
+  webhookExamplesByEvent,
+} from "./examples.ts";
 import { type ApiDocsPageEntry, INDEX_FILE, renderIndexJson } from "./index-json.ts";
 import type { RenderedPage } from "./markdown.ts";
 import type { ApiDocsSource, ResolvedApiDocsConfig } from "./model.ts";
 import { type ApiDocsProblem, sortApiDocsProblems } from "./problems.ts";
+import { renderEventsPage } from "./render-events.ts";
 import { renderOpenApi } from "./render-openapi.ts";
 import { renderOverview } from "./render-overview.ts";
 import { renderReferencePage } from "./render-reference.ts";
@@ -25,6 +31,7 @@ export type ApiDocsInput = {
   readonly config: ResolvedApiDocsConfig;
   readonly source: ApiDocsSource;
   readonly examples: readonly NamedApiExample[];
+  readonly webhookExamples?: readonly NamedWebhookExample[];
 };
 
 export type ApiDocsResult = {
@@ -46,6 +53,7 @@ export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
   const collected = collectApiDocsModel(registry, {
     locales,
     examples: examplesByHandler(input.examples),
+    webhookExamples: webhookExamplesByEvent(input.webhookExamples ?? []),
   });
   if (collected === undefined) {
     return { files: new Map(), problems: [{ kind: "patFeatureMissing" }] };
@@ -120,6 +128,17 @@ export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
         scope.domain,
       );
     });
+    if (model.events.length > 0) {
+      const deliveryText = config.webhookDelivery?.[locale];
+      if (deliveryText === undefined) problems.push({ kind: "webhookDeliveryTextMissing", locale });
+      addPage(
+        `${locale}/events.md`,
+        locale,
+        "events",
+        REFERENCE_ORDER_START + model.scopes.length,
+        renderEventsPage({ events: model.events, locale, texts, deliveryText }),
+      );
+    }
   }
 
   files.set(
@@ -146,6 +165,15 @@ export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
           : [{ kind: "descriptionTranslationMissing", qn: gap.qn, locale: gap.locale }],
     ),
     ...uiWriteProblems(registry, model, config.uiOnlyWrites ?? []),
+    ...model.events.flatMap((event) =>
+      event.untranslatedLocales.map(
+        (locale): ApiDocsProblem => ({
+          kind: "webhookEventWithoutDescriptionTranslation",
+          qn: event.qn,
+          locale,
+        }),
+      ),
+    ),
   );
   return { files, problems: sortApiDocsProblems(problems) };
 }

@@ -93,6 +93,23 @@ export const deApiDocsTexts = {
     "reference.exampleRequest": "Beispielanfrage",
     "reference.exampleResponse": "Beispielantwort",
     "reference.status": "Status: {status}",
+    "events.title": "Webhook-Ereignisse",
+    "events.description":
+      "Webhook-Ereignisse: wann sie ausgelöst werden, welchen Scope sie brauchen und was ihre Nutzlast enthält.",
+    "events.intro":
+      "Ein Webhook-Ereignis meldet deinem System, dass sich etwas geändert hat. Jedes Ereignis hat einen Namen, eine Version und eine Nutzlast. Der bei einem Ereignis genannte Scope ist der Token-Scope, der das Abonnieren erlaubt.",
+    "events.delivery.heading": "Zustellung",
+    "events.versions.heading": "Versionen",
+    "events.versions.body":
+      "Ein neues optionales Feld behält die Version. Eine inkompatible Änderung, etwa ein entferntes oder umbenanntes Feld oder ein geänderter Typ, bekommt eine neue Version.",
+    "events.list.heading": "Ereignisse",
+    "events.version": "Version",
+    "events.requiredScope": "Benötigter Scope",
+    "events.example": "Beispiel-Nutzlast",
+    "events.noFields": "Dieses Ereignis enthält keine Felder.",
+    "events.entity.created": "Ein Datensatz vom Typ {entity} wurde angelegt.",
+    "events.entity.updated": "Ein Datensatz vom Typ {entity} wurde geändert.",
+    "events.entity.deleted": "Ein Datensatz vom Typ {entity} wurde gelöscht.",
   },
   errorMeanings: {
     validation_error:

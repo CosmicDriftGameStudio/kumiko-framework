@@ -1,6 +1,7 @@
 import type { AppApiDocsConfig } from "@cosmicdrift/kumiko-framework/config";
+import type { WebhookEntityVerb } from "@cosmicdrift/kumiko-framework/engine";
 import type { PatRateLimit } from "../../personal-access-tokens/index.ts";
-import type { ApiExampleFile } from "./examples.ts";
+import type { ApiExampleFile, WebhookExampleFile } from "./examples.ts";
 
 /** One string per requested locale. */
 export type LocalizedText = Readonly<Record<string, string>>;
@@ -34,8 +35,32 @@ export type ApiDocsScope = {
   readonly hasWriteLevel: boolean;
 };
 
+export type ApiDocsEvent = {
+  /** `feature:name` for a declared contract, `entity.verb` for an entity lifecycle event. */
+  readonly qn: string;
+  readonly origin: "declared" | "entity";
+  readonly entity?: string;
+  readonly verb?: WebhookEntityVerb;
+  readonly version: number;
+  /** Declared events only; entity events are described from a template per verb. */
+  readonly description: LocalizedText;
+  /** Entity events only: the entity's translated label. */
+  readonly entityLabel: LocalizedText;
+  /** Declared events: requested locales other than `en` without a translated description. */
+  readonly untranslatedLocales: readonly string[];
+  /** Translated field labels per payload row name, used before the schema description. */
+  readonly fieldLabels: Readonly<Record<string, LocalizedText>>;
+  /** `undefined` when the payload has no JSON Schema form. */
+  readonly payloadSchema: Readonly<Record<string, unknown>> | undefined;
+  /** Scope domains that list the event, in code-point order; each grants it at `read` level. */
+  readonly domains: readonly string[];
+  readonly example: WebhookExampleFile | undefined;
+};
+
 export type ApiDocsModel = {
   readonly scopes: readonly ApiDocsScope[];
+  /** Public webhook events, sorted by QN; empty when no scope lists one. */
+  readonly events: readonly ApiDocsEvent[];
   /** Every handler any scope reaches, sorted by QN. */
   readonly handlers: readonly ApiDocsHandler[];
   readonly menuPath: LocalizedText;

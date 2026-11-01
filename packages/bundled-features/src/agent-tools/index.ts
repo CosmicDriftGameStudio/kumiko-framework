@@ -25,8 +25,10 @@ export {
   INDEX_FILE,
   isApiDocsLocale,
   type NamedApiExample,
+  type NamedWebhookExample,
   OPENAPI_FILE,
   type ResolvedApiDocsConfig,
+  WebhookExampleFileSchema,
 } from "./api-docs/index.ts";
 export { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "./feature.ts";
 export { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "./tool-catalog.ts";
