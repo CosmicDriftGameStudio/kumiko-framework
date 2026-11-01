@@ -1,9 +1,11 @@
 import {
+  bootRuleError,
   buildConfigFeatureSchema,
   createRegistry,
   type FeatureDefinition,
   SETTINGS_HUB_FEATURE,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { READINESS_BOOT_RULES } from "./boot-rules.ts";
 
 // Settings screens come from config keys at schema build, not from r.screen, yet a probe may
 // link a failed row to one (mail sending lives on config:screen:mail-foundation-tenant).
@@ -38,15 +40,15 @@ export function validateProbeTranslations(features: readonly FeatureDefinition[]
         ["label", probe.label],
       ] as const) {
         if (!defined.has(key)) {
-          throw new Error(
-            `Probe "${probe.qualifiedName}": ${field} translation key "${key}" is not defined by any mounted feature. Add it via r.translations(...).`,
-          );
+          throw bootRuleError(READINESS_BOOT_RULES.probeTranslationMissing, {
+            message: `Probe "${probe.qualifiedName}": ${field} translation key "${key}" is not defined by any mounted feature. Add it via r.translations(...).`,
+          });
         }
       }
       if (probe.fixScreen !== undefined && !screenQns.has(probe.fixScreen)) {
-        throw new Error(
-          `Probe "${probe.qualifiedName}": fixScreen "${probe.fixScreen}" is not a screen of any mounted feature. Use a "<feature>:screen:<id>" QN.`,
-        );
+        throw bootRuleError(READINESS_BOOT_RULES.probeFixScreenUnknown, {
+          message: `Probe "${probe.qualifiedName}": fixScreen "${probe.fixScreen}" is not a screen of any mounted feature. Use a "<feature>:screen:<id>" QN.`,
+        });
       }
     }
   }

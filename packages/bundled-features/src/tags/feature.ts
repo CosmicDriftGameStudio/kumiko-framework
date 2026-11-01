@@ -20,6 +20,7 @@
 
 import {
   type AccessRule,
+  bootRuleError,
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
@@ -28,6 +29,7 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
+import { TAGS_BOOT_RULES } from "./boot-rules.ts";
 import { createTagAssignmentEntity, tagEntity } from "./entity.ts";
 import { createTagAssignmentExecutor } from "./executor.ts";
 import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
@@ -189,12 +191,13 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof default
     return defaultTagsFeature;
   }
   if (opts.parents !== undefined && opts.parents.length === 0) {
-    throw new Error(
-      "createTagsFeature({ parents }): parents must not be an empty array — " +
+    throw bootRuleError(TAGS_BOOT_RULES.emptyParentsAllowlist, {
+      message:
+        "createTagsFeature({ parents }): parents must not be an empty array — " +
         "an empty allowlist rejects every assign-tag call and hides every " +
         "assignment row. Omit `parents` to keep every registered entity " +
         "admissible as a host instead.",
-    );
+    });
   }
   assertNoWhereRuleInOwnershipWrite("createTagsFeature", opts.ownership?.write);
   const access = resolveFeatureAccess(opts, DEFAULT_TAG_ACCESS);

@@ -8,6 +8,7 @@
 
 import { cachedResponse, computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
+  bootRuleError,
   defineFeature,
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
@@ -17,6 +18,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
+import { FILE_DERIVATIVES_BOOT_RULES } from "./boot-rules.ts";
 import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query.ts";
 import {
   PUBLIC_VARIANT_BY_FILE_REF_QN,
@@ -95,9 +97,10 @@ type PublicVariantQueryResult = {
 export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}): FeatureDefinition {
   const basePath = opts.basePath ?? "/media";
   if (opts.publicTenantResolution !== undefined && !opts.resolveApexTenant) {
-    throw new Error(
-      "createFileDerivativesFeature: publicTenantResolution requires resolveApexTenant — it only changes which tenant a variant is read from, resolveApexTenant still gates the host.",
-    );
+    throw bootRuleError(FILE_DERIVATIVES_BOOT_RULES.publicTenantResolutionWithoutApexResolver, {
+      message:
+        "createFileDerivativesFeature: publicTenantResolution requires resolveApexTenant — it only changes which tenant a variant is read from, resolveApexTenant still gates the host.",
+    });
   }
 
   return defineFeature(

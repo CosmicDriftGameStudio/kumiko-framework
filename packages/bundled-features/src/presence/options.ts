@@ -1,3 +1,5 @@
+import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
+import { PRESENCE_BOOT_RULES } from "./boot-rules.ts";
 export const PRESENCE_DEFAULT_ROLES: readonly string[] = ["TenantAdmin", "TenantMember"];
 export const PRESENCE_DEFAULT_TTL_SECONDS = 45;
 
@@ -20,7 +22,9 @@ export type PresenceSettings = {
 export function resolvePresenceSettings(options: PresenceOptions): PresenceSettings {
   const ttlSeconds = options.ttlSeconds ?? PRESENCE_DEFAULT_TTL_SECONDS;
   if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
-    throw new Error(`presence: ttlSeconds must be a positive number, got ${ttlSeconds}`);
+    throw bootRuleError(PRESENCE_BOOT_RULES.invalidTtlSeconds, {
+      message: `presence: ttlSeconds must be a positive number, got ${ttlSeconds}`,
+    });
   }
   return {
     entities: new Set(options.entities ?? []),

@@ -1,9 +1,11 @@
 import {
+  bootRuleError,
   type ContentCollectionDefinition,
   createSystemConfig,
   defineFeature,
   type TreeAction,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { TEMPLATE_RESOLVER_BOOT_RULES } from "./boot-rules.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
@@ -82,9 +84,9 @@ export type TemplateResolverOptions = {
 function assertCollectionKindsAllowed(collections: readonly ContentCollectionDefinition[]): void {
   for (const collection of collections) {
     if (isCollectionRefusedKind(collection.kind)) {
-      throw new Error(
-        `template-resolver: collection "${collection.id}" uses kind "${collection.kind}", which collections may not write`,
-      );
+      throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.collectionRefusedKind, {
+        message: `template-resolver: collection "${collection.id}" uses kind "${collection.kind}", which collections may not write`,
+      });
     }
   }
 }
@@ -94,18 +96,20 @@ function assertTenantEditableValid(entries: readonly TenantEditableTemplate[]): 
   for (const entry of entries) {
     const key = `${entry.kind}/${entry.slug}`;
     if (seen.has(key)) {
-      throw new Error(`template-resolver: tenantEditable lists "${key}" twice`);
+      throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.tenantEditableDuplicate, {
+        message: `template-resolver: tenantEditable lists "${key}" twice`,
+      });
     }
     seen.add(key);
     if (entry.slug.trim() === "") {
-      throw new Error(
-        `template-resolver: tenantEditable entry of kind "${entry.kind}" has an empty slug`,
-      );
+      throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.tenantEditableInvalidEntry, {
+        message: `template-resolver: tenantEditable entry of kind "${entry.kind}" has an empty slug`,
+      });
     }
     if (entry.access.roles.length === 0) {
-      throw new Error(
-        `template-resolver: tenantEditable entry "${entry.kind}/${entry.slug}" has no roles in access`,
-      );
+      throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.tenantEditableInvalidEntry, {
+        message: `template-resolver: tenantEditable entry "${entry.kind}/${entry.slug}" has no roles in access`,
+      });
     }
   }
 }

@@ -17,6 +17,7 @@
 
 import {
   type AccessRule,
+  bootRuleError,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
@@ -26,6 +27,7 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
+import { FOLDERS_BOOT_RULES } from "./boot-rules.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
@@ -164,12 +166,13 @@ export function createFoldersFeature(
   }
   assertNoWhereRuleInOwnershipWrite("createFoldersFeature", opts.ownership?.write);
   if (opts.parents !== undefined && opts.parents.length === 0) {
-    throw new Error(
-      "createFoldersFeature({ parents }): parents must not be an empty array — " +
+    throw bootRuleError(FOLDERS_BOOT_RULES.emptyParentsAllowlist, {
+      message:
+        "createFoldersFeature({ parents }): parents must not be an empty array — " +
         "an empty allowlist rejects every set-folder call and hides every " +
         "assignment row. Omit `parents` to keep every registered entity " +
         "admissible as a host instead.",
-    );
+    });
   }
   const access = resolveFeatureAccess(opts, DEFAULT_FOLDER_ACCESS);
   return defineFeature(FOLDERS_FEATURE_NAME, (r) =>

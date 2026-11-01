@@ -15,12 +15,14 @@
 
 import {
   type AccessRule,
+  bootRuleError,
   defineEntityListHandler,
   defineFeature,
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
+import { NOTES_HISTORY_BOOT_RULES } from "./boot-rules.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
 import { createNoteEntryExecutor } from "./executor.ts";
 import { createAddNoteHandler } from "./handlers/add-note.write.ts";
@@ -122,11 +124,12 @@ export function createNotesHistoryFeature(
   // that's a config mistake, not a valid allowlist. Omit `parents` instead
   // of passing an empty array.
   if (opts.parents !== undefined && opts.parents.length === 0) {
-    throw new Error(
-      "createNotesHistoryFeature({ parents }): parents must not be an empty array — " +
+    throw bootRuleError(NOTES_HISTORY_BOOT_RULES.emptyParentsAllowlist, {
+      message:
+        "createNotesHistoryFeature({ parents }): parents must not be an empty array — " +
         "an empty allowlist rejects every add-note call. Omit `parents` to allow " +
         "any registered entity the caller can read as a note parent.",
-    );
+    });
   }
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
     registerNotesHistory(

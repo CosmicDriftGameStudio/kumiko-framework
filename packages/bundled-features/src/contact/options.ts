@@ -1,8 +1,10 @@
+import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
 } from "@cosmicdrift/kumiko-types/handlers";
+import { CONTACT_BOOT_RULES } from "./boot-rules.ts";
 import {
   CONTACT_DEFAULT_CHALLENGE_TTL_MINUTES,
   CONTACT_DEFAULT_MIN_SUBMIT_SECONDS,
@@ -80,9 +82,9 @@ export type ContactSettings = {
 export function resolveContactSettings(opts: ContactOptions): ContactSettings {
   const bits = opts.spamProtection?.proofOfWorkBits ?? CONTACT_POW_BITS.default;
   if (!Number.isInteger(bits) || bits < CONTACT_POW_BITS.min || bits > CONTACT_POW_BITS.max) {
-    throw new Error(
-      `contact: spamProtection.proofOfWorkBits must be an integer between ${CONTACT_POW_BITS.min} and ${CONTACT_POW_BITS.max}, got ${bits}`,
-    );
+    throw bootRuleError(CONTACT_BOOT_RULES.invalidProofOfWorkBits, {
+      message: `contact: spamProtection.proofOfWorkBits must be an integer between ${CONTACT_POW_BITS.min} and ${CONTACT_POW_BITS.max}, got ${bits}`,
+    });
   }
   return {
     phone: opts.fields?.phone ?? "off",

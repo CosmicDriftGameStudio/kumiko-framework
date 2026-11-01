@@ -1,4 +1,5 @@
-import type { OwnershipMap } from "@cosmicdrift/kumiko-framework/engine";
+import { bootRuleError, type OwnershipMap } from "@cosmicdrift/kumiko-framework/engine";
+import { SHARED_BOOT_RULES } from "./boot-rules.ts";
 
 // Boot validation rejects `{ kind: "where" }` in access.write too;
 // failing at factory time names the option instead of an entity scope.
@@ -13,13 +14,14 @@ export function assertNoWhereRuleInOwnershipWrite(
   );
   // skip: no where-rule present, the option is valid
   if (!hasWhereRule) return;
-  throw new Error(
-    `${factoryName}({ ownership }): ownership.write must not contain a ` +
+  throw bootRuleError(SHARED_BOOT_RULES.whereRuleInOwnershipWrite, {
+    message:
+      `${factoryName}({ ownership }): ownership.write must not contain a ` +
       '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
       "layer (the read path, via buildOwnershipClause). Write paths that " +
       "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
       "evaluate them, so such a rule can only ever deny — boot validation " +
       "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
       "leave it unset.",
-  );
+  });
 }

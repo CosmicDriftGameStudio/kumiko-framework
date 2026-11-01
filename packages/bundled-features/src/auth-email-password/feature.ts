@@ -37,7 +37,7 @@ import {
   INVITE_MAIL_VARIABLES,
   sendsMagicLinkMail,
 } from "./mail-notifications.ts";
-import { MIN_HMAC_SECRET_LENGTH } from "./web/constants.ts";
+import { assertSignedTokenSecretsLongEnough } from "./validate-options.ts";
 import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./web/mail-i18n.ts";
 
 /**
@@ -154,24 +154,11 @@ export type AuthEmailPasswordOptions = {
 export function createAuthEmailPasswordFeature(
   opts: AuthEmailPasswordOptions = {},
 ): FeatureWithEnvSchema<FeatureDefinition, typeof authEmailPasswordEnvSchema.shape> {
-  // ≥32 chars, symmetric to the JWT_SECRET env check: a short HMAC secret
-  // makes reset/verify tokens forgeable — that's account takeover, so the
-  // factory fails fast instead of trusting the caller.
-  if (opts.passwordReset && opts.passwordReset.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
-    throw new Error(
-      `[auth-email-password] passwordReset.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
-    );
-  }
-  if (opts.emailVerification && opts.emailVerification.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
-    throw new Error(
-      `[auth-email-password] emailVerification.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
-    );
-  }
-  if (opts.accountUnlock && opts.accountUnlock.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
-    throw new Error(
-      `[auth-email-password] accountUnlock.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
-    );
-  }
+  assertSignedTokenSecretsLongEnough({
+    passwordReset: opts.passwordReset,
+    emailVerification: opts.emailVerification,
+    accountUnlock: opts.accountUnlock,
+  });
 
   const strictVerification =
     opts.emailVerification !== undefined && (opts.emailVerification.mode ?? "strict") === "strict";
