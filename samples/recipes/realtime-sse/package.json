@@ -3,6 +3,7 @@
   "description": "Server-sent events demo. Goodbye F5.",
   "private": true,
   "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*"
   },
   "devDependencies": {

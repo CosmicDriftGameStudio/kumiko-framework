@@ -10,7 +10,8 @@
 import { type ReactNode, useMemo } from "react";
 import { cn } from "../lib/cn.ts";
 
-export type AvatarSize = "sm" | "md" | "lg";
+export type AvatarSize = "xs" | "sm" | "md" | "lg";
+export type AvatarShape = "square" | "round";
 
 export type AvatarProps = {
   /** Stable identifier—the source for the background-color hash. Usually
@@ -20,6 +21,8 @@ export type AvatarProps = {
   /** Full name or email—the initials are extracted from this value. */
   readonly label: string;
   readonly size?: AvatarSize;
+  /** Default square; round suits inline presence markers. */
+  readonly shape?: AvatarShape;
   readonly testId?: string;
 };
 
@@ -39,6 +42,7 @@ const COLOR_CLASSES = [
 ] as const;
 
 const SIZE_CLASSES: Record<AvatarSize, string> = {
+  xs: "size-[18px] text-[9px]",
   sm: "size-5 text-[10px]",
   md: "size-6 text-[11px]",
   lg: "size-8 text-xs",
@@ -72,7 +76,13 @@ function extractInitials(label: string): string {
   return trimmed.slice(0, 2).toUpperCase();
 }
 
-export function Avatar({ id, label, size = "md", testId }: AvatarProps): ReactNode {
+export function Avatar({
+  id,
+  label,
+  size = "md",
+  shape = "square",
+  testId,
+}: AvatarProps): ReactNode {
   const colorClass = useMemo(() => pickColor(id), [id]);
   const initials = useMemo(() => extractInitials(label), [label]);
   return (
@@ -81,7 +91,8 @@ export function Avatar({ id, label, size = "md", testId }: AvatarProps): ReactNo
       role="img"
       aria-label={label}
       className={cn(
-        "inline-flex items-center justify-center rounded font-semibold uppercase select-none",
+        "inline-flex shrink-0 items-center justify-center font-semibold uppercase select-none",
+        shape === "round" ? "rounded-full" : "rounded",
         SIZE_CLASSES[size],
         colorClass,
       )}

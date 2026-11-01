@@ -1,10 +1,12 @@
 import { AlertTriangle, Check, Loader2, Lock, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { Checkbox } from "../ui/checkbox.tsx";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
+import type { StepSelectability, StepSelectionState, StepStatus } from "./step-list-selection.ts";
 
-export type StepStatus = "done" | "open" | "locked" | "running" | "rejected" | "failed";
+export type { StepSelectability, StepStatus } from "./step-list-selection.ts";
 
 export type StepAction = {
   readonly id: string;
@@ -42,6 +44,10 @@ export type StepListItem = {
   readonly sources?: readonly StepSource[];
   /** Marks the step the reader is looking at (warm background). */
   readonly highlighted?: boolean;
+  /** Read only when the list has `selection`. Default: selectable while open or locked, otherwise none. */
+  readonly selectable?: StepSelectability;
+  /** Ids of prerequisite steps; selecting this step selects them too. */
+  readonly dependsOn?: readonly string[];
   /** Rendered only while status is "open". */
   readonly actions?: readonly StepAction[];
 };
@@ -144,7 +150,13 @@ function StepBelowLink({ link }: { readonly link: NonNullable<StepListItem["link
   );
 }
 
-export function StepActionButton({ action }: { readonly action: StepAction }): ReactNode {
+export function StepActionButton({
+  action,
+  className,
+}: {
+  readonly action: StepAction;
+  readonly className?: string;
+}): ReactNode {
   const { Button } = usePrimitives();
   return (
     <Button
@@ -154,7 +166,7 @@ export function StepActionButton({ action }: { readonly action: StepAction }): R
       loading={action.pending}
       onClick={action.onClick}
       testId={`step-action-${action.id}`}
-      className="max-md:text-[14px]"
+      className={cn("max-md:text-[14px]", className)}
     >
       {action.label}
     </Button>
@@ -253,42 +265,135 @@ function StepActions({ step }: { readonly step: StepListItem }): ReactNode {
   );
 }
 
+export type StepRowSelection = {
+  readonly state: StepSelectionState;
+  readonly onToggle: () => void;
+};
+
+function selectionTags(
+  state: StepSelectionState,
+  t: ReturnType<typeof useTranslation>,
+): readonly StepTag[] {
+  if (state.kind === "missing-input") {
+    return [{ label: t("kumiko.widget.step-list.missingInput"), tone: "warn" }];
+  }
+  if (state.kind === "selectable" && state.neededFor !== undefined) {
+    return [
+      {
+        label: t("kumiko.widget.step-list.autoSelected", { title: state.neededFor }),
+        tone: "muted",
+      },
+    ];
+  }
+  return [];
+}
+
+function StepSelectionCell({
+  step,
+  selection,
+}: {
+  readonly step: StepListItem;
+  readonly selection: StepRowSelection;
+}): ReactNode {
+  const t = useTranslation();
+  const reasonId = useId();
+  const { state } = selection;
+  if (state.kind === "none") return <span aria-hidden="true" className="w-4 shrink-0" />;
+  const reason =
+    state.kind === "missing-input"
+      ? state.reason
+      : state.kind === "blocked"
+        ? t("kumiko.widget.step-list.prerequisiteNotSelectable", { title: state.blockedBy })
+        : undefined;
+  return (
+    <span className="flex h-5 w-4 shrink-0 items-center">
+      <Checkbox
+        aria-label={t("kumiko.widget.step-list.selectStep", { title: step.title })}
+        checked={state.kind === "selectable" && state.checked}
+        disabled={state.kind !== "selectable"}
+        onCheckedChange={selection.onToggle}
+        data-testid={`step-${step.id}-select`}
+        {...(reason !== undefined && { title: reason, "aria-describedby": reasonId })}
+      />
+      {reason !== undefined && (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function isAutoSelected(selection: StepRowSelection | undefined): boolean {
+  return selection?.state.kind === "selectable" && selection.state.neededFor !== undefined;
+}
+
+function stepRowClassName(step: StepListItem, autoSelected: boolean): string {
+  return cn(
+    "flex gap-2.5 border-b border-border-row px-4 py-3",
+    autoSelected &&
+      "relative before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary/60",
+    step.status === "open" && "bg-card",
+    step.highlighted === true && "bg-status-warn-surface",
+  );
+}
+
+function StepRowText({
+  step,
+  shownStep,
+  phoneCard,
+}: {
+  readonly step: StepListItem;
+  readonly shownStep: StepListItem;
+  readonly phoneCard: boolean;
+}): ReactNode {
+  return (
+    <div className="flex min-w-0 grow flex-col gap-1">
+      <span
+        className={cn(
+          "font-medium",
+          step.status === "rejected" && "text-muted-foreground line-through",
+        )}
+        data-testid={`step-${step.id}-title`}
+      >
+        {step.title}
+      </span>
+      {step.description !== undefined && (
+        <span className="text-[13px] text-foreground-secondary">{step.description}</span>
+      )}
+      <StepSourcesAndTags step={shownStep} phoneCard={phoneCard} />
+      {step.meta !== undefined && (
+        <span className="text-[13px] text-muted-foreground">{step.meta}</span>
+      )}
+      {step.link?.placement === "below" && <StepBelowLink link={step.link} />}
+      <StepActions step={step} />
+    </div>
+  );
+}
+
 export function StepRow({
   step,
   phoneCard = false,
+  selection,
 }: {
   readonly step: StepListItem;
   readonly phoneCard?: boolean;
+  readonly selection?: StepRowSelection;
 }): ReactNode {
-  const rejected = step.status === "rejected";
+  const t = useTranslation();
+  const shownStep =
+    selection === undefined
+      ? step
+      : { ...step, tags: [...(step.tags ?? []), ...selectionTags(selection.state, t)] };
   return (
     <li
       data-testid={`step-${step.id}`}
-      className={cn(
-        "flex gap-2.5 border-b border-border-row px-4 py-3",
-        step.status === "open" && "bg-card",
-        step.highlighted === true && "bg-status-warn-surface",
-      )}
+      className={stepRowClassName(step, isAutoSelected(selection))}
       {...(step.highlighted === true && { "aria-current": "step" as const })}
     >
+      {selection !== undefined && <StepSelectionCell step={step} selection={selection} />}
       <StatusIcon step={step} />
-      <div className="flex min-w-0 grow flex-col gap-1">
-        <span
-          className={cn("font-medium", rejected && "text-muted-foreground line-through")}
-          data-testid={`step-${step.id}-title`}
-        >
-          {step.title}
-        </span>
-        {step.description !== undefined && (
-          <span className="text-[13px] text-foreground-secondary">{step.description}</span>
-        )}
-        <StepSourcesAndTags step={step} phoneCard={phoneCard} />
-        {step.meta !== undefined && (
-          <span className="text-[13px] text-muted-foreground">{step.meta}</span>
-        )}
-        {step.link?.placement === "below" && <StepBelowLink link={step.link} />}
-        <StepActions step={step} />
-      </div>
+      <StepRowText step={step} shownStep={shownStep} phoneCard={phoneCard} />
       {step.link !== undefined && step.link.placement !== "below" && <StepLink link={step.link} />}
     </li>
   );

@@ -46,6 +46,10 @@
       "types": "./src/in-app-notification-types.ts",
       "default": "./src/in-app-notification-types.ts"
     },
+    "./presence-types": {
+      "types": "./src/presence-types.ts",
+      "default": "./src/presence-types.ts"
+    },
     "./target-ref": {
       "types": "./src/target-ref.ts",
       "default": "./src/target-ref.ts"
@@ -348,6 +352,10 @@
       "./in-app-notification-types": {
         "types": "./dist/in-app-notification-types.d.ts",
         "default": "./dist/in-app-notification-types.js"
+      },
+      "./presence-types": {
+        "types": "./dist/presence-types.d.ts",
+        "default": "./dist/presence-types.js"
       },
       "./target-ref": {
         "types": "./dist/target-ref.d.ts",

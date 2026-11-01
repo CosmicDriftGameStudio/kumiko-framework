@@ -90,6 +90,8 @@ export async function createImapClient(
 // ("servername argument must be an string"). Overriding it through `tls` with undefined makes the
 // socket connect without SNI; the certificate is still verified against the IP. Not setting the
 // option at all (as for SMTP, where nodemailer omits a falsy servername) does not help here.
+// A host pinned to its resolved IP carries the original name, which must reach tls as the SNI name
+// and certificate identity instead of being blanked.
 export function imapClientOptions(
   doc: ImapCredentialDocument,
   target: Awaited<ReturnType<typeof resolveMailConnectTarget>>,
@@ -99,7 +101,7 @@ export function imapClientOptions(
     port: doc.port,
     secure: doc.secure,
     ...(target.servername && { servername: target.servername }),
-    ...(isIP(target.host) !== 0 && { tls: { servername: undefined } }),
+    ...(isIP(target.host) !== 0 && { tls: { servername: target.servername } }),
     auth: doc.password
       ? { user: doc.user, pass: doc.password }
       : { user: doc.user, accessToken: doc.accessToken as string },

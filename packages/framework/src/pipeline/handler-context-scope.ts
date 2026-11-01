@@ -16,13 +16,13 @@ import type {
 } from "../engine/types/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
-
 import type { ContextServiceOverrides } from "./context-services.ts";
 import {
   type DispatchContext,
   type HandlerTransactionScope,
   resolveDbSource,
 } from "./dispatch-shared.ts";
+import { createUserLiveSignals } from "./user-live-signals.ts";
 import type { WriteOrigin } from "./write-origin.ts";
 
 export type HandlerContextScope = {
@@ -131,8 +131,15 @@ export function buildPreSave(
 
 // Services the dispatcher resolves itself instead of copying from the boot context.
 export function buildRuntimeServices(scope: HandlerContextScope): ContextServiceOverrides {
-  const { effectiveFeatures, jobRunner, cacheSync } = scope.ctx;
+  const { effectiveFeatures, jobRunner, cacheSync, sseBroker } = scope.ctx;
   return {
+    ...(sseBroker && {
+      userLiveSignals: createUserLiveSignals(
+        sseBroker,
+        scope.user.tenantId,
+        scope.context.log ?? createFallbackLogger("dispatcher"),
+      ),
+    }),
     // One resolver for the lifecycle pipeline, MSP runner and ctx.hasFeature.
     ...(effectiveFeatures && { effectiveFeatures }),
     ...(cacheSync && { cacheSync }),

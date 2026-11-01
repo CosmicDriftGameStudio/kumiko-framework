@@ -1105,3 +1105,38 @@ describe("JsonView", () => {
     expect(() => render(<DefaultJsonView testId="jv" value={undefined} />)).not.toThrow();
   });
 });
+
+describe("Banner compact and ok", () => {
+  test("compact renders the title inline before the text, with an icon", () => {
+    render(
+      <Banner variant="hint" density="compact" icon="check" title="Fertig." testId="b">
+        Nichts mehr zu tun
+      </Banner>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.getAttribute("data-density")).toBe("compact");
+    expect(banner.querySelector("strong")?.textContent).toBe("Fertig.");
+    expect(banner.textContent).toContain("Fertig. Nichts mehr zu tun");
+    expect(banner.querySelector("svg")).not.toBeNull();
+  });
+
+  test("ok variant is exposed via data-variant", () => {
+    render(
+      <Banner variant="ok" testId="b">
+        Done
+      </Banner>,
+    );
+    expect(screen.getByTestId("b").getAttribute("data-variant")).toBe("ok");
+  });
+
+  test("default density keeps the block title", () => {
+    render(
+      <Banner title="Heads up" testId="b">
+        Text
+      </Banner>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.getAttribute("data-density")).toBe("default");
+    expect(banner.querySelector("strong")).toBeNull();
+  });
+});

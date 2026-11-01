@@ -94,6 +94,8 @@
     "./tenant/web": "./src/tenant/web/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",
     "./tenant-inactivity": "./src/tenant-inactivity/index.ts",
+    "./tenant-inactivity/constants": "./src/tenant-inactivity/constants.ts",
+    "./tenant-inactivity/static-keep-account": "./src/tenant-inactivity/static-keep-account.ts",
     "./tenant-inactivity/email-templates": "./src/tenant-inactivity/email-templates.ts",
     "./tenant-lifecycle": "./src/tenant-lifecycle/index.ts",
     "./tenant-lifecycle/testing": "./src/tenant-lifecycle/testing.ts",
@@ -108,6 +110,8 @@
     "./auth-email-password/constants": "./src/auth-email-password/web/constants.ts",
     "./auth-email-password/return-path": "./src/auth-email-password/web/return-path.ts",
     "./auth-email-password/static-login": "./src/auth-email-password/web/static-login.ts",
+    "./auth-email-password/static-account": "./src/auth-email-password/web/static-account.ts",
+    "./auth-email-password/static-client": "./src/auth-email-password/web/static-client.ts",
     "./auth-email-password/email-templates": "./src/auth-email-password/email-templates.ts",
     "./auth-email-password/seeding": "./src/auth-email-password/seeding.ts",
     "./auth-email-password/testing": "./src/auth-email-password/testing.ts",
@@ -154,9 +158,11 @@
     "./legal-pages/constants": "./src/legal-pages/web/constants.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./contact": "./src/contact/index.ts",
+    "./presence": "./src/presence/index.ts",
     "./contact/web": "./src/contact/web/index.ts",
     "./contact/client": "./src/contact/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
+    "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
@@ -489,6 +495,14 @@
         "types": "./dist/tenant-inactivity/index.d.ts",
         "default": "./dist/tenant-inactivity/index.js"
       },
+      "./tenant-inactivity/constants": {
+        "types": "./dist/tenant-inactivity/constants.d.ts",
+        "default": "./dist/tenant-inactivity/constants.js"
+      },
+      "./tenant-inactivity/static-keep-account": {
+        "types": "./dist/tenant-inactivity/static-keep-account.d.ts",
+        "default": "./dist/tenant-inactivity/static-keep-account.js"
+      },
       "./tenant-inactivity/email-templates": {
         "types": "./dist/tenant-inactivity/email-templates.d.ts",
         "default": "./dist/tenant-inactivity/email-templates.js"
@@ -548,6 +562,14 @@
       "./auth-email-password/static-login": {
         "types": "./dist/auth-email-password/web/static-login.d.ts",
         "default": "./dist/auth-email-password/web/static-login.js"
+      },
+      "./auth-email-password/static-account": {
+        "types": "./dist/auth-email-password/web/static-account.d.ts",
+        "default": "./dist/auth-email-password/web/static-account.js"
+      },
+      "./auth-email-password/static-client": {
+        "types": "./dist/auth-email-password/web/static-client.d.ts",
+        "default": "./dist/auth-email-password/web/static-client.js"
       },
       "./auth-email-password/seeding": {
         "types": "./dist/auth-email-password/seeding.d.ts",
@@ -729,6 +751,10 @@
         "types": "./dist/contact/index.d.ts",
         "default": "./dist/contact/index.js"
       },
+      "./presence": {
+        "types": "./dist/presence/index.d.ts",
+        "default": "./dist/presence/index.js"
+      },
       "./contact/web": {
         "types": "./dist/contact/web/index.d.ts",
         "default": "./dist/contact/web/index.js"
@@ -740,6 +766,10 @@
       "./waitlist": {
         "types": "./dist/waitlist/index.d.ts",
         "default": "./dist/waitlist/index.js"
+      },
+      "./waitlist/static-submit": {
+        "types": "./dist/waitlist/static-submit.d.ts",
+        "default": "./dist/waitlist/static-submit.js"
       },
       "./page-render": {
         "types": "./dist/page-render/index.d.ts",

@@ -1,18 +1,52 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useState } from "react";
+import { pluralKey } from "../../headless/plural-key.ts";
 import { usePrimitives, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { Checkbox } from "../ui/checkbox.tsx";
 import { ProgressBar } from "./progress-bar.tsx";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 import { useStepFold } from "./step-list-fit.ts";
-import { type StepAction, StepActionButton, type StepListItem, StepRow } from "./step-list-row.tsx";
+import {
+  type StepAction,
+  StepActionButton,
+  type StepListItem,
+  StepRow,
+  type StepRowSelection,
+} from "./step-list-row.tsx";
+import {
+  resolveStepSelection,
+  type StepSelectionSummary,
+  toggleAllStepSelection,
+  toggleStepSelection,
+} from "./step-list-selection.ts";
 
 export type {
   StepAction,
   StepListItem,
+  StepSelectability,
   StepSource,
   StepStatus,
   StepTag,
 } from "./step-list-row.tsx";
+
+export type StepSelectionAction = {
+  readonly id: string;
+  /** Without a number: the list appends " (n)" with the effective selection size. */
+  readonly label: string;
+  /** Receives the effective selection in list order, prerequisites included. */
+  readonly onClick: (stepIds: readonly string[]) => void;
+  readonly variant?: "primary" | "secondary" | "ghost";
+  readonly disabled?: boolean;
+  readonly pending?: boolean;
+};
+
+export type StepListSelection = {
+  /** Explicitly chosen step ids (controlled); prerequisites are added on top. */
+  readonly selectedIds: readonly string[];
+  readonly onSelectionChange: (selectedIds: readonly string[]) => void;
+  /** Replace `footerActions` while at least one step is selected. */
+  readonly actions: readonly StepSelectionAction[];
+};
 
 export type StepListProps = {
   readonly title: string;
@@ -34,10 +68,30 @@ export type StepListProps = {
   /** "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done. */
   readonly progress?: "full" | "count" | "none";
   readonly emptyContent?: ReactNode;
+  /** Adds a checkbox per selectable step, a select-all row and selection footer actions. */
+  readonly selection?: StepListSelection;
   /** On a phone the list reads as a card: the header sits inside the surface and the steps in a framed white box. */
   readonly phoneCard?: boolean;
   readonly testId?: string;
 };
+
+function selectionFooterActions(
+  selection: StepListSelection,
+  summary: StepSelectionSummary,
+  t: ReturnType<typeof useTranslation>,
+): readonly StepAction[] {
+  return selection.actions.map((action) => ({
+    id: action.id,
+    label: t("kumiko.widget.step-list.actionWithCount", {
+      label: action.label,
+      count: summary.selectedCount,
+    }),
+    onClick: () => action.onClick(summary.effectiveIds),
+    variant: action.variant,
+    disabled: action.disabled,
+    pending: action.pending,
+  }));
+}
 
 /** Ordered plan of steps with status icons, progress header and per-step actions. */
 export function StepList({
@@ -52,28 +106,20 @@ export function StepList({
   fill = false,
   progress = "full",
   emptyContent,
+  selection,
   phoneCard = false,
   testId = "step-list",
 }: StepListProps): ReactNode {
-  const t = useTranslation();
-  const { Button } = usePrimitives();
   const [expanded, setExpanded] = useState(false);
-
-  const total = steps.filter((step) => step.status !== "rejected").length;
-  const done = steps.filter((step) => step.status === "done").length;
-  const fold = useStepFold({
-    stepIds: steps.map((step) => step.id),
+  const { total, done } = countProgress(steps);
+  const { visibleSteps, hiddenCount, listRef } = useStepFolding({
+    steps,
     collapsedAfter,
     foldsOnOverflow: fill && collapseWhen === "overflow",
     expanded,
   });
-  const foldAfter = fold.foldAfter;
-  const hiddenCount =
-    foldAfter !== undefined && !expanded ? Math.max(0, steps.length - foldAfter) : 0;
-  const visibleSteps = hiddenCount > 0 ? steps.slice(0, foldAfter) : steps;
-  const footer = footerActions ?? [];
-  const leadingFooter = footer.filter((action) => action.variant === "ghost");
-  const trailingFooter = footer.filter((action) => action.variant !== "ghost");
+  const model = useSelectionModel(steps, selection, footerActions);
+  const { summary, footer, selectionFooterActive } = model;
 
   return (
     <section
@@ -97,48 +143,260 @@ export function StepList({
         phoneCard={phoneCard}
         testId={testId}
       />
+      <SelectAllSection
+        steps={steps}
+        selection={selection}
+        summary={summary}
+        phoneCard={phoneCard}
+      />
       {steps.length === 0 ? (
         emptyContent
       ) : (
-        <ol
-          ref={fold.listRef}
-          className={cn(
-            "m-0 min-h-0 grow list-none overflow-y-auto p-0",
-            phoneCard &&
-              "max-md:rounded-md max-md:border max-md:border-border max-md:bg-card max-md:[&>li:last-child]:border-b-0 max-md:[&>li]:px-3 max-md:[&>li]:py-2.5",
-          )}
-        >
-          {visibleSteps.map((step) => (
-            <StepRow key={step.id} step={step} phoneCard={phoneCard} />
-          ))}
-          {hiddenCount > 0 && (
-            <li className="px-4 py-3">
-              {/* Reads as a quiet note under the steps; it still expands them on click. */}
-              <Button
-                variant="link"
-                size="sm"
-                className="text-[13px] font-normal text-foreground-secondary hover:text-foreground"
-                onClick={() => setExpanded(true)}
-                testId={`${testId}-more`}
-              >
-                {t("kumiko.widget.step-list.moreSteps", { count: hiddenCount })}
-              </Button>
-            </li>
-          )}
-        </ol>
+        <StepListRows
+          steps={steps}
+          visibleSteps={visibleSteps}
+          hiddenCount={hiddenCount}
+          listRef={listRef}
+          selection={selection}
+          summary={summary}
+          phoneCard={phoneCard}
+          onExpand={() => setExpanded(true)}
+          testId={testId}
+        />
       )}
-      {footer.length > 0 && (
-        <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5">
-          {leadingFooter.map((action) => (
-            <StepActionButton key={action.id} action={action} />
-          ))}
-          <div className="grow" />
-          {trailingFooter.map((action) => (
-            <StepActionButton key={action.id} action={action} />
-          ))}
-        </div>
-      )}
+      <StepListFooter footer={footer} selectionActive={selectionFooterActive} />
     </section>
+  );
+}
+
+function countProgress(steps: readonly StepListItem[]): { total: number; done: number } {
+  return {
+    total: steps.filter((step) => step.status !== "rejected").length,
+    done: steps.filter((step) => step.status === "done").length,
+  };
+}
+
+function useStepFolding(input: {
+  readonly steps: readonly StepListItem[];
+  readonly collapsedAfter: number | undefined;
+  readonly foldsOnOverflow: boolean;
+  readonly expanded: boolean;
+}): {
+  visibleSteps: readonly StepListItem[];
+  hiddenCount: number;
+  listRef: RefObject<HTMLOListElement | null>;
+} {
+  const { steps, collapsedAfter, foldsOnOverflow, expanded } = input;
+  const fold = useStepFold({
+    stepIds: steps.map((step) => step.id),
+    collapsedAfter,
+    foldsOnOverflow,
+    expanded,
+  });
+  const foldAfter = fold.foldAfter;
+  const hiddenCount =
+    foldAfter !== undefined && !expanded ? Math.max(0, steps.length - foldAfter) : 0;
+  const visibleSteps = hiddenCount > 0 ? steps.slice(0, foldAfter) : steps;
+  return { visibleSteps, hiddenCount, listRef: fold.listRef };
+}
+
+function useSelectionModel(
+  steps: readonly StepListItem[],
+  selection: StepListSelection | undefined,
+  footerActions: readonly StepAction[] | undefined,
+): {
+  summary: StepSelectionSummary | undefined;
+  footer: readonly StepAction[];
+  selectionFooterActive: boolean;
+} {
+  const t = useTranslation();
+  const summary =
+    selection === undefined ? undefined : resolveStepSelection(steps, selection.selectedIds);
+  if (selection !== undefined && summary !== undefined && summary.selectedCount > 0) {
+    return {
+      summary,
+      footer: selectionFooterActions(selection, summary, t),
+      selectionFooterActive: true,
+    };
+  }
+  return { summary, footer: footerActions ?? [], selectionFooterActive: false };
+}
+
+function SelectAllSection({
+  steps,
+  selection,
+  summary,
+  phoneCard,
+}: {
+  readonly steps: readonly StepListItem[];
+  readonly selection: StepListSelection | undefined;
+  readonly summary: StepSelectionSummary | undefined;
+  readonly phoneCard: boolean;
+}): ReactNode {
+  if (selection === undefined || summary === undefined || steps.length === 0) return null;
+  return (
+    <SelectAllRow
+      summary={summary}
+      phoneCard={phoneCard}
+      onToggle={() =>
+        selection.onSelectionChange(toggleAllStepSelection(steps, selection.selectedIds))
+      }
+    />
+  );
+}
+
+function rowSelectionFor(
+  step: StepListItem,
+  steps: readonly StepListItem[],
+  selection: StepListSelection | undefined,
+  summary: StepSelectionSummary | undefined,
+): StepRowSelection | undefined {
+  if (selection === undefined || summary === undefined) return undefined;
+  return {
+    state: summary.states.get(step.id) ?? { kind: "none" },
+    onToggle: () =>
+      selection.onSelectionChange(toggleStepSelection(steps, selection.selectedIds, step.id)),
+  };
+}
+
+function StepListRows({
+  steps,
+  visibleSteps,
+  hiddenCount,
+  listRef,
+  selection,
+  summary,
+  phoneCard,
+  onExpand,
+  testId,
+}: {
+  readonly steps: readonly StepListItem[];
+  readonly visibleSteps: readonly StepListItem[];
+  readonly hiddenCount: number;
+  readonly listRef: RefObject<HTMLOListElement | null>;
+  readonly selection: StepListSelection | undefined;
+  readonly summary: StepSelectionSummary | undefined;
+  readonly phoneCard: boolean;
+  readonly onExpand: () => void;
+  readonly testId: string;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  return (
+    <ol
+      ref={listRef}
+      className={cn(
+        "m-0 min-h-0 grow list-none overflow-y-auto p-0",
+        phoneCard &&
+          "max-md:rounded-md max-md:border max-md:border-border max-md:bg-card max-md:[&>li:last-child]:border-b-0 max-md:[&>li]:px-3 max-md:[&>li]:py-2.5",
+        selection !== undefined && phoneCard && "max-md:rounded-t-none",
+      )}
+    >
+      {visibleSteps.map((step) => {
+        const rowSelection = rowSelectionFor(step, steps, selection, summary);
+        return (
+          <StepRow
+            key={step.id}
+            step={step}
+            phoneCard={phoneCard}
+            {...(rowSelection !== undefined && { selection: rowSelection })}
+          />
+        );
+      })}
+      {hiddenCount > 0 && (
+        <li className="px-4 py-3">
+          {/* Reads as a quiet note under the steps; it still expands them on click. */}
+          <Button
+            variant="link"
+            size="sm"
+            className="text-[13px] font-normal text-foreground-secondary hover:text-foreground"
+            onClick={onExpand}
+            testId={`${testId}-more`}
+          >
+            {t("kumiko.widget.step-list.moreSteps", { count: hiddenCount })}
+          </Button>
+        </li>
+      )}
+    </ol>
+  );
+}
+
+function StepListFooter({
+  footer,
+  selectionActive,
+}: {
+  readonly footer: readonly StepAction[];
+  readonly selectionActive: boolean;
+}): ReactNode {
+  if (footer.length === 0) return null;
+  const leading = footer.filter((action) => action.variant === "ghost");
+  const trailing = footer.filter((action) => action.variant !== "ghost");
+  const phoneHeight = selectionActive ? "max-md:h-11" : undefined;
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5">
+      {leading.map((action) => (
+        <StepActionButton key={action.id} action={action} className={phoneHeight} />
+      ))}
+      <div className={cn("grow", selectionActive && "max-md:hidden")} />
+      {trailing.map((action) => (
+        <StepActionButton
+          key={action.id}
+          action={action}
+          className={cn(phoneHeight, selectionActive && "max-md:grow max-md:justify-center")}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SelectAllRow({
+  summary,
+  phoneCard,
+  onToggle,
+}: {
+  readonly summary: StepSelectionSummary;
+  readonly phoneCard: boolean;
+  readonly onToggle: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const countText =
+    summary.selectedCount === 0
+      ? t("kumiko.widget.step-list.selectionNone")
+      : t(pluralKey("kumiko.widget.step-list.selectionCount", summary.selectedCount), {
+          count: summary.selectedCount,
+        });
+  const missingText =
+    summary.missingInputCount > 0
+      ? `, ${t(
+          pluralKey("kumiko.widget.step-list.selectionMissingInput", summary.missingInputCount),
+          {
+            count: summary.missingInputCount,
+          },
+        )}`
+      : "";
+  const checked =
+    summary.allState === "all" ? true : summary.allState === "some" ? "indeterminate" : false;
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center gap-2.5 border-b border-border bg-card/60 px-4 py-2",
+        phoneCard &&
+          "max-md:rounded-t-md max-md:border max-md:border-b-0 max-md:bg-card max-md:px-3",
+      )}
+      data-testid="step-list-select-all"
+    >
+      <Checkbox
+        aria-label={t("kumiko.widget.step-list.selectAll")}
+        checked={checked}
+        disabled={!summary.hasSelectableSteps}
+        onCheckedChange={onToggle}
+      />
+      <span className="text-[13px] font-medium">{t("kumiko.widget.step-list.selectAll")}</span>
+      <span className="grow text-right text-[13px] text-muted-foreground">
+        {countText}
+        {missingText}
+      </span>
+    </div>
   );
 }
 

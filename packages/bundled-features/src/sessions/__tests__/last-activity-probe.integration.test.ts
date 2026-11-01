@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -15,6 +15,7 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createSessionsFeature } from "../feature.ts";
+import { LAST_ACTIVITY_PROBE_SECRET_ENV } from "../handlers/last-activity-probe.route.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { createSessionCallbacks } from "../session-callbacks.ts";
 
@@ -126,5 +127,49 @@ describe("sessions without the probe option", () => {
 
   test("there is no probe route, not even for the would-be secret", async () => {
     expect((await probe(stack, `Bearer ${SECRET}`)).status).toBe(404);
+  });
+});
+
+describe("sessions probe secret from the environment", () => {
+  const originalSecret = process.env[LAST_ACTIVITY_PROBE_SECRET_ENV];
+  afterEach(() => {
+    if (originalSecret === undefined) delete process.env[LAST_ACTIVITY_PROBE_SECRET_ENV];
+    else process.env[LAST_ACTIVITY_PROBE_SECRET_ENV] = originalSecret;
+  });
+
+  test("the env secret activates the probe endpoint when no option is set", async () => {
+    process.env[LAST_ACTIVITY_PROBE_SECRET_ENV] = SECRET;
+    const stack = await setupTestStack({ features: features(), extraContext });
+    try {
+      expect((await probe(stack, `Bearer ${SECRET}`)).status).toBe(200);
+      expect((await probe(stack, "Bearer wrong")).status).toBe(401);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("an explicit option wins over the env secret", async () => {
+    process.env[LAST_ACTIVITY_PROBE_SECRET_ENV] = SECRET;
+    const optionSecret = "o".repeat(40);
+    const stack = await setupTestStack({ features: features(optionSecret), extraContext });
+    try {
+      expect((await probe(stack, `Bearer ${optionSecret}`)).status).toBe(200);
+      expect((await probe(stack, `Bearer ${SECRET}`)).status).toBe(401);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("a too short env secret breaks the boot without leaking the value", () => {
+    const tooShort = "short-secret-value";
+    process.env[LAST_ACTIVITY_PROBE_SECRET_ENV] = tooShort;
+    let message = "";
+    try {
+      createSessionsFeature();
+    } catch (error) {
+      message = String(error);
+    }
+    expect(message).toContain(LAST_ACTIVITY_PROBE_SECRET_ENV);
+    expect(message).not.toContain(tooShort);
   });
 });

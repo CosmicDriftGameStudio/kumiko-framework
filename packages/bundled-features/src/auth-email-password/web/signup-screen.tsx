@@ -11,12 +11,18 @@
 // AuthGate). An apex marketing site can route its "Start for free" link to
 // the /signup path.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useOptionalDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client.ts";
 import { retryAfterMinutes } from "./auth-form-logic.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
 import { readReturnToFromWindow } from "./auth-redirect.ts";
+import { AuthQueries } from "./constants.ts";
 import { isSafeReturnPath } from "./return-path.ts";
 
 export type SignupScreenProps = {
@@ -34,12 +40,13 @@ function resolveReturnTo(prop: string | undefined): string | undefined {
   return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
 }
 
-export function SignupScreen({
+function SignupScreenBody({
   title,
   subtitle,
   loginHref = "/login",
   returnTo,
-}: SignupScreenProps): ReactNode {
+  registrationOpen,
+}: SignupScreenProps & { readonly registrationOpen: boolean | "unknown" }): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const [email, setEmail] = useState("");
@@ -91,6 +98,25 @@ export function SignupScreen({
 
   const effectiveTitle = title ?? t("auth.signup.title");
 
+  if (registrationOpen === "unknown") {
+    return (
+      <AuthCard title={effectiveTitle} subtitle={subtitle}>
+        {null}
+      </AuthCard>
+    );
+  }
+
+  if (!registrationOpen) {
+    return (
+      <AuthCard title={effectiveTitle} subtitle={subtitle}>
+        <Banner variant="info">{t("auth.signup.closed")}</Banner>
+        <Link href={loginHref} variant="muted">
+          {t("auth.signup.haveAccount")}
+        </Link>
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
       {done ? (
@@ -133,5 +159,24 @@ export function SignupScreen({
         </>
       )}
     </AuthCard>
+  );
+}
+
+type RegistrationStatus = { readonly enabled: boolean };
+
+// A failed status query reads as open: signup-request itself stays the authority.
+function SignupScreenWithQueriedStatus(props: SignupScreenProps): ReactNode {
+  const { data, loading } = useQuery<RegistrationStatus>(AuthQueries.signupRegistrationStatus, {});
+  const registrationOpen = loading && data === null ? "unknown" : data?.enabled !== false;
+  return <SignupScreenBody {...props} registrationOpen={registrationOpen} />;
+}
+
+// Without a mounted dispatcher (standalone mounts, tests) the status is not asked and the form shows.
+export function SignupScreen(props: SignupScreenProps): ReactNode {
+  const dispatcher = useOptionalDispatcher();
+  return dispatcher === undefined ? (
+    <SignupScreenBody {...props} registrationOpen />
+  ) : (
+    <SignupScreenWithQueriedStatus {...props} />
   );
 }

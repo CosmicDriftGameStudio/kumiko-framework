@@ -5,7 +5,11 @@ import { appendDomainEventCore } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
 import { isWithinGracePeriod } from "../../shared/index.ts";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.ts";
-import { DESTRUCTION_CANCELLED_EVENT_QN, TENANT_LIFECYCLE_FEATURE } from "../constants.ts";
+import {
+  DESTRUCTION_CANCELLED_EVENT_QN,
+  TENANT_ACCOUNT_CLOSE_ROLES,
+  TENANT_LIFECYCLE_FEATURE,
+} from "../constants.ts";
 import { invalidateTenantLifecycleGate } from "../lifecycle-gate.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -21,7 +25,7 @@ const CANCEL_DESTRUCTION_TENANT_ROW_REASON =
 export const cancelDestructionWrite = defineWriteHandler({
   name: "cancel-destruction",
   schema: z.object({}),
-  access: { roles: ["TenantOwner", "Admin"] },
+  access: { roles: TENANT_ACCOUNT_CLOSE_ROLES },
   description:
     "Returns a tenant whose destruction was requested back to active and clears the grace period; use it to undo a close-account request while the grace period is still running.",
   escapeHatch: {

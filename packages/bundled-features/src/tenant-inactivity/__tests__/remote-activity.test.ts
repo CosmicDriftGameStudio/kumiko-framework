@@ -41,4 +41,24 @@ describe("fetchRemoteAppLastActivity", () => {
       }),
     ).rejects.toThrow();
   });
+
+  test("every request carries an abort signal that is not yet aborted", async () => {
+    let signal: AbortSignal | null | undefined;
+    const send = async (_url: string, init: RequestInit) => {
+      signal = init.signal;
+      return new Response(JSON.stringify({ lastActivityAt: null }));
+    };
+    await fetchRemoteAppLastActivity({ url: URL_UNDER_TEST, secret: "x", send });
+    expect(signal?.aborted).toBe(false);
+  });
+
+  test("a probe that never answers fails once the timeout fires", async () => {
+    const hanging = (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    await expect(
+      fetchRemoteAppLastActivity({ url: URL_UNDER_TEST, secret: "x", send: hanging, timeoutMs: 5 }),
+    ).rejects.toThrow();
+  });
 });

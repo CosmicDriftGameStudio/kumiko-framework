@@ -115,7 +115,7 @@ export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
 export type { AppLayoutProps } from "./layout/app-layout.tsx";
 export { AppLayout } from "./layout/app-layout.tsx";
-export type { AvatarProps, AvatarSize } from "./layout/avatar.tsx";
+export type { AvatarProps, AvatarShape, AvatarSize } from "./layout/avatar.tsx";
 export { Avatar } from "./layout/avatar.tsx";
 export type { DefaultAppShellProps } from "./layout/default-app-shell.tsx";
 export { DefaultAppShell } from "./layout/default-app-shell.tsx";
@@ -167,6 +167,20 @@ export {
 } from "./lib/file-ref-download.ts";
 export { buildFileUploadFormData } from "./lib/file-upload-form-data.ts";
 export { type FileRefTarget, FileUploadFailedError, uploadFileRef } from "./lib/upload-file-ref.ts";
+export type {
+  PresenceAvatarsProps,
+  PresenceNoticeProps,
+  UsePresenceListOptions,
+  UsePresenceListResult,
+  UsePresenceOptions,
+  UsePresenceResult,
+} from "./presence/index.ts";
+export {
+  PresenceAvatars,
+  PresenceNotice,
+  usePresence,
+  usePresenceList,
+} from "./presence/index.ts";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu.tsx";
 export { ActionMenu } from "./primitives/action-menu.tsx";
 export {
@@ -215,6 +229,7 @@ export type {
   FeedRow,
   FileFieldProps,
   FloatingPanelGeometry,
+  FloatingPanelPlacement,
   FloatingPanelProps,
   InfinityListProps,
   InfinityListSelection,
@@ -256,6 +271,9 @@ export type {
   StepAction,
   StepListItem,
   StepListProps,
+  StepListSelection,
+  StepSelectability,
+  StepSelectionAction,
   StepSource,
   StepStatus,
   StepTag,

@@ -7,6 +7,25 @@ import {
 // The route is reachable anonymously, so a short secret would be guessable within the rate limit.
 const MIN_PROBE_SECRET_LENGTH = 32;
 
+export const LAST_ACTIVITY_PROBE_SECRET_ENV = "SESSIONS_LAST_ACTIVITY_PROBE_SECRET";
+
+// Env is the fallback for apps that mount sessions without options; the value is never echoed.
+// The feature definition also runs in client bundles, where `process` may not exist.
+export function readProbeSecretFromEnv(
+  env: Readonly<Record<string, string | undefined>> | undefined = typeof process === "undefined"
+    ? undefined
+    : process.env,
+): string | undefined {
+  const secret = env?.[LAST_ACTIVITY_PROBE_SECRET_ENV];
+  if (secret === undefined) return undefined;
+  if (secret.length < MIN_PROBE_SECRET_LENGTH) {
+    throw new Error(
+      `sessions: ${LAST_ACTIVITY_PROBE_SECRET_ENV} must be at least ${MIN_PROBE_SECRET_LENGTH} characters`,
+    );
+  }
+  return secret;
+}
+
 export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): void {
   if (secret.length < MIN_PROBE_SECRET_LENGTH) {
     throw new Error(
