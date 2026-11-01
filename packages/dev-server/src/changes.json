@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "scaffoldApp starter \"blank\"",
+    "detail": "`scaffoldApp({ starter: \"blank\" })` (`SCAFFOLD_STARTERS`, `ScaffoldStarter`) writes an app without the tasks demo, `src/seed.ts` and `DEMO_ADMIN_PASSWORD`. `bin/main.ts` seeds the creator through `seeds.bootstrapAdminFromEnv` and wires SMTP mail and password reset when `SMTP_HOST` and `APP_BASE_URL` are set; `delivery` is mounted. The welcome banner prints only the email when the dev admin has no password. The default starter `demo` is unchanged."
+  },
+  {
     "version": "0.408.0",
     "type": "fix",
     "title": "webp content type for public files",

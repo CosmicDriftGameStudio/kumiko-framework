@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Qualified listScreenId and navigate targets survive role projection",
+    "detail": "`projectAppSchemaForRoles` looked up `listScreenId` and navigate `screen` by the raw value, so a `<feature>:screen:<id>` reference never matched and the breadcrumb parent was dropped. A qualified reference is now checked against the exact screen it names (never through the short-id index, which could land on another feature's same-named screen and keep a reference to a hidden screen); bare ids still resolve through the short-id index. The original value stays in the projected schema. Applies to all apps."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "List table option compactHeader",
+    "detail": "`table: { compactHeader: true }` on an entityList, projectionList or relatedList renders the header row in 12px semibold. `ResultTable` takes `compactHeader` too. Wired through the boot validator, `useListTable` and `DataTable` (`compactHeader` prop). Default unchanged."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Edit layout hideRequiredMarker",
+    "detail": "`layout: { hideRequiredMarker: true }` on an entityEdit, actionForm or projectionDetail hides the asterisk after required field labels. Default shown."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "projectionDetail header actions per tab",
+    "detail": "A projectionDetail header action takes `showOnTabs: [\"<tab id>\"]` and is shown only while one of those tabs is active (needs `layout.mode: \"tabs\"`). The boot validator rejects empty lists, unknown tab ids and a missing tabs mode."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Wizard step rail texts and up-next card",
+    "detail": "Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `upNextHint`, else `subtitle`, only. Extension sections accept `subtitle`, `description` and `summaryField` too; on an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name a field of its `fields` (such a summary shows the raw value unformatted, meant for text and number fields), and `wizard.saveAndCloseOnCreate` also shows \"Save and close\" on the last step next to the submit."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Wizard footer options",
+    "detail": "`layout.wizard.saveAndCloseOnCreate` shows \"Save and close\" in create mode. `layout.wizard.submitDisabledWhen` is a field condition that disables the submit buttons and blocks the submit. After a create, extension sections are saved with the id of the new entity. The boot validator rejects these options outside wizard mode and unknown fields. `submitDisabledWhen` is UI-only; enforce the rule in a validation hook."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Wizard step upNextHint",
+    "detail": "Fields and extension sections in a wizard accept `upNextHint`; the up-next card shows it under the next step's title, falling back to `subtitle`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Advisory-lock waiters no longer time out",
+    "detail": "`withSessionAdvisoryLock` waits for the lock without the pool's statement_timeout (it is reset before the connection returns to the pool). A replica waiting for a peer, for example during boot seeds, no longer crashes with 57014."
+  },
+  {
     "version": "0.410.0",
     "type": "improvement",
     "title": "anySignedIn: public handlers admit every signed-in caller",

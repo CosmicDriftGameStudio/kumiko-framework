@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-feature-ast",
-  "version": "0.410.0",
+  "version": "0.411.0",
   "description": "Feature-file AST for Kumiko: parse, patch and render feature definitions, the pattern library, and the codemods kumiko-upgrade runs.",
   "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

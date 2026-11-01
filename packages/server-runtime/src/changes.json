@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "seeds.bootstrapAdminFromEnv creates the app creator as admin",
+    "detail": "`runProdApp({ seeds: { bootstrapAdminFromEnv: true | { tenant, displayName, roles, globalRoles, emailVerified } } })` reads `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` (optional, validated as an email in the env schema) and idempotently creates that account without a password, with the Admin and TenantAdmin roles in the tenant (`seeds.demoTenant` or the option's `tenant`), the SystemAdmin global role and a verified email. An empty variable seeds nothing. An existing account that already has a password (for example a self-registration with the same email) is left untouched: no verification, no membership, no role change; boot logs one warning without the email. It works next to `auth.admin`. Boot warns when the variable is set but neither `auth.passwordReset` nor `auth.mail` is configured, because the admin could never set a password."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Boot seeds run under an advisory lock",
+    "detail": "`applyStandardBootSeeds` holds a session advisory lock (`BOOT_SEEDS_LOCK_KEY`) while it seeds, for `runProdApp` and `runDevApp` alike. Two pods starting at the same time no longer race on add-only seeds such as the demo admin. The lock takes one pooled connection while the seeds run."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Boot-time search reindex when search fields or the document format change",

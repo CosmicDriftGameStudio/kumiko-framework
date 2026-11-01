@@ -1,5 +1,92 @@
 # create-kumiko-app
 
+## 0.411.0
+
+### Minor Changes
+
+- 2ade68f: A scaffolded app boots without `DEMO_ADMIN_PASSWORD`: with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` set, the first start creates that person as an admin without a password, who then sets one through "forgot password". `bun create kumiko-app <name> --blank` scaffolds this starter without the demo tasks.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: seedAdmin works without a password
+  detail: `SeedAdminOptions.password` is optional. Without it the account is created without a password hash and sets one through the password-reset flow. An existing account with the same email keeps its hash, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: seeds.bootstrapAdminFromEnv creates the app creator as admin
+  detail: `runProdApp({ seeds: { bootstrapAdminFromEnv: true | { tenant, displayName, roles, globalRoles, emailVerified } } })` reads `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` (optional, validated as an email in the env schema) and idempotently creates that account without a password, with the Admin and TenantAdmin roles in the tenant (`seeds.demoTenant` or the option's `tenant`), the SystemAdmin global role and a verified email. An empty variable seeds nothing. An existing account that already has a password (for example a self-registration with the same email) is left untouched: no verification, no membership, no role change; boot logs one warning without the email. It works next to `auth.admin`. Boot warns when the variable is set but neither `auth.passwordReset` nor `auth.mail` is configured, because the admin could never set a password.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Boot seeds run under an advisory lock
+  detail: `applyStandardBootSeeds` holds a session advisory lock (`BOOT_SEEDS_LOCK_KEY`) while it seeds, for `runProdApp` and `runDevApp` alike. Two pods starting at the same time no longer race on add-only seeds such as the demo admin. The lock takes one pooled connection while the seeds run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: scaffoldApp starter "blank"
+  detail: `scaffoldApp({ starter: "blank" })` (`SCAFFOLD_STARTERS`, `ScaffoldStarter`) writes an app without the tasks demo, `src/seed.ts` and `DEMO_ADMIN_PASSWORD`. `bin/main.ts` seeds the creator through `seeds.bootstrapAdminFromEnv` and wires SMTP mail and password reset when `SMTP_HOST` and `APP_BASE_URL` are set; `delivery` is mounted. The welcome banner prints only the email when the dev admin has no password. The default starter `demo` is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: renderTestSetup starter "blank"
+  detail: `renderTestSetup({ starter: "blank" })` skips the tasks integration and e2e files, ships a boot validation unit test and a boot integration test, and runs Playwright with `--pass-with-no-tests`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: create-kumiko-app
+  type: improvement
+  title: --blank flag
+  detail: `bun create kumiko-app <name> --blank` scaffolds the blank starter: no demo tasks, no seeded password; the creator sets one through "forgot password" after the first start with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Bootstrap admin seed is one-shot
+  detail: `seedBootstrapAdmin` skips when the target tenant already has another member (also a removed one), so a deleted owner or one who changed their email is not re-created as a passwordless SystemAdmin on the next boot. Our own passwordless account without membership is still completed, and the has-password skip now re-checks the row right before the grants.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: runScreenshots finishes CSS transitions before the capture
+  detail: `runScreenshots` captures with `animations: "disabled"` like `runMatrix`. A scenario flow that toggles the dark theme no longer catches `transition-all` buttons mid-fade with their light-theme colours.
+  -->
+
+### Patch Changes
+
+- 7985ab1: StepList gets selection with prerequisites, Banner a compact one-line form with icon and an ok variant, FloatingPanel a fixed placement, and the new bundled feature presence shows who else is on a record.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: StepList selection with prerequisites, compact Banner, fixed FloatingPanel
+  detail: `StepList` takes an optional `selection` (`selectedIds`, `onSelectionChange`, `actions`). It adds a checkbox per step, a "Select all" row with a count ("2 selected, 1 waiting for input") and, while something is selected, footer actions labelled with the count whose `onClick` receives the effective selection in list order. A step's `dependsOn` lists prerequisites: selecting the step selects them too (marked "Also selected: needed for …"), and unselecting a prerequisite drops the steps that need it. `selectable` per step is `{ kind: "selectable" }`, `{ kind: "missing-input", reason }` (checkbox disabled, "Input missing" tag) or `{ kind: "none" }` (no checkbox), so an app can keep risky steps out of bulk actions. A step whose open prerequisite cannot be selected is disabled with "Review “…” on its own first". Without `selection` the list renders as before. `Banner` takes `density: "compact"` (one line, title inline), `icon` (a nav icon key) and the variant `"ok"` for a finished state. `FloatingPanel` takes `placement: { mode: "fixed", rightPx, bottomPx, widthPx, heightPx }` (anchored, no drag, no resize, nothing persisted), `bodyLayout: "fill"` (children pad and scroll themselves) and `surface: "ai"`. New exports: `StepSelectability`, `StepSelectionAction`, `StepListSelection`, `FloatingPanelPlacement`, plus `usePresence`, `usePresenceList`, `PresenceNotice`, `PresenceAvatars`; `Avatar` takes `size: "xs"` and `shape: "round"`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: presence
+  type: improvement
+  title: New bundled feature presence: who else is on this record right now
+  detail: `createPresenceFeature({ entities, roles?, ttlSeconds? })` lets a browser announce that the user is viewing or editing one row of an allow-listed entity (`presence:write:heartbeat` every 15 seconds, `presence:write:leave` on close) and answers with the other people on it; `presence:query:list` returns them for up to 100 rows of a list. It only informs and never locks. State is ephemeral in a Redis hash per session tenant, entity and row (in memory without Redis), holds user ids only and expires after `ttlSeconds` (default 45) without a heartbeat; display names are resolved per response. A caller sees presence only for rows they can read; other rows answer 404. Defaults to TenantAdmin and TenantMember, entities default to none, the handlers are hidden from the AI agent. A Redis or SSE outage logs a warning and answers with an empty room. On a change the other people on the row get an addressed live signal through the new handler service `ctx.services.userLiveSignals`, which pushes SSE frames to named users of the caller's own tenant. The renderer hooks `usePresence` and `usePresenceList` and the widgets `PresenceNotice` and `PresenceAvatars` stay silent when the feature is not mounted.
+  -->
+- Updated dependencies [7985ab1]
+- Updated dependencies [2ade68f]
+- Updated dependencies [2ade68f]
+  - @cosmicdrift/kumiko-framework@0.411.0
+  - @cosmicdrift/kumiko-server-runtime@0.411.0
+  - @cosmicdrift/kumiko-dev-server@0.411.0
+  - @cosmicdrift/kumiko-testing@0.411.0
+
 ## 0.410.0
 
 ### Patch Changes

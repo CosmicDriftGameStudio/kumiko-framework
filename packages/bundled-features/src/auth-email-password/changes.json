@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "SignupScreen shows a closed state while self-registration is off",
+    "detail": "With a mounted dispatcher the screen asks `auth-email-password:query:signup-registration-status`. While `enabled` is false it renders the notice `auth.signup.closed` (de: \"Die Registrierung ist derzeit nur mit Einladung möglich.\") plus the login link instead of the form, and sends nothing. A failed status query reads as open. The status query needs a mounted `DispatcherProvider`; in standalone auth mounts without one the form always shows and the server still rejects `signup-request`. New key `auth.signup.closed` in en, de, es, fr and it."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "auth-email-password/static-account, DOM-free account page clients",
+    "detail": "`@cosmicdrift/kumiko-bundled-features/auth-email-password/static-account` exports `fetchSignupRegistrationStatus`, `requestPasswordReset`, `resetPassword`, `verifyEmail`, `requestAccountUnlock`, `confirmAccountUnlock`, `logout`, `isSignedOutFailure`, `fetchInviteInfo`, `acceptInviteSignedIn`, `acceptInviteWithLogin` and `acceptInviteWithNewAccount` for plain Astro scripts, plus `takeUrlToken(\"query\" | \"fragment\")` to read a mail-link token and remove it from the address bar. Every call returns a `kind: \"success\" | \"failure\"` union with a `reason` and, for rate limits, `retryAfterSeconds`; a 401 without an error code reads as `unauthenticated`; none throws for an expected failure; a malformed CSRF cookie sends no CSRF header instead of failing the request. A `landingPath` from the server is passed on only when it is a safe same-origin path. The shared request core with the result types is exported as `auth-email-password/static-client`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "seedAdmin works without a password",
+    "detail": "`SeedAdminOptions.password` is optional. Without it the account is created without a password hash and sets one through the password-reset flow. An existing account with the same email keeps its hash, as before."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Bootstrap admin seed is one-shot",
+    "detail": "`seedBootstrapAdmin` skips when the target tenant already has another member (also a removed one), so a deleted owner or one who changed their email is not re-created as a passwordless SystemAdmin on the next boot. Our own passwordless account without membership is still completed, and the has-password skip now re-checks the row right before the grants."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "Login-path redirect hook and topbar without UserMenu",

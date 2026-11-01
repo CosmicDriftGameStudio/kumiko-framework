@@ -1,5 +1,89 @@
 [
   {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "StepList selection with prerequisites, compact Banner, fixed FloatingPanel",
+    "detail": "`StepList` takes an optional `selection` (`selectedIds`, `onSelectionChange`, `actions`). It adds a checkbox per step, a \"Select all\" row with a count (\"2 selected, 1 waiting for input\") and, while something is selected, footer actions labelled with the count whose `onClick` receives the effective selection in list order. A step's `dependsOn` lists prerequisites: selecting the step selects them too (marked \"Also selected: needed for …\"), and unselecting a prerequisite drops the steps that need it. `selectable` per step is `{ kind: \"selectable\" }`, `{ kind: \"missing-input\", reason }` (checkbox disabled, \"Input missing\" tag) or `{ kind: \"none\" }` (no checkbox), so an app can keep risky steps out of bulk actions. A step whose open prerequisite cannot be selected is disabled with \"Review “…” on its own first\". Without `selection` the list renders as before. `Banner` takes `density: \"compact\"` (one line, title inline), `icon` (a nav icon key) and the variant `\"ok\"` for a finished state. `FloatingPanel` takes `placement: { mode: \"fixed\", rightPx, bottomPx, widthPx, heightPx }` (anchored, no drag, no resize, nothing persisted), `bodyLayout: \"fill\"` (children pad and scroll themselves) and `surface: \"ai\"`. New exports: `StepSelectability`, `StepSelectionAction`, `StepListSelection`, `FloatingPanelPlacement`, plus `usePresence`, `usePresenceList`, `PresenceNotice`, `PresenceAvatars`; `Avatar` takes `size: \"xs\"` and `shape: \"round\"`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "projectionDetail renders no empty header band",
+    "detail": "A projectionDetail whose `header.subtitle` field is empty and that has no metrics no longer renders an empty subtitle row or an empty metrics band (extra padding and height). Applies to all apps."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Heading variant \"group\"",
+    "detail": "`Heading variant=\"group\"` renders a 16px semibold sub-title in the foreground color, normal case. The default `page` is unchanged."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "DetailList valueWeight and sidebar layout",
+    "detail": "`DetailList valueWeight=\"normal\"` drops the value emphasis (default `\"medium\"`). `layout=\"sidebar\"` puts a narrow label column and the value on one row for side columns (default `\"default\"`)."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "TextareaField placeholder, Composer widget",
+    "detail": "`TextareaField` takes a `placeholder`. New `Composer` chat input: label-less textarea with the send button inside the field frame, bottom right. Props `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel` (text of the send button), `docked`, `rows`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "ModeSwitch option disabled and tone",
+    "detail": "A `ModeSwitch` option can be `disabled` (not selectable, `aria-disabled`, muted) and carry `tone: \"warning\"` (warning frame) to flag an open question."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Banner icon and structured parts",
+    "detail": "`Banner` takes an optional leading `icon` (a nav icon key such as `\"alert-triangle\"`) and `parts: [{ text, strong? }]` rendered after `children`; `children` is now optional. No markup strings."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "SectionNavLayout widget",
+    "detail": "`SectionNavLayout` wraps custom or extension sections in a column with the \"On this page\" list (`FormSectionNav`). Props `items`, `children`, `width`, `testId`. Stacked forms already render the list themselves."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Wizard intro follows the current step",
+    "detail": "The intro text beside the wizard rail now follows the description of the current step and falls back to `formSubtitle`; the description above the fields is shown only below `lg`, where the rail is hidden (without a rail it stays in the section header). Applies to every app that uses a wizard with a step rail."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Studio visual round: ChoiceCards, ModeSwitch, SideBySideTable, Banner, FormSectionNav options",
+    "detail": "Opt-in only, defaults unchanged. `ChoiceCards` takes `columns` (1 to 4), `variant=\"radio\"` and `label`. `ModeSwitch` takes `segmentWidth=\"wide\"`. `SideBySideTable` takes `rowHeaderTone=\"foreground\"`. `Banner` takes `actionsPlacement=\"below\"`. `FormSectionNav` takes `activeTone=\"foreground\"`."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Wizard step rail wraps text and hides the active subtitle",
+    "detail": "Step rail rows wrap long labels and subtitles instead of truncating them. The active step shows no subtitle in the rail (below `lg`, where the rail is hidden, the section header shows the text). Applies to every wizard with a step rail."
+  },
+  {
+    "version": "0.411.0",
+    "type": "improvement",
+    "title": "Composer text button and docked option, ModeSwitch frame, DetailList sidebar, SectionNavLayout marker",
+    "detail": "`Composer` renders a text send button (`submitLabel` is its text), the textarea on the normal background without a surrounding strip, and takes `docked`: sticky at the bottom of a scroll container that carries the screen padding, pushed down with `mt-auto` in a full-height flex column. `ModeSwitch` `tone: \"warning\"` frames the whole switch. `DetailList layout=\"sidebar\"` left-aligns the value. `SectionNavLayout` marks the active entry bold in the text colour. These widgets are new in this release."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "hideRequiredMarker reaches widget fields, ModeSwitch on the input surface",
+    "detail": "`layout.hideRequiredMarker` now also hides the asterisk of `Field`-based widgets in custom and extension sections (`aria-required` stays). The outline `ModeSwitch` uses the text input's background (`bg-transparent`, `dark:bg-input/30`) instead of `bg-background`, so unselected segments match inputs on every app."
+  },
+  {
+    "version": "0.411.0",
+    "type": "fix",
+    "title": "Banner actions below the text keep a gap",
+    "detail": "With `actionsPlacement: \"below\"` the action buttons wrap in a row with `gap-2` instead of touching each other."
+  },
+  {
     "version": "0.410.0",
     "type": "improvement",
     "title": "actionForm summary params",
