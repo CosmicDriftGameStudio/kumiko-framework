@@ -1,6 +1,7 @@
 import type { AccessRule, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { isAnySignedInGranted } from "@cosmicdrift/kumiko-types/handlers";
 import type { TestStack } from "../stack/test-stack.ts";
 
 // Test-only helper: extracts the role list from a role-based AccessRule,
@@ -22,7 +23,12 @@ const PROBE_ROLE = "access-contract-probe";
 type CheckedHandlerCounts = { checkedWriteHandlers: number; checkedQueryHandlers: number };
 
 function isRoleRestricted(access: AccessRule | undefined): boolean {
-  return access !== undefined && "roles" in access && access.roles.length > 0;
+  return (
+    access !== undefined &&
+    "roles" in access &&
+    access.roles.length > 0 &&
+    !isAnySignedInGranted(access)
+  );
 }
 
 async function deniedOutcome(res: Response): Promise<string | undefined> {
@@ -42,8 +48,8 @@ const ACCESS_DENIED_CODE = new AccessDeniedError().code;
  * Contract test: every role-restricted write/query handler in the stack rejects
  * a signed-in caller who holds none of its roles with 403 access_denied, over
  * real HTTP. Roles are checked centrally before payload parsing (pre-handler
- * gates / dispatch-query), so an empty payload is enough. openToAll handlers
- * and handlers without access are skipped. Throws once with all deviations;
+ * gates / dispatch-query), so an empty payload is enough. openToAll and
+ * anySignedIn handlers and handlers without access are skipped. Throws once with all deviations;
  * `minimumHandlerCount` guards against an empty registry walk passing silently.
  */
 export async function expectRoleRestrictedHandlersDenyForeignRole(
