@@ -138,3 +138,10 @@ type: fix
 title: Advisory-lock waiters no longer time out
 detail: `withSessionAdvisoryLock` waits for the lock without the pool's statement_timeout (it is reset before the connection returns to the pool). A replica waiting for a peer, for example during boot seeds, no longer crashes with 57014.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: hideRequiredMarker reaches widget fields, ModeSwitch on the input surface
+detail: `layout.hideRequiredMarker` now also hides the asterisk of `Field`-based widgets in custom and extension sections (`aria-required` stays). The outline `ModeSwitch` uses the text input's background (`bg-transparent`, `dark:bg-input/30`) instead of `bg-background`, so unselected segments match inputs on every app.
+-->

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { DispatcherProvider, RenderEdit } from "../../index.ts";
+import { DispatcherProvider, ExtensionSectionsProvider, RenderEdit } from "../../index.ts";
+import { TextField } from "../widgets/form-fields.tsx";
 import { makeDispatcher, orderEntity, type TestValues } from "./_render-edit-helpers.tsx";
 import { render, screen } from "./test-utils.tsx";
 
@@ -82,5 +83,56 @@ describe("layout.hideRequiredMarker and width on the wizard path", () => {
     renderWizardOrder({ width: "3xl" });
     const column = screen.getByTestId("field-title").closest(".max-w-3xl");
     expect(column).not.toBeNull();
+  });
+});
+
+const RequiredName = (_: { entityName: string; entityId: string | null }) => (
+  <TextField id="ext-name" name="ext-name" label="Name" value="" onChange={() => {}} required />
+);
+
+describe("layout.hideRequiredMarker reaches widgets in extension sections", () => {
+  function renderWithExtension(hideRequiredMarker: boolean): void {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        hideRequiredMarker,
+        sections: [
+          {
+            kind: "extension",
+            title: "Custom",
+            component: { react: { __component: "RequiredName" } },
+          },
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ RequiredName }}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 1 } as TestValues}
+            writeCommand="order:create"
+            fillScreenHeight
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+  }
+
+  test("the widget label shows no asterisk but the input stays aria-required", () => {
+    renderWithExtension(true);
+    expect(document.getElementById("ext-name-label")?.textContent).not.toContain("*");
+    expect(screen.getByLabelText("Name").getAttribute("aria-required")).toBe("true");
+  });
+
+  test("the widget label shows the asterisk by default", () => {
+    renderWithExtension(false);
+    expect(document.getElementById("ext-name-label")?.textContent).toContain("*");
   });
 });

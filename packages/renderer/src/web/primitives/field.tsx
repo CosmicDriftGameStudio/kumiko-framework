@@ -30,6 +30,7 @@ import {
   type TrailingInputAction,
   useTranslation,
 } from "../../index.ts";
+import { HideRequiredMarkerContext } from "../../required-marker-context.ts";
 import { cn } from "../lib/cn.ts";
 import { Label as UiLabel } from "../ui/label.tsx";
 import { StatusBadge } from "../widgets/status-badge.tsx";
@@ -100,6 +101,7 @@ function DefaultFieldBody({
   changed,
 }: FieldProps): ReactNode {
   const t = useTranslation();
+  const hideRequiredMarker = useContext(HideRequiredMarkerContext);
   const hasError = issues !== undefined && issues.length > 0;
   const labelEl = (
     <UiLabel
@@ -119,7 +121,7 @@ function DefaultFieldBody({
       >
         {label}
       </span>
-      {required === true && (
+      {required === true && !hideRequiredMarker && (
         <span data-required className="ml-0.5 shrink-0 text-destructive">
           *
         </span>

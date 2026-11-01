@@ -150,6 +150,8 @@ describe("Composer", () => {
     expect(classes).toContain("mt-auto");
     expect(classes).toContain("-bottom-6");
     expect(classes).toContain("pb-6");
+    expect(classes).toContain("-mb-6");
+    expect(classes).toContain("bg-card");
   });
 });
 
@@ -200,5 +202,21 @@ describe("Banner actionsPlacement", () => {
     const banner = screen.getByTestId("banner");
     expect(banner.querySelector(":scope > [data-slot=actions]")).toBeNull();
     expect(banner.querySelector(":scope > div > [data-slot=actions]")).not.toBeNull();
+  });
+});
+
+describe("ModeSwitch outline surface", () => {
+  test("unselected segments sit on the input surface, not the page background", () => {
+    render(
+      <ModeSwitch
+        value="a"
+        onChange={() => {}}
+        testId="switch"
+        options={[{ value: "a", label: "A" }]}
+      />,
+    );
+    const classes = classesOf(screen.getByTestId("switch"));
+    expect(classes).toContain("bg-transparent");
+    expect(classes).not.toContain("bg-background");
   });
 });

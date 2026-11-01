@@ -49,7 +49,7 @@ export function ModeSwitch<T extends string>({
         "flex min-h-8",
         pill
           ? "gap-0.5 rounded-lg bg-muted p-0.5"
-          : "overflow-hidden rounded-md border border-input bg-background",
+          : "overflow-hidden rounded-md border border-input bg-transparent dark:bg-input/30",
         warning && "ring-1 ring-inset ring-status-warn",
         className,
       )}
