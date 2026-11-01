@@ -27,6 +27,21 @@ export const FEATURES = [
 ];
 `;
 
+const DEFINITION_VIOLATIONS_SCHEMA_SOURCE = `
+import { defineFeature } from ${JSON.stringify(defineFeaturePath)};
+export const ENTITY_METAS = [];
+export const FEATURES = [
+  defineFeature("delta", (r) => {
+    r.nav({ id: "Bad_Id", label: "Home", screen: "delta:screen:home" });
+    r.describe("one");
+    r.describe("two");
+  }),
+  defineFeature("epsilon", (r) => {
+    r.nav({ id: "Other_Bad", label: "Home", screen: "epsilon:screen:home" });
+  }),
+];
+`;
+
 type Captured = { readonly stdout: string[]; readonly stderr: string[] };
 
 async function runValidate(appDir: string, args: readonly string[]) {
@@ -77,6 +92,49 @@ describe("kumiko-schema validate boot output", () => {
       expect(stderr[ruleLine + 2]).toBe("    Rule: agents/boot-rules.md#api-unknown-api");
     } finally {
       rmSync(classifiedDir, { recursive: true, force: true });
+    }
+  });
+
+  test("collects definition-layer violations of all features in one run", async () => {
+    // One directory per run: the imported schema.ts is cached per process.
+    const makeDir = () => {
+      const dir = mkdtempSync(join(tmpdir(), "kumiko-validate-definition-"));
+      mkdirSync(join(dir, "kumiko", "migrations"), { recursive: true });
+      writeFileSync(join(dir, "kumiko", "schema.ts"), DEFINITION_VIOLATIONS_SCHEMA_SOURCE);
+      return dir;
+    };
+    const definitionDir = makeDir();
+    const jsonDir = makeDir();
+    try {
+      const text = await runValidate(definitionDir, []);
+      expect(text.exitCode).toBe(1);
+      const bootLines = text.stderr.filter((line) => line.startsWith("  ✗ boot"));
+      expect(bootLines).toHaveLength(3);
+      expect(bootLines[0]).toStartWith("  ✗ boot [nav/id-not-kebab]");
+      expect(bootLines[1]).toStartWith("  ✗ boot [feature/describe-twice]");
+      expect(bootLines[2]).toStartWith("  ✗ boot [nav/id-not-kebab]");
+      const ruleLine = text.stderr.findIndex((line) =>
+        line.startsWith("  ✗ boot [nav/id-not-kebab]"),
+      );
+      expect(text.stderr[ruleLine + 1]).toStartWith("    Fix: ");
+      expect(text.stderr[ruleLine + 2]).toBe("    Rule: agents/boot-rules.md#nav-id-not-kebab");
+
+      const json = await runValidate(jsonDir, ["--json"]);
+      expect(json.exitCode).toBe(1);
+      expect(json.stdout).toHaveLength(1);
+      expect(JSON.parse(json.stdout[0] ?? "")).toMatchObject({
+        boot: {
+          ok: false,
+          violations: [
+            { ruleId: "nav/id-not-kebab", check: "r.nav", feature: "delta" },
+            { ruleId: "feature/describe-twice", check: "r.describe", feature: "delta" },
+            { ruleId: "nav/id-not-kebab", check: "r.nav", feature: "epsilon" },
+          ],
+        },
+      });
+    } finally {
+      rmSync(definitionDir, { recursive: true, force: true });
+      rmSync(jsonDir, { recursive: true, force: true });
     }
   });
 

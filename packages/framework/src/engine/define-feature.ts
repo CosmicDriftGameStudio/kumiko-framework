@@ -1,6 +1,9 @@
 import type { UiHints } from "@cosmicdrift/kumiko-types/feature";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { HookMap } from "@cosmicdrift/kumiko-types/hooks";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { FEATURE_DEFINITION_RULES } from "./boot-validator/definition-feature-rules.ts";
+import { collectingRegistrar, runDefinitionStep } from "./definition-violations.ts";
 import { createInitialFeatureBuilderState } from "./feature-builder-state.ts";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
@@ -44,9 +47,9 @@ function assertDedupeOptionsComparable(
 ): void {
   for (const [key, value] of Object.entries(options ?? {})) {
     if (typeof value === "object" && value !== null) {
-      throw new Error(
-        `[Feature ${featureName}] dedupeOptions.${key} must be a primitive or a stable function reference; dedupeOptions are compared shallowly, so a nested object never matches a second mount`,
-      );
+      throw bootRuleError(FEATURE_DEFINITION_RULES.dedupeOptionsNotComparable, {
+        message: `[Feature ${featureName}] dedupeOptions.${key} must be a primitive or a stable function reference; dedupeOptions are compared shallowly, so a nested object never matches a second mount`,
+      });
     }
   }
 }
@@ -56,21 +59,25 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   setup: (r: FeatureRegistrar<TName>) => TExports,
   settings?: DefineFeatureSettings,
 ): FeatureDefinition & { readonly exports: TExports } {
-  assertDedupeOptionsComparable(name, settings?.dedupeOptions);
+  runDefinitionStep(name, "defineFeature", () =>
+    assertDedupeOptionsComparable(name, settings?.dedupeOptions),
+  );
   const state = createInitialFeatureBuilderState();
 
-  const registrar: FeatureRegistrar<TName> = {
+  const plainRegistrar: FeatureRegistrar<TName> = {
     systemScope(): void {
       state.isSystemScoped = true;
     },
     describe(text: string): void {
       if (state.description !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.describe() called twice — a feature's description is declared once`,
-        );
+        throw bootRuleError(FEATURE_DEFINITION_RULES.describeTwice, {
+          message: `[Feature ${name}] r.describe() called twice — a feature's description is declared once`,
+        });
       }
       if (typeof text !== "string" || text.trim().length === 0) {
-        throw new Error(`[Feature ${name}] r.describe(): text must be a non-empty string`);
+        throw bootRuleError(FEATURE_DEFINITION_RULES.describeTextEmpty, {
+          message: `[Feature ${name}] r.describe(): text must be a non-empty string`,
+        });
       }
       state.description = text.trim();
     },
@@ -83,7 +90,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         // Untyped callers can pass `{ feature: [...] }`; without this the object would be
         // registered as a dependency name.
         if (!Array.isArray(first.features) || !first.features.every((f) => typeof f === "string")) {
-          throw new Error(`[Feature ${name}] r.requires() needs { features: string[] }`);
+          throw bootRuleError(FEATURE_DEFINITION_RULES.requiresNeedsFeatures, {
+            message: `[Feature ${name}] r.requires() needs { features: string[] }`,
+          });
         }
         state.requires.push(...first.features);
       };
@@ -103,9 +112,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
     toggleable(options: { default: boolean }): void {
       if (state.toggleableDefault !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.toggleable() called twice — a feature's toggleable status is declared once`,
-        );
+        throw bootRuleError(FEATURE_DEFINITION_RULES.toggleableTwice, {
+          message: `[Feature ${name}] r.toggleable() called twice — a feature's toggleable status is declared once`,
+        });
       }
       state.toggleableDefault = options.default;
     },
@@ -114,7 +123,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
     uiHints(hints: UiHints): void {
       if (state.uiHints !== undefined) {
-        throw new Error(`[Feature ${name}] r.uiHints() called twice — UI hints are declared once`);
+        throw bootRuleError(FEATURE_DEFINITION_RULES.uiHintsTwice, {
+          message: `[Feature ${name}] r.uiHints() called twice — UI hints are declared once`,
+        });
       }
       state.uiHints = hints;
     },
@@ -125,7 +136,10 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     ...buildProbeMethods(state, name),
   };
 
-  const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
+  const registrar = collectingRegistrar(name, plainRegistrar);
+
+  // Undefined only while collecting definition violations; those features never reach the runtime.
+  const exports = runDefinitionStep(name, "defineFeature", () => setup(registrar)) as TExports; // @cast-boundary engine-bridge
 
   return {
     name,

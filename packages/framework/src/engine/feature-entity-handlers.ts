@@ -18,6 +18,9 @@ import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
+import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
 import {
   isEntityConventionQueryHandler,
   isPagedQueryHandler,
@@ -58,12 +61,13 @@ function assertHandlerNameFree(
     verb !== undefined &&
     state.entities[entityName] !== undefined &&
     CRUD_REGISTERED_VERBS.has(verb);
-  throw new Error(
-    `Feature "${featureName}" registers the ${kind} handler "${handlerName}" twice.` +
+  throw bootRuleError(DEFINITION_HANDLER_RULES.nameDuplicate, {
+    message:
+      `Feature "${featureName}" registers the ${kind} handler "${handlerName}" twice.` +
       (crudShaped
         ? ` r.crud("${entityName}", ...) already registers that name; use a distinct name or drop the "${verb}" verb from r.crud.`
         : " Use a distinct name."),
-  );
+  });
 }
 
 // Map handler name to entity via colon convention.
@@ -101,9 +105,9 @@ function assertHandlerHasAccess(
   access: unknown,
 ): void {
   if (access === undefined || access === null) {
-    throw new Error(
-      `[Feature ${featureName}] r.${method}({ name: "${handlerName}" }) requires an access rule (access: { roles: [...] } or { openToAll: { reason } })`,
-    );
+    throw bootRuleError(HANDLER_ACCESS_RULES.accessMissing, {
+      message: `[Feature ${featureName}] r.${method}({ name: "${handlerName}" }) requires an access rule (access: { roles: [...] } or { openToAll: { reason } })`,
+    });
   }
 }
 
@@ -114,7 +118,9 @@ function requireInlineHandlerArgs<TSchema, THandler, TOptions extends { access?:
   options: TOptions | undefined,
 ): { schema: TSchema; handler: THandler; options: TOptions } {
   if (!schema || !handler || !options?.access) {
-    throw new Error(`${kind} inline form requires schema + handler + options.access`);
+    throw bootRuleError(DEFINITION_HANDLER_RULES.inlineFormIncomplete, {
+      message: `${kind} inline form requires schema + handler + options.access`,
+    });
   }
   return { schema, handler, options };
 }

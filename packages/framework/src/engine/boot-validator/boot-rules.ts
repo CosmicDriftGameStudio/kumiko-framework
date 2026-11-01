@@ -6,6 +6,16 @@ import type { BootRule } from "./boot-rule.ts";
 import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
 import { CONFIG_EDIT_ACTION_RULES } from "./config-edit-action-rules.ts";
 import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
+import { DEFINITION_CONFIG_EVENTS_JOBS_RULES } from "./definition-config-events-jobs-rules.ts";
+import { DEFINITION_EVENT_RULES } from "./definition-events-rules.ts";
+import { FEATURE_DEFINITION_RULES } from "./definition-feature-rules.ts";
+import { DEFINITION_FIELD_FACTORY_RULES } from "./definition-field-factories-rules.ts";
+import { DEFINITION_HANDLER_RULES } from "./definition-handlers-rules.ts";
+import { DEFINITION_OWNERSHIP_FROM_RULES } from "./definition-ownership-from-rules.ts";
+import { DEFINITION_PROBE_RULES } from "./definition-probes-rules.ts";
+import { DEFINITION_ROLE_ASSIGNMENT_RULES } from "./definition-role-assignment-rules.ts";
+import { DEFINITION_UI_EXTENSION_RULES } from "./definition-ui-extensions-rules.ts";
+import { DEFINITION_WEBHOOK_EVENT_RULES } from "./definition-webhook-events-rules.ts";
 import { DERIVED_SQL_FIELD_RULES } from "./derived-sql-fields-rules.ts";
 import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
 import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
@@ -75,6 +85,16 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   NAV_RULES,
   OWNERSHIP_RULES,
   AGENT_EFFECT_RULES,
+  DEFINITION_CONFIG_EVENTS_JOBS_RULES,
+  DEFINITION_EVENT_RULES,
+  FEATURE_DEFINITION_RULES,
+  DEFINITION_FIELD_FACTORY_RULES,
+  DEFINITION_HANDLER_RULES,
+  DEFINITION_OWNERSHIP_FROM_RULES,
+  DEFINITION_PROBE_RULES,
+  DEFINITION_ROLE_ASSIGNMENT_RULES,
+  DEFINITION_UI_EXTENSION_RULES,
+  DEFINITION_WEBHOOK_EVENT_RULES,
 ] as const;
 
 export const FRAMEWORK_BOOT_RULES: readonly BootRule[] = FRAMEWORK_BOOT_RULE_TABLES.flatMap(

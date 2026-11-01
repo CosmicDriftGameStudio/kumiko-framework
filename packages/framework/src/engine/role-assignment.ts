@@ -1,4 +1,6 @@
 import { ROLES } from "../auth/roles.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_ROLE_ASSIGNMENT_RULES } from "./boot-validator/definition-role-assignment-rules.ts";
 import { EXT_ASSIGNABLE_ROLE } from "./extension-names.ts";
 import { isForbiddenMembershipRole } from "./membership-roles.ts";
 import type { Registry } from "./types/feature.ts";
@@ -58,31 +60,35 @@ export function assignableAppRolesFromUsages(
   for (const usage of usages) {
     const role = usage.entityName;
     if (role === "") {
-      throw new Error("assignableRole: role name must not be empty");
+      throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.nameEmpty, {
+        message: "assignableRole: role name must not be empty",
+      });
     }
     // Platform roles (TenantOwner, DataProtectionOfficer) gate handlers that
     // TenantAdmin/Admin cannot reach — declaring one would let an Admin
     // self-grant it, so they stay out of reach of app declarations.
     if (ROLE_RANKS.has(role) || PLATFORM_ROLE_NAMES.has(role)) {
-      throw new Error(`assignableRole: "${role}" is a built-in role and cannot be redeclared`);
+      throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.builtIn, {
+        message: `assignableRole: "${role}" is a built-in role and cannot be redeclared`,
+      });
     }
     if (isForbiddenMembershipRole(role)) {
-      throw new Error(
-        `assignableRole: "${role}" is a reserved role and cannot be a membership role`,
-      );
+      throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.reservedMembership, {
+        message: `assignableRole: "${role}" is a reserved role and cannot be a membership role`,
+      });
     }
     const declaredAssignableFrom = usage.options?.["assignableFrom"];
     if (declaredAssignableFrom !== undefined && !isAssignableFromRole(declaredAssignableFrom)) {
-      throw new Error(
-        `assignableRole: "${role}" has invalid assignableFrom, expected one of ${[...ASSIGNABLE_FROM_ROLES].join(", ")}`,
-      );
+      throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.assignableFromInvalid, {
+        message: `assignableRole: "${role}" has invalid assignableFrom, expected one of ${[...ASSIGNABLE_FROM_ROLES].join(", ")}`,
+      });
     }
     const assignableFrom = declaredAssignableFrom ?? DEFAULT_APP_ROLE_ASSIGNABLE_FROM;
     const existing = result.get(role);
     if (existing !== undefined && existing !== assignableFrom) {
-      throw new Error(
-        `assignableRole: "${role}" is declared with conflicting assignableFrom (${existing} vs ${assignableFrom})`,
-      );
+      throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.assignableFromConflict, {
+        message: `assignableRole: "${role}" is declared with conflicting assignableFrom (${existing} vs ${assignableFrom})`,
+      });
     }
     result.set(role, assignableFrom);
   }

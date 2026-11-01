@@ -35,6 +35,8 @@ import {
 import { InternalError } from "../errors/index.ts";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.ts";
 import { assertUnreachable } from "../utils/index.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.ts";
 import { entityListRuntime, parentVisibilityFor } from "./entity-list-runtime-options.ts";
 import { assertReason } from "./escape-hatch-reason.ts";
@@ -163,9 +165,9 @@ export function assertEscapeHatchAccessIsSystemAdminOnly(
   access: AccessRule,
 ): void {
   if (!isSystemAdminOnly(access)) {
-    throw new Error(
-      `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(access)}.`,
-    );
+    throw bootRuleError(DEFINITION_HANDLER_RULES.escapeHatchAccessNotSystemAdmin, {
+      message: `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(access)}.`,
+    });
   }
 }
 
@@ -222,20 +224,22 @@ function parseHandlerName<TVerb extends string>(
 ): { entityName: string; verb: TVerb } {
   const colonIdx = name.indexOf(":");
   if (colonIdx < 0) {
-    throw new Error(
-      `Handler name "${name}" must use the "<entity>:<verb>" pattern (e.g. "note:create").`,
-    );
+    throw bootRuleError(DEFINITION_HANDLER_RULES.nameWithoutColon, {
+      message: `Handler name "${name}" must use the "<entity>:<verb>" pattern (e.g. "note:create").`,
+    });
   }
   const entityName = name.slice(0, colonIdx);
   const verbCandidate = name.slice(colonIdx + 1);
   if (!entityName) {
-    throw new Error(`Handler name "${name}" is missing the entity part before the colon.`);
+    throw bootRuleError(DEFINITION_HANDLER_RULES.nameMissingEntity, {
+      message: `Handler name "${name}" is missing the entity part before the colon.`,
+    });
   }
   const verbs = validVerbs as readonly string[]; // @cast-boundary engine-bridge
   if (!verbs.includes(verbCandidate)) {
-    throw new Error(
-      `Unknown verb "${verbCandidate}" in handler name "${name}". Standard verbs: ${validVerbs.join("/")}. For custom verbs use the explicit r.writeHandler / r.queryHandler form.`,
-    );
+    throw bootRuleError(DEFINITION_HANDLER_RULES.verbUnknown, {
+      message: `Unknown verb "${verbCandidate}" in handler name "${name}". Standard verbs: ${validVerbs.join("/")}. For custom verbs use the explicit r.writeHandler / r.queryHandler form.`,
+    });
   }
   return { entityName, verb: verbCandidate as TVerb }; // @cast-boundary engine-bridge
 }
@@ -287,7 +291,9 @@ function resolveEntityWriteAgentHints(
     const reason = isIrreversibleDelete
       ? "delete on an entity without softDelete is irreversible"
       : `it writes field(s) ${instructionFields.join(", ")} flagged readAsInstruction: true`;
-    throw new Error(`"${name}": ${reason} — agent.risk must be "high" (got "${agent.risk}").`);
+    throw bootRuleError(DEFINITION_HANDLER_RULES.agentRiskNotHigh, {
+      message: `"${name}": ${reason} — agent.risk must be "high" (got "${agent.risk}").`,
+    });
   }
   return { ...agent, risk: "high" };
 }
@@ -299,24 +305,28 @@ function assertExcludableFields(
   excludedFields: readonly string[],
 ): void {
   if (excludedFields.length > 0 && verb !== "create" && verb !== "update") {
-    throw new Error(`"${name}": excludeFields only applies to create and update handlers.`);
+    throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsVerbUnsupported, {
+      message: `"${name}": excludeFields only applies to create and update handlers.`,
+    });
   }
   for (const fieldName of excludedFields) {
     const field = entity.fields[fieldName];
     if (!field) {
-      throw new Error(`"${name}": excludeFields names unknown field "${fieldName}".`);
+      throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsUnknownField, {
+        message: `"${name}": excludeFields names unknown field "${fieldName}".`,
+      });
     }
     if (isInTotalsMatchPair(entity, fieldName)) {
-      throw new Error(
-        `"${name}": excludeFields cannot name "${fieldName}" — it is part of a totalsMatch pair, which must be written together.`,
-      );
+      throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsTotalsPair, {
+        message: `"${name}": excludeFields cannot name "${fieldName}" — it is part of a totalsMatch pair, which must be written together.`,
+      });
     }
     const isRequired = "required" in field && field.required === true;
     const hasDefault = "default" in field && field.default !== undefined;
     if (verb === "create" && isRequired && !hasDefault) {
-      throw new Error(
-        `"${name}": excludeFields cannot name "${fieldName}" — it is required without a default, so no row could ever be created.`,
-      );
+      throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsRequiredWithoutDefault, {
+        message: `"${name}": excludeFields cannot name "${fieldName}" — it is required without a default, so no row could ever be created.`,
+      });
     }
   }
 }
@@ -336,9 +346,9 @@ export function defineEntityWriteHandler(
 ): EntityWriteHandlerDef {
   const { entityName, verb } = parseHandlerName(name, WRITE_VERBS);
   if (verb === "restore" && !entity.softDelete) {
-    throw new Error(
-      `"${name}": restore is only valid for entities declared with softDelete: true.`,
-    );
+    throw bootRuleError(DEFINITION_HANDLER_RULES.restoreWithoutSoftDelete, {
+      message: `"${name}": restore is only valid for entities declared with softDelete: true.`,
+    });
   }
   const excludedFields = options.excludeFields ?? [];
   assertExcludableFields(name, verb, entity, excludedFields);
@@ -834,7 +844,9 @@ export function registerCrudHandlers(
 ): void {
   const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
   if (verbs.restore && entity.softDelete !== true) {
-    throw new Error(`restore requested but entity "${entityName}" has no softDelete: true`);
+    throw bootRuleError(DEFINITION_HANDLER_RULES.restoreWithoutSoftDelete, {
+      message: `restore requested but entity "${entityName}" has no softDelete: true`,
+    });
   }
 
   if (options?.registerEntity !== false) {
@@ -844,10 +856,11 @@ export function registerCrudHandlers(
   const readOpts = options?.read;
   const requireAccess = (verb: EntityCrudVerb, access: AccessRule | undefined): AccessRule => {
     if (!access) {
-      throw new Error(
-        `r.crud("${entityName}", …): no access rule resolved for verb "${verb}". ` +
+      throw bootRuleError(DEFINITION_HANDLER_RULES.crudAccessUnresolved, {
+        message:
+          `r.crud("${entityName}", …): no access rule resolved for verb "${verb}". ` +
           `Set write.access/read.access in r.crud's options, or verbAccess.${verb}.`,
-      );
+      });
     }
     return access;
   };

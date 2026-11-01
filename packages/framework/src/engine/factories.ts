@@ -34,6 +34,9 @@ import type {
 } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_FIELD_FACTORY_RULES } from "./boot-validator/definition-field-factories-rules.ts";
+import { PII_RULES } from "./boot-validator/pii-retention-rules.ts";
 import type { TextFieldDef } from "./types/index.ts";
 import { isUserEntityReference } from "./user-entity-reference.ts";
 
@@ -59,9 +62,9 @@ function resolvePersonalFlags(
   if (!personal) return {};
   if (personal.of === RECORD_OWNER_FIELD) {
     if (personal.whenAbsent !== undefined) {
-      throw new Error(
-        `personal: { of: "${RECORD_OWNER_FIELD}", whenAbsent } is meaningless: a row always has an id, so there is never an absent owner (fw#3654)`,
-      );
+      throw bootRuleError(DEFINITION_FIELD_FACTORY_RULES.personalRecordOwnerWhenAbsent, {
+        message: `personal: { of: "${RECORD_OWNER_FIELD}", whenAbsent } is meaningless: a row always has an id, so there is never an absent owner (fw#3654)`,
+      });
     }
     return { recordOwned: true };
   }
@@ -125,9 +128,9 @@ function textFieldStanceHint(factoryName: TextFieldStanceFactory): string {
 }
 
 function missingTextFieldStanceError(factoryName: TextFieldStanceFactory): Error {
-  return new Error(
-    `${factoryName}(...) must declare an explicit personal-data stance — a text field must state whose data it holds and (unless it isn't personal data) how findable it needs to stay (kumiko-framework#2921). Pass one of: ${textFieldStanceHint(factoryName)}. Run \`kumiko-guards guards --guard="Text-Field Personal-Stance Guard"\` to find remaining call sites.`,
-  );
+  return bootRuleError(PII_RULES.textWithoutPersonalStance, {
+    message: `${factoryName}(...) must declare an explicit personal-data stance — a text field must state whose data it holds and (unless it isn't personal data) how findable it needs to stay (kumiko-framework#2921). Pass one of: ${textFieldStanceHint(factoryName)}. Run \`kumiko-guards guards --guard="Text-Field Personal-Stance Guard"\` to find remaining call sites.`,
+  });
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -273,9 +276,9 @@ export function createReferenceField<R extends true | false = false>(
 ): ReferenceFieldDef & { required: R } {
   const targetsUser = isUserEntityReference(opts.entity);
   if (targetsUser && opts.personal === false) {
-    throw new Error(
-      `createReferenceField({ entity: "${opts.entity}" }): personal: false is not allowed for a reference to the user entity — a user id is personal data. Drop the annotation or use { personal: "ref" }.`,
-    );
+    throw bootRuleError(DEFINITION_FIELD_FACTORY_RULES.userReferenceNotPersonal, {
+      message: `createReferenceField({ entity: "${opts.entity}" }): personal: false is not allowed for a reference to the user entity — a user id is personal data. Drop the annotation or use { personal: "ref" }.`,
+    });
   }
   const withUserDefault =
     targetsUser && opts.personal === undefined ? { ...opts, personal: "ref" as const } : opts;
@@ -375,10 +378,11 @@ export function createDecimalField<R extends true | false = false>(
     scale < 0 ||
     scale > precision
   ) {
-    throw new Error(
-      `createDecimalField: precision/scale must be integers with precision ≥ 1 and ` +
+    throw bootRuleError(DEFINITION_FIELD_FACTORY_RULES.decimalPrecisionScaleInvalid, {
+      message:
+        `createDecimalField: precision/scale must be integers with precision ≥ 1 and ` +
         `0 ≤ scale ≤ precision, got precision=${precision}, scale=${scale}`,
-    );
+    });
   }
   return {
     type: "decimal",

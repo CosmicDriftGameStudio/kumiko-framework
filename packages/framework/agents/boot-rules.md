@@ -16,6 +16,7 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="api-duplicate-exposed-name"></a>`api/duplicate-exposed-name` | A cross-feature API name is exposed by exactly one feature. | Rename the API in one of the exposing features. | `packages/framework/src/engine/boot-validator/boot-environment-rules.ts` |
+| <a id="api-exposes-called-twice"></a>`api/exposes-called-twice` | An API name is exposed once per feature. | Remove the duplicate r.exposesApi() call or rename it. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="api-provider-not-mounted"></a>`api/provider-not-mounted` | The feature exposing a used API is part of the app's feature list. | Register the provider feature in the app's feature list. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="api-provider-not-required"></a>`api/provider-not-required` | A feature using an API lists the exposing feature in requires or optionalRequires. | Add the exposing feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="api-unknown-api"></a>`api/unknown-api` | Every r.usesApi name is exposed by some mounted feature. | Mount the feature that exposes the API or fix the API name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
@@ -46,6 +47,18 @@
 | <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping and totals, which depend on one list's fields. | Set grouping and totals in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-table-not-object"></a>`bundled-lists/table-not-object` | bundledLists.table is an object. | Write bundledLists.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-unknown-key"></a>`bundled-lists/unknown-key` | bundledLists uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+
+## claim
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="claim-key-duplicate"></a>`claim/key-duplicate` | Claim short names are unique per feature. | Rename one of the claims. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+
+## config
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="config-single-key-needs-definition"></a>`config/single-key-needs-definition` | The single-key config() form receives a definition as second argument. | Pass the key definition as the second argument. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 
 ## config-edit
 
@@ -93,6 +106,12 @@
 | <a id="config-key-required-with-default"></a>`config-key/required-with-default` | A required config key has no non-empty default, otherwise it can never be unset and readiness never flags it. | Use default "" or drop required. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 | <a id="config-key-secrets-scope-not-system"></a>`config-key/secrets-scope-not-system` | A config key with backing="secrets" has scope "system", because secrets storage does not cascade. | Set scope to "system" or drop backing="secrets". | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
 | <a id="config-key-unknown-config-read"></a>`config-key/unknown-config-read` | A feature reads only config keys that some feature defines. | Declare the key via r.config(...) in a feature, or fix the key name. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+
+## content-collection
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="content-collection-id-duplicate"></a>`content-collection/id-duplicate` | Content collection ids are unique per feature. | Rename one of the collections. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 
 ## dashboard
 
@@ -271,6 +290,29 @@
 | <a id="entity-list-unknown-column"></a>`entity-list/unknown-column` | Every column without a label names an entity field, derived field or row-meta column. | Fix the column field name or give the column a label. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-unknown-named-filter"></a>`entity-list/unknown-named-filter` | Every screen namedFilters id is declared in the entity's namedFilters. | Declare the rule in EntityDefinition.namedFilters or remove the id from the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 
+## env-schema
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="env-schema-declared-twice"></a>`env-schema/declared-twice` | A feature calls r.envSchema() at most once. | Compose all env keys into one Zod object. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+
+## event
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="event-migration-duplicate-step"></a>`event/migration-duplicate-step` | Each event migration step is declared once. | Remove the duplicate migration for that fromVersion. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="event-migration-from-version-invalid"></a>`event/migration-from-version-invalid` | Event migrations start at fromVersion 1 or higher. | Set fromVersion to 1 or higher. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="event-migration-rename-collision"></a>`event/migration-rename-collision` | A declarative migration maps at most one source to each rename target. | Rename only one source field to the target. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="event-migration-step-size"></a>`event/migration-step-size` | Event migrations move exactly one version up. | Declare each version step separately with toVersion = fromVersion + 1. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="event-pii-field-not-in-schema"></a>`event/pii-field-not-in-schema` | Event piiFields reference fields of the payload schema. | Name an existing payload field. | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-owner-is-id"></a>`event/pii-owner-is-id` | Event PII fields do not use "id" as owner field. | Use personal: "self" for record-owned event fields. | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-owner-not-string"></a>`event/pii-owner-not-string` | A PII owner field of an event payload is a string. | Use a string owner field or declare whenAbsent ("tenant", "self" or "plaintext"). | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-owner-nullable"></a>`event/pii-owner-nullable` | A nullable PII owner field of an event declares whenAbsent. | Declare whenAbsent as "tenant", "self" or "plaintext". | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-self-owner"></a>`event/pii-self-owner` | An event PII field is not its own owner field. | Point the owner at a separate user id field. | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-stance-empty"></a>`event/pii-stance-empty` | An empty piiFields object is not a stance. | Use piiFields: "none" for payloads without personal data. | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-pii-stance-missing"></a>`event/pii-stance-missing` | Events declare an explicit PII stance. | Pass piiFields with owned fields or piiFields: "none". | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+| <a id="event-version-invalid"></a>`event/version-invalid` | Event version is a positive integer. | Set version to an integer of 1 or higher. | `packages/framework/src/engine/boot-validator/definition-events-rules.ts` |
+
 ## extension
 
 | Rule | Summary | Fix | Source |
@@ -278,12 +320,36 @@
 | <a id="extension-presave-without-mapped-write"></a>`extension/presave-without-mapped-write` | An extension with preSave is used only on entities that have an entity-mapped write handler. | Use create/update/delete on a matching entity or name the handler "entity:verb". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="extension-provider-not-required"></a>`extension/provider-not-required` | A feature using an extension lists the defining feature in requires or optionalRequires. | Add the defining feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="extension-unknown-extension"></a>`extension/unknown-extension` | Every extension a feature uses is defined by some mounted feature. | Register the feature that defines the extension or fix the extension name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
+| <a id="extension-use-escape-hatch-invalid"></a>`extension/use-escape-hatch-invalid` | r.useExtension() escapeHatch carries a valid reason and grants. | Pass escapeHatch as { reason: "<explanation>" } with valid grants. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
+## extension-selector
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="extension-selector-duplicate"></a>`extension-selector/duplicate` | Each extension point has at most one selector. | Declare one extensionSelector per extension. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="extension-selector-panel-id-invalid"></a>`extension-selector/panel-id-invalid` | Extension selector panel ids are unique, non-empty and not the reserved selector id. | Give each panel its own id and avoid the reserved selector panel id. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="extension-selector-panel-kind-unsupported"></a>`extension-selector/panel-kind-unsupported` | Extension selector panels are of kind custom or screen. | Use a panel of kind "custom" or "screen". | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="extension-selector-screen-panel-label"></a>`extension-selector/screen-panel-label` | An extension selector screen panel sets no label. | Remove the label; the embedded screen carries its own title. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 
 ## feature
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="feature-circular-dependency"></a>`feature/circular-dependency` | Feature requires() links form no cycle. | Break the cycle by removing one requires() link. | `packages/framework/src/engine/boot-validator/config-key-rules.ts` |
+| <a id="feature-dedupe-options-not-comparable"></a>`feature/dedupe-options-not-comparable` | dedupeOptions values are primitives or stable function references. | Replace nested objects in dedupeOptions with primitives or a module-level function reference. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="feature-describe-text-empty"></a>`feature/describe-text-empty` | r.describe() receives a non-empty string. | Pass a non-empty description text. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="feature-describe-twice"></a>`feature/describe-twice` | A feature calls r.describe() at most once. | Remove the second r.describe() call. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="feature-requires-needs-features"></a>`feature/requires-needs-features` | r.requires() receives { features: string[] }. | Pass the feature names as r.requires({ features: ["other-feature"] }). | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="feature-toggleable-twice"></a>`feature/toggleable-twice` | A feature calls r.toggleable() at most once. | Remove the second r.toggleable() call. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="feature-ui-hints-twice"></a>`feature/ui-hints-twice` | A feature calls r.uiHints() at most once. | Merge all UI hints into a single r.uiHints() call. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+
+## field
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="field-decimal-precision-scale-invalid"></a>`field/decimal-precision-scale-invalid` | Decimal precision is at least 1 and scale lies between 0 and precision. | Use integers with 1 <= precision and 0 <= scale <= precision. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
+| <a id="field-personal-record-owner-when-absent"></a>`field/personal-record-owner-when-absent` | personal: { of: "id" } sets no whenAbsent. | Remove whenAbsent from the record-owned stance. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
+| <a id="field-user-reference-not-personal"></a>`field/user-reference-not-personal` | A reference to the user entity is personal data. | Drop personal: false or use { personal: "ref" }. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
 
 ## field-condition
 
@@ -401,11 +467,23 @@
 | <a id="handler-access-all-role"></a>`handler/access-all-role` | Handler access does not list the role "all". | Use roles: ["anonymous"] plus an ip rateLimit, or openToAll: { reason }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-access-missing"></a>`handler/access-missing` | Every write, query and stream handler declares an access rule. | Set access: { roles: [...] } or { openToAll: { reason } }. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-access-personal-data-unknown"></a>`handler/access-personal-data-unknown` | access.personalData is "public-intake" when set. | Use personalData: "public-intake" or remove it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-agent-risk-not-high"></a>`handler/agent-risk-not-high` | Handlers with irreversible or instruction-carrying effects declare agent.risk high. | Set agent.risk to "high". | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-anonymous-personal-data-undeclared"></a>`handler/anonymous-personal-data-undeclared` | A write handler that allows anonymous callers and accepts personal-data fields declares access.personalData "public-intake". | Declare access: { roles: [..., "anonymous"], personalData: "public-intake" }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-any-signed-in-invalid"></a>`handler/any-signed-in-invalid` | access.anySignedIn is true when set and appears only next to the anonymous role, on endpoints that are public anyway. | Add "anonymous" to access.roles, or use { openToAll: { reason } } for every signed-in user without anonymous callers. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-crud-access-unresolved"></a>`handler/crud-access-unresolved` | r.crud() resolves an access rule for every verb it registers. | Set write.access, read.access or verbAccess.<verb> in the r.crud options. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-escape-hatch-grants-invalid"></a>`handler/escape-hatch-grants-invalid` | An escapeHatch declares valid grants. | Correct the escapeHatch grants as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-escape-hatch-not-system-admin"></a>`handler/escape-hatch-not-system-admin` | A handler with escapeHatch is restricted to SystemAdmin. | Set access to { roles: [SystemAdmin] }. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-escape-hatch-reason-invalid"></a>`handler/escape-hatch-reason-invalid` | An escapeHatch carries a valid reason. | Write an escapeHatch reason that explains the bypass. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-exclude-fields-required-without-default"></a>`handler/exclude-fields-required-without-default` | excludeFields on create does not exclude required fields without a default. | Give the field a default or keep it writable. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-exclude-fields-totals-pair"></a>`handler/exclude-fields-totals-pair` | excludeFields leaves totalsMatch pairs together. | Keep both fields of the pair writable. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-exclude-fields-unknown-field"></a>`handler/exclude-fields-unknown-field` | excludeFields names fields of the entity. | Name an existing field or remove the entry. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-exclude-fields-verb-unsupported"></a>`handler/exclude-fields-verb-unsupported` | excludeFields is used on create and update handlers only. | Remove excludeFields from this handler. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-handler-and-perform-both"></a>`handler/handler-and-perform-both` | A write handler sets handler or perform, not both. | Keep either the free-form handler or the perform pipeline. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-inline-form-incomplete"></a>`handler/inline-form-incomplete` | The inline handler form provides schema, handler and options.access. | Pass schema, handler and options with access. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-input-schema-not-introspectable"></a>`handler/input-schema-not-introspectable` | A write handler's input schema is a Zod shape whose keys boot can collect. | Use an object schema the boot validator can walk, as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-name-duplicate"></a>`handler/name-duplicate` | A handler name is registered once per feature. | Use a distinct name or drop the verb from r.crud. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-name-missing-entity"></a>`handler/name-missing-entity` | Entity handler names start with the entity name. | Put the entity name before the colon. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-name-pattern-invalid"></a>`handler/name-pattern-invalid` | Entity handler names use the "<entity>:<verb>" pattern. | Name the handler like "note:create". | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-nested-skip-with-reserve-before-transaction"></a>`handler/nested-skip-with-reserve-before-transaction` | A write handler with beforeTransactionWhenNested does not declare reserveBeforeTransaction, because a nested run would run unreserved. | Remove reserveBeforeTransaction or beforeTransactionWhenNested. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-nested-skip-without-before-transaction"></a>`handler/nested-skip-without-before-transaction` | A write handler with beforeTransactionWhenNested also declares beforeTransaction. | Declare beforeTransaction or remove beforeTransactionWhenNested. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-open-to-all-personal-data-unbound"></a>`handler/open-to-all-personal-data-unbound` | An openToAll write handler accepts personal-data fields only when they are bound to the caller or explicitly declared tenant-members. | Bind rows to the caller, restrict access to roles, or declare openToAll: { reason, personalData: "tenant-members" }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
@@ -415,9 +493,11 @@
 | <a id="handler-personal-data-unsupported-for-kind"></a>`handler/personal-data-unsupported-for-kind` | A personalData declaration appears only on handler kinds whose input is checked for personal-data fields. | Remove the personalData declaration from this handler. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-public-intake-rate-limit-disabled"></a>`handler/public-intake-rate-limit-disabled` | A handler with access.personalData "public-intake" keeps its rateLimit enabled, because it is the only protection for anonymous personal-data writes. | Declare rateLimit: { per: "ip" or "ip+handler", ... } instead of disabling it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-public-intake-without-anonymous"></a>`handler/public-intake-without-anonymous` | A handler with access.personalData "public-intake" allows the anonymous role. | Add the anonymous role to access.roles or remove personalData. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
+| <a id="handler-restore-without-soft-delete"></a>`handler/restore-without-soft-delete` | Restore handlers exist only for entities with softDelete. | Declare softDelete: true on the entity or drop the restore verb. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-tenantless-anonymous-access"></a>`handler/tenantless-anonymous-access` | A tenantlessAnonymous handler allows exactly the anonymous role. | Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-rate-limit-per"></a>`handler/tenantless-anonymous-rate-limit-per` | A tenantlessAnonymous handler rate-limits per ip or ip+handler. | Use per "ip" or "ip+handler". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-without-rate-limit"></a>`handler/tenantless-anonymous-without-rate-limit` | A tenantlessAnonymous handler declares an active rateLimit. | Set rateLimit: { per: "ip", ... }; disabled does not count. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-verb-unknown"></a>`handler/verb-unknown` | Entity handler names end in a standard verb. | Use a standard verb or the explicit r.writeHandler / r.queryHandler form. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 
 ## handler-schema
 
@@ -427,6 +507,25 @@
 | <a id="handler-schema-unknown-references-by"></a>`handler-schema/unknown-references-by` | The by field of a references meta is a field of the referenced entity. | Use an existing field of that entity for by. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
 | <a id="handler-schema-unknown-references-entity"></a>`handler-schema/unknown-references-entity` | The entity a references meta names is registered. | Use "<entity>" for this feature or "<feature>:<entity>" for another one. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
 | <a id="handler-schema-zod-walk-limit"></a>`handler-schema/zod-walk-limit` | A handler schema has a finite node count when walked. | Hoist a z.lazy() getter that returns a new schema on every call into a constant. | `packages/framework/src/engine/boot-validator/handler-field-references-rules.ts` |
+
+## hook
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="hook-all-of-unsupported-type"></a>`hook/all-of-unsupported-type` | Hooks with target allOf are postSave, preDelete, postDelete or postQuery. | Use a supported hook type or a different target. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="hook-escape-hatch-invalid"></a>`hook/escape-hatch-invalid` | A hook escapeHatch carries a valid reason and grants. | Fix the escapeHatch reason or grants as the message describes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="hook-type-unknown"></a>`hook/type-unknown` | Hooks use a known hook type. | Use a valid hook type; preQuery hooks were removed. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="hook-validation-escape-hatch"></a>`hook/validation-escape-hatch` | Validation hooks declare no escapeHatch. | Remove escapeHatch from the validation hook. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
+## http-route
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="http-route-anonymous-missing"></a>`http-route/anonymous-missing` | HTTP routes declare anonymous as true or false. | Set anonymous: true for public routes or false for session-authenticated ones. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="http-route-duplicate"></a>`http-route/duplicate` | HTTP routes are unique per method and path within a feature. | Remove the duplicate route or change its method or path. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="http-route-path-not-absolute"></a>`http-route/path-not-absolute` | HTTP route paths start with a slash. | Prefix the route path with "/". | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="http-route-path-reserved"></a>`http-route/path-reserved` | HTTP route paths stay out of the reserved /api namespace. | Pick a path outside /api or use a query or write handler. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="http-route-rate-limit-invalid"></a>`http-route/rate-limit-invalid` | HTTP route rateLimit has a positive integer limit and windowSeconds. | Set limit and windowSeconds to positive integers. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 
 ## i18n
 
@@ -449,6 +548,15 @@
 | <a id="image-variant-quality-invalid"></a>`image-variant/quality-invalid` | An image variant quality is an integer in 1..100. | Fix quality. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="image-variant-size-and-max-edge"></a>`image-variant/size-and-max-edge` | An image variant sets size or maxEdge, not both. | Pick one. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="image-variant-size-invalid"></a>`image-variant/size-invalid` | An image variant size is a positive integer up to the edge limit. | Fix width and height. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+
+## job
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="job-cron-timezone-invalid"></a>`job/cron-timezone-invalid` | A cron trigger tz is an IANA time zone name. | Use a zone name such as "Europe/Berlin". | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="job-escape-hatch-invalid"></a>`job/escape-hatch-invalid` | A job escapeHatch carries a valid reason and grants. | Fix the escapeHatch reason or grants as the message describes. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="job-maintenance-trigger-invalid"></a>`job/maintenance-trigger-invalid` | A job maintenance trigger has the value true. | Use trigger { maintenance: true }. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="job-wakes-sleeping-app-invalid"></a>`job/wakes-sleeping-app-invalid` | wakesSleepingApp is false and only on cron or maintenance triggers. | Use wakesSleepingApp: false on a cron or maintenance trigger, or omit it. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 
 ## list
 
@@ -556,6 +664,12 @@
 | <a id="locked-when-read-restricted-field"></a>`locked-when/read-restricted-field` | The lockedWhen field has no read restriction. | Drop field access.read or use another field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="locked-when-unknown-field"></a>`locked-when/unknown-field` | The lockedWhen field is a field of the entity. | Name an existing field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
+## metric
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="metric-name-duplicate"></a>`metric/name-duplicate` | Metric names are unique per feature. | Rename one of the metrics. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+
 ## multi-select
 
 | Rule | Summary | Fix | Source |
@@ -584,6 +698,8 @@
 | --- | --- | --- | --- |
 | <a id="nav-create-action-screen-unregistered"></a>`nav/create-action-screen-unregistered` | A nav createAction screen is a registered screen qualified name. | Use "<feature>:screen:<id>" pointing at an r.screen() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 | <a id="nav-create-action-target-count"></a>`nav/create-action-target-count` | A nav createAction sets exactly one of "screen" and "target". | Set either "screen" or "target" on the action. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
+| <a id="nav-id-duplicate"></a>`nav/id-duplicate` | Nav ids are unique per feature. | Remove the standalone r.nav() call or the screen's inline nav. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="nav-id-not-kebab"></a>`nav/id-not-kebab` | Nav ids are kebab-case. | Rename the nav id to lowercase letters, digits and dashes, starting with a letter. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="nav-parent-cycle"></a>`nav/parent-cycle` | Nav entry parents form no cycle. | Change or remove the parent of one entry in the cycle. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 | <a id="nav-parent-unregistered"></a>`nav/parent-unregistered` | A nav entry's parent is a registered nav entry qualified name. | Use "<feature>:nav:<id>" pointing at a registered nav entry. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 | <a id="nav-screen-unregistered"></a>`nav/screen-unregistered` | A nav entry's screen is a registered screen qualified name. | Use "<feature>:screen:<id>" pointing at an r.screen() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
@@ -593,6 +709,11 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="ownership-from-claim-ref-invalid"></a>`ownership/from-claim-ref-invalid` | from() claim refs are "claim:<feature>:<shortName>". | Add the feature and short name to the ref. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
+| <a id="ownership-from-prefix-unsupported"></a>`ownership/from-prefix-unsupported` | from() refs start with "user" or "claim". | Use a supported prefix. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
+| <a id="ownership-from-ref-without-colon"></a>`ownership/from-ref-without-colon` | from() refs have the form "user:<field>" or "claim:<feature>:<key>". | Add the prefix and colon to the ref. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
+| <a id="ownership-from-user-column-missing"></a>`ownership/from-user-column-missing` | from() with a user ref names the column explicitly. | Pass a column, e.g. from("user:id", "assigneeId"). | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
+| <a id="ownership-from-user-ref-unsupported"></a>`ownership/from-user-ref-unsupported` | from() user refs are "user:id" or "user:tenantId". | Use one of the two supported user refs. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
 | <a id="ownership-unknown-claim"></a>`ownership/unknown-claim` | A from(...) ownership rule references only claims declared via r.claimKey. | Declare it via r.claimKey("...", { type: "..." }) in the owning feature. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-unknown-column"></a>`ownership/unknown-column` | A from(...) ownership rule references only columns that exist on the entity. | Use one of the entity's columns. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-unknown-role"></a>`ownership/unknown-role` | An access map names only roles that some feature defines. | Use a defined role name or declare the role. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
@@ -635,10 +756,30 @@
 | <a id="pii-write-only-non-text"></a>`pii/write-only-non-text` | writeOnly applies to text fields only. | Use a text field or remove writeOnly. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-write-only-without-sensitive"></a>`pii/write-only-without-sensitive` | A writeOnly field is also sensitive. | Declare the field with find: "secret". | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 
+## probe
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="probe-cost-invalid"></a>`probe/cost-invalid` | Probe cost is free or paid. | Set cost to a listed value. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-duplicate"></a>`probe/duplicate` | Probe names are unique per feature. | Rename one of the probes. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-i18n-key-empty"></a>`probe/i18n-key-empty` | Probe area and label are non-empty i18n keys. | Set area and label to i18n keys. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-name-empty"></a>`probe/name-empty` | A probe name is a non-empty string. | Give the probe a name. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-name-not-kebab"></a>`probe/name-not-kebab` | Probe names are kebab-case. | Rename the probe to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-run-not-function"></a>`probe/run-not-function` | Probe run is a function. | Pass a run function. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-scope-invalid"></a>`probe/scope-invalid` | Probe scope is tenant or system. | Set scope to a listed value. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-targets-not-function"></a>`probe/targets-not-function` | Probe targets is a function when set. | Pass a function or omit targets. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+| <a id="probe-timeout-invalid"></a>`probe/timeout-invalid` | Probe timeoutMs is greater than zero. | Set timeoutMs above zero or omit it. | `packages/framework/src/engine/boot-validator/definition-probes-rules.ts` |
+
 ## projection
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="projection-extend-without-apply"></a>`projection/extend-without-apply` | extendEntityProjection declares at least one apply handler. | Declare at least one event type to apply. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="projection-multi-stream-name-duplicate"></a>`projection/multi-stream-name-duplicate` | r.projection and r.multiStreamProjection share one name space per feature. | Pick a unique short name. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="projection-multi-stream-name-not-kebab"></a>`projection/multi-stream-name-not-kebab` | Multi-stream projection names are kebab-case. | Rename the projection to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="projection-multi-stream-without-apply"></a>`projection/multi-stream-without-apply` | A multi-stream projection declares at least one apply handler. | Declare at least one event type the projection reacts to. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="projection-name-duplicate"></a>`projection/name-duplicate` | Projection names are unique per feature. | Rename one of the projections. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="projection-name-not-kebab"></a>`projection/name-not-kebab` | Projection names are kebab-case. | Rename the projection to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="projection-per-instance-with-table"></a>`projection/per-instance-with-table` | A MultiStreamProjection with a table uses shared delivery. | Use delivery "shared", or drop the table for side-effect-only consumers. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 
 ## projection-detail
@@ -719,6 +860,13 @@
 | <a id="reference-unknown-feature"></a>`reference/unknown-feature` | A reference field targets a registered feature. | Fix the feature prefix of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 | <a id="reference-unknown-label-field"></a>`reference/unknown-label-field` | A reference labelField is a field of the referenced entity. | Name an existing field of the referenced entity. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 
+## registrar
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="registrar-argument-missing"></a>`registrar/argument-missing` | Every registrar method receives all its required arguments. | Pass the missing argument named in the message. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+| <a id="registrar-options-object-required"></a>`registrar/options-object-required` | Object-form registrar methods take one options object. | Pass a single options object such as r.entity({ name: ... }). | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+
 ## related-list
 
 | Rule | Summary | Fix | Source |
@@ -733,6 +881,16 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="retention-unknown-reference"></a>`retention/unknown-reference` | retention.reference names an existing field or a framework timestamp. | Point retention.reference at an existing field or a framework-managed timestamp. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
+
+## role
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="role-assignable-built-in"></a>`role/assignable-built-in` | Assignable roles are not built-in roles. | Pick a different role name. | `packages/framework/src/engine/boot-validator/definition-role-assignment-rules.ts` |
+| <a id="role-assignable-from-conflict"></a>`role/assignable-from-conflict` | A role is declared with one assignableFrom value. | Declare the same assignableFrom everywhere or declare it once. | `packages/framework/src/engine/boot-validator/definition-role-assignment-rules.ts` |
+| <a id="role-assignable-from-invalid"></a>`role/assignable-from-invalid` | assignableFrom is one of the allowed roles. | Use a role from the list in the message. | `packages/framework/src/engine/boot-validator/definition-role-assignment-rules.ts` |
+| <a id="role-assignable-name-empty"></a>`role/assignable-name-empty` | Assignable role names are non-empty. | Give the role a name. | `packages/framework/src/engine/boot-validator/definition-role-assignment-rules.ts` |
+| <a id="role-assignable-reserved"></a>`role/assignable-reserved` | Assignable roles are not reserved platform roles. | Pick a different role name. | `packages/framework/src/engine/boot-validator/definition-role-assignment-rules.ts` |
 
 ## screen
 
@@ -761,6 +919,8 @@
 | <a id="screen-fallback-without-visible-when"></a>`screen/fallback-without-visible-when` | A screen with a fallback also declares visibleWhen. | Add visibleWhen or remove fallback. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-filter-in-needs-array"></a>`screen/filter-in-needs-array` | A filter with op in has an array value. | Pass an array as filter.value. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="screen-header-action-row-click"></a>`screen/header-action-row-click` | Record header actions do not set rowClick, because a record screen has no row. | Remove rowClick. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
+| <a id="screen-id-duplicate"></a>`screen/id-duplicate` | Screen ids are unique per feature. | Rename one of the screens. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="screen-id-not-kebab"></a>`screen/id-not-kebab` | Screen ids are kebab-case. | Rename the screen id to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="screen-nav-target-unresolved"></a>`screen/nav-target-unresolved` | A redirect, cancelTarget, success link or fallback resolves to a registered screen. | Use the id of a screen in this feature or a fully-qualified <feature>:screen:<id>. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-navigate-entity-target-needs-entity-id"></a>`screen/navigate-entity-target-needs-entity-id` | An entity navigate-target on a non-entityList screen sets an explicit entityId. | Set entityId on the navigate action. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-navigate-entity-target-no-detail"></a>`screen/navigate-entity-target-no-detail` | An entity navigate-target has a screen declaring detailFor for that entity. | Add detailFor to a screen of the entity or navigate to a screen directly. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
@@ -794,6 +954,14 @@
 | <a id="screen-visible-when-empty"></a>`screen/visible-when-empty` | visibleWhen has a non-empty query and field. | Set both visibleWhen.query and visibleWhen.field. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-write-handler-unregistered"></a>`screen/write-handler-unregistered` | A handler reference resolves to a registered write handler. | Check the QN spelling ("<feature>:write:<short>") and that r.writeHandler(...) declares it. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 
+## secret
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="secret-key-duplicate"></a>`secret/key-duplicate` | Secret key names are unique per feature. | Rename one of the secrets. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="secret-namespace-duplicate"></a>`secret/namespace-duplicate` | Secret namespace names are unique per feature. | Rename one of the namespaces. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="secret-write-roles-empty"></a>`secret/write-roles-empty` | A secret or namespace writeRoles list is non-empty. | Add roles or omit writeRoles to use the secrets handler access. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+
 ## secret-mint
 
 | Rule | Summary | Fix | Source |
@@ -819,6 +987,16 @@
 | <a id="select-option-tone-invalid"></a>`select/option-tone-invalid` | Every select optionTones value is a known tone. | Use one of the listed tones. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
+## store-table
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="store-table-duplicate"></a>`store-table/duplicate` | Store table names are unique per feature. | Rename one of the store tables. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="store-table-meta-not-unmanaged"></a>`store-table/meta-not-unmanaged` | r.storeTable() receives table meta with source unmanaged. | Build the meta with defineUnmanagedTable() or source: "unmanaged". | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="store-table-name-invalid"></a>`store-table/name-invalid` | Store table names are valid lowercase identifiers. | Use lowercase letters, digits and underscores, starting with a letter. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="store-table-read-prefix-reserved"></a>`store-table/read-prefix-reserved` | Store table names do not use the read_ prefix. | Pick an unprefixed name or a distinct prefix such as store_. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="store-table-reason-missing"></a>`store-table/reason-missing` | r.storeTable() declares a non-empty options.reason. | Add a reason justifying the audit-trail bypass or declare the data via r.entity(). | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
 ## tenant-lifecycle
 
 | Rule | Summary | Fix | Source |
@@ -842,6 +1020,12 @@
 | <a id="transition-target-not-option"></a>`transition/target-not-option` | Every transition target is an option of the select field. | Use an existing option. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="transition-unknown-field"></a>`transition/unknown-field` | Transitions are declared for a field of the entity. | Fix the field name. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
+## tree-actions
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="tree-actions-declared-twice"></a>`tree-actions/declared-twice` | A feature calls r.treeActions() at most once. | Merge the tree actions into a single r.treeActions() call. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
 ## user-data-rights
 
 | Rule | Summary | Fix | Source |
@@ -850,9 +1034,32 @@
 | <a id="user-data-rights-export-without-delete"></a>`user-data-rights/export-without-delete` | An entity exported via EXT_USER_DATA also registers a delete hook. | Add a delete hook, or a documented no-op delete if erasure is handled elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-missing-hook"></a>`user-data-rights/missing-hook` | An entity with user-subject fields registers an EXT_USER_DATA hook. | Register r.useExtension(EXT_USER_DATA, ...) for the entity, or a documented no-op hook if it is covered elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 
+## webhook-event
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="webhook-event-description-empty"></a>`webhook-event/description-empty` | Webhook events carry a non-empty description sentence. | Add a description. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+| <a id="webhook-event-duplicate"></a>`webhook-event/duplicate` | Webhook event names are unique per feature. | Rename one of the events. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+| <a id="webhook-event-name-not-kebab"></a>`webhook-event/name-not-kebab` | Webhook event names are kebab-case. | Rename the event to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+| <a id="webhook-event-payload-not-zod-object"></a>`webhook-event/payload-not-zod-object` | Webhook event payloads are Zod object schemas. | Pass z.object({ ... }) as payload. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+| <a id="webhook-event-version-invalid"></a>`webhook-event/version-invalid` | Webhook event version is a positive integer. | Set version to an integer of 1 or higher. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+| <a id="webhook-event-wire-name-empty"></a>`webhook-event/wire-name-empty` | Webhook event wireName is a non-empty string when set. | Set a wireName or omit it. | `packages/framework/src/engine/boot-validator/definition-webhook-events-rules.ts` |
+
+## websocket-route
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="websocket-route-duplicate"></a>`websocket-route/duplicate` | WebSocket route paths are unique per feature. | Remove the duplicate route or change its path. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="websocket-route-max-connections-invalid"></a>`websocket-route/max-connections-invalid` | WebSocket maxConnectionsPerUser is an integer within the allowed range. | Set maxConnectionsPerUser to an integer within the range in the message. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="websocket-route-max-message-bytes-invalid"></a>`websocket-route/max-message-bytes-invalid` | WebSocket maxMessageBytes is an integer within the allowed range. | Set maxMessageBytes to an integer within the range in the message. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="websocket-route-path-prefix"></a>`websocket-route/path-prefix` | WebSocket route paths live under the WebSocket namespace prefix. | Start the path with the prefix named in the message. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="websocket-route-path-wildcard"></a>`websocket-route/path-wildcard` | WebSocket route paths contain no wildcard. | Remove the * from the path. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+
 ## workspace
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="workspace-id-duplicate"></a>`workspace/id-duplicate` | Workspace ids are unique per feature. | Rename one of the workspaces. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
+| <a id="workspace-id-not-kebab"></a>`workspace/id-not-kebab` | Workspace ids are kebab-case. | Rename the workspace id to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="workspace-multiple-defaults"></a>`workspace/multiple-defaults` | At most one workspace per app declares default: true. | Remove default: true from all but one workspace. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
 | <a id="workspace-nav-unregistered"></a>`workspace/nav-unregistered` | A workspace references only registered nav entries. | Use "<feature>:nav:<id>" pointing at an r.nav() declaration. | `packages/framework/src/engine/boot-validator/nav-rules.ts` |
