@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { usePrimitives } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { COMPACT_HEADER_CLASS } from "../primitives/data-table/sortable-header.tsx";
 import { DetailList } from "./detail-list.tsx";
 import { SectionCard } from "./section-card.tsx";
 
@@ -72,6 +73,7 @@ export function ResultTable<Row>({
   className,
   card,
   footer,
+  compactHeader,
 }: {
   readonly columns: readonly ResultColumn<Row>[];
   readonly rows: readonly Row[];
@@ -86,6 +88,8 @@ export function ResultTable<Row>({
    *  column-alignment to the last (typically "Amount") column instead of
    *  approximating it with an independent layout. */
   readonly footer?: readonly ResultTableFooterRow[];
+  /** Renders the header row in 12px semibold, like the DataTable option of the same name. Default off. */
+  readonly compactHeader?: boolean;
 }): ReactNode {
   const table = (
     <div className="overflow-x-auto">
@@ -98,6 +102,7 @@ export function ResultTable<Row>({
                 className={cn(
                   "py-1.5 font-medium",
                   card === true && "px-3",
+                  compactHeader === true && COMPACT_HEADER_CLASS,
                   col.align === "right" && "text-right",
                 )}
               >

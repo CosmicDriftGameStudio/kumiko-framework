@@ -103,7 +103,8 @@ With `layout.mode: "tabs"`, a header action takes `showOnTabs: ["<tab id>"]` and
 | section `summaryField` | A completed step shows the value of this field of the section as its subtitle in the step rail. Without it the step shows its `subtitle` (a `description` is never used as a row line). |
 | `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `subtitle` (no fallback to `description`). |
 | `wizard.aside.finishDescription` | On the last step the card shows the finish action with this text. |
-| `wizard.saveAndCloseOnCreate` | Shows "Save and close" in create mode too. Default off. |
+| `wizard.saveAndCloseOnCreate` | Shows "Save and close" in create mode too, and on the last step next to the submit. Default off. |
+| extension section `subtitle`, `description`, `summaryField` | Same rail texts as on a fields section. On an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name any field of the screen's `fields`, which is how a wizard made only of extension steps reads its values. A `summaryField` that no fields section lists shows the raw form value without formatting, so point it at text or number fields only (a reference would show its id). |
 | `wizard.submitDisabledWhen` | A field condition over the form values; while it holds, every submit button is disabled and a submit is blocked. UI-only: a client can still send the write, so enforce the rule in a validation hook. |
 
 The intro text beside the rail follows the current step's `description` and falls back to `formSubtitle`; the same description above the fields is shown only below `lg`, where the rail is hidden (without a rail it stays in the section header). After a create, extension sections are saved with the id of the new entity. The boot validator rejects the options above outside wizard mode, a `summaryField` that the section does not declare, and a `submitDisabledWhen` field that no section declares.
@@ -199,6 +200,8 @@ r.screen({
 | `totals` | A footer row with `[{ field, kind }]` measures (`sum`, `avg`, `count`, `min`, `max`) over all rows that match the filters and search. |
 
 `hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
+
+`ResultTable` takes the same `compactHeader` prop (12px semibold header, default off).
 
 `pinning`, `resizing`, `keyboardNavigation` and `compactHeader` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
 

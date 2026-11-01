@@ -322,6 +322,9 @@ type EditExtensionSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   kind: "extension";
   title: string;
+  description?: string; // Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`.
+  subtitle?: string; // Wizard layouts only: short line under this step's title in the step rail and the "up next" box.
+  summaryField?: string; // Wizard layouts only: field whose formatted value shows under the step label once the step is done.
   component: PlatformComponent;
   contributesToFormSubmit?: boolean; // When true, the extension registers via `useExtensionFormSubmit` and the surrounding form's Save button should activate for its dirty state.
   entityName?: string; // Overrides the host-derived entity name passed to the mounted component.

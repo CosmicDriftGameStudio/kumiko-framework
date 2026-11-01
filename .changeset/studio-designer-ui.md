@@ -59,7 +59,7 @@ detail: `Banner` takes an optional leading `icon` (a nav icon key such as `"aler
 feature: framework
 type: improvement
 title: List table option compactHeader
-detail: `table: { compactHeader: true }` on an entityList, projectionList or relatedList renders the header row in 12px semibold. Wired through the boot validator, `useListTable` and `DataTable` (`compactHeader` prop). Default unchanged.
+detail: `table: { compactHeader: true }` on an entityList, projectionList or relatedList renders the header row in 12px semibold. `ResultTable` takes `compactHeader` too. Wired through the boot validator, `useListTable` and `DataTable` (`compactHeader` prop). Default unchanged.
 -->
 
 <!-- kumiko-changes
@@ -87,7 +87,7 @@ detail: `SectionNavLayout` wraps custom or extension sections in a column with t
 feature: framework
 type: improvement
 title: Wizard step rail texts and up-next card
-detail: Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `subtitle` only.
+detail: Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `subtitle` only. Extension sections accept `subtitle`, `description` and `summaryField` too; on an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name a field of its `fields` (such a summary shows the raw value unformatted, meant for text and number fields), and `wizard.saveAndCloseOnCreate` also shows "Save and close" on the last step next to the submit.
 -->
 
 <!-- kumiko-changes

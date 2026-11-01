@@ -234,9 +234,9 @@ describe("wizard footer", () => {
   });
 });
 
-describe("wizard step rail: extension steps", () => {
-  const Noop = (_: { entityName: string; entityId: string | null }) => <div />;
+const Noop = (_: { entityName: string; entityId: string | null }) => <div />;
 
+describe("wizard step rail: extension steps", () => {
   function renderWithExtensionFirst(summaryField: string) {
     return render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

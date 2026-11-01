@@ -5,7 +5,7 @@ import { cn } from "../../lib/cn.ts";
 import { TableHead } from "../../ui/table.tsx";
 import { FIT_CONTENT_CELL_CLASS } from "../data-table-cell.tsx";
 
-const COMPACT_HEADER_CLASS = "text-xs font-semibold";
+export const COMPACT_HEADER_CLASS = "text-xs font-semibold";
 
 // SortableHeader: renders the th header per column, with or without
 // click-sort. Three paths:

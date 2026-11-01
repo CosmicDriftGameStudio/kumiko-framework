@@ -28,8 +28,9 @@ the user left off.
   the rail (opt-in, `description` is never used there); `summaryField`
   replaces it with the entered value once the step is done. `wizard.aside`
   adds the "up next" card, and `finishDescription` the finish card on the
-  last step.
-- **Footer options** — `wizard.saveAndCloseOnCreate` offers "Save and close"
+  last step. Extension steps take the same three texts; on an `actionForm`
+  `summaryField` and `submitDisabledWhen` may name a field of its `fields`.
+- **Footer options** — `wizard.saveAndCloseOnCreate` offers "Save and close" (also on the last step)
   while creating; `wizard.submitDisabledWhen` disables Finish while a field
   condition holds. It is UI-only: enforce the rule in a validation hook too.
 

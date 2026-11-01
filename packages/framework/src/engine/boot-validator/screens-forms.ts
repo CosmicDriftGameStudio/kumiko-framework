@@ -263,6 +263,33 @@ export function validateTabSections(
   });
 }
 
+// An actionForm's own `fields` count too: extension steps (a wizard with no fields section) keep their values there.
+function wizardFieldNames(
+  layout: EditLayout,
+  inlineFieldNames: ReadonlySet<string> | undefined,
+): ReadonlySet<string> {
+  const names = new Set<string>(inlineFieldNames);
+  for (const section of layout.sections) {
+    if (!isFieldsEditSection(section)) continue;
+    for (const spec of sectionFieldSpecs(section)) names.add(normalizeEditField(spec).field);
+  }
+  return names;
+}
+
+function usesWizardOption(layout: EditLayout): boolean {
+  const wizard = layout.wizard;
+  return (
+    wizard?.saveAndCloseOnCreate !== undefined ||
+    wizard?.submitDisabledWhen !== undefined ||
+    wizard?.aside?.finishDescription !== undefined ||
+    layout.sections.some(
+      (section) =>
+        (isFieldsEditSection(section) || section.kind === "extension") &&
+        section.summaryField !== undefined,
+    )
+  );
+}
+
 function validateWizardOptions(
   featureName: string,
   screenId: string,
@@ -272,18 +299,8 @@ function validateWizardOptions(
 ): void {
   const where = `[Feature ${featureName}] Screen "${screenId}" (${screenType})`;
   const wizard = layout.wizard;
-  const summarySections = layout.sections.filter(
-    (section) =>
-      (isFieldsEditSection(section) || section.kind === "extension") &&
-      section.summaryField !== undefined,
-  );
-  const usesWizardOption =
-    wizard?.saveAndCloseOnCreate !== undefined ||
-    wizard?.submitDisabledWhen !== undefined ||
-    wizard?.aside?.finishDescription !== undefined ||
-    summarySections.length > 0;
   if (layout.mode !== "wizard") {
-    if (usesWizardOption) {
+    if (usesWizardOption(layout)) {
       throw bootRuleError(FORM_LAYOUT_RULES.wizardOptionWithoutWizard, {
         message: `${where} sets a wizard-only layout option but mode is not "wizard". Remove it or set mode: "wizard".`,
       });
@@ -291,28 +308,21 @@ function validateWizardOptions(
     // skip: the remaining checks only apply to wizards
     return;
   }
-  // An actionForm's own `fields` count too: extension steps (a wizard with no fields section) keep their values there.
-  const allFieldNames = new Set<string>(inlineFieldNames);
-  const layoutFieldNames = new Set(
-    layout.sections.flatMap((section) =>
-      isFieldsEditSection(section)
-        ? sectionFieldSpecs(section).map((spec) => normalizeEditField(spec).field)
-        : [],
-    ),
-  );
+  const allFieldNames = wizardFieldNames(layout, inlineFieldNames);
   for (const section of layout.sections) {
-    if (section.kind === "extension" && section.summaryField !== undefined) {
-      if (!allFieldNames.has(section.summaryField) && !layoutFieldNames.has(section.summaryField)) {
-        throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
-          message: `${where} extension section "${section.title}" sets summaryField "${section.summaryField}", which is not a field of the screen. Use a field name declared in the screen's fields or a fields section.`,
-        });
-      }
+    if (
+      section.kind === "extension" &&
+      section.summaryField !== undefined &&
+      !allFieldNames.has(section.summaryField)
+    ) {
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
+        message: `${where} extension section "${section.title}" sets summaryField "${section.summaryField}", which is not a field of the screen. Use a field name declared in the screen's fields or a fields section.`,
+      });
     }
     if (!isFieldsEditSection(section)) continue;
     const sectionFieldNames = sectionFieldSpecs(section).map(
       (spec) => normalizeEditField(spec).field,
     );
-    for (const name of sectionFieldNames) allFieldNames.add(name);
     if (section.summaryField !== undefined && !sectionFieldNames.includes(section.summaryField)) {
       throw bootRuleError(FORM_LAYOUT_RULES.wizardSummaryFieldUnknown, {
         message: `${where} section "${section.title ?? ""}" sets summaryField "${section.summaryField}", which is not a field of that section. Use a field name declared in the section.`,
