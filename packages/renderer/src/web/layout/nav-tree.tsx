@@ -204,17 +204,24 @@ export function NavTree({
                 aria-label={t("kumiko.nav.search")}
               />
             </div>
-            {tree.map((node) =>
-              isPureSection(node) ? (
+            {groupTopLevelRuns(tree).map((run) =>
+              run.kind === "section" ? (
                 <NavSection
-                  key={node.qualifiedName}
-                  node={node}
+                  key={run.node.qualifiedName}
+                  node={run.node}
                   collapsed={collapsed}
                   onToggle={onToggle}
                 />
               ) : (
-                <SidebarMenu key={node.qualifiedName}>
-                  <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
+                <SidebarMenu key={run.nodes[0].qualifiedName} className="empty:hidden">
+                  {run.nodes.map((node) => (
+                    <NavMenuNode
+                      key={node.qualifiedName}
+                      node={node}
+                      collapsed={collapsed}
+                      onToggle={onToggle}
+                    />
+                  ))}
                 </SidebarMenu>
               ),
             )}
@@ -255,6 +262,29 @@ function isPureSection(node: NavNode): boolean {
     node.createAction === undefined &&
     node.children.length > 0
   );
+}
+
+type TopLevelRun =
+  | { readonly kind: "section"; readonly node: NavNode }
+  | { readonly kind: "entries"; readonly nodes: readonly [NavNode, ...NavNode[]] };
+
+// Consecutive non-section entries share one <ul>, so the root gap only
+// separates blocks and not every pair of top-level leaves.
+function groupTopLevelRuns(nodes: readonly NavNode[]): readonly TopLevelRun[] {
+  const runs: TopLevelRun[] = [];
+  let entries: [NavNode, ...NavNode[]] | undefined;
+  for (const node of nodes) {
+    if (isPureSection(node)) {
+      entries = undefined;
+      runs.push({ kind: "section", node });
+    } else if (entries === undefined) {
+      entries = [node];
+      runs.push({ kind: "entries", nodes: entries });
+    } else {
+      entries.push(node);
+    }
+  }
+  return runs;
 }
 
 type NavSubProps = {
