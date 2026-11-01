@@ -1,12 +1,11 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
+import { restoreFetch, routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
 import { waitlistEntryTable } from "../entity.ts";
 import { submitToWaitlist } from "../static-submit.ts";
 import { createWaitlistTestStack, mailsTo, resetWaitlistTestState } from "./waitlist-test-stack.ts";
 
-const realFetch = globalThis.fetch;
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -14,9 +13,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  globalThis.fetch = realFetch;
   await stack.cleanup();
 });
+
+afterEach(restoreFetch);
 
 beforeEach(async () => {
   await resetWaitlistTestState(stack);

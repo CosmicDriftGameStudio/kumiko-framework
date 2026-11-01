@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { jsonResponse, sentBody, stubFetch } from "../../shared/__tests__/fetch-test-utils.ts";
+import {
+  jsonResponse,
+  restoreFetch,
+  sentBody,
+  stubFetch,
+} from "../../shared/__tests__/fetch-test-utils.ts";
 import { keepAccount } from "../static-keep-account.ts";
 
-const realFetch = globalThis.fetch;
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
+afterEach(restoreFetch);
 
 describe("keepAccount", () => {
   test("posts the token to tenant-inactivity:write:keep-account", async () => {

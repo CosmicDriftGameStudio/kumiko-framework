@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { jsonResponse, sentBody, stubFetch } from "../../../shared/__tests__/fetch-test-utils.ts";
+import {
+  jsonResponse,
+  restoreFetch,
+  sentBody,
+  stubFetch,
+} from "../../../shared/__tests__/fetch-test-utils.ts";
 import {
   acceptInviteSignedIn,
   acceptInviteWithLogin,
@@ -11,10 +16,7 @@ import {
   verifyEmail,
 } from "../static-account.ts";
 
-const realFetch = globalThis.fetch;
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
+afterEach(restoreFetch);
 
 describe("fetchSignupRegistrationStatus", () => {
   test("reads enabled from the anonymous status query", async () => {

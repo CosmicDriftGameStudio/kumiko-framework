@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
+import { restoreFetch, routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
 import { keepAccount } from "../static-keep-account.ts";
 import {
   type InactivityTestStack,
@@ -14,7 +14,6 @@ const FIRST_WARNING_AT = START.toZonedDateTimeISO("UTC")
   .add({ months: 12 })
   .toInstant()
   .subtract({ hours: 30 * 24 });
-const realFetch = globalThis.fetch;
 
 let t: InactivityTestStack;
 
@@ -28,9 +27,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  globalThis.fetch = realFetch;
   await t.stack.cleanup();
 });
+
+afterEach(restoreFetch);
 
 beforeEach(async () => {
   await t.reset();

@@ -1,16 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   jsonResponse,
+  restoreFetch,
   sentBody,
   stubFetch,
   stubOfflineFetch,
 } from "../../shared/__tests__/fetch-test-utils.ts";
 import { submitToWaitlist } from "../static-submit.ts";
 
-const realFetch = globalThis.fetch;
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
+afterEach(restoreFetch);
 
 describe("submitToWaitlist", () => {
   test("posts waitlist:write:submit with the honeypot and locale, dropping blank optional fields", async () => {

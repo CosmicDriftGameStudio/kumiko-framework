@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -24,7 +25,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createSessionsFeature, userSessionTable } from "../../sessions/index.ts";
-import { routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
+import { restoreFetch, routeFetchToStack } from "../../shared/__tests__/fetch-test-utils.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature, TenantHandlers } from "../../tenant/index.ts";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
@@ -35,6 +36,7 @@ import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { signVerificationToken } from "../verification-token.ts";
 import { AuthHandlers, AuthQueries } from "../web/constants.ts";
 import {
   acceptInviteWithNewAccount,
@@ -42,13 +44,14 @@ import {
   fetchSignupRegistrationStatus,
   requestPasswordReset,
   resetPassword,
+  verifyEmail,
 } from "../web/static-account.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 registerMailTranslations("de", localeDeBundle);
 
 const emailTransport = createInMemoryTransport();
-const realFetch = globalThis.fetch;
+const VERIFY_SECRET = randomBytes(32).toString("base64");
 const NEW_PASSWORD = "static-account-pw-1234";
 const TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 
@@ -73,6 +76,12 @@ beforeAll(async () => {
           tokenTtlMinutes: 15,
           appUrl: "https://app.example.com/reset",
         },
+        emailVerification: {
+          hmacSecret: VERIFY_SECRET,
+          tokenTtlMinutes: 60,
+          mode: "strict",
+          appUrl: "https://app.example.com/verify",
+        },
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/activate" },
       }),
@@ -90,6 +99,10 @@ beforeAll(async () => {
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
+      },
+      emailVerification: {
+        requestHandler: AuthHandlers.requestEmailVerification,
+        confirmHandler: AuthHandlers.verifyEmail,
       },
       signup: {
         requestHandler: AuthHandlers.signupRequest,
@@ -117,9 +130,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  globalThis.fetch = realFetch;
   await stack.cleanup();
 });
+
+afterEach(restoreFetch);
 
 beforeEach(async () => {
   await resetTestTables(stack.db, [
@@ -176,6 +190,32 @@ describe("password reset", () => {
 
     expect(await resetPassword(token, NEW_PASSWORD)).toEqual({ kind: "success", data: undefined });
     expect((await resetPassword("not-a-valid-token-at-all", NEW_PASSWORD)).kind).toBe("failure");
+  });
+});
+
+describe("e-mail verification", () => {
+  test("the signed token verifies the address; a forged token fails", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: "verify@static.test",
+        passwordHash: await hashPassword("old-password-123"),
+        displayName: "Verify",
+      },
+      TestUsers.systemAdmin,
+    );
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: TENANT_ID,
+      roles: ["User"],
+    });
+    const { token } = signVerificationToken(created.id, 60, VERIFY_SECRET);
+
+    expect(await verifyEmail(token)).toEqual({ kind: "success", data: undefined });
+
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === created.id);
+    expect(row?.["emailVerified"]).toBe(true);
+    expect((await verifyEmail("forged-token-value-123")).kind).toBe("failure");
   });
 });
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   jsonResponse,
+  restoreFetch,
   sentBody,
   stubFetch,
   stubOfflineFetch,
@@ -14,10 +15,7 @@ import {
   readUrlToken,
 } from "../static-client.ts";
 
-const realFetch = globalThis.fetch;
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
+afterEach(restoreFetch);
 
 describe("postJson", () => {
   test("posts JSON same-origin, with the locale header and without a CSRF header when anonymous", async () => {

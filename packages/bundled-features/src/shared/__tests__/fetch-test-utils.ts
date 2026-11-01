@@ -1,5 +1,11 @@
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
+const originalFetch = globalThis.fetch;
+
+export function restoreFetch(): void {
+  globalThis.fetch = originalFetch;
+}
+
 export type SeenRequest = { readonly url: string; readonly init: RequestInit | undefined };
 
 export function stubFetch(respond: () => Response | Promise<Response>): SeenRequest[] {
