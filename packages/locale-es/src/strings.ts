@@ -1165,6 +1165,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "pat.list.col.status": "Estado",
   "pat.list.revoke": "Revocar",
   "pat.list.revoke.confirm": "¿Revocar este token? Todo lo que lo use dejará de funcionar.",
+  "personal-access-tokens:write:revoke:field:id": "Token",
+  "personal-access-tokens:write:revoke:title": "Revocar token",
   "personal-access-tokens:entity:__action-form__:field:currentPassword":
     "Contraseña (para confirmar)",
   "personal-access-tokens:entity:__action-form__:field:expiresInDays": "Caduca en (días)",

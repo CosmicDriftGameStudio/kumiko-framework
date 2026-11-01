@@ -18,6 +18,8 @@ const USAGE = "Usage: kumiko api-docs [--out <dir>] [--locales en,de] [--check]"
 const DEFAULT_OUT_DIR = "api-docs";
 const DEFAULT_EXAMPLES_DIR = "api-examples";
 const INDEX_FILE = "index.json";
+const WEBHOOK_EXAMPLES_SUBDIR = "webhooks";
+const WEBHOOK_EXAMPLES_PREFIX = `${WEBHOOK_EXAMPLES_SUBDIR}/`;
 
 const OPTIONS = {
   out: { type: "string" },
@@ -108,11 +110,12 @@ function readExamples<T>(
   ctx: CliCommandContext,
   dir: string,
   schema: z.ZodType<T>,
+  include: (fileName: string) => boolean = () => true,
 ): { fileName: string; file: T }[] | undefined {
   if (!existsSync(dir)) return [];
   const examples: { fileName: string; file: T }[] = [];
   for (const fileName of listFiles(dir)
-    .filter((name) => name.endsWith(".json"))
+    .filter((name) => name.endsWith(".json") && include(name))
     .sort()) {
     try {
       const result = schema.safeParse(readJson(join(dir, fileName)));
@@ -258,12 +261,20 @@ async function generate(
   if (typeof target === "number") return target;
   const { locales, baseUrl, outDir, onDisk, check } = target;
 
+  const examplesDir = resolve(ctx.cwd, apiDocs.examplesDir ?? DEFAULT_EXAMPLES_DIR);
   const examples = readExamples(
     ctx,
-    resolve(ctx.cwd, apiDocs.examplesDir ?? DEFAULT_EXAMPLES_DIR),
+    examplesDir,
     tools.ApiExampleFileSchema,
+    (fileName) => !fileName.startsWith(WEBHOOK_EXAMPLES_PREFIX),
   );
   if (examples === undefined) return 1;
+  const webhookExamples = readExamples(
+    ctx,
+    join(examplesDir, WEBHOOK_EXAMPLES_SUBDIR),
+    tools.WebhookExampleFileSchema,
+  );
+  if (webhookExamples === undefined) return 1;
 
   try {
     const generated = tools.generateApiDocs({
@@ -279,6 +290,7 @@ async function generate(
       },
       source: { framework: frameworkVersion(), app: appSource(ctx.cwd) },
       examples,
+      webhookExamples,
     });
     return report(ctx, tools, generated, { outDir, onDisk, check });
   } catch (error) {
@@ -304,6 +316,6 @@ async function run(ctx: CliCommandContext): Promise<number> {
 export const apiDocsCommand: CliCommand = {
   id: "api-docs",
   description: "Generate API documentation for personal access tokens",
-  help: `${USAGE}\n\nReads kumiko.config.ts in cwd and writes Markdown pages (overview, tokens,\none reference page per token scope), openapi.json and index.json to --out\n(default: apiDocs.outDir, else ${DEFAULT_OUT_DIR}). Recorded request/response examples are read\nfrom apiDocs.examplesDir (default ${DEFAULT_EXAMPLES_DIR}).\n\nOptions:\n  --out <dir>        Output directory inside the working directory\n  --locales en,de    Locales to generate (en, de, es, fr, it)\n  --check            Write nothing; report problems and differences to the disk, exit 1 on any\n`,
+  help: `${USAGE}\n\nReads kumiko.config.ts in cwd and writes Markdown pages (overview, tokens,\none reference page per token scope), openapi.json and index.json to --out\n(default: apiDocs.outDir, else ${DEFAULT_OUT_DIR}). Recorded request/response examples are read\nfrom apiDocs.examplesDir (default ${DEFAULT_EXAMPLES_DIR}), recorded webhook payloads from its webhooks/ subdirectory.\n\nOptions:\n  --out <dir>        Output directory inside the working directory\n  --locales en,de    Locales to generate (en, de, es, fr, it)\n  --check            Write nothing; report problems and differences to the disk, exit 1 on any\n`,
   run,
 };

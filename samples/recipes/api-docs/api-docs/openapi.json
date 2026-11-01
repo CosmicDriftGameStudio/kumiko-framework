@@ -481,6 +481,48 @@
       }
     }
   },
+  "webhooks": {
+    "helpdesk:ticket-closed": {
+      "post": {
+        "summary": "helpdesk:ticket-closed",
+        "description": "A ticket was closed and its resolution recorded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/helpdesk.ticket-closed.event"
+              }
+            }
+          }
+        },
+        "x-kumiko-version": 1,
+        "x-kumiko-scope": [
+          "tickets:read"
+        ]
+      }
+    },
+    "ticket.created": {
+      "post": {
+        "summary": "ticket.created",
+        "description": "A record of type ticket was created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ticket.created.entity-event"
+              }
+            }
+          }
+        },
+        "x-kumiko-version": 1,
+        "x-kumiko-scope": [
+          "tickets:read"
+        ]
+      }
+    }
+  },
   "components": {
     "securitySchemes": {
       "bearerAuth": {
@@ -820,6 +862,63 @@
           "version",
           "changes"
         ]
+      },
+      "helpdesk.ticket-closed.event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "ID of the closed ticket"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "How the ticket was resolved"
+          }
+        },
+        "required": [
+          "id",
+          "resolution"
+        ],
+        "additionalProperties": false
+      },
+      "ticket.created.entity-event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "priority"
+        ],
+        "additionalProperties": false
       },
       "ErrorEnvelope": {
         "type": "object",

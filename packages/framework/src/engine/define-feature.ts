@@ -8,6 +8,7 @@ import { buildProbeMethods } from "./feature-probes.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
 import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
 import type { FeatureDefinition } from "./types/index.ts";
+import { buildWebhookEventMethods } from "./webhook-events.ts";
 
 // `TExports` lets the setup callback hand back a typed object that
 // downstream features can import (e.g. `tenantFeature.exports.config`). The
@@ -119,6 +120,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
     ...buildEntityHandlerMethods(state, name),
     ...buildConfigEventsJobsMethods(state, name),
+    ...buildWebhookEventMethods(state, name),
     ...buildUiExtensionsMethods(state, name),
     ...buildProbeMethods(state, name),
   };
@@ -175,6 +177,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     bootChecks: state.bootChecks,
     referenceData: state.referenceData,
     events: state.events,
+    ...(Object.keys(state.webhookEvents).length > 0 && { webhookEvents: state.webhookEvents }),
     eventMigrations: state.eventMigrations,
     configReads: state.configReads,
     handlerEntityMappings: state.handlerEntityMappings,

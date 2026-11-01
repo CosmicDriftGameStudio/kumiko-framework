@@ -31,7 +31,7 @@ export {
   PatQueries,
 } from "./web/constants.ts";
 export type { PatScopeConfig, PatScopeDef } from "./web/scopes.ts";
-export { expandScopes } from "./web/scopes.ts";
+export { expandScopeEvents, expandScopes } from "./web/scopes.ts";
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
@@ -41,7 +41,8 @@ function isPatScopeDef(value: unknown): value is PatScopeDef {
   if (!value || typeof value !== "object") return false;
   if (!("label" in value) || typeof value.label !== "string") return false;
   if (!("read" in value) || !isStringArray(value.read)) return false;
-  return !("write" in value) || value.write === undefined || isStringArray(value.write);
+  if ("write" in value && value.write !== undefined && !isStringArray(value.write)) return false;
+  return !("events" in value) || value.events === undefined || isStringArray(value.events);
 }
 
 function isPatScopeConfig(value: unknown): value is PatScopeConfig {

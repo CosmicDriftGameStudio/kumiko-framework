@@ -1139,6 +1139,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "pat.list.col.status": "Status",
   "pat.list.revoke": "Revoke",
   "pat.list.revoke.confirm": "Revoke this token? Anything using it will stop working.",
+  "personal-access-tokens:write:revoke:field:id": "Token",
+  "personal-access-tokens:write:revoke:title": "Revoke token",
   "personal-access-tokens:entity:__action-form__:field:currentPassword": "Password (to confirm)",
   "personal-access-tokens:entity:__action-form__:field:expiresInDays": "Expires in (days)",
   "personal-access-tokens:entity:__action-form__:field:mfaCode": "2FA code (if enabled)",

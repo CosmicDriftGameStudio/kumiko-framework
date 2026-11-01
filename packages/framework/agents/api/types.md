@@ -3460,6 +3460,12 @@ type UiHints = {
   recommended?: boolean;
   configurableOptions?: UiHintOption[];
 };
+type WebhookEventDef = { // What `r.defineWebhookEvent` stores; `qn` is `<feature>:<name>`.
+  qn: string;
+  description: string;
+  payload: z.ZodObject;
+  version: number;
+};
 ```
 
 ## packages/types/src/field-state-conditions.ts

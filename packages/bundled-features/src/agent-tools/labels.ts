@@ -140,6 +140,18 @@ export function localizedLabelsForSuffix(
   return localizedLabels(translations, owner ?? match.key);
 }
 
+/** Entity field label per locale; `field` may be a dotted path, only its last segment names the field. */
+export function entityFieldLabels(
+  translations: TranslationKeys,
+  entity: string,
+  field: string,
+): Readonly<Record<string, string>> {
+  return localizedLabelsForSuffix(
+    translations,
+    `:entity:${entity}:field:${field.slice(field.lastIndexOf(".") + 1)}`,
+  );
+}
+
 function lastSegmentOf(qualifiedId: string): string {
   return qualifiedId.slice(qualifiedId.lastIndexOf(":") + 1);
 }

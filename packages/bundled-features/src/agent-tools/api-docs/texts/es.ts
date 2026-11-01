@@ -90,6 +90,23 @@ export const esApiDocsTexts = {
     "reference.exampleRequest": "Petición de ejemplo",
     "reference.exampleResponse": "Respuesta de ejemplo",
     "reference.status": "Estado: {status}",
+    "events.title": "Eventos de webhook",
+    "events.description":
+      "Eventos de webhook: cuándo se envían, qué scope necesitan y qué contiene su carga.",
+    "events.intro":
+      "Un evento de webhook avisa a tu sistema de que algo ha cambiado. Cada evento tiene un nombre, una versión y una carga. El scope indicado en un evento es el scope de token que permite suscribirse a él.",
+    "events.delivery.heading": "Entrega",
+    "events.versions.heading": "Versiones",
+    "events.versions.body":
+      "Añadir un campo opcional mantiene la versión. Un cambio incompatible, como quitar o renombrar un campo o cambiar su tipo, recibe una versión nueva.",
+    "events.list.heading": "Eventos",
+    "events.version": "Versión",
+    "events.requiredScope": "Scope necesario",
+    "events.example": "Carga de ejemplo",
+    "events.noFields": "Este evento no contiene campos.",
+    "events.entity.created": "Se creó un registro de tipo {entity}.",
+    "events.entity.updated": "Se actualizó un registro de tipo {entity}.",
+    "events.entity.deleted": "Se eliminó un registro de tipo {entity}.",
   },
   errorMeanings: {
     validation_error:

@@ -56,6 +56,21 @@ export function handlerDescriptionKey(handlerQn: string): string {
   return `${handlerQn}:description`;
 }
 
+// `feature:name` becomes `feature:webhook:name`, so the keys never collide with handler keys.
+function webhookEventKeyBase(webhookEventQn: string): string {
+  const separator = webhookEventQn.indexOf(":");
+  return `${webhookEventQn.slice(0, separator)}:webhook:${webhookEventQn.slice(separator + 1)}`;
+}
+
+export function webhookEventDescriptionKey(webhookEventQn: string): string {
+  return `${webhookEventKeyBase(webhookEventQn)}:description`;
+}
+
+/** `fieldPath` is the payload row name as the docs list it, nested fields dotted. */
+export function webhookEventFieldKey(webhookEventQn: string, fieldPath: string): string {
+  return `${webhookEventKeyBase(webhookEventQn)}:field:${fieldPath}`;
+}
+
 export function handlerFieldLabelKey(handlerQn: string, fieldName: string): string {
   return `${handlerQn}:field:${fieldName}`;
 }

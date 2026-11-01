@@ -153,6 +153,43 @@
       ]
     },
     {
+      "path": "de/events.md",
+      "locale": "de",
+      "kind": "events",
+      "order": 11,
+      "title": "Webhook-Ereignisse",
+      "description": "Webhook-Ereignisse: wann sie ausgelöst werden, welchen Scope sie brauchen und was ihre Nutzlast enthält.",
+      "anchors": [
+        {
+          "id": "delivery",
+          "heading": "Zustellung",
+          "level": 2
+        },
+        {
+          "id": "versions",
+          "heading": "Versionen",
+          "level": 2
+        },
+        {
+          "id": "events",
+          "heading": "Ereignisse",
+          "level": 2
+        },
+        {
+          "id": "helpdeskticket-closed",
+          "heading": "helpdesk:ticket-closed",
+          "level": 3,
+          "qn": "helpdesk:ticket-closed"
+        },
+        {
+          "id": "ticketcreated",
+          "heading": "ticket.created",
+          "level": 3,
+          "qn": "ticket.created"
+        }
+      ]
+    },
+    {
       "path": "en/overview.md",
       "locale": "en",
       "kind": "overview",
@@ -290,6 +327,43 @@
           "heading": "ticket: update",
           "level": 3,
           "qn": "helpdesk:write:ticket:update"
+        }
+      ]
+    },
+    {
+      "path": "en/events.md",
+      "locale": "en",
+      "kind": "events",
+      "order": 11,
+      "title": "Webhook events",
+      "description": "Webhook events: when they fire, which scope they need and what their payload contains.",
+      "anchors": [
+        {
+          "id": "delivery",
+          "heading": "Delivery",
+          "level": 2
+        },
+        {
+          "id": "versions",
+          "heading": "Versions",
+          "level": 2
+        },
+        {
+          "id": "events",
+          "heading": "Events",
+          "level": 2
+        },
+        {
+          "id": "helpdeskticket-closed",
+          "heading": "helpdesk:ticket-closed",
+          "level": 3,
+          "qn": "helpdesk:ticket-closed"
+        },
+        {
+          "id": "ticketcreated",
+          "heading": "ticket.created",
+          "level": 3,
+          "qn": "ticket.created"
         }
       ]
     }

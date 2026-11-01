@@ -219,6 +219,36 @@ export type UiHints = {
   readonly configurableOptions?: readonly UiHintOption[];
 };
 
+// --- Webhook events ---
+
+/** Lifecycle verbs of an entity that can be released as webhook events. */
+export type WebhookEntityVerb = "created" | "updated" | "deleted";
+
+/** What `r.defineWebhookEvent` stores; `qn` is `<feature>:<name>`. */
+export type WebhookEventDef = {
+  readonly qn: string;
+  readonly description: string;
+  readonly payload: z.ZodObject;
+  readonly version: number;
+};
+
+export type WebhookEventHandle = {
+  readonly name: string;
+  readonly payload: z.ZodObject;
+  readonly version: number;
+};
+
+/** Public payload contract of a webhook event: declared by a feature or derived from an entity. */
+export type WebhookEventContract = {
+  readonly qn: string;
+  readonly description: string;
+  readonly payload: z.ZodObject;
+  readonly version: number;
+  readonly origin: "declared" | "entity";
+  readonly entity?: string;
+  readonly verb?: WebhookEntityVerb;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 // Ctx passed to r.bootCheck(fn) — the full mounted-feature set, so a check
@@ -332,6 +362,8 @@ export type FeatureDefinition = {
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
+  /** Public webhook contracts from r.defineWebhookEvent, keyed by QN. Absent when the feature declares none. */
+  readonly webhookEvents?: Readonly<Record<string, WebhookEventDef>>;
   // Event schema migrations declared via defineEvent's `migrations` option. Keyed by event
   // short-name; each entry carries the step transforms (fromVersion →
   // toVersion). The registry stitches these with the defineEvent-declared
@@ -545,6 +577,10 @@ export type Registry = {
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getEvent(qualifiedName: string): EventDef | undefined;
+  // Declared contract or one derived from an entity lifecycle event (`entity.verb`).
+  getWebhookEventContract(qualifiedName: string): WebhookEventContract | undefined;
+  // Declared contracts only, sorted by QN.
+  getWebhookEventContracts(): readonly WebhookEventContract[];
 
   // Upcaster chain per qualified event name. Entries describe the current
   // schema version and the step-wise transforms that upgrade older stored

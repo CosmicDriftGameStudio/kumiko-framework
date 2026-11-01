@@ -11,6 +11,12 @@ export const overviewSectionIds = {
   retry: "retries",
 } as const;
 
+export const eventsSectionIds = {
+  delivery: "delivery",
+  versions: "versions",
+  list: "events",
+} as const;
+
 export const tokensSectionIds = {
   create: "create-token",
   use: "use-token",

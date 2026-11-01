@@ -1168,6 +1168,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "pat.list.col.status": "Stato",
   "pat.list.revoke": "Revoca",
   "pat.list.revoke.confirm": "Revocare questo token? Tutto ciò che lo usa smetterà di funzionare.",
+  "personal-access-tokens:write:revoke:field:id": "Token",
+  "personal-access-tokens:write:revoke:title": "Revoca token",
   "personal-access-tokens:entity:__action-form__:field:currentPassword":
     "Password (per confermare)",
   "personal-access-tokens:entity:__action-form__:field:expiresInDays": "Scade tra (giorni)",

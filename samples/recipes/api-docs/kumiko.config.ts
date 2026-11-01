@@ -19,6 +19,10 @@ export default defineAppConfig({
       en: "API tokens are included in every Helpdesk plan.",
       de: "API-Tokens sind in jedem Helpdesk-Tarif enthalten.",
     },
+    webhookDelivery: {
+      en: "Deliveries are signed so that you can verify the sender. A delivery that fails is retried a few times before it is dropped. Answer within a few seconds and treat repeated deliveries of the same event as one.",
+      de: "Zustellungen sind signiert, damit du den Absender prüfen kannst. Eine fehlgeschlagene Zustellung wird einige Male wiederholt, bevor sie verworfen wird. Antworte innerhalb weniger Sekunden und behandle wiederholte Zustellungen desselben Ereignisses als eine.",
+    },
     uiOnlyWrites: [
       {
         pattern: "helpdesk:write:ticket:purge",

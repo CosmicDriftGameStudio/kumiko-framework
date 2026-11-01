@@ -16,9 +16,10 @@ import {
   patScopesFromFeature,
 } from "../../personal-access-tokens/index.ts";
 import { handlerInputJsonSchema } from "../handler-schema.ts";
-import { compareIds, localizedLabels, localizedLabelsForSuffix, pickLabel } from "../labels.ts";
+import { compareIds, entityFieldLabels, localizedLabels, pickLabel } from "../labels.ts";
 import type { RegistryManifestView } from "../types.ts";
-import type { ApiExampleFile } from "./examples.ts";
+import { collectApiDocsEvents } from "./collect-events.ts";
+import type { ApiExampleFile, WebhookExampleFile } from "./examples.ts";
 import { patCreateLabel, patMenuPath } from "./menu-path.ts";
 import type {
   ApiDocsGrantLevel,
@@ -74,10 +75,7 @@ function buildHandler(
       const labels =
         Object.keys(own).length > 0 || entity === undefined
           ? own
-          : localizedLabelsForSuffix(
-              translations,
-              `:entity:${entity}:field:${field.slice(field.lastIndexOf(".") + 1)}`,
-            );
+          : entityFieldLabels(translations, entity, field);
       return [field, perLocale(locales, (locale) => pickLabel(labels, locale))];
     }),
   );
@@ -123,6 +121,7 @@ export function collectApiDocsModel(
   options: {
     readonly locales: readonly string[];
     readonly examples: ReadonlyMap<string, ApiExampleFile>;
+    readonly webhookExamples: ReadonlyMap<string, WebhookExampleFile>;
   },
 ): { readonly model: ApiDocsModel; readonly patFeature: FeatureDefinition } | undefined {
   const patFeature = findPatFeature(registry);
@@ -157,6 +156,10 @@ export function collectApiDocsModel(
     patFeature,
     model: {
       scopes,
+      events: collectApiDocsEvents(registry, scopeConfig, {
+        locales: options.locales,
+        examples: options.webhookExamples,
+      }),
       handlers,
       menuPath: patMenuPath(registry, patFeature, options.locales),
       createLabel: patCreateLabel(registry, patFeature, options.locales),

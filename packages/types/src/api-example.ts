@@ -22,3 +22,12 @@ export const ApiExampleFileSchema = z.object({
 });
 
 export type ApiExampleFile = z.infer<typeof ApiExampleFileSchema>;
+
+// One recorded webhook delivery payload; `event` is the QN of its contract.
+export const WebhookExampleFileSchema = z.object({
+  event: z.string(),
+  version: z.number().int().positive(),
+  payload: z.record(z.string(), z.unknown()),
+});
+
+export type WebhookExampleFile = z.infer<typeof WebhookExampleFileSchema>;

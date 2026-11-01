@@ -1,4 +1,9 @@
-import { type ApiExampleFile, ApiExampleFileSchema } from "@cosmicdrift/kumiko-types/api-example";
+import {
+  type ApiExampleFile,
+  ApiExampleFileSchema,
+  type WebhookExampleFile,
+  WebhookExampleFileSchema,
+} from "@cosmicdrift/kumiko-types/api-example";
 
 export const EXAMPLE_TIMESTAMP = "2026-01-15T09:30:00.000Z";
 export const EXAMPLE_REQUEST_ID = "11111111-1111-4111-8111-111111111111";
@@ -21,9 +26,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Makes a recording stable across runs: the same input shape always yields the same file. */
-export function normalizeApiExample(example: ApiExampleFile): ApiExampleFile {
-  // Numbered by first occurrence, request before response; the same UUID keeps its number.
+/** One walker per recording: UUIDs are numbered by first occurrence across everything it walks. */
+function createExampleWalker(): (value: unknown) => unknown {
   const uuids = new Map<string, string>();
   const normalizeString = (text: string): string =>
     text
@@ -54,8 +58,19 @@ export function normalizeApiExample(example: ApiExampleFile): ApiExampleFile {
       }),
     );
   };
+  return walk;
+}
 
+/** Makes a recording stable across runs: the same input shape always yields the same file. */
+export function normalizeApiExample(example: ApiExampleFile): ApiExampleFile {
+  // Numbered by first occurrence, request before response; the same UUID keeps its number.
+  const walk = createExampleWalker();
   const request = walk(example.request);
   const response = walk(example.response);
   return ApiExampleFileSchema.parse({ request, response });
+}
+
+export function normalizeWebhookExample(example: WebhookExampleFile): WebhookExampleFile {
+  const walk = createExampleWalker();
+  return WebhookExampleFileSchema.parse({ ...example, payload: walk(example.payload) });
 }

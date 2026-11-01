@@ -10,6 +10,9 @@ export type PatScopeDef = {
   readonly read: readonly string[];
   // Omit for a read-only domain — the UI then offers only "no access" / "read".
   readonly write?: readonly string[];
+  // Exact webhook event QNs (no globs): a subscriber must know exactly what it gets. Every entry
+  // needs a public contract (r.defineWebhookEvent or an entity event); the boot check enforces it.
+  readonly events?: readonly string[];
 };
 
 export type PatScopeConfig = Readonly<Record<string, PatScopeDef>>;
@@ -22,6 +25,17 @@ export function parseGrant(grant: string): { domain: string; level: string } | n
   const idx = grant.lastIndexOf(":");
   if (idx <= 0) return null;
   return { domain: grant.slice(0, idx), level: grant.slice(idx + 1) };
+}
+
+// Union of the webhook events of every granted domain; read level already suffices to subscribe.
+export function expandScopeEvents(config: PatScopeConfig, granted: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const grant of granted) {
+    const parsed = parseGrant(grant);
+    if (!parsed) continue;
+    for (const qn of config[parsed.domain]?.events ?? []) out.add(qn);
+  }
+  return [...out];
 }
 
 // Expand granted "<domain>:<level>" entries into the union of QN globs: read

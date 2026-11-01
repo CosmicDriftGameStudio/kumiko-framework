@@ -13,6 +13,7 @@ import type {
   SecretKeyDefinition,
   SecretNamespaceDefinition,
   StoreTableDef,
+  WebhookEventContract,
 } from "@cosmicdrift/kumiko-types/feature";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
@@ -49,6 +50,10 @@ import type {
 } from "./registry-state.ts";
 import { filterByPhase, filterOwned } from "./registry-state.ts";
 import type { FeatureDefinition, Registry } from "./types/index.ts";
+import {
+  createWebhookContractResolver,
+  type WebhookContractResolver,
+} from "./webhook-contracts.ts";
 
 function isFeatureSystemScoped(state: RegistryState, featureName: string | undefined): boolean {
   if (!featureName) return false;
@@ -60,6 +65,11 @@ function isFeatureSystemScoped(state: RegistryState, featureName: string | undef
 // return-object literal, only the closure-captured variable changed
 // (state.X instead of bare X, done in the RegistryState-threading step).
 export function buildRegistryFacade(state: RegistryState): Registry {
+  let resolver: WebhookContractResolver | undefined;
+  const webhookContracts = (): WebhookContractResolver => {
+    resolver ??= createWebhookContractResolver([...state.featureMap.values()]);
+    return resolver;
+  };
   return {
     features: state.featureMap,
 
@@ -277,6 +287,14 @@ export function buildRegistryFacade(state: RegistryState): Registry {
 
     getEvent(qualifiedName: string): EventDef | undefined {
       return state.eventMap.get(qualifiedName);
+    },
+
+    getWebhookEventContract(qualifiedName: string): WebhookEventContract | undefined {
+      return webhookContracts().get(qualifiedName);
+    },
+
+    getWebhookEventContracts(): readonly WebhookEventContract[] {
+      return webhookContracts().declared();
     },
 
     getEventUpcasters() {

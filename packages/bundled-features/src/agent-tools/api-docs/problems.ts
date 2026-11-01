@@ -1,3 +1,4 @@
+import { webhookEventDescriptionKey } from "@cosmicdrift/kumiko-framework/engine";
 import type { AgentDocGap } from "../agent-doc-lint.ts";
 import { formatAgentDocGap } from "../agent-doc-lint.ts";
 
@@ -15,6 +16,12 @@ export type ApiDocsProblem =
       readonly screens: readonly string[];
     }
   | { readonly kind: "unusedUiOnlyWrite"; readonly pattern: string }
+  | { readonly kind: "webhookDeliveryTextMissing"; readonly locale: string }
+  | {
+      readonly kind: "webhookEventWithoutDescriptionTranslation";
+      readonly qn: string;
+      readonly locale: string;
+    }
   | {
       readonly kind: "invalidTextOverride";
       readonly locale: string;
@@ -34,6 +41,10 @@ export function formatApiDocsProblem(problem: ApiDocsProblem): string {
       return `[uiWriteOutsideScopes] ${problem.qn} is used by ${problem.screens.join(", ")} but no token scope grants it. Add it to a scope or list it under apiDocs.uiOnlyWrites.`;
     case "unusedUiOnlyWrite":
       return `[unusedUiOnlyWrite] apiDocs.uiOnlyWrites pattern "${problem.pattern}" matches no UI write outside the scopes.`;
+    case "webhookDeliveryTextMissing":
+      return `[webhookDeliveryTextMissing] Webhook events are public but apiDocs.webhookDelivery has no \`${problem.locale}\` text.`;
+    case "webhookEventWithoutDescriptionTranslation":
+      return `[webhookEventWithoutDescriptionTranslation] ${problem.qn} has no \`${problem.locale}\` description translation (key ${webhookEventDescriptionKey(problem.qn)}).`;
     case "invalidTextOverride":
       return `[invalidTextOverride] apiDocs.texts.${problem.locale}["${problem.key}"]: ${problem.cause}`;
   }

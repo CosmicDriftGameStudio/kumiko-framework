@@ -1,6 +1,6 @@
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
-import { PAT_FEATURE } from "./web/constants.ts";
+import { PAT_FEATURE, PatHandlers } from "./web/constants.ts";
 import type { PatScopeConfig } from "./web/scopes.ts";
 
 const mintFieldKey = (field: string): string =>
@@ -11,6 +11,9 @@ const scopeOptionKey = (grant: string): string =>
 // The generated scope labels are English only; apps translate them under this key.
 export const patScopeOptionKey = (domain: string, level: "read" | "write"): string =>
   scopeOptionKey(`${domain}:${level}`);
+
+// The revoke handler has no entity and no action form, so its title and field label only exist here.
+const patRevokeKey = (suffix: string): string => `${PatHandlers.revoke}:${suffix}`;
 
 type LocalizedString = { readonly en: string };
 
@@ -29,6 +32,8 @@ export const PAT_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = {
   "pat.list.status.expired": { en: "Expired" },
   "pat.list.revoke": { en: "Revoke" },
   "pat.list.revoke.confirm": { en: "Revoke this token? Anything using it will stop working." },
+  [patRevokeKey("title")]: { en: "Revoke token" },
+  [patRevokeKey("field:id")]: { en: "Token" },
 
   "pat.create.title": { en: "Create a new token" },
   "pat.create.submit": { en: "Create token" },

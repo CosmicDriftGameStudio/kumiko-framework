@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { expandScopes, type PatScopeConfig, parseGrant } from "../web/scopes.ts";
+import { expandScopeEvents, expandScopes, type PatScopeConfig, parseGrant } from "../web/scopes.ts";
 
 const CONFIG: PatScopeConfig = {
   credit: { label: "Kredite", read: ["credit:query:*"], write: ["credit:write:*"] },
@@ -12,6 +12,32 @@ describe("parseGrant", () => {
   });
   it("rejects a bare token", () => {
     expect(parseGrant("credit")).toBeNull();
+  });
+});
+
+describe("expandScopeEvents", () => {
+  const WITH_EVENTS: PatScopeConfig = {
+    credit: { label: "Kredite", read: [], write: [], events: ["credit.created", "credit:paid"] },
+    miete: { label: "Mieten", read: [], events: ["credit:paid", "rent.created"] },
+  };
+
+  it("read level already releases the domain events", () => {
+    expect(expandScopeEvents(WITH_EVENTS, ["credit:read"])).toEqual([
+      "credit.created",
+      "credit:paid",
+    ]);
+  });
+
+  it("unions several domains without duplicates", () => {
+    expect(expandScopeEvents(WITH_EVENTS, ["credit:write", "miete:read"])).toEqual([
+      "credit.created",
+      "credit:paid",
+      "rent.created",
+    ]);
+  });
+
+  it("ignores unknown domains and domains without events", () => {
+    expect(expandScopeEvents(CONFIG, ["credit:read", "gone:read"])).toEqual([]);
   });
 });
 

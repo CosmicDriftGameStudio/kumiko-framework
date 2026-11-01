@@ -2,7 +2,7 @@ import { compareIds } from "../labels.ts";
 import type { PageAnchor } from "./markdown.ts";
 import type { ApiDocsSource } from "./model.ts";
 
-export type ApiDocsPageKind = "overview" | "tokens" | "reference";
+export type ApiDocsPageKind = "overview" | "tokens" | "reference" | "events";
 
 export type ApiDocsPageEntry = {
   readonly path: string;

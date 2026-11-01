@@ -85,6 +85,10 @@ export default defineAppConfig({
       en: "API tokens are included in every Helpdesk plan.",
       de: "API-Tokens sind in jedem Helpdesk-Tarif enthalten.",
     },
+    webhookDelivery: {
+      en: "Deliveries are signed so that you can verify the sender. A delivery that fails is retried a few times before it is dropped. Answer within a few seconds and treat repeated deliveries of the same event as one.",
+      de: "Zustellungen sind signiert, damit du den Absender prüfen kannst. Eine fehlgeschlagene Zustellung wird einige Male wiederholt, bevor sie verworfen wird. Antworte innerhalb weniger Sekunden und behandle wiederholte Zustellungen desselben Ereignisses als eine.",
+    },
     uiOnlyWrites: [
       {
         pattern: "helpdesk:write:ticket:purge",
@@ -110,6 +114,8 @@ import {
   diffApiDocsOutput,
   generateApiDocs,
   type NamedApiExample,
+  type NamedWebhookExample,
+  WebhookExampleFileSchema,
 } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
@@ -133,6 +139,18 @@ function readExamples(): NamedApiExample[] {
       file: ApiExampleFileSchema.parse(
         JSON.parse(readFileSync(join(EXAMPLES_DIR, fileName), "utf8")),
       ),
+    }));
+}
+
+function readWebhookExamples(): NamedWebhookExample[] {
+  const dir = join(EXAMPLES_DIR, "webhooks");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort()
+    .map((fileName) => ({
+      fileName,
+      file: WebhookExampleFileSchema.parse(JSON.parse(readFileSync(join(dir, fileName), "utf8"))),
     }));
 }
 
@@ -166,6 +184,7 @@ describe("api-docs golden", () => {
     // Fixed so that a release does not turn the golden red.
     source: { framework: "0.0.0-recipe", app: { name: appName, version: "0.0.0" } },
     examples: readExamples(),
+    webhookExamples: readWebhookExamples(),
   });
 
   if (process.env[UPDATE_FLAG] === "1") {
@@ -226,9 +245,16 @@ import {
   UserHandlers,
   userEntity,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { entityEventName, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  formatWebhookPayloadIssues,
+  type SessionUser,
+  type TenantId,
+  toEntityWebhookPayload,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { recordApiExample } from "@cosmicdrift/kumiko-testing/api-examples";
+import { recordApiExample, recordWebhookExample } from "@cosmicdrift/kumiko-testing/api-examples";
 import {
   setupTestStack,
   type TestStack,
@@ -365,6 +391,76 @@ describe("helpdesk API with a personal access token", () => {
     expect(TicketRowSchema.parse(after)).toMatchObject({ status: "closed", priority: "normal" });
   });
 
+  test("webhook payloads built from the appended events satisfy their contracts and are recorded", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "helpdesk:write:ticket:create",
+      { title: "Scanner jams", priority: "low" },
+      actor,
+    );
+    await stack.http.writeOk(
+      "helpdesk:write:ticket:update",
+      { id: created.id, version: 1, changes: { priority: "high" } },
+      actor,
+    );
+    await stack.http.writeOk(
+      "helpdesk:write:ticket:close",
+      { id: created.id, resolution: "Replaced the roller" },
+      actor,
+    );
+    const stored = await selectMany<{ type: string; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: created.id },
+    );
+    const webhookPayloadOf = (verb: "created" | "updated") => {
+      const qn = entityEventName("ticket", verb);
+      const contract = stack.registry.getWebhookEventContract(qn);
+      const event = stored.find((candidate) => candidate.type === qn);
+      if (contract === undefined || event === undefined) {
+        throw new Error(`${qn} is neither a contract nor an appended event`);
+      }
+      const mapped = toEntityWebhookPayload(contract, {
+        aggregateId: created.id,
+        payload: event.payload,
+      });
+      if (!mapped.ok) throw new Error(formatWebhookPayloadIssues(mapped.issues));
+      return { contract, payload: mapped.payload };
+    };
+
+    const createdWebhook = webhookPayloadOf("created");
+    expect(Object.keys(createdWebhook.payload).sort()).toEqual(
+      Object.keys(createdWebhook.contract.payload.shape).sort(),
+    );
+    const recordedCreated = await recordWebhookExample({
+      name: "ticket-created",
+      dir: EXAMPLES_DIR,
+      contract: createdWebhook.contract,
+      payload: createdWebhook.payload,
+    });
+    expect(recordedCreated).toMatchObject({
+      id: created.id,
+      title: "Scanner jams",
+      priority: "low",
+    });
+
+    const updatedWebhook = webhookPayloadOf("updated");
+    expect(Object.keys(updatedWebhook.payload).sort()).toEqual(["changes", "id", "previous"]);
+    expect(updatedWebhook.payload["changes"]).toEqual({ priority: "high" });
+
+    const closedContract = stack.registry.getWebhookEventContract("helpdesk:ticket-closed");
+    const closedEvent = stored.find((event) => event.type.endsWith("ticket-closed"));
+    if (closedContract === undefined || closedEvent === undefined) {
+      throw new Error("helpdesk:ticket-closed has no contract or no appended event");
+    }
+    const recordedClosed = await recordWebhookExample({
+      name: "ticket-closed",
+      dir: EXAMPLES_DIR,
+      contract: closedContract,
+      payload: { id: created.id, resolution: closedEvent.payload["resolution"] },
+    });
+    expect(recordedClosed).toEqual({ id: created.id, resolution: "Replaced the roller" });
+  });
+
   test("a read-only token cannot create a ticket", async () => {
     const result = await denied(await mintToken(["tickets:read"]), "helpdesk:write:ticket:create", {
       title: "Nope",
@@ -434,6 +530,16 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
 
   const ticketClosed = r.defineEvent("ticket-closed", z.object({ resolution: z.string().min(1) }), {
     piiFields: "none",
+  });
+
+  r.defineWebhookEvent({
+    name: "ticket-closed",
+    description: "A ticket was closed and its resolution recorded.",
+    payload: z.object({
+      id: z.uuid().describe("ID of the closed ticket"),
+      resolution: z.string().describe("How the ticket was resolved"),
+    }),
+    version: 1,
   });
 
   r.writeHandler({
@@ -553,6 +659,20 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
         en: "Closed longer than (days)",
         de: "Länger geschlossen als (Tage)",
       },
+      "helpdesk:entity:ticket": { en: "ticket", de: "Ticket" },
+      "helpdesk:entity:ticket:field:id": { en: "Ticket ID", de: "Ticket-ID" },
+      "helpdesk:webhook:ticket-closed:description": {
+        en: "A ticket was closed and its resolution recorded.",
+        de: "Ein Ticket wurde geschlossen und seine Lösung festgehalten.",
+      },
+      "helpdesk:webhook:ticket-closed:field:id": {
+        en: "ID of the closed ticket",
+        de: "ID des geschlossenen Tickets",
+      },
+      "helpdesk:webhook:ticket-closed:field:resolution": {
+        en: "How the ticket was resolved",
+        de: "Wie das Ticket gelöst wurde",
+      },
       "helpdesk:entity:__action-form__:field:resolution": { en: "Resolution", de: "Lösung" },
     },
   });
@@ -565,6 +685,7 @@ export function patFeature() {
     scopes: {
       tickets: {
         label: "Tickets",
+        events: ["ticket.created", "helpdesk:ticket-closed"],
         read: ["helpdesk:query:ticket:*"],
         write: [
           "helpdesk:write:ticket:create",

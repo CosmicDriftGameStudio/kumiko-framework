@@ -60,6 +60,7 @@ function createTextField<R extends true | false = false>(overrides: Partial<Omit
 function createTimestampField<R extends true | false = false>(overrides?: Partial<Omit<TimestampFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): TimestampFieldDef & { required: R; }; // UTC instant for events occurring at a specific point in time (createdAt, loginAt, actualPickupAt).
 function createTzField<R extends true | false = false>(overrides?: Partial<Omit<TzFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): TzFieldDef & { required: R; }; // IANA time-zone name (for example, "Europe/Berlin").
 function createUserConfig<T extends ConfigKeyType>(type: T, opts?: ConfigKeyOptions<T>): ConfigKeyDefinition<T>;
+function createWebhookContractResolver(features: FeatureDefinition[]): WebhookContractResolver; // Works on the feature list so a boot check, which has no registry, resolves the same contracts.
 function declareEscapeHatch(declaration: EscapeHatchDeclaration): void;
 function dedupeFeatures(features: FeatureDefinition[]): FeatureDefinition[];
 function defineApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent<TPayload>, tx: ExecutorManagedRunner, table: ProjectionTable) => Promise<void>): SingleStreamApplyFn;
@@ -95,6 +96,7 @@ function findForbiddenMembershipRole(roles: string[]): string | undefined;
 function findForbiddenRoleAssignment(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles?: AssignableAppRoles): string | undefined;
 function findOverDeepTransferChain(adjacency: TransferAdjacency, onPath: string[]): string[] | undefined;
 function findTierResolverUsage(features: FeatureDefinition[]): RegistrarExtensionRegistration | undefined;
+function formatWebhookPayloadIssues(issues: WebhookPayloadIssue[]): string;
 function from(ref: OwnershipRef, column?: string): FromRule;
 function getStep(kind: StepKind): StepDef | undefined;
 function guardTransition<TStates extends string>(transitions: TransitionGraph<TStates>, from: TStates, to: TStates): void; // Asserts a state transition is allowed.
@@ -132,6 +134,7 @@ function parseQn(value: string): ParsedQn;
 function parseRefTarget(raw: string, currentFeature: string): ParsedRefTarget;
 function parseRefTargetEntityName(raw: string): string;
 function parseTenantId(value: unknown): TenantId | null;
+function parseWebhookPayload(contract: Pick<WebhookEventContract, "payload">, payload: unknown): WebhookPayloadResult; // Delivery sends the returned payload, never the input: zod strips keys the contract does not declare, so a field added to the source row cannot leak into a webhook by accident.
 function projectAppSchemaForRoles(schema: AppSchema, roles: string[]): AppSchema;
 function qn(scope: string, type: QnType, name: string): string;
 function readClaim<T extends ClaimKeyType>(user: SessionUser, handle: ClaimKeyHandle<T>): ClaimKeyJsType<T> | undefined;
@@ -150,6 +153,7 @@ function setFields(table: ProjectionTable, fields: Record<string, unknown> | ((e
 function stepsPipeline<TPayload = unknown, TData = unknown, TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>>(closure: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => StepInstance[]): PipelineDef<TPayload, TData, TAwaits>;
 function templateVariablesToZod(variables: TemplateVariables): z.ZodObject;
 function tenantChannel(tenantId: TenantId): string;
+function toEntityWebhookPayload(contract: Pick<WebhookEventContract, "payload" | "verb">, event: { aggregateId: string; payload: Readonly<Record<string, unknown>>; }): WebhookPayloadResult; // Maps a stored entity lifecycle event to the contract's payload: the aggregate id joins the event payload, and the contract parse drops every field it does not release, personal ones included, even when the event payload carries them.
 function toKebab(input: string): string;
 function typedPayload<TPayload>(event: { type: string; payload: Record<string, unknown>; }, eventDef: EventDef<TPayload>): TPayload;
 function unwrapWorkflowStepError(error: unknown): unknown;
@@ -158,6 +162,8 @@ function validateAppCustomScreenWriteQns(appRoot: string, knownQns: ReadonlySet<
 function validateBoot(rawFeatures: FeatureDefinition[], options?: ValidateBootOptions): void; // Validates all feature configurations at boot time.
 function validateBundledListsOptions(options: unknown): void;
 function walkStepInstances(steps: StepInstance[], where: string): Generator<StepInstance, void, void>;
+function webhookEventDescriptionKey(webhookEventQn: string): string;
+function webhookEventFieldKey(webhookEventQn: string, fieldPath: string): string; // `fieldPath` is the payload row name as the docs list it, nested fields dotted.
 function withFormDerivations<Schema extends z.ZodType>(schema: Schema, screen: FormDerivationScreen): z.ZodPreprocess<Schema, unknown>; // Server counterpart of an actionForm's `derive`: recomputes the derived head fields before the schema validates them, so client-sent totals never count.
 function withResponseData<T>(result: WriteResult<unknown>, data: T): WriteResult<T>; // Override the success-side `data` of a WriteResult while forwarding the failure half untouched.
 ```
@@ -708,6 +714,7 @@ type FeatureDefinition = {
   referenceData: ReferenceDataDef[];
   notifications: Readonly<Record<string, NotificationDefinition>>;
   events: Readonly<Record<string, EventDef>>;
+  webhookEvents?: Readonly<Record<string, WebhookEventDef>>; // Public webhook contracts from r.defineWebhookEvent, keyed by QN.
   eventMigrations: Readonly<Record<string, EventMigrationDef[]>>;
   configReads: string[];
   handlerEntityMappings: Readonly<Record<string, string>>;
@@ -765,6 +772,7 @@ type FeatureRegistrar<TFeature extends string = string> = { // `TFeature` is the
   notification(definition: { name: string; trigger?: { on: NameOrRef; }; recipient?: NotificationRecipientFn; data?: NotificationDataFn; templates?: Readonly<Record<string, NotificationTemplateFn>>; variables?: TemplateVariables; record?: NotificationRecordMapping; template?: Readonly<Record<string, NotificationTemplateBody>>; meta?: Readonly<Record<string, NotificationTemplateMeta>>; localizedTemplate?: () => NotificationLocalizedTemplate; renamedFrom?: string[]; systemOnly?: boolean; unsubscribe?: boolean; tenantTransport?: boolean; }): void;
   translations(def: TranslationsDef): void;
   defineEvent<const TInner extends string, TPayload>(name: TInner, schema: ZodType<TPayload>, options: { version?: number; piiFields: EventPiiStance; migrations?: { fromVersion: number; toVersion: number; transform: EventUpcastFn | DeclarativeEventMigration; }[]; }): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
+  defineWebhookEvent(definition: { name: string; description: string; payload: z.ZodObject; version: number; }): WebhookEventHandle;
   readsConfig(...qualifiedKeys: string[]): void;
   readsConfig(options: { keys: string[]; }): void;
   referenceData(entity: NameOrRef, data: Record<string, unknown>[], options?: { upsertKey?: string; }): void;
@@ -1460,6 +1468,8 @@ type Registry = {
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getEvent(qualifiedName: string): EventDef | undefined;
+  getWebhookEventContract(qualifiedName: string): WebhookEventContract | undefined;
+  getWebhookEventContracts(): WebhookEventContract[];
   getEventUpcasters(): ReadonlyMap<string, { currentVersion: number; chain: ReadonlyMap<number, EventUpcastFn>; }>;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): RegistrarExtensionRegistration[];
@@ -1774,6 +1784,39 @@ type ValidationError = {
   error: string;
 };
 type ValidationHookFn = (data: Readonly<Record<string, unknown>>) => ValidationError[] | null;
+type WebhookContractResolver = {
+  get(qualifiedName: string): WebhookEventContract | undefined; // Declared contract, or one derived from an entity lifecycle event (`entity.verb`).
+  declared(): WebhookEventContract[]; // Declared contracts only, sorted by QN.
+};
+type WebhookEntityVerb = "created" | "updated" | "deleted"; // Lifecycle verbs of an entity that can be released as webhook events.
+type WebhookEventContract = { // Public payload contract of a webhook event: declared by a feature or derived from an entity.
+  qn: string;
+  description: string;
+  payload: z.ZodObject;
+  version: number;
+  origin: "declared" | "entity";
+  entity?: string;
+  verb?: WebhookEntityVerb;
+};
+type WebhookEventHandle = {
+  name: string;
+  payload: z.ZodObject;
+  version: number;
+};
+type WebhookPayloadIssue = {
+  path: string;
+  message: string;
+};
+type WebhookPayloadResult =
+  | {
+    ok: true;
+    payload: Record<string, unknown>;
+  }
+  | {
+    ok: false;
+    issues: WebhookPayloadIssue[];
+  }
+;
 type WorkflowDefinition<TPayload = unknown, TData = unknown, TAwaits extends Record<string, string> = Record<string, string>> = { // Workflow definition — the result of defineWorkflow().
   __kind: "workflow";
   name: string;

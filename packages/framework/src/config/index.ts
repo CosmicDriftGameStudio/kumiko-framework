@@ -46,6 +46,8 @@ export type AppApiDocsConfig = {
   readonly appName?: string;
   /** One paragraph per locale, appended to the tokens page (plan or tier limits). */
   readonly planNote?: Readonly<Record<string, string>>;
+  /** One text per locale for the delivery section of the events page: signature, timeouts, retries. Required for every requested locale once an event is public. */
+  readonly webhookDelivery?: Readonly<Record<string, string>>;
   /** Writes triggered by screens that are deliberately not reachable with an API token. `pattern` is a QN or a glob ending in `*`. */
   readonly uiOnlyWrites?: readonly { readonly pattern: string; readonly reason: string }[];
   /** Paragraph overrides per locale and text key; the page structure stays fixed. */
@@ -131,6 +133,10 @@ export function findApiDocsConfigProblems(apiDocs: AppApiDocsConfig): readonly s
     if (new Set(locales).size !== locales.length) {
       problems.push("apiDocs.locales must not contain duplicates");
     }
+  }
+  for (const [locale, text] of Object.entries(apiDocs.webhookDelivery ?? {})) {
+    if (text.trim() === "")
+      problems.push(`apiDocs.webhookDelivery: "${locale}" text must not be empty`);
   }
   for (const entry of uiOnlyWrites ?? []) {
     if (entry.pattern.trim() === "")

@@ -90,6 +90,23 @@ export const enApiDocsTexts = {
     "reference.exampleRequest": "Example request",
     "reference.exampleResponse": "Example response",
     "reference.status": "Status: {status}",
+    "events.title": "Webhook events",
+    "events.description":
+      "Webhook events: when they fire, which scope they need and what their payload contains.",
+    "events.intro":
+      "A webhook event tells your system that something changed. Every event has a name, a version and a payload. The scope listed for an event is the token scope that allows subscribing to it.",
+    "events.delivery.heading": "Delivery",
+    "events.versions.heading": "Versions",
+    "events.versions.body":
+      "Adding an optional field keeps the version. A breaking change, such as removing or renaming a field or changing its type, gets a new version.",
+    "events.list.heading": "Events",
+    "events.version": "Version",
+    "events.requiredScope": "Required scope",
+    "events.example": "Example payload",
+    "events.noFields": "This event carries no fields.",
+    "events.entity.created": "A record of type {entity} was created.",
+    "events.entity.updated": "A record of type {entity} was updated.",
+    "events.entity.deleted": "A record of type {entity} was deleted.",
   },
   errorMeanings: {
     validation_error:

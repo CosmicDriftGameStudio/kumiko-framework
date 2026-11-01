@@ -14,7 +14,7 @@ Returns one ticket.
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string (uuid) | yes |  |
+| `id` | string (uuid) | yes | Ticket ID |
 
 **Example request**
 
@@ -236,7 +236,7 @@ Changes the title or the priority of a ticket.
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string (uuid) | yes |  |
+| `id` | string (uuid) | yes | Ticket ID |
 | `version` | number | yes |  |
 | `changes` | object | yes |  |
 | `changes.title` | string | no | Title |

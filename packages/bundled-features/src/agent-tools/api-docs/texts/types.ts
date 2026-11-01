@@ -39,6 +39,13 @@ export const structureTextKeys = [
   "reference.exampleRequest",
   "reference.exampleResponse",
   "reference.status",
+  "events.title",
+  "events.delivery.heading",
+  "events.versions.heading",
+  "events.list.heading",
+  "events.version",
+  "events.requiredScope",
+  "events.example",
 ] as const;
 
 // Running text: an app may replace single paragraphs through `apiDocs.texts`.
@@ -80,6 +87,13 @@ export const paragraphTextKeys = [
   "reference.description",
   "reference.noFields",
   "reference.excluded",
+  "events.description",
+  "events.intro",
+  "events.versions.body",
+  "events.noFields",
+  "events.entity.created",
+  "events.entity.updated",
+  "events.entity.deleted",
 ] as const;
 
 export type StructureTextKey = (typeof structureTextKeys)[number];
