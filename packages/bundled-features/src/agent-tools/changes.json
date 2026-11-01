@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "kumiko api-docs generates HTTP API docs from the registry and the PAT scopes",
+    "detail": "`kumiko api-docs [--out <dir>] [--locales en,de] [--check]` reads `kumiko.config.ts` and writes `<out>/openapi.json` (OpenAPI 3.1 with only the handlers some PAT scope reaches, one request wrapper per handler with a `type` discriminator), `<out>/<locale>/overview.md` (endpoints, body, envelopes, error codes with HTTP status, versions, lists, batches, safe retries), `<out>/<locale>/tokens.md` (create path from the app's nav labels, scope table, expiry, rate limit, errors, revoke, security, optional plan note) and `<out>/<locale>/reference/<scope>.md` (per handler: title, description, required grant, field table, curl example, recorded response), plus `<out>/index.json` with order, source versions and language independent anchor ids per heading. Output is plain GFM with only `title` and `description` in the frontmatter, so Astro and Starlight render it as is, and it is byte identical for the same input. New `AppConfig.apiDocs` options: `appName`, `baseUrl` (required), `locales`, `planNote`, `uiOnlyWrites` (pattern plus reason), `texts` (paragraph overrides per locale) and `examplesDir`. `--check` writes nothing and exits 1 when a handler in a scope has no description or no description translation (new gap kind `handlerWithoutDescriptionTranslation`, key `handlerDescriptionKey(qn)`), when a write that a screen triggers lies in no scope and is not listed in `uiOnlyWrites`, when a `uiOnlyWrites` entry matches nothing, or when the committed output differs. Known gap: the screen write check only looks at features with at least one handler in a scope. New exports: `frameworkErrorHttpStatus`, `FrameworkErrorCode`, `patAuthRejectHttpStatus`, `PAT_RATE_LIMITED_CODE`, `qnMatches`, `patAllows`, `handlerDescriptionKey`, `patScopesFromFeature`, `PAT_MAX_EXPIRES_IN_DAYS`, and `ApiExampleFileSchema` from `@cosmicdrift/kumiko-types/api-example`."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "api-docs token guide covers client code, logs and leaks",
+    "detail": "The security list in `tokens.md` now says never to keep a token in an app or web page or in a log, and to revoke a token at once if it may have leaked, in all five locales. Regenerate with `kumiko api-docs`; `--check` reports the changed `tokens.md` until then."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "api-docs names events by wireName and skips system-only handlers",
+    "detail": "`events.md` headings and anchors, the OpenAPI `webhooks` keys and their `summary` use the wire name; the contract QN stays as `x-kumiko-qn` in OpenAPI and as the anchor `qn` in `index.json`. Write and query handlers whose `access.roles` are only `[\"system\"]` are no longer documented, even when a scope pattern such as `app:write:monitor:*` matches them, and the `uiWriteOutsideScopes` check ignores them."
+  },
+  {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "kumiko api-docs documents webhook events",
+    "detail": "When a scope lists events, the output gains `<locale>/events.md` (delivery text from `apiDocs.webhookDelivery`, versioning rules, one section per event with fields and a recorded example), an OpenAPI 3.1 `webhooks` section keyed by event name and an `events` page in `index.json`. New problems `webhookDeliveryTextMissing` and `webhookEventWithoutDescriptionTranslation`. Field descriptions come from `.describe()` on declared payloads and from the entity field translations on derived ones. `ApiDocsInput.webhookExamples` is optional; `kumiko api-docs` reads `<examplesDir>/webhooks/*.json`."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Agent write handlers can be marked as proposal changes",

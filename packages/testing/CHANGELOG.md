@@ -1,5 +1,65 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.412.0
+
+### Minor Changes
+
+- 5d9b870: New `kumiko api-docs` command writes developer docs for the HTTP API from the registry and the PAT scopes: `openapi.json` plus `overview.md`, `tokens.md` and one reference page per scope in en, de, es, fr and it. `--check` fails on gaps and on drift.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: kumiko api-docs generates HTTP API docs from the registry and the PAT scopes
+  detail: `kumiko api-docs [--out <dir>] [--locales en,de] [--check]` reads `kumiko.config.ts` and writes `<out>/openapi.json` (OpenAPI 3.1 with only the handlers some PAT scope reaches, one request wrapper per handler with a `type` discriminator), `<out>/<locale>/overview.md` (endpoints, body, envelopes, error codes with HTTP status, versions, lists, batches, safe retries), `<out>/<locale>/tokens.md` (create path from the app's nav labels, scope table, expiry, rate limit, errors, revoke, security, optional plan note) and `<out>/<locale>/reference/<scope>.md` (per handler: title, description, required grant, field table, curl example, recorded response), plus `<out>/index.json` with order, source versions and language independent anchor ids per heading. Output is plain GFM with only `title` and `description` in the frontmatter, so Astro and Starlight render it as is, and it is byte identical for the same input. New `AppConfig.apiDocs` options: `appName`, `baseUrl` (required), `locales`, `planNote`, `uiOnlyWrites` (pattern plus reason), `texts` (paragraph overrides per locale) and `examplesDir`. `--check` writes nothing and exits 1 when a handler in a scope has no description or no description translation (new gap kind `handlerWithoutDescriptionTranslation`, key `handlerDescriptionKey(qn)`), when a write that a screen triggers lies in no scope and is not listed in `uiOnlyWrites`, when a `uiOnlyWrites` entry matches nothing, or when the committed output differs. Known gap: the screen write check only looks at features with at least one handler in a scope. New exports: `frameworkErrorHttpStatus`, `FrameworkErrorCode`, `patAuthRejectHttpStatus`, `PAT_RATE_LIMITED_CODE`, `qnMatches`, `patAllows`, `handlerDescriptionKey`, `patScopesFromFeature`, `PAT_MAX_EXPIRES_IN_DAYS`, and `ApiExampleFileSchema` from `@cosmicdrift/kumiko-types/api-example`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: recordApiExample records real API responses for the generated docs
+  detail: `recordApiExample(http, { name, dir, endpoint, body, token })` from `@cosmicdrift/kumiko-testing/api-examples` sends the request with the token as Bearer and returns status and body. With `KUMIKO_RECORD_API_EXAMPLES=1` it also writes `<dir>/<name>.json` with ids, timestamps, tokens, request ids and cursors replaced by stable placeholders and values under password, secret and mfaCode keys redacted. `kumiko api-docs` uses a recording for the example request and the example response of the matching handler. The recipe `samples/recipes/api-docs` shows the whole flow.
+  -->
+- f6a8fa7: Webhook events get public contracts. `r.defineWebhookEvent` declares one, entity events get a derived contract without personal fields, `PatScopeDef.events` releases them per token scope, and `kumiko api-docs` writes `events.md` and an OpenAPI `webhooks` section.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.defineWebhookEvent declares a public webhook event contract
+  detail: `r.defineWebhookEvent({ name, description, payload, version })` registers a contract under `<feature>:<name>`, separate from `r.defineEvent`, so an internal event is never released by accident. `registry.getWebhookEventContract(qn)` also returns the contract derived for an entity event (`ticket.created`, `ticket.updated`, `ticket.deleted`): every payload carries the entity `id`, created adds the releasable fields, updated adds `changes` and `previous`, deleted adds `previous`; `toEntityWebhookPayload(contract, event)` maps a stored entity event (aggregate id plus payload) to that shape and drops everything the contract does not release; personal fields, the CRUD `excludedFields`, money and located timestamp fields and encrypted, write-only or sensitive text fields are left out. `registry.getWebhookEventContracts()` lists the declared ones sorted by name. `parseWebhookPayload(contract, payload)` validates a payload and strips unknown keys. New exports: `WebhookEventContract`, `WebhookEventHandle`, `parseWebhookPayload`, `toEntityWebhookPayload`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: token scopes list the webhook events they release
+  detail: `PatScopeDef.events` takes exact event names (no globs). Holding the scope at read or write level is enough to subscribe, `expandScopeEvents(config, granted)` returns the union. Boot fails when a scope lists an event without a public contract, for example an internal `r.defineEvent`. Revoking a token now has a title and a field label in every bundle locale.
+  -->
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: kumiko api-docs documents webhook events
+  detail: When a scope lists events, the output gains `<locale>/events.md` (delivery text from `apiDocs.webhookDelivery`, versioning rules, one section per event with fields and a recorded example), an OpenAPI 3.1 `webhooks` section keyed by event name and an `events` page in `index.json`. New problems `webhookDeliveryTextMissing` and `webhookEventWithoutDescriptionTranslation`. Field descriptions come from `.describe()` on declared payloads and from the entity field translations on derived ones. `ApiDocsInput.webhookExamples` is optional; `kumiko api-docs` reads `<examplesDir>/webhooks/*.json`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: recordWebhookExample records validated webhook payloads for the generated docs
+  detail: `recordWebhookExample({ name, dir, contract, payload })` from `@cosmicdrift/kumiko-testing/api-examples` validates the payload with `parseWebhookPayload` and throws with the issues when it breaks the contract. With `KUMIKO_RECORD_API_EXAMPLES=1` it writes `<dir>/webhooks/<name>.json` with ids, timestamps and secrets normalized. It always returns the parsed payload. `WebhookExampleFileSchema` is exported from `@cosmicdrift/kumiko-types/api-example`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [5d9b870]
+- Updated dependencies [93aba34]
+- Updated dependencies [348275a]
+- Updated dependencies [84dd88f]
+- Updated dependencies [f6a8fa7]
+  - @cosmicdrift/kumiko-types@0.412.0
+  - @cosmicdrift/kumiko-framework@0.412.0
+  - @cosmicdrift/kumiko-guards@0.412.0
+
 ## 0.411.0
 
 ### Minor Changes

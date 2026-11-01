@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.412.0",
+    "type": "improvement",
+    "title": "token scopes list the webhook events they release",
+    "detail": "`PatScopeDef.events` takes exact event names (no globs). Holding the scope at read or write level is enough to subscribe, `expandScopeEvents(config, granted)` returns the union. Boot fails when a scope lists an event without a public contract, for example an internal `r.defineEvent`. Revoking a token now has a title and a field label in every bundle locale."
+  },
+  {
     "version": "0.385.0",
     "type": "improvement",
     "title": "patScopeOptionKey for translating token scope labels",
