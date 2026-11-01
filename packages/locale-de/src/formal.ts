@@ -283,6 +283,11 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Die Antwort kommt per Mail an die Adresse Ihres Kontos, meist am selben Werktag.",
   "contact:report.section": "Ihre Meldung",
   "contact:report.success": "Danke, Ihre Meldung ist angekommen. Die Antwort kommt per Mail.",
+  "waitlist.public.error":
+    "Das hat nicht geklappt. Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut.",
+  "waitlist.public.intro": "Hinterlassen Sie Ihre Daten, wir melden uns, sobald Platz ist.",
+  "waitlist.public.successBody": "Danke. Wir schreiben Ihnen, sobald Platz ist.",
+  "waitlist.public.successTitle": "Sie sind auf der Liste",
 };
 
 export function germanBundleFor(address: GermanAddress): Readonly<Record<string, string>> {

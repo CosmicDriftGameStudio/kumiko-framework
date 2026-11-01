@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { SignupScreen } from "../signup-screen.tsx";
 import { renderWithProviders } from "./test-utils.tsx";
@@ -89,5 +90,35 @@ describe("SignupScreen", () => {
       expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
     expect(screen.queryByText("Email sent")).toBeNull();
+  });
+});
+
+describe("SignupScreen registration status", () => {
+  function statusDispatcher(enabled: boolean): Dispatcher {
+    return { query: async () => ({ isSuccess: true, data: { enabled } }) } as unknown as Dispatcher;
+  }
+
+  test("enabled: the form shows", async () => {
+    renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(true) });
+    expect(await screen.findByRole("button", { name: "Send activation link" })).toBeTruthy();
+  });
+
+  test("disabled: closed notice and login link, no form, nothing is sent", async () => {
+    const fetchMock = mock(async () => new Response(null, { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(false) });
+    expect(await screen.findByText("Sign-up is currently by invitation only.")).toBeTruthy();
+    expect(document.getElementById("signup-email")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send activation link" })).toBeNull();
+    expect(screen.getByRole("link", { name: /Already have an account/ })).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("disabled: closedFallback replaces the notice", async () => {
+    renderWithProviders(<SignupScreen closedFallback={<p>Join the waitlist</p>} />, {
+      dispatcher: statusDispatcher(false),
+    });
+    expect(await screen.findByText("Join the waitlist")).toBeTruthy();
+    expect(document.getElementById("signup-email")).toBeNull();
   });
 });

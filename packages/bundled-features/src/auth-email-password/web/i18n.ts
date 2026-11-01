@@ -98,6 +98,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.signup.title": "Create account",
     "auth.signup.intro":
       "Enter your email. We'll send you an activation link to set your password.",
+    "auth.signup.closed": "Sign-up is currently by invitation only.",
     "auth.signup.email": "Email",
     "auth.signup.submit": "Send activation link",
     "auth.signup.submitting": "…",

@@ -158,6 +158,7 @@
     "./contact/web": "./src/contact/web/index.ts",
     "./contact/client": "./src/contact/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
+    "./waitlist/web": "./src/waitlist/web/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
@@ -745,6 +746,10 @@
       "./waitlist": {
         "types": "./dist/waitlist/index.d.ts",
         "default": "./dist/waitlist/index.js"
+      },
+      "./waitlist/web": {
+        "types": "./dist/waitlist/web/index.d.ts",
+        "default": "./dist/waitlist/web/index.js"
       },
       "./page-render": {
         "types": "./dist/page-render/index.d.ts",
