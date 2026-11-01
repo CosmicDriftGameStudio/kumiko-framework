@@ -78,7 +78,6 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "contact:write:reply expose=false risk=mid",
   "contact:write:report expose=false risk=mid",
   "contact:write:send-reply-mail expose=false risk=mid",
-  "contact:write:send-test expose=false risk=mid",
   "contact:write:submit expose=false risk=mid",
   "crypto-shredding:write:forget-subject expose=false risk=high",
   "custom-fields:query:field-definition:list expose=true risk=low",

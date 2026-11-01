@@ -8,7 +8,7 @@ export function makeCheckoutConfigQuery(readCheckoutConfig: PaddleRuntimes["read
   return defineQueryHandler({
     name: "checkout-config",
     schema: z.object({}),
-    access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+    access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
     rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     description:
       "Answers the public Paddle.js client token and the Paddle environment for the checkout page; the client token is public by design and no other config leaves this handler.",

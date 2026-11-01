@@ -23,7 +23,7 @@ export const byTenantPublishedQuery = defineQueryHandler({
      *  logic in by-slug.query. */
     tenantIdOverride: z.string().min(1).optional(),
   }),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
   description:
     "Lists every published page of a tenant with slug, language, title and last-change time but no body; use it to enumerate the public pages for sitemap.xml or llms.txt, rather than by-slug which fetches one page's content.",

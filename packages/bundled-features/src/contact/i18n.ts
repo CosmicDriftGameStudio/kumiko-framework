@@ -45,7 +45,10 @@ export function createContactI18n(): Readonly<Record<string, LocalizedString>> {
     "contact:entity:contact-request:field:answeredAt": { en: "Answered", de: "Beantwortet" },
     "contact:entity:contact-request:field:closedAt": { en: "Closed", de: "Abgeschlossen" },
     "contact:entity:contact-request:field:replyCount": { en: "Replies", de: "Antworten" },
-    "contact:report.hint": { en: "Goes straight to our team", de: "Geht direkt an unser Team" },
+    "contact:report.hint": {
+      en: "Goes straight to the {appName} team",
+      de: "Geht direkt an das Team von {appName}",
+    },
     "contact:config.send-test.description": {
       en: "Now sends a test message to the chat.",
       de: "Schickt jetzt eine Testnachricht an den Chat.",

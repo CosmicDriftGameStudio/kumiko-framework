@@ -18,7 +18,7 @@ export function createBrandingQuery(opts: { readonly allowCustomCss: boolean }) 
   return defineQueryHandler({
     name: "branding",
     schema: z.object({}),
-    access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+    access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
     rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     description:
       "Reads the tenant's public branding values for the rendered page shell, adding the raw custom CSS only when the app opted in and the per-tenant CSS toggle is on; anonymous callers may read it because it dresses public pages.",

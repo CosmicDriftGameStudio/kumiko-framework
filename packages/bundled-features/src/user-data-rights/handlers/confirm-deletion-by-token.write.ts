@@ -56,7 +56,10 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
   return defineWriteHandler({
     name: "confirm-deletion-by-token",
     schema: z.object({ token: z.string().min(1) }),
-    access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+    access: {
+      roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
+      anySignedIn: true,
+    },
     escapeHatch: {
       reason:
         "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +

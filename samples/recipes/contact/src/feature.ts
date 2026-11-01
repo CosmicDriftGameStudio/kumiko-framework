@@ -13,7 +13,7 @@
 //
 // Prerequisites the app wires itself:
 //  - `anonymousAccess` (defaultTenantId = SYSTEM_TENANT_ID) so the form needs no login
-//  - delivery with a mail channel (and channel-telegram for the optional Telegram forward)
+//  - delivery with a mail channel (channel-telegram only with `telegram: true`, off by default)
 //  - a file provider, because the entities carry file fields
 //  - `kumiko schema generate` for the new tables
 

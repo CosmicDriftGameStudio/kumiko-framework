@@ -5,16 +5,11 @@
 //
 // SCREENSHOT_DIR=<dir> bun run contact-shots writes <dir>/b02-report.png ... b05-forwarding.png.
 
-import { createServer, type Server } from "node:http";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { CSRF_COOKIE_NAME, captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { E2E_PORTS } from "../../../e2e/e2e-ports";
 import { loginAsAdmin } from "./_helpers/login";
 
-const FAKE_TELEGRAM_PORT = E2E_PORTS["framework/use-all-bundled-fake-telegram"];
-const TELEGRAM_BOT_TOKEN = "123456789:fixture-token-for-screenshots";
-const TELEGRAM_CHAT_ID = "-1002233445566";
 const REPLY_TO_ADDRESS = "hello@publicstatus.eu";
 
 const VIEWPORT = { width: 1440, height: 900 } as const;
@@ -47,39 +42,13 @@ const CURL_LOG = Buffer.from("HTTP/2 200\nserver: nginx\ncontent-length: 18\n");
 
 test.describe.configure({ mode: "serial" });
 
-// Stands in for api.telegram.org: the sample points the Telegram channel at this port.
-let fakeTelegram: Server | undefined;
-
-test.afterAll(async () => {
-  const server = fakeTelegram;
-  if (server === undefined) return;
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-});
-
-async function startFakeTelegram(): Promise<void> {
-  const server = createServer((req, res) => {
-    req.resume();
-    res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ ok: true, result: { message_id: 1 } }));
-  });
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(FAKE_TELEGRAM_PORT, "127.0.0.1", resolve);
-  });
-  fakeTelegram = server;
-}
-
 async function saveForwardingSettings(page: Page): Promise<void> {
   await page.goto("/platform");
   await page.getByRole("link", { name: "Weiterleitung" }).click();
   await page.getByLabel("Antwortadresse").fill(REPLY_TO_ADDRESS);
-  await page.getByLabel("Chat-ID oder @Kanal").fill(TELEGRAM_CHAT_ID);
-  await page.getByLabel("Bot-Token").fill(TELEGRAM_BOT_TOKEN);
   await page.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByText("Keine ungespeicherten Änderungen")).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("field-botToken")).toContainText("gesetzt");
-  await expect(page.getByTestId("field-botToken")).toContainText("Ersetzen");
   await expect(page.getByLabel("Antwortadresse")).toHaveValue(REPLY_TO_ADDRESS);
 }
 
@@ -166,7 +135,6 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
     scope: "system",
   });
   await write(page, "tier-engine:write:set-tenant-tier", { tenantId: acme.id, tier: "pro" });
-  await startFakeTelegram();
   await saveForwardingSettings(page);
   await captureScreenshot(page, "b05-forwarding", { fit: "content" });
 
@@ -212,7 +180,7 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await acme.loginAs(page, acme.admin);
   await page.goto("/tenant-admin");
   await page.getByRole("link", { name: "Problem melden" }).click();
-  await expect(page.getByText("Geht direkt an unser Team")).toBeVisible();
+  await expect(page.getByText("Geht direkt an das Team von publicstatus")).toBeVisible();
   await expect(
     page.getByText("Die Antwort kommt per Mail an die Adresse deines Kontos"),
   ).toBeVisible();
@@ -252,7 +220,9 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await page.getByRole("link", { name: "Meldungen", exact: true }).click();
   await expect(page.getByText("Als erledigt markieren").first()).toBeHidden();
   await expect(page.getByText(MONITOR_SUBJECT)).toBeVisible();
-  await expect(page.getByRole("button", { name: /Offen\s*4/ })).toHaveCount(1);
+  // The docs screenshot spec seeds open requests into the same platform inbox in parallel, so
+  // the chip count depends on the run order; the requests above are asserted by subject.
+  await expect(page.getByRole("button", { name: /Offen\s*\d+/ })).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Alle" })).toBeVisible();
   await captureScreenshot(page, "b03-list");
 

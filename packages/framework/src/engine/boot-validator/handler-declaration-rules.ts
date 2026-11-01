@@ -38,6 +38,12 @@ export const HANDLER_DECLARATION_RULES = {
     summary: 'A handler with access.personalData "public-intake" allows the anonymous role.',
     fix: "Add the anonymous role to access.roles or remove personalData.",
   },
+  anySignedInInvalid: {
+    id: "handler/any-signed-in-invalid",
+    summary:
+      "access.anySignedIn is true when set and appears only next to the anonymous role, on endpoints that are public anyway.",
+    fix: 'Add "anonymous" to access.roles, or use { openToAll: { reason } } for every signed-in user without anonymous callers.',
+  },
   publicIntakeRateLimitDisabled: {
     id: "handler/public-intake-rate-limit-disabled",
     summary:

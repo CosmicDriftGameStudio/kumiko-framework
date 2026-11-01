@@ -35,10 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
-import {
-  createChannelTelegramFeature,
-  type TelegramChannelOptions,
-} from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
+import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
 import {
@@ -134,18 +131,10 @@ const stubPushTransport: PushTransport = {
 // no token minted here is ever trusted by a deployment.
 const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
 
-// The e2e points the Telegram channel at a local stub so the contact forward reads "delivered" without the real Bot API.
-function fakeTelegramApiOptions(): TelegramChannelOptions {
-  const apiBaseUrl = process.env["SAMPLE_TELEGRAM_API_URL"];
-  if (apiBaseUrl === undefined) return {};
-  return { apiBaseUrl, allowedHosts: [new URL(apiBaseUrl).hostname], requireHttps: false };
-}
-
 export const APP_FEATURES = [
   localeDe(),
   // foundations not in the auto-mounted bundled-set
-  // SystemAdmin stores the contact Telegram bot token, which lives in the system tenant.
-  createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }),
+  createSecretsFeature(),
   ...composeSecurityStack(),
   // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
   // the auto-mounted auth-email-password login handler when this feature is
@@ -201,7 +190,7 @@ export const APP_FEATURES = [
   createChannelSlackFeature(),
   createChannelDiscordFeature(),
   createChannelTeamsFeature(),
-  createChannelTelegramFeature(fakeTelegramApiOptions()),
+  createChannelTelegramFeature(),
 
   ...composeMailStack({ transports: ["inmemory", "smtp"] }),
 
@@ -328,7 +317,6 @@ export const APP_FEATURES = [
     appName: "publicstatus",
     appVersion: "2026.10.30",
     fields: { phone: "optional" },
-    telegram: true,
     reportCancelTarget: "admin-shell:screen:tenant-overview",
     // Lowest values the options allow, so the e2e submit does not wait on the challenge.
     spamProtection: { minSubmitSeconds: 0, proofOfWorkBits: 8 },

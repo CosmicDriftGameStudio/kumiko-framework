@@ -17,7 +17,7 @@ import { SEO_CONFIG_QN } from "../constants.ts";
 export const seoConfigQuery = defineQueryHandler({
   name: "config",
   schema: z.object({}),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
   description:
     "Reads the tenant's SEO metadata settings — organization name and logo URL, Twitter site handle, LLMs summary and default OG image — as plain strings; use it to inspect what the sitemap, llms.txt and page meta tags will publish.",

@@ -28,6 +28,7 @@ const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 // Each value is written by exactly one test; the tenant is fixed, so rows are told apart by value, not by reset.
 const PRODUCT_NAME = "Espresso Beans (anonymous read)";
 const GUEST_EMAIL = "guest-checkout@example.com";
+const DRIVER_EMAIL = "driver-checkout@example.com";
 
 let stack: TestStack;
 
@@ -90,6 +91,19 @@ describe("guest checkout: anonymous write lands with placedBy=anonymous", () => 
     expect(orders).toHaveLength(1);
     expect(orders[0]?.placedBy).toBe(ANONYMOUS_USER_ID);
     expect(orders[0]?.email).toBe(GUEST_EMAIL);
+  });
+
+  test("a signed-in caller with a role the handler does not list still checks out", async () => {
+    await stack.http.writeOk(
+      "shop:write:guest-order:place",
+      { productId: "00000000-0000-4000-8000-000000000098", email: DRIVER_EMAIL },
+      TestUsers.driver,
+    );
+    const orders = (await selectMany(stack.db, guestOrderTable)).filter(
+      (order) => order.email === DRIVER_EMAIL,
+    );
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.placedBy).toBe(TestUsers.driver.id);
   });
 });
 

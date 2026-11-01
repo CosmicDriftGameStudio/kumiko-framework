@@ -71,7 +71,10 @@ export function createContactFeature(opts: ContactOptions): FeatureDefinition {
     r.uiHints({ displayLabel: "Contact", category: "communication", recommended: false });
     r.systemScope();
     r.requires({ features: ["config", "delivery", "user-data-rights", "files", "notes-history"] });
+    // The feature manifest and reference are built from one mounted instance, so the off
+    // default still names Telegram as an optional dependency.
     if (telegram) r.requires({ features: [TELEGRAM_FEATURE] });
+    else r.optionalRequires(TELEGRAM_FEATURE);
     r.adoptsBundledLists();
     r.translations({ keys: createContactI18n() });
 

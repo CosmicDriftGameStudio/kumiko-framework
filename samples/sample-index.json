@@ -156,7 +156,11 @@
         "recipes-contact"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Public contact form backend. The `contact` bundled feature stores questions, contact requests and problem reports from website visitors and notifies every SystemAdmin (mail, optional Telegram). The notification names only the kind, the app and a link into the inbox: no name, address, phone, subject or message. Telegram"
+      "readmeSummary": "Public contact form backend. The `contact` bundled feature stores questions, contact requests and problem reports from website visitors and notifies every SystemAdmin (mail, Telegram only when the app turns it on). The notification names only the kind, the app and a link into the inbox: no name, address, phone, subject",
+      "primarySample": "recipes-contact",
+      "whenToUse": "Visitors and signed-in users reach the app's SystemAdmins through a website form or an in-app report — an inbox with replies by email, internal notes and spam protection without a captcha.",
+      "sampleBlurb": "Mounts the feature with an optional phone field; the integration test fetches the anonymous proof-of-work challenge and the served website client.",
+      "screenshot": "/screenshots/features/contact.png"
     },
     "custom-fields": {
       "samples": [

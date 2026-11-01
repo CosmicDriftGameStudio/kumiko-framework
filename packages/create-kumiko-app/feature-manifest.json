@@ -704,10 +704,11 @@
         "delivery",
         "user-data-rights",
         "files",
-        "notes-history",
+        "notes-history"
+      ],
+      "optionalRequires": [
         "channel-telegram"
       ],
-      "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
@@ -742,27 +743,6 @@
           "readRoles": [
             "SystemAdmin"
           ]
-        },
-        {
-          "key": "telegram-chat",
-          "qualifiedName": "contact:config:telegram-chat",
-          "type": "text",
-          "scope": "system",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^$|^(-?[0-9]{1,20}|@[A-Za-z0-9_]{5,32})$"
-          },
-          "writeRoles": [
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "SystemAdmin"
-          ]
         }
       ],
       "secrets": [],
@@ -773,7 +753,6 @@
         "contact:write:reply",
         "contact:write:report",
         "contact:write:send-reply-mail",
-        "contact:write:send-test",
         "contact:write:submit"
       ],
       "uiHints": {

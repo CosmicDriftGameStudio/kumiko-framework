@@ -15,7 +15,7 @@ export const bySlugQuery = defineQueryHandler({
     slug: z.string().min(1).max(64),
     lang: z.string().min(2).max(8),
   }),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
   description:
     "Reads the body and metadata of one published managed page of the caller's tenant by slug and language, returning null for drafts and bodyless pages; use it to render a public page, not to load one for editing.",

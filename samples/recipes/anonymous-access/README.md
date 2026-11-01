@@ -6,6 +6,8 @@ Public endpoints without a logged-in user.
 
 - `access: "anonymous"` on handlers that must stay public
 - Rate limits that still bind anonymous callers (`per: "ip+handler"`)
+- `anySignedIn: true` next to `anonymous`, so a visitor who is signed in with a role the
+  handler does not list is not turned away from a public form
 
 ## Source
 

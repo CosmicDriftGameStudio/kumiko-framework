@@ -104,7 +104,13 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
     // anonymous root handler — the runtime personal-data gate
     // (write-origin.ts) requires this explicit opt-in, the same way the
     // boot validator would reject an openToAll declaration missing it.
-    access: { roles: [...access.anonymous, "User"], personalData: "public-intake" },
+    // The browser sends the session cookie along, so a signed-in visitor arrives with its
+    // roles; anySignedIn keeps the checkout open to them whatever those roles are.
+    access: {
+      roles: [...access.anonymous, "User"],
+      personalData: "public-intake",
+      anySignedIn: true,
+    },
     rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   });
 

@@ -13,7 +13,7 @@ import {
   table,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -25,9 +25,11 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../../auth-email-password/index.ts";
+import { seedUserWithPassword } from "../../auth-email-password/seeding.ts";
 import { tenantInvitationsTable } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
 import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
@@ -709,5 +711,31 @@ describe("waitlist GDPR", () => {
       resetPiiSubjectKmsForTests();
       resetBlindIndexKeyForTests();
     }
+  });
+});
+
+describe("waitlist submit with a session", () => {
+  test("a signed-in caller with an app-specific role is not turned away", async () => {
+    const tenantId = crypto.randomUUID() as TenantId;
+    await seedTenant(stack.db, {
+      id: tenantId,
+      key: "hausverwaltung-nord",
+      name: "Hausverwaltung Nord",
+    });
+    const email = "hausmeister@hausverwaltung-nord.example";
+    const { id: userId } = await seedUserWithPassword(stack.db, {
+      email,
+      password: INVITE_PASSWORD,
+      displayName: "Jonas Becker",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId, roles: ["Hausmeister"] });
+
+    const res = await submit(
+      validBody("jonas.becker@example.com"),
+      await loginCookies(stack, email),
+    );
+    expect(res.status).toBe(200);
+    expect((await entries()).map((entry) => entry["email"])).toEqual(["jonas.becker@example.com"]);
   });
 });

@@ -119,7 +119,7 @@ export function createSubmitHandler(opts: ContactOptions, settings: ContactSetti
   return defineWriteHandler<"submit", typeof ContactSubmitSchema, ContactSubmitData>({
     name: "submit",
     schema: ContactSubmitSchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
+    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
     agent: { expose: false },
     description:

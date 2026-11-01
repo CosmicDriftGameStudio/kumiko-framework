@@ -8,7 +8,7 @@ import { AuthHandlers } from "../web/constants.ts";
 export const loginOptionsQuery = defineQueryHandler({
   name: "login-options",
   schema: z.object({}),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   description:
     "Reports which optional login-page flows (password reset, account unlock) are available, readable without signing in, so the login screen links only to flows that exist.",

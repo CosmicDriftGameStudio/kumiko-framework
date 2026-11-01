@@ -33,7 +33,6 @@ const SUBMIT_LOCK_NAMESPACE = 0x776c7374;
 const SUBMIT_LOCK_REASON =
   "takes the per-email advisory lock so parallel submits cannot both pass the duplicate check and wraps the admin-recipient resolver in a savepoint so a failing statement cannot abort the submit transaction; TenantDb has neither API";
 
-// Logged-in callers carry no anonymous role, so every signed-in role must be listed.
 const SUBMIT_ROLES = access.roles(
   ...access.anonymous,
   ...access.authenticated,
@@ -132,7 +131,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
   return defineWriteHandler<"submit", typeof WaitlistSubmitSchema, WaitlistSubmitData>({
     name: "submit",
     schema: WaitlistSubmitSchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
+    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
     // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
     ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),

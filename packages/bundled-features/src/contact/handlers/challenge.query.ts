@@ -17,7 +17,7 @@ export function createChallengeQuery(settings: ContactSettings) {
   return defineQueryHandler({
     name: "challenge",
     schema: ContactEmptySchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
+    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
     rateLimit: CHALLENGE_RATE_LIMIT,
     agent: { expose: false },
     description:

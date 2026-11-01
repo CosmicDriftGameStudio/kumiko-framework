@@ -122,6 +122,33 @@ describe("contact submit", () => {
   });
 });
 
+describe("contact submit with a session", () => {
+  test("a signed-in caller with an app-specific role gets a challenge and submits", async () => {
+    const reporter = await seedReporter(ctx.stack, "jonas.becker@hausverwaltung-nord.example");
+    const hausmeister: SessionUser = { ...reporter, roles: ["Hausmeister"] };
+    const challenge = await ctx.stack.http.queryOk<{ challenge: string; bits: number }>(
+      ContactQueries.challenge,
+      {},
+      hausmeister,
+    );
+    const data = await ctx.stack.http.writeOk<{ kind: string }>(
+      ContactHandlers.submit,
+      {
+        kind: "question",
+        name: "Jonas Becker",
+        email: "jonas.becker@hausverwaltung-nord.example",
+        message: "Lässt sich die Heizkostenabrechnung als PDF exportieren?",
+        locale: "de",
+        challenge: challenge.challenge,
+        nonce: solve(challenge),
+      },
+      hausmeister,
+    );
+    expect(data.kind).toBe("submitted");
+    expect(await loadRequests(ctx.stack)).toHaveLength(1);
+  });
+});
+
 describe("contact report access", () => {
   test("a signed-in user without an admin role files a report", async () => {
     const plain = await seedReporter(ctx.stack, "plain@example.com");

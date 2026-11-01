@@ -13,7 +13,7 @@ import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.ts";
 export const selfRegistrationStatusQuery = defineQueryHandler({
   name: "signup-registration-status",
   schema: z.object({}),
-  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   description:
     "Reports whether self-registration is currently switched on, readable without signing in, so a signup page can hide its own form instead of collecting an address that would be silently ignored.",

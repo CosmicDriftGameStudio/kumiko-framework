@@ -69,7 +69,8 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
     const personalData =
       value["personalData"] === "public-intake" ? { personalData: "public-intake" as const } : {};
-    return { roles: value["roles"] as readonly string[], ...personalData };
+    const anySignedIn = value["anySignedIn"] === true ? { anySignedIn: true as const } : {};
+    return { roles: value["roles"] as readonly string[], ...personalData, ...anySignedIn };
   }
   const openToAll = value["openToAll"];
   if (isPlainObject(openToAll) && typeof openToAll["reason"] === "string") {

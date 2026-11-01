@@ -79,6 +79,7 @@ export const downloadByTokenQuery = defineQueryHandler({
   access: {
     roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
     personalData: "public-intake",
+    anySignedIn: true,
   },
   agent: { expose: false },
   // Brute-force protection for token-hash probing. This anonymous endpoint uses a
